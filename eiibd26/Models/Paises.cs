@@ -1,8 +1,9 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-
-public class Paises
+namespace eiibd26.Models
+{
+    public class Paises
 {
     [Key]
     [StringLength(2)]
@@ -47,4 +48,5 @@ public class Paises
 
     // Navegación para zonas horarias
     public virtual ICollection<ZonaHoraria> ZonasHorarias { get; set; }
+}
 }

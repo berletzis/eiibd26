@@ -2,7 +2,9 @@
 using System;
 using System.Collections.Generic;
 
-public class ApplicationUser : IdentityUser<Guid>
+namespace eiibd26.Models
+{
+    public class ApplicationUser : IdentityUser<Guid>
 {
     public bool RequiresPasswordReset { get; set; }
 
@@ -13,4 +15,5 @@ public class ApplicationUser : IdentityUser<Guid>
     public virtual ICollection<tratamientoUsuario> TratamientosUsuario { get; set; }
     public virtual ICollection<TratamientoCondicionUsuario> TratamientoCondicionUsuario { get; set; }
     public virtual ICollection<TratamientoSintomaUsuario> TratamientoSintomaUsuario { get; set; }
+}
 }

@@ -1,8 +1,9 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-
-public class SintomaCondicionUsuario
+namespace eiibd26.Models
+{
+    public class SintomaCondicionUsuario
 {
     [Key]
     public int Id { get; set; }
@@ -23,4 +24,5 @@ public class SintomaCondicionUsuario
 
     [ForeignKey(nameof(IdSintomaUsuario))]
     public virtual sintomasUsuario SintomaUsuario { get; set; }
+}
 }

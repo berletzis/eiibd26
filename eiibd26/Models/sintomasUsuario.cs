@@ -2,11 +2,13 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-public class sintomasUsuario
+namespace eiibd26.Models
+{
+    public class sintomasUsuario
 {
     [Key]
     public int id { get; set; }
-    public int idSintoma { get; set; }
+    public int? idSintoma { get; set; }
     public Guid idUsuario { get; set; }
     public DateTime fechaEliminado { get; set; }
     public DateTime fechaModificado { get; set; }
@@ -18,4 +20,5 @@ public class sintomasUsuario
     [ForeignKey(nameof(idUsuario))]
     public virtual ApplicationUser Usuario { get; set; }
     public virtual ICollection<TratamientoSintomaUsuario> TratamientoSintomaUsuarios { get; set; }
+}
 }

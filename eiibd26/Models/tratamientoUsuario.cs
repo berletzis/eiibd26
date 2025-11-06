@@ -1,13 +1,14 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-
-public class tratamientoUsuario
+namespace eiibd26.Models
+{
+    public class tratamientoUsuario
 {
     [Key]
     public int id { get; set; }
-    public int IdCondicion { get; set; }
-    public int idTratamiento { get; set; }
+    public int? IdCondicion { get; set; }
+    public int? idTratamiento { get; set; }
     public Guid idUsuario { get; set; }
     public DateTime fechaDeInicio { get; set; }
     public DateTime? fechaEliminado { get; set; }
@@ -23,4 +24,5 @@ public class tratamientoUsuario
     public virtual ApplicationUser Usuario { get; set; }
     public virtual ICollection<TratamientoCondicionUsuario> TratamientoCondicionUsuarios { get; set; }
     public virtual ICollection<TratamientoSintomaUsuario> TratamientoSintomaUsuarios { get; set; }
+}
 }

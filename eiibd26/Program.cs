@@ -1,3 +1,4 @@
+using eiibd26.Models;
 using eiibd26.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -8,23 +9,24 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+
+// Registrar ApplicationDbContext con SQL Server
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 
-//builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = true).AddEntityFrameworkStores<ApplicationDbContext>();
+// Registrar Identity con ApplicationUser y ApplicationRole personalizados
+builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
+        options.SignIn.RequireConfirmedAccount = true)
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddDefaultTokenProviders();
 
-//builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = true).AddEntityFrameworkStores<ApplicationDbContext>();
-
-// ✅ Esta es la correcta: Identity con GUID y roles personalizados
-builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options => options.SignIn.RequireConfirmedAccount = true).AddEntityFrameworkStores<ApplicationDbContext>().AddDefaultTokenProviders();
-
-// ❌ ELIMINA esta línea: NO debes registrar AddDefaultIdentity y AddIdentity a la vez
-// builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = true)
-//     .AddEntityFrameworkStores<ApplicationDbContext>();
-
+// Filtro de excepción para desarrollo
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+
+// Servicio de EmailSender (SendGrid)
 builder.Services.AddTransient<IEmailSender, SendGridEmailSender>();
 
+// Razor Pages
 builder.Services.AddRazorPages();
 
 var app = builder.Build();
@@ -43,12 +45,8 @@ else
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-
 app.UseRouting();
-
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapRazorPages();
-
 app.Run();

@@ -1,0 +1,64 @@
+﻿@page
+@model eiibd26.Pages.Admin.Usuarios.UsuariosIndexModel
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Administrador")]
+
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" />
+}
+
+<h2>Usuarios registrados</h2>
+<table id="usersGrid" class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Email</th>
+            <th>Usuario</th>
+            <th>¿Hash válido?</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+</table>
+
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script>
+        $(function() {
+            $('#usersGrid').DataTable({
+                processing: true,
+                serverSide: true,
+                ajax: {
+                    url: '@Url.Page("./Index", "GridData")',
+                    type: 'GET'
+                },
+                columns: [
+                    { data: 'email', orderable: true },
+                    { data: 'userName', orderable: true },
+                    {
+                        data: 'hashIsValid',
+                        orderable: true,
+                        render: function (data) {
+                            return data
+                                ? `<span class="badge bg-success">Sí</span>`
+                                : `<span class="badge bg-danger">NO</span>`;
+                        }
+                    },
+                    {
+                        data: 'id',
+                        orderable: false,
+                        render: function(data){
+                            return `<a class='btn btn-sm btn-primary' href='/Identity/Admin/Usuarios/Detalles/${data}'>Detalles</a>`;
+                        }
+                    }
+                ],
+                // Puedes personalizar el orden por defecto (opcional)
+                order: [[0, "asc"]],
+                // Si quieres que los badges rojos/anaranjados aparezcan ordenados también, sirve como field booleano
+                columnDefs: [
+                    { targets: 2, type: "num" }
+                ]
+            });
+        });
+    </script>
+}

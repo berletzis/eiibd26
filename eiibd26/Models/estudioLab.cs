@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-
-public class estudiosLab
+namespace eiibd26.Models
+{
+    public class estudiosLab
 {
     [Key]
     public int id { get; set; }
@@ -20,4 +21,5 @@ public class estudiosLab
     public bool Eliminado { get; set; }
 
     public virtual ICollection<estudiosLabUsuario> EstudiosLabUsuario { get; set; }
+}
 }

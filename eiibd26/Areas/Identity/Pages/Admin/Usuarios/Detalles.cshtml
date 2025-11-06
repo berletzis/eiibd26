@@ -1,0 +1,165 @@
+﻿@page "{id}"
+@model eiibd26.Areas.Identity.Pages.Admin.Usuarios.DetallesModel
+
+<h2>Detalles del Usuario</h2>
+
+@if (Model.Usuario != null)
+{
+    <h3>Datos de la Cuenta (<code>AspNetUsers</code>)</h3>
+    <dl class="row">
+        <dt class="col-sm-3">ID</dt>
+        <dd class="col-sm-9">@Model.Usuario.Id</dd>
+
+        <dt class="col-sm-3">Usuario</dt>
+        <dd class="col-sm-9">@Model.Usuario.UserName</dd>
+
+        <dt class="col-sm-3">Email</dt>
+        <dd class="col-sm-9">@Model.Usuario.Email</dd>
+
+        <dt class="col-sm-3">Teléfono</dt>
+        <dd class="col-sm-9">@Model.Usuario.PhoneNumber</dd>
+
+        <dt class="col-sm-3">¿Email confirmado?</dt>
+        <dd class="col-sm-9">@(Model.Usuario.EmailConfirmed ? "Sí" : "No")</dd>
+
+        <dt class="col-sm-3">¿Bloqueado?</dt>
+        <dd class="col-sm-9">@(Model.Usuario.LockoutEnabled ? "Sí" : "No")</dd>
+
+        <dt class="col-sm-3">Fecha de bloqueo</dt>
+        <dd class="col-sm-9">@Model.Usuario.LockoutEnd</dd>
+
+        <dt class="col-sm-3">Accesos fallidos</dt>
+        <dd class="col-sm-9">@Model.Usuario.AccessFailedCount</dd>
+
+        <dt class="col-sm-3">¿Restablecer Pass?</dt>
+        <dd class="col-sm-9">@(Model.Usuario.RequiresPasswordReset ? "Sí" : "No")</dd>
+
+        <dt class="col-sm-3">Hash válido</dt>
+        <dd class="col-sm-9">@(Model.HashIsValid ? "Sí" : "NO")</dd>
+        <!-- Agrega más campos de AspNetUsers si los necesitas -->
+    </dl>
+}
+else
+{
+    <div class="alert alert-danger">Usuario no encontrado.</div>
+}
+
+@if (Model.Perfil != null)
+{
+    <h3>Datos del Perfil</h3>
+    <dl class="row">
+        <dt class="col-sm-3">ID User</dt>
+        <dd class="col-sm-9">@Model.Perfil.idUser</dd>
+
+        <dt class="col-sm-3">Avatar</dt>
+        <dd class="col-sm-9">@Model.Perfil.Avatar</dd>
+
+        <dt class="col-sm-3">Imagen Fondo</dt>
+        <dd class="col-sm-9">@Model.Perfil.imagenFondo</dd>
+
+        <dt class="col-sm-3">Título</dt>
+        <dd class="col-sm-9">@Model.Perfil.Titulo</dd>
+
+        <dt class="col-sm-3">Nombre</dt>
+        <dd class="col-sm-9">@Model.Perfil.Nombre</dd>
+
+        <dt class="col-sm-3">Apellidos</dt>
+        <dd class="col-sm-9">@Model.Perfil.Apellidos</dd>
+
+        <dt class="col-sm-3">Teléfono</dt>
+        <dd class="col-sm-9">@Model.Perfil.Telefono</dd>
+
+        <dt class="col-sm-3">Email</dt>
+        <dd class="col-sm-9">@Model.Perfil.Email</dd>
+
+        <dt class="col-sm-3">Activo</dt>
+        <dd class="col-sm-9">@(Model.Perfil.Activo ? "Sí" : "No")</dd>
+
+        <dt class="col-sm-3">Eliminado</dt>
+        <dd class="col-sm-9">@(Model.Perfil.Eliminado == true ? "Sí" : "No")</dd>
+
+        <dt class="col-sm-3">Fecha de nacimiento</dt>
+        <dd class="col-sm-9">@Model.Perfil.FechaDeNacimiento?.ToShortDateString()</dd>
+
+        <dt class="col-sm-3">Género</dt>
+        <dd class="col-sm-9">@Model.Perfil.Genero</dd>
+
+        <dt class="col-sm-3">Ciudad</dt>
+        <dd class="col-sm-9">@Model.Perfil.NombreCiudad</dd>
+
+        <dt class="col-sm-3">País</dt>
+        <dd class="col-sm-9">@Model.Perfil.NombrePais</dd>
+
+        <dt class="col-sm-3">Uso Plataforma</dt>
+        <dd class="col-sm-9">@Model.Perfil.UsoPlataforma</dd>
+
+        <dt class="col-sm-3">Notas</dt>
+        <dd class="col-sm-9">@Model.Perfil.notas</dd>
+
+        <dt class="col-sm-3">Descripción</dt>
+        <dd class="col-sm-9">@Model.Perfil.descripcion</dd>
+
+        <dt class="col-sm-3">Acerca de</dt>
+        <dd class="col-sm-9">@Model.Perfil.AcercaDe</dd>
+
+        <dt class="col-sm-3">Fecha de creación</dt>
+        <dd class="col-sm-9">@Model.Perfil.FechaCreacion</dd>
+
+        <dt class="col-sm-3">Última actividad</dt>
+        <dd class="col-sm-9">@Model.Perfil.UltimaActividad</dd>
+        <!-- Agrega más campos de perfil según tus necesidades -->
+    </dl>
+}
+else
+{
+    <div class="alert alert-warning">Este usuario NO tiene perfil cargado.</div>
+}
+
+<hr />
+
+<h3>Condiciones del usuario</h3>
+@if (Model.Condiciones != null && Model.Condiciones.Count > 0)
+{
+    <ul>
+        @foreach (var c in Model.Condiciones)
+        {
+            <li>@c.Nombre (Desde: @c.FechaInicio.ToShortDateString())</li>
+        }
+    </ul>
+}
+else
+{
+    <i>No hay condiciones registradas.</i>
+}
+
+<h3>Síntomas del usuario</h3>
+@if (Model.Sintomas != null && Model.Sintomas.Count > 0)
+{
+    <ul>
+        @foreach (var s in Model.Sintomas)
+        {
+            <li>@s.Nombre (Fecha: @s.FechaCreado.ToShortDateString())</li>
+        }
+    </ul>
+}
+else
+{
+    <i>No hay síntomas registrados.</i>
+}
+
+<h3>Tratamientos del usuario</h3>
+@if (Model.Tratamientos != null && Model.Tratamientos.Count > 0)
+{
+    <ul>
+        @foreach (var t in Model.Tratamientos)
+        {
+            <li>@t.Nombre (Desde: @t.FechaDeInicio.ToShortDateString())</li>
+        }
+    </ul>
+}
+else
+{
+    <i>No hay tratamientos registrados.</i>
+}
+
+<a class="btn btn-secondary" href="../Index">Volver</a>

@@ -1,8 +1,9 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-
-public class Aplicaciones
+namespace eiibd26.Models
+{
+    public class Aplicaciones
 {
     [Key]
     public Guid idApp { get; set; }
@@ -21,4 +22,5 @@ public class Aplicaciones
     // Relación a Perfil (debes definir el modelo Perfil e idPerfil = idUser)
     // [ForeignKey("idPerfil")]
     // public virtual Perfil Perfil { get; set; }
+}
 }

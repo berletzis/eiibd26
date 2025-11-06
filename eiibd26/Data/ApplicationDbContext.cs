@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using eiibd26.Models;
 
 // Incluye aquí los "using" correctos para tus modelos
 // using TuProyecto.Models;

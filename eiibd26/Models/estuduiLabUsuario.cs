@@ -1,8 +1,9 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-
-public class estudiosLabUsuario
+namespace eiibd26.Models
+{
+    public class estudiosLabUsuario
 {
     [Key]
     public int id { get; set; }
@@ -17,4 +18,5 @@ public class estudiosLabUsuario
     public virtual estudiosLab Estudio { get; set; }
     [ForeignKey(nameof(idUsuario))]
     public virtual ApplicationUser Usuario { get; set; }
+}
 }
