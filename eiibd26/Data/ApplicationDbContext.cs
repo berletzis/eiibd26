@@ -2,9 +2,6 @@
 using Microsoft.EntityFrameworkCore;
 using eiibd26.Models;
 
-// Incluye aquí los "using" correctos para tus modelos
-// using TuProyecto.Models;
-
 public class ApplicationDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
@@ -26,6 +23,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<SintomaCondicionUsuario> SintomaCondicionUsuario { get; set; }
     public DbSet<ZonaHoraria> ZonaHoraria { get; set; }
     public DbSet<Paises> Paises { get; set; }
+
+    // ¡Agrega el nuevo DbSet!
+    public DbSet<TrackingSintomaUsuario> TrackingSintomaUsuario { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -61,9 +61,17 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
             .HasPrincipalKey(p => p.PaisCodigo)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Si usas NetTopologySuite para (geography) en Perfil:
-        // builder.Entity<Perfil>().Property(p => p.Ubicacion).HasColumnType("geography");
+        // TrackingSintomaUsuario: relaciones
+        builder.Entity<TrackingSintomaUsuario>()
+            .HasOne(x => x.Usuario)
+            .WithMany()
+            .HasForeignKey(x => x.IdUsuario)
+            .OnDelete(DeleteBehavior.Restrict);
 
-        // Otras relaciones personalizadas aquí...
+        builder.Entity<TrackingSintomaUsuario>()
+            .HasOne(x => x.SintomaUsuario)
+            .WithMany()
+            .HasForeignKey(x => x.IdSintomaUsuario)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

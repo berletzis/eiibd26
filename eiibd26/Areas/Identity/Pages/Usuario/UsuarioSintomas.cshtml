@@ -6,7 +6,6 @@
 }
 <div class="container mt-4">
     <h2 class="mb-4">Mis síntomas</h2>
-
     <div class="card p-4 mb-4">
         <form id="agregarSintomaForm" autocomplete="off" class="row g-3" onsubmit="return false;">
             <div class="col-md-8 position-relative">
@@ -32,118 +31,136 @@
             <div class="d-flex flex-wrap gap-3">
                 @foreach (var sint in Model.MisSintomas)
                 {
-                    <div class="card shadow-sm bg-light" style="min-width:270px;max-width:330px;">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center mb-2">
-                                <span class="fw-bold flex-grow-1">
-                                    <i class="bi bi-emoji-frown text-warning me-1"></i>
-                                    @sint.Nombre
-                                </span>
-                                <button type="button" class="btn btn-outline-danger btn-sm ms-2 btn-eliminar-sintoma"
-                                        data-id="@sint.Id"
-                                        data-nombre="@sint.Nombre"
-                                        data-tratamientos="@sint.TratamientosCount"
-                                        data-condiciones="@sint.CondicionesCount"
-                                        title="Eliminar síntoma">
-                                    <i class="bi bi-trash3-fill"></i>
+                    var ultimoTracking = sint.UltimoTracking;
+                    <div class="card shadow-sm bg-light d-flex flex-column" style="min-width:270px;max-width:330px; height:100%;">
+                        <div class="card-body d-flex flex-column h-100 pb-1">
+                            <div>
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="fw-bold flex-grow-1">
+                                        <i class="bi bi-emoji-frown text-warning me-1"></i>
+                                        @sint.Nombre
+                                    </span>
+                                    <button type="button" class="btn btn-outline-danger btn-sm ms-2 btn-eliminar-sintoma"
+                                            data-id="@sint.Id"
+                                            data-nombre="@sint.Nombre"
+                                            data-tratamientos="@sint.TratamientosCount"
+                                            data-condiciones="@sint.CondicionesCount"
+                                            title="Eliminar síntoma">
+                                        <i class="bi bi-trash3-fill"></i>
+                                    </button>
+                                </div>
+                                <hr class="my-2" />
+                                <div class="mb-2">
+                                    <form method="post" class="form-editar-fecha" data-id="@sint.Id" asp-page-handler="EditarFechaInicio">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text">
+                                                <i class="bi bi-calendar2-date"></i> Fecha inicio
+                                            </span>
+                                            <input type="date"
+                                                   class="form-control fecha-inicio"
+                                                   name="nuevaFechaInicio"
+                                                   value="@sint.FechaInicio.ToString("yyyy-MM-dd")"
+                                                   disabled />
+                                            <button type="button"
+                                                    class="btn btn-secondary btn-editar-fecha"
+                                                    title="Editar fecha de inicio">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button type="submit"
+                                                    class="btn btn-success d-none btn-guardar-fecha"
+                                                    title="Guardar nueva fecha">
+                                                <i class="bi bi-save"></i>
+                                            </button>
+                                            <button type="button"
+                                                    class="btn btn-light border d-none btn-cancelar-fecha"
+                                                    title="Cancelar edición de fecha">
+                                                <i class="bi bi-x"></i>
+                                            </button>
+                                            <input type="hidden" name="sintId" value="@sint.Id" />
+                                        </div>
+                                        <div class="small text-muted mt-1">
+                                            <i class="bi bi-info-circle"></i>
+                                            <span>El ícono <i class="bi bi-pencil"></i> permite editar la fecha. <i class="bi bi-save"></i> guarda y <i class="bi bi-x"></i> cancela.</span>
+                                        </div>
+                                    </form>
+                                </div>
+                                <div class="mb-2">
+                                    <span class="badge bg-light text-dark">
+                                        <i class="bi bi-diagram-3"></i> Condiciones
+                                        <button type="button" class="btn btn-sm btn-outline-primary p-0 px-1 ms-1 open-modal-cond" data-sintid="@sint.Id" title="Asociar condiciones">
+                                            <i class="bi bi-plus-circle"></i>
+                                        </button>
+                                    </span>
+                                    <div id="cond-list-@sint.Id" class="mt-1">
+                                        @if (sint.Condiciones.Any())
+                                        {
+                                            @foreach (var cond in sint.Condiciones)
+                                            {
+                                                <span class="badge bg-info text-dark mb-1 d-inline-flex align-items-center" style="display: inline-block;">
+                                                    @cond.Nombre
+                                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1 badge-cond-del"
+                                                            data-condid="@cond.Id" data-sintid="@sint.Id" title="Quitar condición"
+                                                            style="color:red;">
+                                                        <i class="bi bi-x-circle"></i>
+                                                    </button>
+                                                </span>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small">Ninguna</span>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="mb-2">
+                                    <span class="badge bg-light text-dark">
+                                        <i class="bi bi-capsule-pill"></i> Tratamientos
+                                        <button type="button" class="btn btn-sm btn-outline-primary p-0 px-1 ms-1 open-modal-trat" data-sintid="@sint.Id" title="Asociar tratamientos">
+                                            <i class="bi bi-plus-circle"></i>
+                                        </button>
+                                    </span>
+                                    <div id="trat-list-@sint.Id" class="mt-1">
+                                        @if (sint.Tratamientos.Any())
+                                        {
+                                            @foreach (var trat in sint.Tratamientos)
+                                            {
+                                                <span class="badge bg-success text-white mb-1 d-inline-flex align-items-center" style="display: inline-block;">
+                                                    @trat.Nombre
+                                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1 badge-trat-del"
+                                                            data-tratid="@trat.Id" data-sintid="@sint.Id" title="Quitar tratamiento"
+                                                            style="color:white;">
+                                                        <i class="bi bi-x-circle"></i>
+                                                    </button>
+                                                </span>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small">Ninguno</span>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Icono tracking al fondo del card + leyenda de último tracking -->
+                            <div class="mt-auto pt-2 d-flex align-items-center justify-content-end gap-2 flex-wrap">
+                                <button type="button" class="btn btn-link p-0 text-primary btn-track-sintoma"
+                                        data-id="@sint.Id" data-nombre="@sint.Nombre"
+                                        title="Registra cómo estás hoy">
+                                    <i class="bi bi-clipboard-heart-fill fs-3"></i>
                                 </button>
-                            </div>
-                            <hr class="my-2" />
-
-                            <!-- Fecha editable -->
-                            <div class="mb-2">
-                                <form method="post" class="form-editar-fecha" data-id="@sint.Id" asp-page-handler="EditarFechaInicio">
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text">
-                                            <i class="bi bi-calendar2-date"></i> Fecha inicio
+                                <span id="badge-tracking-@sint.Id">
+                                    @if (ultimoTracking != null)
+                                    {
+                                        <span class="badge bg-light border border-success text-success fw-semibold">
+                                            último tracking: <span class="ms-1">@ultimoTracking.Fecha.ToString("dd/MM/yyyy HH:mm")</span>
+                                            <span class="ms-1">(@ultimoTracking.Estado)</span>
                                         </span>
-                                        <input type="date"
-                                               class="form-control fecha-inicio"
-                                               name="nuevaFechaInicio"
-                                               value="@sint.FechaInicio.ToString("yyyy-MM-dd")"
-                                               disabled />
-                                        <button type="button"
-                                                class="btn btn-secondary btn-editar-fecha"
-                                                title="Editar fecha de inicio">
-                                            <i class="bi bi-pencil"></i>
-                                        </button>
-                                        <button type="submit"
-                                                class="btn btn-success d-none btn-guardar-fecha"
-                                                title="Guardar nueva fecha">
-                                            <i class="bi bi-save"></i>
-                                        </button>
-                                        <button type="button"
-                                                class="btn btn-light border d-none btn-cancelar-fecha"
-                                                title="Cancelar edición de fecha">
-                                            <i class="bi bi-x"></i>
-                                        </button>
-                                        <input type="hidden" name="sintId" value="@sint.Id" />
-                                    </div>
-                                    <div class="small text-muted mt-1">
-                                        <i class="bi bi-info-circle"></i>
-                                        <span>El ícono <i class="bi bi-pencil"></i> permite editar la fecha. <i class="bi bi-save"></i> guarda y <i class="bi bi-x"></i> cancela.</span>
-                                    </div>
-                                </form>
-                            </div>
-
-                            <!-- Condiciones asociadas -->
-                            <div class="mb-2">
-                                <span class="badge bg-light text-dark">
-                                    <i class="bi bi-diagram-3"></i> Condiciones
-                                    <button type="button" class="btn btn-sm btn-outline-primary p-0 px-1 ms-1 open-modal-cond" data-sintid="@sint.Id" title="Asociar condiciones">
-                                        <i class="bi bi-plus-circle"></i>
-                                    </button>
-                                </span>
-                                <div id="cond-list-@sint.Id" class="mt-1">
-                                    @if (sint.Condiciones.Any())
-                                    {
-                                        @foreach (var cond in sint.Condiciones)
-                                        {
-                                            <span class="badge bg-info text-dark mb-1 d-inline-flex align-items-center" style="display: inline-block;">
-                                                @cond.Nombre
-                                                <button type="button" class="btn btn-sm btn-link p-0 ms-1 badge-cond-del"
-                                                        data-condid="@cond.Id" data-sintid="@sint.Id" title="Quitar condición"
-                                                        style="color:red;">
-                                                    <i class="bi bi-x-circle"></i>
-                                                </button>
-                                            </span>
-                                        }
                                     }
                                     else
                                     {
-                                        <span class="text-muted small">Ninguna</span>
+                                        <span class="badge bg-light text-muted">Sin tracking</span>
                                     }
-                                </div>
-                            </div>
-
-                            <!-- Tratamientos asociados -->
-                            <div class="mb-2">
-                                <span class="badge bg-light text-dark">
-                                    <i class="bi bi-capsule-pill"></i> Tratamientos
-                                    <button type="button" class="btn btn-sm btn-outline-primary p-0 px-1 ms-1 open-modal-trat" data-sintid="@sint.Id" title="Asociar tratamientos">
-                                        <i class="bi bi-plus-circle"></i>
-                                    </button>
                                 </span>
-                                <div id="trat-list-@sint.Id" class="mt-1">
-                                    @if (sint.Tratamientos.Any())
-                                    {
-                                        @foreach (var trat in sint.Tratamientos)
-                                        {
-                                            <span class="badge bg-success text-white mb-1 d-inline-flex align-items-center" style="display: inline-block;">
-                                                @trat.Nombre
-                                                <button type="button" class="btn btn-sm btn-link p-0 ms-1 badge-trat-del"
-                                                        data-tratid="@trat.Id" data-sintid="@sint.Id" title="Quitar tratamiento"
-                                                        style="color:white;">
-                                                    <i class="bi bi-x-circle"></i>
-                                                </button>
-                                            </span>
-                                        }
-                                    }
-                                    else
-                                    {
-                                        <span class="text-muted small">Ninguno</span>
-                                    }
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -157,6 +174,30 @@
                 Aún no has agregado ningún síntoma.
             </div>
         }
+    </div>
+</div>
+
+<!-- MODAL TRACKING -->
+<div class="modal fade" id="modalTrackSintoma" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="formTrackSintoma">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTrackSintomaTitle">Seguimiento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="mensajeTrackingAgregado" class="alert alert-success py-2 px-3 small mb-2 d-none">
+                        <i class="bi bi-check-circle-fill me-1"></i> Tracking agregado
+                    </div>
+                    <div class="mb-2 fw-semibold" id="modalTrackSintomaPregunta"></div>
+                    <div id="modalTrackSintomaOpciones" class="d-flex flex-column gap-2">
+                        <!-- Se llena por JS -->
+                    </div>
+                </div>
+                <input type="hidden" name="sintomaUsuarioId" id="trackSintomaUsuarioId" />
+            </form>
+        </div>
     </div>
 </div>
 
@@ -202,218 +243,277 @@
 
 @section Scripts {
     <script>
-        // --- Autocomplete para síntomas ---
-        const urlAutocomplete = "/api/sintomas/autocomplete";
-        document.getElementById('sintomaBuscar').addEventListener('input', async function () {
-            let query = this.value.trim();
-            let sugerenciasUl = document.getElementById('sintomaSugerencias');
-            sugerenciasUl.innerHTML = '';
-            document.getElementById('sintomaIdSeleccionado').value = "";
-            if (query.length < 2) return;
-
-            let resp = await fetch(urlAutocomplete + '?q=' + encodeURIComponent(query));
-            if (!resp.ok) return;
-            let datos = await resp.json();
-            datos.forEach(item => {
-                let li = document.createElement('li');
-                li.className = 'list-group-item list-group-item-action';
-                li.innerText = item.nombre;
-                li.onclick = function () {
-                    document.getElementById('sintomaBuscar').value = item.nombre;
-                    document.getElementById('sintomaIdSeleccionado').value = item.id;
+        document.addEventListener("DOMContentLoaded", function () {
+            // --- Autocomplete para síntomas ---
+            const urlAutocomplete = "/api/sintomas/autocomplete";
+            var sintomaBuscarInput = document.getElementById('sintomaBuscar');
+            if (sintomaBuscarInput) {
+                sintomaBuscarInput.addEventListener('input', async function () {
+                    let query = this.value.trim();
+                    let sugerenciasUl = document.getElementById('sintomaSugerencias');
                     sugerenciasUl.innerHTML = '';
-                }
-                sugerenciasUl.appendChild(li);
-            });
-        });
+                    document.getElementById('sintomaIdSeleccionado').value = "";
+                    if (query.length < 2) return;
 
-        // Agregar síntoma
-        document.getElementById('btnAgregarSintoma').addEventListener('click', async function () {
-            let id = document.getElementById('sintomaIdSeleccionado').value;
-            if (!id) {
-                alert("Debes seleccionar un síntoma del listado");
-                return;
+                    let resp = await fetch(urlAutocomplete + '?q=' + encodeURIComponent(query));
+                    if (!resp.ok) return;
+                    let datos = await resp.json();
+                    datos.forEach(item => {
+                        let li = document.createElement('li');
+                        li.className = 'list-group-item list-group-item-action';
+                        li.innerText = item.nombre;
+                        li.onclick = function () {
+                            document.getElementById('sintomaBuscar').value = item.nombre;
+                            document.getElementById('sintomaIdSeleccionado').value = item.id;
+                            sugerenciasUl.innerHTML = '';
+                        }
+                        sugerenciasUl.appendChild(li);
+                    });
+                });
+
+                sintomaBuscarInput.addEventListener('blur', function () {
+                    setTimeout(() => { document.getElementById('sintomaSugerencias').innerHTML = ''; }, 200);
+                });
             }
-            let formData = new FormData();
-            formData.append('sintomaId', id);
-            let resp = await fetch('?handler=AgregarSintoma', { method: "POST", body: formData });
-            if (resp.ok) location.reload();
-            else {
-                let msg = await resp.json();
-                alert(msg.mensaje || "Error");
+
+            // Agregar síntoma
+            var btnAgregarSintoma = document.getElementById('btnAgregarSintoma');
+            if (btnAgregarSintoma) {
+                btnAgregarSintoma.addEventListener('click', async function () {
+                    let id = document.getElementById('sintomaIdSeleccionado').value;
+                    if (!id) {
+                        alert("Debes seleccionar un síntoma del listado");
+                        return;
+                    }
+                    let formData = new FormData();
+                    formData.append('sintomaId', id);
+                    let resp = await fetch('?handler=AgregarSintoma', { method: "POST", body: formData });
+                    if (resp.ok) location.reload();
+                    else {
+                        let msg = await resp.json();
+                        alert(msg.mensaje || "Error");
+                    }
+                });
             }
-        });
 
-        document.getElementById('sintomaBuscar').addEventListener('blur', function () {
-            setTimeout(() => { document.getElementById('sintomaSugerencias').innerHTML = ''; }, 200);
-        });
-
-        // --- Editar fecha inicio ---
-        document.querySelectorAll('.form-editar-fecha').forEach(form => {
-            let btnEdit = form.querySelector('.btn-editar-fecha');
-            let btnSave = form.querySelector('.btn-guardar-fecha');
-            let btnCancel = form.querySelector('.btn-cancelar-fecha');
-            let input = form.querySelector('.fecha-inicio');
-            let valorOriginal = input.value;
-
-            btnEdit.addEventListener('click', (e) => {
-                e.preventDefault();
-                input.disabled = false;
-                btnEdit.classList.add('d-none');
-                btnSave.classList.remove('d-none');
-                btnCancel.classList.remove('d-none');
+            // Eliminar síntoma
+            document.querySelectorAll('.btn-eliminar-sintoma').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    let tratamientos = parseInt(this.dataset.tratamientos || "0");
+                    let condiciones = parseInt(this.dataset.condiciones || "0");
+                    let nombre = this.dataset.nombre || "";
+                    let sintid = this.dataset.id || "";
+                    if (tratamientos > 0 || condiciones > 0) {
+                        alert("No se puede eliminar \"" + nombre + "\" porque tiene tratamientos o condiciones relacionados. Primero elimínalos.");
+                        return;
+                    }
+                    if (confirm('¿Estás seguro de eliminar "' + nombre + '"? Esta acción no se puede deshacer.')) {
+                        let formData = new FormData();
+                        formData.append('sintId', sintid);
+                        fetch('?handler=EliminarSintoma', { method: "POST", body: formData })
+                            .then(resp => resp.ok ? location.reload() : resp.json().then(d => alert(d.mensaje || "Error eliminando síntoma")));
+                    }
+                });
             });
-            btnCancel.addEventListener('click', (e) => {
-                e.preventDefault();
-                input.value = valorOriginal;
-                input.disabled = true;
-                btnEdit.classList.remove('d-none');
-                btnSave.classList.add('d-none');
-                btnCancel.classList.add('d-none');
-            });
-            form.addEventListener('submit', async function (ev) {
-                ev.preventDefault();
-                let formData = new FormData(form);
-                let resp = await fetch('?handler=EditarFechaInicio', { method: "POST", body: formData });
-                if (resp.ok) {
-                    valorOriginal = input.value;
+
+            // --- TRACKING SÍNTOMA ---
+            (function() {
+                const opcionesEstado = [
+                    { val: "Ninguno", label: "Ninguno" },
+                    { val: "Leve", label: "Leve" },
+                    { val: "Moderado", label: "Moderado" },
+                    { val: "Severo", label: "Severo" }
+                ];
+                document.querySelectorAll('.btn-track-sintoma').forEach(btn => {
+                    btn.addEventListener('click', function () {
+                        document.getElementById('mensajeTrackingAgregado').classList.add("d-none");
+                        const sintId = this.dataset.id;
+                        const nombre = this.dataset.nombre;
+                        document.getElementById('modalTrackSintomaTitle').innerText = 'Seguimiento de "' + nombre + '"';
+                        document.getElementById('modalTrackSintomaPregunta').innerText = `¿Cómo está tu "${nombre}" hoy?`;
+
+                        let html = '';
+                        opcionesEstado.forEach(o => {
+                            html += `<button type="button" class="btn btn-outline-primary w-100 btn-opcion-tracking" data-estado="${o.val}">${o.label}</button>`;
+                        });
+                        document.getElementById('modalTrackSintomaOpciones').innerHTML = html;
+                        document.getElementById('trackSintomaUsuarioId').value = sintId;
+
+                        let modal = new bootstrap.Modal(document.getElementById('modalTrackSintoma'));
+                        modal.show();
+
+                        setTimeout(function() {
+                            document.querySelectorAll('.btn-opcion-tracking').forEach(btnOpcion => {
+                                btnOpcion.onclick = async function () {
+                                    let estado = this.dataset.estado;
+                                    let sintomaUsuarioId = document.getElementById('trackSintomaUsuarioId').value;
+                                    let formData = new FormData();
+                                    formData.append('sintomaUsuarioId', sintomaUsuarioId);
+                                    formData.append('estado', estado);
+                                    let resp = await fetch('?handler=TrackSintoma', { method: 'POST', body: formData });
+                                    if (resp.ok) {
+                                        let msg = document.getElementById('mensajeTrackingAgregado');
+                                        msg.classList.remove('d-none');
+                                        let badge = document.getElementById('badge-tracking-' + sintomaUsuarioId);
+                                        if(badge){
+                                            badge.innerHTML = '<span class="badge bg-light border border-success text-success fw-semibold">último tracking: <span class="ms-1">Hoy</span> <span class="ms-1">(' + estado + ')</span></span>';
+                                        }
+                                        setTimeout(() => {
+                                            bootstrap.Modal.getInstance(document.getElementById('modalTrackSintoma')).hide();
+                                        }, 900);
+                                    } else {
+                                        alert('Error guardando seguimiento');
+                                    }
+                                };
+                            });
+                        }, 50);
+                    });
+                });
+            })();
+
+            // --- Editar fecha inicio ---
+            document.querySelectorAll('.form-editar-fecha').forEach(form => {
+                let btnEdit = form.querySelector('.btn-editar-fecha');
+                let btnSave = form.querySelector('.btn-guardar-fecha');
+                let btnCancel = form.querySelector('.btn-cancelar-fecha');
+                let input = form.querySelector('.fecha-inicio');
+                let valorOriginal = input.value;
+
+                btnEdit.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    input.disabled = false;
+                    btnEdit.classList.add('d-none');
+                    btnSave.classList.remove('d-none');
+                    btnCancel.classList.remove('d-none');
+                });
+                btnCancel.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    input.value = valorOriginal;
                     input.disabled = true;
                     btnEdit.classList.remove('d-none');
                     btnSave.classList.add('d-none');
                     btnCancel.classList.add('d-none');
-                }
+                });
+                form.addEventListener('submit', async function (ev) {
+                    ev.preventDefault();
+                    let formData = new FormData(form);
+                    let resp = await fetch('?handler=EditarFechaInicio', { method: "POST", body: formData });
+                    if (resp.ok) {
+                        valorOriginal = input.value;
+                        input.disabled = true;
+                        btnEdit.classList.remove('d-none');
+                        btnSave.classList.add('d-none');
+                        btnCancel.classList.add('d-none');
+                    }
+                });
             });
-        });
 
-        // Eliminar síntoma
-        document.querySelectorAll('.btn-eliminar-sintoma').forEach(btn => {
-            btn.addEventListener('click', function () {
-                let tratamientos = parseInt(this.dataset.tratamientos || "0");
-                let condiciones = parseInt(this.dataset.condiciones || "0");
-                let nombre = this.dataset.nombre || "";
-                let sintid = this.dataset.id || "";
-                if (tratamientos > 0 || condiciones > 0) {
-                    alert("No se puede eliminar \"" + nombre + "\" porque tiene tratamientos o condiciones relacionados. Primero elimínalos.");
-                    return;
-                }
-                if (confirm('¿Estás seguro de eliminar "' + nombre + '"? Esta acción no se puede deshacer.')) {
-                    let formData = new FormData();
-                    formData.append('sintId', sintid);
-                    fetch('?handler=EliminarSintoma', { method: "POST", body: formData })
-                        .then(resp => resp.ok ? location.reload() : resp.json().then(d => alert(d.mensaje || "Error eliminando síntoma")));
-                }
-            });
-        });
+            // --- Condiciones y tratamientos ---
+            const condicionesUsuario = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(Model.MisCondicionesSimplificadas));
+            const tratamientosUsuario = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(Model.MisTratamientosSimplificados));
 
-        const condicionesUsuario = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(Model.MisCondicionesSimplificadas));
-        const tratamientosUsuario = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(Model.MisTratamientosSimplificados));
-
-        // MODAL DE CONDICIONES: si no tiene, mensaje en vez de checks
-        document.querySelectorAll('.open-modal-cond').forEach(btn => {
-            btn.addEventListener('click', function () {
-                let sintid = this.dataset.sintid;
-                let html = "";
-                if (condicionesUsuario.length === 0) {
-                    html = `<div class="alert alert-info">
-                        <i class="bi bi-exclamation-circle"></i>
-                        Debes agregar primero alguna condición en la sección "Condiciones".
-                        </div>`;
-                } else {
-                    let condlist = document.querySelectorAll("#cond-list-" + sintid + " .badge");
-                    let seleccionadas = Array.from(condlist).map(b => b.innerText);
-                    condicionesUsuario.forEach(c => {
-                        let checked = seleccionadas.includes(c.Nombre) ? 'checked' : '';
-                        html += `<div class="form-check mb-1">
-                            <input class="form-check-input" type="checkbox" name="condids" value="${c.Id}" id="chkCond${c.Id}" ${checked}/>
-                            <label class="form-check-label" for="chkCond${c.Id}">${c.Nombre}</label>
-                        </div>`;
-                    });
-                }
-                document.getElementById('cond-list-modal').innerHTML = html;
-                document.getElementById('modalCondSintId').value = sintid;
-                let modal = new bootstrap.Modal(document.getElementById('modalCondiciones'));
-                modal.show();
-            });
-        });
-
-        document.querySelectorAll('.badge-cond-del').forEach(btn => {
-            btn.addEventListener('click', function () {
-                if (confirm('¿Quitar la relación?')) {
-                    let sintid = this.dataset.sintid;
-                    let condid = this.dataset.condid;
+            // MODAL DE CONDICIONES
+            var formAsociaCond = document.getElementById('formAsociaCond');
+            if (formAsociaCond) {
+                formAsociaCond.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    let sintid = document.getElementById('modalCondSintId').value;
+                    let condids = Array.from(document.querySelectorAll('#cond-list-modal input[type=checkbox]:checked')).map(x => x.value);
                     let formData = new FormData();
                     formData.append('sintomaId', sintid);
-                    formData.append('condicionUsuarioId', condid);
-                    fetch('?handler=QuitarRelacionCondicion', { method: 'POST', body: formData })
-                        .then(resp => resp.ok ? location.reload() : alert("Error al quitar"));
-                }
-            });
-        });
-
-        document.getElementById('formAsociaCond').addEventListener('submit', async function (e) {
-            e.preventDefault();
-            let sintid = document.getElementById('modalCondSintId').value;
-            let condids = Array.from(document.querySelectorAll('#cond-list-modal input[type=checkbox]:checked')).map(x => x.value);
-            let formData = new FormData();
-            formData.append('sintomaId', sintid);
-            condids.forEach(id => formData.append('condicionUsuarioIds', id));
-            const resp = await fetch('?handler=AsociarCondiciones', { method: 'POST', body: formData });
-            if (resp.ok) location.reload();
-            else alert("Error al guardar.");
-        });
-
-        // MODAL DE TRATAMIENTOS: si no tiene, mensaje en vez de checks
-        document.querySelectorAll('.open-modal-trat').forEach(btn => {
-            btn.addEventListener('click', function () {
-                let sintid = this.dataset.sintid;
-                let html = "";
-                if (tratamientosUsuario.length === 0) {
-                    html = `<div class="alert alert-info">
-                        <i class="bi bi-exclamation-circle"></i>
-                        Debes agregar primero algún tratamiento en la sección "Tratamientos".
-                        </div>`;
-                } else {
-                    let tratlist = document.querySelectorAll("#trat-list-" + sintid + " .badge");
-                    let seleccionadas = Array.from(tratlist).map(b => b.innerText);
-                    tratamientosUsuario.forEach(t => {
-                        let checked = seleccionadas.includes(t.Nombre) ? 'checked' : '';
-                        html += `<div class="form-check mb-1">
-                            <input class="form-check-input" type="checkbox" name="tratids" value="${t.Id}" id="chkTrat${t.Id}" ${checked}/>
-                            <label class="form-check-label" for="chkTrat${t.Id}">${t.Nombre}</label>
-                        </div>`;
-                    });
-                }
-                document.getElementById('trat-list-modal').innerHTML = html;
-                document.getElementById('modalTratSintId').value = sintid;
-                let modal = new bootstrap.Modal(document.getElementById('modalTratamientos'));
-                modal.show();
-            });
-        });
-
-        document.querySelectorAll('.badge-trat-del').forEach(btn => {
-            btn.addEventListener('click', function () {
-                if (confirm('¿Quitar la relación?')) {
+                    condids.forEach(id => formData.append('condicionUsuarioIds', id));
+                    const resp = await fetch('?handler=AsociarCondiciones', { method: 'POST', body: formData });
+                    if (resp.ok) location.reload();
+                    else alert("Error al guardar.");
+                });
+            }
+            document.querySelectorAll('.open-modal-cond').forEach(btn => {
+                btn.addEventListener('click', function () {
                     let sintid = this.dataset.sintid;
-                    let tratid = this.dataset.tratid;
+                    let html = "";
+                    if (condicionesUsuario.length === 0) {
+                        html = `<div class="alert alert-info"><i class="bi bi-exclamation-circle"></i>Debes agregar primero alguna condición en la sección "Condiciones".</div>`;
+                    } else {
+                        let condlist = document.querySelectorAll("#cond-list-" + sintid + " .badge");
+                        let seleccionadas = Array.from(condlist).map(b => b.innerText);
+                        condicionesUsuario.forEach(c => {
+                            let checked = seleccionadas.includes(c.Nombre) ? 'checked' : '';
+                            html += `<div class="form-check mb-1">
+                                <input class="form-check-input" type="checkbox" name="condids" value="${c.Id}" id="chkCond${c.Id}" ${checked}/>
+                                <label class="form-check-label" for="chkCond${c.Id}">${c.Nombre}</label>
+                            </div>`;
+                        });
+                    }
+                    document.getElementById('cond-list-modal').innerHTML = html;
+                    document.getElementById('modalCondSintId').value = sintid;
+                    let modal = new bootstrap.Modal(document.getElementById('modalCondiciones'));
+                    modal.show();
+                });
+            });
+            document.querySelectorAll('.badge-cond-del').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    if (confirm('¿Quitar la relación?')) {
+                        let sintid = this.dataset.sintid;
+                        let condid = this.dataset.condid;
+                        let formData = new FormData();
+                        formData.append('sintomaId', sintid);
+                        formData.append('condicionUsuarioId', condid);
+                        fetch('?handler=QuitarRelacionCondicion', { method: 'POST', body: formData })
+                            .then(resp => resp.ok ? location.reload() : alert("Error al quitar"));
+                    }
+                });
+            });
+            // MODAL TRATAMIENTOS
+            var formAsociaTrat = document.getElementById('formAsociaTrat');
+            if (formAsociaTrat) {
+                formAsociaTrat.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    let sintid = document.getElementById('modalTratSintId').value;
+                    let tratids = Array.from(document.querySelectorAll('#trat-list-modal input[type=checkbox]:checked')).map(x => x.value);
                     let formData = new FormData();
                     formData.append('sintomaId', sintid);
-                    formData.append('tratamientoUsuarioId', tratid);
-                    fetch('?handler=QuitarRelacionTratamiento', { method: 'POST', body: formData })
-                        .then(resp => resp.ok ? location.reload() : alert("Error al quitar"));
-                }
+                    tratids.forEach(id => formData.append('tratamientoUsuarioIds', id));
+                    const resp = await fetch('?handler=AsociarTratamientos', { method: 'POST', body: formData });
+                    if (resp.ok) location.reload();
+                    else alert("Error al guardar.");
+                });
+            }
+            document.querySelectorAll('.open-modal-trat').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    let sintid = this.dataset.sintid;
+                    let html = "";
+                    if (tratamientosUsuario.length === 0) {
+                        html = `<div class="alert alert-info"><i class="bi bi-exclamation-circle"></i>Debes agregar primero algún tratamiento en la sección "Tratamientos".</div>`;
+                    } else {
+                        let tratlist = document.querySelectorAll("#trat-list-" + sintid + " .badge");
+                        let seleccionadas = Array.from(tratlist).map(b => b.innerText);
+                        tratamientosUsuario.forEach(t => {
+                            let checked = seleccionadas.includes(t.Nombre) ? 'checked' : '';
+                            html += `<div class="form-check mb-1">
+                                <input class="form-check-input" type="checkbox" name="tratids" value="${t.Id}" id="chkTrat${t.Id}" ${checked}/>
+                                <label class="form-check-label" for="chkTrat${t.Id}">${t.Nombre}</label>
+                            </div>`;
+                        });
+                    }
+                    document.getElementById('trat-list-modal').innerHTML = html;
+                    document.getElementById('modalTratSintId').value = sintid;
+                    let modal = new bootstrap.Modal(document.getElementById('modalTratamientos'));
+                    modal.show();
+                });
             });
-        });
-
-        document.getElementById('formAsociaTrat').addEventListener('submit', async function (e) {
-            e.preventDefault();
-            let sintid = document.getElementById('modalTratSintId').value;
-            let tratids = Array.from(document.querySelectorAll('#trat-list-modal input[type=checkbox]:checked')).map(x => x.value);
-            let formData = new FormData();
-            formData.append('sintomaId', sintid);
-            tratids.forEach(id => formData.append('tratamientoUsuarioIds', id));
-            const resp = await fetch('?handler=AsociarTratamientos', { method: 'POST', body: formData });
-            if (resp.ok) location.reload();
-            else alert("Error al guardar.");
+            document.querySelectorAll('.badge-trat-del').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    if (confirm('¿Quitar la relación?')) {
+                        let sintid = this.dataset.sintid;
+                        let tratid = this.dataset.tratid;
+                        let formData = new FormData();
+                        formData.append('sintomaId', sintid);
+                        formData.append('tratamientoUsuarioId', tratid);
+                        fetch('?handler=QuitarRelacionTratamiento', { method: 'POST', body: formData })
+                            .then(resp => resp.ok ? location.reload() : alert("Error al quitar"));
+                    }
+                });
+            });
         });
     </script>
 }
