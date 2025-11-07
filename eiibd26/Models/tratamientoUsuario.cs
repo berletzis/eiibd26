@@ -10,8 +10,8 @@ namespace eiibd26.Models
     public int? IdCondicion { get; set; }
     public int? idTratamiento { get; set; }
     public Guid idUsuario { get; set; }
-    public DateTime fechaDeInicio { get; set; }
-    public DateTime? fechaEliminado { get; set; }
+        public DateTime fechaInicio { get; set; }
+        public DateTime? fechaEliminado { get; set; }
     public DateTime fechaModificado { get; set; }
     public DateTime fechaCreado { get; set; }
     public bool Eliminado { get; set; }

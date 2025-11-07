@@ -1,0 +1,276 @@
+﻿@page
+@model eiibd26.Areas.Identity.Pages.Admin.Sintomas.IndexModel
+@using Microsoft.AspNetCore.Authorization
+@* @attribute [Authorize(Roles = "Administrador")] *@
+
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" />
+    <style>
+        .sint-hijo {
+            padding-left: 2em;
+            color: #555;
+        }
+
+        .sint-padre {
+            font-weight: bold;
+        }
+
+        .form-switch {
+            padding-left: 2.5em;
+        }
+
+        .switch-label {
+            font-weight: normal;
+            margin-left: 0.5em;
+            margin-right: 2em;
+        }
+
+        .modal-header .btn-close {
+            position: absolute;
+            right: 1rem;
+            top: 1rem;
+        }
+    </style>
+}
+
+<h2>Síntomas</h2>
+<div class="mb-2">
+    <div class="form-check form-switch d-inline-block align-middle">
+        <input class="form-check-input" type="checkbox" role="switch" id="switchEliminadosSintomas">
+        <label class="form-check-label switch-label" for="switchEliminadosSintomas">Mostrar eliminados</label>
+    </div>
+</div>
+<table id="sintomasGrid" class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Nombre</th>
+            <th>Tipo</th>
+            <th>ID Padre</th>
+            <th>Idioma</th>
+            <th>Eliminado</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+</table>
+
+<!-- Modal Editar -->
+<div class="modal fade" id="modalEditarSintoma" tabindex="-1" aria-labelledby="modalEditarSintomaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <form id="formEditarSintoma" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalEditarSintomaLabel">Editar Síntoma</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" name="id" id="editSintoma_id">
+                <div class="mb-3">
+                    <label for="editSintoma_nombre" class="form-label">Nombre</label>
+                    <input type="text" class="form-control" id="editSintoma_nombre" name="nombre" required>
+                </div>
+                <div class="mb-3">
+                    <label for="editSintoma_idPadre" class="form-label">ID Padre (dejar vacío si es padre)</label>
+                    <input type="number" class="form-control" id="editSintoma_idPadre" name="idPadre">
+                </div>
+                <div class="mb-3">
+                    <label for="editSintoma_idIdioma" class="form-label">ID Idioma</label>
+                    <input type="number" class="form-control" id="editSintoma_idIdioma" name="idIdioma" required>
+                </div>
+                <div class="mb-3">
+                    <label for="editSintoma_icono" class="form-label">Ícono</label>
+                    <input type="text" class="form-control" id="editSintoma_icono" name="icono">
+                </div>
+                <div class="mb-3">
+                    <label for="editSintoma_eliminado" class="form-label">¿Eliminado?</label>
+                    <select class="form-select" id="editSintoma_eliminado" name="eliminado">
+                        <option value="false">No</option>
+                        <option value="true">Sí</option>
+                    </select>
+                </div>
+                <div class="alert alert-success d-none" id="msgEditSintomaSuccess">¡Edición realizada correctamente!</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Aceptar cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@{
+    var urlEditarSintoma = Url.Page(null, "EditarSintoma");
+}
+<script>console.log("URL EditarSintoma:", "@urlEditarSintoma");</script>
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let sintomasTabla;
+        let hijosSintPorPadre = {};
+
+        function actualizarDiccionarioHijosSintomas(data) {
+            hijosSintPorPadre = {};
+            data.forEach(item => {
+                if (item.idPadre && item.idPadre !== 0) {
+                    if (!hijosSintPorPadre[item.idPadre]) {
+                        hijosSintPorPadre[item.idPadre] = [];
+                    }
+                    hijosSintPorPadre[item.idPadre].push(item.id);
+                }
+            });
+        }
+
+        $(function () {
+            sintomasTabla = $('#sintomasGrid').DataTable({
+                processing: true,
+                serverSide: true,
+                ajax: {
+                    url: '@Url.Page(null, "GridData")',
+                    type: 'GET',
+                    data: function (d) {
+                        d.mostrarEliminados = $('#switchEliminadosSintomas').is(':checked');
+                    },
+                    dataSrc: function (json) {
+                        actualizarDiccionarioHijosSintomas(json.data);
+                        return json.data;
+                    }
+                },
+                columns: [
+                    {
+                        data: 'nombre',
+                        orderable: false,
+                        render: function (data, type, row) {
+                            if (!row.esPadre && row.idPadre) {
+                                return `<span class="sint-hijo">- ${data}</span>`;
+                            }
+                            return `<span class="sint-padre">${data}</span>`;
+                        }
+                    },
+                    {
+                        data: 'esPadre',
+                        orderable: false,
+                        render: function (data) {
+                            return data
+                                ? `<span class="badge bg-success">Padre</span>`
+                                : `<span class="badge bg-secondary">Hijo</span>`;
+                        }
+                    },
+                    { data: 'idPadre', orderable: false, defaultContent: '' },
+                    { data: 'idIdioma', orderable: false },
+                    {
+                        data: 'eliminado',
+                        orderable: false,
+                        render: function (data) {
+                            return data
+                                ? `<span class="badge bg-danger">Sí</span>`
+                                : `<span class="badge bg-success">No</span>`;
+                        }
+                    },
+                    {
+                        data: null,
+                        orderable: false,
+                        render: function (data, type, row) {
+                            let editBtn = `<button class='btn btn-sm btn-warning btn-editar-sintoma' title='Editar' data-id='${row.id}'><i class="bi bi-pencil-square"></i> Editar</button>`;
+                            let eliminarBtn = '', restaurarBtn = '';
+                            const esPadre = row.esPadre;
+                            const tieneHijos = hijosSintPorPadre[row.id] && hijosSintPorPadre[row.id].length > 0;
+                            if (row.eliminado) {
+                                restaurarBtn = `<button class='btn btn-sm btn-success btn-restaurar-sintoma ms-1' title='Restaurar' data-id='${row.id}'><i class="bi bi-arrow-counterclockwise"></i> Restaurar</button>`;
+                            } else {
+                                // Solo permitir eliminar si NO es padre o si (es padre Y no tiene hijos)
+                                if (!(esPadre && tieneHijos)) {
+                                    eliminarBtn = `<button class='btn btn-sm btn-danger btn-borrar-sintoma ms-1' title='Eliminar' data-id='${row.id}'><i class="bi bi-trash"></i> Eliminar</button>`;
+                                }
+                            }
+                            return editBtn + eliminarBtn + restaurarBtn;
+                        }
+                    }
+                ],
+                order: [],
+                language: {
+                    emptyTable: "No hay síntomas registrados."
+                }
+            });
+
+            $('#switchEliminadosSintomas').change(function () {
+                sintomasTabla.ajax.reload();
+            });
+
+            $('#sintomasGrid').on('click', '.btn-editar-sintoma', function () {
+                const id = $(this).data('id');
+                $.get('@Url.Page(null, "GetSintoma")', { id: id }, function (data) {
+                    $('#editSintoma_id').val(data.id);
+                    $('#editSintoma_nombre').val(data.nombre);
+                    $('#editSintoma_idPadre').val(data.idPadre || "");
+                    $('#editSintoma_idIdioma').val(data.idIdioma);
+                    $('#editSintoma_icono').val(data.icono || "");
+                    $('#editSintoma_eliminado').val(data.eliminado ? "true" : "false");
+                    $('#msgEditSintomaSuccess').addClass('d-none');
+                    $('#modalEditarSintoma').modal('show');
+                });
+            });
+
+            $('#formEditarSintoma').on('submit', function (e) {
+                e.preventDefault();
+                var serialized = $(this).serialize();
+                $.ajax({
+                    url: '@Url.Page(null, "EditarSintoma")',
+                    type: "POST",
+                    data: serialized,
+                    contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+                    success: function (response) {
+                        if (response.success) {
+                            $('#msgEditSintomaSuccess').removeClass('d-none');
+                            sintomasTabla.ajax.reload(null, false);
+                            setTimeout(function () {
+                                $('#modalEditarSintoma').modal('hide');
+                            }, 1000);
+                        } else {
+                            alert('Error: ' + (response.message || 'No se pudo guardar.'));
+                        }
+                    }
+                });
+            });
+
+            $('#sintomasGrid').on('click', '.btn-borrar-sintoma', function () {
+                const id = $(this).data('id');
+                if (confirm('¿Seguro que desea eliminar este síntoma? Esta acción no se puede deshacer.')) {
+                    $.ajax({
+                        url: '@Url.Page(null, "EliminarSintoma")',
+                        type: "POST",
+                        data: $.param({ id: id }),
+                        contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+                        success: function (response) {
+                            if (response.success) {
+                                sintomasTabla.ajax.reload();
+                            } else {
+                                alert('Error: ' + (response.message || 'No se pudo eliminar.'));
+                            }
+                        }
+                    });
+                }
+            });
+
+            $('#sintomasGrid').on('click', '.btn-restaurar-sintoma', function () {
+                const id = $(this).data('id');
+                if (confirm('¿Seguro que desea restaurar este síntoma?')) {
+                    $.ajax({
+                        url: '@Url.Page(null, "RestaurarSintoma")',
+                        type: "POST",
+                        data: $.param({ id: id }),
+                        contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+                        success: function (response) {
+                            if (response.success) {
+                                sintomasTabla.ajax.reload();
+                            } else {
+                                alert('Error: ' + (response.message || 'No se pudo restaurar.'));
+                            }
+                        }
+                    });
+                }
+            });
+        });
+    </script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css">
+}

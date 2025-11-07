@@ -1,0 +1,270 @@
+﻿@page
+@model eiibd26.Areas.Identity.Pages.Admin.Tratamientos.IndexModel
+@using Microsoft.AspNetCore.Authorization
+
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" />
+    <style>
+        .trat-hijo {
+            padding-left: 2em;
+            color: #555;
+        }
+
+        .trat-padre {
+            font-weight: bold;
+        }
+
+        .form-switch {
+            padding-left: 2.5em;
+        }
+
+        .switch-label {
+            font-weight: normal;
+            margin-left: 0.5em;
+            margin-right: 2em;
+        }
+
+        .modal-header .btn-close {
+            position: absolute;
+            right: 1rem;
+            top: 1rem;
+        }
+    </style>
+}
+
+<h2>Tratamientos</h2>
+<div class="mb-2">
+    <div class="form-check form-switch d-inline-block align-middle">
+        <input class="form-check-input" type="checkbox" role="switch" id="switchEliminadosTratamientos">
+        <label class="form-check-label switch-label" for="switchEliminadosTratamientos">Mostrar eliminados</label>
+    </div>
+</div>
+<table id="tratamientosGrid" class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Nombre</th>
+            <th>Tipo</th>
+            <th>ID Padre</th>
+            <th>Idioma</th>
+            <th>Eliminado</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+</table>
+
+<!-- Modal Editar -->
+<div class="modal fade" id="modalEditarTratamiento" tabindex="-1" aria-labelledby="modalEditarTratamientoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <form id="formEditarTratamiento" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalEditarTratamientoLabel">Editar Tratamiento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" name="id" id="editTratamiento_id">
+                <div class="mb-3">
+                    <label for="editTratamiento_nombre" class="form-label">Nombre</label>
+                    <input type="text" class="form-control" id="editTratamiento_nombre" name="nombre" required>
+                </div>
+                <div class="mb-3">
+                    <label for="editTratamiento_idPadre" class="form-label">ID Padre (dejar vacío si es padre)</label>
+                    <input type="number" class="form-control" id="editTratamiento_idPadre" name="idPadre">
+                </div>
+                <div class="mb-3">
+                    <label for="editTratamiento_idIdioma" class="form-label">ID Idioma</label>
+                    <input type="number" class="form-control" id="editTratamiento_idIdioma" name="idIdioma" required>
+                </div>
+                <div class="mb-3">
+                    <label for="editTratamiento_icono" class="form-label">Ícono</label>
+                    <input type="text" class="form-control" id="editTratamiento_icono" name="icono">
+                </div>
+                <div class="mb-3">
+                    <label for="editTratamiento_eliminado" class="form-label">¿Eliminado?</label>
+                    <select class="form-select" id="editTratamiento_eliminado" name="eliminado">
+                        <option value="false">No</option>
+                        <option value="true">Sí</option>
+                    </select>
+                </div>
+                <div class="alert alert-success d-none" id="msgEditTratamientoSuccess">¡Edición realizada correctamente!</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Aceptar cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let tratamientosTabla;
+        let hijosTratPorPadre = {};
+
+        function actualizarDiccionarioHijosTratamientos(data) {
+            hijosTratPorPadre = {};
+            data.forEach(item => {
+                if (item.idPadre && item.idPadre !== 0) {
+                    if (!hijosTratPorPadre[item.idPadre]) {
+                        hijosTratPorPadre[item.idPadre] = [];
+                    }
+                    hijosTratPorPadre[item.idPadre].push(item.id);
+                }
+            });
+        }
+
+        $(function () {
+            tratamientosTabla = $('#tratamientosGrid').DataTable({
+                processing: true,
+                serverSide: true,
+                ajax: {
+                    url: '@Url.Page(null, "GridData")',
+                    type: 'GET',
+                    data: function (d) {
+                        d.mostrarEliminados = $('#switchEliminadosTratamientos').is(':checked');
+                    },
+                    dataSrc: function (json) {
+                        actualizarDiccionarioHijosTratamientos(json.data);
+                        return json.data;
+                    }
+                },
+                columns: [
+                    {
+                        data: 'nombre',
+                        orderable: false,
+                        render: function (data, type, row) {
+                            if (!row.esPadre && row.idPadre) {
+                                return `<span class="trat-hijo">- ${data}</span>`;
+                            }
+                            return `<span class="trat-padre">${data}</span>`;
+                        }
+                    },
+                    {
+                        data: 'esPadre',
+                        orderable: false,
+                        render: function (data) {
+                            return data
+                                ? `<span class="badge bg-success">Padre</span>`
+                                : `<span class="badge bg-secondary">Hijo</span>`;
+                        }
+                    },
+                    { data: 'idPadre', orderable: false, defaultContent: '' },
+                    { data: 'idIdioma', orderable: false },
+                    {
+                        data: 'eliminado',
+                        orderable: false,
+                        render: function (data) {
+                            return data
+                                ? `<span class="badge bg-danger">Sí</span>`
+                                : `<span class="badge bg-success">No</span>`;
+                        }
+                    },
+                    {
+                        data: null,
+                        orderable: false,
+                        render: function (data, type, row) {
+                            let editBtn = `<button class='btn btn-sm btn-warning btn-editar-tratamiento' title='Editar' data-id='${row.id}'><i class="bi bi-pencil-square"></i> Editar</button>`;
+                            let eliminarBtn = '', restaurarBtn = '';
+                            const esPadre = row.esPadre;
+                            const tieneHijos = hijosTratPorPadre[row.id] && hijosTratPorPadre[row.id].length > 0;
+                            if (row.eliminado) {
+                                restaurarBtn = `<button class='btn btn-sm btn-success btn-restaurar-tratamiento ms-1' title='Restaurar' data-id='${row.id}'><i class="bi bi-arrow-counterclockwise"></i> Restaurar</button>`;
+                            } else {
+                                if (!(esPadre && tieneHijos)) {
+                                    eliminarBtn = `<button class='btn btn-sm btn-danger btn-borrar-tratamiento ms-1' title='Eliminar' data-id='${row.id}'><i class="bi bi-trash"></i> Eliminar</button>`;
+                                }
+                            }
+                            return editBtn + eliminarBtn + restaurarBtn;
+                        }
+                    }
+                ],
+                order: [],
+                language: {
+                    emptyTable: "No hay tratamientos registrados."
+                }
+            });
+
+            $('#switchEliminadosTratamientos').change(function () {
+                tratamientosTabla.ajax.reload();
+            });
+
+            $('#tratamientosGrid').on('click', '.btn-editar-tratamiento', function () {
+                const id = $(this).data('id');
+                $.get('@Url.Page(null, "GetTratamiento")', { id: id }, function (data) {
+                    $('#editTratamiento_id').val(data.id);
+                    $('#editTratamiento_nombre').val(data.nombre);
+                    $('#editTratamiento_idPadre').val(data.idPadre || "");
+                    $('#editTratamiento_idIdioma').val(data.idIdioma);
+                    $('#editTratamiento_icono').val(data.icono || "");
+                    $('#editTratamiento_eliminado').val(data.eliminado ? "true" : "false");
+                    $('#msgEditTratamientoSuccess').addClass('d-none');
+                    $('#modalEditarTratamiento').modal('show');
+                });
+            });
+
+            $('#formEditarTratamiento').on('submit', function (e) {
+                e.preventDefault();
+                var serialized = $(this).serialize();
+                $.ajax({
+                    url: '@Url.Page(null, "EditarTratamiento")',
+                    type: "POST",
+                    data: serialized,
+                    contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+                    success: function (response) {
+                        if (response.success) {
+                            $('#msgEditTratamientoSuccess').removeClass('d-none');
+                            tratamientosTabla.ajax.reload(null, false);
+                            setTimeout(function () {
+                                $('#modalEditarTratamiento').modal('hide');
+                            }, 1000);
+                        } else {
+                            alert('Error: ' + (response.message || 'No se pudo guardar.') );
+                        }
+                    }
+                });
+            });
+
+            $('#tratamientosGrid').on('click', '.btn-borrar-tratamiento', function () {
+                const id = $(this).data('id');
+                if (confirm('¿Seguro que desea eliminar este tratamiento? Esta acción no se puede deshacer.')) {
+                    $.ajax({
+                        url: '@Url.Page(null, "EliminarTratamiento")',
+                        type: "POST",
+                        data: $.param({ id: id }),
+                        contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+                        success: function (response) {
+                            if (response.success) {
+                                tratamientosTabla.ajax.reload();
+                            } else {
+                                alert('Error: ' + (response.message || 'No se pudo eliminar.'));
+                            }
+                        }
+                    });
+                }
+            });
+
+            $('#tratamientosGrid').on('click', '.btn-restaurar-tratamiento', function () {
+                const id = $(this).data('id');
+                if (confirm('¿Seguro que desea restaurar este tratamiento?')) {
+                    $.ajax({
+                        url: '@Url.Page(null, "RestaurarTratamiento")',
+                        type: "POST",
+                        data: $.param({ id: id }),
+                        contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+                        success: function (response) {
+                            if (response.success) {
+                                tratamientosTabla.ajax.reload();
+                            } else {
+                                alert('Error: ' + (response.message || 'No se pudo restaurar.'));
+                            }
+                        }
+                    });
+                }
+            });
+        });
+    </script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css">
+}

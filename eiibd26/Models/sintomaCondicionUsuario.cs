@@ -13,7 +13,7 @@ namespace eiibd26.Models
     public int IdSintomaUsuario { get; set; }
 
     [StringLength(512)]
-    public string Notas { get; set; }
+    public string? Notas { get; set; }
     public DateTime FechaCreado { get; set; }
 
     [ForeignKey(nameof(IdUsuario))]

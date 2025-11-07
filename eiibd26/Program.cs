@@ -29,6 +29,9 @@ builder.Services.AddTransient<IEmailSender, SendGridEmailSender>();
 // Razor Pages
 builder.Services.AddRazorPages();
 
+// API Controllers
+builder.Services.AddControllers();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -45,8 +48,14 @@ else
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+
 app.UseRouting();
+
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Aquí se mapean tus páginas Razor y tus controladores API.
 app.MapRazorPages();
+app.MapControllers(); // <<--- ESTA LÍNEA ASEGURA QUE FUNCIONAN LOS ENDPOINTS /api/...
+
 app.Run();

@@ -1,0 +1,285 @@
+﻿@page
+@model eiibd26.Areas.Identity.Pages.Admin.Condiciones.IndexModel
+@using Microsoft.AspNetCore.Authorization
+@* @attribute [Authorize(Roles = "Administrador")] *@
+
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" />
+    <style>
+        .cond-hijo {
+            padding-left: 2em;
+            color: #555;
+        }
+
+        .cond-padre {
+            font-weight: bold;
+        }
+
+        .form-switch {
+            padding-left: 2.5em;
+        }
+
+        .switch-label {
+            font-weight: normal;
+            margin-left: 0.5em;
+            margin-right: 2em;
+        }
+
+        .modal-header .btn-close {
+            position: absolute;
+            right: 1rem;
+            top: 1rem;
+        }
+    </style>
+}
+
+<h2>Condiciones</h2>
+<div class="mb-2">
+    <div class="form-check form-switch d-inline-block align-middle">
+        <input class="form-check-input" type="checkbox" role="switch" id="switchEliminados">
+        <label class="form-check-label switch-label" for="switchEliminados">Mostrar eliminados</label>
+    </div>
+</div>
+<table id="condicionesGrid" class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Nombre</th>
+            <th>Tipo</th>
+            <th>ID Padre</th>
+            <th>Idioma</th>
+            <th>Eliminado</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+</table>
+
+<!-- Modal Editar -->
+<div class="modal fade" id="modalEditar" tabindex="-1" aria-labelledby="modalEditarLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <form id="formEditar" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalEditarLabel">Editar Condición</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" name="id" id="edit_id">
+                <div class="mb-3">
+                    <label for="edit_nombre" class="form-label">Nombre</label>
+                    <input type="text" class="form-control" id="edit_nombre" name="nombre" required>
+                </div>
+                <div class="mb-3">
+                    <label for="edit_idPadre" class="form-label">ID Padre (dejar vacío si es padre)</label>
+                    <input type="number" class="form-control" id="edit_idPadre" name="idPadre">
+                </div>
+                <div class="mb-3">
+                    <label for="edit_idIdioma" class="form-label">ID Idioma</label>
+                    <input type="number" class="form-control" id="edit_idIdioma" name="idIdioma" required>
+                </div>
+                <div class="mb-3">
+                    <label for="edit_icono" class="form-label">Ícono</label>
+                    <input type="text" class="form-control" id="edit_icono" name="icono">
+                </div>
+                <div class="mb-3">
+                    <label for="edit_eliminado" class="form-label">¿Eliminado?</label>
+                    <select class="form-select" id="edit_eliminado" name="eliminado">
+                        <option value="false">No</option>
+                        <option value="true">Sí</option>
+                    </select>
+                </div>
+                <div class="alert alert-success d-none" id="msgEditSuccess">¡Edición realizada correctamente!</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Aceptar cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+cshtml
+@{
+    var urlEditar = Url.Page(null, "EditarCondicion");
+}
+<script>console.log("URL EditarCondicion:", "@urlEditar");</script>
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let condicionesTabla;
+        let hijosPorPadre = {};
+
+        function actualizarDiccionarioHijos(data) {
+            hijosPorPadre = {};
+            data.forEach(item => {
+                if (item.idPadre && item.idPadre !== 0) {
+                    if (!hijosPorPadre[item.idPadre]) {
+                        hijosPorPadre[item.idPadre] = [];
+                    }
+                    hijosPorPadre[item.idPadre].push(item.id);
+                }
+            });
+        }
+
+        $(function() {
+            condicionesTabla = $('#condicionesGrid').DataTable({
+                processing: true,
+                serverSide: true,
+                ajax: {
+                    url: '@Url.Page(null, "GridData")',
+                    type: 'GET',
+                    data: function (d) {
+                        d.mostrarEliminados = $('#switchEliminados').is(':checked');
+                    },
+                    dataSrc: function(json) {
+                        actualizarDiccionarioHijos(json.data);
+                        return json.data;
+                    }
+                },
+                columns: [
+                    {
+                        data: 'nombre',
+                        orderable: false,
+                        render: function(data, type, row) {
+                            if (!row.esPadre && row.idPadre) {
+                                return `<span class="cond-hijo">- ${data}</span>`;
+                            }
+                            return `<span class="cond-padre">${data}</span>`;
+                        }
+                    },
+                    {
+                        data: 'esPadre',
+                        orderable: false,
+                        render: function(data) {
+                            return data
+                                ? `<span class="badge bg-success">Padre</span>`
+                                : `<span class="badge bg-secondary">Hijo</span>`;
+                        }
+                    },
+                    { data: 'idPadre', orderable: false, defaultContent: '' },
+                    { data: 'idIdioma', orderable: false },
+                    {
+                        data: 'eliminado',
+                        orderable: false,
+                        render: function(data) {
+                            return data
+                                ? `<span class="badge bg-danger">Sí</span>`
+                                : `<span class="badge bg-success">No</span>`;
+                        }
+                    },
+                    {
+                        data: null,
+                        orderable: false,
+                        render: function(data, type, row) {
+                            let editBtn = `<button class='btn btn-sm btn-warning btn-editar' title='Editar' data-id='${row.id}'><i class="bi bi-pencil-square"></i> Editar</button>`;
+                            let actionBtn = "";
+                            const esHijo = !row.esPadre && row.idPadre;
+                            const tieneHijos = hijosPorPadre[row.id] && hijosPorPadre[row.id].length > 0;
+                            if (row.eliminado) {
+                                if (esHijo && !tieneHijos) {
+                                    actionBtn = ` <button class='btn btn-sm btn-success btn-restaurar' title='Restaurar' data-id='${row.id}'><i class="bi bi-arrow-counterclockwise"></i> Restaurar</button>`;
+                                }
+                            } else {
+                                if (esHijo && !tieneHijos) {
+                                    actionBtn = ` <button class='btn btn-sm btn-danger btn-borrar' title='Eliminar' data-id='${row.id}'><i class="bi bi-trash"></i> Eliminar</button>`;
+                                }
+                            }
+                            return editBtn + actionBtn;
+                        }
+                    }
+                ],
+                order: [],
+                language: {
+                    emptyTable: "No hay condiciones registradas."
+                }
+            });
+
+            $('#switchEliminados').change(function () {
+                condicionesTabla.ajax.reload();
+            });
+
+            // Evento Editar
+            $('#condicionesGrid').on('click', '.btn-editar', function () {
+                const id = $(this).data('id');
+                $.get('@Url.Page(null, "GetCondicion")', { id: id }, function(data) {
+                    $('#edit_id').val(data.id);
+                    $('#edit_nombre').val(data.nombre);
+                    $('#edit_idPadre').val(data.idPadre || "");
+                    $('#edit_idIdioma').val(data.idIdioma);
+                    $('#edit_icono').val(data.icono || "");
+                    $('#edit_eliminado').val(data.eliminado ? "true" : "false");
+                    $('#msgEditSuccess').addClass('d-none');
+                    $('#modalEditar').modal('show');
+                })
+            });
+
+            // Guardar edición
+        $('#formEditar').on('submit', function (e) {
+            e.preventDefault();
+            var serialized = $(this).serialize();
+            var serializedArray = $(this).serializeArray();
+            console.log("Form data (serialized):", serialized);
+            console.log("Form data (as array):", serializedArray);
+
+            $.ajax({
+                url: '@Url.Page(null, "EditarCondicion")',
+                type: "POST",
+                data: serialized,
+                contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+                success: function (response) {
+                    if (response.success) {
+                        $('#msgEditSuccess').removeClass('d-none');
+                        condicionesTabla.ajax.reload(null, false);
+                        setTimeout(function () {
+                            $('#modalEditar').modal('hide');
+                        }, 1000);
+                    } else {
+                        alert('Error: ' + (response.message || 'No se pudo guardar.'));
+                    }
+                }
+            });
+        });
+
+            $('#condicionesGrid').on('click', '.btn-borrar', function () {
+                const id = $(this).data('id');
+                if (confirm('¿Seguro que desea eliminar este registro? Esta acción no se puede deshacer.')) {
+                    $.ajax({
+                        url: '@Url.Page(null, "EliminarCondicion")',
+                        type: "POST",
+                        data: $.param({ id: id }),
+                        contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+                        success: function (response) {
+                            if (response.success) {
+                                condicionesTabla.ajax.reload();
+                            } else {
+                                alert('Error: ' + (response.message || 'No se pudo eliminar.'));
+                            }
+                        }
+                    });
+                }
+            });
+
+            $('#condicionesGrid').on('click', '.btn-restaurar', function () {
+                const id = $(this).data('id');
+                if (confirm('¿Seguro que desea restaurar este registro?')) {
+                    $.ajax({
+                        url: '@Url.Page(null, "RestaurarCondicion")',
+                        type: "POST",
+                        data: $.param({ id: id }),
+                        contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+                        success: function (response) {
+                            if (response.success) {
+                                condicionesTabla.ajax.reload();
+                            } else {
+                                alert('Error: ' + (response.message || 'No se pudo restaurar.'));
+                            }
+                        }
+                    });
+                }
+            });
+
+        });
+    </script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css">
+}

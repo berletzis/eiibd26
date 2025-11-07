@@ -10,7 +10,8 @@ namespace eiibd26.Models
     public int id { get; set; }
     public int? idSintoma { get; set; }
     public Guid idUsuario { get; set; }
-    public DateTime fechaEliminado { get; set; }
+        public DateTime fechaInicio { get; set; }
+        public DateTime? fechaEliminado { get; set; }
     public DateTime fechaModificado { get; set; }
     public DateTime fechaCreado { get; set; }
     public bool Eliminado { get; set; }
