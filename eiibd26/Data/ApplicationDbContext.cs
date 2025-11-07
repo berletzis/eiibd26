@@ -23,6 +23,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<SintomaCondicionUsuario> SintomaCondicionUsuario { get; set; }
     public DbSet<ZonaHoraria> ZonaHoraria { get; set; }
     public DbSet<Paises> Paises { get; set; }
+    public DbSet<EstadoAnimoUsuario> EstadoAnimoUsuario { get; set; }
 
     // ¡Agrega el nuevo DbSet!
     public DbSet<TrackingSintomaUsuario> TrackingSintomaUsuario { get; set; }
