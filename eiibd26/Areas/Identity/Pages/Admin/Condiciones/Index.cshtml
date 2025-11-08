@@ -1,12 +1,164 @@
 ﻿@page
 @model eiibd26.Areas.Identity.Pages.Admin.Condiciones.IndexModel
-@using Microsoft.AspNetCore.Authorization
-@* @attribute [Authorize(Roles = "Administrador")] *@
 
 @section Styles {
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.min.css">
     <style>
+        .block-title-admin-x {
+            margin-bottom: 0;
+        }
+
+            .block-title-admin-x .fs-4 {
+                font-weight: 600;
+                color: #243f63;
+                letter-spacing: -0.2px;
+            }
+
+            .block-title-admin-x .text-muted {
+                font-size: 1.05em;
+            }
+
+        .block-admin-uniform {
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 2px 8px rgba(40,60,120,0.07);
+            padding: 30px 32px 18px 32px;
+            margin: 0 auto 36px auto;
+            border: 1px solid #dce3ee;
+            max-width: 980px;
+        }
+
+        .table-centered-admin {
+            max-width: 980px;
+            margin: 0 auto 36px auto;
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 2px 8px rgba(40,60,120,0.04);
+            border: 1px solid #dce3ee;
+            padding: 26px 32px 14px 32px;
+        }
+
+        .dt-controls-flex {
+            max-width: 980px;
+            margin: 0 auto 8px auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5em;
+            flex-wrap: wrap;
+        }
+
+        .dt-controls-left {
+            display: flex;
+            align-items: center;
+            gap: 1.5em;
+            flex-wrap: wrap;
+        }
+
+        .dt-controls-right {
+            display: flex;
+            align-items: center;
+            gap: 1.5em;
+            flex-wrap: wrap;
+        }
+
+        .form-switch,
+        #gridLengthWrapper,
+        #gridSearchWrapper {
+            margin-bottom: 0 !important;
+        }
+
+            #gridLengthWrapper label {
+                margin-right: .5em;
+            }
+        /* Selector cantidad: TODO compacto, 1 línea! */
+        .dataTables_length {
+            display: inline-flex !important;
+            align-items: center !important;
+            vertical-align: middle !important;
+            gap: 11px;
+            margin-bottom: 0 !important;
+            white-space: nowrap;
+        }
+
+            .dataTables_length label {
+                display: flex !important;
+                align-items: center !important;
+                gap: 0.25em;
+                margin-bottom: 0 !important;
+                white-space: nowrap;
+            }
+
+                .dataTables_length label > select {
+                    margin: 0 4px;
+                    min-width: 52px;
+                }
+
+                .dataTables_length label > span,
+                .dataTables_length label > select,
+                .dataTables_length label > input {
+                    display: inline-block !important;
+                    vertical-align: middle !important;
+                }
+
+            .dataTables_length label {
+                white-space: nowrap;
+            }
+                /* Forzar inline todo el label y los hijos */
+                .dataTables_length label select,
+                .dataTables_length label {
+                    margin-bottom: 0 !important;
+                }
+        /* Buscador y mostrar eliminados también en línea, compactos */
+        .dataTables_filter,
+        .form-check.form-switch {
+            display: inline-flex !important;
+            align-items: center !important;
+            vertical-align: middle !important;
+            margin-bottom: 0 !important;
+        }
+
+            .dataTables_filter input {
+                width: 200px;
+                border-radius: 5px;
+                border: 1px solid #dce3ee;
+                padding: 0.3em 0.65em;
+                background: #f8fafd;
+                margin-left: 0.4em;
+            }
+
+        .btn-action-grid {
+            background: #f6f6f6 !important;
+            color: #222 !important;
+            border: 1px solid #e2e2e2 !important;
+            font-weight: 500;
+            margin-right: 0.22em;
+        }
+
+            .btn-action-grid i {
+                font-size: 1.08em;
+                vertical-align: middle;
+            }
+
+        .btn-action-edit i {
+            color: #ffbe17 !important;
+        }
+
+        .btn-action-delete i {
+            color: #c92a2a !important;
+        }
+
+        .badge-grid-gray {
+            background: #ededed !important;
+            color: #191919 !important;
+            font-weight: 700;
+            font-size: .95em;
+            border-radius: 6px;
+            border: 1px solid #dddddd;
+            padding: 4px 11px;
+        }
+
         .cond-hijo {
             padding-left: 2em;
             color: #555;
@@ -16,91 +168,108 @@
             font-weight: bold;
         }
 
-        .form-switch {
-            padding-left: 2.5em;
-        }
-
-        .switch-label {
-            font-weight: normal;
-            margin-left: 0.5em;
-            margin-right: 2em;
-        }
-
         .modal-header .btn-close {
             position: absolute;
-            right: 1rem;
-            top: 1rem;
+            right: 1.1rem;
+            top: 1.1rem;
         }
-        /* Estiliza el contenedor del grid/table para centrarlo y ajustarle ancho estándar */
-        .table-container-admin {
-            max-width: 980px;
-            margin: 0 auto; /* Centrado horizontal */
+
+        .dataTables_paginate {
+            padding: 0.55em 0.25em;
+            font-size: 1em;
+            display: flex;
+            justify-content: flex-end;
         }
     </style>
 }
 
-<h2>Condiciones</h2>
-<div class="mb-2 table-container-admin">
-    <div class="form-check form-switch d-inline-block align-middle">
-        <input class="form-check-input" type="checkbox" role="switch" id="switchEliminados">
-        <label class="form-check-label switch-label" for="switchEliminados">Mostrar eliminados</label>
+<div class="container px-0 mt-4">
+    <!-- Bloque Título estandarizado -->
+    <div class="block-admin-uniform mb-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center block-title-admin-x">
+            <div>
+                <div class="mb-2 fs-4">
+                    <i class="bi bi-hospital me-2" style="font-size:1.4em;color:#3196fa;vertical-align:middle"></i>
+                    Gestión de condiciones médicas
+                </div>
+                <div class="text-muted mb-2">
+                    Administre, edite y relacione todas las condiciones médicas del sistema.
+                </div>
+            </div>
+        </div>
     </div>
-</div>
-<div class="table-container-admin">
-    <table id="condicionesGrid" class="table table-bordered">
-        <thead>
-            <tr>
-                <th>Nombre</th>
-                <th>Tipo</th>
-                <th>ID Padre</th>
-                <th>Idioma</th>
-                <th>Eliminado</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
-    </table>
-</div>
 
-<!-- Modal Editar -->
-<div class="modal fade" id="modalEditar" tabindex="-1" aria-labelledby="modalEditarLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <form id="formEditar" class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalEditarLabel">Editar Condición</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+    <!-- Bloque de controles en una sola linea (select izquierda, buscador y mostrar eliminados derecha) -->
+    <div class="dt-controls-flex">
+        <div class="dt-controls-left">
+            <div id="gridLengthWrapper"></div>
+        </div>
+        <div class="dt-controls-right">
+            <div class="form-check form-switch d-inline-block align-middle">
+                <input class="form-check-input" type="checkbox" role="switch" id="switchEliminados">
+                <label class="form-check-label" for="switchEliminados">Mostrar eliminados</label>
             </div>
-            <div class="modal-body">
-                <input type="hidden" name="id" id="edit_id">
-                <div class="mb-3">
-                    <label for="edit_nombre" class="form-label">Nombre</label>
-                    <input type="text" class="form-control" id="edit_nombre" name="nombre" required>
+            <div id="gridSearchWrapper"></div>
+        </div>
+    </div>
+
+    <!-- Bloque Grid centrado -->
+    <div class="table-centered-admin">
+        <table id="condicionesGrid" class="table table-bordered table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Nombre</th>
+                    <th>Tipo</th>
+                    <th>ID Padre</th>
+                    <th>Idioma</th>
+                    <th>Eliminado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+        </table>
+    </div>
+
+    <!-- Modal Editar -->
+    <div class="modal fade" id="modalEditar" tabindex="-1" aria-labelledby="modalEditarLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <form id="formEditar" class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalEditarLabel">Editar Condición</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
-                <div class="mb-3">
-                    <label for="edit_idPadre" class="form-label">ID Padre (dejar vacío si es padre)</label>
-                    <input type="number" class="form-control" id="edit_idPadre" name="idPadre">
+                <div class="modal-body">
+                    <input type="hidden" name="id" id="edit_id">
+                    <div class="mb-3">
+                        <label for="edit_nombre" class="form-label">Nombre</label>
+                        <input type="text" class="form-control" id="edit_nombre" name="nombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_idPadre" class="form-label">ID Padre (dejar vacío si es padre)</label>
+                        <input type="number" class="form-control" id="edit_idPadre" name="idPadre">
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_idIdioma" class="form-label">ID Idioma</label>
+                        <input type="number" class="form-control" id="edit_idIdioma" name="idIdioma" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_icono" class="form-label">Ícono</label>
+                        <input type="text" class="form-control" id="edit_icono" name="icono">
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_eliminado" class="form-label">¿Eliminado?</label>
+                        <select class="form-select" id="edit_eliminado" name="eliminado">
+                            <option value="false">No</option>
+                            <option value="true">Sí</option>
+                        </select>
+                    </div>
+                    <div class="alert alert-success d-none" id="msgEditSuccess">¡Edición realizada correctamente!</div>
                 </div>
-                <div class="mb-3">
-                    <label for="edit_idIdioma" class="form-label">ID Idioma</label>
-                    <input type="number" class="form-control" id="edit_idIdioma" name="idIdioma" required>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Aceptar cambios</button>
                 </div>
-                <div class="mb-3">
-                    <label for="edit_icono" class="form-label">Ícono</label>
-                    <input type="text" class="form-control" id="edit_icono" name="icono">
-                </div>
-                <div class="mb-3">
-                    <label for="edit_eliminado" class="form-label">¿Eliminado?</label>
-                    <select class="form-select" id="edit_eliminado" name="eliminado">
-                        <option value="false">No</option>
-                        <option value="true">Sí</option>
-                    </select>
-                </div>
-                <div class="alert alert-success d-none" id="msgEditSuccess">¡Edición realizada correctamente!</div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary">Aceptar cambios</button>
-            </div>
-        </form>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -116,7 +285,6 @@
     <script>
         let condicionesTabla;
         let hijosPorPadre = {};
-
         function actualizarDiccionarioHijos(data) {
             hijosPorPadre = {};
             data.forEach(item => {
@@ -133,6 +301,7 @@
             condicionesTabla = $('#condicionesGrid').DataTable({
                 processing: true,
                 serverSide: true,
+                dom: 'lfrtip',
                 ajax: {
                     url: '@Url.Page(null, "GridData")',
                     type: 'GET',
@@ -160,8 +329,8 @@
                         orderable: false,
                         render: function(data) {
                             return data
-                                ? `<span class="badge bg-success">Padre</span>`
-                                : `<span class="badge bg-secondary">Hijo</span>`;
+                                ? `<span class="badge badge-grid-gray">Padre</span>`
+                                : `<span class="badge badge-grid-gray">Hijo</span>`;
                         }
                     },
                     { data: 'idPadre', orderable: false, defaultContent: '' },
@@ -170,26 +339,26 @@
                         data: 'eliminado',
                         orderable: false,
                         render: function(data) {
-                            return data
-                                ? `<span class="badge bg-danger">Sí</span>`
-                                : `<span class="badge bg-success">No</span>`;
+                            let texto = data ? "Sí" : "No";
+                            return `<span class="badge badge-grid-gray">${texto}</span>`;
                         }
                     },
                     {
                         data: null,
                         orderable: false,
                         render: function(data, type, row) {
-                            let editBtn = `<button class='btn btn-sm btn-warning btn-editar' title='Editar' data-id='${row.id}'><i class="bi bi-pencil-square"></i> Editar</button>`;
+                            let editBtn = `<button class='btn btn-sm btn-action-grid btn-action-edit btn-editar' title='Editar' data-id='${row.id}'><i class="bi bi-pencil-square"></i> Editar</button>`;
                             let actionBtn = "";
                             const esHijo = !row.esPadre && row.idPadre;
                             const tieneHijos = hijosPorPadre[row.id] && hijosPorPadre[row.id].length > 0;
+                            let eliminarBtn = `<button class='btn btn-sm btn-action-grid btn-action-delete btn-borrar' title='Eliminar' data-id='${row.id}'><i class="bi bi-trash"></i> Eliminar</button>`;
                             if (row.eliminado) {
                                 if (esHijo && !tieneHijos) {
-                                    actionBtn = ` <button class='btn btn-sm btn-success btn-restaurar' title='Restaurar' data-id='${row.id}'><i class="bi bi-arrow-counterclockwise"></i> Restaurar</button>`;
+                                    actionBtn = ` <button class='btn btn-sm btn-action-grid btn-action-edit btn-restaurar' title='Restaurar' data-id='${row.id}'><i class="bi bi-arrow-counterclockwise" style="color:#3196fa"></i> Restaurar</button>`;
                                 }
                             } else {
                                 if (esHijo && !tieneHijos) {
-                                    actionBtn = ` <button class='btn btn-sm btn-danger btn-borrar' title='Eliminar' data-id='${row.id}'><i class="bi bi-trash"></i> Eliminar</button>`;
+                                    actionBtn = eliminarBtn;
                                 }
                             }
                             return editBtn + actionBtn;
@@ -198,7 +367,22 @@
                 ],
                 order: [],
                 language: {
-                    emptyTable: "No hay condiciones registradas."
+                    emptyTable: "No hay condiciones registradas.",
+                    search: "Buscar:",
+                    lengthMenu: "Mostrar _MENU_ registros"
+                },
+                initComplete: function(settings, json) {
+                    // Select a la izquierda, switch y buscador alineados derecha, todo en 1 sola línea.
+                    if ($('#condicionesGrid_length').length) {
+                        const $length = $('#condicionesGrid_length');
+                        $length.css({display:'inline-flex','align-items':'center',margin:'0', 'white-space':'nowrap'});
+                        $("#gridLengthWrapper").empty().append($length.children());
+                    }
+                    if ($('#condicionesGrid_filter').length) {
+                        const $filter = $('#condicionesGrid_filter');
+                        $filter.css({display:'inline-flex','align-items':'center',margin:'0', 'white-space':'nowrap'});
+                        $("#gridSearchWrapper").empty().append($filter.children());
+                    }
                 }
             });
 
@@ -206,7 +390,6 @@
                 condicionesTabla.ajax.reload();
             });
 
-            // Evento Editar
             $('#condicionesGrid').on('click', '.btn-editar', function () {
                 const id = $(this).data('id');
                 $.get('@Url.Page(null, "GetCondicion")', { id: id }, function(data) {
@@ -221,32 +404,27 @@
                 })
             });
 
-            // Guardar edición
-        $('#formEditar').on('submit', function (e) {
-            e.preventDefault();
-            var serialized = $(this).serialize();
-            var serializedArray = $(this).serializeArray();
-            console.log("Form data (serialized):", serialized);
-            console.log("Form data (as array):", serializedArray);
-
-            $.ajax({
-                url: '@Url.Page(null, "EditarCondicion")',
-                type: "POST",
-                data: serialized,
-                contentType: "application/x-www-form-urlencoded; charset=UTF-8",
-                success: function (response) {
-                    if (response.success) {
-                        $('#msgEditSuccess').removeClass('d-none');
-                        condicionesTabla.ajax.reload(null, false);
-                        setTimeout(function () {
-                            $('#modalEditar').modal('hide');
-                        }, 1000);
-                    } else {
-                        alert('Error: ' + (response.message || 'No se pudo guardar.'));
+            $('#formEditar').on('submit', function (e) {
+                e.preventDefault();
+                var serialized = $(this).serialize();
+                $.ajax({
+                    url: '@Url.Page(null, "EditarCondicion")',
+                    type: "POST",
+                    data: serialized,
+                    contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+                    success: function (response) {
+                        if (response.success) {
+                            $('#msgEditSuccess').removeClass('d-none');
+                            condicionesTabla.ajax.reload(null, false);
+                            setTimeout(function () {
+                                $('#modalEditar').modal('hide');
+                            }, 1000);
+                        } else {
+                            alert('Error: ' + (response.message || 'No se pudo guardar.'));
+                        }
                     }
-                }
+                });
             });
-        });
 
             $('#condicionesGrid').on('click', '.btn-borrar', function () {
                 const id = $(this).data('id');
@@ -288,5 +466,4 @@
 
         });
     </script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css">
 }
