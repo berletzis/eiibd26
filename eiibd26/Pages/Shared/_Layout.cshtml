@@ -2,161 +2,179 @@
 <html lang="en">
 <head>
     <meta charset="utf-8" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - eiibd26</title>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/eiibd26.styles.css" asp-append-version="true" />
-    <!-- Bootstrap Icons CDN -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.min.css">
-    <style>
-        /* --------- MINIMALISTA "Mi Salud" --------- */
-        .navbar .dropdown-toggle.fw-medium {
-            font-weight: 500 !important;
-        }
-
-        .navbar .nav-link .bi-heart-pulse {
-            font-size: 1.2em;
-            vertical-align: -0.05em;
-            color: #e64980;
-        }
-
-        .navbar .dropdown-toggle .bi-heart-pulse {
-            margin-right: 0.3em;
-        }
-
-        .dropdown-menu .dropdown-item .bi {
-            font-size: 1em;
-            opacity: .7;
-        }
-
-        @@media (max-width: 991.98px) {
-            .navbar .dropdown-menu
-
-        {
-            min-width: 100% !important;
-        }
-
-        }
-    </style>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     @RenderSection("Styles", required: false)
 </head>
 <body>
     <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container">
-                <a class="navbar-brand" asp-area="" asp-page="/Index">eiibd26</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
+        <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom mb-3">
+            <div class="container-fluid">
+                <a class="navbar-brand d-flex align-items-center gap-2" href="/">
+                    <img src="~/img/logo.png" alt="eiibd26 logo" height="38" style="max-height:38px;max-width:140px;object-fit:contain;" />
+                    <span class="fw-bold">eiibd26</span>
+                </a>
+                <button class="navbar-toggler" type="button"
+                        title="Abrir menú principal" aria-label="Abrir menú principal"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#navbarNav" aria-controls="navbarNav"
+                        aria-expanded="false">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <!-- Menú principal izquierda -->
+                    <ul class="navbar-nav me-auto">
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Index">Home</a>
+                            <a class="nav-link" href="/">Inicio</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Privacy">Privacy</a>
+                            <a class="nav-link" href="/Privacy">Privacidad</a>
                         </li>
+                        @* Menú Admin *@
                         @if (User.Identity?.IsAuthenticated == true && User.IsInRole("Administrador"))
                         {
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle text-dark" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <a class="nav-link dropdown-toggle text-dark" href="#" id="adminDropdown" role="button"
+                                   title="Opciones de administración" aria-label="Opciones de administración"
+                                   data-bs-toggle="dropdown" aria-expanded="false">
                                     Admin
                                 </a>
                                 <ul class="dropdown-menu" aria-labelledby="adminDropdown">
-                                    <li>
-                                        <a class="dropdown-item" asp-area="Identity" asp-page="/Admin/Usuarios/Index">Usuarios</a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" asp-area="Identity" asp-page="/Admin/Condiciones/Index">Condiciones</a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" asp-area="Identity" asp-page="/Admin/Sintomas/Index">Síntomas</a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" asp-area="Identity" asp-page="/Admin/Tratamientos/Index">Tratamientos</a>
-                                    </li>
+                                    <li><a class="dropdown-item" href="/Identity/Admin/Usuarios/Index" title="Usuarios">Usuarios</a></li>
+                                    <li><a class="dropdown-item" href="/Identity/Admin/Condiciones/Index" title="Condiciones">Condiciones</a></li>
+                                    <li><a class="dropdown-item" href="/Identity/Admin/Sintomas/Index" title="Síntomas">Síntomas</a></li>
+                                    <li><a class="dropdown-item" href="/Identity/Admin/Tratamientos/Index" title="Tratamientos">Tratamientos</a></li>
                                 </ul>
                             </li>
                         }
-                        @* MINIMALISTA: Mi Salud solo paciente logueado *@
+                        @* Menú Salud paciente *@
                         @if (User.Identity?.IsAuthenticated == true && User.IsInRole("Paciente"))
                         {
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle d-flex align-items-center gap-2 fw-medium"
                                    href="#" id="pacienteDropdown"
-                                   role="button" data-bs-toggle="dropdown" aria-expanded="false"
-                                   title="Gestión de salud personal">
-                                    <i class="bi bi-heart-pulse"></i>
-                                    Mi Salud
+                                   role="button" title="Gestión de salud personal" aria-label="Gestión de salud personal"
+                                   data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-heart-pulse" aria-hidden="true"></i>
+                                    <span>Mi Salud</span>
                                 </a>
                                 <ul class="dropdown-menu" aria-labelledby="pacienteDropdown">
                                     <li>
-                                        <a class="dropdown-item" asp-area="Identity" asp-page="/Usuario/UsuarioEstadoAnimo">
-                                            <i class="bi bi-person-vcard me-1 text-body-secondary"></i> Mi Mood
+                                        <a class="dropdown-item" href="/Identity/Usuario/UsuarioEstadoAnimo" title="Mi Mood">
+                                            <i class="bi bi-person-vcard me-1 text-body-secondary" aria-hidden="true"></i>
+                                            <span>Mi Mood</span>
                                         </a>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item" asp-area="Identity" asp-page="/Usuario/UsuarioCondiciones">
-                                            <i class="bi bi-person-vcard me-1 text-body-secondary"></i> Mis condiciones
+                                        <a class="dropdown-item" href="/Identity/Usuario/UsuarioCondiciones" title="Mis condiciones">
+                                            <i class="bi bi-person-vcard me-1 text-body-secondary" aria-hidden="true"></i>
+                                            <span>Mis condiciones</span>
                                         </a>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item" asp-area="Identity" asp-page="/Usuario/UsuarioSintomas">
-                                            <i class="bi bi-emoji-frown me-1 text-body-secondary"></i> Mis síntomas
+                                        <a class="dropdown-item" href="/Identity/Usuario/UsuarioSintomas" title="Mis síntomas">
+                                            <i class="bi bi-emoji-frown me-1 text-body-secondary" aria-hidden="true"></i>
+                                            <span>Mis síntomas</span>
                                         </a>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item" asp-area="Identity" asp-page="/Usuario/UsuarioSintomasSeguimiento">
-                                            <i class="bi bi-emoji-frown me-1 text-body-secondary"></i> Seguimiento de síntomas
+                                        <a class="dropdown-item" href="/Identity/Usuario/UsuarioSintomasSeguimiento" title="Seguimiento de síntomas">
+                                            <i class="bi bi-emoji-frown me-1 text-body-secondary" aria-hidden="true"></i>
+                                            <span>Seguimiento de síntomas</span>
                                         </a>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item" asp-area="Identity" asp-page="/Usuario/UsuarioTratamientos">
-                                            <i class="bi bi-capsule-pill me-1 text-body-secondary"></i> Mis tratamientos
+                                        <a class="dropdown-item" href="/Identity/Usuario/UsuarioTratamientos" title="Mis tratamientos">
+                                            <i class="bi bi-capsule-pill me-1 text-body-secondary" aria-hidden="true"></i>
+                                            <span>Mis tratamientos</span>
                                         </a>
                                     </li>
                                 </ul>
                             </li>
                         }
                     </ul>
-                    <partial name="_LoginPartial" />
+                    <!-- Menú de usuario derecha -->
+                    <ul class="navbar-nav ms-auto">
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button"
+                                   data-bs-toggle="dropdown" aria-expanded="false" title="Mi cuenta" aria-label="Mi cuenta">
+                                    <i class="bi bi-person-circle me-2"></i>
+                                    <span>@User.Identity.Name</span>
+                                </a>
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                                    <li>
+                                        <a class="dropdown-item" href="/Identity/Account/Manage">
+                                            <i class="bi bi-person-card"></i> Perfil
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="/Identity/Account/Manage/Email">
+                                            <i class="bi bi-envelope"></i> Email
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="/Identity/Account/Manage/ChangePassword">
+                                            <i class="bi bi-key"></i> Cambiar contraseña
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="/Identity/Account/Manage/ExternalLogins">
+                                            <i class="bi bi-box-arrow-in-right"></i> Logins externos
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider" /></li>
+                                    <li>
+                                        <form method="post" asp-area="Identity" asp-page="/Account/Logout" class="d-inline">
+                                            <button type="submit" class="dropdown-item">
+                                                <i class="bi bi-box-arrow-right"></i> Cerrar sesión
+                                            </button>
+                                        </form>
+                                    </li>
+                                </ul>
+                            </li>
+                        }
+                        else
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link" href="/Identity/Account/Login">
+                                    <i class="bi bi-box-arrow-in-right"></i> Iniciar sesión
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/Identity/Account/Register">
+                                    <i class="bi bi-person-plus"></i> Registro
+                                </a>
+                            </li>
+                        }
+                    </ul>
                 </div>
             </div>
         </nav>
     </header>
-    <div class="container">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
+    <div class="container-fluid">
+        <div class="row flex-nowrap">
+            <div class="col-auto p-0">
+                @await Html.PartialAsync("Shared/_SidebarMenu")
+            </div>
+            <div class="col ps-3">
+                <main role="main" class="pb-3">
+                    @RenderBody()
+                </main>
+            </div>
+        </div>
     </div>
-
-    <footer class="border-top footer text-muted">
+    <footer class="border-top footer text-muted mt-3">
         <div class="container">
-            &copy; 2025 - eiibd26 - <a asp-area="" asp-page="/Privacy">Privacy</a>
+            &copy; 2025 - eiibd26 - <a href="/Privacy">Privacy</a>
         </div>
     </footer>
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     @await RenderSectionAsync("Scripts", required: false)
-
-    <script>
-        document.querySelectorAll('.dropdown-menu .dropdown-item').forEach(function (item) {
-            item.addEventListener('click', function () {
-                var adminDropdown = document.getElementById('adminDropdown');
-                if (adminDropdown) {
-                    var dropdown = bootstrap.Dropdown.getInstance(adminDropdown);
-                    if (dropdown) dropdown.hide();
-                }
-                var pacienteDropdown = document.getElementById('pacienteDropdown');
-                if (pacienteDropdown) {
-                    var dropdown2 = bootstrap.Dropdown.getInstance(pacienteDropdown);
-                    if (dropdown2) dropdown2.hide();
-                }
-            });
-        });
-    </script>
 </body>
 </html>

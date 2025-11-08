@@ -16,7 +16,7 @@ namespace eiibd26.Models
         [StringLength(10)]
         public string EstadoMood { get; set; } // MuyBien, Bien, Neutral, Mal, MuyMal
 
-        public string Texto { get; set; }
+        public string? Texto { get; set; }
 
         [Required]
         public DateTime FechaRegistro { get; set; }

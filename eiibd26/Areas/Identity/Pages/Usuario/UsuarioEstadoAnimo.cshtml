@@ -3,31 +3,62 @@
 @{
     ViewData["Title"] = "Estado de Ánimo";
     Layout = "_Layout";
-    var moodColors = new Dictionary<string, string> { { "MuyBien", "success" }, { "Bien", "primary" }, { "Neutral", "secondary" }, { "Mal", "warning" }, { "MuyMal", "danger" } };
-    var moodLabels = new Dictionary<string, string> { { "MuyBien", "Muy bien" }, { "Bien", "Bien" }, { "Neutral", "Neutral" }, { "Mal", "Mal" }, { "MuyMal", "Muy mal" } };
+    var moodColors = new Dictionary<string, string> {
+        { "MuyBien", "success" }, { "Bien", "primary" }, { "Neutral", "secondary" }, { "Mal", "warning" }, { "MuyMal", "danger" }
+    };
+    var moodLabels = new Dictionary<string, string> {
+        { "MuyBien", "Muy bien" }, { "Bien", "Bien" }, { "Neutral", "Neutral" }, { "Mal", "Mal" }, { "MuyMal", "Muy mal" }
+    };
+    var condicionesUsuario = Model.CondicionesUsuario ?? new List<eiibd26.Areas.Identity.Pages.Usuario.CondicionUsuarioViewModel>();
 }
 <style>
-    #mooodCards .card > .me-4 {
+    #moodCards .card > .me-4 {
         border-right: 1px solid #eee;
         padding-right: 1rem;
         min-width: 142px;
     }
+
+    .mood-card-group {
+        display: flex;
+        gap: 1em;
+        flex-wrap: wrap;
+        margin-bottom: 1.2em;
+    }
+
+    .mood-card-item {
+        flex: 1 0 22%;
+        min-width: 220px;
+        max-width: 100%;
+    }
+
+    .mood-count-legend {
+        display: inline-block;
+        font-size: 1.1em;
+        color: #333;
+        margin-left: 1.5em;
+        vertical-align: middle;
+    }
+
+    .alert-mood-added {
+        display: none;
+        margin-bottom: 15px;
+    }
 </style>
 <div class="container mt-4">
-    <!-- 1: Bloque superior -->
     <div class="card mb-3 p-4">
         <div class="d-flex flex-wrap justify-content-between align-items-center">
             <div>
                 <div class="mb-2 fs-4">¡Bienvenido! ¿Cómo te sientes hoy?</div>
                 <div class="text-muted mb-2">Registra tu estado de ánimo diario y reflexiones.</div>
             </div>
-            <button class="btn btn-primary btn-lg" id="btnAbrirMood">¿Cuál es tu Mood hoy?</button>
+            <button class="btn btn-primary btn-lg" id="btnAbrirMood" type="button">¿Cuál es tu Mood hoy?</button>
         </div>
     </div>
-    <!-- 2: Gráfica -->
     <div class="card mb-3 p-4">
-        <h5 class="mb-3">Tus moods recientes</h5>
-        <canvas id="moodChart" height="110"></canvas>
+        <h5 class="mb-3">Tu gráfica de estados de ánimo</h5>
+        <div style="height:160px;position:relative">
+            <canvas id="moodChart" height="140"></canvas>
+        </div>
         <div class="d-flex flex-wrap gap-2 mt-2">
             @foreach (var k in moodColors)
             {
@@ -35,298 +66,293 @@
             }
         </div>
     </div>
-    <!-- 3: Cards histórico -->
-    <!-- ... -->
-    <div id="moodCards" class="d-flex flex-column gap-3">
-        @foreach (var item in Model.UltimosEstados)
-        {
-            var mood = item.EstadoMood ?? "";
-            var label = moodLabels.ContainsKey(mood) ? moodLabels[mood] : mood;
-            var color = moodColors.ContainsKey(mood) ? moodColors[mood] : "secondary";
-            var fecha = item.FechaRegistro.ToString("dd/MM/yyyy HH:mm");
-            // Relación a mostrar: Condición > Síntoma > Tratamiento
-            string relacionLabel = null, relacionValor = null;
-            if (item.CondicionUsuario != null && item.CondicionUsuario.Condicion != null)
-            {
-                relacionLabel = "Condición";
-                relacionValor = item.CondicionUsuario.Condicion.nombre;
-            }
-            else if (item.SintomaUsuario != null && item.SintomaUsuario.Sintoma != null)
-            {
-                relacionLabel = "Síntoma";
-                relacionValor = item.SintomaUsuario.Sintoma.nombre;
-            }
-            else if (item.TratamientoUsuario != null && item.TratamientoUsuario.Tratamiento != null)
-            {
-                relacionLabel = "Tratamiento";
-                relacionValor = item.TratamientoUsuario.Tratamiento.nombre;
-            }
-            <div class="card flex-row align-items-center p-3">
-                @* Celda lateral de relación *@
-                <div class="me-4 text-center" style="min-width:142px;">
-                    @if (relacionLabel != null && relacionValor != null)
-                    {
-                        <span class="badge bg-info text-dark mb-2">@relacionLabel</span>
-                
-                        <br />
-                        <span class="fw-semibold">@relacionValor</span>
-                    }
-                </div>
-                <div class="me-3">
-                    <span class="badge bg-@color">@label</span>
-                </div>
-                <div class="flex-grow-1">
-                    <small class="text-muted">@fecha</small>
-                    <div>@item.Texto</div>
-                </div>
-            </div>
-        }
+    <div class="d-flex justify-content-center align-items-center mb-3" id="moodFilterBlock">
+        <div>
+            <button type="button" class="btn btn-outline-secondary mx-1 mood-filter-btn active" data-filter="1m">Último Mes</button>
+            <button type="button" class="btn btn-outline-secondary mx-1 mood-filter-btn" data-filter="3m">3 Meses</button>
+            <button type="button" class="btn btn-outline-secondary mx-1 mood-filter-btn" data-filter="6m">6 Meses</button>
+            <button type="button" class="btn btn-outline-secondary mx-1 mood-filter-btn" data-filter="12m">Todo el Año</button>
+        </div>
+        <span id="moodCountLegend" class="mood-count-legend"></span>
     </div>
-</div>
-
-<!-- Modal Mood -->
-<div class="modal fade" id="modalMood" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <form class="modal-content" id="formModalMood" autocomplete="off">
-            <div class="modal-header">
-                <h5 class="modal-title">¿Cuál es tu Mood hoy?</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div id="moodCards"></div>
+    <!-- Modal: Registrar Mood -->
+    <div class="modal fade" tabindex="-1" id="moodModal">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="moodForm">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Registrar Mood</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="alertMoodAdded" class="alert alert-success alert-mood-added" style="display:none"></div>
+                        <div class="mb-3">
+                            <label class="form-label">Selecciona tu estado de ánimo:</label>
+                            <div id="moodOptionsBtns" class="d-flex gap-2"></div>
+                            <input type="hidden" id="moodSelected" name="estadoMood">
+                        </div>
+                        <div class="mb-3">
+                            <label for="moodText" class="form-label">Reflexión breve (opcional):</label>
+                            <textarea id="moodText" name="texto" class="form-control" maxlength="100" rows="2"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Relacionar a condición:</label>
+                            <select id="moodCondicionSelect" class="form-select" name="condicionUsuarioId">
+                                <option value="">Sin relación</option>
+                                @foreach (var cond in condicionesUsuario)
+                                {
+                                    <option value="@cond.id">@cond.nombre</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="btnSaveMood" type="submit" class="btn btn-success">Agregar</button>
+                    </div>
+                </form>
             </div>
-            <div class="modal-body">
-                <div>Selecciona tu estado:</div>
-                <div id="opcionesMood" class="d-flex gap-2 my-2"></div>
-                <div>
-                    <label class="form-label small">Asociar opcional a:</label>
-                    <select class="form-select mb-2" id="moodRelacion" name="moodRelacion">
-                        <option value="" selected>Ninguna relación</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="form-label small mb-1">Comentario/reflexión</label>
-                    <textarea class="form-control" id="modalMoodTexto" rows="3"></textarea>
-                </div>
-                <div id="leyendaInfoMood" class="alert alert-success d-none py-2 mt-3">
-                    <i class="bi bi-check-circle-fill me-1"></i> Información guardada
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="btnCancelarMood">Cancelar</button>
-                <button type="submit" class="btn btn-success" id="btnPublicarMood" disabled>Publicar</button>
-            </div>
-        </form>
+        </div>
     </div>
 </div>
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         const moodOpts = [
             { val: "MuyBien", label: "Muy bien", color: "success" },
             { val: "Bien", label: "Bien", color: "primary" },
             { val: "Neutral", label: "Neutral", color: "secondary" },
             { val: "Mal", label: "Mal", color: "warning" },
-            { val: "MuyMal", label: "Muy mal", color: "danger" },
+            { val: "MuyMal", label: "Muy mal", color: "danger" }
         ];
-        let moodState = "";
-        let moodChart;
+        let allMoodsData = [], lastFilteredCount = 0, windowChart = null;
 
-        // Opciones y bindings
-        document.addEventListener("DOMContentLoaded", async function() {
-            const moodOpciones = document.getElementById("opcionesMood");
-            moodOpciones.innerHTML = "";
-            moodOpts.forEach(o=>{
-                let btn = document.createElement("button");
-                btn.type="button";
-                btn.className = `btn btn-outline-${o.color} mood-btn`;
-                btn.innerText = o.label;
-                btn.dataset.valor = o.val;
-                btn.onclick = function(){
-                    moodState = o.val;
-                    document.querySelectorAll("#opcionesMood .mood-btn").forEach(bb=>bb.classList.remove("active","btn-primary","btn-success","btn-secondary","btn-warning","btn-danger"));
-                    btn.classList.add("active",`btn-${o.color}`);
-                    document.getElementById("btnPublicarMood").disabled = false;
-                };
-                moodOpciones.appendChild(btn);
-            });
-
-            // Abrir modal
-            document.getElementById("btnAbrirMood").onclick = async function() {
-                moodState = "";
-                document.getElementById("modalMoodTexto").value = "";
-                document.getElementById("btnPublicarMood").disabled = true;
-                document.querySelectorAll("#opcionesMood .mood-btn").forEach(bb=>bb.classList.remove("active"));
-                document.getElementById("leyendaInfoMood").classList.add("d-none");
-                // Llenar select relaciones AJAX
-                let select = document.getElementById("moodRelacion");
-                select.innerHTML = `<option value="" selected>Ninguna relación</option>`;
-                let rel = await fetch("/api/Usuario/RelacionesMoodOptions");
-                if(rel.ok) {
-                    let opts = await rel.json();
-                    opts.sintomas.forEach(s=> select.innerHTML += `<option value="Sintoma-${s.id}">Síntoma: ${s.nombre}</option>`);
-                    opts.condiciones.forEach(c=> select.innerHTML += `<option value="Condicion-${c.id}">Condición: ${c.nombre}</option>`);
-                    opts.tratamientos.forEach(t=> select.innerHTML += `<option value="Tratamiento-${t.id}">Tratamiento: ${t.nombre}</option>`);
-                }
-                var modal = new bootstrap.Modal(document.getElementById('modalMood'));
-                modal.show();
-            };
-
-            document.getElementById("btnCancelarMood").onclick = function(){
-                moodState="";
-            };
-
-            // Publicar
-            document.getElementById("formModalMood").onsubmit = async function(ev){
-                ev.preventDefault();
-                if (!moodState) return;
-                let texto = document.getElementById("modalMoodTexto").value;
-                // relación sintoma/condicion/tratamiento
-                let tipo = "", id=null;
-                let relVal = document.getElementById("moodRelacion").value;
-                if(relVal) {
-                    let toks = relVal.split('-');
-                    if(toks.length === 2) { tipo = toks[0]; id = parseInt(toks[1]||"0"); }
-                }
-                let formData = new FormData();
-                formData.append("mood", moodState);
-                formData.append("texto", texto);
-                if(tipo=="Sintoma") formData.append("sintomaUsuarioId", id);
-                if(tipo=="Condicion") formData.append("condicionUsuarioId", id);
-                if(tipo=="Tratamiento") formData.append("tratamientoUsuarioId", id);
-                let resp = await fetch("/api/EstadoAnimoUsuario/nuevo", { method:"POST", body:formData });
-                if(resp.ok) {
-                    let obj = await resp.json();
-                    document.getElementById("leyendaInfoMood").classList.remove('d-none');
-                    setTimeout(()=>{
-                        bootstrap.Modal.getInstance(document.getElementById('modalMood')).hide();
-                        agregarMoodCard(obj);
-                        addMoodToChart(obj);
-                    },900);
-                } else {
-                    alert("No se pudo guardar.");
-                }
-            };
-
-            // Gráfica y carga histórica
-            await cargarHistorialEstadoAnimo();
-        });
-
-        function badgeFor(val) {
-            let m = moodOpts.find(o=>o.val===val);
-            return `<span class="badge bg-${m?.color||'secondary'}">${m?.label||val}</span>`;
+        function isAllowedMood(m){
+            return typeof m === "string" && ["MuyBien","Bien","Neutral","Mal","MuyMal"].includes(m.trim());
         }
-        function formatFecha(fecha) {
+        function moodNumFromStr(str){
+            return {"MuyBien":5,"Bien":4,"Neutral":3,"Mal":2,"MuyMal":1}[str.trim()]??null;
+        }
+        function moodColorFromStr(str){
+            return {"MuyBien":"#28a745","Bien":"#0d6efd","Neutral":"#6c757d","Mal":"#ffc107","MuyMal":"#dc3545"}[str.trim()]??"#CCC";
+        }
+        function moodLabelFromNum(n){
+            return {5:"Muy bien",4:"Bien",3:"Neutral",2:"Mal",1:"Muy mal"}[n]||"";
+        }
+        function formatFecha(fecha){
             let d = new Date(fecha);
-            return d.toLocaleDateString('es-MX')+" "+d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+            return isNaN(d.getTime()) ? fecha : d.toLocaleDateString('es-MX') + " " + d.toLocaleTimeString('es-MX', {hour: '2-digit', minute: '2-digit'});
         }
         function agregarMoodCard(dto){
-            let relacion = "";
-            if(dto.TipoRelacion) relacion = `<span class="badge bg-info ms-2">(${dto.TipoRelacion}: ${dto.RelacionNombre})</span>`;
-            let html = `<div class="card flex-row align-items-center p-3">
-                <div class="me-3">${badgeFor(dto.EstadoMood)}</div>
+            let mood = dto.estadoMood ?? dto.EstadoMood ?? "";
+            let label = moodOpts.find(o => o.val === mood)?.label || mood;
+            let color = moodOpts.find(o => o.val === mood)?.color || "secondary";
+            let fecha = dto.fechaRegistro ?? dto.FechaRegistro ? formatFecha(dto.fechaRegistro ?? dto.FechaRegistro) : "";
+            let reflexion = dto.texto || dto.Texto || "";
+            let relacionNombre = dto.RelacionNombre || dto.relacionNombre || null;
+            let relacionHtml = relacionNombre ? `<small class="text-muted d-block">Condición: <strong>${relacionNombre}</strong></small>` : "";
+            return `<div class="card mood-card-item flex-column align-items-start p-3 mb-2">
+                <div class="me-3"><span class="badge bg-${color}">${label}</span></div>
                 <div class="flex-grow-1">
-                    <small class="text-muted">${formatFecha(dto.FechaRegistro||new Date())}${relacion}</small>
-                    <div>${dto.Texto||""}</div>
+                    <small class="text-muted">${fecha}</small>
+                    ${relacionHtml}
+                    <div>${reflexion}</div>
                 </div>
             </div>`;
-            document.getElementById('moodCards').insertAdjacentHTML('afterbegin', html);
         }
-        function addMoodToChart(dto){
-            let chart = window.moodChartInst;
-            if (!chart) return;
-            chart.data.labels.push(dto.FechaRegistro?.substring(0,10) || "");
-            chart.data.datasets[0].data.push(dto.EstadoMood);
-            chart.data.datasets[0].backgroundColor.push(moodOpts.find(o=>o.val===dto.EstadoMood)?.color||"#CCC");
-            chart.update();
-        }
-                async function cargarHistorialEstadoAnimo() {
-            let respuesta = await fetch("/api/EstadoAnimoUsuario/historico");
-            let datos = await respuesta.json();
 
-            // Cards: usa las propiedades minúscula
-            document.getElementById("moodCards").innerHTML = "";
-            datos.forEach(function(dto){
-                let mood = dto.estadoMood ?? "";
-                let label = moodOpts.find(o=>o.val===mood)?.label || mood;
-                let color = moodOpts.find(o=>o.val===mood)?.color || "secondary";
-                let fecha = dto.fechaRegistro ? formatFecha(dto.fechaRegistro) : "";
-                let relacion = "";
-                if(dto.tipoRelacion && dto.relacionNombre){
-                    relacion = `<span class="badge bg-info ms-2">(${dto.tipoRelacion}: ${dto.relacionNombre})</span>`;
-                }
-                let html = `<div class="card flex-row align-items-center p-3">
-                    <div class="me-3"><span class="badge bg-${color}">${label}</span></div>
-                    <div class="flex-grow-1">
-                        <small class="text-muted">${fecha}${relacion}</small>
-                        <div>${dto.texto||""}</div>
-                    </div>
-                </div>`;
-                document.getElementById('moodCards').insertAdjacentHTML('beforeend', html);
+        document.addEventListener("DOMContentLoaded", async function(){
+            await cargarHistorialEstadoAnimo();
+            document.querySelectorAll('.mood-filter-btn').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    document.querySelectorAll('.mood-filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    aplicarFiltroMood(btn.dataset.filter);
+                });
             });
+            document.getElementById("btnAbrirMood").addEventListener("click", function(){
+                document.getElementById("alertMoodAdded").style.display = "none";
+                var modalEl = document.getElementById("moodModal");
+                var modaObj = bootstrap.Modal.getOrCreateInstance(modalEl);
+                modaObj.show();
+            });
+            renderMoodOptionsBtns();
+            document.getElementById("moodModal").addEventListener('hidden.bs.modal', function () {
+                // Corrige el bug de focus/aria: el foco vuelve al botón principal
+                document.getElementById("btnAbrirMood").focus();
+            });
+            document.getElementById("moodForm").addEventListener("submit", async function(e){
+                e.preventDefault();
 
-            // Para gráfica: mapea estadoMood a Número
-            const moodValues = {
-                "MuyBien": 5,
-                "Bien": 4,
-                "Neutral": 3,
-                "Mal": 2,
-                "MuyMal": 1
-            };
-            const moodLabels = {
-                5: "Muy bien",
-                4: "Bien",
-                3: "Neutral",
-                2: "Mal",
-                1: "Muy mal"
-            };
-            let labels = datos.map(x => x.fechaRegistro ? x.fechaRegistro.substring(0,10) : "");
-            let moodsNum = datos.map(x => moodValues[x.estadoMood] || 3);
-            let colors = datos.map(x => {
-                switch(x.estadoMood){
-                    case "MuyBien": return "#28a745";
-                    case "Bien": return "#0d6efd";
-                    case "Neutral": return "#6c757d";
-                    case "Mal": return "#ffc107";
-                    case "MuyMal": return "#dc3545";
-                    default: return "#CCC";
+                // Validar estado de ánimo (mood)
+                const moodSelected = document.getElementById("moodSelected").value;
+                if (!moodSelected || !["MuyBien","Bien","Neutral","Mal","MuyMal"].includes(moodSelected.trim())) {
+                    mostrarLeyendaModal("Selecciona tu estado de ánimo por favor.", true);
+                    return;
+                }
+                const moodText = document.getElementById("moodText").value || "";
+                const condicionUsuarioId = document.getElementById("moodCondicionSelect").value;
+                const formData = new FormData();
+                formData.append("mood", moodSelected);
+                formData.append("texto", moodText);
+                formData.append("condicionUsuarioId", condicionUsuarioId);
+
+                try {
+                    let resp = await fetch("/api/EstadoAnimoUsuario/nuevo", {
+                        method: "POST",
+                        body: formData
+                    });
+                    if(resp.ok){
+                        mostrarLeyendaModal("¡Estado de ánimo agregado correctamente!", false);
+                        setTimeout(()=>{
+                            bootstrap.Modal.getOrCreateInstance(document.getElementById("moodModal")).hide();
+                            document.getElementById("alertMoodAdded").style.display = "none";
+                            document.getElementById("moodForm").reset();
+                        }, 1100);
+                        await cargarHistorialEstadoAnimo();
+                    } else {
+                        mostrarLeyendaModal("Error al agregar estado de ánimo. Código: " + resp.status, true);
+                    }
+                }catch(e){
+                    mostrarLeyendaModal("Ocurrió un error de red.", true);
                 }
             });
+        });
 
-            // Destruye gráfica anterior si existe (evita overlays)
-            if(window.moodChartInst) { window.moodChartInst.destroy(); }
+        function mostrarLeyendaModal(msg, error){
+            const leyenda = document.getElementById("alertMoodAdded");
+            leyenda.textContent = msg;
+            leyenda.className = error ? "alert alert-danger alert-mood-added" : "alert alert-success alert-mood-added";
+            leyenda.style.display = "block";
+        }
 
-            let ctx = document.getElementById("moodChart");
-            window.moodChartInst = new Chart(ctx, {
-                type: 'bar',
+        function renderMoodOptionsBtns(){
+            const container = document.getElementById("moodOptionsBtns");
+            container.innerHTML = "";
+            moodOpts.forEach(o=>{
+                let btn=document.createElement("button");
+                btn.type="button";
+                btn.className=`btn btn-outline-${o.color} mood-btn-option`;
+                btn.textContent=o.label;
+                btn.onclick=function(){
+                    document.getElementById("moodSelected").value = o.val;
+                    container.querySelectorAll(".mood-btn-option").forEach(b=>b.classList.remove("active"));
+                    btn.classList.add("active");
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        async function cargarHistorialEstadoAnimo(){
+            try {
+                let respuesta = await fetch("/api/EstadoAnimoUsuario/historico");
+                let datos = await respuesta.json();
+                allMoodsData = Array.isArray(datos)
+                    ? datos.map(x => {
+                        let mood = (x.estadoMood ?? x.EstadoMood ?? "").trim();
+                        let fecha = (x.fechaRegistro ?? x.FechaRegistro ?? "").trim();
+                        return { ...x, estadoMood: mood, fechaRegistro: fecha };
+                    })
+                    : [];
+            } catch (e) { allMoodsData = []; }
+            aplicarFiltroMood("1m");
+        }
+        function aplicarFiltroMood(filtro){
+            let fromDate, toDate;
+            const today = new Date();
+            toDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
+            if (filtro === "1m") {
+                fromDate = new Date(today.getFullYear(), today.getMonth(), 1, 0, 0, 0, 0);
+            } else if (filtro === "3m") {
+                let monthStart = today.getMonth() - 2;
+                let yearStart = today.getFullYear(); while (monthStart < 0) { yearStart--; monthStart += 12; }
+                fromDate = new Date(yearStart, monthStart, 1, 0, 0, 0, 0);
+            } else if (filtro === "6m") {
+                let monthStart = today.getMonth() - 5;
+                let yearStart = today.getFullYear(); while (monthStart < 0) { yearStart--; monthStart += 12; }
+                fromDate = new Date(yearStart, monthStart, 1, 0, 0, 0, 0);
+            } else {
+                fromDate = new Date(today.getFullYear(), 0, 1, 0, 0, 0, 0);
+            }
+            let validData = (allMoodsData||[]).filter(x =>
+                isAllowedMood(x.estadoMood) &&
+                x.fechaRegistro && !isNaN(Date.parse(x.fechaRegistro))
+            );
+            let filtrados = validData.filter(x => {
+                let d = new Date(x.fechaRegistro);
+                return (d >= fromDate && d <= toDate);
+            });
+            lastFilteredCount = filtrados.length;
+            updateMoodCountLegend(lastFilteredCount);
+            renderMoodCards(filtrados);
+            renderMoodChart(filtrados);
+        }
+        function updateMoodCountLegend(count){
+            let legendSpan = document.getElementById("moodCountLegend");
+            legendSpan.textContent = `${count} registro${count === 1 ? "" : "s"} mostrado${count === 1 ? "" : "s"} en el rango`;
+        }
+        function renderMoodCards(data){
+            const moodCards=document.getElementById("moodCards"); moodCards.innerHTML = "";
+            if (!Array.isArray(data) || data.length === 0) {
+                moodCards.innerHTML = `<div class="text-muted text-center p-4">No hay registros de ánimo en este rango.</div>`;
+                updateMoodCountLegend(0);
+                renderMoodChart([]);
+                return;
+            }
+            const sorted = data.slice().sort((a, b) => new Date(b.fechaRegistro) - new Date(a.fechaRegistro));
+            let groupHtml = "";
+            for (let i = 0; i < sorted.length; i += 4) {
+                groupHtml += `<div class="mood-card-group">`;
+                for (let j = 0; j < 4 && (i + j) < sorted.length; j++) {
+                    groupHtml += agregarMoodCard(sorted[i + j]);
+                }
+                groupHtml += `</div>`;
+            }
+            moodCards.innerHTML = groupHtml;
+        }
+        function renderMoodChart(data){
+            let oldCanvas = document.getElementById("moodChart");
+            let ctx = oldCanvas.getContext('2d');
+            if(windowChart) windowChart.destroy();
+            const sortedDesc = data.slice().sort((a, b) => new Date(b.fechaRegistro) - new Date(a.fechaRegistro));
+            const labels = sortedDesc.map(x => x.fechaRegistro.substring(0,10));
+            const dataNum = sortedDesc.map(x => moodNumFromStr(x.estadoMood));
+            const colors  = sortedDesc.map(x => moodColorFromStr(x.estadoMood));
+            windowChart = new Chart(ctx, {
+                type: 'line',
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: "Estado diario",
-                        data: moodsNum,
+                        label: "Estado de ánimo",
+                        data: dataNum,
                         backgroundColor: colors,
-                        borderWidth: 1,
-                        borderColor: "#FFFFFF"
+                        borderColor: "#3498db",
+                        borderWidth: 2,
+                        pointBackgroundColor: colors,
+                        pointRadius: 5,
+                        fill: false,
+                        tension: 0.3
                     }]
                 },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false,
                     plugins: {
                         legend: { display:false },
-                        tooltip: { callbacks: {
-                            label: ctx => {
-                                let moodValue = ctx.raw;
-                                return moodLabels[moodValue] ? moodLabels[moodValue] : moodValue;
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx){
+                                    return moodLabelFromNum(ctx.raw) ? moodLabelFromNum(ctx.raw) : ctx.raw;
+                                }
                             }
-                        }}
+                        }
                     },
                     scales: {
+                        x: { title: { display: false, text:"Fecha" }},
                         y: {
-                            ticks: {
-                                callback: function(value) { return moodLabels[value] || value; },
-                                stepSize: 1,
-                                min: 1,
-                                max: 5
-                            },
-                            beginAtZero: false,
-                            grid: {display: false}
+                            min: 1, max: 5, stepSize: 1, beginAtZero: false,
+                            ticks: { callback: v => moodLabelFromNum(v) || v }
                         }
                     }
                 }

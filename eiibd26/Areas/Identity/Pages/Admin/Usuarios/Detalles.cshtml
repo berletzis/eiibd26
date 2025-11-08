@@ -2,19 +2,15 @@
 @model eiibd26.Areas.Identity.Pages.Admin.Usuarios.DetallesModel
 
 @{
-    Layout = null;
+    ViewData["Title"] = "Detalles del Usuario";
+    // Usa el layout principal para tener sidebar y navbar
+    Layout = "_Layout";
 }
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8" />
-    <title>Detalles del Usuario</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" />
-    <style>
-        body {
-            background: #f8f9fa;
-        }
 
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.min.css">
+    <style>
         .main-container {
             max-width: 1000px;
             margin: 30px auto;
@@ -41,8 +37,8 @@
         .flex-col {
             flex: 1;
         }
-        media (max-width:900px) {
-            .flex-row;
+        @@media (max-width: 900px) {
+            .flex-row
 
         {
             flex-direction: column;
@@ -64,259 +60,241 @@
             margin-left: 0.4em;
         }
     </style>
-</head>
-<body>
-    <div class="main-container">
+}
 
-        @if (ViewData["SuccessMessage"] != null)
-        {
-            <div class="alert alert-success text-center" role="alert">
-                @ViewData["SuccessMessage"]
-            </div>
-        }
-
-        @if (Model.Usuario != null)
-        {
-            <form method="post" autocomplete="off">
-                <!-- Hidden tokens seguros -->
-                @* <input type="hidden" name="__RequestVerificationToken" value="@(ViewContext.HttpContext.Request.Form["__RequestVerificationToken"])" /> *@
-                <input type="hidden" name="UserId" value="@Model.Usuario.Id" />
-                <input type="hidden" name="PerfilId" value="@Model.Perfil?.idUser" />
-
-                <div class="flex-row">
-                    <!-- AspNetUser datos -->
-                    <div class="flex-col card-block" style="min-width:320px;max-width:420px;">
-                        <h3 class="block-title mb-3"><i class="bi bi-person-badge"></i> Cuenta</h3>
+<div class="main-container">
+    @if (ViewData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success text-center" role="alert">
+            @ViewData["SuccessMessage"]
+        </div>
+    }
+    @if (Model.Usuario != null)
+    {
+        <form method="post" autocomplete="off">
+            <input type="hidden" name="UserId" value="@Model.Usuario.Id" />
+            <input type="hidden" name="PerfilId" value="@Model.Perfil?.idUser" />
+            <div class="flex-row">
+                <div class="flex-col card-block" style="min-width:320px;max-width:420px;">
+                    <h3 class="block-title mb-3"><i class="bi bi-person-badge"></i> Cuenta</h3>
+                    <dl class="row mb-0">
+                        <dt class="col-sm-6">ID</dt>
+                        <dd class="col-sm-6">@Model.Usuario.Id</dd>
+                        <dt class="col-sm-6">Usuario</dt>
+                        <dd class="col-sm-6"><input class="form-control form-control-sm" name="UserName" value="@Model.Usuario.UserName" /></dd>
+                        <dt class="col-sm-6">Email</dt>
+                        <dd class="col-sm-6"><input class="form-control form-control-sm" name="Email" value="@Model.Usuario.Email" /></dd>
+                        <dt class="col-sm-6">Teléfono</dt>
+                        <dd class="col-sm-6"><input class="form-control form-control-sm" name="PhoneNumber" value="@Model.Usuario.PhoneNumber" /></dd>
+                        <dt class="col-sm-6">Email confirmado</dt>
+                        <dd class="col-sm-6">
+                            <select class="form-select form-select-sm" name="EmailConfirmed">
+                                <option value="true" selected="@(Model.Usuario.EmailConfirmed ? "selected" : null)">Sí</option>
+                                <option value="false" selected="@(Model.Usuario.EmailConfirmed ? null : "selected")">No</option>
+                            </select>
+                        </dd>
+                        <dt class="col-sm-6">Bloqueado</dt>
+                        <dd class="col-sm-6">
+                            <select class="form-select form-select-sm" name="LockoutEnabled">
+                                <option value="true" selected="@(Model.Usuario.LockoutEnabled ? "selected" : null)">Sí</option>
+                                <option value="false" selected="@(Model.Usuario.LockoutEnabled ? null : "selected")">No</option>
+                            </select>
+                        </dd>
+                        <dt class="col-sm-6">Fecha de bloqueo</dt>
+                        <dd class="col-sm-6"><input class="form-control form-control-sm" name="LockoutEnd" type="text" value="@Model.Usuario.LockoutEnd" /></dd>
+                        <dt class="col-sm-6">Accesos fallidos</dt>
+                        <dd class="col-sm-6"><input class="form-control form-control-sm" name="AccessFailedCount" value="@Model.Usuario.AccessFailedCount" type="number" /></dd>
+                        <dt class="col-sm-6">Restablecer Pass</dt>
+                        <dd class="col-sm-6">
+                            <select class="form-select form-select-sm" name="RequiresPasswordReset">
+                                <option value="true" selected="@(Model.Usuario.RequiresPasswordReset ? "selected" : null)">Sí</option>
+                                <option value="false" selected="@(Model.Usuario.RequiresPasswordReset ? null : "selected")">No</option>
+                            </select>
+                        </dd>
+                        <dt class="col-sm-6">Hash válido</dt>
+                        <dd class="col-sm-6">@((Model.HashIsValid ? "Sí" : "NO"))</dd>
+                    </dl>
+                </div>
+                <div class="flex-col card-block" style="min-width:320px;max-width:520px;">
+                    <h3 class="block-title mb-3"><i class="bi bi-person-vcard"></i> Perfil</h3>
+                    @if (Model.Perfil != null)
+                    {
                         <dl class="row mb-0">
-                            <dt class="col-sm-6">ID</dt>
-                            <dd class="col-sm-6">@Model.Usuario.Id</dd>
-                            <dt class="col-sm-6">Usuario</dt>
-                            <dd class="col-sm-6"><input class="form-control form-control-sm" name="UserName" value="@Model.Usuario.UserName" /></dd>
-                            <dt class="col-sm-6">Email</dt>
-                            <dd class="col-sm-6"><input class="form-control form-control-sm" name="Email" value="@Model.Usuario.Email" /></dd>
-                            <dt class="col-sm-6">Teléfono</dt>
-                            <dd class="col-sm-6"><input class="form-control form-control-sm" name="PhoneNumber" value="@Model.Usuario.PhoneNumber" /></dd>
-                            <dt class="col-sm-6">Email confirmado</dt>
-                            <dd class="col-sm-6">
-                                <select class="form-select form-select-sm" name="EmailConfirmed">
-                                    <option value="true" selected="@(Model.Usuario.EmailConfirmed ? "selected" : null)">Sí</option>
-                                    <option value="false" selected="@(Model.Usuario.EmailConfirmed ? null : "selected")">No</option>
+                            <dt class="col-sm-5">Avatar</dt>
+                            <dd class="col-sm-7"><input class="form-control form-control-sm" name="Avatar" value="@Model.Perfil.Avatar" /></dd>
+                            <dt class="col-sm-5">Imagen Fondo</dt>
+                            <dd class="col-sm-7"><input class="form-control form-control-sm" name="ImagenFondo" value="@Model.Perfil.imagenFondo" /></dd>
+                            <dt class="col-sm-5">Título</dt>
+                            <dd class="col-sm-7"><input class="form-control form-control-sm" name="Titulo" value="@Model.Perfil.Titulo" /></dd>
+                            <dt class="col-sm-5">Nombre</dt>
+                            <dd class="col-sm-7"><input class="form-control form-control-sm" name="Nombre" value="@Model.Perfil.Nombre" /></dd>
+                            <dt class="col-sm-5">Apellidos</dt>
+                            <dd class="col-sm-7"><input class="form-control form-control-sm" name="Apellidos" value="@Model.Perfil.Apellidos" /></dd>
+                            <dt class="col-sm-5">Teléfono</dt>
+                            <dd class="col-sm-7"><input class="form-control form-control-sm" name="Telefono" value="@Model.Perfil.Telefono" /></dd>
+                            <dt class="col-sm-5">Email</dt>
+                            <dd class="col-sm-7"><input class="form-control form-control-sm" name="PerfilEmail" value="@Model.Perfil.Email" /></dd>
+                            <dt class="col-sm-5">Activo</dt>
+                            <dd class="col-sm-7">
+                                <select class="form-select form-select-sm" name="Activo">
+                                    <option value="true" selected="@(Model.Perfil.Activo ? "selected" : null)">Sí</option>
+                                    <option value="false" selected="@(Model.Perfil.Activo ? null : "selected")">No</option>
                                 </select>
                             </dd>
-                            <dt class="col-sm-6">Bloqueado</dt>
-                            <dd class="col-sm-6">
-                                <select class="form-select form-select-sm" name="LockoutEnabled">
-                                    <option value="true" selected="@(Model.Usuario.LockoutEnabled ? "selected" : null)">Sí</option>
-                                    <option value="false" selected="@(Model.Usuario.LockoutEnabled ? null : "selected")">No</option>
+                            <dt class="col-sm-5">Eliminado</dt>
+                            <dd class="col-sm-7">
+                                <select class="form-select form-select-sm" name="PerfilEliminado">
+                                    <option value="true" selected="@(Model.Perfil.Eliminado == true ? "selected" : null)">Sí</option>
+                                    <option value="false" selected="@(Model.Perfil.Eliminado == false ? "selected" : null)">No</option>
                                 </select>
                             </dd>
-                            <dt class="col-sm-6">Fecha de bloqueo</dt>
-                            <dd class="col-sm-6"><input class="form-control form-control-sm" name="LockoutEnd" type="text" value="@Model.Usuario.LockoutEnd" /></dd>
-                            <dt class="col-sm-6">Accesos fallidos</dt>
-                            <dd class="col-sm-6"><input class="form-control form-control-sm" name="AccessFailedCount" value="@Model.Usuario.AccessFailedCount" type="number" /></dd>
-                            <dt class="col-sm-6">Restablecer Pass</dt>
-                            <dd class="col-sm-6">
-                                <select class="form-select form-select-sm" name="RequiresPasswordReset">
-                                    <option value="true" selected="@(Model.Usuario.RequiresPasswordReset ? "selected" : null)">Sí</option>
-                                    <option value="false" selected="@(Model.Usuario.RequiresPasswordReset ? null : "selected")">No</option>
-                                </select>
-                            </dd>
-                            <dt class="col-sm-6">Hash válido</dt>
-                            <dd class="col-sm-6">@((Model.HashIsValid ? "Sí" : "NO"))</dd>
+                            <dt class="col-sm-5">Fecha de nacimiento</dt>
+                            <dd class="col-sm-7"><input class="form-control form-control-sm" name="FechaDeNacimiento" value="@Model.Perfil.FechaDeNacimiento?.ToShortDateString()" /></dd>
+                            <dt class="col-sm-5">Género</dt>
+                            <dd class="col-sm-7"><input class="form-control form-control-sm" name="Genero" value="@Model.Perfil.Genero" /></dd>
+                            <dt class="col-sm-5">Ciudad</dt>
+                            <dd class="col-sm-7"><input class="form-control form-control-sm" name="Ciudad" value="@Model.Perfil.NombreCiudad" /></dd>
+                            <dt class="col-sm-5">País</dt>
+                            <dd class="col-sm-7"><input class="form-control form-control-sm" name="Pais" value="@Model.Perfil.NombrePais" /></dd>
+                            <dt class="col-sm-5">Uso Plataforma</dt>
+                            <dd class="col-sm-7"><input class="form-control form-control-sm" name="UsoPlataforma" value="@Model.Perfil.UsoPlataforma" /></dd>
+                            <dt class="col-sm-5">Notas</dt>
+                            <dd class="col-sm-7"><textarea class="form-control" rows="1" name="Notas">@Model.Perfil.notas</textarea></dd>
+                            <dt class="col-sm-5">Descripción</dt>
+                            <dd class="col-sm-7"><textarea class="form-control" rows="1" name="Descripcion">@Model.Perfil.descripcion</textarea></dd>
+                            <dt class="col-sm-5">Acerca de</dt>
+                            <dd class="col-sm-7"><textarea class="form-control" rows="1" name="AcercaDe">@Model.Perfil.AcercaDe</textarea></dd>
+                            <dt class="col-sm-5">Fecha de creación</dt>
+                            <dd class="col-sm-7">@Model.Perfil.FechaCreacion</dd>
+                            <dt class="col-sm-5">Última actividad</dt>
+                            <dd class="col-sm-7">@Model.Perfil.UltimaActividad</dd>
                         </dl>
-                    </div>
-
-                    <!-- Perfil datos -->
-                    <div class="flex-col card-block" style="min-width:320px;max-width:520px;">
-                        <h3 class="block-title mb-3"><i class="bi bi-person-vcard"></i> Perfil</h3>
-                        @if (Model.Perfil != null)
+                    }
+                </div>
+            </div>
+            <div class="flex-row">
+                <div class="flex-col card-block">
+                    <h3 class="block-title"><i class="bi bi-hospital"></i> Condiciones</h3>
+                    <ul class="data-list ps-3">
+                        @if (!Model.Condiciones.Any())
                         {
-                            <dl class="row mb-0">
-                                <dt class="col-sm-5">Avatar</dt>
-                                <dd class="col-sm-7"><input class="form-control form-control-sm" name="Avatar" value="@Model.Perfil.Avatar" /></dd>
-                                <dt class="col-sm-5">Imagen Fondo</dt>
-                                <dd class="col-sm-7"><input class="form-control form-control-sm" name="ImagenFondo" value="@Model.Perfil.imagenFondo" /></dd>
-                                <dt class="col-sm-5">Título</dt>
-                                <dd class="col-sm-7"><input class="form-control form-control-sm" name="Titulo" value="@Model.Perfil.Titulo" /></dd>
-                                <dt class="col-sm-5">Nombre</dt>
-                                <dd class="col-sm-7"><input class="form-control form-control-sm" name="Nombre" value="@Model.Perfil.Nombre" /></dd>
-                                <dt class="col-sm-5">Apellidos</dt>
-                                <dd class="col-sm-7"><input class="form-control form-control-sm" name="Apellidos" value="@Model.Perfil.Apellidos" /></dd>
-                                <dt class="col-sm-5">Teléfono</dt>
-                                <dd class="col-sm-7"><input class="form-control form-control-sm" name="Telefono" value="@Model.Perfil.Telefono" /></dd>
-                                <dt class="col-sm-5">Email</dt>
-                                <dd class="col-sm-7"><input class="form-control form-control-sm" name="PerfilEmail" value="@Model.Perfil.Email" /></dd>
-                                <dt class="col-sm-5">Activo</dt>
-                                <dd class="col-sm-7">
-                                    <select class="form-select form-select-sm" name="Activo">
-                                        <option value="true" selected="@(Model.Perfil.Activo ? "selected" : null)">Sí</option>
-                                        <option value="false" selected="@(Model.Perfil.Activo ? null : "selected")">No</option>
-                                    </select>
-                                </dd>
-                                <dt class="col-sm-5">Eliminado</dt>
-                                <dd class="col-sm-7">
-                                    <select class="form-select form-select-sm" name="PerfilEliminado">
-                                        <option value="true" selected="@(Model.Perfil.Eliminado == true ? "selected" : null)">Sí</option>
-                                        <option value="false" selected="@(Model.Perfil.Eliminado == false ? "selected" : null)">No</option>
-                                    </select>
-                                </dd>
-                                <dt class="col-sm-5">Fecha de nacimiento</dt>
-                                <dd class="col-sm-7"><input class="form-control form-control-sm" name="FechaDeNacimiento" value="@Model.Perfil.FechaDeNacimiento?.ToShortDateString()" /></dd>
-                                <dt class="col-sm-5">Género</dt>
-                                <dd class="col-sm-7"><input class="form-control form-control-sm" name="Genero" value="@Model.Perfil.Genero" /></dd>
-                                <dt class="col-sm-5">Ciudad</dt>
-                                <dd class="col-sm-7"><input class="form-control form-control-sm" name="Ciudad" value="@Model.Perfil.NombreCiudad" /></dd>
-                                <dt class="col-sm-5">País</dt>
-                                <dd class="col-sm-7"><input class="form-control form-control-sm" name="Pais" value="@Model.Perfil.NombrePais" /></dd>
-                                <dt class="col-sm-5">Uso Plataforma</dt>
-                                <dd class="col-sm-7"><input class="form-control form-control-sm" name="UsoPlataforma" value="@Model.Perfil.UsoPlataforma" /></dd>
-                                <dt class="col-sm-5">Notas</dt>
-                                <dd class="col-sm-7"><textarea class="form-control" rows="1" name="Notas">@Model.Perfil.notas</textarea></dd>
-                                <dt class="col-sm-5">Descripción</dt>
-                                <dd class="col-sm-7"><textarea class="form-control" rows="1" name="Descripcion">@Model.Perfil.descripcion</textarea></dd>
-                                <dt class="col-sm-5">Acerca de</dt>
-                                <dd class="col-sm-7"><textarea class="form-control" rows="1" name="AcercaDe">@Model.Perfil.AcercaDe</textarea></dd>
-                                <dt class="col-sm-5">Fecha de creación</dt>
-                                <dd class="col-sm-7">@Model.Perfil.FechaCreacion</dd>
-                                <dt class="col-sm-5">Última actividad</dt>
-                                <dd class="col-sm-7">@Model.Perfil.UltimaActividad</dd>
-                            </dl>
+                            <li class="fst-italic text-muted">Sin condiciones asignadas</li>
                         }
-                    </div>
+                        else
+                        {
+                            @foreach (var padre in Model.Condiciones.Where(x => x.EsPadre))
+                            {
+                                <li>
+                                    <strong>@padre.Nombre</strong>
+                                    @if (padre.Hijos.Count > 0)
+                                    {
+                                        <ul>
+                                            @foreach (var hijo in padre.Hijos)
+                                            {
+                                                <li>
+                                                    <input type="checkbox" name="CondicionesSeleccionadas" value="@hijo.Id" checked />
+                                                    <span class="checkbox-label">@hijo.Nombre (Desde: @hijo.FechaInicio.ToShortDateString())</span>
+                                                </li>
+                                            }
+                                        </ul>
+                                    }
+                                </li>
+                            }
+                            @foreach (var hu in Model.Condiciones.Where(c => !c.EsPadre && (c.Hijos == null || c.Hijos.Count == 0)))
+                            {
+                                <li>
+                                    <input type="checkbox" name="CondicionesSeleccionadas" value="@hu.Id" checked />
+                                    <span class="checkbox-label">@hu.Nombre (Desde: @hu.FechaInicio.ToShortDateString())</span>
+                                </li>
+                            }
+                        }
+                    </ul>
                 </div>
-
-                <div class="flex-row">
-                    <!-- Condiciones -->
-                    <div class="flex-col card-block">
-                        <h3 class="block-title"><i class="bi bi-hospital"></i> Condiciones</h3>
-                        <ul class="data-list ps-3">
-                            @if (!Model.Condiciones.Any())
+                <div class="flex-col card-block">
+                    <h3 class="block-title"><i class="bi bi-activity"></i> Síntomas</h3>
+                    <ul class="data-list ps-3">
+                        @if (!Model.Sintomas.Any())
+                        {
+                            <li class="fst-italic text-muted">Sin síntomas asignados</li>
+                        }
+                        else
+                        {
+                            @foreach (var padre in Model.Sintomas.Where(x => x.EsPadre))
                             {
-                                <li class="fst-italic text-muted">Sin condiciones asignadas</li>
+                                <li>
+                                    <strong>@padre.Nombre</strong>
+                                    @if (padre.Hijos.Count > 0)
+                                    {
+                                        <ul>
+                                            @foreach (var hijo in padre.Hijos)
+                                            {
+                                                <li>
+                                                    <input type="checkbox" name="SintomasSeleccionados" value="@hijo.Id" checked />
+                                                    <span class="checkbox-label">@hijo.Nombre (Fecha: @hijo.FechaCreado.ToShortDateString())</span>
+                                                </li>
+                                            }
+                                        </ul>
+                                    }
+                                </li>
                             }
-                            else
+                            @foreach (var hu in Model.Sintomas.Where(s => !s.EsPadre && (s.Hijos == null || s.Hijos.Count == 0)))
                             {
-                                @foreach (var padre in Model.Condiciones.Where(x => x.EsPadre))
-                                {
-                                    <li>
-                                        <strong>@padre.Nombre</strong>
-                                        @if (padre.Hijos.Count > 0)
-                                        {
-                                            <ul>
-                                                @foreach (var hijo in padre.Hijos)
-                                                {
-                                                    <li>
-                                                        <input type="checkbox" name="CondicionesSeleccionadas" value="@hijo.Id" checked />
-                                                        <span class="checkbox-label">@hijo.Nombre (Desde: @hijo.FechaInicio.ToShortDateString())</span>
-                                                    </li>
-                                                }
-                                            </ul>
-                                        }
-                                    </li>
-                                }
-                                @foreach (var hu in Model.Condiciones.Where(c => !c.EsPadre && (c.Hijos == null || c.Hijos.Count == 0)))
-                                {
-                                    <li>
-                                        <input type="checkbox" name="CondicionesSeleccionadas" value="@hu.Id" checked />
-                                        <span class="checkbox-label">@hu.Nombre (Desde: @hu.FechaInicio.ToShortDateString())</span>
-                                    </li>
-                                }
+                                <li>
+                                    <input type="checkbox" name="SintomasSeleccionados" value="@hu.Id" checked />
+                                    <span class="checkbox-label">@hu.Nombre (Fecha: @hu.FechaCreado.ToShortDateString())</span>
+                                </li>
                             }
-                        </ul>
-                    </div>
-
-                    <!-- Sintomas -->
-                    <div class="flex-col card-block">
-                        <h3 class="block-title"><i class="bi bi-activity"></i> Síntomas</h3>
-                        <ul class="data-list ps-3">
-                            @if (!Model.Sintomas.Any())
-                            {
-                                <li class="fst-italic text-muted">Sin síntomas asignados</li>
-                            }
-                            else
-                            {
-                                @foreach (var padre in Model.Sintomas.Where(x => x.EsPadre))
-                                {
-                                    <li>
-                                        <strong>@padre.Nombre</strong>
-                                        @if (padre.Hijos.Count > 0)
-                                        {
-                                            <ul>
-                                                @foreach (var hijo in padre.Hijos)
-                                                {
-                                                    <li>
-                                                        <input type="checkbox" name="SintomasSeleccionados" value="@hijo.Id" checked />
-                                                        <span class="checkbox-label">@hijo.Nombre (Fecha: @hijo.FechaCreado.ToShortDateString())</span>
-                                                    </li>
-                                                }
-                                            </ul>
-                                        }
-                                    </li>
-                                }
-                                @foreach (var hu in Model.Sintomas.Where(s => !s.EsPadre && (s.Hijos == null || s.Hijos.Count == 0)))
-                                {
-                                    <li>
-                                        <input type="checkbox" name="SintomasSeleccionados" value="@hu.Id" checked />
-                                        <span class="checkbox-label">@hu.Nombre (Fecha: @hu.FechaCreado.ToShortDateString())</span>
-                                    </li>
-                                }
-                            }
-                        </ul>
-                    </div>
-
-                    <!-- Tratamientos -->
-                    <div class="flex-col card-block">
-                        <h3 class="block-title"><i class="bi bi-prescription2"></i> Tratamientos</h3>
-                        <ul class="data-list ps-3">
-                            @if (!Model.Tratamientos.Any())
-                            {
-                                <li class="fst-italic text-muted">Sin tratamientos asignados</li>
-                            }
-                            else
-                            {
-                                @foreach (var padre in Model.Tratamientos.Where(x => x.EsPadre))
-                                {
-                                    <li>
-                                        <strong>@padre.Nombre</strong>
-                                        @if (padre.Hijos.Count > 0)
-                                        {
-                                            <ul>
-                                                @foreach (var hijo in padre.Hijos)
-                                                {
-                                                    <li>
-                                                        <input type="checkbox" name="TratamientosSeleccionados" value="@hijo.Id" checked />
-                                                        <span class="checkbox-label">@hijo.Nombre (Desde: @hijo.FechaDeInicio.ToShortDateString())</span>
-                                                    </li>
-                                                }
-                                            </ul>
-                                        }
-                                    </li>
-                                }
-                                @foreach (var hu in Model.Tratamientos.Where(t => !t.EsPadre && (t.Hijos == null || t.Hijos.Count == 0)))
-                                {
-                                    <li>
-                                        <input type="checkbox" name="TratamientosSeleccionados" value="@hu.Id" checked />
-                                        <span class="checkbox-label">@hu.Nombre (Desde: @hu.FechaDeInicio.ToShortDateString())</span>
-                                    </li>
-                                }
-                            }
-                        </ul>
-                    </div>
+                        }
+                    </ul>
                 </div>
-                <div class="text-center mt-3">
-                    <button class="btn btn-success" type="submit">
-                        <i class="bi bi-save"></i> Guardar Cambios
-                    </button>
-                    <a class="btn btn-secondary ms-2" href="../Index">Volver</a>
+                <div class="flex-col card-block">
+                    <h3 class="block-title"><i class="bi bi-prescription2"></i> Tratamientos</h3>
+                    <ul class="data-list ps-3">
+                        @if (!Model.Tratamientos.Any())
+                        {
+                            <li class="fst-italic text-muted">Sin tratamientos asignados</li>
+                        }
+                        else
+                        {
+                            @foreach (var padre in Model.Tratamientos.Where(x => x.EsPadre))
+                            {
+                                <li>
+                                    <strong>@padre.Nombre</strong>
+                                    @if (padre.Hijos.Count > 0)
+                                    {
+                                        <ul>
+                                            @foreach (var hijo in padre.Hijos)
+                                            {
+                                                <li>
+                                                    <input type="checkbox" name="TratamientosSeleccionados" value="@hijo.Id" checked />
+                                                    <span class="checkbox-label">@hijo.Nombre (Desde: @hijo.FechaDeInicio.ToShortDateString())</span>
+                                                </li>
+                                            }
+                                        </ul>
+                                    }
+                                </li>
+                            }
+                            @foreach (var hu in Model.Tratamientos.Where(t => !t.EsPadre && (t.Hijos == null || t.Hijos.Count == 0)))
+                            {
+                                <li>
+                                    <input type="checkbox" name="TratamientosSeleccionados" value="@hu.Id" checked />
+                                    <span class="checkbox-label">@hu.Nombre (Desde: @hu.FechaDeInicio.ToShortDateString())</span>
+                                </li>
+                            }
+                        }
+                    </ul>
                 </div>
-            </form>
-        }
-        else
-        {
-            <div class="alert alert-danger">Usuario no encontrado.</div>
-        }
-
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css" rel="stylesheet" />
-    </div>
-</body>
-</html>
+            </div>
+            <div class="text-center mt-3">
+                <button class="btn btn-success" type="submit">
+                    <i class="bi bi-save"></i> Guardar Cambios
+                </button>
+                <a class="btn btn-secondary ms-2" href="../Index">Volver</a>
+            </div>
+        </form>
+    }
+    else
+    {
+        <div class="alert alert-danger">Usuario no encontrado.</div>
+    }
+</div>

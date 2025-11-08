@@ -1,36 +1,41 @@
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using eiibd26.Models;
 using System.Collections.Generic;
-using System;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
+using System.Linq;
+using eiibd26.Models;
 
 namespace eiibd26.Areas.Identity.Pages.Usuario
 {
+    // DTO "local" para combo (lo puedes dejar aquí)
+    public class CondicionUsuarioViewModel
+    {
+        public int id { get; set; }
+        public string nombre { get; set; }
+    }
+
     public class UsuarioEstadoAnimoModel : PageModel
     {
         private readonly ApplicationDbContext _db;
+        public List<CondicionUsuarioViewModel> CondicionesUsuario { get; set; } = new List<CondicionUsuarioViewModel>();
+
         public UsuarioEstadoAnimoModel(ApplicationDbContext db)
         {
             _db = db;
         }
 
-        public List<EstadoAnimoUsuario> UltimosEstados { get; set; } = new();
-
-        public async Task OnGetAsync()
+        public void OnGet()
         {
-            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            if (userId == null) return;
-            var guid = Guid.Parse(userId);
-
-            UltimosEstados = await _db.EstadoAnimoUsuario
-                .Where(x => x.IdUsuario == guid)
-                .OrderByDescending(x => x.FechaRegistro)
-                .Take(30)
-                .Include(x => x.CondicionUsuario).ThenInclude(c => c.Condicion)
-                .Include(x => x.SintomaUsuario).ThenInclude(s => s.Sintoma)
-                .Include(x => x.TratamientoUsuario).ThenInclude(t => t.Tratamiento)
-                .ToListAsync();
+            var userIdStr = User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (System.Guid.TryParse(userIdStr, out var userId))
+            {
+                CondicionesUsuario = _db.condicionUsuario
+                    .Where(c => c.idUsuario == userId && !c.Eliminado)
+                    .Select(c => new CondicionUsuarioViewModel
+                    {
+                        id = c.id,
+                        nombre = c.Condicion.nombre
+                    })
+                    .ToList();
+            }
         }
     }
 }
