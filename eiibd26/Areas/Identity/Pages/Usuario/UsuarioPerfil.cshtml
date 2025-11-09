@@ -1,0 +1,351 @@
+﻿@page "{id?}"
+@model eiibd26.Areas.Identity.Pages.Usuario.UsuarioPerfilModel
+@{
+    ViewData["Title"] = "Perfil de Usuario";
+    var avatar = Model.Perfil?.Avatar;
+    var paises = Model.PaisesLista ?? new List<eiibd26.Models.Paises>();
+}
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.min.css">
+    <style>
+        body {
+            background: #f5f7fb;
+        }
+        .crm-container-admin {
+            max-width: 1320px;
+            margin: 0 auto 30px auto;
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+        .perfil-title {
+            font-size: 2.08rem;
+            font-weight: 600;
+            letter-spacing: -0.07em;
+            color: #172849;
+            margin-bottom: .7em;
+        }
+        .card-row {
+            display: flex;
+            gap: 32px;
+            flex-wrap: wrap;
+        }
+        .card-block-modern {
+            background: #fff;
+            border-radius: 18px;
+            box-shadow: 0 6px 30px 0 rgba(50,65,120,0.07);
+            border: none;
+            padding: 2.1rem 2.2rem 1.8rem 2.2rem;
+            margin-bottom: 36px;
+            flex:1 1 0px;
+        }
+        .block-title {
+            font-size: 1.38rem;
+            font-weight: 600;
+            margin-bottom: 19px;
+            color: #305586;
+            letter-spacing: -.02em;
+        }
+        .form-col {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .form-row {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+        .form-row .form-col { width: 100%; }
+        .form-col-sm { flex: 0 0 45%; }
+        .form-col-lg { flex: 1 0 55%; }
+        .card-block-modern input.form-control,
+        .card-block-modern textarea.form-control,
+        .card-block-modern select.form-select {
+            border-radius: 8px;
+            border: 1px solid #dde6f1;
+            background: #f8fafd;
+            font-size: 1.07em;
+        }
+        .card-block-modern input[type="checkbox"] {
+            margin-right: 10px;
+            height:20px; width:20px;
+            accent-color: #1e88e5;
+        }
+        .avatar-perfil-box img {
+            width: 110px;
+            height: 110px;
+            border-radius: 70px;
+            box-shadow: 0 2px 13px #cad6ea54;
+            border: 2px solid #b4d3ee;
+            object-fit: cover;
+        }
+        .perfil-label {
+            font-size: 1.07em;
+            font-weight: 500;
+            color: #375586;
+        }
+        .form-text-error {
+            color: #c92a2a;
+            font-size: 0.97em;
+            margin-left: 3px;
+        }
+        .readonly-label {
+            background: #f8fafd;
+            border-radius: 6px;
+            border: 1px solid #dde6f1;
+            padding: 7px 10px;
+            font-size: 1.05em;
+            color: #1e355e;
+            min-height:37px;
+        }
+        .form-check-label {
+            font-size:1.05em;
+            color:#305586;
+        }
+        @@media (max-width: 900px) {
+            .crm-container-admin { max-width: 98vw; }
+            .card-row { flex-direction: column; gap:24px; }
+            .card-block-modern { padding: 1.1rem 0.7rem 1.0rem 0.7rem;}
+            .form-row { flex-direction: column; }
+            .form-col-sm, .form-col-lg { flex: 1 1 100%;}
+        }
+    </style>
+}
+
+<div class="crm-container-admin">
+    <h2 class="perfil-title mb-4">Perfil de Usuario</h2>
+    @if (Model.SuccessMessage != null)
+    {
+        <div class="alert alert-success text-center" role="alert">
+            @Model.SuccessMessage
+        </div>
+    }
+
+    @if (Model.Perfil != null)
+    {
+        <form method="post" autocomplete="off" id="perfilForm">
+            <input type="hidden" name="idUser" value="@Model.Perfil.idUser" />
+
+            <div class="card-row">
+                <!-- Card 1: Información General y Contacto -->
+                <div class="card-block-modern">
+                    <h3 class="block-title mb-3"><i class="bi bi-person-badge"></i> Información General</h3>
+                    <div class="mb-3 text-center avatar-perfil-box">
+                        <img src="https://ui-avatars.com/api/?name=Usuario+Demo&size=110" alt="Avatar" />
+                    </div>
+                    <div class="form-row">
+                        <div class="form-col-sm">
+                            <label class="perfil-label">Título</label>
+                            <input class="form-control" name="Titulo" value="@Model.Perfil.Titulo" required />
+                        </div>
+                        <div class="form-col-lg">
+                            <label class="perfil-label">Nombre</label>
+                            <input class="form-control" name="Nombre" value="@Model.Perfil.Nombre" required />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-col">
+                            <label class="perfil-label">Apellidos</label>
+                            <input class="form-control" name="Apellidos" value="@Model.Perfil.Apellidos" />
+                        </div>
+                        <div class="form-col">
+                            <label class="perfil-label">Uso plataforma</label>
+                            <input class="form-control" name="UsoPlataforma" value="@Model.Perfil.UsoPlataforma" readonly style="background:#f4f6fa;" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-col">
+                            <label class="perfil-label">Fecha de nacimiento</label>
+                            <input class="form-control" id="fnac-input" name="FechaDeNacimiento" value="@Model.Perfil.FechaDeNacimiento?.ToString("yyyy-MM-dd")" type="date" />
+                            <span class="form-text-error d-none" id="fnac-error">La fecha no puede ser futura.</span>
+                        </div>
+                        <div class="form-col">
+                            <label class="perfil-label">Género</label>
+                            <select class="form-select" name="Genero" required>
+                                <option value="">Selecciona...</option>
+                                <option value="Masculino@(Model.Perfil.Genero == "Masculino" ? " selected" : "")">Masculino</option>
+                                <option value="Femenino@(Model.Perfil.Genero == "Femenino" ? " selected" : "")">Femenino</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-col">
+                            <label class="perfil-label">Acerca de</label>
+                            <textarea class="form-control" rows="1" name="AcercaDe">@Model.Perfil.AcercaDe</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 2: Datos para la Plataforma -->
+                <div class="card-block-modern">
+                    <h3 class="block-title mb-3"><i class="bi bi-geo-alt"></i> Datos para la plataforma</h3>
+                    <!-- País y ciudad en un solo renglon -->
+                    <div class="form-row">
+                        <div class="form-col">
+                            <label class="perfil-label">País</label>
+                            <select class="form-select" name="NombrePais" id="pais-select" required>
+                                <option value="">Selecciona país...</option>
+                                @foreach (var p in paises)
+                                {
+                                    <option value="@p.PaisCodigo@(p.PaisCodigo == Model.Perfil.NombrePais ? " selected" : "")">@p.PaisNombre</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="form-col">
+                            <label class="perfil-label">Ciudad</label>
+                            <input class="form-control" name="NombreCiudad" id="ciudad-input" value="@Model.Perfil.NombreCiudad" autocomplete="off" required />
+                            <span class="form-text-error d-none" id="ciudad-error">Debes elegir una ciudad válida.</span>
+                        </div>
+                    </div>
+                    <!-- Checkbox PermitirMostrarPais ahora en el renglon de abajo -->
+                    <div class="form-row">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="PermitirMostrarPais" id="permite-pais-chk" @(Model.Perfil.PermitirMostrarPais ? "checked" : "") />
+                            <label class="form-check-label" for="permite-pais-chk">
+                                Permitir que otros usuarios vean de qué país soy
+                            </label>
+                        </div>
+                    </div>
+                    <!-- Teléfono en un renglon -->
+                    <div class="form-row mt-2">
+                        <div class="form-col">
+                            <label class="perfil-label">Teléfono</label>
+                            <input class="form-control" type="tel" id="telefono-input" name="Telefono" maxlength="14" value="@Model.Perfil.Telefono" required />
+                            <span class="form-text-error d-none" id="telefono-error">Teléfono debe tener 10 dígitos.</span>
+                        </div>
+                    </div>
+                    <!-- Checkbox PermitirTeléfono en su propio renglon -->
+                    <div class="form-row">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="PermitirTelefonoReal" id="permite-telefono-chk" @(Model.Perfil.PermitirTelefonoReal ? "checked" : "") />
+                            <label class="form-check-label" for="permite-telefono-chk">
+                                Permitir utilizar teléfono para saber si soy real
+                            </label>
+                        </div>
+                    </div>
+                    <!-- Email en su propio renglon -->
+                    <div class="form-row mt-2">
+                        <div class="form-col">
+                            <label class="perfil-label">Email</label>
+                            <input class="form-control" type="email" id="email-input" name="Email" value="@Model.Perfil.Email" required />
+                            <span class="form-text-error d-none" id="email-error">Ingrese un email válido.</span>
+                        </div>
+                    </div>
+                    <!-- Checkbox PermitirCorreoNoticias -->
+                    <div class="form-row">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="PermitirCorreoNoticias" id="permite-correo-chk" @(Model.Perfil.PermitirCorreoNoticias ? "checked" : "")/>
+                            <label class="form-check-label" for="permite-correo-chk">
+                                Permitir enviarme correos de notificaciones o noticias
+                            </label>
+                        </div>
+                    </div>
+                    <!-- Los campos de latitud y longitud van ocultos -->
+                    <input type="hidden" name="Latitud" id="latitud-input" value="@Model.Perfil.Latitud" />
+                    <input type="hidden" name="Longitud" id="longitud-input" value="@Model.Perfil.Longitud" />
+                </div>
+            </div>
+
+            <!-- Card 3: Estado y Privacidad -->
+            <div class="card-block-modern mb-3" style="max-width:700px;margin:0 auto;">
+                <h3 class="block-title mb-3"><i class="bi bi-info-circle"></i> Estado y Privacidad</h3>
+                <div class="form-row">
+                    <div class="form-col">
+                        <label class="perfil-label">Activo</label>
+                        <input type="checkbox" name="Activo" value="true" @(Model.Perfil.Activo ? "checked" : "") /> <span>¿Usuario activo?</span>
+                    </div>
+                    <div class="form-col">
+                        <label class="perfil-label">Aceptó Política Privacidad</label>
+                        <input type="checkbox" name="AceptoPP" value="true" @(Model.Perfil.AceptoPP == true ? "checked" : "") /> <span>¿Acepta?</span>
+                    </div>
+                    <div class="form-col">
+                        <label class="perfil-label">Eliminado</label>
+                        <input type="checkbox" name="Eliminado" value="true" @(Model.Perfil.Eliminado == true ? "checked" : "") /> <span>¿Eliminado?</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-3 mb-5">
+                <button class="btn btn-success" type="submit"><i class="bi bi-save"></i> Guardar Cambios</button>
+                <a class="btn btn-secondary ms-2" href="/">Volver</a>
+            </div>
+        </form>
+    }
+    else
+    {
+        <div class="alert alert-danger">No se encontró usuario/perfil.</div>
+    }
+</div>
+
+@section Scripts {
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places"></script>
+    <script>
+        // Email Validation
+        document.getElementById('email-input').addEventListener('input', function() {
+            const regex = /^[a-zA-Z0-9_.+-]+@@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/;
+            document.getElementById('email-error').classList.toggle('d-none', regex.test(this.value));
+        });
+
+        // Teléfono: mascara y validación
+        document.getElementById('telefono-input').addEventListener('input', function() {
+            let v = this.value.replace(/\D/g, "");
+            if (v.length > 10) v = v.substring(0, 10);
+            this.value = v.replace(/(\d{0,3})(\d{0,3})(\d{0,4})/, function (match, p1, p2, p3) {
+                let out = "";
+                if(p1) out += p1;
+                if(p2) out += (p1.length === 3 ? "-" : "") + p2;
+                if(p3) out += (p2.length === 3 ? "-" : "") + p3;
+                return out;
+            });
+            document.getElementById('telefono-error').classList.toggle('d-none', v.length === 10);
+        });
+
+        // Fecha nacimiento
+        document.getElementById('fnac-input').addEventListener('change', function(){
+            var inpt = this.value;
+            var selectedDate = new Date(inpt);
+            var today = new Date();
+            today.setHours(0,0,0,0);
+            document.getElementById('fnac-error').classList.toggle('d-none', selectedDate <= today);
+        });
+
+        // Google Maps Autocomplete Ciudad según país y actualizar lat/lng
+        let autocomplete;
+        function initAutocomplete() {
+            const input = document.getElementById("ciudad-input");
+            const paisSel = document.getElementById("pais-select");
+            autocomplete = new google.maps.places.Autocomplete(input, { types: ['(cities)'] });
+
+            paisSel.addEventListener('change', function () {
+                let paisCodigo = paisSel.value.toLowerCase();
+                if (paisCodigo) {
+                    autocomplete.setComponentRestrictions({ 'country': paisCodigo });
+                } else {
+                    autocomplete.setComponentRestrictions({});
+                }
+                input.value = '';
+                document.getElementById('latitud-input').value = '';
+                document.getElementById('longitud-input').value = '';
+            });
+
+            autocomplete.addListener('place_changed', function () {
+                var place = autocomplete.getPlace();
+                if (place && place.geometry && place.geometry.location) {
+                    document.getElementById('ciudad-error').classList.add('d-none');
+                    document.getElementById('latitud-input').value = place.geometry.location.lat();
+                    document.getElementById('longitud-input').value = place.geometry.location.lng();
+                } else {
+                    document.getElementById('latitud-input').value = '';
+                    document.getElementById('longitud-input').value = '';
+                    document.getElementById('ciudad-error').classList.remove('d-none');
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+                initAutocomplete();
+            }, 350);
+        });
+    </script>
+}

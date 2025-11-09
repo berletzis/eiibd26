@@ -1,7 +1,7 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-//using Microsoft.SqlServer.Types; // Requiere Microsoft.SqlServer.Types para geography (o usa NetTopologySuite para EF Core)
+
 namespace eiibd26.Models
 {
     public class Perfil
@@ -13,7 +13,7 @@ namespace eiibd26.Models
         [StringLength(200)]
         public string Avatar { get; set; }
 
-        public int? imagenFondo { get; set; }  // <- nullable
+        public int? imagenFondo { get; set; }
         [Required]
         [StringLength(256)]
         public string Titulo { get; set; }
@@ -25,7 +25,7 @@ namespace eiibd26.Models
         public string Nombre { get; set; }
 
         [StringLength(50)]
-        public string? Apellidos { get; set; }         // <- nullable
+        public string? Apellidos { get; set; }
 
         [Required]
         [StringLength(20)]
@@ -43,14 +43,17 @@ namespace eiibd26.Models
 
         public int? idZone { get; set; }
 
-        public string? notas { get; set; }
+        // Quitar campo notas y descripcion (según nuevas instrucciones)
+        // public string? notas { get; set; }
+        // public string? descripcion { get; set; }
+
         public DateTime FechaCreacion { get; set; }
         public DateTime UltimaActividad { get; set; }
-        public string? descripcion { get; set; }
+
         [StringLength(80)]
         public string? slug { get; set; }
         [StringLength(100)]
-        public string? Genero { get; set; }                // <- nullable
+        public string? Genero { get; set; }
 
         [Required]
         [StringLength(50)]
@@ -76,6 +79,11 @@ namespace eiibd26.Models
         public DateTime? FechaModificado { get; set; }
         public DateTime? FechaCreado { get; set; }
         public bool? Eliminado { get; set; }
+
+        // NUEVOS CAMPOS para los 3 checkboxes solicitados
+        public bool PermitirTelefonoReal { get; set; } // Permitir utilizar teléfono para saber si soy real
+        public bool PermitirCorreoNoticias { get; set; } // Permitir enviarme correos de notificaciones o noticias
+        public bool PermitirMostrarPais { get; set; } // Permitir que otros usuarios vean de qué país soy
 
         [ForeignKey(nameof(idUser))]
         public virtual ApplicationUser Usuario { get; set; }

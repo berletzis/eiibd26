@@ -17,7 +17,6 @@
             <div class="container-fluid">
                 <a class="navbar-brand d-flex align-items-center gap-2" href="/">
                     <img src="~/img/logo.png" alt="eiibd26 logo" height="38" style="max-height:38px;max-width:140px;object-fit:contain;" />
-                    
                 </a>
                 <button class="navbar-toggler" type="button"
                         title="Abrir menú principal" aria-label="Abrir menú principal"
@@ -35,112 +34,61 @@
                         <li class="nav-item">
                             <a class="nav-link" href="/Privacy">Privacidad</a>
                         </li>
-                        @* Menú Admin *@
-                        @if (User.Identity?.IsAuthenticated == true && User.IsInRole("Administrador"))
-                        {
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle text-dark" href="#" id="adminDropdown" role="button"
-                                   title="Opciones de administración" aria-label="Opciones de administración"
-                                   data-bs-toggle="dropdown" aria-expanded="false">
-                                    Admin
-                                </a>
-                                <ul class="dropdown-menu" aria-labelledby="adminDropdown">
-                                    <li><a class="dropdown-item" href="/Identity/Admin/Usuarios/Index" title="Usuarios">Usuarios</a></li>
-                                    <li><a class="dropdown-item" href="/Identity/Admin/Condiciones/Index" title="Condiciones">Condiciones</a></li>
-                                    <li><a class="dropdown-item" href="/Identity/Admin/Sintomas/Index" title="Síntomas">Síntomas</a></li>
-                                    <li><a class="dropdown-item" href="/Identity/Admin/Tratamientos/Index" title="Tratamientos">Tratamientos</a></li>
-                                </ul>
-                            </li>
-                        }
-                        @* Menú Salud paciente *@
-                        @if (User.Identity?.IsAuthenticated == true && User.IsInRole("Paciente"))
-                        {
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle d-flex align-items-center gap-2 fw-medium"
-                                   href="#" id="pacienteDropdown"
-                                   role="button" title="Gestión de salud personal" aria-label="Gestión de salud personal"
-                                   data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="bi bi-heart-pulse" aria-hidden="true"></i>
-                                    <span>Mi Salud</span>
-                                </a>
-                                <ul class="dropdown-menu" aria-labelledby="pacienteDropdown">
-                                    <li>
-                                        <a class="dropdown-item" href="/Identity/Usuario/UsuarioEstadoAnimo" title="Mi Mood">
-                                            <i class="bi bi-person-vcard me-1 text-body-secondary" aria-hidden="true"></i>
-                                            <span>Mi Mood</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="/Identity/Usuario/UsuarioCondiciones" title="Mis condiciones">
-                                            <i class="bi bi-person-vcard me-1 text-body-secondary" aria-hidden="true"></i>
-                                            <span>Mis condiciones</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="/Identity/Usuario/UsuarioSintomas" title="Mis síntomas">
-                                            <i class="bi bi-emoji-frown me-1 text-body-secondary" aria-hidden="true"></i>
-                                            <span>Mis síntomas</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="/Identity/Usuario/UsuarioSintomasSeguimiento" title="Seguimiento de síntomas">
-                                            <i class="bi bi-emoji-frown me-1 text-body-secondary" aria-hidden="true"></i>
-                                            <span>Seguimiento de síntomas</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="/Identity/Usuario/UsuarioTratamientos" title="Mis tratamientos">
-                                            <i class="bi bi-capsule-pill me-1 text-body-secondary" aria-hidden="true"></i>
-                                            <span>Mis tratamientos</span>
-                                        </a>
-                                    </li>
-                                </ul>
-                            </li>
-                        }
+                        <!-- Opción directa "Ir a Mi Perfil" -->
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center" href="/Identity/Usuario/UsuarioPerfil" title="Ir a mi perfil" aria-label="Ir a mi perfil">
+                                <i class="bi bi-person-circle me-1"></i>
+                                <span>Ir a Mi Perfil</span>
+                            </a>
+                        </li>
+                        <!-- Perfil desplegable con opciones de gestión -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="perfilDropdown" role="button"
+                               data-bs-toggle="dropdown" aria-expanded="false" title="Mi Perfil" aria-label="Mi Perfil">
+                                <i class="bi bi-person-gear me-1"></i>
+                                <span>Mi Perfil (Opciones)</span>
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="perfilDropdown">
+                                <li>
+                                    <a class="dropdown-item" href="/Identity/Account/Manage">
+                                        <i class="bi bi-person-card"></i> Perfil principal
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="/Identity/Account/Manage/Email">
+                                        <i class="bi bi-envelope"></i> Cambiar email
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="/Identity/Account/Manage/ChangePassword">
+                                        <i class="bi bi-key"></i> Cambiar contraseña
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="/Identity/Account/Manage/TwoFactorAuthentication">
+                                        <i class="bi bi-shield-lock"></i> Doble factor
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="/Identity/Account/Manage/ExternalLogins">
+                                        <i class="bi bi-box-arrow-in-right"></i> Logins externos
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider" /></li>
+                                <li>
+                                    <form method="post" asp-area="Identity" asp-page="/Account/Logout" class="d-inline">
+                                        <button type="submit" class="dropdown-item">
+                                            <i class="bi bi-box-arrow-right"></i> Cerrar sesión
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </li>
                     </ul>
-                    <!-- Menú de usuario derecha -->
+
+                    <!-- Menú de usuario derecha: Login & Registro cuando el usuario NO está autenticado -->
                     <ul class="navbar-nav ms-auto">
-                        @if (User.Identity?.IsAuthenticated == true)
-                        {
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button"
-                                   data-bs-toggle="dropdown" aria-expanded="false" title="Mi cuenta" aria-label="Mi cuenta">
-                                    <i class="bi bi-person-circle me-2"></i>
-                                    <span>@User.Identity.Name</span>
-                                </a>
-                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
-                                    <li>
-                                        <a class="dropdown-item" href="/Identity/Account/Manage">
-                                            <i class="bi bi-person-card"></i> Perfil
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="/Identity/Account/Manage/Email">
-                                            <i class="bi bi-envelope"></i> Email
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="/Identity/Account/Manage/ChangePassword">
-                                            <i class="bi bi-key"></i> Cambiar contraseña
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="/Identity/Account/Manage/ExternalLogins">
-                                            <i class="bi bi-box-arrow-in-right"></i> Logins externos
-                                        </a>
-                                    </li>
-                                    <li><hr class="dropdown-divider" /></li>
-                                    <li>
-                                        <form method="post" asp-area="Identity" asp-page="/Account/Logout" class="d-inline">
-                                            <button type="submit" class="dropdown-item">
-                                                <i class="bi bi-box-arrow-right"></i> Cerrar sesión
-                                            </button>
-                                        </form>
-                                    </li>
-                                </ul>
-                            </li>
-                        }
-                        else
+                        @if (!User.Identity?.IsAuthenticated ?? true)
                         {
                             <li class="nav-item">
                                 <a class="nav-link" href="/Identity/Account/Login">

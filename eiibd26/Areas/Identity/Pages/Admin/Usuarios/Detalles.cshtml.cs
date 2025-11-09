@@ -192,8 +192,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios
                 perfil.NombreCiudad = Request.Form["Ciudad"];
                 perfil.NombrePais = Request.Form["Pais"];
                 perfil.UsoPlataforma = Request.Form["UsoPlataforma"];
-                perfil.notas = Request.Form["Notas"];
-                perfil.descripcion = Request.Form["Descripcion"];
+                //perfil.notas = Request.Form["Notas"];
+                //perfil.descripcion = Request.Form["Descripcion"];
                 perfil.AcercaDe = Request.Form["AcercaDe"];
             }
 
