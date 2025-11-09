@@ -7,17 +7,55 @@
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.min.css">
     <style>
-        .sint-hijo {
-            padding-left: 2em;
-            color: #555;
+        body {
+            background: #f5f7fb;
         }
 
-        .sint-padre {
-            font-weight: bold;
+        .crm-container-admin {
+            max-width: 1320px;
+            margin: 0 auto 30px auto;
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+
+        .crm-title-admin {
+            font-size: 2.08rem;
+            font-weight: 600;
+            letter-spacing: -0.07em;
+            color: #14253f;
+            margin-bottom: .7em;
+        }
+
+        .table-centered-admin {
+            max-width: 1320px;
+            margin: 0;
+            background: #fff;
+            border-radius: 18px;
+            box-shadow: 0 2px 16px rgba(70,80,120,0.07);
+            border: none;
+            padding: 20px 22px 9px 22px;
+        }
+
+        .dt-controls-flex {
+            max-width: 1320px;
+            margin: 0 auto 8px auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5em;
+            flex-wrap: wrap;
+        }
+
+        .dt-controls-left, .dt-controls-right {
+            display: flex;
+            align-items: center;
+            gap: 1.5em;
+            flex-wrap: wrap;
         }
 
         .form-switch {
             padding-left: 2.5em;
+            margin-bottom: 0 !important;
         }
 
         .switch-label {
@@ -26,81 +64,198 @@
             margin-right: 2em;
         }
 
+        #sintomasGrid {
+            width: 100% !important;
+            margin: 0;
+        }
+
+            #sintomasGrid th, #sintomasGrid td {
+                border: none !important;
+            }
+
+            #sintomasGrid th {
+                background: #eef4fa !important;
+                color: #3d436c !important;
+                font-weight: 600 !important;
+                border-bottom: 2.7px solid #ddeaf7 !important;
+                font-size: 1.07em;
+            }
+
+            #sintomasGrid tbody tr {
+                border-bottom: 1.2px solid #e7ebf4 !important;
+                box-shadow: 0 1px 18px #e6edfa0c;
+            }
+
+            #sintomasGrid tbody td {
+                background: #fff !important;
+                border-top: none !important;
+                border-bottom: 1.1px solid #f2f7fd !important;
+                font-size: 1.05em;
+                padding-top: 13px !important;
+                padding-bottom: 13px !important;
+            }
+
+            #sintomasGrid tbody tr:nth-child(even) td {
+                background: #f9fbfc !important;
+            }
+
+        .badge-grid-gray {
+            background: #ededed !important;
+            color: #191919 !important;
+            font-weight: 600;
+            font-size: .94em;
+            border-radius: 9px;
+            border: 1px solid #dddddd;
+            padding: 6px 12px;
+            letter-spacing: .01em;
+            box-shadow: 0 1px 7px #dde2eb22;
+        }
+
+        .btn-action-sintoma {
+            background: #f3f8fd !important;
+            color: #315686 !important;
+            border: 1.1px solid #dde3ee !important;
+            font-weight: 500;
+            margin-right: 0.10em;
+            border-radius: 9px !important;
+            box-shadow: 0 2px 8px #dde2eb18;
+            padding: 6px 13px !important;
+            font-size: .98em;
+        }
+
+            .btn-action-sintoma:hover,
+            .btn-action-sintoma:focus {
+                background: #e5ecf7 !important;
+                color: #222 !important;
+            }
+
         .modal-header .btn-close {
             position: absolute;
             right: 1rem;
             top: 1rem;
         }
-        /* Estiliza el contenedor del grid/table para centrarlo y ajustarle ancho estándar */
+
+        .crm-modal-header {
+            background: #f7f9fd;
+            border-bottom: 1px solid #e5e8ef;
+            border-top-left-radius: 16px;
+            border-top-right-radius: 16px;
+            padding: 1.1rem 1.5rem;
+            color: #315686;
+        }
+
+        .crm-modal-title {
+            font-size: 1.34rem;
+            font-weight: 600;
+            color: #315686;
+        }
+
+        .crm-modal-content {
+            border-radius: 20px;
+            box-shadow: 0 13px 32px 0 #b7c3f859;
+            background: #fff;
+        }
+
+        .crm-modal-footer {
+            border-top: 1px solid #ebecf1;
+            padding: 1rem 1.5rem;
+            background: #f7f9fd;
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
+            text-align: right;
+        }
+
+        .crm-modal-body {
+            padding: 1.3rem 1.5rem 1.3rem 1.5rem;
+        }
+        /* Sintomas padre/hijo estilos */
+        .sint-hijo {
+            padding-left: 2em;
+            color: #717485;
+        }
+
+        .sint-padre {
+            font-weight: bold;
+        }
+
         .table-container-admin {
-            max-width: 980px;
-            margin: 0 auto; /* Centrado horizontal */
+            max-width: 1320px;
+            margin: 0 auto;
+        }
+        @@media (max-width: 1100px) {
+            .crm-container-admin, .table-container-admin, .table-centered-admin, .dt-controls-flex
+
+        {
+            max-width: 99vw;
+        }
+
         }
     </style>
 }
 
-<h2 class="table-container-admin">Síntomas</h2>
-<div class="mb-2 table-container-admin">
-    <div class="form-check form-switch d-inline-block align-middle">
-        <input class="form-check-input" type="checkbox" role="switch" id="switchEliminadosSintomas">
-        <label class="form-check-label switch-label" for="switchEliminadosSintomas">Mostrar eliminados</label>
+<div class="crm-container-admin">
+    <h2 class="crm-title-admin mb-4">Síntomas</h2>
+    <div class="mb-2 table-centered-admin dt-controls-flex">
+        <div class="form-check form-switch d-inline-block align-middle">
+            <input class="form-check-input" type="checkbox" role="switch" id="switchEliminadosSintomas">
+            <label class="form-check-label switch-label" for="switchEliminadosSintomas">Mostrar eliminados</label>
+        </div>
     </div>
-</div>
-<div class="table-container-admin">
-    <table id="sintomasGrid" class="table table-bordered">
-        <thead>
-            <tr>
-                <th>Nombre</th>
-                <th>Tipo</th>
-                <th>ID Padre</th>
-                <th>Idioma</th>
-                <th>Eliminado</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
-    </table>
-</div>
-
-<!-- Modal Editar -->
-<div class="modal fade" id="modalEditarSintoma" tabindex="-1" aria-labelledby="modalEditarSintomaLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <form id="formEditarSintoma" class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalEditarSintomaLabel">Editar Síntoma</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" name="id" id="editSintoma_id">
-                <div class="mb-3">
-                    <label for="editSintoma_nombre" class="form-label">Nombre</label>
-                    <input type="text" class="form-control" id="editSintoma_nombre" name="nombre" required>
+    <div class="table-centered-admin">
+        <table id="sintomasGrid" class="table table-bordered table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Tipo</th>
+                    <th>ID Padre</th>
+                    <th>Idioma</th>
+                    <th>Eliminado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+        </table>
+    </div>
+    <!-- Modal Editar -->
+    <div class="modal fade" id="modalEditarSintoma" tabindex="-1" aria-labelledby="modalEditarSintomaLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <form id="formEditarSintoma" class="crm-modal-content modal-content">
+                <div class="crm-modal-header modal-header">
+                    <h5 class="crm-modal-title modal-title" id="modalEditarSintomaLabel">Editar Síntoma</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
-                <div class="mb-3">
-                    <label for="editSintoma_idPadre" class="form-label">ID Padre (dejar vacío si es padre)</label>
-                    <input type="number" class="form-control" id="editSintoma_idPadre" name="idPadre">
+                <div class="crm-modal-body modal-body">
+                    <input type="hidden" name="id" id="editSintoma_id">
+                    <div class="mb-3">
+                        <label for="editSintoma_nombre" class="form-label">Nombre</label>
+                        <input type="text" class="form-control" id="editSintoma_nombre" name="nombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editSintoma_idPadre" class="form-label">ID Padre (dejar vacío si es padre)</label>
+                        <input type="number" class="form-control" id="editSintoma_idPadre" name="idPadre">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editSintoma_idIdioma" class="form-label">ID Idioma</label>
+                        <input type="number" class="form-control" id="editSintoma_idIdioma" name="idIdioma" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editSintoma_icono" class="form-label">Ícono</label>
+                        <input type="text" class="form-control" id="editSintoma_icono" name="icono">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editSintoma_eliminado" class="form-label">¿Eliminado?</label>
+                        <select class="form-select" id="editSintoma_eliminado" name="eliminado">
+                            <option value="false">No</option>
+                            <option value="true">Sí</option>
+                        </select>
+                    </div>
+                    <div class="alert alert-success d-none" id="msgEditSintomaSuccess">¡Edición realizada correctamente!</div>
                 </div>
-                <div class="mb-3">
-                    <label for="editSintoma_idIdioma" class="form-label">ID Idioma</label>
-                    <input type="number" class="form-control" id="editSintoma_idIdioma" name="idIdioma" required>
+                <div class="crm-modal-footer modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Aceptar cambios</button>
                 </div>
-                <div class="mb-3">
-                    <label for="editSintoma_icono" class="form-label">Ícono</label>
-                    <input type="text" class="form-control" id="editSintoma_icono" name="icono">
-                </div>
-                <div class="mb-3">
-                    <label for="editSintoma_eliminado" class="form-label">¿Eliminado?</label>
-                    <select class="form-select" id="editSintoma_eliminado" name="eliminado">
-                        <option value="false">No</option>
-                        <option value="true">Sí</option>
-                    </select>
-                </div>
-                <div class="alert alert-success d-none" id="msgEditSintomaSuccess">¡Edición realizada correctamente!</div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary">Aceptar cambios</button>
-            </div>
-        </form>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -160,8 +315,8 @@
                         orderable: false,
                         render: function (data) {
                             return data
-                                ? `<span class="badge bg-success">Padre</span>`
-                                : `<span class="badge bg-secondary">Hijo</span>`;
+                                ? `<span class="badge badge-grid-gray">Padre</span>`
+                                : `<span class="badge badge-grid-gray">Hijo</span>`;
                         }
                     },
                     { data: 'idPadre', orderable: false, defaultContent: '' },
@@ -171,15 +326,15 @@
                         orderable: false,
                         render: function (data) {
                             return data
-                                ? `<span class="badge bg-danger">Sí</span>`
-                                : `<span class="badge bg-success">No</span>`;
+                                ? `<span class="badge badge-grid-gray">Sí</span>`
+                                : `<span class="badge badge-grid-gray">No</span>`;
                         }
                     },
                     {
                         data: null,
                         orderable: false,
                         render: function (data, type, row) {
-                            let editBtn = `<button class='btn btn-sm btn-warning btn-editar-sintoma' title='Editar' data-id='${row.id}'><i class="bi bi-pencil-square"></i> Editar</button>`;
+                            let editBtn = `<button class='btn btn-sm btn-action-sintoma btn-editar-sintoma' title='Editar' data-id='${row.id}'><i class="bi bi-pencil-square"></i> Editar</button>`;
                             let eliminarBtn = '', restaurarBtn = '';
                             const esPadre = row.esPadre;
                             const tieneHijos = hijosSintPorPadre[row.id] && hijosSintPorPadre[row.id].length > 0;

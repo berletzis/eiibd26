@@ -3,66 +3,223 @@
 @{
     ViewData["Title"] = "Estado de Ánimo";
     Layout = "_Layout";
-    var moodColors = new Dictionary<string, string> {
-        { "MuyBien", "success" }, { "Bien", "primary" }, { "Neutral", "secondary" }, { "Mal", "warning" }, { "MuyMal", "danger" }
+    var moodImgs = new Dictionary<string, string> {
+        { "MuyBien", "/img/muybien.svg" }, { "Bien", "/img/bien.svg" }, { "Neutral", "/img/neutral.svg" }, { "Mal", "/img/mal.svg" }, { "MuyMal", "/img/muymal.svg" }
     };
     var moodLabels = new Dictionary<string, string> {
         { "MuyBien", "Muy bien" }, { "Bien", "Bien" }, { "Neutral", "Neutral" }, { "Mal", "Mal" }, { "MuyMal", "Muy mal" }
     };
+    var moodPointColors = new Dictionary<string, string> {
+        { "MuyBien", "#38D6C1" },   // turquesa
+        { "Bien", "#B3F1E9" },      // celeste pastel
+        { "Neutral", "#FEE019" },   // amarillo
+        { "Mal", "#D8B4F8" },       // lila pastel
+        { "MuyMal", "#9B5DE5" }     // morado
+    };
     var condicionesUsuario = Model.CondicionesUsuario ?? new List<eiibd26.Areas.Identity.Pages.Usuario.CondicionUsuarioViewModel>();
 }
 <style>
-    #moodCards .card > .me-4 {
-        border-right: 1px solid #eee;
-        padding-right: 1rem;
-        min-width: 142px;
+    .crm-container {
+        max-width: 1320px;
+        margin: 22px auto 30px auto;
+        padding-left: 10px;
+        padding-right: 10px;
     }
 
-    .mood-card-group {
+    .crm-card {
+        background: #fff;
+        border-radius: 29px !important;
+        box-shadow: 0 9px 36px 0 rgba(50,65,120,0.08);
+        border: none !important;
+        padding: 2.7rem 2.6rem 2.2rem 2.6rem !important;
+        margin-bottom: 15px;
+    }
+
+    .crm-title {
+        font-size: 2.18rem;
+        font-weight: 600;
+        letter-spacing: -0.07em;
+        color: #172849;
+        margin-bottom: .6em;
+    }
+
+    .mood-leyenda-row {
         display: flex;
-        gap: 1em;
+        flex-direction: row;
+        align-items: center;
+        gap: 34px;
+        margin-top: 8px;
+        margin-bottom: 5px;
+        justify-content: flex-start;
         flex-wrap: wrap;
-        margin-bottom: 1.2em;
+    }
+
+    .mood-leyenda-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 500;
+        font-size: 1.13em;
+        padding: 1px 0;
+    }
+
+    .mood-leyenda-img {
+        width: 31px;
+        height: 31px;
+        object-fit: contain;
+        border-radius: 10px;
+        background: #fff;
+        box-shadow: 0 1px 6px #e6e8ef77;
+    }
+
+    .mood-card-panel {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 28px;
+        align-items: start;
+        margin-top: 14px;
+        margin-bottom: 10px;
+        width: 100%;
     }
 
     .mood-card-item {
-        flex: 1 0 22%;
-        min-width: 220px;
+        background: #f7f9fd !important;
+        min-width: 0;
         max-width: 100%;
+        border-radius: 18px;
+        box-shadow: 0 2px 12px rgb(180 193 239 / 12%);
+        border: none;
+        padding: 1.15rem 1rem 1rem 1rem;
+        margin: 0;
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 13px;
+        height: 100%;
     }
 
-    .mood-count-legend {
+    .mood-card-img {
+        width: 46px;
+        height: 46px;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 14px rgba(0,0,0,0.12);
+        object-fit: contain;
+        border: 3px solid #fff;
+        margin-right: 4px;
+        padding: 2px;
         display: inline-block;
-        font-size: 1.1em;
-        color: #333;
-        margin-left: 1.5em;
-        vertical-align: middle;
+        flex-shrink: 0;
     }
 
-    .alert-mood-added {
-        display: none;
-        margin-bottom: 15px;
+    .mood-card-content {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: flex-start;
+        min-width: 0;
+        height: 100%;
+        width: 100%;
+    }
+
+    .mood-label {
+        font-size: 1.02em;
+        font-weight: 600;
+        color: #315686;
+        margin-bottom: 6px;
+        margin-top: 0px;
+        display: inline-block;
+        line-height: 1.15;
+        word-break: break-word;
+    }
+
+    .mood-reflexion {
+        font-size: .99em;
+        margin-bottom: 7px;
+        margin-top: 0;
+        color: #283343;
+        word-break: break-word;
+        white-space: pre-line;
+    }
+
+    .mood-main-legend {
+        font-size: .96em !important;
+        color: #888ca0 !important;
+        font-weight: 500 !important;
+        margin-bottom: 4px;
+        display: block;
+        margin-top: 0;
+    }
+
+    .mood-relacion {
+        font-size: .93em;
+        color: #7e7e9d;
+        margin-bottom: 2px;
+        display: block;
+    }
+    @@media (max-width: 900px) {
+        .crm-container
+
+    {
+        max-width: 98vw;
+    }
+
+    .mood-card-panel {
+        grid-template-columns: repeat(2,1fr)
+    }
+
+    .mood-card-item {
+        min-width: 180px;
+        max-width: 98vw;
+    }
+
+    .crm-title {
+        font-size: 1.38rem;
+    }
+
+    }
+    @@media (max-width: 750px) {
+        .mood-card-panel
+
+    {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .crm-card {
+        padding: 1.15rem 0.6rem 1.1rem 0.6rem;
+    }
+
+    .mood-card-item {
+        min-width: 95vw;
+        max-width: 98vw;
+    }
+
     }
 </style>
-<div class="container mt-4">
-    <div class="card mb-3 p-4">
+<div class="crm-container">
+    <h2 class="crm-title mb-4">Estado de Ánimo</h2>
+    <div class="crm-card mb-3 p-4">
         <div class="d-flex flex-wrap justify-content-between align-items-center">
             <div>
                 <div class="mb-2 fs-4">¡Bienvenido! ¿Cómo te sientes hoy?</div>
                 <div class="text-muted mb-2">Registra tu estado de ánimo diario y reflexiones.</div>
             </div>
-            <button class="btn btn-primary btn-lg" id="btnAbrirMood" type="button">¿Cuál es tu Mood hoy?</button>
+            <button class="crm-btn crm-btn-primary btn-lg" id="btnAbrirMood" type="button">¿Cuál es tu Mood hoy?</button>
         </div>
     </div>
-    <div class="card mb-3 p-4">
+    <div class="crm-card mb-3 p-4">
         <h5 class="mb-3">Tu gráfica de estados de ánimo</h5>
-        <div style="height:160px;position:relative">
-            <canvas id="moodChart" height="140"></canvas>
+        <div style="height:335px;position:relative">
+            <canvas id="moodChart" height="325"></canvas>
         </div>
-        <div class="d-flex flex-wrap gap-2 mt-2">
-            @foreach (var k in moodColors)
+        <div class="mood-leyenda-row">
+            @foreach (var k in moodImgs)
             {
-                <span class="badge bg-@k.Value">@moodLabels[k.Key]</span>
+                <span class="mood-leyenda-item">
+                    <img class="mood-leyenda-img" src="@k.Value" alt="@moodLabels[k.Key]" />
+                    <span>@moodLabels[k.Key]</span>
+                </span>
             }
         </div>
     </div>
@@ -75,7 +232,7 @@
         </div>
         <span id="moodCountLegend" class="mood-count-legend"></span>
     </div>
-    <div id="moodCards"></div>
+    <div id="moodCards" class="mood-card-panel"></div>
     <!-- Modal: Registrar Mood -->
     <div class="modal fade" tabindex="-1" id="moodModal">
         <div class="modal-dialog">
@@ -120,47 +277,56 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         const moodOpts = [
-            { val: "MuyBien", label: "Muy bien", color: "success" },
-            { val: "Bien", label: "Bien", color: "primary" },
-            { val: "Neutral", label: "Neutral", color: "secondary" },
-            { val: "Mal", label: "Mal", color: "warning" },
-            { val: "MuyMal", label: "Muy mal", color: "danger" }
+            { val: "MuyBien", label: "Muy bien", color: "#38D6C1", img: "/img/muybien.svg" },
+            { val: "Bien", label: "Bien", color: "#B3F1E9", img: "/img/bien.svg" },
+            { val: "Neutral", label: "Neutral", color: "#FEE019", img: "/img/neutral.svg" },
+            { val: "Mal", label: "Mal", color: "#D8B4F8", img: "/img/mal.svg" },
+            { val: "MuyMal", label: "Muy mal", color: "#9B5DE5", img: "/img/muymal.svg" }
         ];
-        let allMoodsData = [], lastFilteredCount = 0, windowChart = null;
 
-        function isAllowedMood(m){
-            return typeof m === "string" && ["MuyBien","Bien","Neutral","Mal","MuyMal"].includes(m.trim());
-        }
         function moodNumFromStr(str){
             return {"MuyBien":5,"Bien":4,"Neutral":3,"Mal":2,"MuyMal":1}[str.trim()]??null;
         }
-        function moodColorFromStr(str){
-            return {"MuyBien":"#28a745","Bien":"#0d6efd","Neutral":"#6c757d","Mal":"#ffc107","MuyMal":"#dc3545"}[str.trim()]??"#CCC";
+        function moodPointColorFromStr(str) {
+            return {
+                "MuyBien": "#38D6C1",
+                "Bien": "#B3F1E9",
+                "Neutral": "#FEE019",
+                "Mal": "#D8B4F8",
+                "MuyMal": "#9B5DE5"
+            }[str.trim()] ?? "#CCC";
+        }
+        function moodImgFromStr(str){
+            return {"MuyBien":"/img/muybien.svg","Bien":"/img/bien.svg","Neutral":"/img/neutral.svg","Mal":"/img/mal.svg","MuyMal":"/img/muymal.svg"}[str.trim()]??"/img/neutral.svg";
         }
         function moodLabelFromNum(n){
             return {5:"Muy bien",4:"Bien",3:"Neutral",2:"Mal",1:"Muy mal"}[n]||"";
         }
         function formatFecha(fecha){
             let d = new Date(fecha);
-            return isNaN(d.getTime()) ? fecha : d.toLocaleDateString('es-MX') + " " + d.toLocaleTimeString('es-MX', {hour: '2-digit', minute: '2-digit'});
+            if (isNaN(d.getTime())) return fecha;
+            return d.toLocaleDateString('es-MX');
         }
         function agregarMoodCard(dto){
             let mood = dto.estadoMood ?? dto.EstadoMood ?? "";
             let label = moodOpts.find(o => o.val === mood)?.label || mood;
-            let color = moodOpts.find(o => o.val === mood)?.color || "secondary";
+            let img = moodImgFromStr(mood);
             let fecha = dto.fechaRegistro ?? dto.FechaRegistro ? formatFecha(dto.fechaRegistro ?? dto.FechaRegistro) : "";
             let reflexion = dto.texto || dto.Texto || "";
             let relacionNombre = dto.RelacionNombre || dto.relacionNombre || null;
-            let relacionHtml = relacionNombre ? `<small class="text-muted d-block">Condición: <strong>${relacionNombre}</strong></small>` : "";
-            return `<div class="card mood-card-item flex-column align-items-start p-3 mb-2">
-                <div class="me-3"><span class="badge bg-${color}">${label}</span></div>
-                <div class="flex-grow-1">
-                    <small class="text-muted">${fecha}</small>
+            let relacionHtml = relacionNombre ? `<span class="mood-relacion">Condición: <strong>${relacionNombre}</strong></span>` : "";
+            return `<div class="mood-card-item">
+                <img class="mood-card-img" src="${img}" alt="${label}" />
+                <div class="mood-card-content">
+                    <span class="mood-label">${label}</span>
+                    <div class="mood-reflexion">${reflexion}</div>
+                    <span class="mood-main-legend">Ultimo Seguimiento ${fecha} (${label})</span>
                     ${relacionHtml}
-                    <div>${reflexion}</div>
                 </div>
             </div>`;
         }
+
+        let allMoodsData = [], lastFilteredCount = 0, windowChart = null;
 
         document.addEventListener("DOMContentLoaded", async function(){
             await cargarHistorialEstadoAnimo();
@@ -179,13 +345,10 @@
             });
             renderMoodOptionsBtns();
             document.getElementById("moodModal").addEventListener('hidden.bs.modal', function () {
-                // Corrige el bug de focus/aria: el foco vuelve al botón principal
                 document.getElementById("btnAbrirMood").focus();
             });
             document.getElementById("moodForm").addEventListener("submit", async function(e){
                 e.preventDefault();
-
-                // Validar estado de ánimo (mood)
                 const moodSelected = document.getElementById("moodSelected").value;
                 if (!moodSelected || !["MuyBien","Bien","Neutral","Mal","MuyMal"].includes(moodSelected.trim())) {
                     mostrarLeyendaModal("Selecciona tu estado de ánimo por favor.", true);
@@ -197,7 +360,6 @@
                 formData.append("mood", moodSelected);
                 formData.append("texto", moodText);
                 formData.append("condicionUsuarioId", condicionUsuarioId);
-
                 try {
                     let resp = await fetch("/api/EstadoAnimoUsuario/nuevo", {
                         method: "POST",
@@ -233,8 +395,8 @@
             moodOpts.forEach(o=>{
                 let btn=document.createElement("button");
                 btn.type="button";
-                btn.className=`btn btn-outline-${o.color} mood-btn-option`;
-                btn.textContent=o.label;
+                btn.className=`btn btn-outline-secondary mood-btn-option`;
+                btn.innerHTML = `<img src="${o.img}" alt="${o.label}" style="width:25px;vertical-align:middle;margin-right:6px;"> <span>${o.label}</span>`;
                 btn.onclick=function(){
                     document.getElementById("moodSelected").value = o.val;
                     container.querySelectorAll(".mood-btn-option").forEach(b=>b.classList.remove("active"));
@@ -276,8 +438,8 @@
                 fromDate = new Date(today.getFullYear(), 0, 1, 0, 0, 0, 0);
             }
             let validData = (allMoodsData||[]).filter(x =>
-                isAllowedMood(x.estadoMood) &&
-                x.fechaRegistro && !isNaN(Date.parse(x.fechaRegistro))
+                ["MuyBien","Bien","Neutral","Mal","MuyMal"].includes(x.estadoMood)
+                && x.fechaRegistro && !isNaN(Date.parse(x.fechaRegistro))
             );
             let filtrados = validData.filter(x => {
                 let d = new Date(x.fechaRegistro);
@@ -293,7 +455,8 @@
             legendSpan.textContent = `${count} registro${count === 1 ? "" : "s"} mostrado${count === 1 ? "" : "s"} en el rango`;
         }
         function renderMoodCards(data){
-            const moodCards=document.getElementById("moodCards"); moodCards.innerHTML = "";
+            const moodCards=document.getElementById("moodCards");
+            moodCards.innerHTML = "";
             if (!Array.isArray(data) || data.length === 0) {
                 moodCards.innerHTML = `<div class="text-muted text-center p-4">No hay registros de ánimo en este rango.</div>`;
                 updateMoodCountLegend(0);
@@ -301,15 +464,11 @@
                 return;
             }
             const sorted = data.slice().sort((a, b) => new Date(b.fechaRegistro) - new Date(a.fechaRegistro));
-            let groupHtml = "";
-            for (let i = 0; i < sorted.length; i += 4) {
-                groupHtml += `<div class="mood-card-group">`;
-                for (let j = 0; j < 4 && (i + j) < sorted.length; j++) {
-                    groupHtml += agregarMoodCard(sorted[i + j]);
-                }
-                groupHtml += `</div>`;
+            let gridHtml = "";
+            for (let i = 0; i < sorted.length; i++) {
+                gridHtml += agregarMoodCard(sorted[i]);
             }
-            moodCards.innerHTML = groupHtml;
+            moodCards.innerHTML = gridHtml;
         }
         function renderMoodChart(data){
             let oldCanvas = document.getElementById("moodChart");
@@ -318,7 +477,7 @@
             const sortedDesc = data.slice().sort((a, b) => new Date(b.fechaRegistro) - new Date(a.fechaRegistro));
             const labels = sortedDesc.map(x => x.fechaRegistro.substring(0,10));
             const dataNum = sortedDesc.map(x => moodNumFromStr(x.estadoMood));
-            const colors  = sortedDesc.map(x => moodColorFromStr(x.estadoMood));
+            const colors  = sortedDesc.map(x => moodPointColorFromStr(x.estadoMood));
             windowChart = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -330,7 +489,10 @@
                         borderColor: "#3498db",
                         borderWidth: 2,
                         pointBackgroundColor: colors,
-                        pointRadius: 5,
+                        pointRadius: 13,
+                        pointBorderColor: colors,
+                        pointHoverRadius: 19,
+                        pointStyle: 'circle',
                         fill: false,
                         tension: 0.3
                     }]
@@ -348,11 +510,27 @@
                             }
                         }
                     },
+                    layout: {
+                        padding: {top: 50, bottom: 10, left:10, right:10}
+                    },
                     scales: {
                         x: { title: { display: false, text:"Fecha" }},
                         y: {
-                            min: 1, max: 5, stepSize: 1, beginAtZero: false,
-                            ticks: { callback: v => moodLabelFromNum(v) || v }
+                            min: 1, max: 5.43,
+                            suggestedMin: 0.8,
+                            suggestedMax: 5.4,
+                            stepSize: 1,
+                            beginAtZero: false,
+                            ticks: {
+                                callback: function(v) {
+                                    if (v === 5) return "Muy bien";
+                                    if (v === 4) return "Bien";
+                                    if (v === 3) return "Neutral";
+                                    if (v === 2) return "Mal";
+                                    if (v === 1) return "Muy mal";
+                                    return ""; // oculta etiquetas medias si hubiera en el futuro
+                                }
+                            }
                         }
                     }
                 }

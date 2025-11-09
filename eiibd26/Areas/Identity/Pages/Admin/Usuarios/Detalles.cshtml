@@ -3,7 +3,6 @@
 
 @{
     ViewData["Title"] = "Detalles del Usuario";
-    // Usa el layout principal para tener sidebar y navbar
     Layout = "_Layout";
 }
 
@@ -11,22 +10,50 @@
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.min.css">
     <style>
-        .main-container {
-            max-width: 1000px;
-            margin: 30px auto;
+        body {
+            background: #f5f7fb;
+        }
+
+        .crm-container-admin {
+            max-width: 1320px;
+            margin: 34px auto 30px auto;
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+
+        .crm-title-admin {
+            font-size: 2.08rem;
+            font-weight: 600;
+            letter-spacing: -0.07em;
+            color: #14253f;
+            margin-bottom: .7em;
         }
 
         .card-block {
             background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(40,60,120,0.05);
-            padding: 25px;
-            margin-bottom: 32px;
+            border-radius: 18px;
+            box-shadow: 0 2px 14px rgba(60,80,120,0.07);
+            border: none;
+            padding: 27px 28px 15px 28px;
+            margin-bottom: 30px;
         }
+            /* Modernizar inputs, selects */
+            .card-block input.form-control,
+            .card-block textarea.form-control,
+            .card-block select.form-select {
+                border-radius: 8px;
+                border: 1px solid #dde6f1;
+                background: #f8fafd;
+                font-size: 1.06em;
+            }
 
-            .card-block h3 {
-                margin-top: 0;
-                font-size: 1.25rem;
+            .card-block .block-title h3,
+            .block-title {
+                font-size: 1.2rem;
+                font-weight: 600;
+                margin-bottom: 19px;
+                color: #305586;
+                letter-spacing: -.02em;
             }
 
         .flex-row {
@@ -36,12 +63,19 @@
 
         .flex-col {
             flex: 1;
+            min-width: 310px;
+            max-width: 550px;
         }
         @@media (max-width: 900px) {
-            .flex-row
+            .crm-container-admin
 
         {
+            max-width: 98vw;
+        }
+
+        .flex-row {
             flex-direction: column;
+            gap: 18px;
         }
 
         }
@@ -50,19 +84,70 @@
             margin-bottom: 0.5em;
         }
 
+        .data-list ul {
+            margin-bottom: 2px;
+        }
+
         .block-title {
-            font-size: 1.2rem;
+            font-size: 1.21rem;
             font-weight: 600;
             margin-bottom: 14px;
+            color: #305586;
         }
 
         .checkbox-label {
             margin-left: 0.4em;
+            font-size: 1em;
+        }
+
+        .card-block dl dt,
+        .card-block dl dd {
+            font-size: 1.04em;
+            color: #303d59;
+            word-break: break-word;
+        }
+
+        .card-block dl dt {
+            font-weight: 600;
+            color: #27579d;
+        }
+
+        .card-block dl dd input, .card-block dl dd textarea, .card-block dl dd select {
+            margin-bottom: 4px;
+        }
+
+        .btn-success, .btn-secondary {
+            border-radius: 9px !important;
+            font-weight: 600;
+            padding: 9px 28px;
+            font-size: 1.04em;
+        }
+
+            .btn-success i {
+                font-size: 1.02em;
+                vertical-align: middle;
+            }
+
+        .btn-secondary {
+            background: #dbe1ef;
+            color: #425783;
+            border: none;
+        }
+
+            .btn-secondary:hover {
+                background: #eef4fa;
+                color: #14253f;
+            }
+
+        .alert {
+            border-radius: 9px;
+            font-size: 1.08em;
         }
     </style>
 }
 
-<div class="main-container">
+<div class="crm-container-admin">
+    <h2 class="crm-title-admin mb-4">Detalles del Usuario</h2>
     @if (ViewData["SuccessMessage"] != null)
     {
         <div class="alert alert-success text-center" role="alert">
@@ -75,7 +160,7 @@
             <input type="hidden" name="UserId" value="@Model.Usuario.Id" />
             <input type="hidden" name="PerfilId" value="@Model.Perfil?.idUser" />
             <div class="flex-row">
-                <div class="flex-col card-block" style="min-width:320px;max-width:420px;">
+                <div class="flex-col card-block">
                     <h3 class="block-title mb-3"><i class="bi bi-person-badge"></i> Cuenta</h3>
                     <dl class="row mb-0">
                         <dt class="col-sm-6">ID</dt>
@@ -115,7 +200,7 @@
                         <dd class="col-sm-6">@((Model.HashIsValid ? "Sí" : "NO"))</dd>
                     </dl>
                 </div>
-                <div class="flex-col card-block" style="min-width:320px;max-width:520px;">
+                <div class="flex-col card-block">
                     <h3 class="block-title mb-3"><i class="bi bi-person-vcard"></i> Perfil</h3>
                     @if (Model.Perfil != null)
                     {

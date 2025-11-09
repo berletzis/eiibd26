@@ -4,130 +4,136 @@
     ViewData["Title"] = "Mis condiciones";
     Layout = "_Layout";
 }
-<div class="container mt-4">
-    <h2 class="mb-4">Mis condiciones</h2>
+<div class="crm-container">
+    <h2 class="crm-title mb-4">Mis condiciones</h2>
 
-    <!-- Bloque: Buscador y alta de condición -->
-    <div class="card p-4 mb-4">
-        <form id="agregarCondicionForm" autocomplete="off" class="row g-3" onsubmit="return false;">
-            <div class="col-md-8 position-relative">
-                <label for="condicionBuscar" class="form-label">
-                    <i class="bi bi-search-heart me-1"></i> Buscar o agregar condición
+    <!-- Buscador: alineado horizontalmente -->
+    <div class="crm-card p-4 mb-4">
+        <form id="agregarCondicionForm" autocomplete="off" class="crm-form-row" onsubmit="return false;">
+            <div class="crm-search-group crm-col-8">
+                <label for="condicionBuscar" class="crm-label">
+                    <i class="bi bi-search-heart crm-icon"></i> Buscar o agregar condición
                 </label>
-                <input id="condicionBuscar" type="text" class="form-control" placeholder="Ej: Asma, Colitis, Diabetes..." autocomplete="off" />
+                <div class="crm-search-horizontal">
+                    <input id="condicionBuscar" type="text" class="crm-input" placeholder="Ej: Asma, Colitis, Diabetes..." autocomplete="off" />
+                    <button id="btnAgregarCondicion" class="crm-btn crm-btn-primary w-100" type="button">
+                        <i class="bi bi-plus-circle me-1"></i> Agregar
+                    </button>
+                </div>
                 <input id="condicionIdSeleccionada" type="hidden" />
-                <ul id="condicionSugerencias" class="list-group position-absolute mt-1" style="z-index:1000; width:100%;"></ul>
-            </div>
-            <div class="col-md-4 d-flex align-items-end">
-                <button id="btnAgregarCondicion" class="btn btn-primary w-100" type="button">
-                    <i class="bi bi-plus-circle me-1"></i> Agregar
-                </button>
+                <ul id="condicionSugerencias" class="crm-list-suggest"></ul>
             </div>
         </form>
     </div>
 
-    <!-- Cards de condiciones -->
-    <div class="card p-4">
-        <h5 class="mb-3"><i class="bi bi-clipboard2-heart text-danger me-1"></i> Condiciones agregadas</h5>
-        @if (Model.MisCondicionesAgrupadas.Any())
-        {
-            <div class="d-flex flex-wrap gap-3">
-                @foreach (var grupo in Model.MisCondicionesAgrupadas)
+    <!-- Header -->
+    <div class="crm-card mb-3 crm-header-block">
+        <h3>
+            <i class="bi bi-clipboard2-heart text-danger me-1"></i> Condiciones agregadas
+        </h3>
+    </div>
+
+    <!-- Cards grid -->
+    @if (Model.MisCondicionesAgrupadas.Any())
+    {
+        <div class="crm-card-row">
+            @foreach (var grupo in Model.MisCondicionesAgrupadas)
+            {
+                @foreach (var hijo in grupo.Hijos)
                 {
-                    @foreach (var hijo in grupo.Hijos)
-                    {
-                        <div class="card shadow-sm bg-light" style="min-width:270px;max-width:330px;">
-                            <div class="card-body">
-                                <div class="d-flex align-items-center mb-2">
-                                    <span class="fw-bold flex-grow-1">
-                                        <i class="bi bi-heart-pulse-fill text-primary me-1"></i>
-                                        @hijo.Nombre
-                                    </span>
-                                    <!-- Botón eliminar -->
-                                    <button type="button" class="btn btn-outline-danger btn-sm ms-2 btn-eliminar"
-                                            data-id="@hijo.Id"
-                                            data-nombre="@hijo.Nombre"
-                                            data-tratamientos="@hijo.TratamientosCount"
-                                            data-sintomas="@hijo.SintomasCount"
-                                            title="Eliminar condición">
-                                        <i class="bi bi-trash3-fill"></i>
-                                    </button>
-                                </div>
-                                <hr class="my-2" />
-                                <div>
-                                    <span class="small text-muted"><i class="bi bi-diagram-3"></i> Grupo: </span>
-                                    <span class="text-secondary">@grupo.PadreNombre</span>
-                                </div>
-                                <!-- Edición de fecha -->
-                                <div class="mt-2">
-                                    <form method="post" class="form-editar-fecha" data-id="@hijo.Id" asp-page-handler="EditarFechaInicio">
-                                        <div class="input-group input-group-sm">
-                                            <span class="input-group-text">
-                                                <i class="bi bi-calendar2-date"></i> Fecha inicio
-                                            </span>
-                                            <input type="date"
-                                                   class="form-control fecha-inicio"
-                                                   name="nuevaFechaInicio"
-                                                   value="@hijo.FechaInicio.ToString("yyyy-MM-dd")"
-                                                   disabled />
-                                            <button type="button"
-                                                    class="btn btn-secondary btn-editar-fecha"
-                                                    title="Editar fecha de inicio">
-                                                <i class="bi bi-pencil"></i>
-                                            </button>
-                                            <button type="submit"
-                                                    class="btn btn-success d-none btn-guardar-fecha"
-                                                    title="Guardar nueva fecha">
-                                                <i class="bi bi-save"></i>
-                                            </button>
-                                            <button type="button"
-                                                    class="btn btn-light border d-none btn-cancelar-fecha"
-                                                    title="Cancelar edición de fecha">
-                                                <i class="bi bi-x"></i>
-                                            </button>
-                                            <input type="hidden" name="condId" value="@hijo.Id" />
-                                        </div>
-                                        <div class="small text-muted mt-1">
-                                            <i class="bi bi-info-circle"></i>
-                                            <span>El ícono <i class="bi bi-pencil"></i> permite editar la fecha. <i class="bi bi-save"></i> guarda y <i class="bi bi-x"></i> cancela.</span>
-                                        </div>
-                                    </form>
-                                </div>
-                                <div class="mt-2">
-                                    <span class="badge bg-light text-dark">
-                                        <i class="bi bi-capsule-pill"></i>
+                    <div class="crm-card-condicion">
+                        <div class="crm-card-inner">
+                            <div class="crm-card-header">
+                                <span class="crm-card-title">
+                                    <i class="bi bi-heart-pulse-fill text-primary me-2"></i>
+                                    @hijo.Nombre
+                                </span>
+                                <button type="button" class="crm-btn crm-btn-delete btn-eliminar"
+                                        data-id="@hijo.Id"
+                                        data-nombre="@hijo.Nombre"
+                                        data-tratamientos="@hijo.TratamientosCount"
+                                        data-sintomas="@hijo.SintomasCount"
+                                        title="Eliminar condición">
+                                    <i class="bi bi-trash3-fill"></i>
+                                </button>
+                            </div>
+                            <div class="crm-card-group">
+                                <span class="crm-card-label"><i class="bi bi-diagram-3"></i> Grupo:</span>
+                                <span class="crm-card-value">@grupo.PadreNombre</span>
+                            </div>
+                            <div class="crm-card-fecha">
+                                <form method="post" class="form-editar-fecha" data-id="@hijo.Id" asp-page-handler="EditarFechaInicio">
+                                    <div class="crm-input-group">
+                                        <span class="crm-input-label">
+                                            <i class="bi bi-calendar2-date"></i> Fecha inicio
+                                        </span>
+                                        <input type="date"
+                                               class="crm-input-date fecha-inicio"
+                                               name="nuevaFechaInicio"
+                                               value="@hijo.FechaInicio.ToString("yyyy-MM-dd")"
+                                               disabled />
+                                        <button type="button"
+                                                class="crm-btn crm-btn-secondary btn-editar-fecha"
+                                                title="Editar fecha de inicio">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button type="submit"
+                                                class="crm-btn crm-btn-success d-none btn-guardar-fecha"
+                                                title="Guardar nueva fecha">
+                                            <i class="bi bi-save"></i>
+                                        </button>
+                                        <button type="button"
+                                                class="crm-btn crm-btn-cancel d-none btn-cancelar-fecha"
+                                                title="Cancelar edición de fecha">
+                                            <i class="bi bi-x"></i>
+                                        </button>
+                                        <input type="hidden" name="condId" value="@hijo.Id" />
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="crm-card-badges">
+                                <div class="crm-badge-row">
+                                    <span class="crm-badge crm-badge-label">
+                                        <i class="bi bi-capsule-pill me-1"></i>
                                         Tratamientos
                                     </span>
                                     @if (hijo.TratamientosCount > 0)
                                     {
-                                        <span class="badge bg-success">@hijo.TratamientosCount</span>
+                                        <span class="crm-badge crm-badge-count">@hijo.TratamientosCount</span>
                                     }
                                 </div>
-                                <div>
-                                    <span class="badge bg-light text-dark">
-                                        <i class="bi bi-emoji-frown"></i>
+                                <div class="crm-badge-row">
+                                    <span class="crm-badge crm-badge-label">
+                                        <i class="bi bi-emoji-frown me-1"></i>
                                         Síntomas
                                     </span>
                                     @if (hijo.SintomasCount > 0)
                                     {
-                                        <span class="badge bg-success">@hijo.SintomasCount</span>
+                                        <span class="crm-badge crm-badge-count">@hijo.SintomasCount</span>
                                     }
                                 </div>
                             </div>
                         </div>
-                    }
+                    </div>
                 }
-            </div>
-        }
-        else
-        {
-            <div class="fw-light text-muted">
+            }
+        </div>
+    }
+    else
+    {
+        <div class="crm-card mb-2">
+            <div class="fw-light text-muted crm-empty">
                 <i class="bi bi-emoji-neutral"></i>
                 Aún no has agregado ninguna condición.
             </div>
-        }
-    </div>
+        </div>
+    }
 </div>
+
+@section Styles {
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" />
+    <link rel="stylesheet" href="~/css/usuario-condiciones-crm.css" />
+}
 
 @section Scripts {
     <script>
@@ -135,15 +141,12 @@
         const urlAgregar = "/Identity/Usuario/UsuarioCondiciones?handler=AgregarCondicion";
         const urlEliminar = "/Identity/Usuario/UsuarioCondiciones?handler=EliminarCondicion";
         const urlEditarFecha = "/Identity/Usuario/UsuarioCondiciones?handler=EditarFechaInicio";
-
-        // --- Autocomplete con jerarquía ---
         document.getElementById('condicionBuscar').addEventListener('input', async function () {
             let query = this.value.trim();
             let sugerenciasUl = document.getElementById('condicionSugerencias');
             sugerenciasUl.innerHTML = '';
-            document.getElementById('condicionIdSeleccionada').value = ""; // Limpia selección
+            document.getElementById('condicionIdSeleccionada').value = "";
             if (query.length < 2) return;
-
             let resp = await fetch(urlAutocomplete + '?q=' + encodeURIComponent(query));
             if (!resp.ok) return;
             let datos = await resp.json();
@@ -152,7 +155,7 @@
                     ? item.padreNombre + ' > ' + item.nombre
                     : item.nombre;
                 let li = document.createElement('li');
-                li.className = 'list-group-item list-group-item-action';
+                li.className = 'list-group-item crm-list-item';
                 li.innerText = display;
                 if (item.esPadre) {
                     li.classList.add('disabled', 'text-muted');
@@ -167,8 +170,6 @@
                 sugerenciasUl.appendChild(li);
             });
         });
-
-        // Agregar condición
         document.getElementById('btnAgregarCondicion').addEventListener('click', async function () {
             let id = document.getElementById('condicionIdSeleccionada').value;
             if (!id) {
@@ -180,8 +181,6 @@
             let resp = await fetch(urlAgregar, { method: "POST", body: formData });
             if (resp.ok) location.reload();
         });
-
-        // Eliminar condición con verificación de relaciones
         document.querySelectorAll('.btn-eliminar').forEach(btn => {
             btn.addEventListener('click', function () {
                 let tratamientos = parseInt(this.dataset.tratamientos || "0");
@@ -205,15 +204,12 @@
                 }
             });
         });
-
-        // Edición de fecha inicio
         document.querySelectorAll('.form-editar-fecha').forEach(form => {
             let btnEdit = form.querySelector('.btn-editar-fecha');
             let btnSave = form.querySelector('.btn-guardar-fecha');
             let btnCancel = form.querySelector('.btn-cancelar-fecha');
             let input = form.querySelector('.fecha-inicio');
             let valorOriginal = input.value;
-
             btnEdit.addEventListener('click', (e) => {
                 e.preventDefault();
                 input.disabled = false;
@@ -242,9 +238,8 @@
                 }
             });
         });
-
         document.getElementById('condicionBuscar').addEventListener('blur', function () {
-            setTimeout(() => { document.getElementById('condicionSugerencias').innerHTML = ''; }, 200);
+            setTimeout(() => { document.getElementById('condicionSugerencias').innerHTML = ''; }, 220);
         });
     </script>
 }

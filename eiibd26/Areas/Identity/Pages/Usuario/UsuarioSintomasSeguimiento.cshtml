@@ -6,108 +6,305 @@
     var diasSemana = Model.DiasSemana;
     var hoy = Model.Hoy;
     var ayer = Model.Ayer;
+    var descripcionPagina = "Aquí puedes registrar y analizar cómo evolucionan tus síntomas día a día.";
+    var badgeColors = new Dictionary<string, string> {
+        { "Ninguno", "#E6E6EB" },
+        { "Leve", "#B6C2D7" },
+        { "Moderado", "#FFD121" },
+        { "Severo", "#FF8A65" },
+        { "Extremo", "#D32F2F" }
+    };
+    var estadosTracking = new List<(string val, string label, string color)> {
+        ("Ninguno", "Ninguno", "#E6E6EB"),
+        ("Leve", "Leve", "#B6C2D7"),
+        ("Moderado", "Moderado", "#FFD121"),
+        ("Severo", "Severo", "#FF8A65"),
+        ("Extremo", "Extremo", "#D32F2F")
+    };
 }
-<div class="container mt-4">
-    <h2 class="mb-4">Seguimiento semanal de mis síntomas</h2>
-    <div class="table-responsive">
-        <table class="table table-bordered table-sm align-middle text-center">
-            <thead>
-                <tr>
-                    <th class="bg-light text-nowrap">Síntoma</th>
-                    @foreach (var dia in diasSemana)
-                    {
-                        var esHoy = (dia.Date == hoy.Date);
-                        var esAyer = (dia.Date == ayer.Date);
-                        var bgClass = (esHoy || esAyer) ? "bg-warning bg-opacity-25" : "bg-light";
-                        <th class="@bgClass small" style="min-width:56px;">
-                            @dia.ToString("dd/MM")<br /><span class="text-muted">@dia.ToString("ddd")</span>
-                            @if (esHoy)
-                            {
-                                <div class="small fw-bold text-warning">HOY</div>
-                            }
-                            else if (esAyer)
-                            {
-                                <div class="small fw-bold text-warning">AYER</div>
-                            }
-                        </th>
-                    }
-                    <th class="bg-light text-nowrap">Condiciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var sint in Model.Sintomas)
-                {
+<style>
+    .crm-container {
+        max-width: 1320px;
+        margin: 22px auto 30px auto;
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .crm-title {
+        font-size: 2.18rem;
+        font-weight: 600;
+        letter-spacing: -0.07em;
+        color: #172849;
+        margin-bottom: .6em;
+    }
+
+    .crm-info-block {
+        background: #f7f9fd;
+        border-radius: 19px !important;
+        box-shadow: 0 2px 10px 0 rgba(50,65,120,0.07);
+        border: none !important;
+        padding: 1.2rem 1.8rem .9rem 1.8rem;
+        margin-bottom: 16px;
+        font-size: 1.07em;
+        color: #4f5871;
+    }
+
+    .crm-table-block {
+        background: #fff;
+        border-radius: 29px !important;
+        box-shadow: 0 9px 36px 0 rgba(50,65,120,0.08);
+        border: none !important;
+        padding: 2.3rem 2.6rem 1.9rem 2.6rem !important;
+        margin-bottom: 15px;
+    }
+
+    .crm-table-title {
+        font-size: 1.38rem;
+        font-weight: 600;
+        color: #315686;
+        margin-bottom: .9em;
+        letter-spacing: -0.02em;
+    }
+
+    .crm-table-seguimiento {
+        width: 100%;
+        border-radius: 18px;
+        overflow: hidden;
+        background: #f8fafc;
+        box-shadow: 0 1px 8px #e5e8ef1a;
+    }
+
+        .crm-table-seguimiento th,
+        .crm-table-seguimiento td {
+            font-size: 1em;
+            padding: 14px 9px;
+            vertical-align: top;
+        }
+
+            .crm-table-seguimiento th.bg-light {
+                background: #f6f6fe !important;
+                color: #3b426c;
+                font-weight: 500;
+            }
+
+            .crm-table-seguimiento th.bg-warning {
+                background: #fff7dc !important;
+                color: #6f571b;
+                font-weight: 700;
+            }
+
+            .crm-table-seguimiento td.text-nowrap {
+                max-width: 180px;
+                white-space: nowrap;
+            }
+
+            .crm-table-seguimiento td.wrap-condiciones {
+                max-width: 220px;
+                white-space: normal !important;
+                word-break: break-word;
+                font-size: 1em;
+                line-height: 1.02em;
+            }
+
+        .crm-table-seguimiento td {
+            background: #fff;
+        }
+
+    .crm-circle-tracking {
+        display: inline-block;
+        border-radius: 50%;
+        width: 19px;
+        height: 19px;
+        margin-right: 1px;
+        box-shadow: 0 1px 4px #ccd1ea3a;
+        border: 2px solid #f3f4f8;
+        vertical-align: middle;
+        cursor: pointer;
+    }
+
+    .crm-tracking-legenda-row {
+        display: flex;
+        flex-direction: row;
+        gap: 28px;
+        margin-bottom: 11px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .crm-tracking-legenda-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 1.02em;
+        font-weight: 500;
+        color: #315686;
+    }
+
+    .btn.btn-outline-gray.btn-sm.btn-agregar-tracking-matriz {
+        border-radius: 9px !important;
+        padding: 4px 10px !important;
+        font-size: 1.08em !important;
+        border: 1.5px solid #E0E3EA !important;
+        background: #f8fafc;
+        color: #686D7F !important;
+    }
+
+    .wrap-condiciones {
+        max-width: 220px;
+    }
+    @@media (max-width: 900px) {
+        .crm-container
+
+    {
+        max-width: 98vw;
+        padding: 0;
+    }
+
+    .crm-table-block {
+        padding: 1.2rem 0.3rem 1.1rem 0.3rem;
+    }
+
+    .crm-title {
+        font-size: 1.24rem;
+    }
+
+    .crm-table-title {
+        font-size: 1.15rem;
+    }
+
+    .crm-info-block {
+        font-size: .97em;
+    }
+
+    }
+    @@media (max-width: 750px) {
+        .crm-table-seguimiento th, .crm-table-seguimiento td
+
+    {
+        padding: 9px 3px;
+        font-size: .97em;
+    }
+
+    .crm-table-seguimiento td.wrap-condiciones {
+        max-width: 98vw;
+    }
+
+    }
+</style>
+<div class="crm-container">
+    <h2 class="crm-title mb-4">Seguimiento semanal de mis síntomas</h2>
+    <div class="crm-info-block mb-3">
+        @descripcionPagina
+    </div>
+    <div class="crm-table-block">
+        <div class="crm-table-title">Matriz de síntomas y seguimiento</div>
+        <div class="crm-tracking-legenda-row">
+            @foreach (var estado in estadosTracking)
+            {
+                <span class="crm-tracking-legenda-item">
+                    <span class="crm-circle-tracking" style="background:@estado.color;" title="@estado.label" alt="@estado.label"></span>@estado.label
+                </span>
+            }
+        </div>
+        <div class="table-responsive">
+            <table class="crm-table-seguimiento table table-bordered table-sm align-middle text-center">
+                <thead>
                     <tr>
-                        <td class="text-nowrap fw-semibold">@sint.Nombre</td>
+                        <th class="bg-light text-nowrap">Síntoma</th>
                         @foreach (var dia in diasSemana)
                         {
-                            var key = dia.ToString("yyyy-MM-dd");
                             var esHoy = (dia.Date == hoy.Date);
                             var esAyer = (dia.Date == ayer.Date);
-                            var seguimiento = sint.SeguimientoPorDia[key];
-                            var esFuturo = dia.Date > hoy;
-                            <td class="matrix-cell-@sint.Id-@dia.ToString("yyyyMMdd") @(esHoy || esAyer ? "bg-warning bg-opacity-25" : "")">
-                                @if (!string.IsNullOrEmpty(seguimiento))
+                            var bgClass = (esHoy || esAyer) ? "bg-warning bg-opacity-25" : "bg-light";
+                            <th class="@bgClass small" style="min-width:56px;">
+                                @dia.ToString("dd/MM")<br /><span class="text-muted">@dia.ToString("ddd")</span>
+                                @if (esHoy)
                                 {
-                                    var val = seguimiento;
-                                    var color = "secondary";
-                                    if (val == "Leve") color = "success";
-                                    else if (val == "Moderado") color = "warning";
-                                    else if (val == "Severo") color = "danger";
-                                    <button type="button" class="btn badge bg-@color badge-editar-tracking-matriz"
-                                            data-sintid="@sint.Id"
-                                            data-dia="@dia.ToString("yyyy-MM-dd")"
-                                            data-nombre="@sint.Nombre"
-                                            data-estado="@val"
-                                            title="Editar seguimiento">
-                                        @val
-                                    </button>
+                                    <div class="small fw-bold text-warning">HOY</div>
                                 }
-                                else if ((esHoy || esAyer) && !esFuturo)
+                                else if (esAyer)
                                 {
-                                    <button type="button"
-                                            class="btn btn-outline-primary btn-sm btn-agregar-tracking-matriz"
-                                            data-sintid="@sint.Id"
-                                            data-dia="@dia.ToString("yyyy-MM-dd")"
-                                            data-nombre="@sint.Nombre"
-                                            title="Agregar seguimiento">
-                                        <i class="bi bi-plus-lg"></i>
-                                    </button>
+                                    <div class="small fw-bold text-warning">AYER</div>
                                 }
-                                else if (!esFuturo)
-                                {
-                                    <span class="text-muted" style="font-size:small;">-</span>
-                                }
-                                else
-                                {
-                                    <span class="text-muted" style="font-size:small;"> </span>
-                                }
-                            </td>
+                            </th>
                         }
-                        <td class="small text-muted text-nowrap">@string.Join(", ", sint.Condiciones)</td>
+                        <th class="bg-light text-nowrap">Condiciones</th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var sint in Model.Sintomas)
+                    {
+                        <tr>
+                            <td class="text-nowrap fw-semibold">@sint.Nombre</td>
+                            @foreach (var dia in diasSemana)
+                            {
+                                var key = dia.ToString("yyyy-MM-dd");
+                                var esHoy = (dia.Date == hoy.Date);
+                                var esAyer = (dia.Date == ayer.Date);
+                                var seguimiento = sint.SeguimientoPorDia[key];
+                                var esFuturo = dia.Date > hoy;
+                                var cellClass = $"matrix-cell-{sint.Id}-{dia.ToString("yyyyMMdd")}";
+                                <td class="@cellClass @(esHoy || esAyer ? "bg-warning bg-opacity-25" : "")"
+                                    data-nombre="@sint.Nombre"
+                                    data-dia="@dia.ToString("yyyy-MM-dd")"
+                                    data-sintid="@sint.Id">
+                                    @if (!string.IsNullOrEmpty(seguimiento))
+                                    {
+                                        string color = badgeColors.ContainsKey(seguimiento) ? badgeColors[seguimiento] : "#E6E6EB";
+                                        <span class="crm-circle-tracking"
+                                              style="background:@color;"
+                                              alt="@seguimiento"
+                                              title="@seguimiento"></span>
+                                    }
+                                    else if ((esHoy || esAyer) && !esFuturo)
+                                    {
+                                        <button type="button"
+                                                class="btn btn-outline-gray btn-sm btn-agregar-tracking-matriz"
+                                                data-sintid="@sint.Id"
+                                                data-dia="@dia.ToString("yyyy-MM-dd")"
+                                                data-nombre="@sint.Nombre"
+                                                title="Agregar seguimiento"
+                                                tabindex="0">
+                                            <i class="bi bi-plus-lg"></i>
+                                        </button>
+                                    }
+                                    else if (!esFuturo)
+                                    {
+                                        <span class="text-muted" style="font-size:small;">-</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted" style="font-size:small;"> </span>
+                                    }
+                                </td>
+                            }
+                            <td class="wrap-condiciones small text-muted">@string.Join(", ", sint.Condiciones)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 <!-- MODAL TRACKING PARA MATRIZ -->
 <div class="modal fade" id="modalTrackingMatriz" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
+        <div class="crm-modal-content modal-content">
             <form id="formTrackingMatriz">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="tituloTrackingMatriz"></h5>
+                <div class="crm-modal-header modal-header">
+                    <h5 class="crm-modal-title modal-title" id="tituloTrackingMatriz"></h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
+                <div class="crm-modal-body modal-body">
                     <div id="mensajeTrackingMatriz" class="alert alert-success py-2 px-3 small mb-2 d-none">
                         <i class="bi bi-check-circle-fill me-1"></i> Seguimiento agregado
                     </div>
                     <div class="mb-2 fw-semibold" id="preguntaTrackingMatriz"></div>
-                    <div id="opcionesTrackingMatriz" class="d-flex flex-column gap-2">
+                    <div id="opcionesTrackingMatriz" class="crm-tracking-opciones-btns d-flex flex-column gap-2">
                         <!-- Opciones por JS -->
                     </div>
+                </div>
+                <div class="crm-modal-footer modal-footer">
                 </div>
                 <input type="hidden" id="sintomaIdTrackingMatriz" />
                 <input type="hidden" id="fechaTrackingMatriz" />
@@ -120,35 +317,36 @@
     <script>
         document.addEventListener("DOMContentLoaded", function() {
             const opcionesTracking = [
-                { val: "Ninguno", label: "Ninguno" },
-                { val: "Leve", label: "Leve" },
-                { val: "Moderado", label: "Moderado" },
-                { val: "Severo", label: "Severo" }
+                { val: "Ninguno", label: "Ninguno", color: "#E6E6EB" },
+                { val: "Leve", label: "Leve", color: "#B6C2D7" },
+                { val: "Moderado", label: "Moderado", color: "#FFD121" },
+                { val: "Severo", label: "Severo", color: "#FF8A65" },
+                { val: "Extremo", label: "Extremo", color: "#D32F2F" }
             ];
 
-            function abrirModalTrackingMatriz(sintId, fecha, nombreSintoma, estadoActual) {
-                document.getElementById('sintomaIdTrackingMatriz').value = sintId;
-                document.getElementById('fechaTrackingMatriz').value = fecha;
-                document.getElementById('nombreSintomaTrackingMatriz').value = nombreSintoma;
-                document.getElementById('mensajeTrackingMatriz').classList.add('d-none');
-                document.getElementById('tituloTrackingMatriz').innerText = "Seguimiento de síntoma";
-                // Mostrar nombre de síntoma y fecha humanos
-                const fechaObj = new Date(fecha + "T12:00:00");
-                const fechaTxt = `${fechaObj.getDate().toString().padStart(2, "0")}/${(fechaObj.getMonth()+1).toString().padStart(2,"0")}/${fechaObj.getFullYear()}`;
-                document.getElementById('preguntaTrackingMatriz').innerText = `¿Cómo estuvo "${nombreSintoma}" el ${fechaTxt}?`;
-
-                let html = '';
-                opcionesTracking.forEach(o => {
-                    let active = (o.val === estadoActual) ? "active" : "";
-                    html += `<button type="button" class="btn btn-outline-primary w-100 btn-opcion-track-matriz ${active}" data-estado="${o.val}">${o.label}</button>`;
+            // Add click event to each crm-circle-tracking in matrix for edit modal
+            function addCircleEditEvent() {
+                document.querySelectorAll('td .crm-circle-tracking').forEach(function(circle) {
+                    const td = circle.closest('td');
+                    if (td && !td.classList.contains('disabled-edit')) {
+                        td.onclick = function () {
+                            const sintId = td.getAttribute('data-sintid');
+                            const fechaTrack = td.getAttribute('data-dia');
+                            const nombreSintoma = td.getAttribute('data-nombre');
+                            const estado = circle.getAttribute('alt');
+                            abrirModalTrackingMatriz(sintId, fechaTrack, nombreSintoma, estado);
+                        };
+                        td.classList.add('disabled-edit');
+                    }
                 });
-                document.getElementById('opcionesTrackingMatriz').innerHTML = html;
+            }
 
-                let modal = new bootstrap.Modal(document.getElementById('modalTrackingMatriz'));
-                modal.show();
-
+            function resetTrackingButtons() {
                 setTimeout(function() {
-                    document.querySelectorAll('.btn-opcion-track-matriz').forEach(btnOpcion => {
+                    const trackBtns = document.querySelectorAll('.btn-opcion-track-matriz');
+                    trackBtns.forEach(btnOpcion => {
+                        btnOpcion.disabled = false;
+                        btnOpcion.style.pointerEvents = 'auto';
                         btnOpcion.onclick = async function () {
                             let estado = this.dataset.estado;
                             let sintomaUsuarioId = document.getElementById('sintomaIdTrackingMatriz').value;
@@ -158,34 +356,76 @@
                             formData.append('sintomaUsuarioId', sintomaUsuarioId);
                             formData.append('estado', estado);
                             formData.append('fecha', fechaTrack);
+                            trackBtns.forEach(b=>{b.disabled=true; b.style.pointerEvents='none';});
                             let resp = await fetch('?handler=TrackSintomaMatriz', { method: 'POST', body: formData });
+                            trackBtns.forEach(b=>{b.disabled=false; b.style.pointerEvents='auto';});
                             if (resp.ok) {
                                 let msg = document.getElementById('mensajeTrackingMatriz');
                                 msg.classList.remove('d-none');
                                 let fechaCellId = fechaTrack.replace(/-/g, "");
                                 let cellClass = '.matrix-cell-' + sintomaUsuarioId + '-' + fechaCellId;
                                 let celdas = document.querySelectorAll(cellClass);
+                                let colorMap = {
+                                    "Ninguno": "#E6E6EB",
+                                    "Leve": "#B6C2D7",
+                                    "Moderado": "#FFD121",
+                                    "Severo": "#FF8A65",
+                                    "Extremo": "#D32F2F"
+                                };
+                                let bgStyle = colorMap[estado] || "#E6E6EB";
                                 celdas.forEach(celda => {
-                                    let color = "secondary";
-                                    if (estado == "Leve") color = "success";
-                                    else if (estado == "Moderado") color = "warning";
-                                    else if (estado == "Severo") color = "danger";
-                                    celda.innerHTML = `<button type="button" class="btn badge bg-${color} badge-editar-tracking-matriz"
-                                        data-sintid="${sintomaUsuarioId}" data-dia="${fechaTrack}" data-nombre="${nombreSintoma}" data-estado="${estado}"
-                                        title="Editar seguimiento">${estado}</button>`;
+                                    celda.innerHTML = `<span class="crm-circle-tracking"
+                                        style="background:${bgStyle};"
+                                        alt="${estado}" title="${estado}"></span>`;
+                                    // Vuelve a añadir el evento click en el nuevo círculo para abrir el modal
+                                    celda.onclick = function() {
+                                        abrirModalTrackingMatriz(sintomaUsuarioId, fechaTrack, nombreSintoma, estado);
+                                    };
                                 });
+                                addCircleEditEvent(); // To reattach click event after update
                                 setTimeout(() => {
                                     bootstrap.Modal.getInstance(document.getElementById('modalTrackingMatriz')).hide();
                                 }, 900);
                             } else {
-                                alert('Error guardando seguimiento');
+                                msg = document.getElementById('mensajeTrackingMatriz');
+                                msg.classList.remove('d-none');
+                                msg.classList.add('alert-danger');
+                                msg.textContent = 'Error guardando seguimiento. Intenta nuevamente';
+                                setTimeout(() => {
+                                    msg.classList.add('d-none');
+                                    msg.classList.remove('alert-danger');
+                                    msg.textContent = 'Seguimiento agregado';
+                                }, 1800);
                             }
                         };
                     });
-                }, 50);
+                }, 80);
             }
 
-            // Activar + y badges para hoy/ayer
+            function abrirModalTrackingMatriz(sintId, fecha, nombreSintoma, estadoActual) {
+                document.getElementById('sintomaIdTrackingMatriz').value = sintId;
+                document.getElementById('fechaTrackingMatriz').value = fecha;
+                document.getElementById('nombreSintomaTrackingMatriz').value = nombreSintoma;
+                document.getElementById('mensajeTrackingMatriz').classList.add('d-none');
+                document.getElementById('mensajeTrackingMatriz').classList.remove('alert-danger');
+                document.getElementById('mensajeTrackingMatriz').textContent = 'Seguimiento agregado';
+                document.getElementById('tituloTrackingMatriz').innerText = "Seguimiento de síntoma";
+                const fechaObj = new Date(fecha + "T12:00:00");
+                const fechaTxt = `${fechaObj.getDate().toString().padStart(2, "0")}/${(fechaObj.getMonth()+1).toString().padStart(2,"0")}/${fechaObj.getFullYear()}`;
+                document.getElementById('preguntaTrackingMatriz').innerText = `¿Cómo estuvo "${nombreSintoma}" el ${fechaTxt}?`;
+                let html = '';
+                opcionesTracking.forEach(o => {
+                    let active = (o.val === estadoActual) ? "active" : "";
+                    html += `<button type="button" class="btn btn-outline-primary w-100 btn-opcion-track-matriz ${active}" data-estado="${o.val}" style="display:flex;align-items:center;gap:10px;">
+                        <span class="crm-circle-tracking" style="background:${o.color};"></span> ${o.label}
+                    </button>`;
+                });
+                document.getElementById('opcionesTrackingMatriz').innerHTML = html;
+                var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTrackingMatriz'));
+                modal.show();
+                resetTrackingButtons();
+            }
+
             document.querySelectorAll('.btn-agregar-tracking-matriz').forEach(btn => {
                 btn.addEventListener('click', function () {
                     var sintId = this.dataset.sintid;
@@ -195,15 +435,10 @@
                 });
             });
 
-            // Activar edición badge hoy/ayer
-            document.querySelectorAll('.badge-editar-tracking-matriz').forEach(badge => {
-                badge.addEventListener('click', function() {
-                    var sintId = this.dataset.sintid;
-                    var fecha = this.dataset.dia;
-                    var nombreSintoma = this.dataset.nombre;
-                    var estado = this.dataset.estado;
-                    abrirModalTrackingMatriz(sintId, fecha, nombreSintoma, estado);
-                });
+            addCircleEditEvent();
+
+            document.getElementById('modalTrackingMatriz').addEventListener('shown.bs.modal', function () {
+                resetTrackingButtons();
             });
         });
     </script>

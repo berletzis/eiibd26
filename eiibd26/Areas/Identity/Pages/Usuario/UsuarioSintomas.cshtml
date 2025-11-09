@@ -4,177 +4,175 @@
     ViewData["Title"] = "Mis síntomas";
     Layout = "_Layout";
 }
-<div class="container mt-4">
-    <h2 class="mb-4">Mis síntomas</h2>
-    <div class="card p-4 mb-4">
-        <form id="agregarSintomaForm" autocomplete="off" class="row g-3" onsubmit="return false;">
-            <div class="col-md-8 position-relative">
-                <label for="sintomaBuscar" class="form-label">
-                    <i class="bi bi-search-heart me-1"></i> Buscar o agregar síntoma
+<div class="crm-container">
+    <h2 class="crm-title mb-4">Mis síntomas</h2>
+    <div class="crm-card p-4 mb-4">
+        <form id="agregarSintomaForm" autocomplete="off" class="crm-form-row" onsubmit="return false;">
+            <div class="crm-search-group crm-col-8">
+                <label for="sintomaBuscar" class="crm-label">
+                    <i class="bi bi-search-heart crm-icon"></i> Buscar o agregar síntoma
                 </label>
-                <input id="sintomaBuscar" type="text" class="form-control" placeholder="Ej: Dolor de cabeza, Tos..." autocomplete="off" />
+                <div class="crm-search-horizontal">
+                    <input id="sintomaBuscar" type="text" class="crm-input" placeholder="Ej: Dolor de cabeza, Tos..." autocomplete="off" />
+                    <button id="btnAgregarSintoma" class="crm-btn crm-btn-primary w-100" type="button">
+                        <i class="bi bi-plus-circle me-1"></i> Agregar
+                    </button>
+                </div>
                 <input id="sintomaIdSeleccionado" type="hidden" />
-                <ul id="sintomaSugerencias" class="list-group position-absolute mt-1" style="z-index:1000; width:100%;"></ul>
-            </div>
-            <div class="col-md-4 d-flex align-items-end">
-                <button id="btnAgregarSintoma" class="btn btn-primary w-100" type="button">
-                    <i class="bi bi-plus-circle me-1"></i> Agregar
-                </button>
+                <ul id="sintomaSugerencias" class="crm-list-suggest"></ul>
             </div>
         </form>
     </div>
 
-    <div class="card p-4">
-        <h5 class="mb-3"><i class="bi bi-emoji-frown text-danger me-1"></i> Síntomas agregados</h5>
-        @if (Model.MisSintomas.Any())
-        {
-            <div class="d-flex flex-wrap gap-3">
-                @foreach (var sint in Model.MisSintomas)
-                {
-                    var ultimoTracking = sint.UltimoTracking;
-                    <div class="card shadow-sm bg-light d-flex flex-column" style="min-width:270px;max-width:330px; height:100%;">
-                        <div class="card-body d-flex flex-column h-100 pb-1">
-                            <div>
-                                <div class="d-flex align-items-center mb-2">
-                                    <span class="fw-bold flex-grow-1">
-                                        <i class="bi bi-emoji-frown text-warning me-1"></i>
-                                        @sint.Nombre
+    <div class="crm-card mb-3 crm-header-block">
+        <h3>
+            Síntomas agregados
+        </h3>
+    </div>
+    @if (Model.MisSintomas.Any())
+    {
+        <div class="crm-card-row">
+            @foreach (var sint in Model.MisSintomas)
+            {
+                var ultimoTracking = sint.UltimoTracking;
+                <div class="crm-card-condicion">
+                    <div class="crm-card-inner">
+                        <div class="crm-card-header">
+                            <span class="crm-card-title">
+                                @sint.Nombre
+                            </span>
+                            <button type="button" class="crm-btn crm-btn-delete btn-eliminar-sintoma"
+                                    style="border:none;background:#f3f5f8;box-shadow:none;"
+                                    data-id="@sint.Id"
+                                    data-nombre="@sint.Nombre"
+                                    data-tratamientos="@sint.TratamientosCount"
+                                    data-condiciones="@sint.CondicionesCount"
+                                    title="Eliminar síntoma">
+                                <i class="bi bi-trash3-fill"></i>
+                            </button>
+                        </div>
+                        <div class="crm-card-fecha">
+                            <form method="post" class="form-editar-fecha" data-id="@sint.Id" asp-page-handler="EditarFechaInicio">
+                                <div class="crm-input-group" style="column-gap:3px;">
+                                    <span class="crm-input-label">
+                                        <i class="bi bi-calendar2-date"></i>
+                                        Fecha inicio
                                     </span>
-                                    <button type="button" class="btn btn-outline-danger btn-sm ms-2 btn-eliminar-sintoma"
-                                            data-id="@sint.Id"
-                                            data-nombre="@sint.Nombre"
-                                            data-tratamientos="@sint.TratamientosCount"
-                                            data-condiciones="@sint.CondicionesCount"
-                                            title="Eliminar síntoma">
-                                        <i class="bi bi-trash3-fill"></i>
+                                    <input type="date"
+                                           class="crm-input-date fecha-inicio"
+                                           style="width:150px; min-width:140px; max-width:170px;"
+                                           name="nuevaFechaInicio"
+                                           value="@sint.FechaInicio.ToString("yyyy-MM-dd")"
+                                           disabled />
+                                    <button type="button"
+                                            class="crm-btn crm-btn-secondary btn-editar-fecha"
+                                            style="border:none;"
+                                            title="Editar fecha de inicio">
+                                        <i class="bi bi-pencil"></i>
                                     </button>
+                                    <button type="submit"
+                                            class="crm-btn crm-btn-success d-none btn-guardar-fecha"
+                                            style="border:none;"
+                                            title="Guardar nueva fecha">
+                                        <i class="bi bi-save"></i>
+                                    </button>
+                                    <button type="button"
+                                            class="crm-btn crm-btn-cancel d-none btn-cancelar-fecha"
+                                            style="border:none;"
+                                            title="Cancelar edición de fecha">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                    <input type="hidden" name="sintId" value="@sint.Id" />
                                 </div>
-                                <hr class="my-2" />
-                                <div class="mb-2">
-                                    <form method="post" class="form-editar-fecha" data-id="@sint.Id" asp-page-handler="EditarFechaInicio">
-                                        <div class="input-group input-group-sm">
-                                            <span class="input-group-text">
-                                                <i class="bi bi-calendar2-date"></i> Fecha inicio
-                                            </span>
-                                            <input type="date"
-                                                   class="form-control fecha-inicio"
-                                                   name="nuevaFechaInicio"
-                                                   value="@sint.FechaInicio.ToString("yyyy-MM-dd")"
-                                                   disabled />
-                                            <button type="button"
-                                                    class="btn btn-secondary btn-editar-fecha"
-                                                    title="Editar fecha de inicio">
-                                                <i class="bi bi-pencil"></i>
-                                            </button>
-                                            <button type="submit"
-                                                    class="btn btn-success d-none btn-guardar-fecha"
-                                                    title="Guardar nueva fecha">
-                                                <i class="bi bi-save"></i>
-                                            </button>
-                                            <button type="button"
-                                                    class="btn btn-light border d-none btn-cancelar-fecha"
-                                                    title="Cancelar edición de fecha">
-                                                <i class="bi bi-x"></i>
-                                            </button>
-                                            <input type="hidden" name="sintId" value="@sint.Id" />
-                                        </div>
-                                        <div class="small text-muted mt-1">
-                                            <i class="bi bi-info-circle"></i>
-                                            <span>El ícono <i class="bi bi-pencil"></i> permite editar la fecha. <i class="bi bi-save"></i> guarda y <i class="bi bi-x"></i> cancela.</span>
-                                        </div>
-                                    </form>
-                                </div>
-                                <div class="mb-2">
-                                    <span class="badge bg-light text-dark">
-                                        <i class="bi bi-diagram-3"></i> Condiciones
-                                        <button type="button" class="btn btn-sm btn-outline-primary p-0 px-1 ms-1 open-modal-cond" data-sintid="@sint.Id" title="Asociar condiciones">
-                                            <i class="bi bi-plus-circle"></i>
-                                        </button>
-                                    </span>
-                                    <div id="cond-list-@sint.Id" class="mt-1">
-                                        @if (sint.Condiciones.Any())
-                                        {
-                                            @foreach (var cond in sint.Condiciones)
-                                            {
-                                                <span class="badge bg-info text-dark mb-1 d-inline-flex align-items-center" style="display: inline-block;">
-                                                    @cond.Nombre
-                                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1 badge-cond-del"
-                                                            data-condid="@cond.Id" data-sintid="@sint.Id" title="Quitar condición"
-                                                            style="color:red;">
-                                                        <i class="bi bi-x-circle"></i>
-                                                    </button>
-                                                </span>
-                                            }
-                                        }
-                                        else
-                                        {
-                                            <span class="text-muted small">Ninguna</span>
-                                        }
-                                    </div>
-                                </div>
-                                <div class="mb-2">
-                                    <span class="badge bg-light text-dark">
-                                        <i class="bi bi-capsule-pill"></i> Tratamientos
-                                        <button type="button" class="btn btn-sm btn-outline-primary p-0 px-1 ms-1 open-modal-trat" data-sintid="@sint.Id" title="Asociar tratamientos">
-                                            <i class="bi bi-plus-circle"></i>
-                                        </button>
-                                    </span>
-                                    <div id="trat-list-@sint.Id" class="mt-1">
-                                        @if (sint.Tratamientos.Any())
-                                        {
-                                            @foreach (var trat in sint.Tratamientos)
-                                            {
-                                                <span class="badge bg-success text-white mb-1 d-inline-flex align-items-center" style="display: inline-block;">
-                                                    @trat.Nombre
-                                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1 badge-trat-del"
-                                                            data-tratid="@trat.Id" data-sintid="@sint.Id" title="Quitar tratamiento"
-                                                            style="color:white;">
-                                                        <i class="bi bi-x-circle"></i>
-                                                    </button>
-                                                </span>
-                                            }
-                                        }
-                                        else
-                                        {
-                                            <span class="text-muted small">Ninguno</span>
-                                        }
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- Icono tracking al fondo del card + leyenda de último tracking -->
-                            <div class="mt-auto pt-2 d-flex align-items-center justify-content-end gap-2 flex-wrap">
-                                <button type="button" class="btn btn-link p-0 text-primary btn-track-sintoma"
-                                        data-id="@sint.Id" data-nombre="@sint.Nombre"
-                                        title="Registra cómo estás hoy">
-                                    <i class="bi bi-clipboard-heart-fill fs-3"></i>
+                            </form>
+                        </div>
+                        <div class="crm-card-section mb-2">
+                            <div class="crm-card-subtitle fw-semibold" style="font-size:.98em; color:#315686;">
+                                Condiciones
+                                <button type="button" class="crm-btn crm-btn-secondary open-modal-cond ms-1" style="padding:0 8px; border:none;" data-sintid="@sint.Id" title="Asociar condiciones">
+                                    <i class="bi bi-plus-circle"></i>
                                 </button>
-                                <span id="badge-tracking-@sint.Id">
-                                    @if (ultimoTracking != null)
+                            </div>
+                            <div class="crm-card-badges mt-2" id="cond-list-@sint.Id">
+                                @if (sint.Condiciones.Any())
+                                {
+                                    @foreach (var cond in sint.Condiciones)
                                     {
-                                        <span class="badge bg-light border border-success text-success fw-semibold">
-                                            último tracking: <span class="ms-1">@ultimoTracking.Fecha.ToString("dd/MM/yyyy HH:mm")</span>
-                                            <span class="ms-1">(@ultimoTracking.Estado)</span>
+                                        <span class="crm-badge bg-info mb-1 d-inline-flex align-items-center">
+                                            @cond.Nombre
+                                            <button type="button" class="crm-btn btn-sm btn-link p-0 ms-1 badge-cond-del" style="color:red; border:none;" data-condid="@cond.Id" data-sintid="@sint.Id" title="Quitar condición">
+                                                <i class="bi bi-x-circle"></i>
+                                            </button>
                                         </span>
                                     }
-                                    else
-                                    {
-                                        <span class="badge bg-light text-muted">Sin tracking</span>
-                                    }
-                                </span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">Ninguna</span>
+                                }
                             </div>
                         </div>
+                        <div class="crm-card-section mb-2">
+                            <div class="crm-card-subtitle fw-semibold" style="font-size:.98em; color:#315686;">
+                                Tratamientos
+                                <button type="button" class="crm-btn crm-btn-secondary open-modal-trat ms-1" style="padding:0 8px; border:none;" data-sintid="@sint.Id" title="Asociar tratamientos">
+                                    <i class="bi bi-plus-circle"></i>
+                                </button>
+                            </div>
+                            <div class="crm-card-badges mt-2" id="trat-list-@sint.Id">
+                                @if (sint.Tratamientos.Any())
+                                {
+                                    @foreach (var trat in sint.Tratamientos)
+                                    {
+                                        <span class="crm-badge bg-success text-white mb-1 d-inline-flex align-items-center">
+                                            @trat.Nombre
+                                            <button type="button" class="crm-btn btn-sm btn-link p-0 ms-1 badge-trat-del" style="color:white; border:none;" data-tratid="@trat.Id" data-sintid="@sint.Id" title="Quitar tratamiento">
+                                                <i class="bi bi-x-circle"></i>
+                                            </button>
+                                        </span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">Ninguno</span>
+                                }
+                            </div>
+                        </div>
+                        <!-- Seguimiento: leyenda tipo fuente y tamaño igual a Sin seguimiento -->
+                        <div class="mt-auto pt-2 d-flex align-items-center flex-wrap justify-content-start">
+                            <button type="button" class="crm-btn btn-link p-0 text-primary btn-track-sintoma"
+                                    style="border:none; box-shadow:none;background:transparent;"
+                                    data-id="@sint.Id"
+                                    data-nombre="@sint.Nombre"
+                                    title="Registra cómo estás hoy">
+                                <i class="bi bi-clipboard-heart-fill fs-4" style="color:#6c7a95;vertical-align:middle;"></i>
+                            </button>
+                            <span id="badge-tracking-@sint.Id" class="text-muted small" style="font-size:.95em; color:#888ca0; font-weight:500; background:none; border:none; text-align:left; display:flex; align-items:center; gap:8px;">
+                                @if (ultimoTracking != null)
+                                {
+                                    <span class="text-muted small" style="color:#888ca0;">
+                                        Ultimo Seguimiento @ultimoTracking.Fecha.ToString("dd/MM/yyyy") (@ultimoTracking.Estado)
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">Sin seguimiento</span>
+                                }
+                            </span>
+                        </div>
                     </div>
-                }
-            </div>
-        }
-        else
-        {
-            <div class="fw-light text-muted">
-                <i class="bi bi-emoji-neutral"></i>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="crm-card mb-2">
+            <div class="fw-light text-muted crm-empty">
                 Aún no has agregado ningún síntoma.
             </div>
-        }
-    </div>
+        </div>
+    }
 </div>
 
 <!-- MODAL TRACKING -->
@@ -241,60 +239,57 @@
     </div>
 </div>
 
+@section Styles {
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" />
+    <link rel="stylesheet" href="~/css/usuario-condiciones-crm.css" />
+}
+
 @section Scripts {
     <script>
         document.addEventListener("DOMContentLoaded", function () {
-            // --- Autocomplete para síntomas ---
+            // Autocomplete buscar síntoma
             const urlAutocomplete = "/api/sintomas/autocomplete";
-            var sintomaBuscarInput = document.getElementById('sintomaBuscar');
-            if (sintomaBuscarInput) {
-                sintomaBuscarInput.addEventListener('input', async function () {
-                    let query = this.value.trim();
-                    let sugerenciasUl = document.getElementById('sintomaSugerencias');
-                    sugerenciasUl.innerHTML = '';
-                    document.getElementById('sintomaIdSeleccionado').value = "";
-                    if (query.length < 2) return;
-
-                    let resp = await fetch(urlAutocomplete + '?q=' + encodeURIComponent(query));
-                    if (!resp.ok) return;
-                    let datos = await resp.json();
-                    datos.forEach(item => {
-                        let li = document.createElement('li');
-                        li.className = 'list-group-item list-group-item-action';
-                        li.innerText = item.nombre;
-                        li.onclick = function () {
-                            document.getElementById('sintomaBuscar').value = item.nombre;
-                            document.getElementById('sintomaIdSeleccionado').value = item.id;
-                            sugerenciasUl.innerHTML = '';
-                        }
-                        sugerenciasUl.appendChild(li);
-                    });
+            document.getElementById('sintomaBuscar').addEventListener('input', async function () {
+                let query = this.value.trim();
+                let sugerenciasUl = document.getElementById('sintomaSugerencias');
+                sugerenciasUl.innerHTML = '';
+                document.getElementById('sintomaIdSeleccionado').value = "";
+                if (query.length < 2) return;
+                let resp = await fetch(urlAutocomplete + '?q=' + encodeURIComponent(query));
+                if (!resp.ok) return;
+                let datos = await resp.json();
+                datos.forEach(item => {
+                    let li = document.createElement('li');
+                    li.className = 'crm-list-item list-group-item';
+                    li.innerText = item.nombre;
+                    li.onclick = function () {
+                        document.getElementById('sintomaBuscar').value = item.nombre;
+                        document.getElementById('sintomaIdSeleccionado').value = item.id;
+                        sugerenciasUl.innerHTML = '';
+                    }
+                    sugerenciasUl.appendChild(li);
                 });
-
-                sintomaBuscarInput.addEventListener('blur', function () {
-                    setTimeout(() => { document.getElementById('sintomaSugerencias').innerHTML = ''; }, 200);
-                });
-            }
+            });
+            document.getElementById('sintomaBuscar').addEventListener('blur', function () {
+                setTimeout(() => { document.getElementById('sintomaSugerencias').innerHTML = ''; }, 200);
+            });
 
             // Agregar síntoma
-            var btnAgregarSintoma = document.getElementById('btnAgregarSintoma');
-            if (btnAgregarSintoma) {
-                btnAgregarSintoma.addEventListener('click', async function () {
-                    let id = document.getElementById('sintomaIdSeleccionado').value;
-                    if (!id) {
-                        alert("Debes seleccionar un síntoma del listado");
-                        return;
-                    }
-                    let formData = new FormData();
-                    formData.append('sintomaId', id);
-                    let resp = await fetch('?handler=AgregarSintoma', { method: "POST", body: formData });
-                    if (resp.ok) location.reload();
-                    else {
-                        let msg = await resp.json();
-                        alert(msg.mensaje || "Error");
-                    }
-                });
-            }
+            document.getElementById('btnAgregarSintoma').addEventListener('click', async function () {
+                let id = document.getElementById('sintomaIdSeleccionado').value;
+                if (!id) {
+                    alert("Debes seleccionar un síntoma del listado");
+                    return;
+                }
+                let formData = new FormData();
+                formData.append('sintomaId', id);
+                let resp = await fetch('?handler=AgregarSintoma', { method: "POST", body: formData });
+                if (resp.ok) location.reload();
+                else {
+                    let msg = await resp.json();
+                    alert(msg.mensaje || "Error");
+                }
+            });
 
             // Eliminar síntoma
             document.querySelectorAll('.btn-eliminar-sintoma').forEach(btn => {
@@ -316,22 +311,22 @@
                 });
             });
 
-            // --- TRACKING SÍNTOMA ---
-            (function() {
-                const opcionesEstado = [
-                    { val: "Ninguno", label: "Ninguno" },
-                    { val: "Leve", label: "Leve" },
-                    { val: "Moderado", label: "Moderado" },
-                    { val: "Severo", label: "Severo" }
-                ];
+            // Tracking: setup always even for not tracked
+            function setupTrackingButtons() {
                 document.querySelectorAll('.btn-track-sintoma').forEach(btn => {
-                    btn.addEventListener('click', function () {
+                    btn.onclick = function () {
                         document.getElementById('mensajeTrackingAgregado').classList.add("d-none");
                         const sintId = this.dataset.id;
                         const nombre = this.dataset.nombre;
                         document.getElementById('modalTrackSintomaTitle').innerText = 'Seguimiento de "' + nombre + '"';
                         document.getElementById('modalTrackSintomaPregunta').innerText = `¿Cómo está tu "${nombre}" hoy?`;
 
+                        const opcionesEstado = [
+                            { val: "Ninguno", label: "Ninguno" },
+                            { val: "Leve", label: "Leve" },
+                            { val: "Moderado", label: "Moderado" },
+                            { val: "Severo", label: "Severo" }
+                        ];
                         let html = '';
                         opcionesEstado.forEach(o => {
                             html += `<button type="button" class="btn btn-outline-primary w-100 btn-opcion-tracking" data-estado="${o.val}">${o.label}</button>`;
@@ -339,8 +334,11 @@
                         document.getElementById('modalTrackSintomaOpciones').innerHTML = html;
                         document.getElementById('trackSintomaUsuarioId').value = sintId;
 
-                        let modal = new bootstrap.Modal(document.getElementById('modalTrackSintoma'));
-                        modal.show();
+                        var modalElem = document.getElementById('modalTrackSintoma');
+                        if (modalElem) {
+                            var modal = bootstrap.Modal.getOrCreateInstance(modalElem);
+                            modal.show();
+                        }
 
                         setTimeout(function() {
                             document.querySelectorAll('.btn-opcion-tracking').forEach(btnOpcion => {
@@ -356,22 +354,36 @@
                                         msg.classList.remove('d-none');
                                         let badge = document.getElementById('badge-tracking-' + sintomaUsuarioId);
                                         if(badge){
-                                            badge.innerHTML = '<span class="badge bg-light border border-success text-success fw-semibold">último tracking: <span class="ms-1">Hoy</span> <span class="ms-1">(' + estado + ')</span></span>';
+                                            let hoy = new Date();
+                                            let fecha = hoy.getDate().toString().padStart(2, '0') + "/" +
+                                                (hoy.getMonth()+1).toString().padStart(2, '0') + "/" +
+                                                hoy.getFullYear();
+                                            // SOLO icono clipboard a la izquierda
+                                            badge.innerHTML = `<span class="text-muted small" style="color:#888ca0;"><span style='margin-right:7px'><i class="bi bi-clipboard-heart-fill fs-4" style="color:#6c7a95;vertical-align:middle;"></i></span>Ultimo Seguimiento ${fecha} (${estado})</span>`;
                                         }
                                         setTimeout(() => {
-                                            bootstrap.Modal.getInstance(document.getElementById('modalTrackSintoma')).hide();
+                                            var modalElemClose = document.getElementById('modalTrackSintoma');
+                                            if (modalElemClose) {
+                                                bootstrap.Modal.getOrCreateInstance(modalElemClose).hide();
+                                            }
                                         }, 900);
                                     } else {
                                         alert('Error guardando seguimiento');
                                     }
                                 };
                             });
-                        }, 50);
-                    });
+                        }, 80);
+                    };
                 });
-            })();
+            }
+            setupTrackingButtons();
+            document.addEventListener("readystatechange", function () {
+                if (document.readyState === "complete") {
+                    setupTrackingButtons();
+                }
+            });
 
-            // --- Editar fecha inicio ---
+            // Editar fecha inicio
             document.querySelectorAll('.form-editar-fecha').forEach(form => {
                 let btnEdit = form.querySelector('.btn-editar-fecha');
                 let btnSave = form.querySelector('.btn-guardar-fecha');
@@ -408,20 +420,22 @@
                 });
             });
 
-            // --- Condiciones y tratamientos ---
+            // Condiciones y tratamientos: Mantener los existentes y solo agregar/quitar seleccionados / bug fix
             const condicionesUsuario = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(Model.MisCondicionesSimplificadas));
             const tratamientosUsuario = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(Model.MisTratamientosSimplificados));
 
-            // MODAL DE CONDICIONES
             var formAsociaCond = document.getElementById('formAsociaCond');
             if (formAsociaCond) {
                 formAsociaCond.addEventListener('submit', async function (e) {
                     e.preventDefault();
                     let sintid = document.getElementById('modalCondSintId').value;
-                    let condids = Array.from(document.querySelectorAll('#cond-list-modal input[type=checkbox]:checked')).map(x => x.value);
+                    let condidsChecked = Array.from(document.querySelectorAll('#cond-list-modal input[type=checkbox]:checked')).map(x => x.value);
+                    let badges = document.querySelectorAll(`#cond-list-${sintid} .crm-badge`);
+                    let yaRelacionadas = Array.from(badges).map(b => b.childNodes[0].textContent.trim());
+                    let todosCondIds = Array.from(new Set([...yaRelacionadas, ...condidsChecked]));
                     let formData = new FormData();
                     formData.append('sintomaId', sintid);
-                    condids.forEach(id => formData.append('condicionUsuarioIds', id));
+                    todosCondIds.forEach(cId => formData.append('condicionUsuarioIds', cId));
                     const resp = await fetch('?handler=AsociarCondiciones', { method: 'POST', body: formData });
                     if (resp.ok) location.reload();
                     else alert("Error al guardar.");
@@ -434,8 +448,8 @@
                     if (condicionesUsuario.length === 0) {
                         html = `<div class="alert alert-info"><i class="bi bi-exclamation-circle"></i>Debes agregar primero alguna condición en la sección "Condiciones".</div>`;
                     } else {
-                        let condlist = document.querySelectorAll("#cond-list-" + sintid + " .badge");
-                        let seleccionadas = Array.from(condlist).map(b => b.innerText);
+                        let badges = document.querySelectorAll("#cond-list-" + sintid + " .crm-badge");
+                        let seleccionadas = Array.from(badges).map(b => b.childNodes[0].textContent.trim());
                         condicionesUsuario.forEach(c => {
                             let checked = seleccionadas.includes(c.Nombre) ? 'checked' : '';
                             html += `<div class="form-check mb-1">
@@ -463,16 +477,19 @@
                     }
                 });
             });
-            // MODAL TRATAMIENTOS
+
             var formAsociaTrat = document.getElementById('formAsociaTrat');
             if (formAsociaTrat) {
                 formAsociaTrat.addEventListener('submit', async function (e) {
                     e.preventDefault();
                     let sintid = document.getElementById('modalTratSintId').value;
-                    let tratids = Array.from(document.querySelectorAll('#trat-list-modal input[type=checkbox]:checked')).map(x => x.value);
+                    let tratidsChecked = Array.from(document.querySelectorAll('#trat-list-modal input[type=checkbox]:checked')).map(x => x.value);
+                    let badges = document.querySelectorAll(`#trat-list-${sintid} .crm-badge`);
+                    let yaRelacionadas = Array.from(badges).map(b => b.childNodes[0].textContent.trim());
+                    let todosTratIds = Array.from(new Set([...yaRelacionadas, ...tratidsChecked]));
                     let formData = new FormData();
                     formData.append('sintomaId', sintid);
-                    tratids.forEach(id => formData.append('tratamientoUsuarioIds', id));
+                    todosTratIds.forEach(tId => formData.append('tratamientoUsuarioIds', tId));
                     const resp = await fetch('?handler=AsociarTratamientos', { method: 'POST', body: formData });
                     if (resp.ok) location.reload();
                     else alert("Error al guardar.");
@@ -485,8 +502,8 @@
                     if (tratamientosUsuario.length === 0) {
                         html = `<div class="alert alert-info"><i class="bi bi-exclamation-circle"></i>Debes agregar primero algún tratamiento en la sección "Tratamientos".</div>`;
                     } else {
-                        let tratlist = document.querySelectorAll("#trat-list-" + sintid + " .badge");
-                        let seleccionadas = Array.from(tratlist).map(b => b.innerText);
+                        let badges = document.querySelectorAll("#trat-list-" + sintid + " .crm-badge");
+                        let seleccionadas = Array.from(badges).map(b => b.childNodes[0].textContent.trim());
                         tratamientosUsuario.forEach(t => {
                             let checked = seleccionadas.includes(t.Nombre) ? 'checked' : '';
                             html += `<div class="form-check mb-1">

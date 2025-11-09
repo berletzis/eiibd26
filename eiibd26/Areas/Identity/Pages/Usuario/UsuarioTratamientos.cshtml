@@ -4,160 +4,156 @@
     ViewData["Title"] = "Mis tratamientos";
     Layout = "_Layout";
 }
-<div class="container mt-4">
-    <h2 class="mb-4">Mis tratamientos</h2>
+<div class="crm-container">
+    <h2 class="crm-title mb-4">Mis tratamientos</h2>
 
-    <div class="card p-4 mb-4">
-        <form id="agregarTratamientoForm" autocomplete="off" class="row g-3" onsubmit="return false;">
-            <div class="col-md-8 position-relative">
-                <label for="tratamientoBuscar" class="form-label">
-                    <i class="bi bi-search-heart me-1"></i> Buscar o agregar tratamiento
+    <div class="crm-card p-4 mb-4">
+        <form id="agregarTratamientoForm" autocomplete="off" class="crm-form-row" onsubmit="return false;">
+            <div class="crm-search-group crm-col-8">
+                <label for="tratamientoBuscar" class="crm-label">
+                    <i class="bi bi-search-heart crm-icon"></i> Buscar o agregar tratamiento
                 </label>
-                <input id="tratamientoBuscar" type="text" class="form-control" placeholder="Ej: Amoxicilina, Ibuprofeno..." autocomplete="off" />
+                <div class="crm-search-horizontal">
+                    <input id="tratamientoBuscar" type="text" class="crm-input" placeholder="Ej: Amoxicilina, Ibuprofeno..." autocomplete="off" />
+                    <button id="btnAgregarTratamiento" class="crm-btn crm-btn-primary w-100" type="button">
+                        <i class="bi bi-plus-circle me-1"></i> Agregar
+                    </button>
+                </div>
                 <input id="tratamientoIdSeleccionado" type="hidden" />
-                <ul id="tratamientoSugerencias" class="list-group position-absolute mt-1" style="z-index:1000; width:100%;"></ul>
-            </div>
-            <div class="col-md-4 d-flex align-items-end">
-                <button id="btnAgregarTratamiento" class="btn btn-primary w-100" type="button">
-                    <i class="bi bi-plus-circle me-1"></i> Agregar
-                </button>
+                <ul id="tratamientoSugerencias" class="crm-list-suggest"></ul>
             </div>
         </form>
     </div>
 
-    <div class="card p-4">
-        <h5 class="mb-3"><i class="bi bi-capsule-pill text-danger me-1"></i> Tratamientos agregados</h5>
-        @if (Model.MisTratamientos.Any())
-        {
-            <div class="d-flex flex-wrap gap-3">
-                @foreach (var trat in Model.MisTratamientos)
-                {
-                    <div class="card shadow-sm bg-light" style="min-width:270px;max-width:330px;">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center mb-2">
-                                <span class="fw-bold flex-grow-1">
-                                    <i class="bi bi-capsule-pill text-success me-1"></i>
-                                    @trat.Nombre
-                                </span>
-                                <button type="button" class="btn btn-outline-danger btn-sm ms-2 btn-eliminar-trat"
-                                        data-id="@trat.Id"
-                                        data-nombre="@trat.Nombre"
-                                        data-sintomas="@trat.SintomasCount"
-                                        data-condiciones="@trat.CondicionesCount"
-                                        title="Eliminar tratamiento">
-                                    <i class="bi bi-trash3-fill"></i>
+    <div class="crm-card mb-3 crm-header-block">
+        <h3>
+            <i class="bi bi-capsule-pill text-danger me-1"></i> Tratamientos agregados
+        </h3>
+    </div>
+    @if (Model.MisTratamientos.Any())
+    {
+        <div class="crm-card-row">
+            @foreach (var trat in Model.MisTratamientos)
+            {
+                <div class="crm-card-condicion">
+                    <div class="crm-card-inner">
+                        <div class="crm-card-header">
+                            <span class="crm-card-title">
+                                <i class="bi bi-capsule-pill text-success me-1"></i>
+                                @trat.Nombre
+                            </span>
+                            <button type="button" class="crm-btn crm-btn-delete btn-eliminar-trat"
+                                    style="border:none;background:#f3f5f8;box-shadow:none;"
+                                    data-id="@trat.Id"
+                                    data-nombre="@trat.Nombre"
+                                    data-sintomas="@trat.SintomasCount"
+                                    data-condiciones="@trat.CondicionesCount"
+                                    title="Eliminar tratamiento">
+                                <i class="bi bi-trash3-fill"></i>
+                            </button>
+                        </div>
+                        <div class="crm-card-fecha">
+                            <form method="post" class="form-editar-fecha" data-id="@trat.Id" asp-page-handler="EditarFechaInicio">
+                                <div class="crm-input-group" style="column-gap:3px;">
+                                    <span class="crm-input-label">
+                                        <i class="bi bi-calendar2-date"></i>
+                                        Fecha inicio
+                                    </span>
+                                    <input type="date"
+                                           class="crm-input-date fecha-inicio"
+                                           style="width:150px; min-width:140px; max-width:170px;"
+                                           name="nuevaFechaInicio"
+                                           value="@trat.FechaInicio.ToString("yyyy-MM-dd")"
+                                           disabled />
+                                    <button type="button"
+                                            class="crm-btn crm-btn-secondary btn-editar-fecha"
+                                            style="border:none;"
+                                            title="Editar fecha de inicio">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button type="submit"
+                                            class="crm-btn crm-btn-success d-none btn-guardar-fecha"
+                                            style="border:none;"
+                                            title="Guardar nueva fecha">
+                                        <i class="bi bi-save"></i>
+                                    </button>
+                                    <button type="button"
+                                            class="crm-btn crm-btn-cancel d-none btn-cancelar-fecha"
+                                            style="border:none;"
+                                            title="Cancelar edición de fecha">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                    <input type="hidden" name="tratId" value="@trat.Id" />
+                                </div>
+                            </form>
+                        </div>
+                        <!-- Síntomas asociados -->
+                        <div class="crm-card-section mb-2">
+                            <div class="crm-card-subtitle fw-semibold" style="font-size:.98em; color:#315686;">
+                                Síntomas
+                                <button type="button" class="crm-btn crm-btn-secondary open-modal-sint ms-1" style="padding:0 8px; border:none;" data-tratid="@trat.Id" title="Asociar síntomas">
+                                    <i class="bi bi-plus-circle"></i>
                                 </button>
                             </div>
-                            <hr class="my-2" />
-
-                            <!-- Fecha editable -->
-                            <div class="mb-2">
-                                <form method="post" class="form-editar-fecha" data-id="@trat.Id" asp-page-handler="EditarFechaInicio">
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text">
-                                            <i class="bi bi-calendar2-date"></i> Fecha inicio
+                            <div class="crm-card-badges mt-2" id="sint-list-@trat.Id">
+                                @if (trat.Sintomas.Any())
+                                {
+                                    @foreach (var sint in trat.Sintomas)
+                                    {
+                                        <span class="crm-badge bg-info mb-1 d-inline-flex align-items-center">
+                                            @sint.Nombre
+                                            <button type="button" class="crm-btn btn-sm btn-link p-0 ms-1 badge-sint-del" style="color:red; border:none;" data-sintid="@sint.Id" data-tratid="@trat.Id" title="Quitar síntoma">
+                                                <i class="bi bi-x-circle"></i>
+                                            </button>
                                         </span>
-                                        <input type="date"
-                                               class="form-control fecha-inicio"
-                                               name="nuevaFechaInicio"
-                                               value="@trat.FechaInicio.ToString("yyyy-MM-dd")"
-                                               disabled />
-                                        <button type="button"
-                                                class="btn btn-secondary btn-editar-fecha"
-                                                title="Editar fecha de inicio">
-                                            <i class="bi bi-pencil"></i>
-                                        </button>
-                                        <button type="submit"
-                                                class="btn btn-success d-none btn-guardar-fecha"
-                                                title="Guardar nueva fecha">
-                                            <i class="bi bi-save"></i>
-                                        </button>
-                                        <button type="button"
-                                                class="btn btn-light border d-none btn-cancelar-fecha"
-                                                title="Cancelar edición de fecha">
-                                            <i class="bi bi-x"></i>
-                                        </button>
-                                        <input type="hidden" name="tratId" value="@trat.Id" />
-                                    </div>
-                                    <div class="small text-muted mt-1">
-                                        <i class="bi bi-info-circle"></i>
-                                        <span>El ícono <i class="bi bi-pencil"></i> permite editar la fecha. <i class="bi bi-save"></i> guarda y <i class="bi bi-x"></i> cancela.</span>
-                                    </div>
-                                </form>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">Ninguno</span>
+                                }
                             </div>
-
-                            <!-- Síntomas asociados -->
-                            <div class="mb-2">
-                                <span class="badge bg-light text-dark">
-                                    <i class="bi bi-emoji-frown"></i> Síntomas
-                                    <button type="button" class="btn btn-sm btn-outline-primary p-0 px-1 ms-1 open-modal-sint" data-tratid="@trat.Id" title="Asociar síntomas">
-                                        <i class="bi bi-plus-circle"></i>
-                                    </button>
-                                </span>
-                                <div id="sint-list-@trat.Id" class="mt-1">
-                                    @if (trat.Sintomas.Any())
-                                    {
-                                        @foreach (var sint in trat.Sintomas)
-                                        {
-                                            <span class="badge bg-info text-dark mb-1 d-inline-flex align-items-center" style="display: inline-block;">
-                                                @sint.Nombre
-                                                <button type="button" class="btn btn-sm btn-link p-0 ms-1 badge-sint-del"
-                                                        data-sintid="@sint.Id" data-tratid="@trat.Id" title="Quitar síntoma"
-                                                        style="color:red;">
-                                                    <i class="bi bi-x-circle"></i>
-                                                </button>
-                                            </span>
-                                        }
-                                    }
-                                    else
-                                    {
-                                        <span class="text-muted small">Ninguno</span>
-                                    }
-                                </div>
+                        </div>
+                        <!-- Condiciones asociadas -->
+                        <div class="crm-card-section mb-2">
+                            <div class="crm-card-subtitle fw-semibold" style="font-size:.98em; color:#315686;">
+                                Condiciones
+                                <button type="button" class="crm-btn crm-btn-secondary open-modal-cond ms-1" style="padding:0 8px; border:none;" data-tratid="@trat.Id" title="Asociar condiciones">
+                                    <i class="bi bi-plus-circle"></i>
+                                </button>
                             </div>
-
-                            <!-- Condiciones asociadas -->
-                            <div class="mb-2">
-                                <span class="badge bg-light text-dark">
-                                    <i class="bi bi-diagram-3"></i> Condiciones
-                                    <button type="button" class="btn btn-sm btn-outline-primary p-0 px-1 ms-1 open-modal-cond" data-tratid="@trat.Id" title="Asociar condiciones">
-                                        <i class="bi bi-plus-circle"></i>
-                                    </button>
-                                </span>
-                                <div id="cond-list-@trat.Id" class="mt-1">
-                                    @if (trat.Condiciones.Any())
+                            <div class="crm-card-badges mt-2" id="cond-list-@trat.Id">
+                                @if (trat.Condiciones.Any())
+                                {
+                                    @foreach (var cond in trat.Condiciones)
                                     {
-                                        @foreach (var cond in trat.Condiciones)
-                                        {
-                                            <span class="badge bg-success text-white mb-1 d-inline-flex align-items-center" style="display: inline-block;">
-                                                @cond.Nombre
-                                                <button type="button" class="btn btn-sm btn-link p-0 ms-1 badge-cond-del"
-                                                        data-condid="@cond.Id" data-tratid="@trat.Id" title="Quitar condición"
-                                                        style="color:white;">
-                                                    <i class="bi bi-x-circle"></i>
-                                                </button>
-                                            </span>
-                                        }
+                                        <span class="crm-badge bg-success text-white mb-1 d-inline-flex align-items-center">
+                                            @cond.Nombre
+                                            <button type="button" class="crm-btn btn-sm btn-link p-0 ms-1 badge-cond-del" style="color:white; border:none;" data-condid="@cond.Id" data-tratid="@trat.Id" title="Quitar condición">
+                                                <i class="bi bi-x-circle"></i>
+                                            </button>
+                                        </span>
                                     }
-                                    else
-                                    {
-                                        <span class="text-muted small">Ninguna</span>
-                                    }
-                                </div>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">Ninguna</span>
+                                }
                             </div>
                         </div>
                     </div>
-                }
-            </div>
-        }
-        else
-        {
-            <div class="fw-light text-muted">
-                <i class="bi bi-emoji-neutral"></i>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="crm-card mb-2">
+            <div class="fw-light text-muted crm-empty">
                 Aún no has agregado ningún tratamiento.
             </div>
-        }
-    </div>
+        </div>
+    }
 </div>
 
 <!-- MODAL SÍNTOMAS -->
@@ -200,6 +196,11 @@
     </div>
 </div>
 
+@section Styles {
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" />
+    <link rel="stylesheet" href="~/css/usuario-condiciones-crm.css" />
+}
+
 @section Scripts {
     <script>
         // --- Autocomplete para tratamientos ---
@@ -216,7 +217,7 @@
             let datos = await resp.json();
             datos.forEach(item => {
                 let li = document.createElement('li');
-                li.className = 'list-group-item list-group-item-action';
+                li.className = 'crm-list-item list-group-item';
                 li.innerText = item.nombre;
                 li.onclick = function () {
                     document.getElementById('tratamientoBuscar').value = item.nombre;
@@ -225,6 +226,10 @@
                 }
                 sugerenciasUl.appendChild(li);
             });
+        });
+
+        document.getElementById('tratamientoBuscar').addEventListener('blur', function () {
+            setTimeout(() => { document.getElementById('tratamientoSugerencias').innerHTML = ''; }, 200);
         });
 
         // Agregar tratamiento
@@ -242,10 +247,6 @@
                 let msg = await resp.json();
                 alert(msg.mensaje || "Error");
             }
-        });
-
-        document.getElementById('tratamientoBuscar').addEventListener('blur', function () {
-            setTimeout(() => { document.getElementById('tratamientoSugerencias').innerHTML = ''; }, 200);
         });
 
         // Editar fecha inicio
@@ -320,7 +321,7 @@
                             Debes agregar primero algún síntoma en la sección "Síntomas".
                             </div>`;
                 } else {
-                    let sintlist = document.querySelectorAll("#sint-list-" + tratid + " .badge");
+                    let sintlist = document.querySelectorAll("#sint-list-" + tratid + " .crm-badge");
                     let seleccionadas = Array.from(sintlist).map(b => b.innerText);
                     sintomasUsuario.forEach(s => {
                         let checked = seleccionadas.includes(s.Nombre) ? 'checked' : '';
@@ -376,7 +377,7 @@
                         Debes agregar primero alguna condición en la sección "Condiciones".
                         </div>`;
                 } else {
-                    let condlist = document.querySelectorAll("#cond-list-" + tratid + " .badge");
+                    let condlist = document.querySelectorAll("#cond-list-" + tratid + " .crm-badge");
                     let seleccionadas = Array.from(condlist).map(b => b.innerText);
                     condicionesUsuario.forEach(c => {
                         let checked = seleccionadas.includes(c.Nombre) ? 'checked' : '';
