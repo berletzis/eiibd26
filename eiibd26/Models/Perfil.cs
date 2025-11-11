@@ -16,30 +16,30 @@ namespace eiibd26.Models
         public int? imagenFondo { get; set; }
         [Required]
         [StringLength(256)]
-        public string Titulo { get; set; }
+        public string? Titulo { get; set; }
 
         public bool Activo { get; set; }
 
         [Required]
         [StringLength(256)]
-        public string Nombre { get; set; }
+        public string? Nombre { get; set; }
 
         [StringLength(50)]
         public string? Apellidos { get; set; }
 
         [Required]
         [StringLength(20)]
-        public string Telefono { get; set; }
+        public string? Telefono { get; set; }
 
         [Required]
         [StringLength(1024)]
-        public string Email { get; set; }
+        public string? Email { get; set; }
 
         public DateTime? FechaDeNacimiento { get; set; }
 
         [Required]
         [StringLength(500)]
-        public string UsoPlataforma { get; set; }
+        public string? UsoPlataforma { get; set; }
 
         public int? idZone { get; set; }
 
@@ -48,7 +48,7 @@ namespace eiibd26.Models
         // public string? descripcion { get; set; }
 
         public DateTime FechaCreacion { get; set; }
-        public DateTime UltimaActividad { get; set; }
+        public DateTime? UltimaActividad { get; set; }
 
         [StringLength(80)]
         public string? slug { get; set; }
@@ -57,10 +57,10 @@ namespace eiibd26.Models
 
         [Required]
         [StringLength(50)]
-        public string Latitud { get; set; }
+        public string? Latitud { get; set; }
         [Required]
         [StringLength(50)]
-        public string Longitud { get; set; }
+        public string? Longitud { get; set; }
         [StringLength(200)]
         public string? NombreCiudad { get; set; }
         [StringLength(200)]
@@ -81,9 +81,9 @@ namespace eiibd26.Models
         public bool? Eliminado { get; set; }
 
         // NUEVOS CAMPOS para los 3 checkboxes solicitados
-        public bool PermitirTelefonoReal { get; set; } // Permitir utilizar teléfono para saber si soy real
-        public bool PermitirCorreoNoticias { get; set; } // Permitir enviarme correos de notificaciones o noticias
-        public bool PermitirMostrarPais { get; set; } // Permitir que otros usuarios vean de qué país soy
+        public bool? PermitirTelefonoReal { get; set; } // Permitir utilizar teléfono para saber si soy real
+        public bool? PermitirCorreoNoticias { get; set; } // Permitir enviarme correos de notificaciones o noticias
+        public bool? PermitirMostrarPais { get; set; } // Permitir que otros usuarios vean de qué país soy
 
         [ForeignKey(nameof(idUser))]
         public virtual ApplicationUser Usuario { get; set; }

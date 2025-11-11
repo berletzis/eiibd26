@@ -20,9 +20,10 @@ namespace eiibd26.Models
     public DateTime fechaModificado { get; set; }
     public DateTime fechaCreado { get; set; }
     public bool Eliminado { get; set; }
+        public bool? DefaultRegistro { get; set; }
 
-    // Navegación hijos
-    public virtual ICollection<condiciones> Hijos { get; set; }
+        // Navegación hijos
+        public virtual ICollection<condiciones> Hijos { get; set; }
     public virtual condiciones Padre { get; set; }
     public virtual ICollection<condicionUsuario> CondicionesUsuario { get; set; }
     public virtual ICollection<tratamientoUsuario> TratamientosUsuario { get; set; }

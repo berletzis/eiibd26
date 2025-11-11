@@ -9,13 +9,14 @@ namespace eiibd26.Models
     public int id { get; set; }
     public int? idCondicion { get; set; }
     public Guid idUsuario { get; set; }
-    public DateTime fechaInicio { get; set; }
+    public DateTime? fechaInicio { get; set; }
     public DateTime? fechaEliminado { get; set; }
     public DateTime fechaModificado { get; set; }
     public DateTime fechaCreado { get; set; }
     public bool Eliminado { get; set; }
+    
 
-    [ForeignKey(nameof(idCondicion))]
+        [ForeignKey(nameof(idCondicion))]
     public virtual condiciones Condicion { get; set; }
     [ForeignKey(nameof(idUsuario))]
     public virtual ApplicationUser Usuario { get; set; }

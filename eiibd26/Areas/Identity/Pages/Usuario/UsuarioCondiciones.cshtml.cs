@@ -72,7 +72,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     {
                         Id = h.HijoId,
                         Nombre = h.HijoNombre,
-                        FechaInicio = h.fechaInicio,
+                        FechaInicio = h.fechaInicio ?? DateTime.UtcNow,
                         TratamientosCount = h.TratamientosCount,
                         SintomasCount = h.SintomasCount
                     }).ToList()

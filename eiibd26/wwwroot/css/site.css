@@ -1,13 +1,57 @@
-html, body {
-    background: #f7f7fa;
-    text-size-adjust: 100%;
-    -webkit-text-size-adjust: 100%;
+:root {
+    /* Ajusta aquí la anchura central del contenido (cámbiala una vez y aplica a todo) */
+    --content-max-width: 1188px; /* <-- ancho estándar central */
+    /* Paleta neutra centralizada */
+    --brand-color: #546e76; /* color principal (neutro, gris azulado) */
+    --brand-color-600: #40545a; /* variante más oscura */
+    --text-color: #1f2b2f; /* texto principal (oscuro pero suave) */
+    --muted-color: #546a70; /* etiquetas / subtítulos */
+    --card-bg: #ffffff; /* fondo de tarjetas */
+    --page-bg: #f6f7f8; /* fondo general de la página (muy claro, neutro) */
+    --muted-bg: #f2f4f5; /* fondos secundarios */
+    --accent-border: rgba(64,84,90,0.06); /* sombra / borde tenue */
+    /* Tipografía sugerida (usa local/system fonts para rendimiento) */
+    --ui-font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+    /* Accesibility / focus */
+    --focus-outline: #c6d7db; /* contorno de foco neutro */
+    --hover-bg: #eef6f8; /* hover sutil */
+    --danger-color: #b94a42; /* color para estados de error / delete (suave) */
+    --warning-color: #c38f3b; /* color para acciones de edición (suave) */
 }
 
+/* ---------- Global basics ---------- */
+html, body {
+    background: var(--page-bg);
+    color: var(--text-color);
+    font-family: var(--ui-font);
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    margin: 0;
+    padding: 0;
+    line-height: 1.45;
+}
+
+/* Single source-of-truth container: use this class in your pages */
+.crm-container-admin,
+.container-standard {
+    max-width: var(--content-max-width);
+    margin: 0 auto 30px;
+    padding-left: 16px;
+    padding-right: 16px;
+    color: var(--text-color);
+    box-sizing: border-box;
+}
+
+/* If you want a slightly narrower container variant */
+.container-narrow {
+    max-width: calc(var(--content-max-width) * 0.83);
+}
+
+/* ---------- Sidebar ---------- */
 .sidebar-menu {
     min-height: 100vh;
-    border-right: 1px solid #ececec;
-    background: #f9f9f9;
+    border-right: 1px solid rgba(0,0,0,0.04);
+    background: #fbfbfb;
 }
 
     .sidebar-menu .nav-link {
@@ -19,25 +63,28 @@ html, body {
         border: 2px solid transparent;
         background: transparent;
     }
+
         /* Indentación para opciones anidadas */
         .sidebar-menu .nav-link.ms-4 {
             margin-left: 1.25rem !important;
         }
-            /* Hover/focus para admin y salud */
+
+            /* Hover/focus para anidados */
             .sidebar-menu .nav-link.ms-4:hover,
             .sidebar-menu .nav-link.ms-4:focus {
-                background: #eeeeee;
+                background: #f0f3f4;
                 color: #222 !important;
-                border: 2px solid #d1d5db !important;
+                border: 2px solid rgba(0,0,0,0.04) !important;
             }
-        /* Estado activo */
+
+        /* Icon colors and active states */
         .sidebar-menu .nav-link.admin i {
             color: #757575 !important;
             transition: color 0.12s;
         }
 
         .sidebar-menu .nav-link.admin.active i {
-            color: #c92a2a !important;
+            color: var(--danger-color) !important;
         }
 
         .sidebar-menu .nav-link.salud i {
@@ -46,63 +93,69 @@ html, body {
         }
 
         .sidebar-menu .nav-link.salud.active i {
-            color: #7522ca !important;
+            color: #6a4e7a !important;
         }
 
         .sidebar-menu .nav-link:not(.ms-4):hover,
         .sidebar-menu .nav-link:not(.ms-4):focus {
-            background: #e7f3ff;
-            color: #005fcc !important;
+            background: var(--hover-bg);
+            color: var(--brand-color) !important;
         }
 
         .sidebar-menu .nav-link.active:not(.ms-4) {
-            background: #e7f3ff;
-            color: #005fcc !important;
-            border: 2px solid #88b6f5;
+            background: var(--hover-bg);
+            color: var(--brand-color) !important;
+            border: 2px solid rgba(84,110,118,0.12);
         }
 
         .sidebar-menu .nav-link.disabled > .d-inline-flex.admin-icon {
-            border-color: #c92a2a;
+            border-color: var(--danger-color);
         }
 
         .sidebar-menu .nav-link.disabled > .d-inline-flex.salud-icon {
-            border-color: #7522ca;
+            border-color: #6a4e7a;
         }
 
         .sidebar-menu .nav-link.disabled > .d-inline-flex {
             background: #fff;
         }
 
-.table-container-admin {
-    max-width: 980px;
-    margin: 0 auto;
-    background: #fff;
-    border-radius: 14px;
-    box-shadow: 0 1px 8px rgba(40,60,120,0.05);
-    border: none;
-    padding: 0 0 8px 0;
-}
-
-.main-container {
-    max-width: 1000px;
-    margin: 30px auto;
-}
-
-.card-block {
-    background: #fff;
+/* ---------- Cards / blocks ---------- */
+.card-block,
+.card-block-modern {
+    background: var(--card-bg);
     border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(40,60,120,0.07);
+    box-shadow: 0 2px 8px var(--accent-border);
     padding: 25px;
     margin-bottom: 32px;
     border: none;
+    box-sizing: border-box;
 }
 
+/* Slightly larger modern card */
+.card-block-modern {
+    border-radius: 18px;
+    padding: 2.1rem 2.2rem 1.8rem;
+    margin-bottom: 36px;
+    box-shadow: 0 6px 30px var(--accent-border);
+}
+
+/* Title styles */
 .block-title {
     font-size: 1.18rem;
     font-weight: 600;
     margin-bottom: 12px;
+    color: var(--muted-color);
 }
 
+.perfil-title {
+    font-size: 2.08rem;
+    font-weight: 600;
+    color: var(--text-color);
+    margin-bottom: .7em;
+}
+
+/* Layout helpers */
 .flex-row {
     display: flex;
     gap: 32px;
@@ -112,43 +165,36 @@ html, body {
     flex: 1;
 }
 
-@media (max-width: 900px) {
-    .flex-row {
-        flex-direction: column;
-        gap: 12px;
-    }
-
-    .main-container {
-        padding: 0 4px;
-    }
-}
-
-ul.data-list > li {
-    margin-bottom: 0.5em;
+/* ---------- Forms / controls ---------- */
+label[for] {
+    font-weight: 500;
+    color: var(--muted-color);
 }
 
 .checkbox-label {
     margin-left: 0.4em;
 }
 
-label[for] {
-    font-weight: 500;
+ul.data-list > li {
+    margin-bottom: 0.5em;
 }
 
+/* Accessible focus outline */
 a:focus, button:focus, select:focus, input:focus {
-    outline: 2px solid #7456ea;
+    outline: 2px solid var(--focus-outline);
     outline-offset: 3px;
 }
 
+/* Select styling */
 .special-select, select {
     text-align: match-parent;
     text-align: inherit;
 }
 
-/* Badges y botones minimalistas para grid condiciones */
+/* ---------- Badges / action buttons ---------- */
 .badge-grid-gray {
-    background: #f0f0fa !important;
-    color: #31313f !important;
+    background: #f4f6f7 !important;
+    color: #333 !important;
     font-weight: 500;
     font-size: .97em;
     border-radius: 6px;
@@ -157,10 +203,10 @@ a:focus, button:focus, select:focus, input:focus {
 }
 
 .btn-action-grid {
-    background: #f7f7fa !important;
+    background: #f6f7f8 !important;
     color: #232332 !important;
     border-radius: 8px !important;
-    border: 1px solid #ececef !important;
+    border: 1px solid rgba(0,0,0,0.04) !important;
     box-shadow: none;
     padding: 7px 16px;
     font-size: 1em;
@@ -173,13 +219,14 @@ a:focus, button:focus, select:focus, input:focus {
     }
 
 .btn-action-edit i {
-    color: #f0bb3b !important;
+    color: var(--warning-color) !important;
 }
 
 .btn-action-delete i {
-    color: #e04c4c !important;
+    color: var(--danger-color) !important;
 }
 
+/* ---------- Conditions list ---------- */
 .cond-hijo {
     padding-left: 2em;
     color: #555;
@@ -189,47 +236,157 @@ a:focus, button:focus, select:focus, input:focus {
     font-weight: bold;
 }
 
-
-/* Minimal grid/table, compatible with usuarioCondiciones cards */
-.table-container-admin {
-    max-width: 980px;
+/* ---------- Avatar ---------- */
+.avatar-perfil-box img {
+    width: 110px;
+    height: 110px;
+    border-radius: 70px;
+    box-shadow: 0 2px 13px rgba(86,110,116,0.18);
+    border: 2px solid #d6e0e3;
+    object-fit: cover;
+    display: block;
     margin: 0 auto;
-    background: #fff;
-    border-radius: 14px;
-    box-shadow: 0 1px 8px rgba(40,60,120,0.05);
-    border: none;
-    padding: 0 0 8px 0;
 }
 
-.main-container {
-    max-width: 1000px;
-    margin: 30px auto;
-}
-
-.card-block {
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(40,60,120,0.07);
-    padding: 25px;
-    margin-bottom: 32px;
-    border: none;
-}
-
-.block-title {
-    font-size: 1.18rem;
-    font-weight: 600;
-    margin-bottom: 12px;
-}
-
-.flex-row {
+.avatar-controls-row {
     display: flex;
-    gap: 32px;
+    gap: 8px;
+    align-items: center;
+    margin-top: 12px;
+    justify-content: center;
 }
 
-.flex-col {
-    flex: 1;
+.btn-loading {
+    opacity: 0.7;
+    pointer-events: none;
 }
 
+/* ---------- Button overrides: neutral / minimal ---------- */
+/* Replace bright blue primary buttons with a neutral light-gray style used across profile/password/etc. */
+.btn-primary {
+    background: #eef3f4;
+    color: var(--text-color);
+    border: 1px solid rgba(31,43,47,0.06);
+    box-shadow: none;
+}
+
+    .btn-primary:hover,
+    .btn-primary:focus {
+        background: #e6ecee;
+        color: var(--text-color);
+        border-color: rgba(31,43,47,0.09);
+        text-decoration: none;
+        box-shadow: none;
+    }
+
+    .btn-primary:active {
+        background: #dde5e6;
+        border-color: rgba(31,43,47,0.12);
+    }
+
+    .btn-primary:disabled,
+    .btn-primary.disabled {
+        opacity: 0.65;
+        pointer-events: none;
+    }
+
+/* Outline primary in the same minimal tone */
+.btn-outline-primary {
+    color: var(--brand-color);
+    background: transparent;
+    border: 1px solid rgba(31,43,47,0.06);
+}
+
+    .btn-outline-primary:hover,
+    .btn-outline-primary:focus {
+        background: #f4f7f7;
+        color: var(--brand-color-600);
+        border-color: rgba(31,43,47,0.09);
+    }
+
+/* Keep size / spacing consistent for large buttons */
+.btn-primary.btn-lg {
+    padding: .6rem 1.25rem;
+    font-size: 1.05rem;
+    border-radius: 8px;
+}
+
+/* ---------- Navbar / topbar button styling (neutral minimal) ---------- */
+/* Target common navbar/topbar button selectors and make them neutral & minimal */
+.navbar .btn,
+.topbar .btn,
+.navbar-nav .nav-link.btn,
+.header-actions .btn,
+.header .btn {
+    background: #f1f4f5;
+    color: var(--text-color);
+    border: 1px solid rgba(31,43,47,0.06);
+    box-shadow: none;
+    padding: .45rem .9rem;
+    border-radius: 8px;
+    font-size: .95rem;
+    transition: background .12s, border-color .12s, color .12s;
+}
+
+    /* Hover / focus for navbar buttons */
+    .navbar .btn:hover,
+    .topbar .btn:hover,
+    .navbar-nav .nav-link.btn:hover,
+    .header-actions .btn:hover,
+    .header .btn:hover,
+    .navbar .btn:focus,
+    .topbar .btn:focus {
+        background: #e9eef0;
+        border-color: rgba(31,43,47,0.09);
+        color: var(--text-color);
+        outline: none;
+    }
+
+    /* Active / pressed state */
+    .navbar .btn:active,
+    .topbar .btn:active,
+    .navbar-nav .nav-link.btn:active,
+    .header-actions .btn:active {
+        background: #e1e7e8;
+        border-color: rgba(31,43,47,0.12);
+    }
+
+/* Small icon-only navbar buttons (less padding) */
+.navbar .btn-icon,
+.topbar .btn-icon,
+.header .btn-icon {
+    padding: .35rem .55rem;
+    border-radius: 8px;
+}
+
+/* If nav link is styled as primary by Bootstrap, neutralize it */
+.navbar .btn.btn-primary,
+.topbar .btn.btn-primary,
+.header .btn.btn-primary {
+    background: #f1f4f5;
+    color: var(--text-color);
+    border: 1px solid rgba(31,43,47,0.06);
+    box-shadow: none;
+}
+
+/* If any navbar button uses outline style, keep it subtle */
+.navbar .btn-outline-primary,
+.topbar .btn-outline-primary,
+.header .btn-outline-primary {
+    color: var(--brand-color);
+    background: transparent;
+    border: 1px solid rgba(31,43,47,0.06);
+}
+
+    .navbar .btn-outline-primary:hover,
+    .topbar .btn-outline-primary:hover,
+    .header .btn-outline-primary:hover {
+        background: #f4f7f7;
+        color: var(--brand-color-600);
+        border-color: rgba(31,43,47,0.09);
+    }
+
+/* ---------- Responsive rules ---------- */
 @media (max-width: 900px) {
     .flex-row {
         flex-direction: column;
@@ -239,47 +396,72 @@ a:focus, button:focus, select:focus, input:focus {
     .main-container {
         padding: 0 4px;
     }
+
+    .crm-container-admin, .container-standard {
+        max-width: calc(98vw);
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+}
+/* ---------------------------
+   Neutralizar color azul por defecto en nav-pills / nav-link active
+   Aplica a la columna de navegación (manage-nav-col) y a nav-pills globales
+   --------------------------- */
+
+/* 1) Reglas específicas para la navegación lateral (manage nav) */
+.manage-nav-col .nav-pills .nav-link,
+.manage-nav-col .nav-link {
+    color: var(--brand-color-600) !important; /* texto neutro */
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
 }
 
-.badge-grid-gray {
-    background: #f0f0fa !important;
-    color: #31313f !important;
-    font-weight: 500;
-    font-size: .97em;
-    border-radius: 6px;
-    border: none;
-    padding: 4px 11px;
-}
-
-.btn-action-grid {
-    background: #f7f7fa !important;
-    color: #232332 !important;
-    border-radius: 8px !important;
-    border: 1px solid #ececef !important;
-    box-shadow: none;
-    padding: 7px 16px;
-    font-size: 1em;
-}
-
-    .btn-action-grid i {
-        font-size: 1em;
-        vertical-align: middle;
-        margin-right: 7px;
+    /* 2) Estado activo / show (override bootstrap bright blue) */
+    .manage-nav-col .nav-pills .nav-link.active,
+    .manage-nav-col .nav-pills .show > .nav-link,
+    .manage-nav-col .nav-link.active,
+    .manage-nav-col .nav-link.active:focus {
+        background: #eef3f4 !important; /* fondo neutro */
+        color: var(--text-color) !important; /* texto oscuro pero suave */
+        border: 1px solid rgba(31,43,47,0.04) !important;
+        box-shadow: none !important;
+        border-radius: 8px !important;
+        padding-left: 14px; /* pequeño padding para consistencia */
     }
 
-.btn-action-edit i {
-    color: #f0bb3b !important;
+        /* 3) Opcional: indicador lateral sutil para activo (alineado a la izquierda) */
+        .manage-nav-col .nav-pills .nav-link.active::before {
+            content: "";
+            display: inline-block;
+            width: 4px;
+            height: 32px;
+            background: var(--brand-color-600);
+            border-radius: 4px;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+/* 4) Forzar comportamiento visual cuando la nav está fuera de manage-nav-col
+   (por si otras secciones usan nav-pills) */
+.nav-pills .nav-link.active,
+.nav-pills .show > .nav-link,
+.nav .nav-link.active {
+    background: #eef3f4 !important;
+    color: var(--text-color) !important;
+    border: 1px solid rgba(31,43,47,0.04) !important;
+    box-shadow: none !important;
+    border-radius: 8px !important;
 }
 
-.btn-action-delete i {
-    color: #e04c4c !important;
+/* 5) Evitar enlaces en azul (link color) en lista de secciones */
+.manage-nav-col .nav-link,
+.card-block-modern .nav-link {
+    color: var(--brand-color-600) !important;
 }
 
-.cond-hijo {
-    padding-left: 2em;
-    color: #555;
-}
-
-.cond-padre {
-    font-weight: bold;
-}
+    .manage-nav-col .nav-link:hover,
+    .card-block-modern .nav-link:hover {
+        background: transparent !important;
+        color: var(--brand-color-600) !important;
+    }

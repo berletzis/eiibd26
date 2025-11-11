@@ -92,7 +92,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios
                                                 Id = cu.idCondicion.Value,
                                                 Nombre = c.nombre,
                                                 IdPadre = c.idPadre,
-                                                FechaInicio = cu.fechaInicio
+                                                FechaInicio = cu.fechaInicio ?? DateTime.UtcNow,
                                             }).ToListAsync();
                 var padres = condicionesRaw.Where(x => x.IdPadre == null).ToList();
                 foreach (var padre in padres)

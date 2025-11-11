@@ -5,17 +5,20 @@
     ViewData["Title"] = "Perfil de Usuario";
 }
 @section Styles {
+    <link rel="stylesheet" href="~/css/avatar-card.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.min.css">
     <style>
         body {
             background: #f5f7fb;
         }
+
         .crm-container-admin {
             max-width: 1320px;
             margin: 0 auto 30px auto;
             padding-left: 10px;
             padding-right: 10px;
         }
+
         .perfil-title {
             font-size: 2.08rem;
             font-weight: 600;
@@ -23,20 +26,23 @@
             color: #172849;
             margin-bottom: .7em;
         }
+
         .card-row {
             display: flex;
             gap: 32px;
             flex-wrap: wrap;
         }
+
         .card-block-modern {
             background: #fff;
             border-radius: 18px;
-            box-shadow: 0 6px 30px 0 rgba(50,65,120,0.07);
+            box-shadow: 0 6px 30px rgba(50,65,120,0.07);
             border: none;
-            padding: 2.1rem 2.2rem 1.8rem 2.2rem;
+            padding: 2.1rem 2.2rem 1.8rem;
             margin-bottom: 36px;
-            flex:1 1 0px;
+            flex: 1 1 0px;
         }
+
         .block-title {
             font-size: 1.38rem;
             font-weight: 600;
@@ -44,32 +50,45 @@
             color: #305586;
             letter-spacing: -.02em;
         }
+
         .form-col {
             display: flex;
             flex-direction: column;
             gap: 14px;
         }
+
         .form-row {
             display: flex;
             gap: 16px;
             align-items: center;
         }
-        .form-row .form-col { width: 100%; }
-        .form-col-sm { flex: 0 0 45%; }
-        .form-col-lg { flex: 1 0 55%; }
-        .card-block-modern input.form-control,
-        .card-block-modern textarea.form-control,
-        .card-block-modern select.form-select {
+
+            .form-row .form-col {
+                width: 100%;
+            }
+
+        .form-col-sm {
+            flex: 0 0 45%;
+        }
+
+        .form-col-lg {
+            flex: 1 0 55%;
+        }
+
+        .card-block-modern input.form-control, .card-block-modern textarea.form-control, .card-block-modern select.form-select {
             border-radius: 8px;
             border: 1px solid #dde6f1;
             background: #f8fafd;
             font-size: 1.07em;
         }
+
         .card-block-modern input[type="checkbox"] {
             margin-right: 10px;
-            height:20px; width:20px;
+            height: 20px;
+            width: 20px;
             accent-color: #1e88e5;
         }
+
         .avatar-perfil-box img {
             width: 110px;
             height: 110px;
@@ -77,17 +96,22 @@
             box-shadow: 0 2px 13px #cad6ea54;
             border: 2px solid #b4d3ee;
             object-fit: cover;
+            display: block;
+            margin: 0 auto;
         }
+
         .perfil-label {
             font-size: 1.07em;
             font-weight: 500;
             color: #375586;
         }
+
         .form-text-error {
             color: #c92a2a;
             font-size: 0.97em;
             margin-left: 3px;
         }
+
         .readonly-label {
             background: #f8fafd;
             border-radius: 6px;
@@ -95,22 +119,52 @@
             padding: 7px 10px;
             font-size: 1.05em;
             color: #1e355e;
-            min-height:37px;
-        }
-        .form-check-label {
-            font-size:1.05em;
-            color:#305586;
+            min-height: 37px;
         }
 
-        /* Ensure hidden inputs don't appear in UI */
-        input[type="hidden"] { display:none !important; }
+        .form-check-label {
+            font-size: 1.05em;
+            color: #305586;
+        }
+
+        input[type="hidden"] {
+            display: none !important;
+        }
+
+        .avatar-controls-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-top: 12px;
+            justify-content: center;
+        }
+
+        .btn-loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
 
         @@media (max-width: 900px) {
-            .crm-container-admin { max-width: 98vw; }
-            .card-row { flex-direction: column; gap:24px; }
-            .card-block-modern { padding: 1.1rem 0.7rem 1.0rem 0.7rem;}
-            .form-row { flex-direction: column; }
-            .form-col-sm, .form-col-lg { flex: 1 1 100%;}
+            .crm-container-admin {
+                max-width: 98vw;
+            }
+
+            .card-row {
+                flex-direction: column;
+                gap: 24px;
+            }
+
+            .card-block-modern {
+                padding: 1.1rem 0.7rem 1.0rem 0.7rem;
+            }
+
+            .form-row {
+                flex-direction: column;
+            }
+
+            .form-col-sm, .form-col-lg {
+                flex: 1 1 100%;
+            }
         }
     </style>
 }
@@ -133,28 +187,57 @@
     {
         <form method="post" autocomplete="off" id="perfilForm">
             @Html.AntiForgeryToken()
-            <input asp-for="Perfil.idUser" type="hidden" />
-            <input asp-for="Perfil.Avatar" type="hidden" />
+            <input asp-for="Perfil.idUser" type="hidden" id="Perfil_idUser" />
+            <input asp-for="Perfil.Avatar" type="hidden" id="Perfil_AvatarHidden" />
 
-            @if (!ViewData.ModelState.IsValid)
-            {
-                <div class="alert alert-danger" role="alert">
-                    <ul>
-                        @foreach (var err in ViewData.ModelState.Values.SelectMany(v => v.Errors))
-                        {
-                            <li>@err.ErrorMessage</li>
-                        }
-                    </ul>
-                </div>
-            }
+            <!-- Card: Mi Perfil público -->
+            <div class="card-block-modern mb-3">
+                <h3 class="block-title mb-3"><i class="bi bi-eye"></i> Mi Perfil público</h3>
+                <div class="form-row">
+                    <div class="form-col-lg">
+                        <label class="perfil-label" for="Perfil_slug">Slug público</label>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <input asp-for="Perfil.slug" class="form-control" id="Perfil_slug" placeholder="mi-slug-personal"
+                                   data-check-url="@Url.Page(null, null, new { handler = "CheckSlug" }, Request.Scheme)" />
+                            <button type="button" id="generate-slug-btn" class="btn btn-outline-primary" data-generate-url="@Url.Page(null, null, new { handler = "GenerateSlug" }, Request.Scheme)">Generar slug</button>
+                        </div>
+                        <div class="form-text mt-1 text-muted">El slug será parte de la URL pública. Puedes escribir el tuyo o generar uno único automáticamente.</div>
+                        <div class="form-text-error mt-1" id="slug-error" style="display:@(ViewData.ModelState.ContainsKey("Perfil.slug") && ViewData.ModelState["Perfil.slug"].Errors.Any() ? "block" : "none")">
+                            @if (ViewData.ModelState.ContainsKey("Perfil.slug") && ViewData.ModelState["Perfil.slug"].Errors.Any())
+                            {
+                                @ViewData.ModelState["Perfil.slug"].Errors.First().ErrorMessage
+                            }
+                        </div>
+                        <div class="form-text text-success mt-1" id="slug-ok" style="display:none;"></div>
 
-            <div class="card-row">
-                <!-- Card 1: Información General -->
-                <div class="card-block-modern">
-                    <h3 class="block-title mb-3"><i class="bi bi-person-badge"></i> Información General</h3>
-                    <div class="mb-3 text-center avatar-perfil-box">
-                        <img src="@(string.IsNullOrWhiteSpace(Model.Perfil?.Avatar) ? "https://ui-avatars.com/api/?name=Usuario+Demo&size=110" : Model.Perfil.Avatar)" alt="Avatar" />
+                        <div class="mt-2 text-muted">
+                            Slug actual: <strong id="slug-current">@Model.Perfil?.slug</strong>
+                        </div>
+                        <div class="mt-2">
+                            URL pública: <a id="slug-preview" href="@(Model.Perfil?.slug != null ? $"{Request.Scheme}://{Request.Host}/u/{Model.Perfil.slug}" : "#")" target="_blank">
+                                @(Model.Perfil?.slug != null ? $"{Request.Scheme}://{Request.Host}/u/{Model.Perfil.slug}" : "—")
+                            </a>
+                        </div>
+
+                        <div class="mt-2" id="slug-suggestion-row" style="display:none;">
+                            <span class="text-muted">Sugerencia disponible:</span>
+                            <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="use-suggestion-btn">Usar sugerencia</button>
+                            <span id="slug-suggestion" class="ms-2 fw-bold"></span>
+                        </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Avatar block: preview + upload (server centers/crops) -->
+            <div class="card-row">
+                <div class="card-block-modern" style="flex:0 0 300px;">
+                    @* Dentro de Areas/Identity/Pages/Usuario/UsuarioPerfil.cshtml *@
+                    @await Html.PartialAsync("_AvatarCard", Model)
+                </div>
+
+                <!-- Información General -->
+                <div class="card-block-modern" style="flex:1 1 0px;">
+                    <h3 class="block-title mb-3"><i class="bi bi-person-badge"></i> Información General</h3>
 
                     <div class="form-row">
                         <div class="form-col-sm">
@@ -163,14 +246,14 @@
                         </div>
                         <div class="form-col-lg">
                             <label class="perfil-label" asp-for="Perfil.Nombre">Nombre</label>
-                            <input asp-for="Perfil.Nombre" class="form-control" />
+                            <input asp-for="Perfil.Nombre" class="form-control" id="Perfil_Nombre" />
                         </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-col">
                             <label class="perfil-label" asp-for="Perfil.Apellidos">Apellidos</label>
-                            <input asp-for="Perfil.Apellidos" class="form-control" />
+                            <input asp-for="Perfil.Apellidos" class="form-control" id="Perfil_Apellidos" />
                         </div>
                         <div class="form-col">
                             <label class="perfil-label" asp-for="Perfil.UsoPlataforma">Uso plataforma</label>
@@ -199,8 +282,10 @@
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Card 2: Datos para la Plataforma -->
+            <!-- Datos para la plataforma -->
+            <div class="card-row">
                 <div class="card-block-modern">
                     <h3 class="block-title mb-3"><i class="bi bi-geo-alt"></i> Datos para la plataforma</h3>
 
@@ -218,7 +303,6 @@
                         </div>
                     </div>
 
-                    <!-- PermitirMostrarPais (hidden + checkbox) -->
                     <div class="form-row mt-2">
                         <div class="form-col">
                             <div class="form-check">
@@ -238,7 +322,6 @@
                         </div>
                     </div>
 
-                    <!-- PermitirTelefonoReal (hidden + checkbox) -->
                     <div class="form-row mt-1">
                         <div class="form-col">
                             <div class="form-check">
@@ -258,7 +341,6 @@
                         </div>
                     </div>
 
-                    <!-- PermitirCorreoNoticias (hidden + checkbox) -->
                     <div class="form-row mt-1">
                         <div class="form-col">
                             <div class="form-check">
@@ -275,7 +357,7 @@
                 </div>
             </div>
 
-            <!-- Card 3: Estado y Privacidad -->
+            <!-- Estado y Privacidad -->
             <div class="card-block-modern mb-3" style="max-width:700px;margin:0 auto;">
                 <h3 class="block-title mb-3"><i class="bi bi-info-circle"></i> Estado y Privacidad</h3>
                 <div class="form-row">
@@ -319,75 +401,185 @@
 </div>
 
 @section Scripts {
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places&callback=initAutocomplete"></script>
+    <!-- Provide a stable global callback for Google Maps API BEFORE the API script is requested.
+         This avoids "initAutocomplete is not a function" when API calls back before our implementation is parsed.
+         We define a small wrapper that waits for the real implementation (initAutocompleteImpl) to be available. -->
+    <script>
+        window.initAutocomplete = function() {
+            if (typeof window.initAutocompleteImpl === 'function') {
+                window.initAutocompleteImpl();
+                return;
+            }
+            var tries = 0;
+            var wait = setInterval(function() {
+                tries++;
+                if (typeof window.initAutocompleteImpl === 'function') {
+                    clearInterval(wait);
+                    window.initAutocompleteImpl();
+                } else if (tries > 50) { // ~5s timeout
+                    clearInterval(wait);
+                    console.warn('initAutocompleteImpl not defined after waiting');
+                }
+            }, 100);
+        };
+    </script>
+
+    <!-- Load Google Maps Places API (keeps callback param to call window.initAutocomplete) -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBUUBxDv3VvzMmdR_pf9aFOd7frbTeUWXk&libraries=places&callback=initAutocomplete"></script>
 
     <script>
-        function el(id){return document.getElementById(id);}
-
-        // Phone mask (123-456-7890)
-        (function(){
-            var tel = el('telefono-input');
-            if(!tel) return;
-            tel.addEventListener('input', function(){
-                var digits = this.value.replace(/\D/g,'').slice(0,10);
-                var out = digits;
-                if(digits.length>6) out = digits.slice(0,3) + '-' + digits.slice(3,6) + '-' + digits.slice(6);
-                else if(digits.length>3) out = digits.slice(0,3) + '-' + digits.slice(3);
-                this.value = out;
-                var telErr = el('telefono-error');
-                if(telErr) telErr.classList.toggle('d-none', digits.length === 10);
-            });
-        })();
-
-        // Email validation
-        (function(){
-            var email = el('email-input');
-            if(!email) return;
-            email.addEventListener('input', function(){
-                var ok = /^[^\s@@]+@@[^\s@@]+\.[^\s@@]+$/.test(this.value);
-                var elErr = el('email-error');
-                if(elErr) elErr.classList.toggle('d-none', ok);
-            });
-        })();
-
-        // Places autocomplete (cities)
-        function sanitizeCountryCode(raw){ if(!raw) return ""; var token=String(raw).trim().split(/\s|-/)[0]; var match=token.match(/[A-Za-z]{2,3}/); return match?match[0].toLowerCase():""; }
-        function initAutocomplete(){
-            try{
-                var input=el('ciudad-input'), paisSel=el('pais-select'), latEl=el('latitud-input'), lngEl=el('longitud-input');
-                if(!input || !window.google || !google.maps || !google.maps.places) return;
+        // Implementation of autocomplete placed as initAutocompleteImpl (so the wrapper above can call it)
+        window.initAutocompleteImpl = function() {
+            try {
+                var input = document.getElementById('ciudad-input');
+                var paisSel = document.getElementById('pais-select');
+                var latEl = document.getElementById('latitud-input');
+                var lngEl = document.getElementById('longitud-input');
+                if (!input || !window.google || !google.maps || !google.maps.places) {
+                    console.warn('Google places not available');
+                    return;
+                }
                 var autocomplete = new google.maps.places.Autocomplete(input, { types: ['(cities)'] });
-                if(paisSel){
+
+                function sanitizeCountryCode(raw){
+                    if(!raw) return "";
+                    var token = String(raw).trim().split(/\s|-/)[0];
+                    var match = token.match(/[A-Za-z]{2,3}/);
+                    return match ? match[0].toLowerCase() : "";
+                }
+
+                if (paisSel) {
                     paisSel.addEventListener('change', function(){
                         var code = sanitizeCountryCode(paisSel.value);
-                        try{ if(code) autocomplete.setComponentRestrictions({country:code}); else autocomplete.setComponentRestrictions({}); }catch(e){ console.warn(e); }
-                        input.value=''; if(latEl) latEl.value=''; if(lngEl) lngEl.value='';
+                        try {
+                            if (code) autocomplete.setComponentRestrictions({country:code});
+                            else autocomplete.setComponentRestrictions({});
+                        } catch (e) { console.warn('setComponentRestrictions failed', e); }
+                        input.value = '';
+                        if (latEl) latEl.value = '';
+                        if (lngEl) lngEl.value = '';
                     });
                 }
+
                 autocomplete.addListener('place_changed', function(){
                     var place = autocomplete.getPlace();
-                    if(place && place.geometry && place.geometry.location){
-                        el('ciudad-error') && el('ciudad-error').classList.add('d-none');
-                        if(latEl) latEl.value = place.geometry.location.lat();
-                        if(lngEl) lngEl.value = place.geometry.location.lng();
+                    if (place && place.geometry && place.geometry.location) {
+                        document.getElementById('ciudad-error') && document.getElementById('ciudad-error').classList.add('d-none');
+                        if (latEl) latEl.value = place.geometry.location.lat();
+                        if (lngEl) lngEl.value = place.geometry.location.lng();
                     } else {
-                        if(latEl) latEl.value = ''; if(lngEl) lngEl.value = '';
-                        el('ciudad-error') && el('ciudad-error').classList.remove('d-none');
+                        if (latEl) latEl.value = '';
+                        if (lngEl) lngEl.value = '';
+                        document.getElementById('ciudad-error') && document.getElementById('ciudad-error').classList.remove('d-none');
                     }
                 });
-            }catch(e){ console.error('initAutocomplete error', e); }
-        }
 
-        // fallback clear lat/lng on country change
-        document.addEventListener('DOMContentLoaded', function(){
-            var paisSel = el('pais-select'), ciudad = el('ciudad-input');
-            if(paisSel && ciudad){
-                paisSel.addEventListener('change', function(){
-                    el('latitud-input') && (el('latitud-input').value='');
-                    el('longitud-input') && (el('longitud-input').value='');
-                    ciudad.value = '';
+                console.debug('Places autocomplete initialized');
+            } catch (ex) {
+                console.error('initAutocompleteImpl error', ex);
+            }
+        };
+    </script>
+
+    <script>
+        // slug live-check + generate (unchanged)
+        (function(){
+            function el(id){return document.getElementById(id);}
+            var slugInput = el('Perfil_slug');
+            var generateBtn = el('generate-slug-btn');
+            var slugOk = el('slug-ok');
+            var slugErr = el('slug-error');
+            var slugCurrent = el('slug-current');
+            var slugPreview = el('slug-preview');
+            var suggestionRow = el('slug-suggestion-row');
+            var suggestionEl = el('slug-suggestion');
+            var useSuggestionBtn = el('use-suggestion-btn');
+            var userId = (el('Perfil_idUser') && el('Perfil_idUser').value) ? el('Perfil_idUser').value : '';
+
+            function updatePreview(slug){
+                if(!slug){ if(slugPreview){ slugPreview.href = '#'; slugPreview.textContent = '—'; } return; }
+                var origin = window.location.origin;
+                var url = origin + '/u/' + slug;
+                if(slugPreview){ slugPreview.href = url; slugPreview.textContent = url; }
+                if(slugCurrent) slugCurrent.textContent = slug;
+            }
+
+            if(slugInput){
+                updatePreview(slugInput.value);
+                var checkUrl = slugInput.dataset.checkUrl;
+                var timeout;
+                slugInput.addEventListener('input', function(){
+                    var val = this.value.trim();
+                    updatePreview(val);
+                    clearTimeout(timeout);
+                    if(!val){ slugOk.style.display='none'; slugErr.style.display='none'; suggestionRow.style.display='none'; return; }
+                    timeout = setTimeout(function(){
+                        var url = (checkUrl || window.location.pathname + '?handler=CheckSlug') + '&slug=' + encodeURIComponent(val);
+                        if(userId) url += '&userId=' + encodeURIComponent(userId);
+                        fetch(url, { method:'GET', credentials:'same-origin' })
+                            .then(function(resp){ if(!resp.ok) throw new Error('HTTP ' + resp.status); return resp.json(); })
+                            .then(function(json){
+                                if(json.exists){
+                                    slugErr.style.display = 'block';
+                                    slugErr.textContent = 'El slug ya está en uso.';
+                                    slugOk.style.display = 'none';
+                                    if(json.suggestion){
+                                        suggestionEl.textContent = json.suggestion;
+                                        suggestionRow.style.display = 'block';
+                                    }
+                                } else {
+                                    slugErr.style.display = 'none';
+                                    slugOk.style.display = 'block';
+                                    slugOk.textContent = 'Slug disponible';
+                                    suggestionRow.style.display = 'none';
+                                }
+                            }).catch(function(e){ console.error('[slug] check error', e); });
+                    }, 350);
                 });
             }
-        });
+
+            if(useSuggestionBtn){
+                useSuggestionBtn.addEventListener('click', function(){
+                    var s = suggestionEl.textContent;
+                    if(s && slugInput){ slugInput.value = s; updatePreview(s); suggestionRow.style.display='none'; slugOk.style.display='block'; slugOk.textContent='Sugerencia aplicada'; slugErr.style.display='none'; }
+                });
+            }
+
+            if(generateBtn){
+                generateBtn.addEventListener('click', function(){
+                    var base = slugInput && slugInput.value.trim() ? slugInput.value.trim() : '';
+                    if(!base){
+                        var nombre = (document.getElementById('Perfil_Nombre') && document.getElementById('Perfil_Nombre').value) || '';
+                        var apellidos = (document.getElementById('Perfil_Apellidos') && document.getElementById('Perfil_Apellidos').value) || '';
+                        base = (nombre + ' ' + apellidos).trim();
+                    }
+                    if(!base){ slugErr.style.display='block'; slugErr.textContent='Proporciona un nombre o apellidos para generar el slug.'; slugOk.style.display='none'; return; }
+                    slugErr.style.display='none';
+                    slugOk.style.display='none';
+                    var urlBase = generateBtn.getAttribute('data-generate-url') || window.location.pathname + '?handler=GenerateSlug';
+                    var url = urlBase + '&baseText=' + encodeURIComponent(base);
+                    fetch(url, { method:'GET', credentials:'same-origin' })
+                        .then(function(resp){ if(!resp.ok) throw new Error('HTTP ' + resp.status); return resp.json(); })
+                        .then(function(data){
+                            if(data && data.slug){
+                                if(slugInput) slugInput.value = data.slug;
+                                updatePreview(data.slug);
+                                slugOk.style.display='block';
+                                slugOk.textContent = 'Slug generado: ' + data.slug;
+                                slugErr.style.display='none';
+                                suggestionRow.style.display='none';
+                                suggestionEl.textContent = '';
+                            } else {
+                                slugErr.style.display='block';
+                                slugErr.textContent = 'No se pudo generar slug.';
+                                slugOk.style.display='none';
+                            }
+                        }).catch(function(e){ console.error('[slug] generate error', e); slugErr.style.display='block'; slugErr.textContent='Error al generar slug.'; slugOk.style.display='none'; });
+                });
+            }
+        })();
     </script>
+
+    <!-- Include avatar JS once, at the end of the page -->
+    <script src="~/js/avatar-card.js" asp-append-version="true"></script>
 }
