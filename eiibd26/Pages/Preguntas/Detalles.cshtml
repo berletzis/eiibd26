@@ -1,0 +1,425 @@
+﻿@page "{id:guid}"
+@model eiibd26.Pages.Preguntas.DetallesModel
+@{
+    ViewData["Title"] = Model.Pregunta?.Titulo ?? "Pregunta";
+    Layout = "_Layout";
+
+    string ResolveAvatar(string avatar)
+    {
+        if (string.IsNullOrWhiteSpace(avatar)) return Url.Content("~/img/avatar-placeholder.png");
+        if (avatar.StartsWith("http", System.StringComparison.OrdinalIgnoreCase)) return avatar;
+        if (avatar.StartsWith("/")) return avatar;
+        return Url.Content("~/" + avatar.TrimStart('/'));
+    }
+}
+<style>
+    .pd-container {
+        max-width: 980px;
+        margin: 28px auto;
+        padding: 0 12px;
+    }
+
+    .q-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 18px;
+        box-shadow: 0 6px 18px rgba(20,40,80,0.06);
+        margin-bottom: 16px;
+        position: relative;
+    }
+
+    .author-row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+    }
+
+    .author-thumb {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    .q-title {
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: #16324a;
+        margin-bottom: 6px;
+    }
+
+    .q-body {
+        color: #283344;
+        margin-top: 6px;
+    }
+
+    .q-actions {
+        position: absolute;
+        right: 18px;
+        top: 18px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .ans-card {
+        background: #fff;
+        border-radius: 10px;
+        padding: 12px;
+        box-shadow: 0 4px 12px rgba(20,40,80,0.04);
+        margin-bottom: 10px;
+        position: relative;
+    }
+
+    .ans-author {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .ans-thumb {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    .ans-body {
+        margin-top: 8px;
+        color: #2b3b4a;
+    }
+
+    .ans-actions {
+        position: absolute;
+        right: 12px;
+        bottom: 12px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .reply-form {
+        margin-bottom: 16px;
+        background: #fbfbfb;
+        padding: 12px;
+        border-radius: 8px;
+    }
+
+    .reply-textarea {
+        width: 100%;
+        min-height: 100px;
+        resize: vertical;
+    }
+
+    .child-replies {
+        margin-left: 48px;
+        margin-top: 8px;
+    }
+
+    .q-author-line {
+        margin-top: 8px;
+        color: #6b7788;
+        font-size: 0.95rem;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+        .q-author-line img {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+    .author-badge {
+        margin-left: 8px;
+        font-size: 0.8rem;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: #eef2ff;
+        color: #1e3a8a;
+    }
+</style>
+
+<div class="pd-container">
+    <div class="q-card">
+        <div class="author-row">
+            <img class="author-thumb" src="@ResolveAvatar(Model.Pregunta.AutorAvatarUrl)" alt="@Model.Pregunta.AutorNombre"
+                 width="56" height="56"
+                 loading="eager"
+                 fetchpriority="high"
+                 decoding="async"
+                 onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+            <div style="flex:1">
+                <div class="q-title">@Model.Pregunta.Titulo</div>
+                <div class="q-body">@Html.Raw(Model.Pregunta.Cuerpo)</div>
+
+                <div class="q-author-line">
+                    <img src="@ResolveAvatar(Model.Pregunta.AutorAvatarUrl)" alt="@Model.Pregunta.AutorNombre"
+                         width="28" height="28"
+                         loading="eager"
+                         fetchpriority="high"
+                         decoding="async"
+                         onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+                    <div>
+                        <div>
+                            <strong>@Model.Pregunta.AutorNombre</strong>
+                            @if (Model.Pregunta.EsMia)
+                            {
+                                <span class="author-badge">Tu pregunta</span>
+                            }
+                        </div>
+                        <div class="text-muted small">Publicado · @Model.Pregunta.FechaCreacion.ToLocalTime().ToString("g")</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="q-actions" role="group" aria-label="acciones pregunta">
+                @if (User.Identity.IsAuthenticated)
+                {
+                    var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                    var isAuthorQ = !string.IsNullOrEmpty(currentUserId) && Guid.TryParse(currentUserId, out var cuid) && cuid == Model.Pregunta.UsuarioId;
+
+                    if (isAuthorQ)
+                    {
+                        <span class="text-muted small">No puedes votar tu propia pregunta</span>
+                    }
+                    else
+                    {
+                        if (Model.Pregunta.UsuarioVoto == 1)
+                        {
+                            <button class="btn btn-outline-success btn-voto-q voto-activo" data-id="@Model.Pregunta.Id" data-valor="1">+1</button>
+                        }
+                        else if (Model.Pregunta.UsuarioVoto == -1)
+                        {
+                            <button class="btn btn-outline-danger btn-voto-q voto-activo" data-id="@Model.Pregunta.Id" data-valor="-1">-1</button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-outline-success btn-voto-q" data-id="@Model.Pregunta.Id" data-valor="1">+1</button>
+                            <button class="btn btn-outline-danger btn-voto-q" data-id="@Model.Pregunta.Id" data-valor="-1">-1</button>
+                        }
+                    }
+                }
+                else
+                {
+                    <a class="btn btn-outline-success" href="/Account/Login">+1</a>
+                    <a class="btn btn-outline-danger" href="/Account/Login">-1</a>
+                }
+
+                <a class="btn btn-sm btn-outline-secondary" href="/Preguntas/Detalles/@Model.Pregunta.Id" title="Ver detalle" aria-label="Ver detalle">
+                    <span style="font-size:0.95rem;">👁</span>
+                </a>
+
+                <div class="badge bg-light text-dark" id="qscore-@Model.Pregunta.Id">Score: @Model.Pregunta.Score</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reply form for top-level answer -->
+    <div class="reply-form">
+        @if (User.Identity.IsAuthenticated)
+        {
+            <div class="mb-2"><strong>Responder a la pregunta</strong></div>
+            <div class="mb-2">
+                <textarea id="replyCuerpo" class="form-control reply-textarea" placeholder="Escribe tu respuesta aquí..."></textarea>
+            </div>
+            <div class="d-flex gap-2">
+                <button id="btnSendReply" class="btn btn-primary">Publicar respuesta</button>
+                <small class="text-muted">Tu respuesta aparecerá abajo.</small>
+            </div>
+        }
+        else
+        {
+            <a class="btn btn-outline-primary" href="/Account/Login">Inicia sesión para responder</a>
+        }
+    </div>
+
+    <div class="mb-3 d-flex justify-content-between align-items-center">
+        <div class="search-answers">
+            <form method="get" class="d-flex align-items-center">
+                <input type="hidden" name="id" value="@Model.Id" />
+                <input name="search" class="form-control" placeholder="Buscar en respuestas..." value="@Model.Search" />
+                <button class="btn btn-outline-primary ms-1" type="submit">Buscar</button>
+            </form>
+        </div>
+
+        <div>
+            <form method="get" id="ansPageSize" class="d-flex align-items-center">
+                <input type="hidden" name="id" value="@Model.Id" />
+                <input type="hidden" name="search" value="@Model.Search" />
+                <input type="hidden" name="page" value="1" />
+                <select name="pageSize" class="form-select form-select-sm" onchange="document.getElementById('ansPageSize').submit();">
+                    @{
+                        var sizes = new[] { 6, 12, 24 };
+                    }
+                    @foreach (var s in sizes)
+                    {
+                        if (Model.PageSize == s)
+                        {
+                            <option value="@s" selected>@s</option>
+                        }
+                        else
+                        {
+                            <option value="@s">@s</option>
+                        }
+                    }
+                </select>
+            </form>
+        </div>
+    </div>
+
+    <div>
+        @if (!Model.Respuestas.Any())
+        {
+            <div class="alert alert-secondary">No hay respuestas aún para esta pregunta.</div>
+        }
+        else
+        {
+            @foreach (var a in Model.Respuestas)
+            {
+                <partial name="/Pages/Shared/_RespuestaCard.cshtml" model="a" />
+            }
+        }
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <div>
+            @{
+                var prev = Model.Page > 1 ? Model.Page - 1 : 1;
+                var next = Model.Page < Model.TotalPages ? Model.Page + 1 : Model.TotalPages;
+                var qsBase = $"?id={Model.Id}&search={Uri.EscapeDataString(Model.Search ?? "")}&pageSize={Model.PageSize}";
+            }
+            <a class="btn btn-sm btn-outline-secondary" href="@($"{qsBase}&page={prev}")">Anterior</a>
+            <span class="mx-2">Página <strong>@Model.Page</strong> de <strong>@Model.TotalPages</strong></span>
+            <a class="btn btn-sm btn-outline-secondary" href="@($"{qsBase}&page={next}")">Siguiente</a>
+        </div>
+
+        <div>
+            <small class="text-muted">@Model.TotalItems respuestas</small>
+        </div>
+    </div>
+</div>
+
+<!-- Reply modal (unchanged) -->
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        (function () {
+            console.log('Detalles page scripts loaded');
+
+            const replyModalEl = document.getElementById('replyModal');
+            const replyModal = replyModalEl ? new bootstrap.Modal(replyModalEl) : null;
+
+            async function postReplyToApi(preguntaId, cuerpo, parentId) {
+                const body = { cuerpo: cuerpo };
+                if (parentId) body.parentId = parentId;
+                const res = await fetch('/api/respuestas', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Pregunta-Id': preguntaId },
+                    body: JSON.stringify(body)
+                });
+                return res;
+            }
+
+            const btnSend = document.getElementById('btnSendReply');
+            if (btnSend) {
+                btnSend.addEventListener('click', async function () {
+                    const cuerpoEl = document.getElementById('replyCuerpo');
+                    const cuerpo = cuerpoEl.value.trim();
+                    if (!cuerpo) return alert('Escribe una respuesta');
+                    btnSend.disabled = true;
+                    try {
+                        const res = await postReplyToApi('@Model.Id', cuerpo, null);
+                        if (!res.ok) {
+                            const txt = await res.text();
+                            alert('Error al publicar respuesta: ' + txt);
+                        } else {
+                            location.reload();
+                        }
+                    } catch (e) { console.error(e); alert('Error de red'); }
+                    finally { btnSend.disabled = false; }
+                });
+            }
+
+            document.addEventListener('click', function (e) {
+                const btn = e.target.closest('.btn-open-reply-modal');
+                if (!btn) return;
+                const parentId = btn.getAttribute('data-id');
+                const author = btn.getAttribute('data-author') || '';
+                document.getElementById('modalParentId').value = parentId;
+                document.getElementById('modalReplyCuerpo').value = '';
+                document.getElementById('replyToInfo').textContent = 'Respondiendo a ' + author;
+                if (replyModal) replyModal.show();
+            });
+
+            const modalSend = document.getElementById('btnModalSend');
+            if (modalSend) {
+                modalSend.addEventListener('click', async function () {
+                    const cuerpo = document.getElementById('modalReplyCuerpo').value.trim();
+                    if (!cuerpo) return alert('Escribe una respuesta');
+                    modalSend.disabled = true;
+                    const parentId = document.getElementById('modalParentId').value || null;
+                    try {
+                        const res = await postReplyToApi('@Model.Id', cuerpo, parentId);
+                        if (!res.ok) {
+                            const txt = await res.text();
+                            alert('Error al publicar respuesta: ' + txt);
+                        } else {
+                            if (replyModal) replyModal.hide();
+                            location.reload();
+                        }
+                    } catch (e) { console.error(e); alert('Error de red'); }
+                    finally { modalSend.disabled = false; }
+                });
+            }
+
+            document.addEventListener('click', async function (e) {
+                const btnQ = e.target.closest('.btn-voto-q');
+                if (btnQ) {
+                    e.preventDefault();
+                    const id = btnQ.getAttribute('data-id');
+                    const valor = parseInt(btnQ.getAttribute('data-valor') || "0");
+                    if (!id || (valor !== 1 && valor !== -1)) return;
+                    try {
+                        const res = await fetch('/api/preguntas/' + id + '/votar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ valor: valor }) });
+                        if (!res.ok) {
+                            const txt = await res.text();
+                            console.warn('Error votando pregunta:', res.status, txt);
+                            alert('Error al votar: ' + (txt || res.status));
+                            return;
+                        }
+                        const j = await res.json();
+                        const scoreEl = document.getElementById('qscore-' + id);
+                        if (j.score !== undefined && scoreEl) scoreEl.textContent = 'Score: ' + j.score;
+                        location.reload();
+                    } catch (e) { console.error(e); alert('Error de red'); }
+                    return;
+                }
+
+                const btnA = e.target.closest('.btn-voto-ans');
+                if (btnA) {
+                    e.preventDefault();
+                    const id = btnA.getAttribute('data-id');
+                    const valor = parseInt(btnA.getAttribute('data-valor') || "0");
+                    if (!id || (valor !== 1 && valor !== -1)) return;
+                    try {
+                        const res = await fetch('/api/respuestas/' + id + '/votar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ valor: valor }) });
+                        if (!res.ok) {
+                            const txt = await res.text();
+                            console.warn('Error votando respuesta:', res.status, txt);
+                            alert('Error al votar: ' + (txt || res.status));
+                            return;
+                        }
+                        const j = await res.json();
+                        const scoreEl = document.getElementById('ascore-' + id);
+                        if (j.score !== undefined && scoreEl) scoreEl.textContent = 'Score: ' + j.score;
+                        location.reload();
+                    } catch (e) { console.error(e); alert('Error de red'); }
+                    return;
+                }
+            });
+        })();
+    </script>
+}

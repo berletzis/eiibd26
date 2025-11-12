@@ -1,0 +1,484 @@
+﻿@page
+@model eiibd26.Areas.Identity.Pages.Usuario.PreguntasRespuestasModel
+@{
+    ViewData["Title"] = "Preguntas y Respuestas";
+    Layout = "_Layout";
+}
+
+<style>
+    .crm-container {
+        max-width: 1320px;
+        margin: 22px auto;
+        padding: 0 12px;
+    }
+
+    .crm-card {
+        background: #fff;
+        border-radius: 18px;
+        box-shadow: 0 8px 30px rgba(50,65,120,0.06);
+        padding: 1.6rem;
+        margin-bottom: 18px;
+    }
+
+    .crm-title {
+        font-size: 1.9rem;
+        font-weight: 700;
+        color: #172849;
+        margin-bottom: .6rem;
+    }
+
+    .qr-card-panel {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+        margin-top: 12px;
+    }
+
+    .qr-card {
+        background: #f8fbff;
+        border-radius: 14px;
+        padding: 14px;
+        min-height: 160px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        position: relative;
+    }
+
+    .qr-title-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    .qr-title {
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: #1f4460;
+        margin-bottom: 6px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .qr-eye {
+        position: absolute;
+        right: 10px;
+        top: 12px;
+    }
+
+    .qr-body {
+        font-size: .95rem;
+        color: #2b3b4a;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 5;
+        -webkit-box-orient: vertical;
+        margin-top: 6px;
+    }
+
+    .qr-meta {
+        font-size: .86rem;
+        color: #6b7483;
+        margin-top: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .qr-meta-left {
+        color: #6b7483;
+        font-size: .86rem;
+    }
+
+    .qr-meta-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .btn-qr {
+        white-space: nowrap;
+    }
+
+    .voto-btn {
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .qr-actions {
+        position: absolute;
+        right: 12px;
+        bottom: 12px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .qr-score {
+        background: #fff;
+        padding: 6px 8px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        font-size: 0.9rem;
+    }
+
+    .voto-activo {
+        box-shadow: inset 0 0 0 2px rgba(0,0,0,0.06);
+    }
+    @@media (max-width: 1100px) {
+        .qr-card-panel
+
+    {
+        grid-template-columns: repeat(2,1fr);
+    }
+
+    }
+    @@media (max-width: 680px) {
+        .qr-card-panel
+
+    {
+        grid-template-columns: 1fr;
+    }
+
+    .qr-actions {
+        right: 8px;
+        bottom: 8px;
+    }
+
+    .qr-eye {
+        right: 8px;
+    }
+
+    }
+</style>
+
+<div class="crm-container">
+    <h2 class="crm-title">Preguntas y Respuestas</h2>
+
+    <div class="crm-card d-flex justify-content-between align-items-center">
+        <div>
+            <div class="fs-5">Consulta y ayuda entre usuarios</div>
+            <div class="text-muted">Aquí ves tus preguntas y también las preguntas a las que has respondido o votado. Publica la tuya o responde a otras.</div>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-success" id="btnAbrirModalPregunta">Nueva pregunta</button>
+        </div>
+    </div>
+
+    <div class="crm-card">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div><strong>@Model.Total</strong> preguntas</div>
+            <div>
+                <a class="btn btn-sm btn-outline-secondary" href="?page=@(Model.Page > 1 ? Model.Page - 1 : 1)">Anterior</a>
+                <a class="btn btn-sm btn-outline-secondary" href="?page=@(Model.Page + 1)">Siguiente</a>
+            </div>
+        </div>
+
+        <div id="qrCards" class="qr-card-panel">
+            @foreach (var q in Model.Preguntas)
+            {
+                <div class="qr-card" data-id="@q.Id">
+                    <div class="qr-title-row">
+                        <div class="qr-title">
+                            <a href="/Preguntas/Detalles/@q.Id" style="color:inherit;text-decoration:none;display:block">@q.Titulo</a>
+                        </div>
+                        <a class="btn btn-sm btn-outline-secondary qr-eye" title="Ver detalle" href="/Preguntas/Detalles/@q.Id">
+                            <span style="font-size:0.95rem;">👁</span>
+                        </a>
+                    </div>
+
+                    <div class="qr-body">@Html.Raw(q.CuerpoPreview)</div>
+
+                    <div class="qr-meta">
+                        <div class="qr-meta-left">
+                            <small>@q.AutorNombre</small>
+                            <span class="ms-2">· @q.FechaCreacion.ToLocalTime().ToString("g")</span>
+                            <div>Respuestas: <strong>@q.RespuestasCount</strong></div>
+                        </div>
+
+                        <div class="qr-meta-right">
+                            @* espacio reservado para etiquetas o badges si se desea *@
+                        </div>
+                    </div>
+
+                    <div class="qr-actions">
+                        <button class="btn btn-outline-success voto-btn btn-votar-pregunta @(q.UsuarioVoto == 1 ? "voto-activo" : "")" title="+1" data-id="@q.Id" data-valor="1">+1</button>
+                        <button class="btn btn-outline-danger voto-btn btn-votar-pregunta @(q.UsuarioVoto == -1 ? "voto-activo" : "")" title="-1" data-id="@q.Id" data-valor="-1">-1</button>
+                        <div class="qr-score" id="score-@q.Id">Score: @q.Score</div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (!Model.Preguntas.Any())
+        {
+            <div class="text-muted p-4">No hay preguntas relacionadas contigo aún.</div>
+        }
+    </div>
+</div>
+
+<!-- Modal: Nueva pregunta -->
+<div class="modal fade" id="preguntaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="preguntaForm" method="post" action="?handler=CrearPregunta">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title">Publicar nueva pregunta</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="alertPregunta" style="display:none" class="alert"></div>
+                    <div class="mb-3">
+                        <label class="form-label">Título</label>
+                        <input name="titulo" id="preguntaTitulo" class="form-control" maxlength="300" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Cuerpo</label>
+                        <textarea name="cuerpo" id="preguntaCuerpo" class="form-control" rows="6" required></textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Relacionar a Condición (opcional)</label>
+                            <select name="relacionCondicionId" class="form-select">
+                                <option value="">Sin relación</option>
+                                @foreach (var e in Model.Condiciones)
+                                {
+                                    <option value="@e.Id">@e.NombreCanonico @(!string.IsNullOrWhiteSpace(e.Nombre) ? " — " + e.Nombre : "")</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Relacionar a Síntoma (opcional)</label>
+                            <select name="relacionSintomaId" class="form-select">
+                                <option value="">Sin relación</option>
+                                @foreach (var e in Model.Sintomas)
+                                {
+                                    <option value="@e.Id">@e.NombreCanonico @(!string.IsNullOrWhiteSpace(e.Nombre) ? " — " + e.Nombre : "")</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Relacionar a Tratamiento (opcional)</label>
+                            <select name="relacionTratamientoId" class="form-select">
+                                <option value="">Sin relación</option>
+                                @foreach (var e in Model.Tratamientos)
+                                {
+                                    <option value="@e.Id">@e.NombreCanonico @(!string.IsNullOrWhiteSpace(e.Nombre) ? " — " + e.Nombre : "")</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button id="btnSavePregunta" type="submit" class="btn btn-success">Publicar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Nueva respuesta -->
+<div class="modal fade" id="respuestaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="respuestaForm" method="post" action="?handler=CrearRespuesta">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="respuestaPreguntaId" name="preguntaId" />
+                <div class="modal-header">
+                    <h5 class="modal-title">Publicar respuesta</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="alertRespuesta" style="display:none" class="alert"></div>
+                    <div class="mb-3">
+                        <label class="form-label">Respuesta</label>
+                        <textarea name="cuerpo" id="respuestaCuerpo" class="form-control" rows="5" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="btnSaveRespuesta" type="submit" class="btn btn-primary">Responder</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var preguntaModalEl = document.getElementById('preguntaModal');
+            var preguntaModal = bootstrap.Modal.getOrCreateInstance(preguntaModalEl);
+
+            var respuestaModalEl = document.getElementById('respuestaModal');
+            var respuestaModal = bootstrap.Modal.getOrCreateInstance(respuestaModalEl);
+
+            // Abrir modal nueva pregunta
+            var btnNew = document.getElementById('btnAbrirModalPregunta');
+            if (btnNew) btnNew.addEventListener('click', function () {
+                document.getElementById('alertPregunta').style.display = 'none';
+                preguntaModal.show();
+                setTimeout(()=> document.getElementById('preguntaTitulo').focus(), 120);
+            });
+
+            // Abrir modal respuesta para cada card
+            document.querySelectorAll('.btn-abrir-respuesta').forEach(function (b) {
+                b.addEventListener('click', function () {
+                    var qid = b.getAttribute('data-id');
+                    document.getElementById('respuestaPreguntaId').value = qid;
+                    document.getElementById('alertRespuesta').style.display = 'none';
+                    respuestaModal.show();
+                    setTimeout(()=> document.getElementById('respuestaCuerpo').focus(), 120);
+                });
+            });
+
+            // Votación en cards (+1 / -1)
+            document.querySelectorAll('.btn-votar-pregunta').forEach(function (btn) {
+                btn.addEventListener('click', async function () {
+                    var id = btn.getAttribute('data-id');
+                    var valor = parseInt(btn.getAttribute('data-valor') || "0");
+                    if (!id || (valor !== 1 && valor !== -1)) return;
+
+                    // obtener botones y score element
+                    var card = document.querySelector('.qr-card[data-id="' + id + '"]');
+                    if (!card) return;
+                    var btnPlus = card.querySelector('.btn-votar-pregunta[data-valor="1"]');
+                    var btnMinus = card.querySelector('.btn-votar-pregunta[data-valor="-1"]');
+                    var scoreEl = document.getElementById('score-' + id);
+
+                    // leer estado anterior (clase voto-activo)
+                    var prevPlus = btnPlus.classList.contains('voto-activo');
+                    var prevMinus = btnMinus.classList.contains('voto-activo');
+                    var prevVoto = prevPlus ? 1 : (prevMinus ? -1 : 0);
+
+                    // optimista: calcular nuevo estado local
+                    var nuevoVoto;
+                    if (prevVoto === valor) nuevoVoto = 0; // toggle off
+                    else nuevoVoto = valor;
+
+                    // bloquear botones temporalmente
+                    btnPlus.disabled = true; btnMinus.disabled = true;
+
+                    try {
+                        const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
+                        const headers = tokenEl ? { 'RequestVerificationToken': tokenEl.value, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+
+                        let resp = await fetch('/api/preguntas/' + id + '/votar', {
+                            method: 'POST',
+                            headers: headers,
+                            body: JSON.stringify({ valor: valor })
+                        });
+                        if (!resp.ok) {
+                            console.warn('Voto falló', resp.status);
+                            // desbloquear
+                            btnPlus.disabled = false; btnMinus.disabled = false;
+                            return;
+                        }
+                        let j = await resp.json();
+                        if (j.score !== undefined && scoreEl) scoreEl.textContent = 'Score: ' + j.score;
+
+                        // actualizar UI según nuevoVoto (basado en prevVoto y valor)
+                        if (nuevoVoto === 1) {
+                            btnPlus.classList.add('voto-activo');
+                            btnMinus.classList.remove('voto-activo');
+                        } else if (nuevoVoto === -1) {
+                            btnMinus.classList.add('voto-activo');
+                            btnPlus.classList.remove('voto-activo');
+                        } else {
+                            btnPlus.classList.remove('voto-activo');
+                            btnMinus.classList.remove('voto-activo');
+                        }
+                    } catch (ex) {
+                        console.error('Error al votar', ex);
+                    } finally {
+                        // desbloquear
+                        btnPlus.disabled = false; btnMinus.disabled = false;
+                    }
+                });
+            });
+
+            // AJAX submit pregunta
+            document.getElementById('preguntaForm').addEventListener('submit', async function (e) {
+                e.preventDefault();
+                var form = e.target;
+                var data = new FormData(form);
+                const tokenEl = form.querySelector('input[name="__RequestVerificationToken"]');
+                const headers = tokenEl ? { 'RequestVerificationToken': tokenEl.value, 'X-Requested-With': 'XMLHttpRequest' } : { 'X-Requested-With': 'XMLHttpRequest' };
+
+                try {
+                    let resp = await fetch(form.action, {
+                        method: 'POST',
+                        headers: headers,
+                        body: data
+                    });
+                    if (!resp.ok) {
+                        showAlert('alertPregunta', 'Error al publicar pregunta: ' + resp.status, true);
+                        return;
+                    }
+                    const j = await resp.json();
+                    if (j.ok) {
+                        showAlert('alertPregunta', 'Pregunta publicada', false);
+                        setTimeout(() => {
+                            preguntaModal.hide();
+                            location.reload();
+                        }, 800);
+                    } else {
+                        showAlert('alertPregunta', 'Error al publicar', true);
+                    }
+                } catch (ex) {
+                    showAlert('alertPregunta', 'Error de red.', true);
+                }
+            });
+
+            // AJAX submit respuesta
+            document.getElementById('respuestaForm').addEventListener('submit', async function (e) {
+                e.preventDefault();
+                var form = e.target;
+                var data = new FormData(form);
+                const tokenEl = form.querySelector('input[name="__RequestVerificationToken"]');
+                const headers = tokenEl ? { 'RequestVerificationToken': tokenEl.value, 'X-Requested-With': 'XMLHttpRequest' } : { 'X-Requested-With': 'XMLHttpRequest' };
+
+                try {
+                    let resp = await fetch(form.action, {
+                        method: 'POST',
+                        headers: headers,
+                        body: data
+                    });
+                    if (!resp.ok) {
+                        showAlert('alertRespuesta', 'Error al publicar respuesta: ' + resp.status, true);
+                        return;
+                    }
+                    const j = await resp.json();
+                    if (j.ok) {
+                        showAlert('alertRespuesta', 'Respuesta publicada', false);
+                        setTimeout(() => {
+                            respuestaModal.hide();
+                            location.reload();
+                        }, 700);
+                    } else {
+                        showAlert('alertRespuesta', 'Error al publicar', true);
+                    }
+                } catch (ex) {
+                    showAlert('alertRespuesta', 'Error de red.', true);
+                }
+            });
+
+            function showAlert(id, msg, isError) {
+                const el = document.getElementById(id);
+                el.textContent = msg;
+                el.className = isError ? 'alert alert-danger' : 'alert alert-success';
+                el.style.display = 'block';
+            }
+        });
+    </script>
+}

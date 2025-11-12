@@ -1,0 +1,101 @@
+﻿@using System.Security.Claims
+@model eiibd26.Pages.Preguntas.DetallesModel.RespuestaVm
+@{
+    string ResolveAvatar(string avatar)
+    {
+        if (string.IsNullOrWhiteSpace(avatar)) return Url.Content("~/img/avatar-placeholder.png");
+        if (avatar.StartsWith("http", System.StringComparison.OrdinalIgnoreCase)) return avatar;
+        if (avatar.StartsWith("/")) return avatar;
+        return Url.Content("~/" + avatar.TrimStart('/'));
+    }
+}
+<div class="ans-card" data-id="@Model.Id">
+    <div class="ans-author" style="align-items:center;">
+        <img class="ans-thumb" src="@ResolveAvatar(Model.AutorAvatarUrl)" alt="@Model.AutorNombre"
+             width="36" height="36"
+             loading="lazy"
+             decoding="async"
+             onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+        <div>
+            <strong>@Model.AutorNombre</strong>
+            @if (Model.EsMia)
+            {
+                <span class="author-badge" style="margin-left:8px; font-size:0.8rem; padding:2px 8px; border-radius:999px; background:#eef2ff; color:#1e3a8a;">Tu respuesta</span>
+            }
+            <div class="text-muted small">@Model.FechaCreacion.ToLocalTime().ToString("g")</div>
+        </div>
+    </div>
+
+    <div class="ans-body">@Html.Raw(Model.Cuerpo)</div>
+
+    <div class="ans-actions">
+        @if (User.Identity.IsAuthenticated)
+        {
+            if (Model.EsMia)
+            {
+                <span class="text-muted small">No puedes votar tu propia respuesta</span>
+                <button class="btn btn-sm btn-outline-secondary btn-open-reply-modal" data-id="@Model.Id" data-author="@Model.AutorNombre">Responder</button>
+            }
+            else
+            {
+                if (Model.UsuarioVoto == 1)
+                {
+                    <button class="btn btn-outline-success btn-voto-ans voto-activo" data-id="@Model.Id" data-valor="1">+1</button>
+                }
+                else if (Model.UsuarioVoto == -1)
+                {
+                    <button class="btn btn-outline-danger btn-voto-ans voto-activo" data-id="@Model.Id" data-valor="-1">-1</button>
+                }
+                else
+                {
+                    <button class="btn btn-outline-success btn-voto-ans" data-id="@Model.Id" data-valor="1">+1</button>
+                    <button class="btn btn-outline-danger btn-voto-ans" data-id="@Model.Id" data-valor="-1">-1</button>
+                }
+
+                <button class="btn btn-sm btn-outline-secondary btn-open-reply-modal" data-id="@Model.Id" data-author="@Model.AutorNombre">Responder</button>
+            }
+        }
+        else
+        {
+            <a class="btn btn-sm btn-outline-secondary" href="/Account/Login">Responder</a>
+            <a class="btn btn-outline-success" href="/Account/Login">+1</a>
+            <a class="btn btn-outline-danger" href="/Account/Login">-1</a>
+        }
+        <div class="badge bg-light text-dark" id="ascore-@Model.Id">Score: @Model.Score</div>
+    </div>
+
+    @if (Model.Children != null && Model.Children.Any())
+    {
+        <div class="child-replies">
+            @foreach (var c in Model.Children)
+            {
+                <partial name="/Pages/Shared/_RespuestaCard.cshtml" model="c" />
+            }
+        </div>
+    }
+</div>
+
+<style>
+    .ans-author .ans-thumb {
+        width: 36px;
+        height: 36px;
+        display: inline-block;
+        border-radius: 50%;
+        object-fit: cover;
+        margin-right: 10px;
+    }
+
+    .author-badge {
+        margin-left: 8px;
+        font-size: 0.8rem;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: #eef2ff;
+        color: #1e3a8a;
+    }
+
+    .child-replies {
+        margin-left: 48px;
+        margin-top: 8px;
+    }
+</style>

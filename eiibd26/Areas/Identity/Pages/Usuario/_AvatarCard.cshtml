@@ -1,13 +1,52 @@
-﻿@* Partial: tarjeta de avatar mejorada. Incluye AntiForgery token. *@
+﻿@* Partial: tarjeta de avatar mejorada (solo markup). No incluir scripts inline aquí. *@
 @using Microsoft.AspNetCore.Antiforgery
 @inject IAntiforgery Antiforgery
+
+@{
+    // Construir URL visible del avatar con cache-bust si procede
+    string avatarUrl;
+    if (!string.IsNullOrWhiteSpace(Model.Perfil?.Avatar))
+    {
+        avatarUrl = Model.Perfil.Avatar;
+        // Si es una imagen local en uploads, añadir cache-bust con FechaModificado (si existe)
+        if (avatarUrl.StartsWith("/uploads/"))
+        {
+            // Manejo robusto: FechaModificado puede ser DateTime o DateTime? o no estar inicializada.
+            DateTime tsSource;
+
+            var fmObj = Model.Perfil?.FechaModificado;
+            if (fmObj is DateTime fmDt && fmDt != default(DateTime))
+            {
+                tsSource = fmDt;
+            }
+            else
+            {
+                var fcObj = Model.Perfil?.FechaCreado;
+                if (fcObj is DateTime fcDt && fcDt != default(DateTime))
+                {
+                    tsSource = fcDt;
+                }
+                else
+                {
+                    tsSource = DateTime.UtcNow;
+                }
+            }
+
+            avatarUrl = avatarUrl + "?t=" + tsSource.Ticks.ToString();
+        }
+    }
+    else
+    {
+        avatarUrl = $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(Model.Perfil?.Nombre ?? "Usuario")}&size=110";
+    }
+}
 
 <div class="avatar-card-wrapper">
     <div class="avatar-card card shadow-sm text-center">
         <div class="card-body d-flex flex-column align-items-center">
             <div class="avatar-container position-relative">
                 <img id="profileAvatar"
-                     src="@(Model.Perfil?.Avatar ?? $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(Model.Perfil?.Nombre ?? "Usuario")}&size=110")"
+                     src="@avatarUrl"
                      alt="Avatar" class="avatar-img rounded-circle" />
                 <div class="avatar-overlay" id="avatarOverlay" title="Cambiar avatar">
                     <span class="overlay-text">Cambiar foto</span>
@@ -28,10 +67,10 @@
                 <small class="text-muted">Haz clic en la foto para cambiarla</small>
             </div>
 
-            @* Input se crea en el DOM pero será movido por JS al body para evitar asociación con formularios *@
+            @* Input se crea en el DOM; el JS externo lo moverá fuera de cualquier form para evitar envíos automáticos *@
             <input type="file" id="avatarFileInput" accept="image/*" style="display:none" />
 
-            @* Genera el token antiforgery correctamente en el DOM *@
+            @* Token antiforgery para que el JS lo pueda leer *@
             @Html.AntiForgeryToken()
 
             <div id="avatarUploadStatus" class="mt-2" style="min-height:1.5rem"></div>
@@ -40,7 +79,7 @@
 </div>
 
 <style>
-    /* Puedes mover esto a wwwroot/css/avatar-card.css */
+    /* Puedes mover esto a wwwroot/css/avatar-card.css si prefieres */
     .avatar-card-wrapper {
         display: flex;
         justify-content: center;
@@ -110,159 +149,3 @@
         text-align: center;
     }
 </style>
-
-<script>
-    /* Mejoras para evitar envíos automáticos: movemos input fuera de forms y evitamos propagation. */
-    document.addEventListener('DOMContentLoaded', function () {
-        const avatarImg = document.getElementById('profileAvatar');
-        const avatarOverlay = document.getElementById('avatarOverlay');
-        let fileInput = document.getElementById('avatarFileInput');
-        const btnDummy = document.getElementById('btnUploadDummy');
-        const btnRemove = document.getElementById('btnRemoveAvatar');
-        const statusEl = document.getElementById('avatarUploadStatus');
-        const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
-
-        // Si fileInput está dentro de un <form>, moverlo al body para que no esté asociado al form.
-        // Esto evita envíos automáticos o efectos colaterales del form.
-        if (fileInput && fileInput.parentElement && fileInput.parentElement.closest('form')) {
-            document.body.appendChild(fileInput); // lo mueve fuera del form
-            fileInput.style.display = 'none';
-        }
-
-        // Seguridad extra: cancelar propagación de clicks sobre la imagen/overlay/botón
-        const openFileSelector = (e) => {
-            if (e && e.preventDefault) e.preventDefault();
-            if (e && e.stopPropagation) e.stopPropagation();
-            // Después de prevenir, abrimos el selector
-            if (fileInput) fileInput.click();
-        };
-
-        if (avatarImg) avatarImg.addEventListener('click', openFileSelector);
-        if (avatarOverlay) avatarOverlay.addEventListener('click', openFileSelector);
-        if (btnDummy) btnDummy.addEventListener('click', openFileSelector);
-
-        // Manejar quitar avatar
-        if (btnRemove) btnRemove.addEventListener('click', async (e) => {
-            if (e && e.preventDefault) e.preventDefault();
-            if (!confirm('¿Quitar tu foto de perfil?')) return;
-            try {
-                statusEl.textContent = 'Eliminando...';
-                const resp = await fetch(window.location.pathname + '?handler=RemoveAvatar', {
-                    method: 'POST',
-                    headers: {
-                        'RequestVerificationToken': tokenInput ? tokenInput.value : ''
-                    }
-                });
-                if (resp.ok) {
-                    const name = avatarImg.getAttribute('alt') || 'Usuario';
-                    const def = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&size=110`;
-                    avatarImg.src = def;
-                    statusEl.textContent = 'Avatar eliminado';
-                } else {
-                    statusEl.textContent = 'Error al eliminar';
-                }
-            } catch (err) {
-                console.error(err);
-                statusEl.textContent = 'Error al eliminar';
-            } finally {
-                setTimeout(()=> statusEl.textContent = '', 2500);
-            }
-        });
-
-        // Cambiar avatar: manejador de change
-        if (fileInput) fileInput.addEventListener('change', async (ev) => {
-            // Evitar que otros handlers reaccionen al change
-            if (ev && ev.preventDefault) ev.preventDefault();
-            if (ev && ev.stopPropagation) ev.stopPropagation();
-
-            const file = ev.target.files && ev.target.files[0];
-            if (!file) return;
-
-            // Validaciones básicas
-            const allowed = ['image/jpeg','image/png','image/webp'];
-            if (!allowed.includes(file.type)) {
-                statusEl.textContent = 'Tipo de imagen no permitido';
-                setTimeout(()=> statusEl.textContent = '', 2500);
-                return;
-            }
-            if (file.size > 5 * 1024 * 1024) {
-                statusEl.textContent = 'El archivo supera 5 MB';
-                setTimeout(()=> statusEl.textContent = '', 2500);
-                return;
-            }
-
-            // Preview local inmediato y persistente hasta que se confirme éxito.
-            const prevSrc = avatarImg ? avatarImg.src : '';
-            try {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    if (avatarImg) avatarImg.src = e.target.result;
-                };
-                reader.readAsDataURL(file);
-            } catch (ex) {
-                console.warn('No se pudo crear preview local', ex);
-            }
-
-            // Subir al servidor
-            statusEl.innerHTML = 'Subiendo <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
-            try {
-                const fd = new FormData();
-                fd.append('avatar', file);
-
-                const headers = {};
-                if (tokenInput) headers['RequestVerificationToken'] = tokenInput.value;
-
-                const resp = await fetch(window.location.pathname + '?handler=UploadAvatar', {
-                    method: 'POST',
-                    body: fd,
-                    headers: headers
-                });
-
-                if (!resp.ok) {
-                    const txt = await resp.text();
-                    console.error('Upload failed', resp.status, txt);
-                    if (avatarImg) avatarImg.src = prevSrc; // restaurar preview anterior
-                    statusEl.textContent = 'Error subiendo imagen';
-                    return;
-                }
-
-                const json = await resp.json();
-                if (json && json.url) {
-                    // Aseguramos que la URL definitiva se use (no refresca la página)
-                    if (avatarImg) avatarImg.src = json.url;
-                    statusEl.textContent = 'Avatar actualizado';
-                } else if (json && json.error) {
-                    if (avatarImg) avatarImg.src = prevSrc;
-                    statusEl.textContent = json.error;
-                } else {
-                    statusEl.textContent = 'Subida finalizada';
-                }
-            } catch (err) {
-                console.error(err);
-                if (avatarImg) avatarImg.src = prevSrc;
-                statusEl.textContent = 'Error al subir';
-            } finally {
-                setTimeout(()=> statusEl.textContent = '', 2500);
-                fileInput.value = '';
-            }
-        });
-
-        // Protección extra: si algún formulario intenta hacer submit inmediatamente (por plugins), evitamos que se dispare
-        // cuando el último evento de cambio de archivo fue hace menos de 2s.
-        // Esto es solo un safety-net, no suele activarse.
-        let lastFileChangeAt = 0;
-        if (fileInput) {
-            fileInput.addEventListener('change', () => { lastFileChangeAt = Date.now(); });
-        }
-        document.addEventListener('submit', function(e) {
-            try {
-                if (Date.now() - lastFileChangeAt < 2000) {
-                    // Cancelar submit que pueda haberse disparado por otros handlers justo tras seleccionar archivo
-                    if (e && e.preventDefault) e.preventDefault();
-                    if (e && e.stopImmediatePropagation) e.stopImmediatePropagation();
-                    console.log('Submit prevented due to recent file selection.');
-                }
-            } catch { /* ignore */ }
-        }, true); // capture phase
-    });
-</script>

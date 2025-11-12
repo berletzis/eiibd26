@@ -172,10 +172,10 @@
 <div class="crm-container-admin">
     <h2 class="perfil-title mb-4">Perfil de Usuario</h2>
 
+    @* Solo un alert para success, se auto-ocultará con JS *@
     @if (!string.IsNullOrEmpty(Model.SuccessMessage))
     {
-        <div class="alert alert-success text-center" role="alert">@Model.SuccessMessage</div>
-        <div class="text-center text-success mb-3" id="info-actualizada-legend">Información actualizada</div>
+        <div class="alert alert-success text-center" role="alert" id="perfil-success-alert">@Model.SuccessMessage</div>
     }
 
     @if (!string.IsNullOrEmpty(Model.ErrorMessage))
@@ -401,9 +401,7 @@
 </div>
 
 @section Scripts {
-    <!-- Provide a stable global callback for Google Maps API BEFORE the API script is requested.
-         This avoids "initAutocomplete is not a function" when API calls back before our implementation is parsed.
-         We define a small wrapper that waits for the real implementation (initAutocompleteImpl) to be available. -->
+    <!-- Google maps wrapper (unchanged) -->
     <script>
         window.initAutocomplete = function() {
             if (typeof window.initAutocompleteImpl === 'function') {
@@ -424,7 +422,6 @@
         };
     </script>
 
-    <!-- Load Google Maps Places API (keeps callback param to call window.initAutocomplete) -->
     <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBUUBxDv3VvzMmdR_pf9aFOd7frbTeUWXk&libraries=places&callback=initAutocomplete"></script>
 
     <script>
@@ -582,4 +579,20 @@
 
     <!-- Include avatar JS once, at the end of the page -->
     <script src="~/js/avatar-card.js" asp-append-version="true"></script>
+
+    <!-- Auto-hide success alert (3s) -->
+    <script>
+        (function(){
+            try {
+                var success = document.getElementById('perfil-success-alert');
+                if (success) {
+                    setTimeout(function(){
+                        success.style.transition = 'opacity 0.45s ease';
+                        success.style.opacity = '0';
+                        setTimeout(function(){ if (success.parentNode) success.parentNode.removeChild(success); }, 500);
+                    }, 3000);
+                }
+            } catch(e){ console.error(e); }
+        })();
+    </script>
 }

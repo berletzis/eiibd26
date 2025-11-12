@@ -16,7 +16,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 // Registrar Identity con ApplicationUser y ApplicationRole personalizados
 builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
-        options.SignIn.RequireConfirmedAccount = true)
+        options.SignIn.RequireConfirmedAccount = false)
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
 
