@@ -3,8 +3,50 @@
 @{
     ViewData["Title"] = "Preguntas y Respuestas";
     Layout = "_Layout";
-}
 
+    string ResolveAvatar(string avatar)
+    {
+        if (string.IsNullOrWhiteSpace(avatar)) return Url.Content("~/img/avatar-placeholder.png");
+        if (avatar.StartsWith("http", System.StringComparison.OrdinalIgnoreCase)) return avatar;
+        if (avatar.StartsWith("/")) return avatar;
+        return Url.Content("~/" + avatar.TrimStart('/'));
+    }
+
+    // Render single vote control server-side following rules:
+    // - if not authenticated -> hint
+    // - if author -> "No puedes votar tu propia pregunta"
+    // - else:
+    //     if userVote == 1 -> show -1 (to remove)
+    //     else if score <= 0 -> show +1 (prevent negative)
+    //     else show -1 (allow downvote when score > 0)
+    string RenderVoteControl(Guid id, int userVote, int score, Guid questionOwnerId)
+    {
+        if (!User.Identity.IsAuthenticated)
+            return "<div class=\"vote-login-hint\">Inicia sesión para realizar un voto. <a href=\"/Account/Login\">Iniciar sesión</a></div>";
+
+        var currentIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!string.IsNullOrEmpty(currentIdClaim) && Guid.TryParse(currentIdClaim, out var currentGuid) && currentGuid == questionOwnerId)
+        {
+            return "<div class=\"text-muted small\">No puedes votar tu propia pregunta</div>";
+        }
+
+        if (userVote == 1)
+        {
+            return $"<div class=\"vote-container\"><button class=\"btn btn-outline-danger btn-voto-single\" type=\"button\" data-id=\"{id}\" data-valor=\"-1\">-1</button></div>";
+        }
+
+        // userVote != 1
+        if (score <= 0)
+        {
+            return $"<div class=\"vote-container\"><button class=\"btn btn-outline-success btn-voto-single\" type=\"button\" data-id=\"{id}\" data-valor=\"1\">+1</button></div>";
+        }
+        else
+        {
+            // score > 0 and user hasn't voted -> show -1 to allow reducing
+            return $"<div class=\"vote-container\"><button class=\"btn btn-outline-danger btn-voto-single\" type=\"button\" data-id=\"{id}\" data-valor=\"-1\">-1</button></div>";
+        }
+    }
+}
 <style>
     .crm-container {
         max-width: 1320px;
@@ -18,13 +60,6 @@
         box-shadow: 0 8px 30px rgba(50,65,120,0.06);
         padding: 1.6rem;
         margin-bottom: 18px;
-    }
-
-    .crm-title {
-        font-size: 1.9rem;
-        font-weight: 700;
-        color: #172849;
-        margin-bottom: .6rem;
     }
 
     .qr-card-panel {
@@ -41,15 +76,16 @@
         min-height: 160px;
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
+        justify-content: flex-start;
         position: relative;
+        overflow: visible;
     }
 
     .qr-title-row {
         display: flex;
         align-items: center;
-        justify-content: space-between;
         gap: 10px;
+        justify-content: space-between;
     }
 
     .qr-title {
@@ -62,12 +98,6 @@
         white-space: nowrap;
     }
 
-    .qr-eye {
-        position: absolute;
-        right: 10px;
-        top: 12px;
-    }
-
     .qr-body {
         font-size: .95rem;
         color: #2b3b4a;
@@ -77,39 +107,51 @@
         -webkit-box-orient: vertical;
         margin-top: 6px;
     }
-
+    /* add padding to meta row and separate it from avatars */
     .qr-meta {
         font-size: .86rem;
         color: #6b7483;
-        margin-top: 8px;
+        margin-top: 12px;
+        padding-top: 8px;
         display: flex;
         justify-content: space-between;
         align-items: center;
         gap: 8px;
     }
 
-    .qr-meta-left {
-        color: #6b7483;
-        font-size: .86rem;
-    }
-
-    .qr-meta-right {
+    .avatars-row {
+        margin-top: 10px;
         display: flex;
+        gap: 14px;
         align-items: center;
-        gap: 8px;
+        justify-content: flex-start;
     }
 
-    .btn-qr {
-        white-space: nowrap;
-    }
-
-    .voto-btn {
+    .avatar-author {
         width: 36px;
         height: 36px;
-        padding: 0;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
+        border-radius: 50%;
+        object-fit: cover;
+        box-shadow: 0 1px 4px rgba(0,0,0,.06);
+        flex: 0 0 auto;
+    }
+
+    .avatar-res {
+        width: 27px;
+        height: 27px;
+        border-radius: 50%;
+        object-fit: cover;
+        box-shadow: 0 1px 4px rgba(0,0,0,.06);
+        flex: 0 0 auto;
+    }
+
+    /* space between author info and responders */
+    .author-info {
+        margin-left: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
     }
 
     .qr-actions {
@@ -125,14 +167,29 @@
         background: #fff;
         padding: 6px 8px;
         border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-        font-size: 0.9rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,.04);
+        font-size: .9rem;
+    }
+
+    .voto-btn {
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .voto-activo {
-        box-shadow: inset 0 0 0 2px rgba(0,0,0,0.06);
+        box-shadow: inset 0 0 0 2px rgba(0,0,0,.06);
     }
-    @@media (max-width: 1100px) {
+
+    .vote-login-hint {
+        font-size: .9rem;
+        color: #495057;
+    }
+
+    @@media (max-width:1100px) {
         .qr-card-panel
 
     {
@@ -140,7 +197,8 @@
     }
 
     }
-    @@media (max-width: 680px) {
+
+    @@media (max-width:680px) {
         .qr-card-panel
 
     {
@@ -150,10 +208,6 @@
     .qr-actions {
         right: 8px;
         bottom: 8px;
-    }
-
-    .qr-eye {
-        right: 8px;
     }
 
     }
@@ -168,7 +222,8 @@
             <div class="text-muted">Aquí ves tus preguntas y también las preguntas a las que has respondido o votado. Publica la tuya o responde a otras.</div>
         </div>
         <div class="d-flex gap-2">
-            <button class="btn btn-success" id="btnAbrirModalPregunta">Nueva pregunta</button>
+            <!-- bootstrap native modal trigger + JS keeps focus behavior -->
+            <button class="btn btn-success" id="btnAbrirModalPregunta" type="button" data-bs-toggle="modal" data-bs-target="#preguntaModal">Nueva pregunta</button>
         </div>
     </div>
 
@@ -184,10 +239,14 @@
         <div id="qrCards" class="qr-card-panel">
             @foreach (var q in Model.Preguntas)
             {
-                <div class="qr-card" data-id="@q.Id">
+                var currentIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                var isMine = false;
+                if (!string.IsNullOrEmpty(currentIdClaim) && Guid.TryParse(currentIdClaim, out var cg) && cg == q.UsuarioId) { isMine = true; }
+
+                <div class="qr-card" data-id="@q.Id" data-authenticated="@(User.Identity.IsAuthenticated ? "true" : "false")" data-user-vote="@q.UsuarioVoto" data-score="@q.Score">
                     <div class="qr-title-row">
                         <div class="qr-title">
-                            <a href="/Preguntas/Detalles/@q.Id" style="color:inherit;text-decoration:none;display:block">@q.Titulo</a>
+                            <a href="/Preguntas/Detalles/@q.Id" style="color:inherit;text-decoration:none;display:block" title="@q.Titulo">@q.TituloPreview</a>
                         </div>
                         <a class="btn btn-sm btn-outline-secondary qr-eye" title="Ver detalle" href="/Preguntas/Detalles/@q.Id">
                             <span style="font-size:0.95rem;">👁</span>
@@ -196,21 +255,55 @@
 
                     <div class="qr-body">@Html.Raw(q.CuerpoPreview)</div>
 
-                    <div class="qr-meta">
-                        <div class="qr-meta-left">
-                            <small>@q.AutorNombre</small>
-                            <span class="ms-2">· @q.FechaCreacion.ToLocalTime().ToString("g")</span>
-                            <div>Respuestas: <strong>@q.RespuestasCount</strong></div>
+                    <div class="avatars-row" aria-hidden="true">
+                        <img class="avatar-author lazy-avatar"
+                             src="@Url.Content("~/img/avatar-placeholder.png")"
+                             data-src="@ResolveAvatar(q.AutorAvatarUrl)"
+                             alt="@q.AutorNombre"
+                             width="36" height="36"
+                             decoding="async"
+                             onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+
+                        <div class="author-info">
+                            <small class="text-muted">@q.AutorNombre</small>
+                            @* date without time *@
+                            <div class="text-muted small">Publicado · @q.FechaCreacion.ToLocalTime().ToString("d")</div>
                         </div>
 
-                        <div class="qr-meta-right">
-                            @* espacio reservado para etiquetas o badges si se desea *@
+                        @{
+                            var added = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                            if (!string.IsNullOrWhiteSpace(q.AutorAvatarUrl)) added.Add(q.AutorAvatarUrl);
+                            var rc = 0;
+                            foreach (var a in q.RespondersAvatars ?? Enumerable.Empty<string>())
+                            {
+                                if (rc >= 5) break;
+                                if (string.IsNullOrWhiteSpace(a)) continue;
+                                if (added.Contains(a)) continue;
+                                added.Add(a);
+                                <img class="avatar-res lazy-avatar"
+                                     src="@Url.Content("~/img/avatar-placeholder.png")"
+                                     data-src="@ResolveAvatar(a)"
+                                     alt="Responder"
+                                     width="27" height="27"
+                                     decoding="async"
+                                     onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+                                rc++;
+                            }
+                        }
+                    </div>
+
+                    <div class="qr-meta">
+                        <div class="qr-meta-left">
+                            <div style="padding:6px 0">Respuestas: <strong>@q.RespuestasCount</strong></div>
                         </div>
+
+                        <div class="qr-meta-right">@* reserved for future badges *@</div>
                     </div>
 
                     <div class="qr-actions">
-                        <button class="btn btn-outline-success voto-btn btn-votar-pregunta @(q.UsuarioVoto == 1 ? "voto-activo" : "")" title="+1" data-id="@q.Id" data-valor="1">+1</button>
-                        <button class="btn btn-outline-danger voto-btn btn-votar-pregunta @(q.UsuarioVoto == -1 ? "voto-activo" : "")" title="-1" data-id="@q.Id" data-valor="-1">-1</button>
+                        @* Vote control (server-rendered initial state) *@
+                        @Html.Raw(RenderVoteControl(q.Id, q.UsuarioVoto, q.Score, q.UsuarioId))
+
                         <div class="qr-score" id="score-@q.Id">Score: @q.Score</div>
                     </div>
                 </div>
@@ -244,15 +337,14 @@
                         <label class="form-label">Cuerpo</label>
                         <textarea name="cuerpo" id="preguntaCuerpo" class="form-control" rows="6" required></textarea>
                     </div>
-
                     <div class="row">
                         <div class="col-md-4 mb-3">
                             <label class="form-label">Relacionar a Condición (opcional)</label>
                             <select name="relacionCondicionId" class="form-select">
                                 <option value="">Sin relación</option>
-                                @foreach (var e in Model.Condiciones)
+                                @foreach (dynamic e in Model.Condiciones ?? Enumerable.Empty<object>())
                                 {
-                                    <option value="@e.Id">@e.NombreCanonico @(!string.IsNullOrWhiteSpace(e.Nombre) ? " — " + e.Nombre : "")</option>
+                                    <option value="@e.Id">@e.NombreCanonico @(!string.IsNullOrWhiteSpace((string?)e.Nombre) ? " — " + (string)e.Nombre : "")</option>
                                 }
                             </select>
                         </div>
@@ -260,9 +352,9 @@
                             <label class="form-label">Relacionar a Síntoma (opcional)</label>
                             <select name="relacionSintomaId" class="form-select">
                                 <option value="">Sin relación</option>
-                                @foreach (var e in Model.Sintomas)
+                                @foreach (dynamic e in Model.Sintomas ?? Enumerable.Empty<object>())
                                 {
-                                    <option value="@e.Id">@e.NombreCanonico @(!string.IsNullOrWhiteSpace(e.Nombre) ? " — " + e.Nombre : "")</option>
+                                    <option value="@e.Id">@e.NombreCanonico @(!string.IsNullOrWhiteSpace((string?)e.Nombre) ? " — " + (string)e.Nombre : "")</option>
                                 }
                             </select>
                         </div>
@@ -270,14 +362,13 @@
                             <label class="form-label">Relacionar a Tratamiento (opcional)</label>
                             <select name="relacionTratamientoId" class="form-select">
                                 <option value="">Sin relación</option>
-                                @foreach (var e in Model.Tratamientos)
+                                @foreach (dynamic e in Model.Tratamientos ?? Enumerable.Empty<object>())
                                 {
-                                    <option value="@e.Id">@e.NombreCanonico @(!string.IsNullOrWhiteSpace(e.Nombre) ? " — " + e.Nombre : "")</option>
+                                    <option value="@e.Id">@e.NombreCanonico @(!string.IsNullOrWhiteSpace((string?)e.Nombre) ? " — " + (string)e.Nombre : "")</option>
                                 }
                             </select>
                         </div>
                     </div>
-
                 </div>
                 <div class="modal-footer">
                     <button id="btnSavePregunta" type="submit" class="btn btn-success">Publicar</button>
@@ -287,7 +378,7 @@
     </div>
 </div>
 
-<!-- Modal: Nueva respuesta -->
+<!-- Modal: Nueva respuesta (kept for reply modal usage elsewhere) -->
 <div class="modal fade" id="respuestaModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -316,169 +407,213 @@
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            var preguntaModalEl = document.getElementById('preguntaModal');
-            var preguntaModal = bootstrap.Modal.getOrCreateInstance(preguntaModalEl);
+        (function () {
+            document.addEventListener('DOMContentLoaded', function () {
+                function initLazyAvatars() {
+                    const imgs = Array.from(document.querySelectorAll('img.lazy-avatar[data-src]'));
+                    if (!imgs.length) return;
+                    const onLoad = img => img.classList.add('loaded');
+                    const onError = img => { img.classList.add('loaded'); img.src = '@Url.Content("~/img/avatar-placeholder.png")'; };
+                    const loadImg = img => {
+                        const src = img.getAttribute('data-src');
+                        if (!src) { onError(img); return; }
+                        const tmp = new Image();
+                        tmp.decoding = 'async';
+                        tmp.onload = function () { try { img.src = src; } catch {} onLoad(img); };
+                        tmp.onerror = function () { onError(img); };
+                        tmp.src = src;
+                    };
+                    if ('IntersectionObserver' in window) {
+                        const io = new IntersectionObserver((entries, observer) => {
+                            entries.forEach(entry => {
+                                if (entry.isIntersecting) {
+                                    const img = entry.target;
+                                    observer.unobserve(img);
+                                    loadImg(img);
+                                }
+                            });
+                        }, { rootMargin: '200px 0px' });
+                        imgs.forEach(i => {
+                            if (i.getAttribute('data-src') && i.src.indexOf('avatar-placeholder.png') >= 0) io.observe(i);
+                            else if (i.getAttribute('data-src')) i.classList.add('loaded');
+                        });
+                    } else imgs.forEach(i => loadImg(i));
+                }
 
-            var respuestaModalEl = document.getElementById('respuestaModal');
-            var respuestaModal = bootstrap.Modal.getOrCreateInstance(respuestaModalEl);
+                const preguntaModalEl = document.getElementById('preguntaModal');
+                const preguntaModal = preguntaModalEl ? bootstrap.Modal.getOrCreateInstance(preguntaModalEl) : null;
+                const respuestaModalEl = document.getElementById('respuestaModal');
+                const respuestaModal = respuestaModalEl ? bootstrap.Modal.getOrCreateInstance(respuestaModalEl) : null;
 
-            // Abrir modal nueva pregunta
-            var btnNew = document.getElementById('btnAbrirModalPregunta');
-            if (btnNew) btnNew.addEventListener('click', function () {
-                document.getElementById('alertPregunta').style.display = 'none';
-                preguntaModal.show();
-                setTimeout(()=> document.getElementById('preguntaTitulo').focus(), 120);
-            });
+                const btnNew = document.getElementById('btnAbrirModalPregunta');
+                if (btnNew) {
+                    btnNew.addEventListener('click', function () {
+                        const alertEl = document.getElementById('alertPregunta');
+                        if (alertEl) { alertEl.style.display = 'none'; }
+                        // focus title after modal shown
+                        setTimeout(() => {
+                            const t = document.getElementById('preguntaTitulo');
+                            if (t) t.focus();
+                        }, 250);
+                    });
+                }
 
-            // Abrir modal respuesta para cada card
-            document.querySelectorAll('.btn-abrir-respuesta').forEach(function (b) {
-                b.addEventListener('click', function () {
-                    var qid = b.getAttribute('data-id');
-                    document.getElementById('respuestaPreguntaId').value = qid;
-                    document.getElementById('alertRespuesta').style.display = 'none';
-                    respuestaModal.show();
-                    setTimeout(()=> document.getElementById('respuestaCuerpo').focus(), 120);
+                // Open reply modal for cards (delegation by btn that has data-bs-target too)
+                document.addEventListener('click', function (e) {
+                    const openBtn = e.target.closest('.btn-abrir-respuesta') || e.target.closest('.btn-abrir-responder');
+                    if (!openBtn) return;
+                    const qid = openBtn.getAttribute('data-id');
+                    const hid = document.getElementById('respuestaPreguntaId');
+                    if (hid) hid.value = qid;
+                    const alertEl = document.getElementById('alertRespuesta');
+                    if (alertEl) alertEl.style.display = 'none';
+                    if (respuestaModal) respuestaModal.show();
+                    setTimeout(() => {
+                        const t = document.getElementById('respuestaCuerpo');
+                        if (t) t.focus();
+                    }, 120);
                 });
-            });
 
-            // Votación en cards (+1 / -1)
-            document.querySelectorAll('.btn-votar-pregunta').forEach(function (btn) {
-                btn.addEventListener('click', async function () {
-                    var id = btn.getAttribute('data-id');
-                    var valor = parseInt(btn.getAttribute('data-valor') || "0");
+                // Delegated vote handler (single-button UI, same rules as server)
+                document.addEventListener('click', async function (e) {
+                    const btn = e.target.closest('.btn-voto-single');
+                    if (!btn) return;
+                    e.preventDefault();
+
+                    const id = btn.getAttribute('data-id');
+                    const valor = parseInt(btn.getAttribute('data-valor') || "0", 10);
                     if (!id || (valor !== 1 && valor !== -1)) return;
 
-                    // obtener botones y score element
-                    var card = document.querySelector('.qr-card[data-id="' + id + '"]');
-                    if (!card) return;
-                    var btnPlus = card.querySelector('.btn-votar-pregunta[data-valor="1"]');
-                    var btnMinus = card.querySelector('.btn-votar-pregunta[data-valor="-1"]');
-                    var scoreEl = document.getElementById('score-' + id);
-
-                    // leer estado anterior (clase voto-activo)
-                    var prevPlus = btnPlus.classList.contains('voto-activo');
-                    var prevMinus = btnMinus.classList.contains('voto-activo');
-                    var prevVoto = prevPlus ? 1 : (prevMinus ? -1 : 0);
-
-                    // optimista: calcular nuevo estado local
-                    var nuevoVoto;
-                    if (prevVoto === valor) nuevoVoto = 0; // toggle off
-                    else nuevoVoto = valor;
-
-                    // bloquear botones temporalmente
-                    btnPlus.disabled = true; btnMinus.disabled = true;
-
+                    btn.disabled = true;
                     try {
                         const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
                         const headers = tokenEl ? { 'RequestVerificationToken': tokenEl.value, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
 
-                        let resp = await fetch('/api/preguntas/' + id + '/votar', {
+                        const res = await fetch('/api/preguntas/' + id + '/votar', {
                             method: 'POST',
                             headers: headers,
                             body: JSON.stringify({ valor: valor })
                         });
-                        if (!resp.ok) {
-                            console.warn('Voto falló', resp.status);
-                            // desbloquear
-                            btnPlus.disabled = false; btnMinus.disabled = false;
+
+                        if (!res.ok) {
+                            const txt = await res.text();
+                            console.warn('Votar pregunta falló:', res.status, txt);
                             return;
                         }
-                        let j = await resp.json();
+
+                        const j = await res.json();
+                        const card = document.querySelector('.qr-card[data-id="' + id + '"]');
+                        if (!card) return;
+                        const scoreEl = document.getElementById('score-' + id);
                         if (j.score !== undefined && scoreEl) scoreEl.textContent = 'Score: ' + j.score;
 
-                        // actualizar UI según nuevoVoto (basado en prevVoto y valor)
-                        if (nuevoVoto === 1) {
-                            btnPlus.classList.add('voto-activo');
-                            btnMinus.classList.remove('voto-activo');
-                        } else if (nuevoVoto === -1) {
-                            btnMinus.classList.add('voto-activo');
-                            btnPlus.classList.remove('voto-activo');
+                        // re-render single control consistent with server-side rules:
+                        const containerParent = card.querySelector('.qr-actions');
+                        const container = card.querySelector('.vote-container') || (containerParent ? containerParent.querySelector('.vote-container') : null);
+
+                        const authenticated = card.getAttribute('data-authenticated') === 'true';
+                        const userVote = (j.userVote !== undefined) ? j.userVote : 0;
+                        const score = (j.score !== undefined) ? j.score : parseInt(card.getAttribute('data-score') || "0", 10);
+                        const ownerId = card.getAttribute('data-owner-id') || null; // not always set client-side
+
+                        if (!authenticated) {
+                            if (container) container.innerHTML = '<div class="vote-login-hint">Inicia sesión para realizar un voto. <a href="/Account/Login">Iniciar sesión</a></div>';
                         } else {
-                            btnPlus.classList.remove('voto-activo');
-                            btnMinus.classList.remove('voto-activo');
+                            // if server returned that user is author, server Render would have sent text; so we detect via userVote==null? but simpler:
+                            // if userVote==1 => show -1
+                            // else if score <= 0 => show +1
+                            // else show -1
+                            if (userVote === 1) {
+                                if (container) container.innerHTML = '<div class="vote-container"><button class="btn btn-outline-danger btn-voto-single" type="button" data-id="' + id + '" data-valor="-1">-1</button></div>';
+                            } else {
+                                if (score <= 0) {
+                                    if (container) container.innerHTML = '<div class="vote-container"><button class="btn btn-outline-success btn-voto-single" type="button" data-id="' + id + '" data-valor="1">+1</button></div>';
+                                } else {
+                                    if (container) container.innerHTML = '<div class="vote-container"><button class="btn btn-outline-danger btn-voto-single" type="button" data-id="' + id + '" data-valor="-1">-1</button></div>';
+                                }
+                            }
                         }
+
+                        // update attributes
+                        card.setAttribute('data-score', String(j.score ?? score));
+                        card.setAttribute('data-user-vote', String(userVote));
+
                     } catch (ex) {
-                        console.error('Error al votar', ex);
+                        console.error('Error votando', ex);
                     } finally {
-                        // desbloquear
-                        btnPlus.disabled = false; btnMinus.disabled = false;
+                        try { btn.disabled = false; } catch {}
                     }
                 });
-            });
 
-            // AJAX submit pregunta
-            document.getElementById('preguntaForm').addEventListener('submit', async function (e) {
-                e.preventDefault();
-                var form = e.target;
-                var data = new FormData(form);
-                const tokenEl = form.querySelector('input[name="__RequestVerificationToken"]');
-                const headers = tokenEl ? { 'RequestVerificationToken': tokenEl.value, 'X-Requested-With': 'XMLHttpRequest' } : { 'X-Requested-With': 'XMLHttpRequest' };
-
-                try {
-                    let resp = await fetch(form.action, {
-                        method: 'POST',
-                        headers: headers,
-                        body: data
+                // AJAX submit new question
+                const preguntaForm = document.getElementById('preguntaForm');
+                if (preguntaForm) {
+                    preguntaForm.addEventListener('submit', async function (e) {
+                        e.preventDefault();
+                        const form = e.target;
+                        const data = new FormData(form);
+                        const tokenEl = form.querySelector('input[name="__RequestVerificationToken"]');
+                        const headers = tokenEl ? { 'RequestVerificationToken': tokenEl.value, 'X-Requested-With': 'XMLHttpRequest' } : { 'X-Requested-With': 'XMLHttpRequest' };
+                        const btn = document.getElementById('btnSavePregunta');
+                        if (btn) btn.disabled = true;
+                        try {
+                            const resp = await fetch(form.action, { method: 'POST', headers: headers, body: data });
+                            if (!resp.ok) {
+                                showAlert('alertPregunta', 'Error al publicar pregunta: ' + resp.status, true);
+                                return;
+                            }
+                            const j = await resp.json();
+                            if (j.ok) {
+                                showAlert('alertPregunta', 'Pregunta publicada', false);
+                                setTimeout(() => { if (preguntaModal) preguntaModal.hide(); location.reload(); }, 700);
+                            } else {
+                                showAlert('alertPregunta', 'Error al publicar', true);
+                            }
+                        } catch (ex) {
+                            showAlert('alertPregunta', 'Error de red.', true);
+                        } finally {
+                            if (btn) btn.disabled = false;
+                        }
                     });
-                    if (!resp.ok) {
-                        showAlert('alertPregunta', 'Error al publicar pregunta: ' + resp.status, true);
-                        return;
-                    }
-                    const j = await resp.json();
-                    if (j.ok) {
-                        showAlert('alertPregunta', 'Pregunta publicada', false);
-                        setTimeout(() => {
-                            preguntaModal.hide();
-                            location.reload();
-                        }, 800);
-                    } else {
-                        showAlert('alertPregunta', 'Error al publicar', true);
-                    }
-                } catch (ex) {
-                    showAlert('alertPregunta', 'Error de red.', true);
                 }
-            });
 
-            // AJAX submit respuesta
-            document.getElementById('respuestaForm').addEventListener('submit', async function (e) {
-                e.preventDefault();
-                var form = e.target;
-                var data = new FormData(form);
-                const tokenEl = form.querySelector('input[name="__RequestVerificationToken"]');
-                const headers = tokenEl ? { 'RequestVerificationToken': tokenEl.value, 'X-Requested-With': 'XMLHttpRequest' } : { 'X-Requested-With': 'XMLHttpRequest' };
-
-                try {
-                    let resp = await fetch(form.action, {
-                        method: 'POST',
-                        headers: headers,
-                        body: data
+                // AJAX submit answer
+                const respuestaForm = document.getElementById('respuestaForm');
+                if (respuestaForm) {
+                    respuestaForm.addEventListener('submit', async function (e) {
+                        e.preventDefault();
+                        const form = e.target;
+                        const data = new FormData(form);
+                        const tokenEl = form.querySelector('input[name="__RequestVerificationToken"]');
+                        const headers = tokenEl ? { 'RequestVerificationToken': tokenEl.value, 'X-Requested-With': 'XMLHttpRequest' } : { 'X-Requested-With': 'XMLHttpRequest' };
+                        const btn = document.getElementById('btnSaveRespuesta');
+                        if (btn) btn.disabled = true;
+                        try {
+                            const resp = await fetch(form.action, { method: 'POST', headers: headers, body: data });
+                            if (!resp.ok) { showAlert('alertRespuesta', 'Error al publicar respuesta: ' + resp.status, true); return; }
+                            const j = await resp.json();
+                            if (j.ok) {
+                                showAlert('alertRespuesta', 'Respuesta publicada', false);
+                                setTimeout(() => { if (respuestaModal) respuestaModal.hide(); location.reload(); }, 700);
+                            } else showAlert('alertRespuesta', 'Error al publicar', true);
+                        } catch (ex) {
+                            showAlert('alertRespuesta', 'Error de red.', true);
+                        } finally {
+                            if (btn) btn.disabled = false;
+                        }
                     });
-                    if (!resp.ok) {
-                        showAlert('alertRespuesta', 'Error al publicar respuesta: ' + resp.status, true);
-                        return;
-                    }
-                    const j = await resp.json();
-                    if (j.ok) {
-                        showAlert('alertRespuesta', 'Respuesta publicada', false);
-                        setTimeout(() => {
-                            respuestaModal.hide();
-                            location.reload();
-                        }, 700);
-                    } else {
-                        showAlert('alertRespuesta', 'Error al publicar', true);
-                    }
-                } catch (ex) {
-                    showAlert('alertRespuesta', 'Error de red.', true);
                 }
-            });
 
-            function showAlert(id, msg, isError) {
-                const el = document.getElementById(id);
-                el.textContent = msg;
-                el.className = isError ? 'alert alert-danger' : 'alert alert-success';
-                el.style.display = 'block';
-            }
-        });
+                function showAlert(id, msg, isError) {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    el.textContent = msg;
+                    el.className = isError ? 'alert alert-danger' : 'alert alert-success';
+                    el.style.display = 'block';
+                }
+
+                initLazyAvatars();
+            });
+        })();
     </script>
 }

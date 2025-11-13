@@ -1,8 +1,6 @@
 using eiibd26.Data;
 using eiibd26.Models;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
@@ -14,7 +12,7 @@ using System.Threading.Tasks;
 namespace eiibd26.Pages
 {
     [AllowAnonymous]
-    public class PreguntasModel : PageModel
+    public class PreguntasModel : Microsoft.AspNetCore.Mvc.RazorPages.PageModel
     {
         private readonly ApplicationDbContext _db;
         private readonly ILogger<PreguntasModel> _logger;
@@ -36,20 +34,20 @@ namespace eiibd26.Pages
             public DateTimeOffset FechaCreacion { get; set; }
             public int RespuestasCount { get; set; }
             public int Score { get; set; }
-            public int UsuarioVoto { get; set; } = 0; // 0 = no vote, 1 = voted
+            public int UsuarioVoto { get; set; } = 0;
             public bool EsMia { get; set; } = false;
             public List<string> RespondersAvatars { get; set; } = new List<string>();
         }
 
         public List<PreguntaCardVm> Preguntas { get; set; } = new List<PreguntaCardVm>();
 
-        [BindProperty(SupportsGet = true)]
+        [Microsoft.AspNetCore.Mvc.BindProperty(SupportsGet = true)]
         public int Page { get; set; } = 1;
 
-        [BindProperty(SupportsGet = true)]
+        [Microsoft.AspNetCore.Mvc.BindProperty(SupportsGet = true)]
         public int PageSize { get; set; } = 12;
 
-        [BindProperty(SupportsGet = true)]
+        [Microsoft.AspNetCore.Mvc.BindProperty(SupportsGet = true)]
         public string Search { get; set; } = "";
 
         public int TotalItems { get; set; }
@@ -104,26 +102,52 @@ namespace eiibd26.Pages
             var preguntaIds = items.Select(i => i.Id).ToArray();
             var userIds = items.Select(i => i.UsuarioId).Distinct().ToArray();
 
+            // Read names and avatars from Perfil table
             var authors = new Dictionary<Guid, (string userName, string avatar)>();
             if (userIds.Length > 0)
             {
                 try
                 {
-                    var users = await _db.Set<IdentityUserLite>()
+                    var perfiles = await _db.Set<Perfil>()
                         .AsNoTracking()
-                        .Where(u => userIds.Contains(u.Id))
-                        .Select(u => new { u.Id, u.UserName, u.AvatarUrl })
+                        .Where(p => userIds.Contains(p.idUser) && (p.Eliminado == null || p.Eliminado == false))
+                        .Select(p => new { p.idUser, p.Nombre, p.Apellidos, p.Avatar })
                         .ToListAsync();
 
-                    authors = users.ToDictionary(u => u.Id, u => (u.UserName ?? "Usuario", string.IsNullOrWhiteSpace(u.AvatarUrl) ? "/img/avatar-placeholder.png" : u.AvatarUrl));
+                    authors = perfiles.ToDictionary(
+                        x => x.idUser,
+                        x =>
+                        {
+                            var full = string.IsNullOrWhiteSpace(x.Apellidos) ? (x.Nombre ?? "Usuario") : $"{(x.Nombre ?? "Usuario")} {x.Apellidos}";
+                            var avatar = string.IsNullOrWhiteSpace(x.Avatar) ? "/img/avatar-placeholder.png" : x.Avatar;
+                            return (userName: full, avatar: avatar);
+                        });
+
+                    // find missing perfil userIds and fallback to ApplicationUser.UserName
+                    var missing = userIds.Except(authors.Keys).ToArray();
+                    if (missing.Length > 0)
+                    {
+                        _logger.LogInformation("Preguntas: perfiles faltantes para userIds: {Missing}", string.Join(", ", missing));
+                        var users = await _db.Users.AsNoTracking()
+                            .Where(u => missing.Contains(u.Id))
+                            .Select(u => new { u.Id, u.UserName })
+                            .ToListAsync();
+
+                        foreach (var u in users)
+                        {
+                            if (!authors.ContainsKey(u.Id))
+                                authors[u.Id] = (userName: string.IsNullOrWhiteSpace(u.UserName) ? "Usuario" : u.UserName, avatar: "/img/avatar-placeholder.png");
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "No fue posible obtener autores/avatars; usando valores por defecto.");
+                    _logger.LogWarning(ex, "No fue posible obtener perfiles; usando valores por defecto.");
                     authors = new Dictionary<Guid, (string, string)>();
                 }
             }
 
+            // responders (authors of answers) -> use Perfil too
             var responderRows = new List<(Guid PreguntaId, Guid UsuarioId)>();
             if (preguntaIds.Length > 0 && await _db.Respuestas.AnyAsync())
             {
@@ -142,24 +166,48 @@ namespace eiibd26.Pages
             {
                 try
                 {
-                    var rusers = await _db.Set<IdentityUserLite>()
+                    var rperfiles = await _db.Set<Perfil>()
                         .AsNoTracking()
-                        .Where(u => responderUserIds.Contains(u.Id))
-                        .Select(u => new { u.Id, u.UserName, u.AvatarUrl })
+                        .Where(p => responderUserIds.Contains(p.idUser) && (p.Eliminado == null || p.Eliminado == false))
+                        .Select(p => new { p.idUser, p.Nombre, p.Apellidos, p.Avatar })
                         .ToListAsync();
 
-                    responderUsers = rusers.ToDictionary(u => u.Id, u => (u.UserName ?? "Usuario", string.IsNullOrWhiteSpace(u.AvatarUrl) ? "/img/avatar-placeholder.png" : u.AvatarUrl));
+                    responderUsers = rperfiles.ToDictionary(
+                        x => x.idUser,
+                        x =>
+                        {
+                            var full = string.IsNullOrWhiteSpace(x.Apellidos) ? (x.Nombre ?? "Usuario") : $"{(x.Nombre ?? "Usuario")} {x.Apellidos}";
+                            var avatar = string.IsNullOrWhiteSpace(x.Avatar) ? "/img/avatar-placeholder.png" : x.Avatar;
+                            return (userName: full, avatar: avatar);
+                        });
+
+                    var missingR = responderUserIds.Except(responderUsers.Keys).ToArray();
+                    if (missingR.Length > 0)
+                    {
+                        _logger.LogInformation("Preguntas: responder perfiles faltantes para userIds: {MissingR}", string.Join(", ", missingR));
+                        var rusers = await _db.Users.AsNoTracking()
+                            .Where(u => missingR.Contains(u.Id))
+                            .Select(u => new { u.Id, u.UserName })
+                            .ToListAsync();
+
+                        foreach (var u in rusers)
+                        {
+                            if (!responderUsers.ContainsKey(u.Id))
+                                responderUsers[u.Id] = (userName: string.IsNullOrWhiteSpace(u.UserName) ? "Usuario" : u.UserName, avatar: "/img/avatar-placeholder.png");
+                        }
+                    }
                 }
-                catch
+                catch (Exception ex)
                 {
+                    _logger.LogWarning(ex, "No fue posible obtener perfiles para responders; using defaults.");
                     responderUsers = new Dictionary<Guid, (string, string)>();
                 }
             }
 
+            // user's votes for the page (only active votes)
             Dictionary<Guid, int> votosUsuario = new Dictionary<Guid, int>();
             if (userId.HasValue && preguntaIds.Length > 0 && await _db.Votos.AnyAsync())
             {
-                // Only consider active votes for user's votes (we want to know if user has an active vote)
                 var votos = await _db.Votos
                     .AsNoTracking()
                     .Where(v => v.UsuarioId == userId.Value && v.EntidadTipo == "pregunta" && preguntaIds.Contains(v.EntidadId) && !v.Eliminado)
@@ -198,13 +246,6 @@ namespace eiibd26.Pages
 
                 return vm;
             }).ToList();
-        }
-
-        private class IdentityUserLite
-        {
-            public Guid Id { get; set; }
-            public string UserName { get; set; }
-            public string AvatarUrl { get; set; }
         }
     }
 }

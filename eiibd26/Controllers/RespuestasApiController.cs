@@ -1,4 +1,8 @@
-﻿using eiibd26.Data;
+﻿using System;
+using System.Linq;
+using System.Security.Claims;
+using System.Threading.Tasks;
+using eiibd26.Data;
 using eiibd26.DTOs;
 using eiibd26.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -7,10 +11,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Linq;
-using System.Security.Claims;
-using System.Threading.Tasks;
 
 namespace eiibd26.Controllers
 {
@@ -35,6 +35,7 @@ namespace eiibd26.Controllers
             _userManager = userManager;
         }
 
+        // POST /api/respuestas
         [HttpPost]
         [Authorize]
         public async Task<IActionResult> CrearRespuesta([FromBody] CrearRespuestaDto dto)
@@ -66,47 +67,63 @@ namespace eiibd26.Controllers
             if (string.IsNullOrWhiteSpace(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
                 return Forbid();
 
-            var respuesta = new Respuesta
+            try
             {
-                Id = Guid.NewGuid(),
-                PreguntaId = preguntaId,
-                UsuarioId = userId,
-                Cuerpo = dto.Cuerpo?.Trim(),
-                FechaCreacion = DateTimeOffset.UtcNow,
-                EsAceptada = false,
-                Eliminado = false
-            };
-
-            var effectiveParent = dto.ParentId;
-            if (effectiveParent.HasValue)
-            {
-                var entityType = _db.Model.FindEntityType(typeof(Respuesta));
-                if (entityType != null)
+                var respuesta = new Respuesta
                 {
-                    string[] parentCandidates = new[] { "ParentRespuestaId", "ParentId", "RespuestaPadreId" };
-                    foreach (var cand in parentCandidates)
+                    Id = Guid.NewGuid(),
+                    PreguntaId = preguntaId,
+                    UsuarioId = userId,
+                    Cuerpo = dto.Cuerpo?.Trim(),
+                    FechaCreacion = DateTimeOffset.UtcNow,
+                    EsAceptada = false,
+                    Eliminado = false
+                };
+
+                var effectiveParent = dto.ParentId;
+                if (effectiveParent.HasValue)
+                {
+                    var entityType = _db.Model.FindEntityType(typeof(Respuesta));
+                    if (entityType != null)
                     {
-                        if (entityType.FindProperty(cand) != null)
+                        string[] parentCandidates = new[] { "ParentRespuestaId", "ParentId", "RespuestaPadreId" };
+                        foreach (var cand in parentCandidates)
                         {
-                            var propInfo = typeof(Respuesta).GetProperty(cand);
-                            if (propInfo != null && propInfo.PropertyType == typeof(Guid?))
+                            if (entityType.FindProperty(cand) != null)
                             {
-                                propInfo.SetValue(respuesta, effectiveParent);
+                                var propInfo = typeof(Respuesta).GetProperty(cand);
+                                if (propInfo != null && propInfo.PropertyType == typeof(Guid?))
+                                {
+                                    propInfo.SetValue(respuesta, effectiveParent);
+                                }
+                                else
+                                {
+                                    _db.Entry(respuesta).Property(cand).CurrentValue = effectiveParent;
+                                }
+                                break;
                             }
-                            else
-                            {
-                                _db.Entry(respuesta).Property(cand).CurrentValue = effectiveParent;
-                            }
-                            break;
                         }
                     }
                 }
+
+                _db.Respuestas.Add(respuesta);
+                await _db.SaveChangesAsync();
+
+                // Devuelvo OK con el id creado (evita 500 por Location header generation)
+                return Ok(new { id = respuesta.Id });
             }
-
-            _db.Respuestas.Add(respuesta);
-            await _db.SaveChangesAsync();
-
-            return CreatedAtAction("GetDetalle", "PreguntasApi", new { id = preguntaId }, new { respuesta.Id });
+            catch (DbUpdateException dbEx)
+            {
+                _logger.LogError(dbEx, "DbUpdateException al crear respuesta para pregunta {PreguntaId}", preguntaId);
+                var detail = _env.IsDevelopment() ? dbEx.InnerException?.Message ?? dbEx.Message : "Error interno al crear la respuesta.";
+                return Problem(detail: detail);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al crear respuesta para pregunta {PreguntaId}", preguntaId);
+                var detail = _env.IsDevelopment() ? ex.ToString() : "Error interno al crear la respuesta.";
+                return Problem(detail: detail);
+            }
         }
 
         // POST /api/respuestas/{id}/votar
@@ -141,7 +158,7 @@ namespace eiibd26.Controllers
                     return BadRequest("No puedes votar tu propia respuesta.");
                 }
 
-                // Search for any existing vote (including soft-deleted)
+                // Look for any existing vote (including soft-deleted)
                 var existing = await _db.Votos.FirstOrDefaultAsync(v =>
                     v.EntidadTipo == "respuesta" && v.EntidadId == id && v.UsuarioId == userIdGuid);
 
@@ -165,15 +182,16 @@ namespace eiibd26.Controllers
                 }
                 else
                 {
-                    // Same logic as preguntas: same value toggles, opposite value removes (soft-delete)
                     if (existing.Valor == dto.Valor)
                     {
+                        // same value -> toggle active/soft-delete
                         existing.Eliminado = !existing.Eliminado;
                         if (hasFechaModificacion) existing.FechaModificacion = DateTimeOffset.UtcNow;
                         _db.Votos.Update(existing);
                     }
                     else
                     {
+                        // opposite clicked -> remove existing vote (soft-delete)
                         existing.Eliminado = true;
                         if (hasFechaModificacion) existing.FechaModificacion = DateTimeOffset.UtcNow;
                         _db.Votos.Update(existing);
@@ -192,7 +210,7 @@ namespace eiibd26.Controllers
                         || inner.IndexOf("Cannot insert duplicate key", StringComparison.OrdinalIgnoreCase) >= 0)
                     {
                         _logger.LogWarning(dbEx, "Unique constraint violation while saving vote for respuesta {Id}; will re-read score/userVote.", id);
-                        // swallow and continue to re-read current state
+                        // swallow and continue
                     }
                     else
                     {

@@ -35,30 +35,20 @@
         padding: 16px;
         margin-bottom: 12px;
         position: relative;
+        overflow: visible;
     }
 
-    .pr-header {
+    /* Main row: left content (title/body/meta) + right actions */
+    .pr-main {
         display: flex;
         gap: 12px;
-        align-items: center;
+        align-items: flex-start;
     }
 
-    .author-thumb {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        object-fit: cover;
-        box-shadow: 0 1px 5px rgba(0,0,0,0.08);
-        background: #f6f7f9;
-        transition: opacity .18s ease, transform .18s ease;
-        opacity: 0;
-        transform: translateY(6px);
+    .pr-content {
+        flex: 1 1 auto;
+        min-width: 0;
     }
-
-        .author-thumb.loaded {
-            opacity: 1;
-            transform: translateY(0);
-        }
 
     .pr-title {
         font-weight: 600;
@@ -80,57 +70,52 @@
         overflow: hidden;
     }
 
-    .pr-meta {
+    /* Row of avatars (author first, larger, then responders) aligned left */
+    .avatars-row {
         margin-top: 10px;
-        color: #6b7788;
-        font-size: .89rem;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .pr-actions {
-        position: absolute;
-        right: 12px;
-        bottom: 12px;
         display: flex;
         gap: 8px;
         align-items: center;
+        justify-content: flex-start;
     }
 
-    .pr-eye {
-        position: absolute;
-        right: 12px;
-        top: 12px;
-        display: flex;
-        gap: 6px;
-        align-items: center;
-    }
-
-    .responders-row {
-        margin-top: 8px;
-        display: flex;
-        gap: 6px;
-        align-items: center;
-    }
-
-    .res-thumb {
-        width: 28px;
-        height: 28px;
+    .avatar-author {
+        width: 36px;
+        height: 36px;
         border-radius: 50%;
         object-fit: cover;
         box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-        background: #f6f7f9;
-        transition: opacity .18s ease, transform .18s ease;
-        opacity: 0;
-        transform: translateY(6px);
+        flex: 0 0 auto;
     }
 
-        .res-thumb.loaded {
-            opacity: 1;
-            transform: translateY(0);
-        }
+    .avatar-res {
+        width: 27px;
+        height: 27px;
+        border-radius: 50%;
+        object-fit: cover;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        flex: 0 0 auto;
+    }
+
+    /* Actions (score, responses count, view) pinned to right */
+    .pr-actions {
+        flex: 0 0 160px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-end;
+        justify-content: flex-start;
+    }
+
+    .pr-eye {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+    }
+
+    .pr-score {
+        text-align: right;
+    }
 
     .btn-voto {
         width: 38px;
@@ -141,45 +126,30 @@
         justify-content: center;
     }
 
-    .voto-activo {
-        box-shadow: inset 0 0 0 2px rgba(0,0,0,0.06);
+    .vote-login-hint {
+        font-size: 0.9rem;
+        color: #495057;
+        text-align: right;
     }
 
-    .pagination-block {
-        display: flex;
-        gap: 8px;
+    @@media (max-width:760px) {
+        .pr-main
+
+    {
+        flex-direction: column;
+    }
+
+    .pr-actions {
+        flex-direction: row;
+        width: 100%;
+        justify-content: space-between;
         align-items: center;
-        flex-wrap: wrap;
     }
 
-    .search-input {
-        min-width: 220px;
-        max-width: 480px;
+    .vote-login-hint {
+        text-align: left;
     }
 
-    .author-badge {
-        margin-left: 8px;
-        font-size: 0.8rem;
-        padding: 2px 8px;
-        border-radius: 999px;
-        background: #eef2ff;
-        color: #1e3a8a;
-    }
-
-    @@media (max-width:680px) {
-        .pr-card {
-            padding: 12px;
-        }
-
-        .pr-actions {
-            right: 8px;
-            bottom: 8px;
-        }
-
-        .pr-eye {
-            right: 8px;
-            top: 8px;
-        }
     }
 </style>
 
@@ -205,10 +175,12 @@
                     if (Model.PageSize == s)
                     {
                         <option value="@s" selected>@s</option>
+                        ;
                     }
                     else
                     {
                         <option value="@s">@s</option>
+                        ;
                     }
                 }
             </select>
@@ -224,87 +196,79 @@
         {
             foreach (var q in Model.Preguntas)
             {
-                // include data attributes so JS can decide how to re-render buttons after votes
                 var authAttr = User.Identity.IsAuthenticated ? "true" : "false";
                 var isMineAttr = q.EsMia ? "true" : "false";
-                <div class="pr-card" data-id="@q.Id" data-authenticated="@authAttr" data-is-mine="@isMineAttr" data-user-vote="@q.UsuarioVoto">
-                    <div class="pr-eye" role="group" aria-label="Acciones">
-                        <a class="btn btn-sm btn-outline-secondary" href="/Preguntas/Detalles/@q.Id" title="Ver detalle" aria-label="Ver detalle">
-                            <span style="font-size:0.95rem;">👁</span>
-                        </a>
-                        <span class="badge bg-light text-dark">Respuestas: <strong>@q.RespuestasCount</strong></span>
-                    </div>
-
-                    <div class="pr-header">
-                        @* Author image: use placeholder src and put real URL in data-src for lazy load *@
-                        <img class="author-thumb lazy-avatar"
-                             src="@Url.Content("~/img/avatar-placeholder.png")"
-                             data-src="@ResolveAvatar(q.AutorAvatarUrl)"
-                             alt="@q.AutorNombre"
-                             width="40" height="40"
-                             decoding="async"
-                             onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
-
-                        <div style="flex:1">
+                <div class="pr-card" data-id="@q.Id" data-authenticated="@authAttr" data-is-mine="@isMineAttr" data-user-vote="@q.UsuarioVoto" data-score="@q.Score">
+                    <div class="pr-main">
+                        <div class="pr-content">
                             <a href="/Preguntas/Detalles/@q.Id" class="pr-title">@q.Titulo</a>
                             <div class="pr-body">@Html.Raw(q.CuerpoPreview)</div>
-                            <div class="mt-2">
-                                <small class="text-muted">@q.AutorNombre</small>
-                                @if (q.EsMia)
-                                {
-                                    <span class="author-badge">Tu pregunta</span>
+
+                            <div class="avatars-row" aria-hidden="true">
+                                @* Author avatar first (slightly larger) *@
+                                <img class="avatar-author lazy-avatar"
+                                     src="@Url.Content("~/img/avatar-placeholder.png")"
+                                     data-src="@ResolveAvatar(q.AutorAvatarUrl)"
+                                     alt="@q.AutorNombre" width="36" height="36"
+                                     decoding="async"
+                                     onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+
+                                @* responders avatars (skip duplicates) *@
+                                @{
+                                    var added = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                                    if (!string.IsNullOrWhiteSpace(q.AutorAvatarUrl)) added.Add(q.AutorAvatarUrl);
+                                    var rcnt = 0;
+                                    foreach (var a in q.RespondersAvatars)
+                                    {
+                                        if (rcnt >= 6) break;
+                                        if (string.IsNullOrWhiteSpace(a)) continue;
+                                        if (added.Contains(a)) continue;
+                                        added.Add(a);
+                                        <img class="avatar-res lazy-avatar"
+                                             src="@Url.Content("~/img/avatar-placeholder.png")"
+                                             data-src="@ResolveAvatar(a)"
+                                             alt="Responder" width="27" height="27"
+                                             decoding="async"
+                                             onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+                                        rcnt++;
+                                    }
                                 }
                             </div>
                         </div>
-                    </div>
 
-                    @if (q.RespondersAvatars.Any())
-                    {
-                        <div class="responders-row">
-                            @foreach (var a in q.RespondersAvatars)
-                            {
-                                <img class="res-thumb lazy-avatar"
-                                     src="@Url.Content("~/img/avatar-placeholder.png")"
-                                     data-src="@ResolveAvatar(a)"
-                                     alt="Responder"
-                                     width="28" height="28"
-                                     decoding="async"
-                                     onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
-                            }
-                        </div>
-                    }
+                        <div class="pr-actions">
+                            <div class="pr-eye">
+                                <a class="btn btn-sm btn-outline-secondary" href="/Preguntas/Detalles/@q.Id" title="Ver detalle" aria-label="Ver detalle">
+                                    <span style="font-size:0.95rem;">👁</span>
+                                </a>
+                            </div>
 
-                    <div class="pr-actions">
-                        <div class="vote-container">
-                            @* Render exactly one vote control per card:
-                               - If not authenticated: show +1 link to login (so user can authenticate to vote)
-                               - If owner: show text "No puedes votar tu propia pregunta"
-                               - If authenticated and not owner:
-                                   - if UsuarioVoto == 0 => show +1 button
-                                   - if UsuarioVoto == 1 => show -1 button (to remove vote)
-                            *@
-                            @if (!User.Identity.IsAuthenticated)
-                            {
-                                <a class="btn btn-outline-success btn-voto" href="/Account/Login">+1</a>
-                            }
-                            else if (q.EsMia)
-                            {
-                                <span class="text-muted small">No puedes votar tu propia pregunta</span>
-                            }
-                            else
-                            {
-                                if (q.UsuarioVoto == 1)
+                            <span class="badge bg-light text-dark">Respuestas: <strong>@q.RespuestasCount</strong></span>
+
+                            <div class="vote-container">
+                                @if (!User.Identity.IsAuthenticated)
                                 {
-                                    <button class="btn btn-outline-danger btn-voto btn-voto-q" data-id="@q.Id" data-valor="-1" title="Quitar voto">-1</button>
+                                    <div class="vote-login-hint">Inicia sesión para realizar un voto. <a href="/Account/Login">Iniciar sesión</a></div>
+                                }
+                                else if (q.EsMia)
+                                {
+                                    <span class="text-muted small">No puedes votar tu propia pregunta</span>
                                 }
                                 else
                                 {
-                                    <button class="btn btn-outline-success btn-voto btn-voto-q" data-id="@q.Id" data-valor="1" title="+1">+1</button>
+                                    if (q.UsuarioVoto == 1)
+                                    {
+                                        <button class="btn btn-outline-danger btn-voto btn-voto-q" data-id="@q.Id" data-valor="-1" title="Quitar voto">-1</button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-outline-success btn-voto btn-voto-q" data-id="@q.Id" data-valor="1" title="+1">+1</button>
+                                    }
                                 }
-                            }
-                        </div>
+                            </div>
 
-                        <div class="pr-score badge bg-light text-dark" id="score-@q.Id">Score: @q.Score</div>
+                            <div class="pr-score badge bg-light text-dark ms-2" id="score-@q.Id">Score: @q.Score</div>
+                        </div>
                     </div>
                 </div>
             }
@@ -331,51 +295,22 @@
 
 @section Scripts {
     <script>
-        (function () {
-            console.log('Preguntas page scripts with lazy avatars loaded');
-
-            // Lazy loader for images with data-src (uses IntersectionObserver when available)
+        (async function () {
+            // init lazy avatars
             function initLazyAvatars() {
-                const imgSelector = 'img.lazy-avatar[data-src]';
-                const imgs = Array.from(document.querySelectorAll(imgSelector));
+                const imgs = Array.from(document.querySelectorAll('img.lazy-avatar[data-src]'));
                 if (!imgs.length) return;
-
-                const onLoad = (img) => {
-                    img.classList.add('loaded');
-                    // dispatch custom event for consumers
-                    try {
-                        const ev = new Event('lazyloaded', { bubbles: true, cancelable: false });
-                        img.dispatchEvent(ev);
-                    } catch (e) { /* ignore */ }
-                };
-
-                const onError = (img) => {
-                    // keep placeholder and mark as loaded to avoid retry loops
-                    img.classList.add('loaded');
-                    img.src = '@Url.Content("~/img/avatar-placeholder.png")';
-                    try {
-                        const ev = new Event('lazyerror', { bubbles: true, cancelable: false });
-                        img.dispatchEvent(ev);
-                    } catch (e) { /* ignore */ }
-                };
-
-                const loadImg = (img) => {
+                const onLoad = img => img.classList.add('loaded');
+                const onError = img => { img.classList.add('loaded'); img.src = '@Url.Content("~/img/avatar-placeholder.png")'; };
+                const loadImg = img => {
                     const src = img.getAttribute('data-src');
-                    if (!src) {
-                        onError(img);
-                        return;
-                    }
-                    // create a tmp Image to listen load/error
+                    if (!src) { onError(img); return; }
                     const tmp = new Image();
                     tmp.decoding = 'async';
-                    tmp.onload = function () {
-                        try { img.src = src; } catch {}
-                        onLoad(img);
-                    };
+                    tmp.onload = function () { try { img.src = src; } catch {} onLoad(img); };
                     tmp.onerror = function () { onError(img); };
                     tmp.src = src;
                 };
-
                 if ('IntersectionObserver' in window) {
                     const io = new IntersectionObserver((entries, observer) => {
                         entries.forEach(entry => {
@@ -386,98 +321,78 @@
                             }
                         });
                     }, { rootMargin: '200px 0px' });
-
                     imgs.forEach(i => {
-                        // if already has src different from placeholder we skip
                         if (i.getAttribute('data-src') && i.src.indexOf('avatar-placeholder.png') >= 0) {
                             io.observe(i);
                         } else if (i.getAttribute('data-src')) {
-                            // maybe server already filled src (rare) => mark loaded
                             i.classList.add('loaded');
                         }
                     });
                 } else {
-                    // Fallback: eager load all
                     imgs.forEach(i => loadImg(i));
                 }
             }
 
-            // Vote handling (delegate)
-            function initVoteHandlers() {
-                document.addEventListener('click', async function (e) {
-                    const btn = e.target.closest('.btn-voto-q');
-                    if (!btn) return;
-                    e.preventDefault();
+            // delegated vote handling for questions (single-button UI)
+            document.addEventListener('click', async function (e) {
+                const btn = e.target.closest('.btn-voto-q');
+                if (!btn) return;
+                e.preventDefault();
 
-                    const id = btn.getAttribute('data-id');
-                    const valor = parseInt(btn.getAttribute('data-valor') || "0", 10);
-                    if (!id || (valor !== 1 && valor !== -1)) return;
+                const id = btn.getAttribute('data-id');
+                const valor = parseInt(btn.getAttribute('data-valor') || "0", 10);
+                if (!id || (valor !== 1 && valor !== -1)) return;
 
-                    btn.disabled = true;
-                    try {
-                        const res = await fetch('/api/preguntas/' + id + '/votar', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ valor: valor })
-                        });
+                btn.disabled = true;
+                try {
+                    const res = await fetch('/api/preguntas/' + id + '/votar', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ valor: valor })
+                    });
 
-                        if (!res.ok) {
-                            const txt = await res.text();
-                            console.warn('Votar pregunta falló:', res.status, txt);
-                            alert('Error al votar: ' + (txt || res.status));
-                            return;
-                        }
-
-                        const j = await res.json();
-                        const scoreVal = (j.score !== undefined) ? j.score : null;
-                        const userVote = (j.userVote !== undefined) ? j.userVote : 0;
-
-                        // Find card and elements
-                        const card = document.querySelector('.pr-card[data-id="' + id + '"]');
-                        if (!card) return;
-                        const scoreEl = document.getElementById('score-' + id);
-                        const voteContainer = card.querySelector('.vote-container');
-
-                        // Update score display
-                        if (scoreEl && scoreVal !== null) scoreEl.textContent = 'Score: ' + scoreVal;
-
-                        // Re-render the single vote control according to the rule:
-                        const authenticated = card.getAttribute('data-authenticated') === 'true';
-                        const isMine = card.getAttribute('data-is-mine') === 'true';
-
-                        // update the data-user-vote attribute
-                        card.setAttribute('data-user-vote', String(userVote));
-
-                        if (!authenticated) {
-                            voteContainer.innerHTML = '<a class="btn btn-outline-success btn-voto" href="/Account/Login">+1</a>';
-                        } else if (isMine) {
-                            voteContainer.innerHTML = '<span class="text-muted small">No puedes votar tu propia pregunta</span>';
-                        } else {
-                            if (userVote === 1) {
-                                voteContainer.innerHTML = '<button class="btn btn-outline-danger btn-voto btn-voto-q" data-id="' + id + '" data-valor="-1" title="Quitar voto">-1</button>';
-                            } else {
-                                voteContainer.innerHTML = '<button class="btn btn-outline-success btn-voto btn-voto-q" data-id="' + id + '" data-valor="1" title="+1">+1</button>';
-                            }
-                        }
-                    } catch (err) {
-                        console.error('Error votando pregunta', err);
-                        alert('Error de red al votar');
-                    } finally {
-                        try { btn.disabled = false; } catch {}
+                    if (!res.ok) {
+                        const txt = await res.text();
+                        console.warn('Votar pregunta falló:', res.status, txt);
+                        alert('Error al votar: ' + (txt || res.status));
+                        return;
                     }
-                });
-            }
 
-            // init on DOM ready
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', function () {
-                    initLazyAvatars();
-                    initVoteHandlers();
-                });
-            } else {
-                initLazyAvatars();
-                initVoteHandlers();
-            }
+                    const j = await res.json();
+                    const scoreEl = document.getElementById('score-' + id);
+                    if (j.score !== undefined && scoreEl) scoreEl.textContent = 'Score: ' + j.score;
+
+                    // update single control in the card
+                    const card = document.querySelector('.pr-card[data-id="' + id + '"]');
+                    if (!card) return;
+                    const voteContainer = card.querySelector('.vote-container');
+                    const authenticated = card.getAttribute('data-authenticated') === 'true';
+                    const isMine = card.getAttribute('data-is-mine') === 'true';
+                    const userVote = (j.userVote !== undefined) ? j.userVote : 0;
+
+                    card.setAttribute('data-user-vote', String(userVote));
+                    card.setAttribute('data-score', String(j.score ?? 0));
+
+                    if (!authenticated) {
+                        voteContainer.innerHTML = '<div class="vote-login-hint">Inicia sesión para realizar un voto. <a href="/Account/Login">Iniciar sesión</a></div>';
+                    } else if (isMine) {
+                        voteContainer.innerHTML = '<span class="text-muted small">No puedes votar tu propia pregunta</span>';
+                    } else {
+                        if (userVote === 1) {
+                            voteContainer.innerHTML = '<button class="btn btn-outline-danger btn-voto btn-voto-q" data-id="' + id + '" data-valor="-1" title="Quitar voto">-1</button>';
+                        } else {
+                            voteContainer.innerHTML = '<button class="btn btn-outline-success btn-voto btn-voto-q" data-id="' + id + '" data-valor="1" title="+1">+1</button>';
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error votando pregunta', err);
+                    alert('Error de red al votar');
+                } finally {
+                    btn.disabled = false;
+                }
+            });
+
+            initLazyAvatars();
         })();
     </script>
 }

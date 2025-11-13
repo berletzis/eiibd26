@@ -11,215 +11,235 @@
         if (avatar.StartsWith("/")) return avatar;
         return Url.Content("~/" + avatar.TrimStart('/'));
     }
+
+    // Render the single vote control (same rules as list)
+    string RenderQuestionVoteControl()
+    {
+        if (!User.Identity.IsAuthenticated)
+        {
+            return "<div class=\"vote-login-hint\">Inicia sesión para realizar un voto. <a href=\"/Account/Login\">Iniciar sesión</a></div>";
+        }
+
+        if (Model.Pregunta.EsMia)
+        {
+            return "<span class=\"text-muted small\">No puedes votar tu propia pregunta</span>";
+        }
+
+        var userVote = Model.Pregunta.UsuarioVoto;
+        if (userVote == 1)
+        {
+            return $"<button class=\"btn btn-outline-danger btn-voto-q\" data-id=\"{Model.Pregunta.Id}\" data-valor=\"-1\" title=\"Quitar voto\">-1</button>";
+        }
+        else
+        {
+            return $"<button class=\"btn btn-outline-success btn-voto-q\" data-id=\"{Model.Pregunta.Id}\" data-valor=\"1\" title=\"+1\">+1</button>";
+        }
+    }
 }
 <style>
+    /* Reuse / match the main Questions list styles for the question card */
     .pd-container {
         max-width: 980px;
         margin: 28px auto;
         padding: 0 12px;
     }
 
-    .q-card {
+    .pr-card, .q-card {
         background: #fff;
         border-radius: 12px;
-        padding: 18px;
-        box-shadow: 0 6px 18px rgba(20,40,80,0.06);
+        box-shadow: 0 6px 18px rgba(20,40,80,.06);
+        padding: 16px;
         margin-bottom: 16px;
         position: relative;
     }
 
-    .author-row {
+    /* Layout: left content (title/body/meta) and right actions */
+    .pr-main {
         display: flex;
         gap: 12px;
-        align-items: center;
+        align-items: flex-start;
     }
 
-    .author-thumb {
-        width: 56px;
-        height: 56px;
-        border-radius: 50%;
-        object-fit: cover;
+    .pr-content {
+        flex: 1 1 auto;
+        min-width: 0;
     }
 
-    .q-title {
-        font-size: 1.35rem;
-        font-weight: 700;
+    .pr-title, .q-title {
+        font-weight: 600;
         color: #16324a;
-        margin-bottom: 6px;
+        font-size: 1.15rem;
+        margin: 0 0 6px 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
-    .q-body {
-        color: #283344;
-        margin-top: 6px;
+    .pr-body, .q-body {
+        margin-top: 8px;
+        color: #253443;
+        line-height: 1.35;
     }
 
-    .q-actions {
-        position: absolute;
-        right: 18px;
-        top: 18px;
+    /* Avatars row: author first (slightly bigger), then responders */
+    .avatars-row {
+        margin-top: 10px;
         display: flex;
         gap: 8px;
         align-items: center;
+        justify-content: flex-start;
     }
 
-    .ans-card {
-        background: #fff;
-        border-radius: 10px;
-        padding: 12px;
-        box-shadow: 0 4px 12px rgba(20,40,80,0.04);
-        margin-bottom: 10px;
-        position: relative;
-    }
-
-    .ans-author {
-        display: flex;
-        gap: 10px;
-        align-items: center;
-    }
-
-    .ans-thumb {
+    .avatar-author {
         width: 36px;
         height: 36px;
         border-radius: 50%;
         object-fit: cover;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        flex: 0 0 auto;
     }
 
-    .ans-body {
-        margin-top: 8px;
-        color: #2b3b4a;
+    .avatar-res {
+        width: 27px;
+        height: 27px;
+        border-radius: 50%;
+        object-fit: cover;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        flex: 0 0 auto;
     }
 
-    .ans-actions {
-        position: absolute;
-        right: 12px;
-        bottom: 12px;
+    .pr-actions, .q-actions {
+        flex: 0 0 160px;
         display: flex;
+        flex-direction: column;
         gap: 8px;
-        align-items: center;
+        align-items: flex-end;
+        justify-content: flex-start;
+        min-width: 120px;
     }
 
-    .reply-form {
-        margin-bottom: 16px;
-        background: #fbfbfb;
-        padding: 12px;
-        border-radius: 8px;
-    }
-
-    .reply-textarea {
-        width: 100%;
-        min-height: 100px;
-        resize: vertical;
-    }
-
-    .child-replies {
-        margin-left: 48px;
-        margin-top: 8px;
-    }
-
-    .q-author-line {
-        margin-top: 8px;
-        color: #6b7788;
-        font-size: 0.95rem;
+    .pr-eye {
         display: flex;
-        gap: 10px;
+        gap: 6px;
         align-items: center;
     }
 
-        .q-author-line img {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            object-fit: cover;
-        }
+    .vote-container {
+        display: inline-block;
+    }
 
-    .author-badge {
-        margin-left: 8px;
-        font-size: 0.8rem;
-        padding: 2px 8px;
-        border-radius: 999px;
-        background: #eef2ff;
-        color: #1e3a8a;
+    .vote-login-hint {
+        font-size: 0.95rem;
+        color: #495057;
+        text-align: right;
+    }
+
+    /* Answers list area: cards */
+    .answers-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 12px;
+    }
+    /* Small responsive adjustments */
+    @@media (max-width:760px) {
+        .pr-main
+
+    {
+        flex-direction: column;
+    }
+
+    .pr-actions {
+        flex-direction: row;
+        justify-content: space-between;
+        width: 100%;
+    }
+
+    .vote-login-hint {
+        text-align: left;
+    }
+
     }
 </style>
 
 <div class="pd-container">
-    <div class="q-card">
-        <div class="author-row">
-            <img class="author-thumb" src="@ResolveAvatar(Model.Pregunta.AutorAvatarUrl)" alt="@Model.Pregunta.AutorNombre"
-                 width="56" height="56"
-                 loading="eager"
-                 fetchpriority="high"
-                 decoding="async"
-                 onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
-            <div style="flex:1">
-                <div class="q-title">@Model.Pregunta.Titulo</div>
-                <div class="q-body">@Html.Raw(Model.Pregunta.Cuerpo)</div>
+    <div class="pr-card pr-main" data-id="@Model.Pregunta.Id" data-authenticated="@(User.Identity.IsAuthenticated ? "true" : "false")" data-is-mine="@(Model.Pregunta.EsMia ? "true" : "false")" data-user-vote="@Model.Pregunta.UsuarioVoto" data-score="@Model.Pregunta.Score">
+        <div class="pr-content">
+            <div class="pr-title">@Model.Pregunta.Titulo</div>
+            <div class="pr-body">@Html.Raw(Model.Pregunta.Cuerpo)</div>
 
-                <div class="q-author-line">
-                    <img src="@ResolveAvatar(Model.Pregunta.AutorAvatarUrl)" alt="@Model.Pregunta.AutorNombre"
-                         width="28" height="28"
-                         loading="eager"
-                         fetchpriority="high"
-                         decoding="async"
-                         onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+            <div class="avatars-row">
+                @* Author avatar first (inline with responders) *@
+                <img class="avatar-author lazy-avatar"
+                     src="@Url.Content("~/img/avatar-placeholder.png")"
+                     data-src="@ResolveAvatar(Model.Pregunta.AutorAvatarUrl)"
+                     alt="@Model.Pregunta.AutorNombre"
+                     width="36" height="36"
+                     decoding="async"
+                     onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+
+                <div>
                     <div>
-                        <div>
-                            <strong>@Model.Pregunta.AutorNombre</strong>
-                            @if (Model.Pregunta.EsMia)
-                            {
-                                <span class="author-badge">Tu pregunta</span>
-                            }
-                        </div>
-                        <div class="text-muted small">Publicado · @Model.Pregunta.FechaCreacion.ToLocalTime().ToString("g")</div>
+                        <strong>@Model.Pregunta.AutorNombre</strong>
+                        @if (Model.Pregunta.EsMia)
+                        {
+                            <span class="author-badge">Tu pregunta</span>
+                        }
                     </div>
+                    <div class="text-muted small">Publicado · @(Model.Pregunta.FechaCreacion.ToLocalTime().ToString("g"))</div>
                 </div>
+
+                @* responders avatars after author *@
+                @{
+                    var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    if (!string.IsNullOrWhiteSpace(Model.Pregunta.AutorAvatarUrl)) seen.Add(Model.Pregunta.AutorAvatarUrl);
+                    var rcount = 0;
+                    if (Model.Respuestas != null)
+                    {
+                        foreach (var r in Model.Respuestas)
+                        {
+                            if (rcount >= 6) break;
+                            var avatar = r.AutorAvatarUrl ?? "/img/avatar-placeholder.png";
+                            if (string.IsNullOrWhiteSpace(avatar)) continue;
+                            if (seen.Contains(avatar)) continue;
+                            seen.Add(avatar);
+                            <img class="avatar-res lazy-avatar"
+                                 src="@Url.Content("~/img/avatar-placeholder.png")"
+                                 data-src="@ResolveAvatar(avatar)"
+                                 alt="@r.AutorNombre"
+                                 width="27" height="27"
+                                 decoding="async"
+                                 onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+                            rcount++;
+                        }
+                    }
+                }
             </div>
+        </div>
 
-            <div class="q-actions" role="group" aria-label="acciones pregunta">
-                @if (User.Identity.IsAuthenticated)
-                {
-                    var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                    var isAuthorQ = !string.IsNullOrEmpty(currentUserId) && Guid.TryParse(currentUserId, out var cuid) && cuid == Model.Pregunta.UsuarioId;
-
-                    if (isAuthorQ)
-                    {
-                        <span class="text-muted small">No puedes votar tu propia pregunta</span>
-                    }
-                    else
-                    {
-                        if (Model.Pregunta.UsuarioVoto == 1)
-                        {
-                            <button class="btn btn-outline-success btn-voto-q voto-activo" data-id="@Model.Pregunta.Id" data-valor="1">+1</button>
-                        }
-                        else if (Model.Pregunta.UsuarioVoto == -1)
-                        {
-                            <button class="btn btn-outline-danger btn-voto-q voto-activo" data-id="@Model.Pregunta.Id" data-valor="-1">-1</button>
-                        }
-                        else
-                        {
-                            <button class="btn btn-outline-success btn-voto-q" data-id="@Model.Pregunta.Id" data-valor="1">+1</button>
-                            <button class="btn btn-outline-danger btn-voto-q" data-id="@Model.Pregunta.Id" data-valor="-1">-1</button>
-                        }
-                    }
-                }
-                else
-                {
-                    <a class="btn btn-outline-success" href="/Account/Login">+1</a>
-                    <a class="btn btn-outline-danger" href="/Account/Login">-1</a>
-                }
-
+        <div class="pr-actions">
+            <div class="pr-eye">
                 <a class="btn btn-sm btn-outline-secondary" href="/Preguntas/Detalles/@Model.Pregunta.Id" title="Ver detalle" aria-label="Ver detalle">
                     <span style="font-size:0.95rem;">👁</span>
                 </a>
-
-                <div class="badge bg-light text-dark" id="qscore-@Model.Pregunta.Id">Score: @Model.Pregunta.Score</div>
             </div>
+
+            <span class="badge bg-light text-dark">Respuestas: <strong>@Model.TotalItems</strong></span>
+
+            <div class="vote-container">
+                @Html.Raw(RenderQuestionVoteControl())
+            </div>
+
+            <div class="pr-score badge bg-light text-dark" id="qscore-@Model.Pregunta.Id">Score: @Model.Pregunta.Score</div>
         </div>
     </div>
 
-    <!-- Reply form for top-level answer -->
-    <div class="reply-form">
-        @if (User.Identity.IsAuthenticated)
+    <div class="reply-form mt-3">
+        @if (!User.Identity.IsAuthenticated)
+        {
+            <div class="vote-login-hint">Inicia sesión para ver la(s) "@Model.TotalItems" respuesta(s). <a href="/Account/Login">Iniciar sesión</a></div>
+        }
+        else
         {
             <div class="mb-2"><strong>Responder a la pregunta</strong></div>
             <div class="mb-2">
@@ -230,56 +250,25 @@
                 <small class="text-muted">Tu respuesta aparecerá abajo.</small>
             </div>
         }
-        else
-        {
-            <a class="btn btn-outline-primary" href="/Account/Login">Inicia sesión para responder</a>
-        }
     </div>
 
-    <div class="mb-3 d-flex justify-content-between align-items-center">
-        <div class="search-answers">
-            <form method="get" class="d-flex align-items-center">
-                <input type="hidden" name="id" value="@Model.Id" />
-                <input name="search" class="form-control" placeholder="Buscar en respuestas..." value="@Model.Search" />
-                <button class="btn btn-outline-primary ms-1" type="submit">Buscar</button>
-            </form>
-        </div>
-
-        <div>
-            <form method="get" id="ansPageSize" class="d-flex align-items-center">
-                <input type="hidden" name="id" value="@Model.Id" />
-                <input type="hidden" name="search" value="@Model.Search" />
-                <input type="hidden" name="page" value="1" />
-                <select name="pageSize" class="form-select form-select-sm" onchange="document.getElementById('ansPageSize').submit();">
-                    @{
-                        var sizes = new[] { 6, 12, 24 };
-                    }
-                    @foreach (var s in sizes)
-                    {
-                        if (Model.PageSize == s)
-                        {
-                            <option value="@s" selected>@s</option>
-                        }
-                        else
-                        {
-                            <option value="@s">@s</option>
-                        }
-                    }
-                </select>
-            </form>
-        </div>
-    </div>
-
-    <div>
-        @if (!Model.Respuestas.Any())
+    <div class="answers-list">
+        @if (!User.Identity.IsAuthenticated)
         {
-            <div class="alert alert-secondary">No hay respuestas aún para esta pregunta.</div>
+            <div class="alert alert-info">Inicia sesión para ver las respuestas. <a href="/Account/Login">Iniciar sesión</a></div>
         }
         else
         {
-            @foreach (var a in Model.Respuestas)
+            @if (!Model.Respuestas.Any())
             {
-                <partial name="/Pages/Shared/_RespuestaCard.cshtml" model="a" />
+                <div class="alert alert-secondary">No hay respuestas aún para esta pregunta.</div>
+            }
+            else
+            {
+                @foreach (var a in Model.Respuestas)
+                {
+                    <partial name="/Pages/Shared/_RespuestaCard.cshtml" model="a" />
+                }
             }
         }
     </div>
@@ -302,19 +291,44 @@
     </div>
 </div>
 
-<!-- Reply modal (unchanged) -->
 @section Scripts {
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         (function () {
-            console.log('Detalles page scripts loaded');
+            // Lazy avatars helper
+            function initLazyAvatars() {
+                const imgs = Array.from(document.querySelectorAll('img.lazy-avatar[data-src]'));
+                if (!imgs.length) return;
+                const onLoad = img => img.classList.add('loaded');
+                const onError = img => { img.classList.add('loaded'); img.src = '@Url.Content("~/img/avatar-placeholder.png")'; };
+                const loadImg = img => {
+                    const src = img.getAttribute('data-src');
+                    if (!src) { onError(img); return; }
+                    const tmp = new Image();
+                    tmp.decoding = 'async';
+                    tmp.onload = function () { try { img.src = src; } catch {} onLoad(img); };
+                    tmp.onerror = function () { onError(img); };
+                    tmp.src = src;
+                };
+                if ('IntersectionObserver' in window) {
+                    const io = new IntersectionObserver((entries, observer) => {
+                        entries.forEach(entry => {
+                            if (entry.isIntersecting) {
+                                const img = entry.target;
+                                observer.unobserve(img);
+                                loadImg(img);
+                            }
+                        });
+                    }, { rootMargin: '200px 0px' });
+                    imgs.forEach(i => {
+                        if (i.getAttribute('data-src') && i.src.indexOf('avatar-placeholder.png') >= 0) io.observe(i);
+                        else if (i.getAttribute('data-src')) i.classList.add('loaded');
+                    });
+                } else imgs.forEach(i => loadImg(i));
+            }
 
-            const replyModalEl = document.getElementById('replyModal');
-            const replyModal = replyModalEl ? new bootstrap.Modal(replyModalEl) : null;
-
-            async function postReplyToApi(preguntaId, cuerpo, parentId) {
+            // POST a new answer
+            async function postReplyToApi(preguntaId, cuerpo) {
                 const body = { cuerpo: cuerpo };
-                if (parentId) body.parentId = parentId;
                 const res = await fetch('/api/respuestas', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-Pregunta-Id': preguntaId },
@@ -323,6 +337,7 @@
                 return res;
             }
 
+            // Send reply handler
             const btnSend = document.getElementById('btnSendReply');
             if (btnSend) {
                 btnSend.addEventListener('click', async function () {
@@ -331,7 +346,7 @@
                     if (!cuerpo) return alert('Escribe una respuesta');
                     btnSend.disabled = true;
                     try {
-                        const res = await postReplyToApi('@Model.Id', cuerpo, null);
+                        const res = await postReplyToApi('@Model.Id', cuerpo);
                         if (!res.ok) {
                             const txt = await res.text();
                             alert('Error al publicar respuesta: ' + txt);
@@ -343,58 +358,39 @@
                 });
             }
 
-            document.addEventListener('click', function (e) {
-                const btn = e.target.closest('.btn-open-reply-modal');
-                if (!btn) return;
-                const parentId = btn.getAttribute('data-id');
-                const author = btn.getAttribute('data-author') || '';
-                document.getElementById('modalParentId').value = parentId;
-                document.getElementById('modalReplyCuerpo').value = '';
-                document.getElementById('replyToInfo').textContent = 'Respondiendo a ' + author;
-                if (replyModal) replyModal.show();
-            });
-
-            const modalSend = document.getElementById('btnModalSend');
-            if (modalSend) {
-                modalSend.addEventListener('click', async function () {
-                    const cuerpo = document.getElementById('modalReplyCuerpo').value.trim();
-                    if (!cuerpo) return alert('Escribe una respuesta');
-                    modalSend.disabled = true;
-                    const parentId = document.getElementById('modalParentId').value || null;
-                    try {
-                        const res = await postReplyToApi('@Model.Id', cuerpo, parentId);
-                        if (!res.ok) {
-                            const txt = await res.text();
-                            alert('Error al publicar respuesta: ' + txt);
-                        } else {
-                            if (replyModal) replyModal.hide();
-                            location.reload();
-                        }
-                    } catch (e) { console.error(e); alert('Error de red'); }
-                    finally { modalSend.disabled = false; }
-                });
-            }
-
+            // Delegated votes handling for question and answers (single-button behavior)
             document.addEventListener('click', async function (e) {
                 const btnQ = e.target.closest('.btn-voto-q');
                 if (btnQ) {
                     e.preventDefault();
                     const id = btnQ.getAttribute('data-id');
-                    const valor = parseInt(btnQ.getAttribute('data-valor') || "0");
+                    const valor = parseInt(btnQ.getAttribute('data-valor') || "0", 10);
                     if (!id || (valor !== 1 && valor !== -1)) return;
+                    btnQ.disabled = true;
                     try {
-                        const res = await fetch('/api/preguntas/' + id + '/votar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ valor: valor }) });
-                        if (!res.ok) {
-                            const txt = await res.text();
-                            console.warn('Error votando pregunta:', res.status, txt);
-                            alert('Error al votar: ' + (txt || res.status));
-                            return;
-                        }
+                        const res = await fetch('/api/preguntas/' + id + '/votar', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ valor: valor })
+                        });
+                        if (!res.ok) { const txt = await res.text(); console.warn('Error votando pregunta:', res.status, txt); alert('Error al votar: ' + (txt || res.status)); return; }
                         const j = await res.json();
                         const scoreEl = document.getElementById('qscore-' + id);
                         if (j.score !== undefined && scoreEl) scoreEl.textContent = 'Score: ' + j.score;
-                        location.reload();
-                    } catch (e) { console.error(e); alert('Error de red'); }
+                        const card = document.querySelector('.pr-card[data-id="' + id + '"]');
+                        if (!card) return;
+                        const voteContainer = card.querySelector('.vote-container');
+                        const authenticated = card.getAttribute('data-authenticated') === 'true';
+                        const isMine = card.getAttribute('data-is-mine') === 'true';
+                        const userVote = (j.userVote !== undefined) ? j.userVote : 0;
+                        card.setAttribute('data-user-vote', String(userVote));
+                        card.setAttribute('data-score', String(j.score ?? 0));
+                        if (!authenticated) voteContainer.innerHTML = '<div class="vote-login-hint">Inicia sesión para realizar un voto. <a href="/Account/Login">Iniciar sesión</a></div>';
+                        else if (isMine) voteContainer.innerHTML = '<span class="text-muted small">No puedes votar tu propia pregunta</span>';
+                        else if (userVote === 1) voteContainer.innerHTML = '<button class="btn btn-outline-danger btn-voto btn-voto-q" data-id="' + id + '" data-valor="-1" title="Quitar voto">-1</button>';
+                        else voteContainer.innerHTML = '<button class="btn btn-outline-success btn-voto btn-voto-q" data-id="' + id + '" data-valor="1" title="+1">+1</button>';
+                    } catch (err) { console.error(err); alert('Error de red al votar'); }
+                    finally { try { btnQ.disabled = false; } catch {} }
                     return;
                 }
 
@@ -402,24 +398,39 @@
                 if (btnA) {
                     e.preventDefault();
                     const id = btnA.getAttribute('data-id');
-                    const valor = parseInt(btnA.getAttribute('data-valor') || "0");
+                    const valor = parseInt(btnA.getAttribute('data-valor') || "0", 10);
                     if (!id || (valor !== 1 && valor !== -1)) return;
+                    btnA.disabled = true;
                     try {
-                        const res = await fetch('/api/respuestas/' + id + '/votar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ valor: valor }) });
-                        if (!res.ok) {
-                            const txt = await res.text();
-                            console.warn('Error votando respuesta:', res.status, txt);
-                            alert('Error al votar: ' + (txt || res.status));
-                            return;
-                        }
+                        const res = await fetch('/api/respuestas/' + id + '/votar', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ valor: valor })
+                        });
+                        if (!res.ok) { const txt = await res.text(); console.warn('Votar respuesta falló:', res.status, txt); alert('Error al votar: ' + (txt || res.status)); return; }
                         const j = await res.json();
+                        const scoreVal = (j.score !== undefined) ? j.score : null;
+                        const userVote = (j.userVote !== undefined) ? j.userVote : 0;
+                        const card = document.querySelector('.ans-card[data-id="' + id + '"]');
+                        if (!card) return;
                         const scoreEl = document.getElementById('ascore-' + id);
-                        if (j.score !== undefined && scoreEl) scoreEl.textContent = 'Score: ' + j.score;
-                        location.reload();
-                    } catch (e) { console.error(e); alert('Error de red'); }
+                        const voteContainer = card.querySelector('.vote-container');
+                        if (scoreEl && scoreVal !== null) scoreEl.textContent = 'Score: ' + scoreVal;
+                        const authenticated = card.getAttribute('data-authenticated') === 'true';
+                        const isMine = card.getAttribute('data-is-mine') === 'true';
+                        card.setAttribute('data-user-vote', String(userVote));
+                        card.setAttribute('data-score', String(scoreVal));
+                        if (!authenticated) voteContainer.innerHTML = '<div class="vote-login-hint">Inicia sesión para ver/realizar votos. <a href="/Account/Login">Iniciar sesión</a></div>';
+                        else if (isMine) voteContainer.innerHTML = '<span class="text-muted small">No puedes votar tu propia respuesta</span>';
+                        else if (userVote === 1) voteContainer.innerHTML = '<button class="btn btn-outline-danger btn-voto-ans" data-id="' + id + '" data-valor="-1" title="Quitar voto">-1</button>';
+                        else voteContainer.innerHTML = '<button class="btn btn-outline-success btn-voto-ans" data-id="' + id + '" data-valor="1" title="+1">+1</button>';
+                    } catch (err) { console.error('Error votando respuesta', err); alert('Error de red al votar'); }
+                    finally { try { btnA.disabled = false; } catch {} }
                     return;
                 }
             });
+
+            initLazyAvatars();
         })();
     </script>
 }

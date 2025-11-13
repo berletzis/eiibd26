@@ -1,6 +1,9 @@
-﻿@using System.Security.Claims
-@model eiibd26.Pages.Preguntas.DetallesModel.RespuestaVm
+﻿@model dynamic
 @{
+    // Partial for a single response card that matches the question list visual:
+    // expected model fields:
+    // Id (Guid), Cuerpo (string), UsuarioId (Guid), AutorNombre (string),
+    // AutorAvatarUrl (string), FechaCreacion (DateTimeOffset | DateTime | string), Score (int), UsuarioVoto (int)
     string ResolveAvatar(string avatar)
     {
         if (string.IsNullOrWhiteSpace(avatar)) return Url.Content("~/img/avatar-placeholder.png");
@@ -8,94 +11,153 @@
         if (avatar.StartsWith("/")) return avatar;
         return Url.Content("~/" + avatar.TrimStart('/'));
     }
+
+    string FormatFecha(object fechaObj)
+    {
+        if (fechaObj == null) return "";
+        try
+        {
+            if (fechaObj is DateTimeOffset dto) return dto.ToLocalTime().ToString("g");
+            if (fechaObj is DateTime dt) return new DateTimeOffset(dt).ToLocalTime().ToString("g");
+            var s = fechaObj.ToString();
+            if (DateTimeOffset.TryParse(s, out var parsedDto)) return parsedDto.ToLocalTime().ToString("g");
+            if (DateTime.TryParse(s, out var parsedDt)) return new DateTimeOffset(parsedDt).ToLocalTime().ToString("g");
+            return s;
+        }
+        catch
+        {
+            return fechaObj.ToString();
+        }
+    }
+
+    var scoreValInit = (int?)(Model.Score ?? 0);
+    var userVoteInit = (int?)(Model.UsuarioVoto ?? 0);
+    var authenticated = User.Identity.IsAuthenticated;
+    var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+    var isAuthor = !string.IsNullOrEmpty(currentUserId) && Guid.TryParse(currentUserId, out var cuid) && cuid == (Guid)Model.UsuarioId;
 }
-<div class="ans-card" data-id="@Model.Id">
-    <div class="ans-author" style="align-items:center;">
-        <img class="ans-thumb" src="@ResolveAvatar(Model.AutorAvatarUrl)" alt="@Model.AutorNombre"
-             width="36" height="36"
-             loading="lazy"
+<style>
+    .ans-card {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        padding: 12px;
+        border-radius: 10px;
+        background: #fff;
+        box-shadow: 0 4px 12px rgba(20,40,80,0.04);
+        position: relative;
+    }
+
+    .ans-avatar-col {
+        flex: 0 0 auto;
+    }
+
+    .ans-avatar {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        object-fit: cover;
+        box-shadow: 0 1px 5px rgba(0,0,0,0.06);
+    }
+
+    .ans-content {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .ans-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .ans-author {
+        font-weight: 600;
+        color: #16324a;
+    }
+
+    .ans-date {
+        color: #6b7788;
+        font-size: .9rem;
+        margin-left: 8px;
+    }
+
+    .ans-body {
+        margin-top: 8px;
+        color: #2b3b4a;
+        line-height: 1.35;
+    }
+
+    .ans-actions {
+        flex: 0 0 120px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 8px;
+        min-width: 100px;
+    }
+    @@media (max-width:760px) {
+        .ans-card
+
+    {
+        flex-direction: column;
+    }
+
+    .ans-actions {
+        flex-direction: row;
+        justify-content: space-between;
+        width: 100%;
+    }
+
+    }
+</style>
+
+<div class="ans-card" data-id="@Model.Id" data-authenticated="@(authenticated ? "true" : "false")" data-is-mine="@(isAuthor ? "true" : "false")" data-user-vote="@userVoteInit" data-score="@scoreValInit">
+    <div class="ans-avatar-col">
+        <img class="ans-avatar lazy-avatar"
+             src="@Url.Content("~/img/avatar-placeholder.png")"
+             data-src="@ResolveAvatar((string)Model.AutorAvatarUrl)"
+             alt="@Model.AutorNombre"
+             width="44" height="44"
              decoding="async"
              onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
-        <div>
-            <strong>@Model.AutorNombre</strong>
-            @if (Model.EsMia)
-            {
-                <span class="author-badge" style="margin-left:8px; font-size:0.8rem; padding:2px 8px; border-radius:999px; background:#eef2ff; color:#1e3a8a;">Tu respuesta</span>
-            }
-            <div class="text-muted small">@Model.FechaCreacion.ToLocalTime().ToString("g")</div>
-        </div>
     </div>
 
-    <div class="ans-body">@Html.Raw(Model.Cuerpo)</div>
+    <div class="ans-content">
+        <div class="ans-header">
+            <div>
+                <span class="ans-author">@Model.AutorNombre</span>
+                <small class="ans-date"> · @FormatFecha(Model.FechaCreacion)</small>
+            </div>
+        </div>
+
+        <div class="ans-body">@Html.Raw(Model.Cuerpo)</div>
+    </div>
 
     <div class="ans-actions">
-        @if (User.Identity.IsAuthenticated)
-        {
-            if (Model.EsMia)
+        <div class="vote-container">
+            @if (!User.Identity.IsAuthenticated)
+            {
+                <div class="vote-login-hint">Inicia sesión para ver/realizar votos. <a href="/Account/Login">Iniciar sesión</a></div>
+            }
+            else if (isAuthor)
             {
                 <span class="text-muted small">No puedes votar tu propia respuesta</span>
-                <button class="btn btn-sm btn-outline-secondary btn-open-reply-modal" data-id="@Model.Id" data-author="@Model.AutorNombre">Responder</button>
             }
             else
             {
-                if (Model.UsuarioVoto == 1)
+                if (userVoteInit == 1)
                 {
-                    <button class="btn btn-outline-success btn-voto-ans voto-activo" data-id="@Model.Id" data-valor="1">+1</button>
-                }
-                else if (Model.UsuarioVoto == -1)
-                {
-                    <button class="btn btn-outline-danger btn-voto-ans voto-activo" data-id="@Model.Id" data-valor="-1">-1</button>
+                    <button class="btn btn-outline-danger btn-voto-ans" data-id="@Model.Id" data-valor="-1" title="Quitar voto">-1</button>
                 }
                 else
                 {
-                    <button class="btn btn-outline-success btn-voto-ans" data-id="@Model.Id" data-valor="1">+1</button>
-                    <button class="btn btn-outline-danger btn-voto-ans" data-id="@Model.Id" data-valor="-1">-1</button>
+                    <button class="btn btn-outline-success btn-voto-ans" data-id="@Model.Id" data-valor="1" title="+1">+1</button>
                 }
-
-                <button class="btn btn-sm btn-outline-secondary btn-open-reply-modal" data-id="@Model.Id" data-author="@Model.AutorNombre">Responder</button>
-            }
-        }
-        else
-        {
-            <a class="btn btn-sm btn-outline-secondary" href="/Account/Login">Responder</a>
-            <a class="btn btn-outline-success" href="/Account/Login">+1</a>
-            <a class="btn btn-outline-danger" href="/Account/Login">-1</a>
-        }
-        <div class="badge bg-light text-dark" id="ascore-@Model.Id">Score: @Model.Score</div>
-    </div>
-
-    @if (Model.Children != null && Model.Children.Any())
-    {
-        <div class="child-replies">
-            @foreach (var c in Model.Children)
-            {
-                <partial name="/Pages/Shared/_RespuestaCard.cshtml" model="c" />
             }
         </div>
-    }
+
+        <div class="badge bg-light text-dark" id="ascore-@Model.Id">Score: @((int)(Model.Score ?? 0))</div>
+    </div>
 </div>
-
-<style>
-    .ans-author .ans-thumb {
-        width: 36px;
-        height: 36px;
-        display: inline-block;
-        border-radius: 50%;
-        object-fit: cover;
-        margin-right: 10px;
-    }
-
-    .author-badge {
-        margin-left: 8px;
-        font-size: 0.8rem;
-        padding: 2px 8px;
-        border-radius: 999px;
-        background: #eef2ff;
-        color: #1e3a8a;
-    }
-
-    .child-replies {
-        margin-left: 48px;
-        margin-top: 8px;
-    }
-</style>

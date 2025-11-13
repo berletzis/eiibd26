@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 
 namespace eiibd26.Areas.Identity.Pages.Usuario
 {
-    [Authorize] // Solo usuarios autenticados pueden ver sus preguntas/respuestas/votos relacionadas
+    [Authorize]
     public class PreguntasRespuestasModel : PageModel
     {
         private readonly ApplicationDbContext _db;
@@ -25,270 +25,252 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        // View models
         public class PreguntaCardVm
         {
             public Guid Id { get; set; }
-            public string Titulo { get; set; }
-            public string CuerpoPreview { get; set; }
+            public string Titulo { get; set; } = "";
+            public string TituloPreview { get; set; } = "";
+            public string CuerpoPreview { get; set; } = "";
             public Guid UsuarioId { get; set; }
+            public string AutorNombre { get; set; } = "Usuario";
+            public string AutorAvatarUrl { get; set; } = "/img/avatar-placeholder.png";
             public DateTimeOffset FechaCreacion { get; set; }
-            public bool Resuelta { get; set; }
-            public int Score { get; set; }
             public int RespuestasCount { get; set; }
-            public List<Guid> EtiquetaIds { get; set; } = new List<Guid>();
-            public string AutorNombre { get; set; } = "";
-            // Voto actual del usuario para esta pregunta: 1, -1 o 0 (sin voto)
+            public int Score { get; set; }
             public int UsuarioVoto { get; set; } = 0;
+            public List<string> RespondersAvatars { get; set; } = new List<string>();
         }
 
-        public class EtiquetaOptionVm
-        {
-            public Guid Id { get; set; }
-            public string NombreCanonico { get; set; }
-            public string Nombre { get; set; }
-        }
-
-        // Properties bound to page
         public List<PreguntaCardVm> Preguntas { get; set; } = new List<PreguntaCardVm>();
+
+        // Paging
+        [BindProperty(SupportsGet = true)]
         public int Page { get; set; } = 1;
+        [BindProperty(SupportsGet = true)]
         public int PageSize { get; set; } = 12;
         public int Total { get; set; }
 
-        // Etiquetas para los selects (detalladas por tipo)
-        public List<EtiquetaOptionVm> Condiciones { get; set; } = new List<EtiquetaOptionVm>();
-        public List<EtiquetaOptionVm> Sintomas { get; set; } = new List<EtiquetaOptionVm>();
-        public List<EtiquetaOptionVm> Tratamientos { get; set; } = new List<EtiquetaOptionVm>();
+        // Dropdown lists - typed as object/dynamic to avoid compile errors if not present
+        public IEnumerable<object> Condiciones { get; set; } = Array.Empty<object>();
+        public IEnumerable<object> Sintomas { get; set; } = Array.Empty<object>();
+        public IEnumerable<object> Tratamientos { get; set; } = Array.Empty<object>();
 
-        // Helper to obtain current user id guid
         private Guid? GetUserIdGuid()
         {
-            var uid = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(uid)) return null;
-            if (Guid.TryParse(uid, out var g)) return g;
+            var v = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(v)) return null;
+            if (Guid.TryParse(v, out var g)) return g;
             return null;
         }
 
-        public async Task<IActionResult> OnGetAsync(int page = 1, int pageSize = 12)
+        public async Task<IActionResult> OnGetAsync(int? page, int? pageSize)
         {
+            if (page.HasValue) Page = Math.Max(1, page.Value);
+            if (pageSize.HasValue) PageSize = Math.Max(1, pageSize.Value);
+
             var userId = GetUserIdGuid();
-            if (userId == null) return Challenge();
+            if (!userId.HasValue) return Forbid();
 
-            Page = Math.Max(1, page);
-            PageSize = Math.Max(6, pageSize);
+            // Base query: questions created by user OR where user has answered
+            var baseQ = _db.Preguntas.AsNoTracking().Where(p => !p.Eliminado &&
+                (p.UsuarioId == userId.Value ||
+                 _db.Respuestas.Any(r => r.PreguntaId == p.Id && !r.Eliminado && r.UsuarioId == userId.Value)));
 
-            // Cargar listas de etiquetas por tipo para el modal (detalle en los selects)
-            Condiciones = await _db.Etiquetas
-                .AsNoTracking()
-                .Where(e => !e.Eliminado && e.Tipo == "condicion")
-                .OrderBy(e => e.NombreCanonico)
-                .Select(e => new EtiquetaOptionVm { Id = e.Id, Nombre = e.Nombre, NombreCanonico = e.NombreCanonico })
-                .ToListAsync();
+            Total = await baseQ.CountAsync();
 
-            Sintomas = await _db.Etiquetas
-                .AsNoTracking()
-                .Where(e => !e.Eliminado && e.Tipo == "sintoma")
-                .OrderBy(e => e.NombreCanonico)
-                .Select(e => new EtiquetaOptionVm { Id = e.Id, Nombre = e.Nombre, NombreCanonico = e.NombreCanonico })
-                .ToListAsync();
+            var pageQ = baseQ.OrderByDescending(p => p.FechaCreacion).Skip((Page - 1) * PageSize).Take(PageSize);
 
-            Tratamientos = await _db.Etiquetas
-                .AsNoTracking()
-                .Where(e => !e.Eliminado && e.Tipo == "tratamiento")
-                .OrderBy(e => e.NombreCanonico)
-                .Select(e => new EtiquetaOptionVm { Id = e.Id, Nombre = e.Nombre, NombreCanonico = e.NombreCanonico })
-                .ToListAsync();
+            var items = await pageQ.Select(p => new
+            {
+                p.Id,
+                p.Titulo,
+                p.Cuerpo,
+                p.UsuarioId,
+                p.FechaCreacion,
+                RespuestasCount = _db.Respuestas.Count(r => r.PreguntaId == p.Id && !r.Eliminado),
+                Score = _db.Votos.Where(v => v.EntidadTipo == "pregunta" && v.EntidadId == p.Id && !v.Eliminado).Select(v => (int?)v.Valor).Sum() ?? 0
+            }).ToListAsync();
 
-            // Consultas auxiliares: preguntas respondidas y preguntas votadas por el usuario
-            var qFromAnswers = _db.Respuestas
-                .Where(r => !r.Eliminado && r.UsuarioId == userId.Value)
-                .Select(r => r.PreguntaId);
-
-            var qFromVotes = _db.Votos
-                .Where(v => !v.Eliminado && v.UsuarioId == userId.Value && v.EntidadTipo == "pregunta")
-                .Select(v => v.EntidadId);
-
-            // Query principal: preguntas del usuario OR a las que respondió OR a las que votó
-            var baseQuery = _db.Preguntas
-                .AsNoTracking()
-                .Where(p => !p.Eliminado &&
-                            (p.UsuarioId == userId.Value || qFromAnswers.Contains(p.Id) || qFromVotes.Contains(p.Id)))
-                .OrderByDescending(p => p.FechaCreacion);
-
-            Total = await baseQuery.CountAsync();
-
-            var items = await baseQuery
-                .Skip((Page - 1) * PageSize)
-                .Take(PageSize)
-                .Select(p => new PreguntaCardVm
-                {
-                    Id = p.Id,
-                    Titulo = p.Titulo,
-                    CuerpoPreview = (p.Cuerpo.Length > 320 ? p.Cuerpo.Substring(0, 320) + "…" : p.Cuerpo),
-                    UsuarioId = p.UsuarioId,
-                    FechaCreacion = p.FechaCreacion,
-                    Resuelta = p.Resuelta,
-                    Score = _db.Votos.Where(v => v.EntidadTipo == "pregunta" && v.EntidadId == p.Id && !v.Eliminado).Select(v => (int?)v.Valor).Sum() ?? 0,
-                    RespuestasCount = _db.Respuestas.Count(r => r.PreguntaId == p.Id && !r.Eliminado),
-                    EtiquetaIds = p.PreguntaEtiquetas.Where(pe => !pe.Eliminado).Select(pe => pe.EtiquetaId).ToList()
-                }).ToListAsync();
-
-            // Obtener votos del usuario para las preguntas listadas para indicar estado en UI
             var preguntaIds = items.Select(i => i.Id).ToArray();
+            var authorIds = items.Select(i => i.UsuarioId).Distinct().ToArray();
+
+            // Load Perfil for authors
+            var authors = new Dictionary<Guid, (string name, string avatar)>();
+            if (authorIds.Length > 0)
+            {
+                try
+                {
+                    var perfiles = await _db.Set<Perfil>().AsNoTracking()
+                        .Where(p => authorIds.Contains(p.idUser) && (p.Eliminado == null || p.Eliminado == false))
+                        .Select(p => new { p.idUser, p.Nombre, p.Apellidos, p.Avatar })
+                        .ToListAsync();
+
+                    authors = perfiles.ToDictionary(
+                        x => x.idUser,
+                        x =>
+                        {
+                            var full = string.IsNullOrWhiteSpace(x.Apellidos) ? (x.Nombre ?? "Usuario") : $"{(x.Nombre ?? "Usuario")} {x.Apellidos}";
+                            var avatar = string.IsNullOrWhiteSpace(x.Avatar) ? "/img/avatar-placeholder.png" : x.Avatar;
+                            return (name: full, avatar: avatar);
+                        });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error leyendo perfiles de autores en usuarioPreguntasRespuestas.");
+                }
+            }
+
+            // responders per question
+            var responderRows = new List<(Guid PreguntaId, Guid UsuarioId)>();
             if (preguntaIds.Length > 0)
             {
-                var votosUsuario = await _db.Votos
-                    .AsNoTracking()
-                    .Where(v => !v.Eliminado && v.UsuarioId == userId.Value && v.EntidadTipo == "pregunta" && preguntaIds.Contains(v.EntidadId))
-                    .ToDictionaryAsync(v => v.EntidadId, v => v.Valor);
+                var respuestas = await _db.Respuestas.AsNoTracking()
+                    .Where(r => preguntaIds.Contains(r.PreguntaId) && !r.Eliminado)
+                    .Select(r => new { r.PreguntaId, r.UsuarioId })
+                    .ToListAsync();
 
-                foreach (var it in items)
-                {
-                    it.UsuarioVoto = votosUsuario.TryGetValue(it.Id, out var val) ? val : 0;
-                    it.AutorNombre = it.UsuarioId == userId.Value ? "Tú" : "Usuario";
-                }
+                responderRows = respuestas.Select(r => (r.PreguntaId, r.UsuarioId)).ToList();
             }
-            else
+
+            var responderUserIds = responderRows.Select(r => r.UsuarioId).Distinct().ToArray();
+            var responderProfiles = new Dictionary<Guid, (string name, string avatar)>();
+            if (responderUserIds.Length > 0)
             {
-                foreach (var it in items)
+                try
                 {
-                    it.UsuarioVoto = 0;
-                    it.AutorNombre = it.UsuarioId == userId.Value ? "Tú" : "Usuario";
+                    var rperfiles = await _db.Set<Perfil>().AsNoTracking()
+                        .Where(p => responderUserIds.Contains(p.idUser) && (p.Eliminado == null || p.Eliminado == false))
+                        .Select(p => new { p.idUser, p.Nombre, p.Apellidos, p.Avatar })
+                        .ToListAsync();
+
+                    responderProfiles = rperfiles.ToDictionary(
+                        x => x.idUser,
+                        x =>
+                        {
+                            var full = string.IsNullOrWhiteSpace(x.Apellidos) ? (x.Nombre ?? "Usuario") : $"{(x.Nombre ?? "Usuario")} {x.Apellidos}";
+                            var avatar = string.IsNullOrWhiteSpace(x.Avatar) ? "/img/avatar-placeholder.png" : x.Avatar;
+                            return (name: full, avatar: avatar);
+                        });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error leyendo perfiles de responders en usuarioPreguntasRespuestas.");
                 }
             }
 
-            Preguntas = items;
+            // user's votes for these questions
+            var votosUsuario = new Dictionary<Guid, int>();
+            if (preguntaIds.Length > 0)
+            {
+                var votos = await _db.Votos.AsNoTracking()
+                    .Where(v => v.EntidadTipo == "pregunta" && preguntaIds.Contains(v.EntidadId) && v.UsuarioId == userId.Value && !v.Eliminado)
+                    .GroupBy(v => v.EntidadId)
+                    .Select(g => new { Id = g.Key, Valor = g.Select(x => (int?)x.Valor).FirstOrDefault() })
+                    .ToListAsync();
+
+                votosUsuario = votos.ToDictionary(x => x.Id, x => x.Valor ?? 0);
+            }
+
+            // Build VMs - apply truncation limits for title and body (server-side)
+            const int titleLimit = 120;
+            const int bodyLimit = 220;
+
+            Preguntas = items.Select(i =>
+            {
+                var tituloPreview = string.IsNullOrWhiteSpace(i.Titulo) ? "" :
+                    (i.Titulo.Length > titleLimit ? i.Titulo.Substring(0, titleLimit).TrimEnd() + "…" : i.Titulo);
+
+                var cuerpoPreview = string.IsNullOrWhiteSpace(i.Cuerpo) ? "" :
+                    (i.Cuerpo.Length > bodyLimit ? i.Cuerpo.Substring(0, bodyLimit).TrimEnd() + "…" : i.Cuerpo);
+
+                var vm = new PreguntaCardVm
+                {
+                    Id = i.Id,
+                    Titulo = i.Titulo,
+                    TituloPreview = tituloPreview,
+                    CuerpoPreview = cuerpoPreview,
+                    UsuarioId = i.UsuarioId,
+                    AutorNombre = authors.ContainsKey(i.UsuarioId) ? authors[i.UsuarioId].name : "Usuario",
+                    AutorAvatarUrl = authors.ContainsKey(i.UsuarioId) ? authors[i.UsuarioId].avatar : "/img/avatar-placeholder.png",
+                    FechaCreacion = i.FechaCreacion,
+                    RespuestasCount = i.RespuestasCount,
+                    Score = i.Score,
+                    UsuarioVoto = votosUsuario.TryGetValue(i.Id, out var vv) ? vv : 0
+                };
+
+                var rForQ = responderRows.Where(r => r.PreguntaId == i.Id)
+                                        .Select(r => r.UsuarioId)
+                                        .Where(uid => uid != i.UsuarioId)
+                                        .Distinct()
+                                        .Take(6)
+                                        .ToList();
+
+                foreach (var rid in rForQ)
+                {
+                    if (responderProfiles.TryGetValue(rid, out var rp))
+                        vm.RespondersAvatars.Add(rp.avatar);
+                    else
+                        vm.RespondersAvatars.Add("/img/avatar-placeholder.png");
+                }
+
+                return vm;
+            }).ToList();
+
+            // If you have Condiciones/Sintomas/Tratamientos entity sets, populate them here.
+            // Left empty by default to avoid runtime errors when those tables don't exist.
+
             return Page();
         }
 
-        // Handler: crear pregunta (desde modal). Requiere autenticación.
-        public async Task<IActionResult> OnPostCrearPreguntaAsync(
-            [FromForm] string titulo,
-            [FromForm] string cuerpo,
-            [FromForm] Guid? relacionCondicionId,
-            [FromForm] Guid? relacionSintomaId,
-            [FromForm] Guid? relacionTratamientoId)
+        // New handler: receives form POST from the "Nueva pregunta" modal.
+        // It creates a Pregunta record and returns JSON { ok: true, id: <guid> } on success,
+        // or { ok: false, error: "message" } on failure.
+        public async Task<IActionResult> OnPostCrearPreguntaAsync()
         {
-            if (!User.Identity.IsAuthenticated) return Challenge();
-
-            if (string.IsNullOrWhiteSpace(titulo) || string.IsNullOrWhiteSpace(cuerpo))
+            var userId = GetUserIdGuid();
+            if (!userId.HasValue)
             {
-                if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
-                    return BadRequest(new { error = "Título y cuerpo son requeridos." });
-                ModelState.AddModelError(string.Empty, "Título y cuerpo son requeridos.");
-                return RedirectToPage();
+                // return JSON with 401 status (Unauthorized) and message
+                return new JsonResult(new { ok = false, error = "Usuario no autenticado" }) { StatusCode = 401 };
             }
 
-            var userId = GetUserIdGuid().Value;
+            // Read form values
+            var titulo = (Request.Form["titulo"].FirstOrDefault() ?? "").Trim();
+            var cuerpo = (Request.Form["cuerpo"].FirstOrDefault() ?? "").Trim();
 
-            var p = new Pregunta
+            if (string.IsNullOrWhiteSpace(titulo))
             {
-                Id = Guid.NewGuid(),
-                UsuarioId = userId,
-                Titulo = titulo.Trim(),
-                Cuerpo = cuerpo.Trim(),
-                FechaCreacion = DateTimeOffset.UtcNow,
-                Resuelta = false,
-                Eliminado = false
-            };
-
-            _db.Preguntas.Add(p);
-
-            // Relacionar las etiquetas seleccionadas (si aplica). Creamos una relación por cada tipo seleccionado.
-            var relaciones = new List<PreguntaEtiqueta>();
-            if (relacionCondicionId.HasValue)
-            {
-                var et = await _db.Etiquetas.FindAsync(relacionCondicionId.Value);
-                if (et != null && !et.Eliminado && et.Tipo == "condicion")
-                {
-                    relaciones.Add(new PreguntaEtiqueta { Id = Guid.NewGuid(), PreguntaId = p.Id, EtiquetaId = et.Id, FechaRelacion = DateTimeOffset.UtcNow, Eliminado = false });
-                }
+                return new JsonResult(new { ok = false, error = "El título es obligatorio" }) { StatusCode = 400 };
             }
-            if (relacionSintomaId.HasValue)
-            {
-                var et = await _db.Etiquetas.FindAsync(relacionSintomaId.Value);
-                if (et != null && !et.Eliminado && et.Tipo == "sintoma")
-                {
-                    relaciones.Add(new PreguntaEtiqueta { Id = Guid.NewGuid(), PreguntaId = p.Id, EtiquetaId = et.Id, FechaRelacion = DateTimeOffset.UtcNow, Eliminado = false });
-                }
-            }
-            if (relacionTratamientoId.HasValue)
-            {
-                var et = await _db.Etiquetas.FindAsync(relacionTratamientoId.Value);
-                if (et != null && !et.Eliminado && et.Tipo == "tratamiento")
-                {
-                    relaciones.Add(new PreguntaEtiqueta { Id = Guid.NewGuid(), PreguntaId = p.Id, EtiquetaId = et.Id, FechaRelacion = DateTimeOffset.UtcNow, Eliminado = false });
-                }
-            }
-
-            if (relaciones.Count > 0) _db.PreguntaEtiquetas.AddRange(relaciones);
-
-            await _db.SaveChangesAsync();
-
-            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
-            {
-                var score = 0;
-                return new JsonResult(new
-                {
-                    ok = true,
-                    id = p.Id,
-                    titulo = p.Titulo,
-                    cuerpoPreview = p.Cuerpo.Length > 320 ? p.Cuerpo.Substring(0, 320) + "…" : p.Cuerpo,
-                    fechaCreacion = p.FechaCreacion,
-                    score
-                });
-            }
-
-            TempData["SuccessMessage"] = "Pregunta creada correctamente.";
-            return RedirectToPage(new { page = 1 });
-        }
-
-        // Handler: crear respuesta (desde modal). Requiere autenticación.
-        public async Task<IActionResult> OnPostCrearRespuestaAsync([FromForm] Guid preguntaId, [FromForm] string cuerpo)
-        {
-            if (!User.Identity.IsAuthenticated) return Challenge();
 
             if (string.IsNullOrWhiteSpace(cuerpo))
             {
-                if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
-                    return BadRequest(new { error = "El cuerpo de la respuesta es requerido." });
-                ModelState.AddModelError(string.Empty, "El cuerpo de la respuesta es requerido.");
-                return RedirectToPage();
+                return new JsonResult(new { ok = false, error = "El cuerpo es obligatorio" }) { StatusCode = 400 };
             }
 
-            var pregunta = await _db.Preguntas.FirstOrDefaultAsync(p => p.Id == preguntaId && !p.Eliminado);
-            if (pregunta == null) return NotFound();
-
-            var userId = GetUserIdGuid().Value;
-
-            var r = new Respuesta
+            try
             {
-                Id = Guid.NewGuid(),
-                PreguntaId = preguntaId,
-                UsuarioId = userId,
-                Cuerpo = cuerpo.Trim(),
-                FechaCreacion = DateTimeOffset.UtcNow,
-                EsAceptada = false,
-                Eliminado = false
-            };
-
-            _db.Respuestas.Add(r);
-            await _db.SaveChangesAsync();
-
-            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
-            {
-                return new JsonResult(new
+                // Build pregunta entity. Use only common fields to be compatible with your model.
+                var pregunta = new Pregunta
                 {
-                    ok = true,
-                    id = r.Id,
-                    preguntaId = r.PreguntaId,
-                    cuerpo = r.Cuerpo,
-                    fechaCreacion = r.FechaCreacion
-                });
-            }
+                    Id = Guid.NewGuid(),
+                    Titulo = titulo,
+                    Cuerpo = cuerpo,
+                    UsuarioId = userId.Value,
+                    FechaCreacion = DateTime.UtcNow,
+                    Eliminado = false
+                };
 
-            TempData["SuccessMessage"] = "Respuesta publicada.";
-            return RedirectToPage();
+                _db.Preguntas.Add(pregunta);
+                await _db.SaveChangesAsync();
+
+                return new JsonResult(new { ok = true, id = pregunta.Id });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creando pregunta nueva en usuarioPreguntasRespuestas");
+                return StatusCode(500, new { ok = false, error = "Error interno al crear la pregunta" });
+            }
         }
     }
 }

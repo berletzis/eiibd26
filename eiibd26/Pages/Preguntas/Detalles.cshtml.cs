@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Security.Claims;
-using System.Threading.Tasks;
 using eiibd26.Data;
 using eiibd26.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -10,6 +5,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Security.Claims;
+using System.Threading.Tasks;
 
 namespace eiibd26.Pages.Preguntas
 {
@@ -21,15 +21,15 @@ namespace eiibd26.Pages.Preguntas
 
         public DetallesModel(ApplicationDbContext db, ILogger<DetallesModel> logger)
         {
-            _db = db;
-            _logger = logger;
+            _db = db ?? throw new ArgumentNullException(nameof(db));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         public class PreguntaVm
         {
             public Guid Id { get; set; }
-            public string Titulo { get; set; }
-            public string Cuerpo { get; set; }
+            public string Titulo { get; set; } = "";
+            public string Cuerpo { get; set; } = "";
             public Guid UsuarioId { get; set; }
             public string AutorNombre { get; set; } = "Usuario";
             public string AutorAvatarUrl { get; set; } = "/img/avatar-placeholder.png";
@@ -42,32 +42,29 @@ namespace eiibd26.Pages.Preguntas
         public class RespuestaVm
         {
             public Guid Id { get; set; }
-            public Guid PreguntaId { get; set; }
-            public Guid? ParentId { get; set; }
+            public string Cuerpo { get; set; } = "";
             public Guid UsuarioId { get; set; }
-            public bool EsMia { get; set; } = false;
             public string AutorNombre { get; set; } = "Usuario";
             public string AutorAvatarUrl { get; set; } = "/img/avatar-placeholder.png";
-            public string Cuerpo { get; set; }
             public DateTimeOffset FechaCreacion { get; set; }
             public int Score { get; set; }
             public int UsuarioVoto { get; set; } = 0;
-            public List<RespuestaVm> Children { get; set; } = new List<RespuestaVm>();
         }
 
         [BindProperty(SupportsGet = true)]
         public Guid Id { get; set; }
 
-        public PreguntaVm Pregunta { get; set; }
-
-        public List<RespuestaVm> Respuestas { get; set; } = new List<RespuestaVm>();
-
         [BindProperty(SupportsGet = true)]
         public int Page { get; set; } = 1;
+
         [BindProperty(SupportsGet = true)]
         public int PageSize { get; set; } = 6;
+
         [BindProperty(SupportsGet = true)]
         public string Search { get; set; } = "";
+
+        public PreguntaVm Pregunta { get; set; } = new PreguntaVm();
+        public List<RespuestaVm> Respuestas { get; set; } = new List<RespuestaVm>();
 
         public int TotalItems { get; set; }
         public int TotalPages => (int)Math.Ceiling(TotalItems / (double)PageSize);
@@ -89,136 +86,148 @@ namespace eiibd26.Pages.Preguntas
 
             var userId = GetUserIdGuid();
 
-            var q = await _db.Preguntas.AsNoTracking().FirstOrDefaultAsync(p => p.Id == Id && !p.Eliminado);
-            if (q == null) return NotFound();
+            var pregunta = await _db.Preguntas.AsNoTracking()
+                .Where(p => p.Id == id && !p.Eliminado)
+                .Select(p => new
+                {
+                    p.Id,
+                    p.Titulo,
+                    p.Cuerpo,
+                    p.UsuarioId,
+                    p.FechaCreacion,
+                    Score = _db.Votos.Where(v => v.EntidadTipo == "pregunta" && v.EntidadId == p.Id && !v.Eliminado).Select(v => (int?)v.Valor).Sum() ?? 0
+                })
+                .FirstOrDefaultAsync();
 
-            var qScore = await _db.Votos.Where(v => v.EntidadTipo == "pregunta" && v.EntidadId == q.Id && !v.Eliminado).Select(v => (int?)v.Valor).SumAsync() ?? 0;
-            int qUsuarioVoto = 0;
-            if (userId.HasValue)
-            {
-                var vq = await _db.Votos.AsNoTracking().FirstOrDefaultAsync(v => !v.Eliminado && v.UsuarioId == userId.Value && v.EntidadTipo == "pregunta" && v.EntidadId == q.Id);
-                qUsuarioVoto = vq?.Valor ?? 0;
-            }
+            if (pregunta == null) return NotFound();
 
-            string autorName = "Usuario";
-            string autorAvatar = "/img/avatar-placeholder.png";
+            // load author info from Perfil
             try
             {
-                var au = await _db.Set<IdentityUserLite>().AsNoTracking().FirstOrDefaultAsync(u => u.Id == q.UsuarioId);
-                if (au != null) { autorName = string.IsNullOrWhiteSpace(au.UserName) ? "Usuario" : au.UserName; autorAvatar = string.IsNullOrWhiteSpace(au.AvatarUrl) ? "/img/avatar-placeholder.png" : au.AvatarUrl; }
-            }
-            catch { }
+                var perfil = await _db.Set<Perfil>().AsNoTracking()
+                    .Where(p => p.idUser == pregunta.UsuarioId && (p.Eliminado == null || p.Eliminado == false))
+                    .Select(p => new { p.idUser, p.Nombre, p.Apellidos, p.Avatar })
+                    .FirstOrDefaultAsync();
 
-            Pregunta = new PreguntaVm
-            {
-                Id = q.Id,
-                Titulo = q.Titulo,
-                Cuerpo = q.Cuerpo,
-                UsuarioId = q.UsuarioId,
-                AutorNombre = autorName,
-                AutorAvatarUrl = autorAvatar,
-                FechaCreacion = q.FechaCreacion,
-                Score = qScore,
-                UsuarioVoto = qUsuarioVoto,
-                EsMia = userId.HasValue && q.UsuarioId == userId.Value
-            };
-
-            string[] parentCandidates = new[] { "ParentRespuestaId", "ParentId", "RespuestaPadreId" };
-            string parentPropName = null;
-            var entityType = _db.Model.FindEntityType(typeof(Respuesta));
-            if (entityType != null)
-            {
-                foreach (var cand in parentCandidates)
+                Pregunta = new PreguntaVm
                 {
-                    if (entityType.FindProperty(cand) != null) { parentPropName = cand; break; }
-                }
+                    Id = pregunta.Id,
+                    Titulo = pregunta.Titulo,
+                    Cuerpo = pregunta.Cuerpo,
+                    UsuarioId = pregunta.UsuarioId,
+                    AutorNombre = perfil != null ? (string.IsNullOrWhiteSpace(perfil.Apellidos) ? (perfil.Nombre ?? "Usuario") : $"{(perfil.Nombre ?? "Usuario")} {perfil.Apellidos}") : "Usuario",
+                    AutorAvatarUrl = perfil != null ? (string.IsNullOrWhiteSpace(perfil.Avatar) ? "/img/avatar-placeholder.png" : perfil.Avatar) : "/img/avatar-placeholder.png",
+                    FechaCreacion = pregunta.FechaCreacion,
+                    Score = pregunta.Score,
+                    UsuarioVoto = 0,
+                    EsMia = userId.HasValue && pregunta.UsuarioId == userId.Value
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudo obtener perfil de la pregunta; usando valores por defecto.");
+                Pregunta = new PreguntaVm
+                {
+                    Id = pregunta.Id,
+                    Titulo = pregunta.Titulo,
+                    Cuerpo = pregunta.Cuerpo,
+                    UsuarioId = pregunta.UsuarioId,
+                    AutorNombre = "Usuario",
+                    AutorAvatarUrl = "/img/avatar-placeholder.png",
+                    FechaCreacion = pregunta.FechaCreacion,
+                    Score = pregunta.Score,
+                    UsuarioVoto = 0,
+                    EsMia = userId.HasValue && pregunta.UsuarioId == userId.Value
+                };
             }
 
-            var allAnswersQuery = _db.Respuestas.AsNoTracking().Where(r => r.PreguntaId == Id && !r.Eliminado);
+            // user's vote for the question (active only)
+            if (userId.HasValue)
+            {
+                var votoQ = await _db.Votos.AsNoTracking()
+                    .Where(v => v.EntidadTipo == "pregunta" && v.EntidadId == id && v.UsuarioId == userId.Value && !v.Eliminado)
+                    .OrderByDescending(v => v.FechaCreacion)
+                    .FirstOrDefaultAsync();
+                if (votoQ != null) Pregunta.UsuarioVoto = votoQ.Valor;
+            }
+
+            // load responses (paged + optional search)
+            var baseAnsQ = _db.Respuestas.AsNoTracking().Where(r => r.PreguntaId == id && !r.Eliminado);
             if (!string.IsNullOrWhiteSpace(Search))
             {
                 var s = Search.ToLower();
-                allAnswersQuery = allAnswersQuery.Where(r => r.Cuerpo.ToLower().Contains(s));
+                baseAnsQ = baseAnsQ.Where(r => r.Cuerpo.ToLower().Contains(s));
             }
 
-            var allAnswers = await allAnswersQuery
-                .Select(r => new
-                {
-                    r.Id,
-                    r.PreguntaId,
-                    r.UsuarioId,
-                    r.Cuerpo,
-                    r.EsAceptada,
-                    r.FechaCreacion,
-                    ParentId = parentPropName != null ? EF.Property<Guid?>(r, parentPropName) : (Guid?)null,
-                    Score = _db.Votos.Where(v => v.EntidadTipo == "respuesta" && v.EntidadId == r.Id && !v.Eliminado).Select(v => (int?)v.Valor).Sum() ?? 0
-                })
-                .ToListAsync();
+            TotalItems = await baseAnsQ.CountAsync();
 
-            var answerUserIds = allAnswers.Select(a => a.UsuarioId).Distinct().ToArray();
-            var answerUsers = new Dictionary<Guid, (string name, string avatar)>();
-            if (answerUserIds.Length > 0)
+            var ansPageQ = baseAnsQ.OrderByDescending(r => r.FechaCreacion).Skip((Page - 1) * PageSize).Take(PageSize);
+
+            var ansItems = await ansPageQ.Select(r => new
+            {
+                r.Id,
+                r.Cuerpo,
+                r.UsuarioId,
+                r.FechaCreacion,
+                Score = _db.Votos.Where(v => v.EntidadTipo == "respuesta" && v.EntidadId == r.Id && !v.Eliminado).Select(v => (int?)v.Valor).Sum() ?? 0
+            }).ToListAsync();
+
+            var ansUserIds = ansItems.Select(a => a.UsuarioId).Distinct().ToArray();
+
+            // load answer authors from Perfil
+            Dictionary<Guid, (string name, string avatar)> ansAuthors = new Dictionary<Guid, (string, string)>();
+            if (ansUserIds.Length > 0)
             {
                 try
                 {
-                    var aus = await _db.Set<IdentityUserLite>().AsNoTracking().Where(u => answerUserIds.Contains(u.Id)).Select(u => new { u.Id, u.UserName, u.AvatarUrl }).ToListAsync();
-                    answerUsers = aus.ToDictionary(x => x.Id, x => (x.UserName ?? "Usuario", string.IsNullOrWhiteSpace(x.AvatarUrl) ? "/img/avatar-placeholder.png" : x.AvatarUrl));
+                    var perfiles = await _db.Set<Perfil>().AsNoTracking()
+                        .Where(p => ansUserIds.Contains(p.idUser) && (p.Eliminado == null || p.Eliminado == false))
+                        .Select(p => new { p.idUser, p.Nombre, p.Apellidos, p.Avatar })
+                        .ToListAsync();
+
+                    ansAuthors = perfiles.ToDictionary(
+                        x => x.idUser,
+                        x =>
+                        {
+                            var full = string.IsNullOrWhiteSpace(x.Apellidos) ? (x.Nombre ?? "Usuario") : $"{(x.Nombre ?? "Usuario")} {x.Apellidos}";
+                            var avatar = string.IsNullOrWhiteSpace(x.Avatar) ? "/img/avatar-placeholder.png" : x.Avatar;
+                            return (name: full, avatar: avatar);
+                        });
                 }
-                catch { answerUsers = new Dictionary<Guid, (string, string)>(); }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "No se pudo obtener perfiles de autores de respuestas; usando por defecto.");
+                    ansAuthors = new Dictionary<Guid, (string, string)>();
+                }
             }
 
-            var answerIds = allAnswers.Select(a => a.Id).ToArray();
-            var votosUsuario = new Dictionary<Guid, int>();
-            if (userId.HasValue && answerIds.Length > 0)
+            // user's votes on answers (active)
+            Dictionary<Guid, int> votosUsuarioAns = new Dictionary<Guid, int>();
+            if (userId.HasValue && ansItems.Count > 0)
             {
-                var votos = await _db.Votos.AsNoTracking().Where(v => !v.Eliminado && v.UsuarioId == userId.Value && v.EntidadTipo == "respuesta" && answerIds.Contains(v.EntidadId))
+                var ansIds = ansItems.Select(a => a.Id).ToArray();
+                var votos = await _db.Votos.AsNoTracking()
+                    .Where(v => v.UsuarioId == userId.Value && v.EntidadTipo == "respuesta" && ansIds.Contains(v.EntidadId) && !v.Eliminado)
                     .GroupBy(v => v.EntidadId)
                     .Select(g => new { Id = g.Key, Valor = g.Select(x => (int?)x.Valor).FirstOrDefault() })
                     .ToListAsync();
-                votosUsuario = votos.ToDictionary(x => x.Id, x => x.Valor ?? 0);
+
+                votosUsuarioAns = votos.ToDictionary(x => x.Id, x => x.Valor ?? 0);
             }
 
-            var map = allAnswers.ToDictionary(
-                a => a.Id,
-                a => new RespuestaVm
-                {
-                    Id = a.Id,
-                    PreguntaId = a.PreguntaId,
-                    ParentId = a.ParentId,
-                    UsuarioId = a.UsuarioId,
-                    EsMia = userId.HasValue && a.UsuarioId == userId.Value,
-                    AutorNombre = answerUsers.ContainsKey(a.UsuarioId) ? answerUsers[a.UsuarioId].name : "Usuario",
-                    AutorAvatarUrl = answerUsers.ContainsKey(a.UsuarioId) ? answerUsers[a.UsuarioId].avatar : "/img/avatar-placeholder.png",
-                    Cuerpo = a.Cuerpo,
-                    FechaCreacion = a.FechaCreacion,
-                    Score = a.Score,
-                    UsuarioVoto = votosUsuario.TryGetValue(a.Id, out var vv) ? vv : 0,
-                    Children = new List<RespuestaVm>()
-                });
-
-            foreach (var vm in map.Values)
+            Respuestas = ansItems.Select(a => new RespuestaVm
             {
-                if (vm.ParentId.HasValue && map.ContainsKey(vm.ParentId.Value))
-                {
-                    map[vm.ParentId.Value].Children.Add(vm);
-                }
-            }
-
-            var topLevelAll = map.Values.Where(r => !r.ParentId.HasValue).OrderByDescending(r => r.FechaCreacion).ToList();
-            TotalItems = topLevelAll.Count;
-
-            var pagedTop = topLevelAll.Skip((Page - 1) * PageSize).Take(PageSize).ToList();
-
-            Respuestas = pagedTop;
+                Id = a.Id,
+                Cuerpo = a.Cuerpo,
+                UsuarioId = a.UsuarioId,
+                AutorNombre = ansAuthors.ContainsKey(a.UsuarioId) ? ansAuthors[a.UsuarioId].name : "Usuario",
+                AutorAvatarUrl = ansAuthors.ContainsKey(a.UsuarioId) ? ansAuthors[a.UsuarioId].avatar : "/img/avatar-placeholder.png",
+                FechaCreacion = a.FechaCreacion,
+                Score = a.Score,
+                UsuarioVoto = votosUsuarioAns.TryGetValue(a.Id, out var vv) ? vv : 0
+            }).ToList();
 
             return Page();
-        }
-
-        private class IdentityUserLite
-        {
-            public Guid Id { get; set; }
-            public string UserName { get; set; }
-            public string AvatarUrl { get; set; }
         }
     }
 }
