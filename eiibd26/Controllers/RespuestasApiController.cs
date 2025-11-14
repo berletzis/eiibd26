@@ -35,6 +35,46 @@ namespace eiibd26.Controllers
             _userManager = userManager;
         }
 
+
+        private Guid? GetUserIdGuid()
+        {
+            var v = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(v)) return null;
+            if (Guid.TryParse(v, out var g)) return g;
+            return null;
+        }
+
+        // POST api/respuestas/{id}/eliminar
+        // Marks the respuesta as Eliminado = true if the authenticated user is the owner.
+        [HttpPost("{id:guid}/eliminar")]
+        [Authorize]
+        public async Task<IActionResult> Eliminar(Guid id)
+        {
+            var userId = GetUserIdGuid();
+            if (!userId.HasValue) return Unauthorized(new { ok = false, error = "Usuario no autenticado" });
+
+            var r = await _db.Respuestas.FirstOrDefaultAsync(x => x.Id == id);
+            if (r == null) return NotFound(new { ok = false, error = "Respuesta no encontrada" });
+
+            if (r.UsuarioId != userId.Value)
+            {
+                return Forbid();
+            }
+
+            try
+            {
+                r.Eliminado = true;
+                _db.Respuestas.Update(r);
+                await _db.SaveChangesAsync();
+                return Ok(new { ok = true });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error eliminando respuesta {Id}", id);
+                return StatusCode(500, new { ok = false, error = "Error al eliminar la respuesta" });
+            }
+        }
+
         // POST /api/respuestas
         [HttpPost]
         [Authorize]

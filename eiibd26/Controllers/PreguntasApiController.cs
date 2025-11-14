@@ -35,6 +35,49 @@ namespace eiibd26.Controllers
             _userManager = userManager;
         }
 
+
+        private Guid? GetUserIdGuid()
+        {
+            var v = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(v)) return null;
+            if (Guid.TryParse(v, out var g)) return g;
+            return null;
+        }
+
+
+        // POST api/preguntas/{id}/eliminar
+        // Marks the pregunta as Eliminado = true if the authenticated user is the owner.
+        [HttpPost("{id:guid}/eliminar")]
+        [Authorize]
+        public async Task<IActionResult> Eliminar(Guid id)
+        {
+            var userId = GetUserIdGuid();
+            if (!userId.HasValue) return Unauthorized(new { ok = false, error = "Usuario no autenticado" });
+
+            var p = await _db.Preguntas.FirstOrDefaultAsync(x => x.Id == id);
+            if (p == null) return NotFound(new { ok = false, error = "Pregunta no encontrada" });
+
+            if (p.UsuarioId != userId.Value)
+            {
+                return Forbid();
+            }
+
+            try
+            {
+                p.Eliminado = true;
+                // Optionally set FechaModificado or UsuarioModificacion if your model has it
+                _db.Preguntas.Update(p);
+                await _db.SaveChangesAsync();
+                return Ok(new { ok = true });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error eliminando pregunta {Id}", id);
+                return StatusCode(500, new { ok = false, error = "Error al eliminar la pregunta" });
+            }
+        }
+
+
         // POST api/preguntas/{id}/votar
         [HttpPost("{id:guid}/votar")]
         [Authorize]

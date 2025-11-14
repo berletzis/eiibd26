@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using eiibd26.Data;
 using eiibd26.Models;
@@ -39,6 +40,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             public int Score { get; set; }
             public int UsuarioVoto { get; set; } = 0;
             public List<string> RespondersAvatars { get; set; } = new List<string>();
+            public bool EsMia { get; set; } = false;
         }
 
         public List<PreguntaCardVm> Preguntas { get; set; } = new List<PreguntaCardVm>();
@@ -50,7 +52,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
         public int PageSize { get; set; } = 12;
         public int Total { get; set; }
 
-        // Dropdown lists - typed as object/dynamic to avoid compile errors if not present
+        // Optional dropdown lists (may be empty)
         public IEnumerable<object> Condiciones { get; set; } = Array.Empty<object>();
         public IEnumerable<object> Sintomas { get; set; } = Array.Empty<object>();
         public IEnumerable<object> Tratamientos { get; set; } = Array.Empty<object>();
@@ -61,6 +63,17 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             if (string.IsNullOrEmpty(v)) return null;
             if (Guid.TryParse(v, out var g)) return g;
             return null;
+        }
+
+        // Utility: remove HTML tags for preview and avoid broken HTML in truncated output
+        private static string StripHtml(string? input)
+        {
+            if (string.IsNullOrEmpty(input)) return string.Empty;
+            // remove tags
+            var noTags = Regex.Replace(input, "<.*?>", string.Empty);
+            // collapse whitespace
+            noTags = Regex.Replace(noTags, @"\s+", " ").Trim();
+            return noTags;
         }
 
         public async Task<IActionResult> OnGetAsync(int? page, int? pageSize)
@@ -172,30 +185,36 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             }
 
             // Build VMs - apply truncation limits for title and body (server-side)
-            const int titleLimit = 120;
-            const int bodyLimit = 220;
+            const int titleLimit = 80;
+            const int bodyLimit = 140;
+
+            var currentUserId = GetUserIdGuid();
 
             Preguntas = items.Select(i =>
             {
-                var tituloPreview = string.IsNullOrWhiteSpace(i.Titulo) ? "" :
-                    (i.Titulo.Length > titleLimit ? i.Titulo.Substring(0, titleLimit).TrimEnd() + "…" : i.Titulo);
+                var rawTitle = i.Titulo ?? "";
+                var rawBody = StripHtml(i.Cuerpo ?? "");
 
-                var cuerpoPreview = string.IsNullOrWhiteSpace(i.Cuerpo) ? "" :
-                    (i.Cuerpo.Length > bodyLimit ? i.Cuerpo.Substring(0, bodyLimit).TrimEnd() + "…" : i.Cuerpo);
+                var tituloPreview = string.IsNullOrWhiteSpace(rawTitle) ? "" :
+                    (rawTitle.Length > titleLimit ? rawTitle.Substring(0, titleLimit).TrimEnd() + "…" : rawTitle);
+
+                var cuerpoText = string.IsNullOrWhiteSpace(rawBody) ? "" :
+                    (rawBody.Length > bodyLimit ? rawBody.Substring(0, bodyLimit).TrimEnd() + "…" : rawBody);
 
                 var vm = new PreguntaCardVm
                 {
                     Id = i.Id,
                     Titulo = i.Titulo,
                     TituloPreview = tituloPreview,
-                    CuerpoPreview = cuerpoPreview,
+                    CuerpoPreview = cuerpoText,
                     UsuarioId = i.UsuarioId,
                     AutorNombre = authors.ContainsKey(i.UsuarioId) ? authors[i.UsuarioId].name : "Usuario",
                     AutorAvatarUrl = authors.ContainsKey(i.UsuarioId) ? authors[i.UsuarioId].avatar : "/img/avatar-placeholder.png",
                     FechaCreacion = i.FechaCreacion,
                     RespuestasCount = i.RespuestasCount,
                     Score = i.Score,
-                    UsuarioVoto = votosUsuario.TryGetValue(i.Id, out var vv) ? vv : 0
+                    UsuarioVoto = votosUsuario.TryGetValue(i.Id, out var vv) ? vv : 0,
+                    EsMia = (currentUserId.HasValue && currentUserId.Value == i.UsuarioId)
                 };
 
                 var rForQ = responderRows.Where(r => r.PreguntaId == i.Id)
@@ -216,41 +235,26 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 return vm;
             }).ToList();
 
-            // If you have Condiciones/Sintomas/Tratamientos entity sets, populate them here.
-            // Left empty by default to avoid runtime errors when those tables don't exist.
-
             return Page();
         }
 
-        // New handler: receives form POST from the "Nueva pregunta" modal.
-        // It creates a Pregunta record and returns JSON { ok: true, id: <guid> } on success,
-        // or { ok: false, error: "message" } on failure.
+        // OnPostCrearPreguntaAsync unchanged
         public async Task<IActionResult> OnPostCrearPreguntaAsync()
         {
             var userId = GetUserIdGuid();
             if (!userId.HasValue)
             {
-                // return JSON with 401 status (Unauthorized) and message
                 return new JsonResult(new { ok = false, error = "Usuario no autenticado" }) { StatusCode = 401 };
             }
 
-            // Read form values
             var titulo = (Request.Form["titulo"].FirstOrDefault() ?? "").Trim();
             var cuerpo = (Request.Form["cuerpo"].FirstOrDefault() ?? "").Trim();
 
-            if (string.IsNullOrWhiteSpace(titulo))
-            {
-                return new JsonResult(new { ok = false, error = "El título es obligatorio" }) { StatusCode = 400 };
-            }
-
-            if (string.IsNullOrWhiteSpace(cuerpo))
-            {
-                return new JsonResult(new { ok = false, error = "El cuerpo es obligatorio" }) { StatusCode = 400 };
-            }
+            if (string.IsNullOrWhiteSpace(titulo)) return new JsonResult(new { ok = false, error = "El título es obligatorio" }) { StatusCode = 400 };
+            if (string.IsNullOrWhiteSpace(cuerpo)) return new JsonResult(new { ok = false, error = "El cuerpo es obligatorio" }) { StatusCode = 400 };
 
             try
             {
-                // Build pregunta entity. Use only common fields to be compatible with your model.
                 var pregunta = new Pregunta
                 {
                     Id = Guid.NewGuid(),

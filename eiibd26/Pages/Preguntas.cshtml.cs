@@ -1,6 +1,7 @@
 using eiibd26.Data;
 using eiibd26.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
@@ -247,5 +248,24 @@ namespace eiibd26.Pages
                 return vm;
             }).ToList();
         }
+
+        public async Task<IActionResult> OnPostEliminarPreguntaAsync([FromForm] Guid id)
+        {
+            var userId = GetUserIdGuid();
+            if (!userId.HasValue) return Forbid();
+
+            var p = await _db.Preguntas.FirstOrDefaultAsync(x => x.Id == id);
+            if (p == null) return NotFound();
+
+            if (p.UsuarioId != userId.Value) return Forbid();
+
+            p.Eliminado = true;
+            _db.Preguntas.Update(p);
+            await _db.SaveChangesAsync();
+
+            // redirect to same page after deletion
+            return RedirectToPage();
+        }
+
     }
 }
