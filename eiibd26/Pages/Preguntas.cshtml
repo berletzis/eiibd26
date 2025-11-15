@@ -13,10 +13,13 @@
     }
 }
 <style>
+    /* Container */
     .pr-container {
         max-width: 980px;
         margin: 28px auto;
         padding: 0 12px;
+        box-sizing: border-box;
+        font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
     }
 
     .pr-toolbar {
@@ -28,14 +31,17 @@
         flex-wrap: wrap;
     }
 
+    /* Card visual matching Detalles styling (bluish/purple gradient) */
     .pr-card {
-        background: #fff;
-        border-radius: 12px;
-        box-shadow: 0 6px 18px rgba(20,40,80,.06);
-        padding: 16px;
+        background: linear-gradient(180deg,#f7f9ff,#f3f6ff);
+        border-radius: 14px;
+        box-shadow: 0 6px 18px rgba(25,45,85,0.04);
+        padding: 18px;
         margin-bottom: 12px;
         position: relative;
         overflow: visible;
+        border: 1px solid rgba(70,90,150,0.04);
+        color: #123a57;
     }
 
     /* Main row: left content (title/body/meta) + right actions */
@@ -52,17 +58,18 @@
 
     .pr-title {
         font-weight: 600;
-        color: #16324a;
+        color: #123a57;
         font-size: 1.05rem;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
         display: block;
+        text-decoration: none;
     }
 
     .pr-body {
         margin-top: 8px;
-        color: #253443;
+        color: #2b3b4a;
         line-height: 1.35;
         display: -webkit-box;
         -webkit-line-clamp: 6;
@@ -72,20 +79,21 @@
 
     /* Row of avatars (author first, larger, then responders) aligned left */
     .avatars-row {
-        margin-top: 10px;
+        margin-top: 12px;
         display: flex;
-        gap: 8px;
+        gap: 10px;
         align-items: center;
         justify-content: flex-start;
     }
 
     .avatar-author {
-        width: 36px;
-        height: 36px;
+        width: 40px;
+        height: 40px;
         border-radius: 50%;
         object-fit: cover;
         box-shadow: 0 1px 4px rgba(0,0,0,0.06);
         flex: 0 0 auto;
+        border: 2px solid rgba(255,255,255,0.6);
     }
 
     .avatar-res {
@@ -95,6 +103,13 @@
         object-fit: cover;
         box-shadow: 0 1px 4px rgba(0,0,0,0.06);
         flex: 0 0 auto;
+        border: 2px solid #fff;
+        margin-left: -8px;
+    }
+
+    .author-info {
+        margin-left: 8px;
+        min-width: 0;
     }
 
     /* Actions (score, responses count, view) pinned to right */
@@ -102,9 +117,10 @@
         flex: 0 0 160px;
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 10px;
         align-items: flex-end;
         justify-content: flex-start;
+        min-width: 120px;
     }
 
     .pr-eye {
@@ -117,6 +133,7 @@
         text-align: right;
     }
 
+    /* Vote buttons - keep classes used by JS but style them to match Detalles */
     .btn-voto {
         width: 38px;
         height: 38px;
@@ -124,6 +141,28 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+    }
+
+    /* positive / like: gradient */
+    .btn.btn-outline-success.btn-voto,
+    .btn.btn-outline-success.btn-voto-q {
+        background: linear-gradient(90deg,#2ea6ff,#6a4bd8);
+        color: #fff !important;
+        border: 0 !important;
+        box-shadow: 0 6px 14px rgba(46,166,255,0.12);
+    }
+
+    /* negative / remove: soft danger outline */
+    .btn.btn-outline-danger.btn-voto,
+    .btn.btn-outline-danger.btn-voto-q {
+        background: #fff;
+        color: #d23b4a;
+        border: 1px solid rgba(210,59,74,0.12);
+        box-shadow: 0 2px 6px rgba(210,59,74,0.03);
     }
 
     .vote-login-hint {
@@ -132,6 +171,14 @@
         text-align: right;
     }
 
+    .badge.bg-light.text-dark {
+        background: linear-gradient(90deg,#eef5ff,#f2f9ff) !important;
+        border: 1px solid rgba(110,150,220,0.08) !important;
+        color: #2b5a93 !important;
+        font-weight: 600;
+    }
+
+    /* responsive */
     @@media (max-width:760px) {
         .pr-main
 
@@ -175,12 +222,10 @@
                     if (Model.PageSize == s)
                     {
                         <option value="@s" selected>@s</option>
-                        ;
                     }
                     else
                     {
                         <option value="@s">@s</option>
-                        ;
                     }
                 }
             </select>
@@ -202,6 +247,7 @@
                     <div class="pr-main">
                         <div class="pr-content">
                             <a href="/Preguntas/Detalles/@q.Id" class="pr-title">@q.Titulo</a>
+
                             @if (q.EsMia)
                             {
                                 <form method="post" asp-page-handler="EliminarPregunta" class="d-inline" style="display:inline-block;">
@@ -210,6 +256,7 @@
                                     <button class="btn-delete-inline" title="Eliminar pregunta" aria-label="Eliminar pregunta" type="submit" onclick="return confirm('¿Deseas eliminar esta pregunta? Esta acción no se puede deshacer.');">🗑</button>
                                 </form>
                             }
+
                             <div class="pr-body">@Html.Raw(q.CuerpoPreview)</div>
 
                             <div class="avatars-row" aria-hidden="true">
@@ -217,7 +264,7 @@
                                 <img class="avatar-author lazy-avatar"
                                      src="@Url.Content("~/img/avatar-placeholder.png")"
                                      data-src="@ResolveAvatar(q.AutorAvatarUrl)"
-                                     alt="@q.AutorNombre" width="36" height="36"
+                                     alt="@q.AutorNombre" width="40" height="40"
                                      decoding="async"
                                      onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
 
@@ -226,7 +273,7 @@
                                     var added = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                                     if (!string.IsNullOrWhiteSpace(q.AutorAvatarUrl)) added.Add(q.AutorAvatarUrl);
                                     var rcnt = 0;
-                                    foreach (var a in q.RespondersAvatars)
+                                    foreach (var a in q.RespondersAvatars ?? Enumerable.Empty<string>())
                                     {
                                         if (rcnt >= 6) break;
                                         if (string.IsNullOrWhiteSpace(a)) continue;
@@ -254,6 +301,7 @@
                             <span class="badge bg-light text-dark">Respuestas: <strong>@q.RespuestasCount</strong></span>
 
                             <div class="vote-container">
+                                @* Keep server-side control and classes used by JS; include icons like in Detalles *@
                                 @if (!User.Identity.IsAuthenticated)
                                 {
                                     <div class="vote-login-hint">Inicia sesión para realizar un voto. <a href="/Account/Login">Iniciar sesión</a></div>
@@ -266,11 +314,11 @@
                                 {
                                     if (q.UsuarioVoto == 1)
                                     {
-                                        <button class="btn btn-outline-danger btn-voto btn-voto-q" data-id="@q.Id" data-valor="-1" title="Quitar voto">-1</button>
+                                        <button class="btn btn-outline-danger btn-voto btn-voto-q" data-id="@q.Id" data-valor="-1" title="Quitar voto"><i class="bi bi-hand-thumbs-down me-1"></i>-1</button>
                                     }
                                     else
                                     {
-                                        <button class="btn btn-outline-success btn-voto btn-voto-q" data-id="@q.Id" data-valor="1" title="+1">+1</button>
+                                        <button class="btn btn-outline-success btn-voto btn-voto-q" data-id="@q.Id" data-valor="1" title="+1"><i class="bi bi-hand-thumbs-up me-1"></i>+1</button>
                                     }
                                 }
                             </div>
@@ -370,7 +418,7 @@
                     const scoreEl = document.getElementById('score-' + id);
                     if (j.score !== undefined && scoreEl) scoreEl.textContent = 'Score: ' + j.score;
 
-                    // update single control in the card
+                    // update single control in the card, keep icon markup consistent
                     const card = document.querySelector('.pr-card[data-id="' + id + '"]');
                     if (!card) return;
                     const voteContainer = card.querySelector('.vote-container');
@@ -387,9 +435,9 @@
                         voteContainer.innerHTML = '<span class="text-muted small">No puedes votar tu propia pregunta</span>';
                     } else {
                         if (userVote === 1) {
-                            voteContainer.innerHTML = '<button class="btn btn-outline-danger btn-voto btn-voto-q" data-id="' + id + '" data-valor="-1" title="Quitar voto">-1</button>';
+                            voteContainer.innerHTML = '<button class="btn btn-outline-danger btn-voto btn-voto-q" data-id="' + id + '" data-valor="-1" title="Quitar voto"><i class="bi bi-hand-thumbs-down me-1"></i>-1</button>';
                         } else {
-                            voteContainer.innerHTML = '<button class="btn btn-outline-success btn-voto btn-voto-q" data-id="' + id + '" data-valor="1" title="+1">+1</button>';
+                            voteContainer.innerHTML = '<button class="btn btn-outline-success btn-voto btn-voto-q" data-id="' + id + '" data-valor="1" title="+1"><i class="bi bi-hand-thumbs-up me-1"></i>+1</button>';
                         }
                     }
                 } catch (err) {

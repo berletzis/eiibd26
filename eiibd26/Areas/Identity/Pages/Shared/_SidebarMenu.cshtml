@@ -1,11 +1,35 @@
-﻿<div class="d-flex flex-column flex-shrink-0 p-3 bg-light sidebar-menu" style="width: 230px; min-height: 100vh; border-right: 1px solid #ececec;">
+﻿@* Shared sidebar menu (Mi PyR icon updated: replaced SVG with same size/structure as Admin block) *@
+@using Microsoft.AspNetCore.Http
+@{
+    var path = ViewContext.HttpContext.Request.Path.ToString();
+    // Mustard color for the icon
+    var mustard = "#D4A017";
+}
+
+<div class="d-flex flex-column flex-shrink-0 p-3 bg-light sidebar-menu" style="width: 230px; min-height: 100vh; border-right: 1px solid #ececec;">
     <ul class="nav nav-pills flex-column mb-auto">
         <!-- Inicio -->
         <li class="nav-item mb-1">
-            <a href="/" class="nav-link text-dark @(ViewContext.HttpContext.Request.Path == "/" ? "active" : "")">
+            <a href="/" class="nav-link text-dark @(path == "/" ? "active" : "")">
                 <i class="bi bi-house"></i> Inicio
             </a>
         </li>
+
+        @* Mi PyR: top-level, now uses same icon container/size as Admin *@
+        @if (User.Identity?.IsAuthenticated == true)
+        {
+            <li class="nav-item mb-1">
+                <a href="/Identity/Usuario/usuarioPreguntasRespuestas"
+                   class="nav-link text-dark d-flex align-items-center @(path == "/Identity/Usuario/usuarioPreguntasRespuestas" ? "active fw-bold" : "fw-bold")"
+                   style="gap:.5rem;">
+                    <span class="d-inline-flex align-items-center justify-content-center rounded border me-2" style="width:30px;height:30px; border-width:2px;">
+                        <i class="bi bi-chat-left-dots" style="color:@mustard; font-size:1.3em"></i>
+                    </span>
+                    <span>Mi PyR</span>
+                </a>
+            </li>
+        }
+
         <!-- Admin encabezado (solo escudo rojo en cuadro, palabra normal) -->
         @if (User.Identity?.IsAuthenticated == true && User.IsInRole("Administrador"))
         {
@@ -18,26 +42,27 @@
                 </span>
             </li>
             <li>
-                <a href="/Identity/Admin/Usuarios/Index" class="nav-link admin ms-4 text-dark @(ViewContext.HttpContext.Request.Path == "/Identity/Admin/Usuarios/Index" ? "active" : "")">
+                <a href="/Identity/Admin/Usuarios/Index" class="nav-link admin ms-4 text-dark @(path == "/Identity/Admin/Usuarios/Index" ? "active" : "")">
                     <i class="bi bi-person-vcard"></i> Usuarios
                 </a>
             </li>
             <li>
-                <a href="/Identity/Admin/Condiciones/Index" class="nav-link admin ms-4 text-dark @(ViewContext.HttpContext.Request.Path == "/Identity/Admin/Condiciones/Index" ? "active" : "")">
+                <a href="/Identity/Admin/Condiciones/Index" class="nav-link admin ms-4 text-dark @(path == "/Identity/Admin/Condiciones/Index" ? "active" : "")">
                     <i class="bi bi-hospital"></i> Condiciones
                 </a>
             </li>
             <li>
-                <a href="/Identity/Admin/Sintomas/Index" class="nav-link admin ms-4 text-dark @(ViewContext.HttpContext.Request.Path == "/Identity/Admin/Sintomas/Index" ? "active" : "")">
+                <a href="/Identity/Admin/Sintomas/Index" class="nav-link admin ms-4 text-dark @(path == "/Identity/Admin/Sintomas/Index" ? "active" : "")">
                     <i class="bi bi-activity"></i> Síntomas
                 </a>
             </li>
             <li>
-                <a href="/Identity/Admin/Tratamientos/Index" class="nav-link admin ms-4 text-dark @(ViewContext.HttpContext.Request.Path == "/Identity/Admin/Tratamientos/Index" ? "active" : "")">
+                <a href="/Identity/Admin/Tratamientos/Index" class="nav-link admin ms-4 text-dark @(path == "/Identity/Admin/Tratamientos/Index" ? "active" : "")">
                     <i class="bi bi-prescription2"></i> Tratamientos
                 </a>
             </li>
         }
+
         <!-- Mi Salud encabezado (corazón en cuadro morado, texto normal) -->
         <li class="nav-item mt-4 mb-1">
             <span class="nav-link disabled fw-bold d-flex align-items-center" style="opacity:1;">
@@ -47,33 +72,29 @@
                 <span>Mi Salud</span>
             </span>
         </li>
+
         <li>
-            <a href="/Identity/Usuario/usuarioPreguntasRespuestas" class="nav-link salud ms-4 text-dark @(ViewContext.HttpContext.Request.Path == "/Identity/Usuario/usuarioPreguntasRespuestas" ? "active" : "")">
-                <i class="bi bi-person-vcard"></i> Mi PyR
-            </a>
-        </li>
-        <li>
-            <a href="/Identity/Usuario/UsuarioEstadoAnimo" class="nav-link salud ms-4 text-dark @(ViewContext.HttpContext.Request.Path == "/Identity/Usuario/UsuarioEstadoAnimo" ? "active" : "")">
+            <a href="/Identity/Usuario/UsuarioEstadoAnimo" class="nav-link salud ms-4 text-dark @(path == "/Identity/Usuario/UsuarioEstadoAnimo" ? "active" : "")">
                 <i class="bi bi-person-vcard"></i> Mi Mood
             </a>
         </li>
         <li>
-            <a href="/Identity/Usuario/UsuarioCondiciones" class="nav-link salud ms-4 text-dark @(ViewContext.HttpContext.Request.Path == "/Identity/Usuario/UsuarioCondiciones" ? "active" : "")">
+            <a href="/Identity/Usuario/UsuarioCondiciones" class="nav-link salud ms-4 text-dark @(path == "/Identity/Usuario/UsuarioCondiciones" ? "active" : "")">
                 <i class="bi bi-lungs"></i> Mis condiciones
             </a>
         </li>
         <li>
-            <a href="/Identity/Usuario/UsuarioSintomas" class="nav-link salud ms-4 text-dark @(ViewContext.HttpContext.Request.Path == "/Identity/Usuario/UsuarioSintomas" ? "active" : "")">
+            <a href="/Identity/Usuario/UsuarioSintomas" class="nav-link salud ms-4 text-dark @(path == "/Identity/Usuario/UsuarioSintomas" ? "active" : "")">
                 <i class="bi bi-heartbreak"></i> Mis síntomas
             </a>
         </li>
         <li>
-            <a href="/Identity/Usuario/UsuarioSintomasSeguimiento" class="nav-link salud ms-4 text-dark @(ViewContext.HttpContext.Request.Path == "/Identity/Usuario/UsuarioSintomasSeguimiento" ? "active" : "")">
+            <a href="/Identity/Usuario/UsuarioSintomasSeguimiento" class="nav-link salud ms-4 text-dark @(path == "/Identity/Usuario/UsuarioSintomasSeguimiento" ? "active" : "")">
                 <i class="bi bi-graph-up"></i> Seguimiento de síntomas
             </a>
         </li>
         <li>
-            <a href="/Identity/Usuario/UsuarioTratamientos" class="nav-link salud ms-4 text-dark @(ViewContext.HttpContext.Request.Path == "/Identity/Usuario/UsuarioTratamientos" ? "active" : "")">
+            <a href="/Identity/Usuario/UsuarioTratamientos" class="nav-link salud ms-4 text-dark @(path == "/Identity/Usuario/UsuarioTratamientos" ? "active" : "")">
                 <i class="bi bi-capsule-pill"></i> Mis tratamientos
             </a>
         </li>

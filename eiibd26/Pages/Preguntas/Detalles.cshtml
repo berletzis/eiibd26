@@ -28,29 +28,35 @@
         var userVote = Model.Pregunta.UsuarioVoto;
         if (userVote == 1)
         {
-            return $"<button class=\"btn btn-outline-danger btn-voto-q\" data-id=\"{Model.Pregunta.Id}\" data-valor=\"-1\" title=\"Quitar voto\">-1</button>";
+            // show dislike (remove) with icon + label
+            return $"<button class=\"btn btn-outline-danger btn-voto-q\" data-id=\"{Model.Pregunta.Id}\" data-valor=\"-1\" title=\"Quitar voto\"><i class=\"bi bi-hand-thumbs-down me-1\"></i>-1</button>";
         }
         else
         {
-            return $"<button class=\"btn btn-outline-success btn-voto-q\" data-id=\"{Model.Pregunta.Id}\" data-valor=\"1\" title=\"+1\">+1</button>";
+            // show like with icon + label
+            return $"<button class=\"btn btn-outline-success btn-voto-q\" data-id=\"{Model.Pregunta.Id}\" data-valor=\"1\" title=\"+1\"><i class=\"bi bi-hand-thumbs-up me-1\"></i>+1</button>";
         }
     }
 }
 <style>
-    /* Reuse / match the main Questions list styles for the question card */
+    /* Match the list/card aesthetic (bluish/purple treatments) while preserving functionality */
     .pd-container {
         max-width: 980px;
         margin: 28px auto;
         padding: 0 12px;
+        box-sizing: border-box;
+        font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
     }
 
     .pr-card, .q-card {
-        background: #fff;
-        border-radius: 12px;
-        box-shadow: 0 6px 18px rgba(20,40,80,.06);
-        padding: 16px;
+        background: linear-gradient(180deg,#f7f9ff,#f3f6ff);
+        border-radius: 14px;
+        box-shadow: 0 6px 18px rgba(25,45,85,0.04);
+        padding: 18px;
         margin-bottom: 16px;
         position: relative;
+        border: 1px solid rgba(70,90,150,0.04);
+        color: #123a57;
     }
 
     /* Layout: left content (title/body/meta) and right actions */
@@ -67,7 +73,7 @@
 
     .pr-title, .q-title {
         font-weight: 600;
-        color: #16324a;
+        color: #123a57;
         font-size: 1.15rem;
         margin: 0 0 6px 0;
         overflow: hidden;
@@ -77,26 +83,27 @@
 
     .pr-body, .q-body {
         margin-top: 8px;
-        color: #253443;
+        color: #2b3b4a;
         line-height: 1.35;
     }
 
     /* Avatars row: author first (slightly bigger), then responders */
     .avatars-row {
-        margin-top: 10px;
+        margin-top: 12px;
         display: flex;
-        gap: 8px;
+        gap: 10px;
         align-items: center;
         justify-content: flex-start;
     }
 
     .avatar-author {
-        width: 36px;
-        height: 36px;
+        width: 40px;
+        height: 40px;
         border-radius: 50%;
         object-fit: cover;
         box-shadow: 0 1px 4px rgba(0,0,0,0.06);
         flex: 0 0 auto;
+        border: 2px solid rgba(255,255,255,0.6);
     }
 
     .avatar-res {
@@ -106,13 +113,20 @@
         object-fit: cover;
         box-shadow: 0 1px 4px rgba(0,0,0,0.06);
         flex: 0 0 auto;
+        border: 2px solid #fff;
+        margin-left: -8px;
+    }
+
+    .author-info {
+        margin-left: 8px;
+        min-width: 0;
     }
 
     .pr-actions, .q-actions {
         flex: 0 0 160px;
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 10px;
         align-items: flex-end;
         justify-content: flex-start;
         min-width: 120px;
@@ -134,6 +148,61 @@
         text-align: right;
     }
 
+    /* Buttons styling: keep classes used by JS (.btn-voto-q, .btn-voto-ans) but apply visual treatment */
+    .btn-voto-q, .btn-voto-ans, .btn-voto {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 36px;
+        padding: 0 10px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+    }
+
+        /* Like (positive) - make it gradient blue/purple similar to main style */
+        .btn-voto-ans.btn-outline-success,
+        .btn-voto.btn-outline-success,
+        .btn.btn-outline-success.btn-voto-q {
+            background: linear-gradient(90deg,#2ea6ff,#6a4bd8);
+            color: #fff !important;
+            border: 0 !important;
+            box-shadow: 0 6px 14px rgba(46,166,255,0.12);
+        }
+
+        /* Dislike (remove) - keep outline-danger semantics but style to a softer red outline like treatments */
+        .btn.btn-outline-danger.btn-voto-q,
+        .btn-voto-ans.btn-outline-danger,
+        .btn-voto.btn-outline-danger {
+            background: #fff;
+            color: #d23b4a;
+            border: 1px solid rgba(210,59,74,0.12);
+            box-shadow: 0 2px 6px rgba(210,59,74,0.03);
+        }
+
+    /* Score badge */
+    .pr-score, .q-score {
+        background: #fff;
+        padding: 6px 10px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,.04);
+        color: #1f4666;
+        font-weight: 600;
+    }
+
+    .badge.bg-light.text-dark {
+        background: linear-gradient(90deg,#eef5ff,#f2f9ff) !important;
+        border: 1px solid rgba(110,150,220,0.08) !important;
+        color: #2b5a93 !important;
+        font-weight: 600;
+    }
+
+    /* Reply form */
+    .reply-form .reply-textarea {
+        min-height: 100px;
+    }
+
     /* Answers list area: cards */
     .answers-list {
         display: flex;
@@ -141,6 +210,7 @@
         gap: 12px;
         margin-top: 12px;
     }
+
     /* Small responsive adjustments */
     @@media (max-width:760px) {
         .pr-main
@@ -163,9 +233,16 @@
 </style>
 
 <div class="pd-container">
-    <div class="pr-card pr-main" data-id="@Model.Pregunta.Id" data-authenticated="@(User.Identity.IsAuthenticated ? "true" : "false")" data-is-mine="@(Model.Pregunta.EsMia ? "true" : "false")" data-user-vote="@Model.Pregunta.UsuarioVoto" data-score="@Model.Pregunta.Score">
+    <div class="pr-card pr-main"
+         data-id="@Model.Pregunta.Id"
+         data-authenticated="@(User.Identity.IsAuthenticated ? "true" : "false")"
+         data-is-mine="@(Model.Pregunta.EsMia ? "true" : "false")"
+         data-user-vote="@Model.Pregunta.UsuarioVoto"
+         data-score="@Model.Pregunta.Score">
+
         <div class="pr-content">
             <div class="pr-title">@Model.Pregunta.Titulo</div>
+
             <div class="pr-body">@Html.Raw(Model.Pregunta.Cuerpo)</div>
 
             <div class="avatars-row">
@@ -174,16 +251,16 @@
                      src="@Url.Content("~/img/avatar-placeholder.png")"
                      data-src="@ResolveAvatar(Model.Pregunta.AutorAvatarUrl)"
                      alt="@Model.Pregunta.AutorNombre"
-                     width="36" height="36"
+                     width="40" height="40"
                      decoding="async"
                      onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
 
-                <div>
+                <div class="author-info">
                     <div>
                         <strong>@Model.Pregunta.AutorNombre</strong>
                         @if (Model.Pregunta.EsMia)
                         {
-                            <span class="author-badge">Tu pregunta</span>
+                            <span class="author-badge" style="margin-left:8px;font-size:0.85rem;color:#6b6b6b;">Tu pregunta</span>
                         }
                     </div>
                     <div class="text-muted small">Publicado · @(Model.Pregunta.FechaCreacion.ToLocalTime().ToString("g"))</div>
@@ -387,8 +464,8 @@
                         card.setAttribute('data-score', String(j.score ?? 0));
                         if (!authenticated) voteContainer.innerHTML = '<div class="vote-login-hint">Inicia sesión para realizar un voto. <a href="/Account/Login">Iniciar sesión</a></div>';
                         else if (isMine) voteContainer.innerHTML = '<span class="text-muted small">No puedes votar tu propia pregunta</span>';
-                        else if (userVote === 1) voteContainer.innerHTML = '<button class="btn btn-outline-danger btn-voto btn-voto-q" data-id="' + id + '" data-valor="-1" title="Quitar voto">-1</button>';
-                        else voteContainer.innerHTML = '<button class="btn btn-outline-success btn-voto btn-voto-q" data-id="' + id + '" data-valor="1" title="+1">+1</button>';
+                        else if (userVote === 1) voteContainer.innerHTML = '<button class="btn btn-outline-danger btn-voto btn-voto-q" data-id="' + id + '" data-valor="-1" title="Quitar voto"><i class="bi bi-hand-thumbs-down me-1"></i>-1</button>';
+                        else voteContainer.innerHTML = '<button class="btn btn-outline-success btn-voto btn-voto-q" data-id="' + id + '" data-valor="1" title="+1"><i class="bi bi-hand-thumbs-up me-1"></i>+1</button>';
                     } catch (err) { console.error(err); alert('Error de red al votar'); }
                     finally { try { btnQ.disabled = false; } catch {} }
                     return;
@@ -422,8 +499,8 @@
                         card.setAttribute('data-score', String(scoreVal));
                         if (!authenticated) voteContainer.innerHTML = '<div class="vote-login-hint">Inicia sesión para ver/realizar votos. <a href="/Account/Login">Iniciar sesión</a></div>';
                         else if (isMine) voteContainer.innerHTML = '<span class="text-muted small">No puedes votar tu propia respuesta</span>';
-                        else if (userVote === 1) voteContainer.innerHTML = '<button class="btn btn-outline-danger btn-voto-ans" data-id="' + id + '" data-valor="-1" title="Quitar voto">-1</button>';
-                        else voteContainer.innerHTML = '<button class="btn btn-outline-success btn-voto-ans" data-id="' + id + '" data-valor="1" title="+1">+1</button>';
+                        else if (userVote === 1) voteContainer.innerHTML = '<button class="btn btn-outline-danger btn-voto-ans" data-id="' + id + '" data-valor="-1" title="Quitar voto"><i class="bi bi-hand-thumbs-down me-1"></i>-1</button>';
+                        else voteContainer.innerHTML = '<button class="btn btn-outline-success btn-voto-ans" data-id="' + id + '" data-valor="1" title="+1"><i class="bi bi-hand-thumbs-up me-1"></i>+1</button>';
                     } catch (err) { console.error('Error votando respuesta', err); alert('Error de red al votar'); }
                     finally { try { btnA.disabled = false; } catch {} }
                     return;

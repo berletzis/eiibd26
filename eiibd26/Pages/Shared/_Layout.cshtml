@@ -3,51 +3,188 @@
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>@ViewData["Title"] - eiibd26</title>
+
+    <!-- Bootstrap & icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.min.css">
+
+    <!-- App styles -->
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="/css/usuario-condiciones-modern.css" />
-    @RenderSection("Styles", required: false)
-</head>
-<body>
-    @* Header / top menu *@
-    @await Html.PartialAsync("_TopMenu")
 
-    <div class="container-fluid">
-        @* If user is authenticated show the sidebar column + main column.
-           If not authenticated, render a single full-width main column (no sidebar). *@
-        <div class="row flex-nowrap">
-            @if (User?.Identity?.IsAuthenticated ?? false)
-            {
-                <div class="col-auto p-0">
-                    @await Html.PartialAsync("Shared/_SidebarMenu")
+    @RenderSection("Styles", required: false)
+
+    <style>
+        /* Sidebar/offcanvas tuning and layout niceties */
+        .layout-root {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Ensure the content area grows to fill screen (push footer down) */
+        .layout-main {
+            flex: 1 1 auto;
+        }
+
+        /* Sidebar static column (desktop) */
+        .sidebar-col {
+            width: 260px;
+            min-width: 220px;
+            max-width: 320px;
+            border-right: 0;
+        }
+
+        /* Keep offcanvas sidebar full height for scroll if big */
+        .offcanvas-sidebar .offcanvas-body {
+            padding: 0;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        /* Container padding tuning for responsive */
+        .app-container {
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+        }
+
+        @@media (min-width: 768px) {
+            .app-container
+
+        {
+            padding-left: 1.5rem;
+            padding-right: 1.5rem;
+        }
+
+        }
+
+        /* Floating small-screen toggle button (if you want it visible even when top menu doesn't include) */
+        .sidebar-toggle-sm {
+            display: none;
+            position: fixed;
+            z-index: 1100;
+            right: 12px;
+            bottom: 18px;
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 18px rgba(25,45,85,0.08);
+        }
+
+        @@media (max-width: 991.98px) {
+            .sidebar-toggle-sm
+
+        {
+            display: flex;
+        }
+
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="layout-root">
+        @* Header / top menu *@
+        @await Html.PartialAsync("_TopMenu")
+
+        <main class="layout-main">
+            <div class="container-fluid app-container">
+                @* Row: sidebar (desktop) + main column. On small screens, show offcanvas instead. *@
+                <div class="row g-0 flex-nowrap">
+                    @if (User?.Identity?.IsAuthenticated ?? false)
+                    {
+                        @* Desktop sidebar column (hidden on small screens) *@
+                        <div class="col-auto p-0 d-none d-md-block sidebar-col">
+                            @await Html.PartialAsync("Shared/_SidebarMenu")
+                        </div>
+
+                        @* Main content column occupies remaining space (full width on small screens) *@
+                        <div class="col ps-3">
+                            @* Small-screen toggle: opens offcanvas sidebar for mobile *@
+                            <div class="d-md-none mb-2 d-flex justify-content-end">
+                                <button class="btn btn-outline-primary" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarOffcanvas" aria-controls="sidebarOffcanvas" aria-label="Abrir menú">
+                                    <i class="bi bi-list"></i>
+                                </button>
+                            </div>
+
+                            <main role="main" class="pb-3">
+                                @RenderBody()
+                            </main>
+                        </div>
+
+                        @* Offcanvas sidebar used only on small screens (md-) *@
+                        <div class="offcanvas offcanvas-start offcanvas-sidebar d-md-none" tabindex="-1" id="sidebarOffcanvas" aria-labelledby="sidebarOffcanvasLabel">
+                            <div class="offcanvas-header">
+                                <h5 class="offcanvas-title" id="sidebarOffcanvasLabel">Menú</h5>
+                                <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+                            </div>
+                            <div class="offcanvas-body p-0">
+                                @* reuse the same partial inside offcanvas *@
+                                @await Html.PartialAsync("Shared/_SidebarMenu")
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        @* Not authenticated: single full-width main column *@
+                        <div class="col-12 ps-3">
+                            <main role="main" class="pb-3">
+                                @RenderBody()
+                            </main>
+                        </div>
+                    }
                 </div>
-                <div class="col ps-3">
-                    <main role="main" class="pb-3">
-                        @RenderBody()
-                    </main>
-                </div>
-            }
-            else
-            {
-                <div class="col-12 ps-3">
-                    <main role="main" class="pb-3">
-                        @RenderBody()
-                    </main>
-                </div>
-            }
-        </div>
+            </div>
+        </main>
+
+        <footer class="border-top footer text-muted mt-3">
+            <div class="container">
+                &copy; 2025 - eiibd26 - <a href="/Privacy">Privacy</a>
+            </div>
+        </footer>
     </div>
 
-    <footer class="border-top footer text-muted mt-3">
-        <div class="container">
-            &copy; 2025 - eiibd26 - <a href="/Privacy">Privacy</a>
-        </div>
-    </footer>
+    <!-- Small-screen floating toggle (optional UX helper) -->
+    <button class="btn btn-primary sidebar-toggle-sm d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarOffcanvas" aria-controls="sidebarOffcanvas" aria-label="Abrir menú">
+        <i class="bi bi-list" style="font-size:1.2rem;color:#fff;"></i>
+    </button>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        (function () {
+            // Close offcanvas when a link inside the sidebar is clicked (mobile behavior)
+            document.addEventListener('click', function (e) {
+                const offcanvas = document.getElementById('sidebarOffcanvas');
+                if (!offcanvas) return;
+                const toggleEl = bootstrap.Offcanvas.getInstance(offcanvas);
+                const clickedInside = e.target.closest('#sidebarOffcanvas');
+                if (!clickedInside) return;
+
+                // If the clicked element is an <a> (navigation), close the offcanvas so user sees content
+                const link = e.target.closest('a');
+                if (link && link.getAttribute('href') && link.getAttribute('href') !== '#') {
+                    // Defer closing slightly to allow navigation to proceed
+                    try {
+                        if (toggleEl) toggleEl.hide();
+                    } catch (ex) { /* ignore */ }
+                }
+            });
+
+            // Optional: keep content container scroll when offcanvas open (prevents body scroll)
+            // Bootstrap handles this by default but if custom behavior is needed you can add here.
+
+            // Enable tooltips globally (if used in partials)
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.forEach(function (tooltipTriggerEl) {
+                new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        })();
+    </script>
+
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

@@ -2,119 +2,159 @@
 @model eiibd26.Pages.IndexModel
 @{
     ViewData["Title"] = "Inicio";
+    Layout = "_Layout";
 }
+<div class="crm-container">
+    <h2 class="crm-title mb-4">Panel de inicio</h2>
 
-<div class="container py-4">
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="p-4 bg-white rounded shadow-sm">
-                <h1 class="h4 mb-0">Bienvenido</h1>
-                <p class="text-muted mb-0">Panel resumen rápido</p>
+    <div class="crm-card p-4 mb-4">
+        <div class="crm-form-row">
+            <div class="crm-col-8">
+                <label class="crm-label">
+                    <i class="bi bi-speedometer2 crm-icon"></i> Resumen rápido
+                </label>
+                <div class="crm-search-horizontal">
+                    <div class="crm-input" style="display:flex;align-items:center;gap:12px;padding:12px;">
+                        <div>
+                            <div class="small text-muted">Usuarios registrados (email confirmado)</div>
+                            <div class="h3 mb-0">@Model.RegisteredUsersCount</div>
+                            <div class="small text-muted mt-2">Con condición dada de alta</div>
+                            <div class="h5 mb-0">@Model.UsersWithConditionCount</div>
+                        </div>
+
+                        <div style="margin-left:auto;text-align:right;">
+                            <div class="small text-muted">Última actualización</div>
+                            <div class="h6 mb-0">@DateTime.UtcNow.ToString("g") (UTC)</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <div class="row g-3">
-        <!-- Block 1 -->
-        <div class="col-12 col-lg-4">
-            <div class="card h-100">
-                <div class="card-body d-flex flex-column">
-                    <h5 class="card-title">Usuarios y estados de ánimo</h5>
+    <div class="crm-card mb-3 crm-header-block">
+        <h3>
+            <i class="bi bi-kanban text-danger me-1"></i> Información principal
+        </h3>
+    </div>
 
-                    <div class="row mt-3">
-                        <div class="col-12 col-md-6">
-                            <div class="mb-3">
-                                <div class="small text-muted">Usuarios registrados (email confirmado)</div>
-                                <div class="h3">@Model.RegisteredUsersCount</div>
-                            </div>
+    <div class="crm-card-row">
+        <!-- Column 1: Usuarios y Estados (left card) -->
+        <div class="crm-card-condicion">
+            <div class="crm-card-inner">
+                <div class="crm-card-header">
+                    <span class="crm-card-title">
+                        <i class="bi bi-people text-success me-1"></i>
+                        Usuarios & Estados
+                    </span>
+                </div>
 
-                            <div>
-                                <div class="small text-muted">Usuarios con condición dada de alta</div>
-                                <div class="h4">@Model.UsersWithConditionCount</div>
-                            </div>
+                <div class="crm-card-section mb-2">
+                    <div class="crm-card-subtitle fw-semibold" style="font-size:.98em; color:#315686;">
+                        Totales
+                    </div>
+                    <div class="mt-2">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div class="text-muted">Registrados (confirmados)</div>
+                            <div class="fw-semibold">@Model.RegisteredUsersCount</div>
                         </div>
-
-                        <div class="col-12 col-md-6">
-                            <div class="small text-muted mb-2">Estados de ánimo (total)</div>
-
-                            <ul class="list-unstyled mb-0">
-                                <li class="d-flex justify-content-between align-items-center py-1">
-                                    <span>Muy bien</span>
-                                    <span class="badge bg-primary rounded-pill">@Model.MoodCounts["MuyBien"]</span>
-                                </li>
-                                <li class="d-flex justify-content-between align-items-center py-1">
-                                    <span>Bien</span>
-                                    <span class="badge bg-primary rounded-pill">@Model.MoodCounts["Bien"]</span>
-                                </li>
-                                <li class="d-flex justify-content-between align-items-center py-1">
-                                    <span>Neutral</span>
-                                    <span class="badge bg-primary rounded-pill">@Model.MoodCounts["Neutral"]</span>
-                                </li>
-                                <li class="d-flex justify-content-between align-items-center py-1">
-                                    <span>Mal</span>
-                                    <span class="badge bg-primary rounded-pill">@Model.MoodCounts["Mal"]</span>
-                                </li>
-                                <li class="d-flex justify-content-between align-items-center py-1">
-                                    <span>Muy mal</span>
-                                    <span class="badge bg-primary rounded-pill">@Model.MoodCounts["MuyMal"]</span>
-                                </li>
-                            </ul>
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div class="text-muted">Con condición</div>
+                            <div class="fw-semibold">@Model.UsersWithConditionCount</div>
                         </div>
                     </div>
+                </div>
 
-                    <div class="mt-auto">
-                        <small class="text-muted">Última actualización: @DateTime.UtcNow.ToString("g") (UTC)</small>
+                <div class="crm-card-section mb-2">
+                    <div class="crm-card-subtitle fw-semibold" style="font-size:.98em; color:#315686;">
+                        Estados de ánimo
+                    </div>
+                    <div class="crm-card-badges mt-2">
+                        <span class="crm-badge bg-info mb-1 d-inline-flex align-items-center">
+                            Muy bien
+                            <span class="badge bg-white text-dark ms-2">@Model.MoodCounts["MuyBien"]</span>
+                        </span>
+                        <span class="crm-badge bg-info mb-1 d-inline-flex align-items-center">
+                            Bien
+                            <span class="badge bg-white text-dark ms-2">@Model.MoodCounts["Bien"]</span>
+                        </span>
+                        <span class="crm-badge bg-secondary mb-1 d-inline-flex align-items-center">
+                            Neutral
+                            <span class="badge bg-white text-dark ms-2">@Model.MoodCounts["Neutral"]</span>
+                        </span>
+                        <span class="crm-badge bg-warning mb-1 d-inline-flex align-items-center">
+                            Mal
+                            <span class="badge bg-white text-dark ms-2">@Model.MoodCounts["Mal"]</span>
+                        </span>
+                        <span class="crm-badge bg-danger mb-1 d-inline-flex align-items-center">
+                            Muy mal
+                            <span class="badge bg-white text-dark ms-2">@Model.MoodCounts["MuyMal"]</span>
+                        </span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Block 2: Top 5 Preguntas -->
-        <div class="col-12 col-lg-4">
-            <div class="card h-100">
-                <div class="card-body d-flex flex-column">
-                    <h5 class="card-title">Top 5 preguntas</h5>
+        <!-- Column 2: Top 5 Preguntas (middle card) -->
+        <div class="crm-card-condicion">
+            <div class="crm-card-inner">
+                <div class="crm-card-header">
+                    <span class="crm-card-title">
+                        <i class="bi bi-star text-success me-1"></i>
+                        Top 5 Preguntas
+                    </span>
+                </div>
 
-                    @if (Model.TopQuestions?.Any() != true)
-                    {
-                        <div class="text-muted">No hay preguntas disponibles.</div>
-                    }
-                    else
-                    {
-                        <ol class="list-group list-group-numbered mt-3">
-                            @foreach (var q in Model.TopQuestions)
-                            {
-                                <li class="list-group-item d-flex justify-content-between align-items-start">
-                                    <div class="ms-2 me-auto">
-                                        <div class="fw-semibold text-truncate" style="max-width: 220px;">
-                                            <a href="/Preguntas/Detalles/@q.Id" title="@q.Titulo" style="text-decoration:none;">
-                                                @q.Titulo
-                                            </a>
+                <div class="crm-card-section mb-2">
+                    <div class="crm-card-subtitle fw-semibold" style="font-size:.98em; color:#315686;">
+                        Más activas / votadas
+                    </div>
+
+                    <div class="mt-2">
+                        @if (Model.TopQuestions == null || !Model.TopQuestions.Any())
+                        {
+                            <div class="text-muted small">No hay preguntas para mostrar.</div>
+                        }
+                        else
+                        {
+                            <ol class="list-group list-group-numbered mt-2">
+                                @foreach (var q in Model.TopQuestions)
+                                {
+                                    <li class="list-group-item d-flex justify-content-between align-items-start" style="background:transparent;border:0;padding:.5rem 0;">
+                                        <div class="ms-2 me-auto" style="max-width:320px;">
+                                            <div class="fw-semibold text-truncate" style="max-width: 100%;">
+                                                <a href="/Preguntas/Detalles/@q.Id" title="@q.Titulo" style="text-decoration:none;color:inherit;">
+                                                    @q.Titulo
+                                                </a>
+                                            </div>
+                                            <small class="text-muted">Respuestas: @q.RespuestasCount · Votos: @q.VotesSum</small>
                                         </div>
-                                        <small class="text-muted">Respuestas: @q.RespuestasCount · Votos: @q.VotesSum</small>
-                                    </div>
-                                    <span class="badge bg-success rounded-pill">@q.Score</span>
-                                </li>
-                            }
-                        </ol>
-                    }
-
-                    <div class="mt-auto">
-                        <small class="text-muted">Clasificación: votos + 2×respuestas</small>
+                                        <span class="crm-badge bg-success rounded-pill">@q.Score</span>
+                                    </li>
+                                }
+                            </ol>
+                        }
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Block 3: placeholder empty -->
-        <div class="col-12 col-lg-4">
-            <div class="card h-100">
-                <div class="card-body d-flex flex-column">
-                    <h5 class="card-title">Bloque 3</h5>
-                    <p class="text-muted">Contenido pendiente — reservado para futuras métricas o widgets.</p>
+        <!-- Column 3: Placeholder (right card) -->
+        <div class="crm-card-condicion">
+            <div class="crm-card-inner">
+                <div class="crm-card-header">
+                    <span class="crm-card-title">
+                        <i class="bi bi-graph-up text-success me-1"></i>
+                        Bloque 3
+                    </span>
+                </div>
 
-                    <div class="mt-auto">
-                        <small class="text-muted">Espacio disponible</small>
+                <div class="crm-card-section mb-2">
+                    <div class="crm-card-subtitle fw-semibold" style="font-size:.98em; color:#315686;">
+                        Reservado
+                    </div>
+                    <div class="mt-2">
+                        <p class="text-muted small">Espacio para métricas, alertas o widgets personalizados.</p>
                     </div>
                 </div>
             </div>
@@ -122,14 +162,18 @@
     </div>
 </div>
 
+@section Styles {
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" />
+    <link rel="stylesheet" href="~/css/usuario-condiciones-crm.css" />
+}
+
 @section Scripts {
     <script>
-        // small enhancement: truncate long titles on hover with tooltip (Bootstrap tooltip)
+        // Inicializar tooltips en títulos truncados
         (function () {
             if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
-                var tooltipTriggerList = [].slice.call(document.querySelectorAll('.text-truncate a'));
-                tooltipTriggerList.forEach(function (el) {
-                    new bootstrap.Tooltip(el, { title: el.getAttribute('title'), placement: 'top' });
+                document.querySelectorAll('.crm-card-inner .fw-semibold a').forEach(function (el) {
+                    new bootstrap.Tooltip(el, { title: el.getAttribute('title') || '', placement: 'top' });
                 });
             }
         })();
