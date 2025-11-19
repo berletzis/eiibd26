@@ -13,25 +13,90 @@
     }
 }
 <style>
-    /* Container */
-    .pr-container {
-        max-width: 980px;
-        margin: 28px auto;
-        padding: 0 12px;
-        box-sizing: border-box;
-        font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-    }
 
-    .pr-toolbar {
-        margin-bottom: 12px;
+
+
+        .search-card .search-left {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .search-card .search-label {
+            font-size: .95rem;
+            color: #4b5563;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+            .search-card .search-label i {
+                color: #6b7280;
+            }
+
+        .search-card .search-input-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .search-card .search-input {
+            flex: 1 1 auto;
+            min-width: 0;
+            border-radius: 8px;
+            border: 1px solid #e6eefc;
+            padding: .65rem .9rem;
+            background: #f7f9ff;
+            color: #123a57;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+        }
+
+        .search-card .search-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex: 0 0 auto;
+        }
+
+        /* Primary pill button matching style */
+        .search-card .btn-search {
+            background: linear-gradient(90deg,#2ea6ff,#6a4bd8);
+            color: #fff;
+            border: 0;
+            padding: .55rem .9rem;
+            border-radius: 10px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: .5rem;
+            box-shadow: 0 8px 20px rgba(46,166,255,0.12);
+        }
+
+        .search-card .btn-clear {
+            background: transparent;
+            border: 1px solid rgba(78,115,170,0.08);
+            color: #2b4a78;
+            padding: .45rem .7rem;
+            border-radius: .6rem;
+            font-weight: 600;
+        }
+
+    /* Page size form: fixed width, vertically centered */
+    #pageSizeForm {
+        flex: 0 0 auto;
         display: flex;
-        gap: 10px;
         align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
+        gap: 8px;
     }
 
-    /* Card visual matching Detalles styling (bluish/purple gradient) */
+        #pageSizeForm .form-select {
+            min-width: 84px;
+            max-width: 140px;
+        }
+
+    /* Card visual styling */
     .pr-card {
         background: linear-gradient(180deg,#f7f9ff,#f3f6ff);
         border-radius: 14px;
@@ -42,18 +107,27 @@
         overflow: visible;
         border: 1px solid rgba(70,90,150,0.04);
         color: #123a57;
+        /* Use flex so inner .pr-main can stretch and cards look equal height */
+        display: flex;
+        align-items: stretch;
+        min-height: 130px; /* baseline height to keep uniformity */
     }
 
-    /* Main row: left content (title/body/meta) + right actions */
+    /* Main row inside card */
     .pr-main {
         display: flex;
         gap: 12px;
-        align-items: flex-start;
+        align-items: stretch;
+        width: 100%;
     }
 
     .pr-content {
         flex: 1 1 auto;
         min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding-right: 8px;
     }
 
     .pr-title {
@@ -68,18 +142,19 @@
     }
 
     .pr-body {
-        margin-top: 8px;
+        margin-top: 0;
         color: #2b3b4a;
         line-height: 1.35;
         display: -webkit-box;
         -webkit-line-clamp: 6;
         -webkit-box-orient: vertical;
         overflow: hidden;
+        flex: 1 1 auto;
     }
 
-    /* Row of avatars (author first, larger, then responders) aligned left */
+    /* Avatar row */
     .avatars-row {
-        margin-top: 12px;
+        margin-top: 8px;
         display: flex;
         gap: 10px;
         align-items: center;
@@ -112,15 +187,15 @@
         min-width: 0;
     }
 
-    /* Actions (score, responses count, view) pinned to right */
+    /* Right actions column */
     .pr-actions {
-        flex: 0 0 160px;
+        flex: 0 0 180px;
         display: flex;
         flex-direction: column;
         gap: 10px;
         align-items: flex-end;
-        justify-content: flex-start;
-        min-width: 120px;
+        justify-content: space-between; /* spread top/bottom to better align vertically */
+        min-width: 140px;
     }
 
     .pr-eye {
@@ -133,7 +208,7 @@
         text-align: right;
     }
 
-    /* Vote buttons - keep classes used by JS but style them to match Detalles */
+    /* Vote buttons - keep classes for JS */
     .btn-voto {
         width: 38px;
         height: 38px;
@@ -147,7 +222,6 @@
         cursor: pointer;
     }
 
-    /* positive / like: gradient */
     .btn.btn-outline-success.btn-voto,
     .btn.btn-outline-success.btn-voto-q {
         background: linear-gradient(90deg,#2ea6ff,#6a4bd8);
@@ -156,7 +230,6 @@
         box-shadow: 0 6px 14px rgba(46,166,255,0.12);
     }
 
-    /* negative / remove: soft danger outline */
     .btn.btn-outline-danger.btn-voto,
     .btn.btn-outline-danger.btn-voto-q {
         background: #fff;
@@ -178,39 +251,63 @@
         font-weight: 600;
     }
 
-    /* responsive */
-    @@media (max-width:760px) {
-        .pr-main
+    /* Responsive adjustments */
+    @@media (max-width: 900px) {
+        .pr-card
 
     {
-        flex-direction: column;
+        min-height: 0;
+    }
+
+    .pr-toolbar {
+        align-items: stretch;
+    }
+
+    .search-card {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+
+    #pageSizeForm {
+        flex: 0 0 100%;
+        margin-top: 8px;
+        justify-content: flex-start;
     }
 
     .pr-actions {
+        align-items: flex-start;
         flex-direction: row;
         width: 100%;
-        justify-content: space-between;
-        align-items: center;
+        gap: 8px;
     }
 
-    .vote-login-hint {
-        text-align: left;
+    .pr-main {
+        flex-direction: column;
     }
 
     }
 </style>
 
-<div class="pr-container">
-    <h2>Todas las Preguntas</h2>
+<div class="crm-container">
+    <h2 class="crm-title mb-4">Todas las Preguntas</h2>
+    <div class="crm-card p-4 mb-4">
+        <form method="get" id="searchForm" class="search-card" role="search">
+            <div class="crm-search-group crm-col-8">
+                <label for="preguntasBuscar" class="crm-label">
+                    <i class="bi bi-search-heart crm-icon"></i> Buscar o filtrar preguntas</label>
 
-    <div class="pr-toolbar">
-        <form method="get" id="searchForm" class="d-flex align-items-center gap-2">
-            <input name="search" class="form-control search-input" placeholder="Buscar por título o contenido..." value="@Model.Search" />
-            <button class="btn btn-outline-primary" type="submit">Buscar</button>
-            <a class="btn btn-outline-secondary" href="/Preguntas">Limpiar</a>
+                <div class="crm-search-horizontal">
+                    <input name="search" aria-label="Buscar preguntas" class="search-input" placeholder="Ej: dolor de cabeza, insomnio, ansiedad..." value="@Model.Search" />
+                    <button class="btn-search" type="submit" title="Buscar">
+                        <i class="bi bi-search"></i> Buscar
+                    </button>
+                </div>
+            </div>
         </form>
+         </div>
 
-        <form method="get" id="pageSizeForm" class="d-flex align-items-center gap-1">
+    <div>
+        <form method="get" id="pageSizeForm" class="d-flex align-items-center gap-1" aria-label="Tamaño de página">
             <input type="hidden" name="search" value="@Model.Search" />
             <input type="hidden" name="page" value="1" />
             <select name="pageSize" class="form-select form-select-sm" onchange="document.getElementById('pageSizeForm').submit();">
@@ -230,9 +327,7 @@
                 }
             </select>
         </form>
-    </div>
 
-    <div>
         @if (!Model.Preguntas.Any())
         {
             <div class="alert alert-secondary">No se encontraron preguntas.</div>
@@ -260,7 +355,7 @@
                             <div class="pr-body">@Html.Raw(q.CuerpoPreview)</div>
 
                             <div class="avatars-row" aria-hidden="true">
-                                @* Author avatar first (slightly larger) *@
+                                @* Author avatar first *@
                                 <img class="avatar-author lazy-avatar"
                                      src="@Url.Content("~/img/avatar-placeholder.png")"
                                      data-src="@ResolveAvatar(q.AutorAvatarUrl)"
@@ -268,7 +363,7 @@
                                      decoding="async"
                                      onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
 
-                                @* responders avatars (skip duplicates) *@
+                                @* responders avatars *@
                                 @{
                                     var added = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                                     if (!string.IsNullOrWhiteSpace(q.AutorAvatarUrl)) added.Add(q.AutorAvatarUrl);
@@ -301,7 +396,6 @@
                             <span class="badge bg-light text-dark">Respuestas: <strong>@q.RespuestasCount</strong></span>
 
                             <div class="vote-container">
-                                @* Keep server-side control and classes used by JS; include icons like in Detalles *@
                                 @if (!User.Identity.IsAuthenticated)
                                 {
                                     <div class="vote-login-hint">Inicia sesión para realizar un voto. <a href="/Account/Login">Iniciar sesión</a></div>

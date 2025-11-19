@@ -69,7 +69,8 @@ namespace eiibd26.Pages.Preguntas
         public int TotalItems { get; set; }
         public int TotalPages => (int)Math.Ceiling(TotalItems / (double)PageSize);
 
-        private Guid? GetUserIdGuid()
+        // Made public so the Razor view can call Model.GetUserIdGuid()
+        public Guid? GetUserIdGuid()
         {
             var v = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(v)) return null;

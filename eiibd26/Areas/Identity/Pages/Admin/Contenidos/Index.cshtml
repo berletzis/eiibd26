@@ -1,0 +1,346 @@
+﻿@page
+@model eiibd26.Areas.Identity.Pages.Admin.Contenidos.IndexModel
+@using Microsoft.AspNetCore.Authorization
+
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.min.css">
+    <style>
+        body {
+            background: #f5f7fb;
+        }
+
+        .crm-container-admin {
+            max-width: 1320px;
+            margin: 0 auto 30px;
+            padding: 0 10px;
+        }
+
+        .crm-title-admin {
+            font-size: 2.08rem;
+            font-weight: 600;
+            color: #14253f;
+            margin-bottom: .7em;
+        }
+
+        .block-admin-uniform {
+            background: #fff;
+            border-radius: 14px;
+            padding: 20px;
+            border: 1px solid #dde6f1;
+        }
+
+        .table-centered-admin {
+            background: #fff;
+            border-radius: 12px;
+            padding: 12px;
+            border: 1px solid #eef4fa;
+        }
+
+        .dt-controls-flex {
+            display: flex;
+            justify-content: space-between;
+            gap: 1.5em;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn-action-grid {
+            background: #f6f8fd;
+            border-radius: 8px;
+            padding: 6px 10px;
+            border: 0;
+        }
+
+        .slug-status {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            margin-left: .5rem;
+        }
+
+        .slug-spinner {
+            width: 18px;
+            height: 18px;
+            display: inline-block;
+            border: 2px solid #ddd;
+            border-top-color: #007bff;
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+            margin-left: .5rem;
+        }
+
+        @@keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+}
+
+<div class="crm-container-admin">
+    <h2 class="crm-title-admin mb-4">Gestión de Contenidos</h2>
+
+    <div class="block-admin-uniform mb-3 d-flex justify-content-between align-items-center">
+        <div>
+            <div class="mb-2 fs-4"><i class="bi bi-journal-text me-2" style="font-size:1.2em;color:#3196fa"></i>Contenidos</div>
+            <div class="text-muted">Administra artículos y contenidos del sistema.</div>
+        </div>
+        <div>
+            <button id="btnNuevoContenido" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Nuevo contenido</button>
+        </div>
+    </div>
+
+    <div class="dt-controls-flex">
+        <div id="gridLengthWrapper"></div>
+        <div class="dt-controls-right">
+            <div class="form-check form-switch d-inline-block align-middle">
+                <input class="form-check-input" type="checkbox" id="switchEliminados">
+                <label class="form-check-label" for="switchEliminados">Mostrar eliminados</label>
+            </div>
+            <div id="gridSearchWrapper"></div>
+        </div>
+    </div>
+
+    <div class="table-centered-admin">
+        <table id="contenidosGrid" class="table table-bordered table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Título</th>
+                    <th>Autor</th>
+                    <th>Publicado</th>
+                    <th>Fecha creado</th>
+                    <th>Eliminado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Ver Detalle -->
+<div class="modal fade" id="modalVerDetalle" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content crm-modal-content">
+            <div class="crm-modal-header modal-header">
+                <h5 class="crm-modal-title" id="modalVerDetalleLabel">Detalle del Contenido</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body crm-modal-body">
+                <dl class="row">
+                    <dt class="col-sm-3">Título</dt>
+                    <dd class="col-sm-9" id="view_Titulo"></dd>
+                    <dt class="col-sm-3">Slug</dt>
+                    <dd class="col-sm-9" id="view_Slug"></dd>
+                    <dt class="col-sm-3">Autor</dt>
+                    <dd class="col-sm-9" id="view_Autor"></dd>
+                    <dt class="col-sm-3">Publicado</dt>
+                    <dd class="col-sm-9" id="view_Publicado"></dd>
+                    <dt class="col-sm-3">Fecha inicio / fin</dt>
+                    <dd class="col-sm-9" id="view_Fechas"></dd>
+                    <dt class="col-sm-3">País</dt>
+                    <dd class="col-sm-9" id="view_Pais"></dd>
+                    <dt class="col-sm-3">Categoría</dt>
+                    <dd class="col-sm-9" id="view_Categoria"></dd>
+                    <dt class="col-sm-3">Resumen</dt>
+                    <dd class="col-sm-9" id="view_TextoC"></dd>
+                    <dt class="col-sm-3">Contenido</dt>
+                    <dd class="col-sm-9" id="view_TextoL"></dd>
+                </dl>
+            </div>
+            <div class="crm-modal-footer modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form id="__antiForgeryForm" style="display:none;">@Html.AntiForgeryToken()</form>
+
+@{
+    var detalleUrl = Url.Page("./Detalle");
+    var gridUrl = Url.Page(null, "GridData");
+    var getUrl = Url.Page(null, "GetContenido");
+    var eliminarUrl = Url.Page(null, "EliminarContenido");
+    var restaurarUrl = Url.Page(null, "RestaurarContenido");
+}
+<script>
+    const detallePageUrl = '@detalleUrl';
+    const gridDataUrl = '@gridUrl';
+    const getContenidoUrl = '@getUrl';
+    const postEliminarUrl = '@eliminarUrl';
+    const postRestaurarUrl = '@restaurarUrl';
+</script>
+
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        (function () {
+            let grid;
+
+            function initGrid() {
+                grid = $('#contenidosGrid').DataTable({
+                    processing: true,
+                    serverSide: true,
+                    dom: 'lfrtip',
+                    ajax: {
+                        url: gridDataUrl,
+                        type: 'GET',
+                        cache: false,
+                        dataType: 'json',
+                        data: function (d) {
+                            d.mostrarEliminados = $('#switchEliminados').is(':checked') ? '1' : '0';
+                            d._ts = Date.now(); // cache-bust
+                            console.debug('DataTables ajax params:', d);
+                        },
+                        dataSrc: function (json) {
+                            console.debug('GridData response:', json);
+                            if (!json) { console.error('GridData: response is null/undefined'); return []; }
+                            if (!('data' in json)) { console.error('GridData: response has no \"data\" property. Full response:', json); return []; }
+                            if (!Array.isArray(json.data)) { console.error('GridData: response.data is not an array. Full response:', json); return []; }
+                            return json.data;
+                        },
+                        // log raw response to help debugging (will appear in console)
+                        complete: function (xhr, status) {
+                            try {
+                                console.groupCollapsed('GridData AJAX complete (status=' + status + ')');
+                                console.log('HTTP status:', xhr.status);
+                                console.log('Response headers:\n', xhr.getAllResponseHeaders());
+                                console.log('Raw responseText (first 4000 chars):\n', (xhr.responseText || '').slice(0, 4000));
+                                console.groupEnd();
+                            } catch (e) {
+                                console.error('Error logging raw response', e);
+                            }
+                        },
+                        error: function (xhr, status, err) {
+                            console.error('DataTable AJAX error', xhr, status, err);
+                            try { console.error('Response text:', xhr.responseText); } catch (e) {}
+                            alert('Error cargando datos del grid. Revisa la consola (Network / Response).');
+                        }
+                    },
+                    columns: [
+                        { data: 'contenidoTitulo', orderable: false },
+                        { data: 'autor', orderable: false },
+                        { data: 'estadoPublicacion', orderable: false, render: function(d){ return d==1 ? '<span class="badge bg-success">Publicado</span>' : '<span class="badge bg-secondary">Borrador</span>'; } },
+                        { data: 'fechaCreado', orderable: true, render: function(d){ return d ? new Date(d).toLocaleString() : ''; } },
+                        { data: 'eliminado', orderable: false, render: function(d){ return d ? '<span class="badge bg-danger">Sí</span>' : '<span class="badge bg-light text-dark">No</span>'; } },
+                        {
+                            data: null, orderable: false, render: function (data, type, row) {
+                                const id = row.id;
+                                const editBtn = `<a href="${detallePageUrl}?id=${id}" class="btn btn-sm btn-action-grid me-1" title="Editar"><i class="bi bi-pencil-square"></i></a>`;
+                                const viewBtn = `<button class="btn btn-sm btn-action-grid btn-view me-1" data-id="${id}" title="Ver"><i class="bi bi-eye"></i></button>`;
+                                const delBtn = `<button class="btn btn-sm btn-action-grid btn-delete me-1" data-id="${id}" title="Eliminar"><i class="bi bi-trash"></i></button>`;
+                                const restoreBtn = `<button class="btn btn-sm btn-action-grid btn-restore me-1" data-id="${id}" title="Restaurar"><i class="bi bi-arrow-counterclockwise"></i></button>`;
+                                if (row.eliminado) return editBtn + restoreBtn + viewBtn;
+                                return editBtn + delBtn + viewBtn;
+                            }
+                        }
+                    ],
+                    order: [[3, 'desc']],
+                    lengthMenu: [ [10, 25, 50, 100], [10, 25, 50, 100] ],
+                    initComplete: function() {
+                        if ($('#contenidosGrid_length').length) {
+                            $("#gridLengthWrapper").empty().append($('#contenidosGrid_length').children());
+                        }
+                        if ($('#contenidosGrid_filter').length) {
+                            $("#gridSearchWrapper").empty().append($('#contenidosGrid_filter').children());
+                        }
+                    }
+                });
+            }
+
+            // New content: go to Detalle page (open new or edit)
+            $('#btnNuevoContenido').on('click', function () {
+                window.location.href = detallePageUrl;
+            });
+
+            // View detail modal
+            $('#contenidosGrid').on('click', '.btn-view', function () {
+                const id = $(this).data('id');
+                if (!id) return alert('ID inválido');
+                const url = new URL(getContenidoUrl, window.location.origin);
+                url.searchParams.set('id', id);
+                $.getJSON(url.toString())
+                    .done(function (dto) {
+                        $('#view_Titulo').text(dto.contenidoTitulo || '');
+                        $('#view_Slug').text(dto.contenidoTituloSlug || '');
+                        $('#view_Autor').text(dto.autor || '');
+                        $('#view_Publicado').html(dto.estadoPublicacion==1 ? '<span class="badge bg-success">Publicado</span>' : '<span class="badge bg-secondary">Borrador</span>');
+                        let fechas = '';
+                        if (dto.contenidoFechaInicio) fechas += new Date(dto.contenidoFechaInicio).toLocaleString();
+                        fechas += ' — ';
+                        if (dto.contenidoFechaFin) fechas += new Date(dto.contenidoFechaFin).toLocaleString();
+                        $('#view_Fechas').text(fechas);
+                        $('#view_Pais').text(dto.paisClave || '');
+                        $('#view_Categoria').text(dto.categoriaNombre || '');
+                        $('#view_TextoC').text(dto.contenidoTextoC || '');
+                        $('#view_TextoL').html(dto.contenidoTextoL || '');
+                        new bootstrap.Modal(document.getElementById('modalVerDetalle')).show();
+                    })
+                    .fail(function (xhr) {
+                        console.error('Error obteniendo contenido', xhr);
+                        alert('Error obteniendo detalle. Revisa la consola.');
+                    });
+            });
+
+            // Delete
+            $(document).on('click', '.btn-delete', function () {
+                const id = $(this).data('id');
+                if (!id) return alert('ID inválido');
+                if (!confirm('¿Eliminar contenido? Esta acción se marca como eliminado (soft-delete).')) return;
+                const tokenInput = document.querySelector('#__antiForgeryForm input[name="__RequestVerificationToken"]');
+                const headers = {};
+                if (tokenInput) headers['RequestVerificationToken'] = tokenInput.value;
+                $.ajax({
+                    url: postEliminarUrl,
+                    method: 'POST',
+                    data: { id: id },
+                    headers: headers
+                }).done(function (res) {
+                    if (res && res.success) grid.ajax.reload(null, false);
+                    else alert('No se pudo eliminar: ' + (res.message || 'error'));
+                }).fail(function (xhr) {
+                    console.error('Error eliminando', xhr); alert('Error eliminando. Revisa la consola.');
+                });
+            });
+
+            // Restore
+            $(document).on('click', '.btn-restore', function () {
+                const id = $(this).data('id');
+                if (!id) return alert('ID inválido');
+                if (!confirm('¿Restaurar contenido?')) return;
+                const tokenInput = document.querySelector('#__antiForgeryForm input[name="__RequestVerificationToken"]');
+                const headers = {};
+                if (tokenInput) headers['RequestVerificationToken'] = tokenInput.value;
+                $.ajax({
+                    url: postRestaurarUrl,
+                    method: 'POST',
+                    data: { id: id },
+                    headers: headers
+                }).done(function (res) {
+                    if (res && res.success) grid.ajax.reload(null, false);
+                    else alert('No se pudo restaurar: ' + (res.message || 'error'));
+                }).fail(function (xhr) {
+                    console.error('Error restaurando', xhr); alert('Error restaurando. Revisa la consola.');
+                });
+            });
+
+            // Switch Mostrar Eliminados
+            $('#switchEliminados').change(function () {
+                if (!grid) return;
+                console.debug('switchEliminados changed ->', $(this).is(':checked'));
+                grid.ajax.reload(null, false);
+            });
+
+            // Init on DOM ready
+            $(function () {
+                initGrid();
+            });
+
+        })();
+    </script>
+}

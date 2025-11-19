@@ -1,0 +1,190 @@
+﻿@page "{id?}"
+@model eiibd26.Areas.Identity.Pages.Admin.Contenidos.DetalleModel
+@using System.Text.Json
+@{
+    ViewData["Title"] = Model.Id.HasValue ? "Editar Contenido" : "Nuevo Contenido";
+    Layout = "_Layout";
+}
+
+@section Styles {
+    <style>
+        .form-section {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #e8eef6;
+        }
+
+        pre.debug {
+            background: #f8f9fb;
+            border: 1px solid #e1e7ef;
+            padding: 12px;
+            font-size: 12px;
+        }
+    </style>
+}
+
+<div class="container my-4">
+    <div class="form-section">
+        <h3>@ViewData["Title"]</h3>
+
+        @if (!string.IsNullOrWhiteSpace(Model.DebugInfoHtml))
+        {
+            <div class="mb-3">
+                <label class="form-label">DEBUG</label>
+                <pre class="debug">@Html.Raw(Model.DebugInfoHtml)</pre>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="alert alert-danger">@Model.ErrorMessage</div>
+        }
+        @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+        {
+            <div id="successBanner" class="alert alert-success text-center">@Model.SuccessMessage</div>
+        }
+
+        <form method="post" asp-page-handler="Save" enctype="multipart/form-data" id="detalleForm">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="Id" />
+
+            <div class="mb-3">
+                <label class="form-label">Título</label>
+                <input class="form-control" asp-for="ContenidoTitulo" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Slug</label>
+                <input class="form-control" asp-for="ContenidoTituloSlug" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Resumen</label>
+                <textarea class="form-control" asp-for="ContenidoTextoC" rows="3"></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Contenido (HTML)</label>
+                <textarea class="form-control" asp-for="ContenidoTextoL" rows="10">@Html.Raw(Model.ContenidoTextoL)</textarea>
+            </div>
+
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <label class="form-label">Estado</label>
+                    <select class="form-select" asp-for="EstadoPublicacion">
+                        <option value="0">Borrador</option>
+                        <option value="1">Publicado</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Inicio</label>
+                    <input type="datetime-local" class="form-control" asp-for="ContenidoFechaInicio" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Fin</label>
+                    <input type="datetime-local" class="form-control" asp-for="ContenidoFechaFin" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">País</label>
+                    <select class="form-select" asp-for="PaisClave">
+                        <option value="">(Seleccionar país)</option>
+                        @foreach (var p in Model.PaisesLista)
+                        {
+                            <option value="@p.code" selected="@(p.code == Model.PaisClave ? "selected" : null)">@p.name (@p.code)</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <div class="row g-2 mt-3">
+                <div class="col-md-6">
+                    <label class="form-label">Autor</label>
+                    <select asp-for="SelectedAutorId" class="form-select">
+                        <option value="">(Seleccionar autor)</option>
+                        @foreach (var a in Model.AdminAuthors)
+                        {
+                            <option value="@a.id" selected="@(Model.SelectedAutorId == a.id ? "selected" : null)">@a.name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Imagen principal</label>
+                    <input type="file" class="form-control" name="UploadedImage" />
+                    @if (!string.IsNullOrWhiteSpace(Model.URLImagenPrincipal))
+                    {
+                        <div class="mt-2">
+                            <img src="~/uploads/contenidos/@Model.URLImagenPrincipal" style="max-width:220px;max-height:140px;" />
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="row g-2 mt-3">
+                <div class="col-md-6">
+                    <label class="form-label">Categoría (padre)</label>
+                    <select id="categoriaPadre" class="form-select" asp-for="IdCategoriaPadre">
+                        <option value="">(Seleccionar categoría)</option>
+                        @foreach (var c in Model.CategoryItems.Where(c => c.CategoriaPadre == null))
+                        {
+                            <option value="@c.Sequence" selected="@(Model.IdCategoriaPadre == c.Sequence ? "selected" : null)">@c.Nombre</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Subcategoría</label>
+                    <select id="subcategoria" class="form-select" asp-for="IdCategoria">
+                        <option value="">(Seleccionar subcategoría)</option>
+                        @foreach (var s in Model.Subcategories)
+                        {
+                            <option value="@s.seq" selected="@(Model.IdCategoria == s.seq ? "selected" : null)">@s.name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <div class="mt-4 text-end">
+                <a class="btn btn-secondary me-2" href="@Url.Page("./Index")">Cancelar</a>
+                <button type="submit" class="btn btn-primary">Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', ()=>{
+            const success = document.getElementById('successBanner');
+            if(success){
+                setTimeout(()=>{
+                    success.style.transition='opacity .6s';
+                    success.style.opacity='0';
+                    setTimeout(()=>{ success.remove(); },800);
+                },4000);
+            }
+            // Poblar subcategorías en el cliente (opcional) usando datos ya renderizados
+            const categories = @Html.Raw(JsonSerializer.Serialize(
+                            Model.CategoryItems.Select(c => new { seq = c.Sequence, parent = c.CategoriaPadre, name = c.Nombre })
+                    ));
+        function populateSub(parentId, selected){
+            const sub = document.getElementById('subcategoria');
+            if(!sub) return;
+            sub.innerHTML = '<option value="">(Seleccionar subcategoría)</option>';
+            if(!parentId) return;
+            categories.filter(c=>c.parent !== null && Number(c.parent)===Number(parentId))
+                      .forEach(c=>{
+                          const opt=document.createElement('option');
+                          opt.value=c.seq;
+                          opt.textContent=c.name;
+                          if(selected && String(selected)===String(c.seq)) opt.selected=true;
+                          sub.appendChild(opt);
+                      });
+        }
+        const parentSel = document.getElementById('categoriaPadre');
+        parentSel?.addEventListener('change', ()=> populateSub(parentSel.value,null));
+        populateSub(parentSel?.value, '@(Model.IdCategoria?.ToString() ?? "")');
+    });
+</script>
+}

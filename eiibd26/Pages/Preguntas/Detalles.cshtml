@@ -12,7 +12,6 @@
         return Url.Content("~/" + avatar.TrimStart('/'));
     }
 
-    // Render the single vote control (same rules as list)
     string RenderQuestionVoteControl()
     {
         if (!User.Identity.IsAuthenticated)
@@ -28,207 +27,45 @@
         var userVote = Model.Pregunta.UsuarioVoto;
         if (userVote == 1)
         {
-            // show dislike (remove) with icon + label
             return $"<button class=\"btn btn-outline-danger btn-voto-q\" data-id=\"{Model.Pregunta.Id}\" data-valor=\"-1\" title=\"Quitar voto\"><i class=\"bi bi-hand-thumbs-down me-1\"></i>-1</button>";
         }
         else
         {
-            // show like with icon + label
             return $"<button class=\"btn btn-outline-success btn-voto-q\" data-id=\"{Model.Pregunta.Id}\" data-valor=\"1\" title=\"+1\"><i class=\"bi bi-hand-thumbs-up me-1\"></i>+1</button>";
         }
     }
 }
+
+<form id="__antiForgeryForm" style="display:none;">@Html.AntiForgeryToken()</form>
+
 <style>
-    /* Match the list/card aesthetic (bluish/purple treatments) while preserving functionality */
+    /* Keep styles minimal here — uses shared style.css */
     .pd-container {
         max-width: 980px;
         margin: 28px auto;
         padding: 0 12px;
         box-sizing: border-box;
-        font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
     }
 
-    .pr-card, .q-card {
-        background: linear-gradient(180deg,#f7f9ff,#f3f6ff);
-        border-radius: 14px;
-        box-shadow: 0 6px 18px rgba(25,45,85,0.04);
-        padding: 18px;
-        margin-bottom: 16px;
-        position: relative;
-        border: 1px solid rgba(70,90,150,0.04);
-        color: #123a57;
-    }
-
-    /* Layout: left content (title/body/meta) and right actions */
-    .pr-main {
-        display: flex;
-        gap: 12px;
-        align-items: flex-start;
-    }
-
-    .pr-content {
-        flex: 1 1 auto;
-        min-width: 0;
-    }
-
-    .pr-title, .q-title {
-        font-weight: 600;
-        color: #123a57;
-        font-size: 1.15rem;
-        margin: 0 0 6px 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .pr-body, .q-body {
-        margin-top: 8px;
-        color: #2b3b4a;
-        line-height: 1.35;
-    }
-
-    /* Avatars row: author first (slightly bigger), then responders */
-    .avatars-row {
-        margin-top: 12px;
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        justify-content: flex-start;
-    }
-
-    .avatar-author {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        object-fit: cover;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-        flex: 0 0 auto;
-        border: 2px solid rgba(255,255,255,0.6);
-    }
-
-    .avatar-res {
-        width: 27px;
-        height: 27px;
-        border-radius: 50%;
-        object-fit: cover;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-        flex: 0 0 auto;
-        border: 2px solid #fff;
-        margin-left: -8px;
-    }
-
-    .author-info {
-        margin-left: 8px;
-        min-width: 0;
-    }
-
-    .pr-actions, .q-actions {
-        flex: 0 0 160px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        align-items: flex-end;
-        justify-content: flex-start;
-        min-width: 120px;
-    }
-
-    .pr-eye {
-        display: flex;
-        gap: 6px;
-        align-items: center;
-    }
-
-    .vote-container {
-        display: inline-block;
-    }
-
-    .vote-login-hint {
-        font-size: 0.95rem;
-        color: #495057;
-        text-align: right;
-    }
-
-    /* Buttons styling: keep classes used by JS (.btn-voto-q, .btn-voto-ans) but apply visual treatment */
-    .btn-voto-q, .btn-voto-ans, .btn-voto {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        height: 36px;
-        padding: 0 10px;
-        border-radius: 8px;
-        font-weight: 600;
-        font-size: 0.95rem;
-        cursor: pointer;
-    }
-
-        /* Like (positive) - make it gradient blue/purple similar to main style */
-        .btn-voto-ans.btn-outline-success,
-        .btn-voto.btn-outline-success,
-        .btn.btn-outline-success.btn-voto-q {
-            background: linear-gradient(90deg,#2ea6ff,#6a4bd8);
-            color: #fff !important;
-            border: 0 !important;
-            box-shadow: 0 6px 14px rgba(46,166,255,0.12);
-        }
-
-        /* Dislike (remove) - keep outline-danger semantics but style to a softer red outline like treatments */
-        .btn.btn-outline-danger.btn-voto-q,
-        .btn-voto-ans.btn-outline-danger,
-        .btn-voto.btn-outline-danger {
-            background: #fff;
-            color: #d23b4a;
-            border: 1px solid rgba(210,59,74,0.12);
-            box-shadow: 0 2px 6px rgba(210,59,74,0.03);
-        }
-
-    /* Score badge */
-    .pr-score, .q-score {
+    .ans-card {
         background: #fff;
-        padding: 6px 10px;
         border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,.04);
-        color: #1f4666;
-        font-weight: 600;
+        padding: 12px;
+        margin-bottom: 12px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.03);
     }
 
-    .badge.bg-light.text-dark {
-        background: linear-gradient(90deg,#eef5ff,#f2f9ff) !important;
-        border: 1px solid rgba(110,150,220,0.08) !important;
-        color: #2b5a93 !important;
-        font-weight: 600;
+    .ans-meta {
+        font-size: .9rem;
+        color: #6b7483;
     }
 
-    /* Reply form */
-    .reply-form .reply-textarea {
-        min-height: 100px;
-    }
-
-    /* Answers list area: cards */
-    .answers-list {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        margin-top: 12px;
-    }
-
-    /* Small responsive adjustments */
-    @@media (max-width:760px) {
-        .pr-main
-
-    {
-        flex-direction: column;
-    }
-
-    .pr-actions {
-        flex-direction: row;
-        justify-content: space-between;
-        width: 100%;
-    }
-
-    .vote-login-hint {
-        text-align: left;
-    }
-
+    .btn-delete-respuesta {
+        background: transparent;
+        border: 0;
+        color: #d23b4a;
+        cursor: pointer;
+        padding: .15rem .4rem;
     }
 </style>
 
@@ -246,7 +83,6 @@
             <div class="pr-body">@Html.Raw(Model.Pregunta.Cuerpo)</div>
 
             <div class="avatars-row">
-                @* Author avatar first (inline with responders) *@
                 <img class="avatar-author lazy-avatar"
                      src="@Url.Content("~/img/avatar-placeholder.png")"
                      data-src="@ResolveAvatar(Model.Pregunta.AutorAvatarUrl)"
@@ -265,32 +101,6 @@
                     </div>
                     <div class="text-muted small">Publicado · @(Model.Pregunta.FechaCreacion.ToLocalTime().ToString("g"))</div>
                 </div>
-
-                @* responders avatars after author *@
-                @{
-                    var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                    if (!string.IsNullOrWhiteSpace(Model.Pregunta.AutorAvatarUrl)) seen.Add(Model.Pregunta.AutorAvatarUrl);
-                    var rcount = 0;
-                    if (Model.Respuestas != null)
-                    {
-                        foreach (var r in Model.Respuestas)
-                        {
-                            if (rcount >= 6) break;
-                            var avatar = r.AutorAvatarUrl ?? "/img/avatar-placeholder.png";
-                            if (string.IsNullOrWhiteSpace(avatar)) continue;
-                            if (seen.Contains(avatar)) continue;
-                            seen.Add(avatar);
-                            <img class="avatar-res lazy-avatar"
-                                 src="@Url.Content("~/img/avatar-placeholder.png")"
-                                 data-src="@ResolveAvatar(avatar)"
-                                 alt="@r.AutorNombre"
-                                 width="27" height="27"
-                                 decoding="async"
-                                 onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
-                            rcount++;
-                        }
-                    }
-                }
             </div>
         </div>
 
@@ -344,7 +154,32 @@
             {
                 @foreach (var a in Model.Respuestas)
                 {
-                    <partial name="/Pages/Shared/_RespuestaCard.cshtml" model="a" />
+                    <div class="ans-card"
+                         data-id="@a.Id"
+                         data-authenticated="@(User.Identity.IsAuthenticated ? "true" : "false")"
+                         data-is-mine="@(a.UsuarioId == (Model.GetUserIdGuid() ?? Guid.Empty) ? "true" : "false")">
+                        <div style="display:flex;gap:12px;align-items:flex-start;">
+                            <img class="lazy-avatar" src="@Url.Content("~/img/avatar-placeholder.png")" data-src="@ResolveAvatar(a.AutorAvatarUrl)" alt="@a.AutorNombre" width="36" height="36" style="border-radius:50%;object-fit:cover;" />
+                            <div style="flex:1;min-width:0;">
+                                <strong>@a.AutorNombre</strong>
+                                <div class="ans-meta">@a.FechaCreacion.ToLocalTime().ToString("g")</div>
+                                <div style="margin-top:8px;">@Html.Raw(a.Cuerpo)</div>
+                                <div style="margin-top:8px;" class="ans-meta">Score: <span id="ascore-@a.Id">@a.Score</span></div>
+                            </div>
+
+                            <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
+                                <div>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary btn-voto-ans" data-id="@a.Id" data-valor="1" title="Me gusta"><i class="bi bi-hand-thumbs-up"></i></button>
+                                </div>
+                                <div>
+                                    @if (User.Identity.IsAuthenticated && a.UsuarioId == (Model.GetUserIdGuid() ?? Guid.Empty))
+                                    {
+                                        <button type="button" class="btn-delete-respuesta" data-id="@a.Id" title="Eliminar respuesta">🗑</button>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 }
             }
         }
@@ -371,7 +206,11 @@
 @section Scripts {
     <script>
         (function () {
-            // Lazy avatars helper
+            function getAntiForgeryToken() {
+                const tokenInput = document.querySelector('#__antiForgeryForm input[name="__RequestVerificationToken"]');
+                return tokenInput ? tokenInput.value : null;
+            }
+
             function initLazyAvatars() {
                 const imgs = Array.from(document.querySelectorAll('img.lazy-avatar[data-src]'));
                 if (!imgs.length) return;
@@ -403,7 +242,6 @@
                 } else imgs.forEach(i => loadImg(i));
             }
 
-            // POST a new answer
             async function postReplyToApi(preguntaId, cuerpo) {
                 const body = { cuerpo: cuerpo };
                 const res = await fetch('/api/respuestas', {
@@ -414,7 +252,6 @@
                 return res;
             }
 
-            // Send reply handler
             const btnSend = document.getElementById('btnSendReply');
             if (btnSend) {
                 btnSend.addEventListener('click', async function () {
@@ -435,11 +272,15 @@
                 });
             }
 
-            // Delegated votes handling for question and answers (single-button behavior)
+            // Delegated click handling: votes + delete respuesta
             document.addEventListener('click', async function (e) {
+                if (e.defaultPrevented) return;
+
+                // Question vote
                 const btnQ = e.target.closest('.btn-voto-q');
                 if (btnQ) {
                     e.preventDefault();
+                    e.stopPropagation();
                     const id = btnQ.getAttribute('data-id');
                     const valor = parseInt(btnQ.getAttribute('data-valor') || "0", 10);
                     if (!id || (valor !== 1 && valor !== -1)) return;
@@ -471,9 +312,11 @@
                     return;
                 }
 
+                // Answer vote
                 const btnA = e.target.closest('.btn-voto-ans');
                 if (btnA) {
                     e.preventDefault();
+                    e.stopPropagation();
                     const id = btnA.getAttribute('data-id');
                     const valor = parseInt(btnA.getAttribute('data-valor') || "0", 10);
                     if (!id || (valor !== 1 && valor !== -1)) return;
@@ -503,6 +346,41 @@
                         else voteContainer.innerHTML = '<button class="btn btn-outline-success btn-voto-ans" data-id="' + id + '" data-valor="1" title="+1"><i class="bi bi-hand-thumbs-up me-1"></i>+1</button>';
                     } catch (err) { console.error('Error votando respuesta', err); alert('Error de red al votar'); }
                     finally { try { btnA.disabled = false; } catch {} }
+                    return;
+                }
+
+                // Answer delete
+                const delBtn = e.target.closest('.btn-delete-respuesta');
+                if (delBtn) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const id = delBtn.getAttribute('data-id');
+                    if (!id) { alert('ID de respuesta no encontrado'); return; }
+                    if (!confirm('¿Deseas eliminar esta respuesta? Esta acción no se puede deshacer.')) return;
+                    delBtn.disabled = true;
+                    try {
+                        const token = getAntiForgeryToken();
+                        const headers = token ? { 'RequestVerificationToken': token, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+                        const res = await fetch('/api/respuestas/' + id + '/eliminar', { method: 'POST', headers: headers });
+                        if (!res.ok) {
+                            const txt = await res.text();
+                            console.warn('Eliminar respuesta falló:', res.status, txt);
+                            alert('Error eliminando: ' + (txt || res.status));
+                            return;
+                        }
+                        const j = await res.json();
+                        if (j.ok) {
+                            const ansCard = document.querySelector('.ans-card[data-id="' + id + '"]') || delBtn.closest('.ans-card');
+                            if (ansCard) ansCard.remove();
+                        } else {
+                            alert('No se pudo eliminar: ' + (j.error || 'error'));
+                        }
+                    } catch (err) {
+                        console.error('Error eliminando respuesta', err);
+                        alert('Error de red al eliminar');
+                    } finally {
+                        try { delBtn.disabled = false; } catch {}
+                    }
                     return;
                 }
             });
