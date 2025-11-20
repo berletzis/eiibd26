@@ -29,7 +29,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             _logger = logger;
         }
 
-        // Form fields
         [BindProperty] public int? Id { get; set; }
         [BindProperty] public string ContenidoTitulo { get; set; }
         [BindProperty] public string ContenidoTituloSlug { get; set; }
@@ -46,7 +45,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         [BindProperty] public IFormFile UploadedImage { get; set; }
         [BindProperty] public string URLImagenPrincipal { get; set; }
 
-        // DTO para evitar materializar entidad con columnas NULL en propiedades no anulables
         public class CategoryItem
         {
             public int Sequence { get; set; }
@@ -54,22 +52,18 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             public string Nombre { get; set; }
         }
 
-        // Lookups
         public List<CategoryItem> CategoryItems { get; set; } = new();
         public List<(int seq, string name)> Subcategories { get; set; } = new();
         public List<(string code, string name)> PaisesLista { get; set; } = new();
         public List<(string id, string name)> AdminAuthors { get; set; } = new();
 
-        // Feedback / debug
         public string ErrorMessage { get; set; }
         public string SuccessMessage { get; set; }
         public string DebugInfoHtml { get; set; }
 
-        // GET
         public async Task<IActionResult> OnGetAsync(int? id)
         {
             await LoadLookupsAsync();
-
             if (!id.HasValue)
             {
                 EstadoPublicacion = 0;
@@ -79,9 +73,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             }
 
             Id = id.Value;
-
-            var contenido = await _db.Contenidos
-                .AsNoTracking()
+            var contenido = await _db.Contenidos.AsNoTracking()
                 .FirstOrDefaultAsync(c => c.Id == Id && c.Eliminado == false);
 
             if (contenido == null)
@@ -103,13 +95,12 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             URLImagenPrincipal = contenido.URLImagenPrincipal;
             SelectedAutorId = contenido.IdAutor != Guid.Empty ? contenido.IdAutor.ToString() : null;
 
-            var rel = await _db.ContenidosCategoriasRelacion
-                .AsNoTracking()
+            var rel = await _db.ContenidosCategoriasRelacion.AsNoTracking()
                 .Where(r => r.IdContenido == Id && r.Borrado == false && r.IdCategoria != null)
                 .OrderByDescending(r => r.FechaCreacion)
                 .FirstOrDefaultAsync();
 
-            if (rel != null && rel.IdCategoria.HasValue)
+            if (rel?.IdCategoria != null)
             {
                 var cat = CategoryItems.FirstOrDefault(c => c.Sequence == rel.IdCategoria.Value);
                 if (cat != null)
@@ -132,7 +123,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             return Page();
         }
 
-        // POST Save
         public async Task<IActionResult> OnPostSaveAsync()
         {
             try
@@ -165,7 +155,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
                 var slugExists = await _db.Contenidos
                     .AsNoTracking()
-                    .AnyAsync(c => c.ContenidoTituloSlug == ContenidoTituloSlug && (!Id.HasValue || c.Id != Id.Value) && c.Eliminado == false);
+                    .AnyAsync(c => c.ContenidoTituloSlug == ContenidoTituloSlug &&
+                                   (!Id.HasValue || c.Id != Id.Value) &&
+                                   c.Eliminado == false);
 
                 if (slugExists)
                 {
@@ -206,7 +198,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     entity.PaisClave = PaisClave;
                     if (!string.IsNullOrWhiteSpace(URLImagenPrincipal))
                         entity.URLImagenPrincipal = URLImagenPrincipal;
-                    entity.FechaModificado = DateTime.UtcNow;
+                    entity.FechaModificado = DateTime.UtcNow; // FIX: asegurar no nulo
 
                     if (IdCategoria.HasValue)
                     {
@@ -227,6 +219,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 }
                 else
                 {
+                    var now = DateTime.UtcNow;
                     var entity = new Contenido
                     {
                         ContenidoTitulo = ContenidoTitulo,
@@ -243,7 +236,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                         PaisClave = PaisClave,
                         URLImagenPrincipal = URLImagenPrincipal,
                         UsuarioCreacion = GetCurrentUserGuid(),
-                        FechaCreado = DateTime.UtcNow,
+                        UsuarioModificacion = GetCurrentUserGuid(), // FIX: por consistencia
+                        FechaCreado = now,
+                        FechaModificado = now, // FIX: evitar NULL en columna NOT NULL
                         Eliminado = false
                     };
 
@@ -257,8 +252,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                         {
                             IdContenido = entity.Id,
                             IdCategoria = IdCategoria,
-                            FechaCreacion = DateTime.UtcNow,
-                            FechaModificacion = DateTime.UtcNow,
+                            FechaCreacion = now,
+                            FechaModificacion = now,
                             UsuarioCreacion = GetCurrentUserGuid(),
                             UsuarioModificacion = GetCurrentUserGuid(),
                             Borrado = false
@@ -301,7 +296,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         {
             try
             {
-                // Proyección segura: sólo columnas necesarias y coalesce para evitar NULL -> GetString
                 CategoryItems = await _db.ContenidosCategorias
                     .AsNoTracking()
                     .Where(c => c.Borrado == false)
@@ -309,7 +303,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     {
                         Sequence = c.Sequence,
                         CategoriaPadre = c.CategoriaPadre,
-                        Nombre = c.Nombre ?? ""   // evita SqlNullValueException
+                        Nombre = c.Nombre ?? ""
                     })
                     .OrderBy(c => c.Nombre)
                     .ToListAsync();
@@ -331,7 +325,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     .OrderBy(p => p.PaisNombre)
                     .Select(p => new { p.PaisCodigo, p.PaisNombre })
                     .ToListAsync();
-
                 PaisesLista = raw.Select(r => (r.PaisCodigo, r.PaisNombre)).ToList();
             }
             catch
@@ -431,8 +424,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 CategoriesCount = CategoryItems.Count,
                 ParentsCount = CategoryItems.Count(c => c.CategoriaPadre == null),
                 SubcategoriesCount = Subcategories.Count,
-                FirstParents = CategoryItems.Where(c => c.CategoriaPadre == null).Take(5),
-                SubSample = Subcategories.Take(5),
                 AdminAuthorsCount = AdminAuthors.Count
             };
             DebugInfoHtml = JsonSerializer.Serialize(dbg, new JsonSerializerOptions { WriteIndented = true });

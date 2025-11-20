@@ -11,442 +11,215 @@
         if (avatar.StartsWith("/")) return avatar;
         return Url.Content("~/" + avatar.TrimStart('/'));
     }
-}
-<style>
 
-
-
-        .search-card .search-left {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            flex: 1 1 auto;
-            min-width: 0;
-        }
-
-        .search-card .search-label {
-            font-size: .95rem;
-            color: #4b5563;
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-            .search-card .search-label i {
-                color: #6b7280;
-            }
-
-        .search-card .search-input-row {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-        .search-card .search-input {
-            flex: 1 1 auto;
-            min-width: 0;
-            border-radius: 8px;
-            border: 1px solid #e6eefc;
-            padding: .65rem .9rem;
-            background: #f7f9ff;
-            color: #123a57;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
-        }
-
-        .search-card .search-actions {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            flex: 0 0 auto;
-        }
-
-        /* Primary pill button matching style */
-        .search-card .btn-search {
-            background: linear-gradient(90deg,#2ea6ff,#6a4bd8);
-            color: #fff;
-            border: 0;
-            padding: .55rem .9rem;
-            border-radius: 10px;
-            font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: .5rem;
-            box-shadow: 0 8px 20px rgba(46,166,255,0.12);
-        }
-
-        .search-card .btn-clear {
-            background: transparent;
-            border: 1px solid rgba(78,115,170,0.08);
-            color: #2b4a78;
-            padding: .45rem .7rem;
-            border-radius: .6rem;
-            font-weight: 600;
-        }
-
-    /* Page size form: fixed width, vertically centered */
-    #pageSizeForm {
-        flex: 0 0 auto;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-        #pageSizeForm .form-select {
-            min-width: 84px;
-            max-width: 140px;
-        }
-
-    /* Card visual styling */
-    .pr-card {
-        background: linear-gradient(180deg,#f7f9ff,#f3f6ff);
-        border-radius: 14px;
-        box-shadow: 0 6px 18px rgba(25,45,85,0.04);
-        padding: 18px;
-        margin-bottom: 12px;
-        position: relative;
-        overflow: visible;
-        border: 1px solid rgba(70,90,150,0.04);
-        color: #123a57;
-        /* Use flex so inner .pr-main can stretch and cards look equal height */
-        display: flex;
-        align-items: stretch;
-        min-height: 130px; /* baseline height to keep uniformity */
-    }
-
-    /* Main row inside card */
-    .pr-main {
-        display: flex;
-        gap: 12px;
-        align-items: stretch;
-        width: 100%;
-    }
-
-    .pr-content {
-        flex: 1 1 auto;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        padding-right: 8px;
-    }
-
-    .pr-title {
-        font-weight: 600;
-        color: #123a57;
-        font-size: 1.05rem;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        display: block;
-        text-decoration: none;
-    }
-
-    .pr-body {
-        margin-top: 0;
-        color: #2b3b4a;
-        line-height: 1.35;
-        display: -webkit-box;
-        -webkit-line-clamp: 6;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        flex: 1 1 auto;
-    }
-
-    /* Avatar row */
-    .avatars-row {
-        margin-top: 8px;
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        justify-content: flex-start;
-    }
-
-    .avatar-author {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        object-fit: cover;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-        flex: 0 0 auto;
-        border: 2px solid rgba(255,255,255,0.6);
-    }
-
-    .avatar-res {
-        width: 27px;
-        height: 27px;
-        border-radius: 50%;
-        object-fit: cover;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-        flex: 0 0 auto;
-        border: 2px solid #fff;
-        margin-left: -8px;
-    }
-
-    .author-info {
-        margin-left: 8px;
-        min-width: 0;
-    }
-
-    /* Right actions column */
-    .pr-actions {
-        flex: 0 0 180px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        align-items: flex-end;
-        justify-content: space-between; /* spread top/bottom to better align vertically */
-        min-width: 140px;
-    }
-
-    .pr-eye {
-        display: flex;
-        gap: 6px;
-        align-items: center;
-    }
-
-    .pr-score {
-        text-align: right;
-    }
-
-    /* Vote buttons - keep classes for JS */
-    .btn-voto {
-        width: 38px;
-        height: 38px;
-        padding: 0;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 8px;
-        font-weight: 600;
-        font-size: 0.95rem;
-        cursor: pointer;
-    }
-
-    .btn.btn-outline-success.btn-voto,
-    .btn.btn-outline-success.btn-voto-q {
-        background: linear-gradient(90deg,#2ea6ff,#6a4bd8);
-        color: #fff !important;
-        border: 0 !important;
-        box-shadow: 0 6px 14px rgba(46,166,255,0.12);
-    }
-
-    .btn.btn-outline-danger.btn-voto,
-    .btn.btn-outline-danger.btn-voto-q {
-        background: #fff;
-        color: #d23b4a;
-        border: 1px solid rgba(210,59,74,0.12);
-        box-shadow: 0 2px 6px rgba(210,59,74,0.03);
-    }
-
-    .vote-login-hint {
-        font-size: 0.9rem;
-        color: #495057;
-        text-align: right;
-    }
-
-    .badge.bg-light.text-dark {
-        background: linear-gradient(90deg,#eef5ff,#f2f9ff) !important;
-        border: 1px solid rgba(110,150,220,0.08) !important;
-        color: #2b5a93 !important;
-        font-weight: 600;
-    }
-
-    /* Responsive adjustments */
-    @@media (max-width: 900px) {
-        .pr-card
-
+    string HumanizeDate(DateTimeOffset dt)
     {
-        min-height: 0;
+        var ts = DateTimeOffset.UtcNow - dt;
+        if (ts.TotalDays >= 1) return $"{(int)ts.TotalDays} {(ts.TotalDays < 2 ? "day" : "days")} ago";
+        if (ts.TotalHours >= 1) return $"{(int)ts.TotalHours} {(ts.TotalHours < 2 ? "hour" : "hours")} ago";
+        if (ts.TotalMinutes >= 1) return $"{(int)ts.TotalMinutes} {(ts.TotalMinutes < 2 ? "minute" : "minutes")} ago";
+        return "just now";
     }
+}
 
-    .pr-toolbar {
-        align-items: stretch;
-    }
+@section Styles {
+    <link rel="stylesheet" href="~/css/preguntas-stack.css" />
+}
 
-    .search-card {
-        flex: 1 1 100%;
-        min-width: 0;
-    }
+<div class="se-container">
+    <div class="se-header">
+        <h1 class="se-page-title">Todas las Preguntas</h1>
 
-    #pageSizeForm {
-        flex: 0 0 100%;
-        margin-top: 8px;
-        justify-content: flex-start;
-    }
-
-    .pr-actions {
-        align-items: flex-start;
-        flex-direction: row;
-        width: 100%;
-        gap: 8px;
-    }
-
-    .pr-main {
-        flex-direction: column;
-    }
-
-    }
-</style>
-
-<div class="crm-container">
-    <h2 class="crm-title mb-4">Todas las Preguntas</h2>
-    <div class="crm-card p-4 mb-4">
-        <form method="get" id="searchForm" class="search-card" role="search">
-            <div class="crm-search-group crm-col-8">
-                <label for="preguntasBuscar" class="crm-label">
-                    <i class="bi bi-search-heart crm-icon"></i> Buscar o filtrar preguntas</label>
-
-                <div class="crm-search-horizontal">
-                    <input name="search" aria-label="Buscar preguntas" class="search-input" placeholder="Ej: dolor de cabeza, insomnio, ansiedad..." value="@Model.Search" />
-                    <button class="btn-search" type="submit" title="Buscar">
-                        <i class="bi bi-search"></i> Buscar
-                    </button>
-                </div>
-            </div>
+        <form method="get" id="searchForm" class="se-search" role="search" aria-label="Buscar preguntas">
+            <input name="search"
+                   aria-label="Buscar preguntas"
+                   class="se-search-input"
+                   placeholder="Ej: dolor de cabeza, insomnio, ansiedad..."
+                   value="@Model.Search" />
+            <button class="se-btn se-btn-primary" type="submit" title="Buscar">Buscar</button>
+            <a class="se-btn se-btn-ghost" href="@Url.Page(null, null, new { page = 1, pageSize = Model.PageSize, search = "" }, null)">Limpiar</a>
         </form>
-         </div>
 
-    <div>
-        <form method="get" id="pageSizeForm" class="d-flex align-items-center gap-1" aria-label="Tamaño de página">
+        <form method="get" id="pageSizeForm" class="se-page-size" aria-label="Tamaño de página">
             <input type="hidden" name="search" value="@Model.Search" />
             <input type="hidden" name="page" value="1" />
-            <select name="pageSize" class="form-select form-select-sm" onchange="document.getElementById('pageSizeForm').submit();">
+            <label for="pageSize" class="se-page-size-label">Mostrar</label>
+            <select id="pageSize" name="pageSize" class="se-select" onchange="document.getElementById('pageSizeForm').submit();">
                 @{
-                    var sizes = new[] { 6, 12, 24, 48 };
+                    var sizes = new[] { 15, 30, 50, 100 };
                 }
                 @foreach (var s in sizes)
                 {
-                    if (Model.PageSize == s)
-                    {
-                        <option value="@s" selected>@s</option>
-                    }
-                    else
-                    {
-                        <option value="@s">@s</option>
-                    }
+                    <option value="@s" selected="@(Model.PageSize == s)">@s</option>
                 }
             </select>
+            <span class="se-page-size-suffix">por página</span>
         </form>
+    </div>
 
-        @if (!Model.Preguntas.Any())
-        {
-            <div class="alert alert-secondary">No se encontraron preguntas.</div>
-        }
-        else
-        {
-            foreach (var q in Model.Preguntas)
+    @if (!Model.Preguntas.Any())
+    {
+        <div class="se-empty">No se encontraron preguntas.</div>
+    }
+    else
+    {
+        <div class="se-list" id="preguntasList" role="list">
+            @foreach (var q in Model.Preguntas)
             {
                 var authAttr = User.Identity.IsAuthenticated ? "true" : "false";
                 var isMineAttr = q.EsMia ? "true" : "false";
-                <div class="pr-card" data-id="@q.Id" data-authenticated="@authAttr" data-is-mine="@isMineAttr" data-user-vote="@q.UsuarioVoto" data-score="@q.Score">
-                    <div class="pr-main">
-                        <div class="pr-content">
-                            <a href="/Preguntas/Detalles/@q.Id" class="pr-title">@q.Titulo</a>
+                var disableDown = q.Score <= 0; // evitar negativos
+                var disableUp = q.UsuarioVoto != 0; // si ya votó, no puede volver a +1 con up
+                                                    <article class="se-item"
+                                                             role="listitem"
+                                                             data-id="@q.Id"
+                                                             data-authenticated="@authAttr"
+                                                             data-is-mine="@isMineAttr"
+                                                             data-user-vote="@q.UsuarioVoto"
+                                                             data-score="@q.Score">
+                                                        <div class="se-stats">
+                                                            <div class="se-vote" aria-label="Votación">
+                            @if (!User.Identity.IsAuthenticated || q.EsMia)
+                            {
+                                <button class="se-vote-btn se-vote-up" type="button" disabled title="@(q.EsMia ? "No puedes votar tu propia pregunta" : "Inicia sesión para votar")"></button>
+                                <div class="se-votes-count" id="score-@q.Id">@q.Score</div>
+                                <button class="se-vote-btn se-vote-down" type="button" disabled title="@(q.EsMia ? "No puedes votar tu propia pregunta" : "Inicia sesión para votar")"></button>
+                            }
+                            else
+                            {
+                                var upActive = q.UsuarioVoto == 1 ? "active" : "";
+                                var downActive = q.UsuarioVoto == -1 ? "active" : "";
+                                <button class="se-vote-btn se-vote-up @upActive" data-id="@q.Id" data-dir="up" type="button" title="+1" aria-label="Votar +1" @(disableUp ? "disabled" : null)></button>
+                                <div class="se-votes-count" id="score-@q.Id">@q.Score</div>
+                                <button class="se-vote-btn se-vote-down @downActive" data-id="@q.Id" data-dir="down" type="button" title="-1" aria-label="Votar -1" @(disableDown ? "disabled" : null)></button>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="se-summary">
+                        <h2 class="se-title">
+                            <a href="/Preguntas/Detalles/@q.Id">@q.Titulo</a>
+                        </h2>
+
+                        <div class="se-excerpt">
+                            @Html.Raw(q.CuerpoPreview)
+                        </div>
+
+                        <!-- Relaciones clínicas debajo del contenido -->
+                        @if (q.Condiciones.Any() || q.Sintomas.Any() || q.Tratamientos.Any())
+                        {
+                            <div class="se-relations">
+                                @if (q.Condiciones.Any())
+                                {
+                                    <div class="se-rel-group">
+                                        <span class="se-rel-label">condiciones</span>
+                                        <div class="se-rel-badges">
+                                            @foreach (var n in q.Condiciones)
+                                            {
+                                                <span class="se-rel-badge">@n</span>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                                @if (q.Sintomas.Any())
+                                {
+                                    <div class="se-rel-group">
+                                        <span class="se-rel-label">síntomas</span>
+                                        <div class="se-rel-badges">
+                                            @foreach (var n in q.Sintomas)
+                                            {
+                                                <span class="se-rel-badge">@n</span>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                                @if (q.Tratamientos.Any())
+                                {
+                                    <div class="se-rel-group">
+                                        <span class="se-rel-label">tratamientos</span>
+                                        <div class="se-rel-badges">
+                                            @foreach (var n in q.Tratamientos)
+                                            {
+                                                <span class="se-rel-badge">@n</span>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        <div class="se-meta">
+                            <div class="se-user">
+                                <img class="se-avatar lazy-avatar"
+                                     src="@Url.Content("~/img/avatar-placeholder.png")"
+                                     data-src="@ResolveAvatar(q.AutorAvatarUrl)"
+                                     alt="@q.AutorNombre" width="36" height="36"
+                                     decoding="async"
+                                     onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+                                <a class="se-user-name" href="#" aria-label="Autor">@q.AutorNombre</a>
+                            </div>
+                            <div class="se-time">
+                                asked @HumanizeDate(q.FechaCreacion)
+                            </div>
 
                             @if (q.EsMia)
                             {
-                                <form method="post" asp-page-handler="EliminarPregunta" class="d-inline" style="display:inline-block;">
+                                <form method="post"
+                                      asp-page-handler="EliminarPregunta"
+                                      class="se-inline-form"
+                                      onsubmit="return confirm('¿Deseas eliminar esta pregunta? Esta acción no se puede deshacer.');">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="id" value="@q.Id" />
-                                    <button class="btn-delete-inline" title="Eliminar pregunta" aria-label="Eliminar pregunta" type="submit" onclick="return confirm('¿Deseas eliminar esta pregunta? Esta acción no se puede deshacer.');">🗑</button>
+                                    <button class="se-btn se-btn-link" type="submit" title="Eliminar">Eliminar</button>
                                 </form>
                             }
+                        </div>
 
-                            <div class="pr-body">@Html.Raw(q.CuerpoPreview)</div>
+                        <!-- Answers bottom-right block con avatars de responders debajo -->
+                        <div class="se-answers-float @(q.RespuestasCount > 0 ? "answered" : "unanswered")"
+                             title="Respuestas totales">
+                            <span class="se-answers-float-count">@q.RespuestasCount</span>
+                            <span class="se-answers-float-label">answers</span>
 
-                            <div class="avatars-row" aria-hidden="true">
-                                @* Author avatar first *@
-                                <img class="avatar-author lazy-avatar"
-                                     src="@Url.Content("~/img/avatar-placeholder.png")"
-                                     data-src="@ResolveAvatar(q.AutorAvatarUrl)"
-                                     alt="@q.AutorNombre" width="40" height="40"
-                                     decoding="async"
-                                     onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
-
-                                @* responders avatars *@
-                                @{
-                                    var added = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                                    if (!string.IsNullOrWhiteSpace(q.AutorAvatarUrl)) added.Add(q.AutorAvatarUrl);
-                                    var rcnt = 0;
-                                    foreach (var a in q.RespondersAvatars ?? Enumerable.Empty<string>())
+                            @if (q.RespondersAvatars?.Any() == true)
+                            {
+                                <div class="se-answers-responders">
+                                    @foreach (var av in q.RespondersAvatars)
                                     {
-                                        if (rcnt >= 6) break;
-                                        if (string.IsNullOrWhiteSpace(a)) continue;
-                                        if (added.Contains(a)) continue;
-                                        added.Add(a);
-                                        <img class="avatar-res lazy-avatar"
+                                        <img class="se-responder-avatar lazy-avatar"
                                              src="@Url.Content("~/img/avatar-placeholder.png")"
-                                             data-src="@ResolveAvatar(a)"
-                                             alt="Responder" width="27" height="27"
+                                             data-src="@ResolveAvatar(av)"
+                                             alt="Responder"
+                                             width="20" height="20"
                                              decoding="async"
                                              onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
-                                        rcnt++;
                                     }
-                                }
-                            </div>
-                        </div>
-
-                        <div class="pr-actions">
-                            <div class="pr-eye">
-                                <a class="btn btn-sm btn-outline-secondary" href="/Preguntas/Detalles/@q.Id" title="Ver detalle" aria-label="Ver detalle">
-                                    <span style="font-size:0.95rem;">👁</span>
-                                </a>
-                            </div>
-
-                            <span class="badge bg-light text-dark">Respuestas: <strong>@q.RespuestasCount</strong></span>
-
-                            <div class="vote-container">
-                                @if (!User.Identity.IsAuthenticated)
-                                {
-                                    <div class="vote-login-hint">Inicia sesión para realizar un voto. <a href="/Account/Login">Iniciar sesión</a></div>
-                                }
-                                else if (q.EsMia)
-                                {
-                                    <span class="text-muted small">No puedes votar tu propia pregunta</span>
-                                }
-                                else
-                                {
-                                    if (q.UsuarioVoto == 1)
-                                    {
-                                        <button class="btn btn-outline-danger btn-voto btn-voto-q" data-id="@q.Id" data-valor="-1" title="Quitar voto"><i class="bi bi-hand-thumbs-down me-1"></i>-1</button>
-                                    }
-                                    else
-                                    {
-                                        <button class="btn btn-outline-success btn-voto btn-voto-q" data-id="@q.Id" data-valor="1" title="+1"><i class="bi bi-hand-thumbs-up me-1"></i>+1</button>
-                                    }
-                                }
-                            </div>
-
-                            <div class="pr-score badge bg-light text-dark ms-2" id="score-@q.Id">Score: @q.Score</div>
+                                </div>
+                            }
                         </div>
                     </div>
-                </div>
+                </article>
             }
-        }
-    </div>
+        </div>
 
-    <div class="d-flex justify-content-between align-items-center mt-3">
-        <div class="pagination-block">
+        <nav class="se-pagination" role="navigation" aria-label="Paginación">
             @{
                 var prev = Model.Page > 1 ? Model.Page - 1 : 1;
                 var next = Model.Page < Model.TotalPages ? Model.Page + 1 : Model.TotalPages;
                 var qsBase = $"?search={Uri.EscapeDataString(Model.Search ?? "")}&pageSize={Model.PageSize}";
             }
-            <a class="btn btn-sm btn-outline-secondary" href="@($"{qsBase}&page={prev}")">Anterior</a>
-            <span class="mx-2">Página <strong>@Model.Page</strong> de <strong>@Model.TotalPages</strong></span>
-            <a class="btn btn-sm btn-outline-secondary" href="@($"{qsBase}&page={next}")">Siguiente</a>
-        </div>
-
-        <div>
-            <small class="text-muted">@Model.TotalItems preguntas encontradas</small>
-        </div>
-    </div>
+            <a class="se-btn se-btn-ghost" href="@($"{qsBase}&page={prev}")">Anterior</a>
+            <span class="se-page-indicator">Página <strong>@Model.Page</strong> de <strong>@Model.TotalPages</strong></span>
+            <a class="se-btn se-btn-ghost" href="@($"{qsBase}&page={next}")">Siguiente</a>
+            <span class="se-total">@Model.TotalItems preguntas</span>
+        </nav>
+    }
 </div>
 
 @section Scripts {
     <script>
-        (async function () {
-            // init lazy avatars
+        (function () {
+
             function initLazyAvatars() {
                 const imgs = Array.from(document.querySelectorAll('img.lazy-avatar[data-src]'));
                 if (!imgs.length) return;
@@ -457,7 +230,7 @@
                     if (!src) { onError(img); return; }
                     const tmp = new Image();
                     tmp.decoding = 'async';
-                    tmp.onload = function () { try { img.src = src; } catch {} onLoad(img); };
+                    tmp.onload = function () { try { img.src = src; } catch { } onLoad(img); };
                     tmp.onerror = function () { onError(img); };
                     tmp.src = src;
                 };
@@ -483,64 +256,107 @@
                 }
             }
 
-            // delegated vote handling for questions (single-button UI)
+            // Voting:
+            // - Up = +1; solo funciona si el usuario NO ha votado aún (userVote == 0).
+            // - Down = -1; funciona solo si el score actual > 0 para evitar negativos.
+            // - Ya no hay "toggle" con up. Para revertir o bajar, usar down.
             document.addEventListener('click', async function (e) {
-                const btn = e.target.closest('.btn-voto-q');
+                const btn = e.target.closest('.se-vote-btn');
                 if (!btn) return;
-                e.preventDefault();
 
-                const id = btn.getAttribute('data-id');
-                const valor = parseInt(btn.getAttribute('data-valor') || "0", 10);
-                if (!id || (valor !== 1 && valor !== -1)) return;
+                const article = btn.closest('.se-item');
+                if (!article) return;
 
-                btn.disabled = true;
+                const isAuth = article.getAttribute('data-authenticated') === 'true';
+                const isMine = article.getAttribute('data-is-mine') === 'true';
+                const id = article.getAttribute('data-id');
+                if (!id) return;
+
+                if (!isAuth) { alert('Inicia sesión para votar.'); return; }
+                if (isMine) { alert('No puedes votar tu propia pregunta.'); return; }
+
+                const dir = btn.getAttribute('data-dir'); // 'up' | 'down'
+                const currentScore = parseInt(article.getAttribute('data-score') || '0', 10);
+                const currentUserVote = parseInt(article.getAttribute('data-user-vote') || '0', 10);
+
+                // Regla 1: si ya hay voto (±1), el botón "up" no hace nada.
+                if (dir === 'up' && currentUserVote !== 0) {
+                    return;
+                }
+
+                // Regla 2: si score == 0, "down" no funciona para evitar negativos.
+                if (dir === 'down' && currentScore <= 0) {
+                    return;
+                }
+
+                // Preparar envío
+                const upBtn = article.querySelector('.se-vote-up');
+                const downBtn = article.querySelector('.se-vote-down');
+                if (upBtn) upBtn.disabled = true;
+                if (downBtn) downBtn.disabled = true;
+
+                const valor = (dir === 'up') ? 1 : -1;
+
                 try {
                     const res = await fetch('/api/preguntas/' + id + '/votar', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ valor: valor })
+                        body: JSON.stringify({ valor })
                     });
-
                     if (!res.ok) {
                         const txt = await res.text();
-                        console.warn('Votar pregunta falló:', res.status, txt);
                         alert('Error al votar: ' + (txt || res.status));
                         return;
                     }
 
                     const j = await res.json();
                     const scoreEl = document.getElementById('score-' + id);
-                    if (j.score !== undefined && scoreEl) scoreEl.textContent = 'Score: ' + j.score;
 
-                    // update single control in the card, keep icon markup consistent
-                    const card = document.querySelector('.pr-card[data-id="' + id + '"]');
-                    if (!card) return;
-                    const voteContainer = card.querySelector('.vote-container');
-                    const authenticated = card.getAttribute('data-authenticated') === 'true';
-                    const isMine = card.getAttribute('data-is-mine') === 'true';
-                    const userVote = (j.userVote !== undefined) ? j.userVote : 0;
+                    // Score y userVote reportados por backend
+                    const newScore = (j.score !== undefined) ? parseInt(j.score, 10) : (currentScore + (dir === 'up' ? 1 : -1));
+                    const newUserVote = (j.userVote !== undefined) ? parseInt(j.userVote, 10) : (dir === 'up' ? 1 : -1);
 
-                    card.setAttribute('data-user-vote', String(userVote));
-                    card.setAttribute('data-score', String(j.score ?? 0));
+                    if (scoreEl) scoreEl.textContent = String(newScore);
+                    article.setAttribute('data-score', String(newScore));
+                    article.setAttribute('data-user-vote', String(newUserVote));
 
-                    if (!authenticated) {
-                        voteContainer.innerHTML = '<div class="vote-login-hint">Inicia sesión para realizar un voto. <a href="/Account/Login">Iniciar sesión</a></div>';
-                    } else if (isMine) {
-                        voteContainer.innerHTML = '<span class="text-muted small">No puedes votar tu propia pregunta</span>';
-                    } else {
-                        if (userVote === 1) {
-                            voteContainer.innerHTML = '<button class="btn btn-outline-danger btn-voto btn-voto-q" data-id="' + id + '" data-valor="-1" title="Quitar voto"><i class="bi bi-hand-thumbs-down me-1"></i>-1</button>';
-                        } else {
-                            voteContainer.innerHTML = '<button class="btn btn-outline-success btn-voto btn-voto-q" data-id="' + id + '" data-valor="1" title="+1"><i class="bi bi-hand-thumbs-up me-1"></i>+1</button>';
-                        }
+                    // Visual
+                    if (upBtn) {
+                        // activo solo si userVote == 1
+                        if (newUserVote === 1) upBtn.classList.add('active'); else upBtn.classList.remove('active');
+                        // Regla UI: deshabilitar up si ya existe voto
+                        upBtn.disabled = (newUserVote !== 0);
                     }
+                    if (downBtn) {
+                        if (newUserVote === -1) downBtn.classList.add('active'); else downBtn.classList.remove('active');
+                        // down deshabilitado si score quedó 0 para evitar negativos
+                        downBtn.disabled = (newScore <= 0);
+                    }
+
+                    // Reordenar por score desc
+                    reorderByScore();
                 } catch (err) {
-                    console.error('Error votando pregunta', err);
+                    console.error('Error votando', err);
                     alert('Error de red al votar');
                 } finally {
-                    btn.disabled = false;
+                    // Si hubo error, reactivar acorde a reglas actuales
+                    if (upBtn && !upBtn.disabled) upBtn.disabled = (parseInt(article.getAttribute('data-user-vote') || '0', 10) !== 0);
+                    if (downBtn && !downBtn.disabled) downBtn.disabled = (parseInt(article.getAttribute('data-score') || '0', 10) <= 0);
                 }
             });
+
+            function reorderByScore() {
+                const list = document.getElementById('preguntasList');
+                if (!list) return;
+                const items = Array.from(list.querySelectorAll('.se-item'));
+                items.sort((a, b) => {
+                    const sa = parseInt(a.getAttribute('data-score') || '0', 10);
+                    const sb = parseInt(b.getAttribute('data-score') || '0', 10);
+                    if (sb === sa) return 0;
+                    return sb - sa;
+                });
+                items.forEach(it => list.appendChild(it));
+            }
 
             initLazyAvatars();
         })();

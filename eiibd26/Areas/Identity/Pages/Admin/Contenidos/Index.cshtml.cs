@@ -6,11 +6,10 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Security.Claims;
+using System.Collections.Generic;
 
 namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 {
-    // Mantengo IgnoreAntiforgeryToken para evitar problemas con token en AJAX.
     [IgnoreAntiforgeryToken]
     public class IndexModel : PageModel
     {
@@ -23,12 +22,43 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public void OnGet()
+        // Lista de categorías padre para el combo principal
+        public List<(int seq, string name)> ParentCategories { get; set; } = new();
+        // Lista completa (para JS): seq, parent, name
+        public List<(int seq, int? parent, string name)> CategoriesFlat { get; set; } = new();
+
+        public async Task OnGetAsync()
         {
-            // Nada que inicializar server-side; la tabla será cargada por DataTables.
+            try
+            {
+                var rawAll = await _db.ContenidosCategorias
+                    .AsNoTracking()
+                    .Where(c => c.Borrado == false)
+                    .Select(c => new { c.Sequence, c.CategoriaPadre, Nombre = c.Nombre ?? "" })
+                    .OrderBy(c => c.Nombre)
+                    .ToListAsync();
+
+                CategoriesFlat = rawAll
+                    .Select(c => (c.Sequence, c.CategoriaPadre, c.Nombre))
+                    .ToList();
+
+                ParentCategories = rawAll
+                    .Where(c => c.CategoriaPadre == null)
+                    .Select(c => (c.Sequence, c.Nombre))
+                    .OrderBy(c => c.Nombre)
+                    .ToList();
+
+                _logger.LogDebug("OnGetAsync: Padres={Padres} TotalCategorias={Total}",
+                    ParentCategories.Count, CategoriesFlat.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error cargando categorías (padres y flat).");
+                ParentCategories = new List<(int, string)>();
+                CategoriesFlat = new List<(int, int?, string)>();
+            }
         }
 
-        // DataTables server-side: devuelve { draw, recordsTotal, recordsFiltered, data }
         public async Task<IActionResult> OnGetGridDataAsync(bool mostrarEliminados = false)
         {
             try
@@ -38,7 +68,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 var length = int.TryParse(Request.Query["length"], out var lVal) ? lVal : 10;
                 var searchValue = (Request.Query["search[value]"].ToString() ?? "").Trim();
 
-                // Detectar mostrarEliminados de forma robusta (d.mostrarEliminados)
+                // Mostrar eliminados
                 string mostrarElimQuery = Request.Query["mostrarEliminados"].ToString();
                 if (string.IsNullOrEmpty(mostrarElimQuery))
                 {
@@ -52,38 +82,93 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                         }
                     }
                 }
+                bool mostrarElimFlag = mostrarElimQuery == "1"
+                    || mostrarElimQuery.Equals("true", StringComparison.OrdinalIgnoreCase)
+                    || mostrarElimQuery.Equals("on", StringComparison.OrdinalIgnoreCase);
 
-                bool mostrarElimFlag = mostrarEliminados;
-                if (!string.IsNullOrEmpty(mostrarElimQuery))
+                // Filtros de categoría
+                int? idCategoriaPadre = null;
+                int? idSubcategoria = null;
+                var rawParent = Request.Query["idCategoriaPadre"].ToString();
+                var rawSub = Request.Query["idSubcategoria"].ToString();
+
+                if (!string.IsNullOrWhiteSpace(rawParent) && int.TryParse(rawParent, out var parsedParent) && parsedParent > 0)
+                    idCategoriaPadre = parsedParent;
+                if (!string.IsNullOrWhiteSpace(rawSub) && int.TryParse(rawSub, out var parsedSub) && parsedSub > 0)
+                    idSubcategoria = parsedSub;
+
+                IQueryable<eiibd26.Models.Contenido> baseQuery = mostrarElimFlag
+                    ? _db.Contenidos.IgnoreQueryFilters().AsNoTracking()
+                    : _db.Contenidos.AsNoTracking();
+
+                // Lógica de filtro jerárquico:
+                // 1) Si hay subcategoría -> filtrar solo por ese IdCategoria.
+                // 2) Else si hay categoría padre -> filtrar contenidos relacionados al padre o a sus hijos.
+                if (idSubcategoria.HasValue)
                 {
-                    mostrarElimFlag = mostrarElimQuery == "1"
-                        || mostrarElimQuery.Equals("true", StringComparison.OrdinalIgnoreCase)
-                        || mostrarElimQuery.Equals("on", StringComparison.OrdinalIgnoreCase);
+                    baseQuery = baseQuery.Where(c =>
+                        _db.ContenidosCategoriasRelacion
+                           .AsNoTracking()
+                           .Any(r => r.IdContenido == c.Id
+                                     && r.Borrado == false
+                                     && r.IdCategoria == idSubcategoria.Value));
+                }
+                else if (idCategoriaPadre.HasValue)
+                {
+                    // Padre + hijos directos
+                    var cats = await _db.ContenidosCategorias
+                        .AsNoTracking()
+                        .Where(c => c.Borrado == false &&
+                                    (c.Sequence == idCategoriaPadre.Value || c.CategoriaPadre == idCategoriaPadre.Value))
+                        .Select(c => c.Sequence)
+                        .ToListAsync();
+
+                    if (cats.Count > 0)
+                    {
+                        baseQuery = baseQuery.Where(c =>
+                            _db.ContenidosCategoriasRelacion
+                               .AsNoTracking()
+                               .Any(r => r.IdContenido == c.Id
+                                         && r.Borrado == false
+                                         && r.IdCategoria.HasValue
+                                         && cats.Contains(r.IdCategoria.Value)));
+                    }
+                    else
+                    {
+                        baseQuery = baseQuery.Where(c => false);
+                    }
                 }
 
-                _logger.LogDebug("GridData request. QueryString={Query} resolved mostrarEliminados='{Param}' => {Flag} (draw={Draw}, start={Start}, len={Len}, search='{Search}')",
-                    Request.QueryString.Value, mostrarElimQuery, mostrarElimFlag, draw, start, length, searchValue);
-
-                // recordsTotal sin filtro
-                var recordsTotal = await _db.Contenidos.AsNoTracking().CountAsync();
-
-                // Base query (usa la propiedad pública Eliminado)
-                IQueryable<Models.Contenido> q = _db.Contenidos.AsNoTracking();
-                if (!mostrarElimFlag)
-                {
-                    q = q.Where(c => !c.Eliminado);
-                }
+                var recordsTotal = await baseQuery.CountAsync();
 
                 if (!string.IsNullOrWhiteSpace(searchValue))
                 {
-                    var s = searchValue;
-                    q = q.Where(c => (c.ContenidoTitulo ?? "").Contains(s) || (c.ContenidoTextoC ?? "").Contains(s));
+                    baseQuery = baseQuery.Where(c =>
+                        (c.ContenidoTitulo ?? "").Contains(searchValue) ||
+                        (c.ContenidoTextoC ?? "").Contains(searchValue));
                 }
 
-                var recordsFiltered = await q.CountAsync();
+                var recordsFiltered = await baseQuery.CountAsync();
 
-                var data = await q
-                    .OrderByDescending(c => c.FechaCreado)
+                // Ordenamiento FechaCreado
+                var orderColStr = Request.Query["order[0][column]"].ToString();
+                var orderDir = Request.Query["order[0][dir]"].ToString();
+                string orderColName = null;
+                if (int.TryParse(orderColStr, out var orderColIdx))
+                    orderColName = Request.Query[$"columns[{orderColIdx}][data]"].ToString();
+
+                if (!string.IsNullOrWhiteSpace(orderColName) && orderColName.Equals("fechaCreado", StringComparison.OrdinalIgnoreCase))
+                {
+                    baseQuery = orderDir?.Equals("asc", StringComparison.OrdinalIgnoreCase) == true
+                        ? baseQuery.OrderBy(c => c.FechaCreado)
+                        : baseQuery.OrderByDescending(c => c.FechaCreado);
+                }
+                else
+                {
+                    baseQuery = baseQuery.OrderByDescending(c => c.FechaCreado);
+                }
+
+                var data = await baseQuery
                     .Skip(start)
                     .Take(length)
                     .Select(c => new
@@ -97,7 +182,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     })
                     .ToListAsync();
 
-                _logger.LogDebug("GridData result: total={Total}, filtered={Filtered}, returned={Returned}", recordsTotal, recordsFiltered, data.Count);
+                _logger.LogDebug("GridData (elim={Mostrar}, padre={Padre}, sub={Sub}) total={Total} filtered={Filtered} returned={Returned} search='{Search}'",
+                    mostrarElimFlag, idCategoriaPadre, idSubcategoria, recordsTotal, recordsFiltered, data.Count, searchValue);
 
                 return new JsonResult(new
                 {
@@ -110,12 +196,10 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error en OnGetGridDataAsync");
-                // devolver JSON con error y código 500
                 return StatusCode(500, new { success = false, message = "Error interno al obtener datos." });
             }
         }
 
-        // GET one content (for view modal or to pre-fill Detalle page)
         public async Task<IActionResult> OnGetGetContenidoAsync(int id)
         {
             try
@@ -123,6 +207,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 if (id <= 0) return BadRequest(new { success = false, message = "ID inválido" });
 
                 var dto = await _db.Contenidos
+                    .IgnoreQueryFilters()
                     .AsNoTracking()
                     .Where(x => x.Id == id)
                     .Select(x => new
@@ -147,10 +232,10 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
                 if (dto == null) return NotFound(new { success = false, message = "Contenido no encontrado" });
 
-                // obtener relación de categoría más reciente si existe
-                var rel = await _db.Set<Models.ContenidoCategoriaRelacion>()
+                var rel = await _db.ContenidosCategoriasRelacion
+                    .IgnoreQueryFilters()
                     .AsNoTracking()
-                    .Where(r => r.IdContenido == id && (EF.Property<bool?>(r, "Borrado") ?? false) == false)
+                    .Where(r => r.IdContenido == id && r.Borrado == false)
                     .OrderByDescending(r => r.FechaCreacion)
                     .FirstOrDefaultAsync();
 
@@ -158,10 +243,11 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 int? categoriaPadre = null;
                 string categoriaNombre = "";
 
-                if (rel != null && rel.IdCategoria.HasValue)
+                if (rel?.IdCategoria != null)
                 {
                     categoria = rel.IdCategoria.Value;
-                    var cat = await _db.Set<Models.ContenidoCategoria>()
+                    var cat = await _db.ContenidosCategorias
+                        .IgnoreQueryFilters()
                         .AsNoTracking()
                         .Where(c => c.Sequence == rel.IdCategoria.Value)
                         .Select(c => new { c.Sequence, Nombre = c.Nombre ?? "", c.CategoriaPadre })
@@ -202,7 +288,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             }
         }
 
-        // POST soft-delete
         public async Task<IActionResult> OnPostEliminarContenidoAsync()
         {
             try
@@ -210,18 +295,17 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 if (!Request.HasFormContentType || string.IsNullOrWhiteSpace(Request.Form["id"]))
                     return BadRequest(new { success = false, message = "ID inválido" });
 
-                if (!int.TryParse(Request.Form["id"], out var id)) return BadRequest(new { success = false, message = "ID inválido" });
+                if (!int.TryParse(Request.Form["id"], out var id))
+                    return BadRequest(new { success = false, message = "ID inválido" });
 
-                var entity = await _db.Contenidos.FirstOrDefaultAsync(x => x.Id == id);
+                var entity = await _db.Contenidos
+                    .IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(x => x.Id == id);
+
                 if (entity == null) return new JsonResult(new { success = false, message = "Contenido no encontrado." });
 
                 entity.Eliminado = true;
                 entity.FechaModificado = DateTime.UtcNow;
-                var userIdClaim = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (Guid.TryParse(userIdClaim, out var userGuid))
-                {
-                    entity.UsuarioModificacion = userGuid;
-                }
 
                 await _db.SaveChangesAsync();
                 return new JsonResult(new { success = true });
@@ -233,7 +317,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             }
         }
 
-        // POST restore
         public async Task<IActionResult> OnPostRestaurarContenidoAsync()
         {
             try
@@ -241,18 +324,17 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 if (!Request.HasFormContentType || string.IsNullOrWhiteSpace(Request.Form["id"]))
                     return BadRequest(new { success = false, message = "ID inválido" });
 
-                if (!int.TryParse(Request.Form["id"], out var id)) return BadRequest(new { success = false, message = "ID inválido" });
+                if (!int.TryParse(Request.Form["id"], out var id))
+                    return BadRequest(new { success = false, message = "ID inválido" });
 
-                var entity = await _db.Contenidos.FirstOrDefaultAsync(x => x.Id == id);
+                var entity = await _db.Contenidos
+                    .IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(x => x.Id == id);
+
                 if (entity == null) return new JsonResult(new { success = false, message = "Contenido no encontrado." });
 
                 entity.Eliminado = false;
                 entity.FechaModificado = DateTime.UtcNow;
-                var userIdClaim = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (Guid.TryParse(userIdClaim, out var userGuid))
-                {
-                    entity.UsuarioModificacion = userGuid;
-                }
 
                 await _db.SaveChangesAsync();
                 return new JsonResult(new { success = true });

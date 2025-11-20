@@ -1,25 +1,38 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace eiibd26.Models
 {
     public class Respuesta
     {
+        [Key]
         public Guid Id { get; set; }
+
+        [Required]
         public Guid PreguntaId { get; set; }
 
-        // New: optional parent response id for nested replies
-        public Guid? ParentRespuestaId { get; set; }
-
+        [Required]
         public Guid UsuarioId { get; set; }
+
+        [Required]
         public string Cuerpo { get; set; }
-        public DateTimeOffset FechaCreacion { get; set; }
+
         public bool EsAceptada { get; set; }
         public bool Eliminado { get; set; }
 
-        // Navigation properties (if used)
+        [Required]
+        public DateTimeOffset FechaCreacion { get; set; }
+
+        public DateTimeOffset? FechaModificacion { get; set; }
+
+        public Guid? ParentRespuestaId { get; set; }
+
+        [ForeignKey(nameof(PreguntaId))]
         public Pregunta Pregunta { get; set; }
-        public Respuesta ParentRespuesta { get; set; }
-        public ICollection<Respuesta> Children { get; set; }
+
+        [ForeignKey(nameof(ParentRespuestaId))]
+        public Respuesta Parent { get; set; }
     }
 }

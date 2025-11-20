@@ -1,6 +1,5 @@
 ﻿@page
 @model eiibd26.Areas.Identity.Pages.Admin.Contenidos.IndexModel
-@using Microsoft.AspNetCore.Authorization
 
 @section Styles {
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" />
@@ -52,29 +51,16 @@
             border: 0;
         }
 
-        .slug-status {
+        .filter-inline {
             display: inline-flex;
+            gap: .5rem;
             align-items: center;
-            gap: .35rem;
-            margin-left: .5rem;
+            margin-right: 1rem;
         }
 
-        .slug-spinner {
-            width: 18px;
-            height: 18px;
-            display: inline-block;
-            border: 2px solid #ddd;
-            border-top-color: #007bff;
-            border-radius: 50%;
-            animation: spin .8s linear infinite;
-            margin-left: .5rem;
-        }
-
-        @@keyframes spin {
-            to {
-                transform: rotate(360deg);
+            .filter-inline select {
+                min-width: 220px;
             }
-        }
     </style>
 }
 
@@ -83,17 +69,37 @@
 
     <div class="block-admin-uniform mb-3 d-flex justify-content-between align-items-center">
         <div>
-            <div class="mb-2 fs-4"><i class="bi bi-journal-text me-2" style="font-size:1.2em;color:#3196fa"></i>Contenidos</div>
+            <div class="mb-2 fs-4">
+                <i class="bi bi-journal-text me-2" style="font-size:1.2em;color:#3196fa"></i>Contenidos
+            </div>
             <div class="text-muted">Administra artículos y contenidos del sistema.</div>
         </div>
         <div>
-            <button id="btnNuevoContenido" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Nuevo contenido</button>
+            <button id="btnNuevoContenido" class="btn btn-primary">
+                <i class="bi bi-plus-lg"></i> Nuevo contenido
+            </button>
         </div>
     </div>
 
     <div class="dt-controls-flex">
         <div id="gridLengthWrapper"></div>
         <div class="dt-controls-right">
+            <div class="filter-inline">
+                <label for="filterCategoriaPadre" class="form-label mb-0">Categoría padre</label>
+                <select id="filterCategoriaPadre" class="form-select form-select-sm">
+                    <option value="">(Todas)</option>
+                    @foreach (var p in Model.ParentCategories)
+                    {
+                        <option value="@p.seq">@p.name</option>
+                    }
+                </select>
+            </div>
+            <div class="filter-inline">
+                <label for="filterSubcategoria" class="form-label mb-0">Subcategoría</label>
+                <select id="filterSubcategoria" class="form-select form-select-sm" disabled>
+                    <option value="">(Todas)</option>
+                </select>
+            </div>
             <div class="form-check form-switch d-inline-block align-middle">
                 <input class="form-check-input" type="checkbox" id="switchEliminados">
                 <label class="form-check-label" for="switchEliminados">Mostrar eliminados</label>
@@ -118,15 +124,15 @@
     </div>
 </div>
 
-<!-- Modal Ver Detalle -->
+<!-- Modal Detalle -->
 <div class="modal fade" id="modalVerDetalle" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content crm-modal-content">
-            <div class="crm-modal-header modal-header">
-                <h5 class="crm-modal-title" id="modalVerDetalleLabel">Detalle del Contenido</h5>
+            <div class="modal-header">
+                <h5 class="modal-title">Detalle del Contenido</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <div class="modal-body crm-modal-body">
+            <div class="modal-body">
                 <dl class="row">
                     <dt class="col-sm-3">Título</dt>
                     <dd class="col-sm-9" id="view_Titulo"></dd>
@@ -148,8 +154,8 @@
                     <dd class="col-sm-9" id="view_TextoL"></dd>
                 </dl>
             </div>
-            <div class="crm-modal-footer modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -170,6 +176,10 @@
     const getContenidoUrl = '@getUrl';
     const postEliminarUrl = '@eliminarUrl';
     const postRestaurarUrl = '@restaurarUrl';
+    // Lista completa de categorías para poblar subcategorías dinámicamente
+    const categoriasFlat = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                Model.CategoriesFlat.Select(c => new { seq = c.seq, parent = c.parent, name = c.name })
+        ));
 </script>
 
 @section Scripts {
@@ -181,6 +191,24 @@
     <script>
         (function () {
             let grid;
+
+            function populateSubcategories(parentId) {
+                const subSel = $('#filterSubcategoria');
+                subSel.empty().append('<option value="">(Todas)</option>');
+                if (!parentId) {
+                    subSel.prop('disabled', true);
+                    return;
+                }
+                const subs = categoriasFlat.filter(c => c.parent !== null && Number(c.parent) === Number(parentId));
+                if (subs.length === 0) {
+                    subSel.prop('disabled', true);
+                    return;
+                }
+                subs.forEach(s => {
+                    subSel.append(`<option value="${s.seq}">${s.name}</option>`);
+                });
+                subSel.prop('disabled', false);
+            }
 
             function initGrid() {
                 grid = $('#contenidosGrid').DataTable({
@@ -194,55 +222,39 @@
                         dataType: 'json',
                         data: function (d) {
                             d.mostrarEliminados = $('#switchEliminados').is(':checked') ? '1' : '0';
-                            d._ts = Date.now(); // cache-bust
-                            console.debug('DataTables ajax params:', d);
+                            d.idCategoriaPadre = $('#filterCategoriaPadre').val() || '';
+                            d.idSubcategoria = $('#filterSubcategoria').val() || '';
+                            d._ts = Date.now();
                         },
                         dataSrc: function (json) {
-                            console.debug('GridData response:', json);
-                            if (!json) { console.error('GridData: response is null/undefined'); return []; }
-                            if (!('data' in json)) { console.error('GridData: response has no \"data\" property. Full response:', json); return []; }
-                            if (!Array.isArray(json.data)) { console.error('GridData: response.data is not an array. Full response:', json); return []; }
+                            if (!json || !Array.isArray(json.data)) return [];
                             return json.data;
-                        },
-                        // log raw response to help debugging (will appear in console)
-                        complete: function (xhr, status) {
-                            try {
-                                console.groupCollapsed('GridData AJAX complete (status=' + status + ')');
-                                console.log('HTTP status:', xhr.status);
-                                console.log('Response headers:\n', xhr.getAllResponseHeaders());
-                                console.log('Raw responseText (first 4000 chars):\n', (xhr.responseText || '').slice(0, 4000));
-                                console.groupEnd();
-                            } catch (e) {
-                                console.error('Error logging raw response', e);
-                            }
                         },
                         error: function (xhr, status, err) {
                             console.error('DataTable AJAX error', xhr, status, err);
-                            try { console.error('Response text:', xhr.responseText); } catch (e) {}
-                            alert('Error cargando datos del grid. Revisa la consola (Network / Response).');
+                            alert('Error cargando datos del grid.');
                         }
                     },
                     columns: [
                         { data: 'contenidoTitulo', orderable: false },
                         { data: 'autor', orderable: false },
-                        { data: 'estadoPublicacion', orderable: false, render: function(d){ return d==1 ? '<span class="badge bg-success">Publicado</span>' : '<span class="badge bg-secondary">Borrador</span>'; } },
-                        { data: 'fechaCreado', orderable: true, render: function(d){ return d ? new Date(d).toLocaleString() : ''; } },
-                        { data: 'eliminado', orderable: false, render: function(d){ return d ? '<span class="badge bg-danger">Sí</span>' : '<span class="badge bg-light text-dark">No</span>'; } },
+                        { data: 'estadoPublicacion', orderable: false, render: d => d==1 ? '<span class="badge bg-success">Publicado</span>' : '<span class="badge bg-secondary">Borrador</span>' },
+                        { data: 'fechaCreado', orderable: true, render: d => d ? new Date(d).toLocaleString() : '' },
+                        { data: 'eliminado', orderable: false, render: d => d ? '<span class="badge bg-danger">Sí</span>' : '<span class="badge bg-light text-dark">No</span>' },
                         {
-                            data: null, orderable: false, render: function (data, type, row) {
+                            data: null, orderable: false, render: (data, type, row) => {
                                 const id = row.id;
                                 const editBtn = `<a href="${detallePageUrl}?id=${id}" class="btn btn-sm btn-action-grid me-1" title="Editar"><i class="bi bi-pencil-square"></i></a>`;
                                 const viewBtn = `<button class="btn btn-sm btn-action-grid btn-view me-1" data-id="${id}" title="Ver"><i class="bi bi-eye"></i></button>`;
                                 const delBtn = `<button class="btn btn-sm btn-action-grid btn-delete me-1" data-id="${id}" title="Eliminar"><i class="bi bi-trash"></i></button>`;
                                 const restoreBtn = `<button class="btn btn-sm btn-action-grid btn-restore me-1" data-id="${id}" title="Restaurar"><i class="bi bi-arrow-counterclockwise"></i></button>`;
-                                if (row.eliminado) return editBtn + restoreBtn + viewBtn;
-                                return editBtn + delBtn + viewBtn;
+                                return row.eliminado ? editBtn + restoreBtn + viewBtn : editBtn + delBtn + viewBtn;
                             }
                         }
                     ],
                     order: [[3, 'desc']],
-                    lengthMenu: [ [10, 25, 50, 100], [10, 25, 50, 100] ],
-                    initComplete: function() {
+                    lengthMenu: [[10, 25, 50, 100],[10, 25, 50, 100]],
+                    initComplete: function () {
                         if ($('#contenidosGrid_length').length) {
                             $("#gridLengthWrapper").empty().append($('#contenidosGrid_length').children());
                         }
@@ -253,19 +265,15 @@
                 });
             }
 
-            // New content: go to Detalle page (open new or edit)
-            $('#btnNuevoContenido').on('click', function () {
-                window.location.href = detallePageUrl;
-            });
+            $('#btnNuevoContenido').on('click', () => window.location.href = detallePageUrl);
 
-            // View detail modal
             $('#contenidosGrid').on('click', '.btn-view', function () {
                 const id = $(this).data('id');
-                if (!id) return alert('ID inválido');
+                if (!id) return;
                 const url = new URL(getContenidoUrl, window.location.origin);
                 url.searchParams.set('id', id);
                 $.getJSON(url.toString())
-                    .done(function (dto) {
+                    .done(dto => {
                         $('#view_Titulo').text(dto.contenidoTitulo || '');
                         $('#view_Slug').text(dto.contenidoTituloSlug || '');
                         $('#view_Autor').text(dto.autor || '');
@@ -281,66 +289,65 @@
                         $('#view_TextoL').html(dto.contenidoTextoL || '');
                         new bootstrap.Modal(document.getElementById('modalVerDetalle')).show();
                     })
-                    .fail(function (xhr) {
+                    .fail(xhr => {
                         console.error('Error obteniendo contenido', xhr);
-                        alert('Error obteniendo detalle. Revisa la consola.');
+                        alert('Error obteniendo detalle.');
                     });
             });
 
-            // Delete
             $(document).on('click', '.btn-delete', function () {
                 const id = $(this).data('id');
-                if (!id) return alert('ID inválido');
-                if (!confirm('¿Eliminar contenido? Esta acción se marca como eliminado (soft-delete).')) return;
+                if (!id) return;
+                if (!confirm('¿Eliminar contenido?')) return;
                 const tokenInput = document.querySelector('#__antiForgeryForm input[name="__RequestVerificationToken"]');
-                const headers = {};
-                if (tokenInput) headers['RequestVerificationToken'] = tokenInput.value;
-                $.ajax({
+                const headers = tokenInput ? { 'RequestVerificationToken': tokenInput.value } : {};
+                $.post({
                     url: postEliminarUrl,
-                    method: 'POST',
-                    data: { id: id },
-                    headers: headers
-                }).done(function (res) {
+                    data: { id },
+                    headers
+                }).done(res => {
                     if (res && res.success) grid.ajax.reload(null, false);
                     else alert('No se pudo eliminar: ' + (res.message || 'error'));
-                }).fail(function (xhr) {
-                    console.error('Error eliminando', xhr); alert('Error eliminando. Revisa la consola.');
+                }).fail(xhr => {
+                    console.error('Error eliminando', xhr); alert('Error eliminando.');
                 });
             });
 
-            // Restore
             $(document).on('click', '.btn-restore', function () {
                 const id = $(this).data('id');
-                if (!id) return alert('ID inválido');
+                if (!id) return;
                 if (!confirm('¿Restaurar contenido?')) return;
                 const tokenInput = document.querySelector('#__antiForgeryForm input[name="__RequestVerificationToken"]');
-                const headers = {};
-                if (tokenInput) headers['RequestVerificationToken'] = tokenInput.value;
-                $.ajax({
+                const headers = tokenInput ? { 'RequestVerificationToken': tokenInput.value } : {};
+                $.post({
                     url: postRestaurarUrl,
-                    method: 'POST',
-                    data: { id: id },
-                    headers: headers
-                }).done(function (res) {
+                    data: { id },
+                    headers
+                }).done(res => {
                     if (res && res.success) grid.ajax.reload(null, false);
                     else alert('No se pudo restaurar: ' + (res.message || 'error'));
-                }).fail(function (xhr) {
-                    console.error('Error restaurando', xhr); alert('Error restaurando. Revisa la consola.');
+                }).fail(xhr => {
+                    console.error('Error restaurando', xhr); alert('Error restaurando.');
                 });
             });
 
-            // Switch Mostrar Eliminados
-            $('#switchEliminados').change(function () {
-                if (!grid) return;
-                console.debug('switchEliminados changed ->', $(this).is(':checked'));
-                grid.ajax.reload(null, false);
+            $('#switchEliminados').change(() => { if (grid) grid.ajax.reload(null, false); });
+
+            $('#filterCategoriaPadre').change(function () {
+                const val = $(this).val();
+                populateSubcategories(val);
+                // Limpiar subcategoría al cambiar padre
+                $('#filterSubcategoria').val('');
+                if (grid) grid.ajax.reload(null, false);
             });
 
-            // Init on DOM ready
+            $('#filterSubcategoria').change(function () {
+                if (grid) grid.ajax.reload(null, false);
+            });
+
             $(function () {
                 initGrid();
             });
-
         })();
     </script>
 }

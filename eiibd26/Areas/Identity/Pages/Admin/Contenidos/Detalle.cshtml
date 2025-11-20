@@ -22,6 +22,12 @@
             border: 1px solid #e1e7ef;
             padding: 12px;
             font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .tox .tox-statusbar__path {
+            display: none;
         }
     </style>
 }
@@ -53,12 +59,13 @@
 
             <div class="mb-3">
                 <label class="form-label">Título</label>
-                <input class="form-control" asp-for="ContenidoTitulo" />
+                <input class="form-control" asp-for="ContenidoTitulo" id="titulo" />
             </div>
 
             <div class="mb-3">
                 <label class="form-label">Slug</label>
-                <input class="form-control" asp-for="ContenidoTituloSlug" />
+                <input class="form-control" asp-for="ContenidoTituloSlug" id="slug" />
+                <small class="text-muted">Se genera automáticamente si lo dejas vacío.</small>
             </div>
 
             <div class="mb-3">
@@ -68,7 +75,7 @@
 
             <div class="mb-3">
                 <label class="form-label">Contenido (HTML)</label>
-                <textarea class="form-control" asp-for="ContenidoTextoL" rows="10">@Html.Raw(Model.ContenidoTextoL)</textarea>
+                <textarea class="form-control" asp-for="ContenidoTextoL" id="contenidoHtml" rows="15">@Html.Raw(Model.ContenidoTextoL)</textarea>
             </div>
 
             <div class="row g-2">
@@ -154,37 +161,110 @@
 </div>
 
 @section Scripts {
+    <!-- TinyMCE script con licencia -->
+    <script src="https://cdn.tiny.cloud/1/c1xlulcw2ayqu8bq58edh8qjshj6yruj6g2linjofz9rw369/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', ()=>{
-            const success = document.getElementById('successBanner');
-            if(success){
-                setTimeout(()=>{
-                    success.style.transition='opacity .6s';
-                    success.style.opacity='0';
-                    setTimeout(()=>{ success.remove(); },800);
-                },4000);
+        // Inicializar TinyMCE para el campo de contenido largo
+        tinymce.init({
+            selector: '#contenidoHtml',
+            height: 520,
+            menubar: 'file edit view insert format tools table help',
+            plugins: 'anchor autolink charmap codesample emoticons image link lists media searchreplace table visualblocks wordcount fullscreen preview code advlist autoresize autosave',
+            toolbar: [
+                'undo redo | blocks | bold italic underline strikethrough forecolor backcolor removeformat',
+                'alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image media table',
+                'charmap emoticons | blockquote codesample | fullscreen preview code'
+            ].join(' | '),
+            toolbar_mode: 'wrap',
+            contextmenu: 'link image table',
+            branding: false,
+            promotion: false,
+            statusbar: true,
+            autosave_interval: '30s',
+            autosave_retention: '10m',
+            image_caption: true,
+            convert_urls: false,
+            default_link_target: '_blank',
+            content_style: 'body { font-family: system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial,sans-serif; font-size:14px; }',
+            // Manejo simplificado de subida inline (Base64)
+            images_upload_handler: (blobInfo, progress) => new Promise((resolve, reject) => {
+                try {
+                    const base64 = blobInfo.base64();
+                    resolve("data:" + blobInfo.blob().type + ";base64," + base64);
+                } catch (e) {
+                    reject('Error al procesar imagen: ' + e);
+                }
+            }),
+            // Guardar automáticamente al cerrar fullscreen
+            setup: function (editor) {
+                editor.on('change keyup undo redo', function () {
+                    // Trigger para mantener textarea sincronizado
+                    editor.save();
+                });
             }
-            // Poblar subcategorías en el cliente (opcional) usando datos ya renderizados
-            const categories = @Html.Raw(JsonSerializer.Serialize(
-                            Model.CategoryItems.Select(c => new { seq = c.Sequence, parent = c.CategoriaPadre, name = c.Nombre })
-                    ));
-        function populateSub(parentId, selected){
-            const sub = document.getElementById('subcategoria');
-            if(!sub) return;
-            sub.innerHTML = '<option value="">(Seleccionar subcategoría)</option>';
-            if(!parentId) return;
-            categories.filter(c=>c.parent !== null && Number(c.parent)===Number(parentId))
-                      .forEach(c=>{
-                          const opt=document.createElement('option');
-                          opt.value=c.seq;
-                          opt.textContent=c.name;
-                          if(selected && String(selected)===String(c.seq)) opt.selected=true;
-                          sub.appendChild(opt);
-                      });
+        });
+
+        // Slug auto (básico) si no se ha escrito manualmente
+        const tituloInput = document.getElementById('titulo');
+        const slugInput = document.getElementById('slug');
+        function slugify(text) {
+            if (!text) return '';
+            return text.toString().toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-z0-9\s-]/g, '')
+                .trim()
+                .replace(/\s+/g, '-')
+                .replace(/-+/g, '-');
         }
+        tituloInput?.addEventListener('input', () => {
+            if (!slugInput.value) {
+                slugInput.value = slugify(tituloInput.value);
+            }
+        });
+
+        // Subcategorías dinámicas
+        const categories = @Html.Raw(JsonSerializer.Serialize(
+                    Model.CategoryItems.Select(c => new { seq = c.Sequence, parent = c.CategoriaPadre, name = c.Nombre })
+            ));
+
+    function populateSub(parentId, selected) {
+        const sub = document.getElementById('subcategoria');
+        if(!sub) return;
+        sub.innerHTML = '<option value="">(Seleccionar subcategoría)</option>';
+        if(!parentId) return;
+        categories
+            .filter(c => c.parent !== null && Number(c.parent) === Number(parentId))
+            .forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.seq;
+                opt.textContent = c.name;
+                if (selected && String(selected) === String(c.seq)) opt.selected = true;
+                sub.appendChild(opt);
+            });
+    }
+
         const parentSel = document.getElementById('categoriaPadre');
-        parentSel?.addEventListener('change', ()=> populateSub(parentSel.value,null));
+        parentSel?.addEventListener('change', () => populateSub(parentSel.value, null));
         populateSub(parentSel?.value, '@(Model.IdCategoria?.ToString() ?? "")');
-    });
-</script>
+
+        // Fade del mensaje de éxito
+        document.addEventListener('DOMContentLoaded', () => {
+            const success = document.getElementById('successBanner');
+            if (success) {
+                setTimeout(() => {
+                    success.style.transition = 'opacity .6s';
+                    success.style.opacity = '0';
+                    setTimeout(() => { success.remove(); }, 800);
+                }, 4000);
+            }
+        });
+
+        // Sincronizar contenido antes de submit (por seguridad)
+        document.getElementById('detalleForm')?.addEventListener('submit', () => {
+            if (typeof tinymce !== 'undefined') {
+                tinymce.triggerSave();
+            }
+        });
+    </script>
 }
