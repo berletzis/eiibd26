@@ -1,4 +1,9 @@
-﻿<div class="d-flex flex-column flex-shrink-0 p-3 bg-light sidebar-menu" style="width: 230px; min-height: 100vh; border-right: 1px solid #ececec;">
+﻿@{
+    var path = ViewContext.HttpContext.Request.Path.ToString();
+    // Mustard color for the icon
+    var mustard = "#D4A017";
+}
+<div class="d-flex flex-column flex-shrink-0 p-3 bg-light sidebar-menu" style="width: 230px; min-height: 100vh; border-right: 1px solid #ececec;">
     <ul class="nav nav-pills flex-column mb-auto">
         <!-- Inicio -->
         <li class="nav-item mb-1">
@@ -17,6 +22,9 @@
                     <span>Admin</span>
                 </span>
             </li>
+            <a href="/Identity/Admin/Contenidos/Index" class="nav-link admin ms-4 text-dark @(path == "/Identity/Admin/Contenidos/Index" ? "active" : "")">
+                <i class="bi bi-person-vcard"></i> Contenidos
+            </a>
             <li>
                 <a href="/Identity/Admin/Usuarios/Index" class="nav-link admin ms-4 text-dark @(ViewContext.HttpContext.Request.Path == "/Identity/Admin/Usuarios/Index" ? "active" : "")">
                     <i class="bi bi-person-vcard"></i> Usuarios
@@ -38,6 +46,20 @@
                 </a>
             </li>
         }
+        @* Mi PyR: top-level, now uses same icon container/size as Admin *@
+        @if (User.Identity?.IsAuthenticated == true)
+        {
+            <li class="nav-item mb-1">
+                <a href="/Identity/Usuario/usuarioPreguntasRespuestas"
+                   class="nav-link text-dark d-flex align-items-center @(path == "/Identity/Usuario/usuarioPreguntasRespuestas" ? "active fw-bold" : "fw-bold")"
+                   style="gap:.5rem;">
+                    <span class="d-inline-flex align-items-center justify-content-center rounded border me-2" style="width:30px;height:30px; border-width:2px;">
+                        <i class="bi bi-chat-left-dots" style="color:@mustard; font-size:1.3em"></i>
+                    </span>
+                    <span>1 Mi PyR</span>
+                </a>
+            </li>
+        }
         <!-- Mi Salud encabezado (corazón en cuadro morado, texto normal) -->
         <li class="nav-item mt-4 mb-1">
             <span class="nav-link disabled fw-bold d-flex align-items-center" style="opacity:1;">
@@ -46,11 +68,6 @@
                 </span>
                 <span>Mi Salud</span>
             </span>
-        </li>
-        <li>
-            <a href="/Identity/Usuario/usuarioPreguntasRespuestas" class="nav-link salud ms-4 text-dark @(ViewContext.HttpContext.Request.Path == "/Identity/Usuario/usuarioPreguntasRespuestas" ? "active" : "")">
-                <i class="bi bi-person-vcard"></i> Mi PyR
-            </a>
         </li>
         <li>
             <a href="/Identity/Usuario/UsuarioEstadoAnimo" class="nav-link salud ms-4 text-dark @(ViewContext.HttpContext.Request.Path == "/Identity/Usuario/UsuarioEstadoAnimo" ? "active" : "")">

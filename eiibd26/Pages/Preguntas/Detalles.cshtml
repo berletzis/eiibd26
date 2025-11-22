@@ -15,236 +15,419 @@
 
 @section Styles {
     <link rel="stylesheet" href="~/css/preguntas-stack.css" />
+    
 }
 
 <form id="__antiForgeryForm" style="display:none;">@Html.AntiForgeryToken()</form>
 
-<div class="se-post-wrapper">
-    @if (Model.Pregunta == null)
-    {
-        <div class="se-empty">La pregunta no existe o fue eliminada.</div>
-    }
-    else
-    {
-        var disableUp = Model.Pregunta.UsuarioVoto != 0;
-        var disableDown = Model.Pregunta.Score <= 0;
-        <article class="se-post"
-                 data-id="@Model.Pregunta.Id"
-                 data-authenticated="@(User.Identity.IsAuthenticated ? "true" : "false")"
-                 data-is-mine="@(Model.Pregunta.EsMia ? "true" : "false")"
-                 data-user-vote="@Model.Pregunta.UsuarioVoto"
-                 data-score="@Model.Pregunta.Score">
+<div class="container py-4">
+    <div class="qp-wrapper-flex">
+        <div class="qp-main">
 
-            <!-- Votos pregunta -->
-            <div class="se-post-vote">
-                @if (!User.Identity.IsAuthenticated || Model.Pregunta.EsMia)
+            @if (Model.Pregunta == null)
+            {
+                <div class="se-empty">La pregunta no existe o fue eliminada.</div>
+            }
+            else
+            {
+                var disableUp = Model.Pregunta.UsuarioVoto != 0;
+                var disableDown = Model.Pregunta.Score <= 0;
+                <article class="se-item"
+                         data-id="@Model.Pregunta.Id"
+                         data-authenticated="@(User.Identity.IsAuthenticated ? "true" : "false")"
+                         data-is-mine="@(Model.Pregunta.EsMia ? "true" : "false")"
+                         data-user-vote="@Model.Pregunta.UsuarioVoto"
+                         data-score="@Model.Pregunta.Score">
+
+                    <div class="se-vote">
+                        @if (!User.Identity.IsAuthenticated || Model.Pregunta.EsMia)
+                        {
+                            <button class="se-vote-btn se-vote-up" disabled title="@(Model.Pregunta.EsMia ? "No puedes votar tu propia pregunta" : "Inicia sesión para votar")">▲</button>
+                            <div class="se-vote-count" id="qscore-@Model.Pregunta.Id">@Model.Pregunta.Score</div>
+                            <button class="se-vote-btn se-vote-down" disabled title="@(Model.Pregunta.EsMia ? "No puedes votar tu propia pregunta" : "Inicia sesión para votar")"> ▼</button>
+                        }
+                        else
+                        {
+                            <button class="se-vote-btn se-vote-up @(Model.Pregunta.UsuarioVoto == 1 ? "active" : "")"
+                                    data-id="@Model.Pregunta.Id"
+                                    data-dir="up"
+                                    type="button"
+                                    title="Votar +1"
+                                    aria-label="Votar +1"
+                                    @(disableUp ? "disabled" : null)>
+                                ▲
+                            </button>
+                            <div class="se-vote-count" id="qscore-@Model.Pregunta.Id">@Model.Pregunta.Score</div>
+                            <button class="se-vote-btn se-vote-down @(Model.Pregunta.UsuarioVoto == -1 ? "active" : "")"
+                                    data-id="@Model.Pregunta.Id"
+                                    data-dir="down"
+                                    type="button"
+                                    title="Votar -1"
+                                    aria-label="Votar -1"
+                                    @(disableDown ? "disabled" : null)>
+                                ▼
+                            </button>
+                        }
+                    </div>
+
+                    <div class="se-summary">
+                        <h1 class="se-title">@Model.Pregunta.Titulo</h1>
+                        <div class="se-excerpt">@Html.Raw(Model.Pregunta.Cuerpo)</div>
+                        <div class="se-answers-float answered" title="Respuestas totales">
+                            <span class="se-answers-float-count">@Model.TotalItems</span>
+                            <span class="se-answers-float-label">Respuesta(s)</span>
+                        </div>
+
+                        @if ((Model.Pregunta.Condiciones?.Any() ?? false) || (Model.Pregunta.Sintomas?.Any() ?? false) || (Model.Pregunta.Tratamientos?.Any() ?? false))
+                        {
+                            <div class="se-relations">
+                                @if (Model.Pregunta.Condiciones?.Any() ?? false)
+                                {
+                                    <div class="se-rel-group">
+                                        <span class="se-rel-label">Condiciones</span>
+                                        <div class="se-rel-badges">
+                                            @foreach (var n in Model.Pregunta.Condiciones)
+                                            {
+                                                <span class="se-rel-badge">@n</span>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                                @if (Model.Pregunta.Sintomas?.Any() ?? false)
+                                {
+                                    <div class="se-rel-group">
+                                        <span class="se-rel-label">Síntomas</span>
+                                        <div class="se-rel-badges">
+                                            @foreach (var n in Model.Pregunta.Sintomas)
+                                            {
+                                                <span class="se-rel-badge">@n</span>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                                @if (Model.Pregunta.Tratamientos?.Any() ?? false)
+                                {
+                                    <div class="se-rel-group">
+                                        <span class="se-rel-label">Tratamientos</span>
+                                        <div class="se-rel-badges">
+                                            @foreach (var n in Model.Pregunta.Tratamientos)
+                                            {
+                                                <span class="se-rel-badge">@n</span>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        <div class="se-meta">
+                            <div class="se-user">
+                                <img class="se-author-avatar lazy-avatar"
+                                     src="@Url.Content("~/img/avatar-placeholder.png")"
+                                     data-src="@ResolveAvatar(Model.Pregunta.AutorAvatarUrl)"
+                                     alt="@Model.Pregunta.AutorNombre"
+                                     width="48" height="48"
+                                     decoding="async"
+                                     onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+                                <div class="se-author-meta">
+                                    <a class="se-author-name" href="#">@Model.Pregunta.AutorNombre</a>
+                                    <span>
+                                        @if (Model.Pregunta.EsMia)
+                                        {
+                                            <span style="color:#555;">Preguntaste el:</span>
+                                        }
+                                        @Model.Pregunta.FechaCreacion.ToLocalTime().ToString("g")
+                                    </span>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
+                <div class="se-reply-box">
+                    @if (!User.Identity.IsAuthenticated)
+                    {
+                        <div class="vote-login-hint">
+                            Inicia sesión para responder.
+                            <a href="/Account/Login">Iniciar sesión</a>
+                        </div>
+                    }
+                    else
+                    {
+                        <div style="position: relative;">
+                            <label for="respuestaBuscar" class="se-answers-label">
+                                Revisa que tu aporte sea claro y útil.
+                            </label>
+                            <textarea id="replyCuerpo" class="se-reply-textarea" placeholder="Escribe tu respuesta..."></textarea>
+                            <div>
+                                <button id="btnSendReply" class="responder-boton" type="button">Publicar respuesta</button>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="preguntas-paginacion" aria-label="Paginación">
+                    @if (Model.TotalPages > 1)
+                    {
+                        int current = Model.AnswersPage;
+                        int total = Model.TotalPages;
+                        int window = 2;
+                        var list = new List<int>();
+
+                        if (total <= 12)
+                        {
+                            list.AddRange(Enumerable.Range(1, total));
+                        }
+                        else
+                        {
+                            int start = Math.Max(1, current - window);
+                            int end = Math.Min(total, current + window);
+
+                            if (start > 1)
+                            {
+                                list.Add(1);
+                                if (start > 2) list.Add(-1);
+                            }
+                            list.AddRange(Enumerable.Range(start, end - start + 1));
+                            if (end < total)
+                            {
+                                if (end < total - 1) list.Add(-1);
+                                list.Add(total);
+                            }
+                        }
+
+                        // Usar answersPage (NO page) para evitar colisión con Razor Pages
+                        Func<int, string> pageUrl = p => Url.Page(
+                        "/Preguntas/Detalles",
+                        new { id = Model.Pregunta.Id, answersPage = p, pageSize = Model.PageSize, search = Model.Search }
+                        ) ?? "#";
+
+                        <div class="pag-bar">
+                            <a class="pag-btn @(current == 1 ? "disabled" : "")"
+                               aria-label="Primera página"
+                               href="@(current == 1 ? "#" : pageUrl(1))">«</a>
+                            <a class="pag-btn @(current == 1 ? "disabled" : "")"
+                               aria-label="Página anterior"
+                               href="@(current == 1 ? "#" : pageUrl(current - 1))">‹</a>
+
+                            @foreach (var p in list)
+                            {
+                                if (p == -1)
+                                {
+                                    <span class="pag-ellipsis" aria-hidden="true">…</span>
+                                }
+                                else
+                                {
+                                    var active = p == current ? "active" : "";
+                                    <a class="pag-num @active"
+                                       aria-label="Página @p"
+                                       aria-current="@(active == "active" ? "page" : null)"
+                                       href="@(active == "active" ? "#" : pageUrl(p))">@p</a>
+                                }
+                            }
+
+                            <a class="pag-btn @(current == total ? "disabled" : "")"
+                               aria-label="Página siguiente"
+                               href="@(current == total ? "#" : pageUrl(current + 1))">›</a>
+                            <a class="pag-btn @(current == total ? "disabled" : "")"
+                               aria-label="Última página"
+                               href="@(current == total ? "#" : pageUrl(total))">»</a>
+
+                            <div class="pag-info">
+                                <span>Total: @Model.TotalItems registros</span>
+                                <span>Página @Model.AnswersPage de @Model.TotalPages</span>
+                                <form method="get" class="pag-size-inline" id="inlineSizeForm">
+                                    <input type="hidden" name="id" value="@Model.Pregunta.Id" />
+                                    <input type="hidden" name="answersPage" value="1" />
+                                    <label for="inlinePageSize">Tamaño</label>
+                                    <select id="inlinePageSize" name="pageSize" onchange="document.getElementById('inlineSizeForm').submit();">
+                                        @{
+                                            var sizes2 = new[] { 10, 12, 30, 60, 100 };
+                                        }
+                                        @foreach (var s in sizes2)
+                                        {
+                                            <option value="@s" selected="@(Model.PageSize == s)">@s</option>
+                                        }
+                                    </select>
+                                </form>
+                            </div>
+                        </div>
+                    }
+                </div>
+                @if (!User.Identity.IsAuthenticated)
                 {
-                    <button class="se-vote-btn se-vote-up" disabled title="@(Model.Pregunta.EsMia ? "No puedes votar tu propia pregunta" : "Inicia sesión para votar")"></button>
-                    <div class="se-vote-count" id="qscore-@Model.Pregunta.Id">@Model.Pregunta.Score</div>
-                    <button class="se-vote-btn se-vote-down" disabled title="@(Model.Pregunta.EsMia ? "No puedes votar tu propia pregunta" : "Inicia sesión para votar")"></button>
+                    <div class="se-empty">Inicia sesión para ver las respuestas. <a href="/Account/Login">Iniciar sesión</a></div>
                 }
                 else
                 {
-                    <button class="se-vote-btn se-vote-up @(Model.Pregunta.UsuarioVoto == 1 ? "active" : "")"
-                            data-id="@Model.Pregunta.Id"
-                            data-dir="up"
-                            type="button"
-                            title="Votar +1"
-                            aria-label="Votar +1"
-                            @(disableUp ? "disabled" : null)></button>
-                    <div class="se-vote-count" id="qscore-@Model.Pregunta.Id">@Model.Pregunta.Score</div>
-                    <button class="se-vote-btn se-vote-down @(Model.Pregunta.UsuarioVoto == -1 ? "active" : "")"
-                            data-id="@Model.Pregunta.Id"
-                            data-dir="down"
-                            type="button"
-                            title="Votar -1"
-                            aria-label="Votar -1"
-                            @(disableDown ? "disabled" : null)></button>
-                }
-            </div>
-
-            <!-- Contenido pregunta -->
-            <div class="se-post-content">
-                <h1 class="se-post-title">@Model.Pregunta.Titulo</h1>
-                <div class="se-post-body">@Html.Raw(Model.Pregunta.Cuerpo)</div>
-
-                @if ((Model.Pregunta.Condiciones?.Any() ?? false) || (Model.Pregunta.Sintomas?.Any() ?? false) || (Model.Pregunta.Tratamientos?.Any() ?? false))
-                {
-                    <div class="se-relations">
-                        @if (Model.Pregunta.Condiciones?.Any() ?? false)
-                        {
-                            <div class="se-rel-group">
-                                <span class="se-rel-label">condiciones</span>
-                                <div class="se-rel-badges">
-                                    @foreach (var n in Model.Pregunta.Condiciones)
-                                    {
-                                        <span class="se-rel-badge">@n</span>
-                                    }
-                                </div>
-                            </div>
-                        }
-                        @if (Model.Pregunta.Sintomas?.Any() ?? false)
-                        {
-                            <div class="se-rel-group">
-                                <span class="se-rel-label">síntomas</span>
-                                <div class="se-rel-badges">
-                                    @foreach (var n in Model.Pregunta.Sintomas)
-                                    {
-                                        <span class="se-rel-badge">@n</span>
-                                    }
-                                </div>
-                            </div>
-                        }
-                        @if (Model.Pregunta.Tratamientos?.Any() ?? false)
-                        {
-                            <div class="se-rel-group">
-                                <span class="se-rel-label">tratamientos</span>
-                                <div class="se-rel-badges">
-                                    @foreach (var n in Model.Pregunta.Tratamientos)
-                                    {
-                                        <span class="se-rel-badge">@n</span>
-                                    }
-                                </div>
-                            </div>
-                        }
-                    </div>
-                }
-
-                <div class="se-author-box">
-                    <img class="se-author-avatar lazy-avatar"
-                         src="@Url.Content("~/img/avatar-placeholder.png")"
-                         data-src="@ResolveAvatar(Model.Pregunta.AutorAvatarUrl)"
-                         alt="@Model.Pregunta.AutorNombre"
-                         width="48" height="48"
-                         decoding="async"
-                         onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
-                    <div class="se-author-meta">
-                        <a class="se-author-name" href="#">@Model.Pregunta.AutorNombre</a>
-                        <span>Publicado @Model.Pregunta.FechaCreacion.ToLocalTime().ToString("g")</span>
-                        @if (Model.Pregunta.EsMia)
-                        {
-                            <span style="color:#555;">(tu pregunta)</span>
-                        }
-                    </div>
-                </div>
-            </div>
-        </article>
-
-        <!-- Form Responder -->
-        <div class="se-reply-box">
-            @if (!User.Identity.IsAuthenticated)
-            {
-                <div class="vote-login-hint">
-                    Inicia sesión para responder.
-                    <a href="/Account/Login">Iniciar sesión</a>
-                </div>
-            }
-            else
-            {
-                <div class="se-reply-title">Tu respuesta</div>
-                <textarea id="replyCuerpo" class="se-reply-textarea" placeholder="Escribe tu respuesta..."></textarea>
-                <div style="margin-top:8px;" class="se-inline-flex">
-                    <button id="btnSendReply" class="se-btn se-btn-primary" type="button">Publicar respuesta</button>
-                    <small class="text-muted">Revisa que tu aporte sea claro y útil.</small>
-                </div>
-            }
-        </div>
-
-        <!-- Lista Respuestas -->
-        <div class="se-answers-header">
-            <h2>@Model.TotalItems respuesta(s)</h2>
-            <span class="se-total">@Model.TotalItems total</span>
-        </div>
-
-        @if (!User.Identity.IsAuthenticated)
-        {
-            <div class="se-empty">Inicia sesión para ver las respuestas. <a href="/Account/Login">Iniciar sesión</a></div>
-        }
-        else
-        {
-            @if (!Model.Respuestas.Any())
-            {
-                <div class="se-empty">Todavía no hay respuestas.</div>
-            }
-            else
-            {
-                foreach (var a in Model.Respuestas)
-                {
-                    var rDisableUp = a.UsuarioVoto != 0;
-                    var rDisableDown = a.Score <= 0;
-                    var esMia = a.EsMia;
-                    <article class="se-answer"
-                             data-id="@a.Id"
-                             data-authenticated="@(User.Identity.IsAuthenticated ? "true" : "false")"
-                             data-is-mine="@(esMia ? "true" : "false")"
-                             data-user-vote="@a.UsuarioVoto"
-                             data-score="@a.Score">
-
-                        <div class="se-answer-vote">
-                            @if (!User.Identity.IsAuthenticated || esMia)
-                            {
-                                <button class="se-vote-btn se-vote-up" disabled title="@(esMia ? "No puedes votar tu propia respuesta" : "Inicia sesión para votar")"></button>
-                                <div class="se-vote-count" id="ascore-@a.Id">@a.Score</div>
-                                <button class="se-vote-btn se-vote-down" disabled title="@(esMia ? "No puedes votar tu propia respuesta" : "Inicia sesión para votar")"></button>
-                            }
-                            else
-                            {
-                                <button class="se-vote-btn se-vote-up @(a.UsuarioVoto == 1 ? "active" : "")"
-                                        data-id="@a.Id"
-                                        data-dir="up"
-                                        type="button"
-                                        title="Votar +1"
-                                        aria-label="Votar +1"
-                                        @(rDisableUp ? "disabled" : null)></button>
-                                <div class="se-vote-count" id="ascore-@a.Id">@a.Score</div>
-                                <button class="se-vote-btn se-vote-down @(a.UsuarioVoto == -1 ? "active" : "")"
-                                        data-id="@a.Id"
-                                        data-dir="down"
-                                        type="button"
-                                        title="Votar -1"
-                                        aria-label="Votar -1"
-                                        @(rDisableDown ? "disabled" : null)></button>
-                            }
-                        </div>
-
+                    @if (!Model.Respuestas.Any())
+                    {
+                        <div class="se-empty">Todavía no hay respuestas.</div>
+                    }
+                    else
+                    {
                         <div>
-                            <div class="se-answer-body">@Html.Raw(a.Cuerpo)</div>
-                            <div class="se-answer-meta">
-                                <img class="se-resp-avatar lazy-avatar"
-                                     src="@Url.Content("~/img/avatar-placeholder.png")"
-                                     data-src="@ResolveAvatar(a.AutorAvatarUrl)"
-                                     alt="@a.AutorNombre"
-                                     width="34" height="34"
-                                     decoding="async"
-                                     onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
-                                <a class="se-answer-author" href="#">@a.AutorNombre</a>
-                                <span>@a.FechaCreacion.ToLocalTime().ToString("g")</span>
-                                <span class="se-answer-score">score: <span id="ascore-inline-@a.Id">@a.Score</span></span>
-                                @if (esMia)
+                            @foreach (var a in Model.Respuestas)
+                            {
+                                var rDisableUp = a.UsuarioVoto != 0;
+                                var rDisableDown = a.Score <= 0;
+                                var esMia = a.EsMia;
+                                <article class="se-answer"
+                                         data-id="@a.Id"
+                                         data-authenticated="@(User.Identity.IsAuthenticated ? "true" : "false")"
+                                         data-is-mine="@(esMia ? "true" : "false")"
+                                         data-user-vote="@a.UsuarioVoto"
+                                         data-score="@a.Score">
+
+                                    <div class="se-answer-vote">
+                                        @if (!User.Identity.IsAuthenticated || esMia)
+                                        {
+                                            <button class="se-vote-btn se-vote-up" disabled title="@(esMia ? "No puedes votar tu propia respuesta" : "Inicia sesión para votar")">▲</button>
+                                            <div class="se-vote-count" id="ascore-@a.Id">@a.Score</div>
+                                            <button class="se-vote-btn se-vote-down" disabled title="@(esMia ? "No puedes votar tu propia respuesta" : "Inicia sesión para votar")">▼</button>
+                                        }
+                                        else
+                                        {
+                                            <button class="se-vote-btn se-vote-up @(a.UsuarioVoto == 1 ? "active" : "")"
+                                                    data-id="@a.Id"
+                                                    data-dir="up"
+                                                    type="button"
+                                                    title="Votar +1"
+                                                    aria-label="Votar +1"
+                                                    @(rDisableUp ? "disabled" : null)>
+                                                ▲
+                                            </button>
+                                            <div class="se-vote-count" id="ascore-@a.Id">@a.Score</div>
+                                            <button class="se-vote-btn se-vote-down @(a.UsuarioVoto == -1 ? "active" : "")"
+                                                    data-id="@a.Id"
+                                                    data-dir="down"
+                                                    type="button"
+                                                    title="Votar -1"
+                                                    aria-label="Votar -1"
+                                                    @(rDisableDown ? "disabled" : null)>
+                                                ▼
+                                            </button>
+                                        }
+                                    </div>
+
+                                    <div>
+                                        <div class="se-answer-body">@Html.Raw(a.Cuerpo)</div>
+                                        <div class="se-answer-meta">
+                                            <img class="se-resp-avatar lazy-avatar"
+                                                 src="@Url.Content("~/img/avatar-placeholder.png")"
+                                                 data-src="@ResolveAvatar(a.AutorAvatarUrl)"
+                                                 alt="@a.AutorNombre"
+                                                 width="34" height="34"
+                                                 decoding="async"
+                                                 onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+                                            <a class="se-answer-author" href="#">@a.AutorNombre</a>
+                                            <span>@a.FechaCreacion.ToLocalTime().ToString("g")</span>
+                                            <span class="se-answer-score">V: <span id="ascore-inline-@a.Id">@a.Score</span></span>
+                                            @if (esMia)
+                                            {
+                                                <button class="se-delete-btn" data-id="@a.Id" title="Eliminar respuesta">Eliminar</button>
+                                            }
+                                        </div>
+                                    </div>
+                                </article>
+                            }
+                        </div>
+                    }
+                }
+
+                <div class="preguntas-paginacion" aria-label="Paginación">
+                    @if (Model.TotalPages > 1)
+                    {
+                        int current = Model.AnswersPage;
+                        int total = Model.TotalPages;
+                        int window = 2;
+                        var list = new List<int>();
+
+                        if (total <= 12)
+                        {
+                            list.AddRange(Enumerable.Range(1, total));
+                        }
+                        else
+                        {
+                            int start = Math.Max(1, current - window);
+                            int end = Math.Min(total, current + window);
+
+                            if (start > 1)
+                            {
+                                list.Add(1);
+                                if (start > 2) list.Add(-1);
+                            }
+                            list.AddRange(Enumerable.Range(start, end - start + 1));
+                            if (end < total)
+                            {
+                                if (end < total - 1) list.Add(-1);
+                                list.Add(total);
+                            }
+                        }
+
+                        // Usar answersPage (NO page) para evitar colisión con Razor Pages
+                        Func<int, string> pageUrl = p => Url.Page(
+                        "/Preguntas/Detalles",
+                        new { id = Model.Pregunta.Id, answersPage = p, pageSize = Model.PageSize, search = Model.Search }
+                        ) ?? "#";
+
+                        <div class="pag-bar">
+                            <a class="pag-btn @(current == 1 ? "disabled" : "")"
+                               aria-label="Primera página"
+                               href="@(current == 1 ? "#" : pageUrl(1))">«</a>
+                            <a class="pag-btn @(current == 1 ? "disabled" : "")"
+                               aria-label="Página anterior"
+                               href="@(current == 1 ? "#" : pageUrl(current - 1))">‹</a>
+
+                            @foreach (var p in list)
+                            {
+                                if (p == -1)
                                 {
-                                    <button class="se-delete-btn" data-id="@a.Id" title="Eliminar respuesta">Eliminar</button>
+                                    <span class="pag-ellipsis" aria-hidden="true">…</span>
                                 }
+                                else
+                                {
+                                    var active = p == current ? "active" : "";
+                                    <a class="pag-num @active"
+                                       aria-label="Página @p"
+                                       aria-current="@(active == "active" ? "page" : null)"
+                                       href="@(active == "active" ? "#" : pageUrl(p))">@p</a>
+                                }
+                            }
+
+                            <a class="pag-btn @(current == total ? "disabled" : "")"
+                               aria-label="Página siguiente"
+                               href="@(current == total ? "#" : pageUrl(current + 1))">›</a>
+                            <a class="pag-btn @(current == total ? "disabled" : "")"
+                               aria-label="Última página"
+                               href="@(current == total ? "#" : pageUrl(total))">»</a>
+
+                            <div class="pag-info">
+                                <span>Total: @Model.TotalItems registros</span>
+                                <span>Página @Model.AnswersPage de @Model.TotalPages</span>
+                                <form method="get" class="pag-size-inline" id="inlineSizeForm">
+                                    <input type="hidden" name="id" value="@Model.Pregunta.Id" />
+                                    <input type="hidden" name="answersPage" value="1" />
+                                    <label for="inlinePageSize">Tamaño</label>
+                                    <select id="inlinePageSize" name="pageSize" onchange="document.getElementById('inlineSizeForm').submit();">
+                                        @{
+                                            var sizes2 = new[] { 10, 12, 30, 60, 100 };
+                                        }
+                                        @foreach (var s in sizes2)
+                                        {
+                                            <option value="@s" selected="@(Model.PageSize == s)">@s</option>
+                                        }
+                                    </select>
+                                </form>
                             </div>
                         </div>
-                    </article>
-                }
+                    }
+                </div>
             }
-        }
 
-        <!-- Paginación respuestas -->
-        <nav class="se-pagination" aria-label="Paginación respuestas">
-            @{
-                var prev = Model.Page > 1 ? Model.Page - 1 : 1;
-                var next = Model.Page < Model.TotalPages ? Model.Page + 1 : Model.TotalPages;
-                var qsBase = $"?id={Model.Id}&pageSize={Model.PageSize}&search={Uri.EscapeDataString(Model.Search ?? "")}";
-            }
-            <a class="se-btn se-btn-ghost" href="@($"{qsBase}&page={prev}")">Anterior</a>
-            <span class="se-page-indicator">Página <strong>@Model.Page</strong> de <strong>@Model.TotalPages</strong></span>
-            <a class="se-btn se-btn-ghost" href="@($"{qsBase}&page={next}")">Siguiente</a>
-        </nav>
-    }
+        </div>
+    </div>
 </div>
-
 @section Scripts {
     <script>
         (function () {
@@ -313,29 +496,24 @@
                 });
             }
 
-            // Votación delegada (pregunta y respuestas)
             document.addEventListener('click', async function(e){
                 const voteBtn = e.target.closest('.se-vote-btn');
                 if(!voteBtn) return;
 
-                const parent = voteBtn.closest('.se-post, .se-answer');
+                const parent = voteBtn.closest('.se-post, .se-answer, .se-item');
                 if(!parent) return;
 
-                const isQuestion = parent.classList.contains('se-post');
+                const isQuestion = parent.classList.contains('se-post') || parent.classList.contains('se-item');
                 const id = parent.getAttribute('data-id');
-                const dir = voteBtn.getAttribute('data-dir'); // up or down
+                const dir = voteBtn.getAttribute('data-dir');
                 if(!id || !dir) return;
 
                 const currentScore = parseInt(parent.getAttribute('data-score')||'0',10);
                 const currentUserVote = parseInt(parent.getAttribute('data-user-vote')||'0',10);
 
-                // Reglas:
-                // 1. Up sólo si userVote == 0
                 if (dir === 'up' && currentUserVote !== 0) return;
-                // 2. Down sólo si score > 0 (evitar negativos)
                 if (dir === 'down' && currentScore <= 0) return;
 
-                // Deshabilitar temporal ambos botones
                 const upBtn = parent.querySelector('.se-vote-up');
                 const downBtn = parent.querySelector('.se-vote-down');
                 if(upBtn) upBtn.disabled = true;
@@ -362,31 +540,25 @@
                     parent.setAttribute('data-score', String(newScore));
                     parent.setAttribute('data-user-vote', String(newUserVote));
 
-                    // Actualizar contador (pregunta o respuesta)
                     const scoreElId = (isQuestion ? 'qscore-' : 'ascore-') + id;
                     const scoreEl = document.getElementById(scoreElId);
                     if(scoreEl){
                         scoreEl.textContent = newScore;
                     }
-                    // inline small score
                     if(!isQuestion){
                         const inlineScore = document.getElementById('ascore-inline-' + id);
                         if(inlineScore) inlineScore.textContent = newScore;
                     }
 
-                    // Estado visual
                     if(upBtn){
                         if(newUserVote === 1) upBtn.classList.add('active'); else upBtn.classList.remove('active');
-                        // Si ya votó, deshabilitar up
                         upBtn.disabled = (newUserVote !== 0);
                     }
                     if(downBtn){
                         if(newUserVote === -1) downBtn.classList.add('active'); else downBtn.classList.remove('active');
-                        // Down se deshabilita si score quedó 0
                         downBtn.disabled = (newScore <= 0);
                     }
 
-                    // Reordenar respuestas por score (opcional)
                     if(!isQuestion){
                         reorderAnswers();
                     }
@@ -394,13 +566,11 @@
                     console.error('Error votando', err);
                     alert('Error de red al votar');
                 }finally{
-                    // Reaplicar reglas si no se aplicó arriba
                     if(upBtn && !upBtn.disabled) upBtn.disabled = (parseInt(parent.getAttribute('data-user-vote')||'0',10) != 0);
                     if(downBtn && !downBtn.disabled) downBtn.disabled = (parseInt(parent.getAttribute('data-score')||'0',10) <= 0);
                 }
             });
 
-            // Eliminar respuesta
             document.addEventListener('click', async function(e){
                 const del = e.target.closest('.se-delete-btn');
                 if(!del) return;

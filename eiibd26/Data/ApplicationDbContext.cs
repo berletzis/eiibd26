@@ -42,6 +42,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<ContenidoCalificacionRespuesta> ContenidosCalificacionRespuestas { get; set; }
     public DbSet<ContenidoPreguntaRelacion> ContenidosPreguntasRelacion { get; set; }
     public DbSet<ContenidoRespuestaRelacion> ContenidosRespuestasRelacion { get; set; }
+    public DbSet<ContenidoCondicion> ContenidoCondiciones { get; set; }
+    public DbSet<ContenidoSintoma> ContenidoSintomas { get; set; }
+    public DbSet<ContenidoTratamiento> ContenidoTratamientos { get; set; }
 
     // NUEVO: tablas puente Pregunta-*
     public DbSet<PreguntaCondicion> PreguntaCondiciones { get; set; }
@@ -159,6 +162,37 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
             b.HasMany(c => c.ContenidosRelacionados).WithOne(cr => cr.Contenido).HasForeignKey(cr => cr.IdContenido).OnDelete(DeleteBehavior.Cascade);
             b.HasMany(c => c.PreguntasRelacion).WithOne(cp => cp.Contenido).HasForeignKey(cp => cp.ContenidoId).OnDelete(DeleteBehavior.Cascade);
             b.HasMany(c => c.RespuestasRelacion).WithOne(cr => cr.Contenido).HasForeignKey(cr => cr.ContenidoId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Dentro de OnModelCreating(builder):
+        builder.Entity<ContenidoCondicion>(b =>
+        {
+            b.ToTable("contenidoCondicionesRelacion");
+            b.HasKey(x => x.Id);
+            b.HasIndex(x => new { x.ContenidoId, x.CondicionId }).IsUnique();
+            b.HasQueryFilter(x => !x.Borrado);
+            b.HasOne(x => x.Contenido).WithMany().HasForeignKey(x => x.ContenidoId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Condicion).WithMany().HasForeignKey(x => x.CondicionId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<ContenidoSintoma>(b =>
+        {
+            b.ToTable("contenidoSintomasRelacion");
+            b.HasKey(x => x.Id);
+            b.HasIndex(x => new { x.ContenidoId, x.SintomaId }).IsUnique();
+            b.HasQueryFilter(x => !x.Borrado);
+            b.HasOne(x => x.Contenido).WithMany().HasForeignKey(x => x.ContenidoId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Sintoma).WithMany().HasForeignKey(x => x.SintomaId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<ContenidoTratamiento>(b =>
+        {
+            b.ToTable("contenidoTratamientosRelacion");
+            b.HasKey(x => x.Id);
+            b.HasIndex(x => new { x.ContenidoId, x.TratamientoId }).IsUnique();
+            b.HasQueryFilter(x => !x.Borrado);
+            b.HasOne(x => x.Contenido).WithMany().HasForeignKey(x => x.ContenidoId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Tratamiento).WithMany().HasForeignKey(x => x.TratamientoId).OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<ContenidoRespuesta>(b =>

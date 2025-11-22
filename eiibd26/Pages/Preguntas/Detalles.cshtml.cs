@@ -25,7 +25,6 @@ namespace eiibd26.Pages.Preguntas
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        // Tipo fuerte para autor
         public record AuthorInfo(string Name, string Avatar);
 
         public class PreguntaVm
@@ -38,9 +37,8 @@ namespace eiibd26.Pages.Preguntas
             public string AutorAvatarUrl { get; set; } = "/img/avatar-placeholder.png";
             public DateTimeOffset FechaCreacion { get; set; }
             public int Score { get; set; }
-            public int UsuarioVoto { get; set; } = 0; // -1 | 0 | 1
+            public int UsuarioVoto { get; set; } = 0;
             public bool EsMia { get; set; } = false;
-
             public List<string> Condiciones { get; set; } = new();
             public List<string> Sintomas { get; set; } = new();
             public List<string> Tratamientos { get; set; } = new();
@@ -55,18 +53,19 @@ namespace eiibd26.Pages.Preguntas
             public string AutorAvatarUrl { get; set; } = "/img/avatar-placeholder.png";
             public DateTimeOffset FechaCreacion { get; set; }
             public int Score { get; set; }
-            public int UsuarioVoto { get; set; } = 0; // -1 | 0 | 1
+            public int UsuarioVoto { get; set; } = 0;
             public bool EsMia { get; set; } = false;
         }
 
         [BindProperty(SupportsGet = true)]
         public Guid Id { get; set; }
 
+        // Página de respuestas (renombrada para evitar colisión con 'page')
         [BindProperty(SupportsGet = true)]
-        public int Page { get; set; } = 1;
+        public int AnswersPage { get; set; } = 1;
 
         [BindProperty(SupportsGet = true)]
-        public int PageSize { get; set; } = 6;
+        public int PageSize { get; set; } = 12;
 
         [BindProperty(SupportsGet = true)]
         public string Search { get; set; } = "";
@@ -77,23 +76,22 @@ namespace eiibd26.Pages.Preguntas
         public int TotalItems { get; set; }
         public int TotalPages => PageSize > 0 ? (int)Math.Ceiling(TotalItems / (double)PageSize) : 1;
 
-        public Guid? GetUserIdGuid()
+        private Guid? GetUserIdGuid()
         {
             var v = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(v)) return null;
             return Guid.TryParse(v, out var g) ? g : null;
         }
 
-        public async Task<IActionResult> OnGetAsync(Guid id, int? page, int? pageSize, string search)
+        public async Task<IActionResult> OnGetAsync(Guid id, int? answersPage, int? pageSize, string search)
         {
             Id = id;
-            if (page.HasValue) Page = Math.Max(1, page.Value);
+            if (answersPage.HasValue) AnswersPage = Math.Max(1, answersPage.Value);
             if (pageSize.HasValue) PageSize = Math.Max(1, pageSize.Value);
             if (search != null) Search = search.Trim();
 
             var currentUserId = GetUserIdGuid();
 
-            // Pregunta
             var preguntaRow = await _db.Preguntas
                 .AsNoTracking()
                 .Where(p => p.Id == id && !p.Eliminado)
@@ -113,7 +111,6 @@ namespace eiibd26.Pages.Preguntas
             if (preguntaRow == null)
                 return NotFound();
 
-            // Autor pregunta
             var preguntaAutor = new AuthorInfo("Usuario", "/img/avatar-placeholder.png");
             try
             {
@@ -130,7 +127,6 @@ namespace eiibd26.Pages.Preguntas
                     var avatar = string.IsNullOrWhiteSpace(perfilAutor.Avatar)
                         ? "/img/avatar-placeholder.png"
                         : perfilAutor.Avatar;
-
                     preguntaAutor = new AuthorInfo(nombre, avatar);
                 }
             }
@@ -139,7 +135,6 @@ namespace eiibd26.Pages.Preguntas
                 _logger.LogWarning(ex, "Error obteniendo perfil del autor de la pregunta.");
             }
 
-            // Relaciones clínicas
             var condiciones = new List<string>();
             var sintomas = new List<string>();
             var tratamientos = new List<string>();
@@ -148,10 +143,7 @@ namespace eiibd26.Pages.Preguntas
             {
                 condiciones = await _db.PreguntaCondiciones.AsNoTracking()
                     .Where(pc => pc.PreguntaId == id)
-                    .Join(_db.condiciones,
-                          pc => pc.CondicionId,
-                          c => c.id,
-                          (pc, c) => c.nombre)
+                    .Join(_db.condiciones, pc => pc.CondicionId, c => c.id, (pc, c) => c.nombre)
                     .Where(n => n != null && n != "")
                     .Distinct()
                     .OrderBy(n => n)
@@ -163,10 +155,7 @@ namespace eiibd26.Pages.Preguntas
             {
                 sintomas = await _db.PreguntaSintomas.AsNoTracking()
                     .Where(ps => ps.PreguntaId == id)
-                    .Join(_db.sintomas,
-                          ps => ps.SintomaId,
-                          s => s.id,
-                          (ps, s) => s.nombre)
+                    .Join(_db.sintomas, ps => ps.SintomaId, s => s.id, (ps, s) => s.nombre)
                     .Where(n => n != null && n != "")
                     .Distinct()
                     .OrderBy(n => n)
@@ -178,10 +167,7 @@ namespace eiibd26.Pages.Preguntas
             {
                 tratamientos = await _db.PreguntaTratamientos.AsNoTracking()
                     .Where(pt => pt.PreguntaId == id)
-                    .Join(_db.tratamientos,
-                          pt => pt.TratamientoId,
-                          t => t.id,
-                          (pt, t) => t.nombre)
+                    .Join(_db.tratamientos, pt => pt.TratamientoId, t => t.id, (pt, t) => t.nombre)
                     .Where(n => n != null && n != "")
                     .Distinct()
                     .OrderBy(n => n)
@@ -206,19 +192,14 @@ namespace eiibd26.Pages.Preguntas
                 Tratamientos = tratamientos
             };
 
-            // Voto usuario sobre la pregunta
             if (currentUserId.HasValue)
             {
                 try
                 {
                     var votoQ = await _db.Votos.AsNoTracking()
-                        .Where(v => v.EntidadTipo == "pregunta"
-                                    && v.EntidadId == id
-                                    && v.UsuarioId == currentUserId.Value
-                                    && !v.Eliminado)
+                        .Where(v => v.EntidadTipo == "pregunta" && v.EntidadId == id && v.UsuarioId == currentUserId.Value && !v.Eliminado)
                         .OrderByDescending(v => v.FechaCreacion)
                         .FirstOrDefaultAsync();
-
                     if (votoQ != null)
                         Pregunta.UsuarioVoto = votoQ.Valor;
                 }
@@ -228,7 +209,6 @@ namespace eiibd26.Pages.Preguntas
                 }
             }
 
-            // Respuestas
             var baseAnsQ = _db.Respuestas.AsNoTracking()
                 .Where(r => r.PreguntaId == id && !r.Eliminado);
 
@@ -240,7 +220,8 @@ namespace eiibd26.Pages.Preguntas
 
             TotalItems = await baseAnsQ.CountAsync();
             if (PageSize <= 0) PageSize = 6;
-            if (Page > TotalPages) Page = TotalPages == 0 ? 1 : TotalPages;
+            if (AnswersPage < 1) AnswersPage = 1;
+            if (TotalPages > 0 && AnswersPage > TotalPages) AnswersPage = TotalPages;
 
             var ansPageQ = baseAnsQ
                 .Select(r => new
@@ -254,13 +235,12 @@ namespace eiibd26.Pages.Preguntas
                 })
                 .OrderByDescending(x => x.Score)
                 .ThenByDescending(x => x.FechaCreacion)
-                .Skip((Page - 1) * PageSize)
+                .Skip((AnswersPage - 1) * PageSize)
                 .Take(PageSize);
 
             var ansItems = await ansPageQ.ToListAsync();
             var ansUserIds = ansItems.Select(a => a.UsuarioId).Distinct().ToArray();
 
-            // Autores respuestas
             var ansAuthors = new Dictionary<Guid, AuthorInfo>();
             if (ansUserIds.Length > 0)
             {
@@ -305,7 +285,6 @@ namespace eiibd26.Pages.Preguntas
                 }
             }
 
-            // Votos usuario sobre respuestas
             var votosUsuarioAns = new Dictionary<Guid, int>();
             if (currentUserId.HasValue && ansItems.Count > 0)
             {

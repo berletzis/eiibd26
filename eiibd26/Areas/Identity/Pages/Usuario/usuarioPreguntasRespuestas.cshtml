@@ -1,169 +1,404 @@
 ﻿@page
 @model eiibd26.Areas.Identity.Pages.Usuario.PreguntasRespuestasModel
 @{
-    ViewData["Title"] = "Preguntas y Respuestas";
+    ViewData["Title"] = "Tus Preguntas y Participaciones";
     Layout = "_Layout";
 
     string ResolveAvatar(string avatar)
     {
         if (string.IsNullOrWhiteSpace(avatar)) return Url.Content("~/img/avatar-placeholder.png");
-        if (avatar.StartsWith("http", System.StringComparison.OrdinalIgnoreCase)) return avatar;
+        if (avatar.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return avatar;
         if (avatar.StartsWith("/")) return avatar;
         return Url.Content("~/" + avatar.TrimStart('/'));
     }
-
-    string RenderVoteControl(Guid id, int userVote, int score, Guid questionOwnerId)
-    {
-        if (!User.Identity.IsAuthenticated)
-            return "<div class=\"vote-login-hint\">Inicia sesión para realizar un voto. <a href=\"/Identity/Account/Login\">Iniciar sesión</a></div>";
-
-        var currentIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        if (!string.IsNullOrEmpty(currentIdClaim) && Guid.TryParse(currentIdClaim, out var currentGuid) && currentGuid == questionOwnerId)
-        {
-            return "<div class=\"text-muted small\">No puedes votar tu propia pregunta</div>";
-        }
-
-        if (userVote == 1)
-        {
-            return $"<div class=\"vote-container\"><button class=\"crm-vote-btn btn-dislike btn-voto-single\" type=\"button\" data-id=\"{id}\" data-valor=\"-1\" title=\"Quitar voto\"><i class=\"bi bi-hand-thumbs-down\"></i></button></div>";
-        }
-
-        if (score <= 0)
-        {
-            return $"<div class=\"vote-container\"><button class=\"crm-vote-btn btn-like btn-voto-single\" type=\"button\" data-id=\"{id}\" data-valor=\"1\" title=\"Me gusta\"><i class=\"bi bi-hand-thumbs-up\"></i></button></div>";
-        }
-
-        return $"<div class=\"vote-container\"><button class=\"crm-vote-btn btn-dislike btn-voto-single\" type=\"button\" data-id=\"{id}\" data-valor=\"-1\" title=\"Quitar voto\"><i class=\"bi bi-hand-thumbs-down\"></i></button></div>";
-    }
-
-    string SafePreview(string? text, int maxChars)
-    {
-        if (string.IsNullOrEmpty(text)) return "";
-        if (text.Length <= maxChars) return text;
-        return text.Substring(0, maxChars).TrimEnd() + "…";
-    }
 }
 
-<div class="crm-container">
-    <h2 class="crm-title mb-4">Preguntas y Respuestas</h2>
+@section Styles {
+    <link rel="stylesheet" href="~/css/preguntas-stack.css" />
+}
 
-    <form id="__antiForgeryForm" class="crm-form-row">@Html.AntiForgeryToken()</form>
-    <div class="crm-card mb-3 p-4">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <div style="flex:1 1 auto;min-width:240px;">
-                <div class="mb-2 fs-4">Consulta y ayuda entre usuarios</div>
-                <div class="text-muted mb-2">Aquí ves tus preguntas y también las preguntas a las que has respondido o votado. Publica la tuya o responde a otras.</div>
-            </div>
-            <div class="d-flex flex-column flex-md-row gap-2">
-                <!-- Botón original modal -->
-                <button class="crm-btn crm-btn-primary" id="btnAbrirModalPregunta" type="button" data-bs-toggle="modal" data-bs-target="#preguntaModal">
-                    <i class="bi bi-plus-circle me-1"></i> Preguntar
+<form id="__afForm" style="display:none;">@Html.AntiForgeryToken()</form>
+
+<div class="container py-4">
+    <h1 class="se-page-title">Mis Preguntas</h1>
+    <div class="qp-wrapper-flex">
+        <div class="preguntas-main-buscador">
+
+            <label for="cpreguntaBuscar" class="se-preguntas-label">
+                Lista de tus preguntas y aquellas en las que has participado.
+            </label>
+
+            
+                <button id="btnModalPregunta" type="button" class="se-btn se-btn-primary" data-bs-toggle="modal" data-bs-target="#preguntaModal">
+                    <i class="btn-icon alert-light bi bi-lightning"></i>
                 </button>
-                <!-- Nuevo botón para pregunta detallada -->
-                <a class="crm-btn crm-btn-outline" href="~/Identity/Usuario/UusuarioPreguntaDetalle">
-                    <i class="bi bi-list-check me-1"></i> Pregunta detallada
+                <a class="responder-boton-link" href="~/Identity/Usuario/UusuarioPreguntaDetalle">
+                    Pregunta detallada
                 </a>
-            </div>
+            
         </div>
     </div>
+    <div class="preguntas-paginacion" aria-label="Paginación">
 
-    <div class="crm-card">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div><strong>@Model.Total</strong> preguntas</div>
-            <div class="d-flex gap-2">
-                <a class="crm-btn crm-btn-outline" href="?page=@(Model.Page > 1 ? Model.Page - 1 : 1)">Anterior</a>
-                <a class="crm-btn crm-btn-outline" href="?page=@(Model.Page + 1)">Siguiente</a>
-            </div>
-        </div>
+        @if (Model.TotalPages > 1)
+        {
+            int current = Model.PageNumber;
+            int total = Model.TotalPages;
+            int window = 2;
+            var list = new List<int>();
 
-        <div id="qrCards" class="qr-card-panel">
-            @foreach (var q in Model.Preguntas)
+            if (total <= 12)
             {
-                <div class="qr-card"
-                     data-id="@q.Id"
-                     data-authenticated="@(User.Identity.IsAuthenticated ? "true" : "false")"
-                     data-user-vote="@q.UsuarioVoto"
-                     data-score="@q.Score"
-                     data-owner-id="@q.UsuarioId">
-
-                    <a class="crm-icon-btn view-btn" title="Ver detalle" href="/Preguntas/Detalles/@q.Id">
-                        <i class="bi bi-eye"></i>
-                    </a>
-
-                    <div class="qr-title-row">
-                        <div class="qr-title" title="@q.Titulo">
-                            <a href="/Preguntas/Detalles/@q.Id" class="qr-title-link" title="@q.Titulo">@SafePreview(q.TituloPreview ?? q.Titulo, 100)</a>
-                            @if (q.EsMia)
-                            {
-                                <button class="btn-delete-inline btn-delete-pregunta" title="Eliminar pregunta" type="button" data-id="@q.Id" data-title="@q.Titulo">🗑</button>
-                                <a class="btn-delete-inline" style="background:#eef5ff;border-color:#cbd7ec;color:#24527a;"
-                                   title="Editar pregunta detallada"
-                                   href="~/Identity/Usuario/UusuarioPreguntaDetalle?id=@q.Id">
-                                    ✎
-                                </a>
-                            }
-                        </div>
-                    </div>
-
-                    <div class="qr-body" title="@q.CuerpoPreview">@SafePreview(q.CuerpoPreview ?? q.CuerpoPreview, 420)</div>
-
-                    <div class="avatars-row" aria-hidden="true">
-                        <img class="avatar-author lazy-avatar"
-                             src="@Url.Content("~/img/avatar-placeholder.png")"
-                             data-src="@ResolveAvatar(q.AutorAvatarUrl)"
-                             alt="@q.AutorNombre"
-                             width="40" height="40" decoding="async"
-                             onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
-
-                        <div class="author-info">
-                            <small class="text-muted">@q.AutorNombre</small>
-                            <div class="text-muted small">Publicado · @q.FechaCreacion.ToLocalTime().ToString("d")</div>
-                        </div>
-                    </div>
-
-                    <div class="qr-score-wrap" aria-hidden="true">
-                        @Html.Raw(RenderVoteControl(q.Id, q.UsuarioVoto, q.Score, q.UsuarioId))
-                        <div class="qr-score" id="score-@q.Id">Score: @q.Score</div>
-                    </div>
-
-                    <div class="responses-bottom-left" aria-hidden="true">
-                        <div class="participants-group">
-                            @{
-                                var added = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                                if (!string.IsNullOrWhiteSpace(q.AutorAvatarUrl)) added.Add(q.AutorAvatarUrl);
-                                var rc = 0;
-                                foreach (var a in q.RespondersAvatars ?? Enumerable.Empty<string>())
-                                {
-                                    if (rc >= 5) break;
-                                    if (string.IsNullOrWhiteSpace(a)) continue;
-                                    if (added.Contains(a)) continue;
-                                    added.Add(a);
-                                    <img class="participant-avatar lazy-avatar" src="@Url.Content("~/img/avatar-placeholder.png")" data-src="@ResolveAvatar(a)" alt="P" width="28" height="28" decoding="async" />
-                                    rc++;
-                                }
-                            }
-                        </div>
-                        <div class="responses-badge">
-                            <span class="small text-muted d-block">Respuestas</span>
-                            <span class="badge responses-count">@q.RespuestasCount</span>
-                        </div>
-                    </div>
-                </div>
+                list.AddRange(Enumerable.Range(1, total));
             }
-        </div>
+            else
+            {
+                int start = Math.Max(1, current - window);
+                int end = Math.Min(total, current + window);
 
+                if (start > 1)
+                {
+                    list.Add(1);
+                    if (start > 2) list.Add(-1);
+                }
+                list.AddRange(Enumerable.Range(start, end - start + 1));
+                if (end < total)
+                {
+                    if (end < total - 1) list.Add(-1);
+                    list.Add(total);
+                }
+            }
+
+            string baseSearch = Model.Search ?? "";
+            // Importante: enlazar a ESTA MISMA página, no a /Preguntas
+            Func<int, string> pageUrl = p => Url.Page(
+            null, // misma página
+            null, // handler
+            new { search = baseSearch, pageSize = Model.PageSize, pageNumber = p },
+            null
+            ) ?? "#";
+
+            <div class="pag-bar">
+                <a class="pag-btn @(current == 1 ? "disabled" : "")"
+                   aria-label="Primera página"
+                   href="@(current == 1 ? "#" : pageUrl(1))">«</a>
+                <a class="pag-btn @(current == 1 ? "disabled" : "")"
+                   aria-label="Página anterior"
+                   href="@(current == 1 ? "#" : pageUrl(current - 1))">‹</a>
+
+                @foreach (var p in list)
+                {
+                    if (p == -1)
+                    {
+                        <span class="pag-ellipsis" aria-hidden="true">…</span>
+                    }
+                    else
+                    {
+                        var active = p == current ? "active" : "";
+                        <a class="pag-num @active"
+                           aria-label="Página @p"
+                           aria-current="@(active == "active" ? "page" : null)"
+                           href="@(active == "active" ? "#" : pageUrl(p))">@p</a>
+                    }
+                }
+
+                <a class="pag-btn @(current == total ? "disabled" : "")"
+                   aria-label="Página siguiente"
+                   href="@(current == total ? "#" : pageUrl(current + 1))">›</a>
+                <a class="pag-btn @(current == total ? "disabled" : "")"
+                   aria-label="Última página"
+                   href="@(current == total ? "#" : pageUrl(total))">»</a>
+
+                <div class="pag-info">
+                    <span>Total: @Model.TotalItems preguntas</span>
+                    <span>Página @Model.PageNumber de @Model.TotalPages</span>
+                    <form method="get" class="pag-size-inline" id="inlineSizeForm">
+                        <input type="hidden" name="search" value="@Model.Search" />
+                        <input type="hidden" name="pageNumber" value="1" />
+                        <label for="inlinePageSize">Tamaño</label>
+                        <select id="inlinePageSize" name="pageSize" onchange="document.getElementById('inlineSizeForm').submit();">
+                            @{
+                                var sizes2 = new[] { 10, 12, 30, 60, 100 };
+                            }
+                            @foreach (var s in sizes2)
+                            {
+                                <option value="@s" selected="@(Model.PageSize == s)">@s</option>
+                            }
+                        </select>
+                    </form>
+
+                </div>
+            </div>
+        }
+    </div>
+    <div class="qp-wrapper-flex">
         @if (!Model.Preguntas.Any())
         {
-            <div class="text-muted p-4">No hay preguntas relacionadas contigo aún.</div>
+            <div class="se-empty">No hay preguntas relacionadas contigo todavía.</div>
+        }
+        else
+        {
+            <div class="qp-main" id="userQuestionsList" role="list">
+                @foreach (var q in Model.Preguntas)
+                {
+                    var disableUp = q.UsuarioVoto != 0;
+                    var disableDown = q.UsuarioVoto != 1 || q.Score <= 0;
+
+                    <article class="se-item se-user-item"
+                             role="listitem"
+                             data-id="@q.Id"
+                             data-authenticated="@(User.Identity.IsAuthenticated ? "true" : "false")"
+                             data-user-vote="@q.UsuarioVoto"
+                             data-score="@q.Score"
+                             data-owner="@q.UsuarioId">
+                        <div class="se-stats">
+                            <div class="se-vote" aria-label="Votación">
+                                @if (!User.Identity.IsAuthenticated || q.EsMia)
+                                {
+                                    <button class="se-vote-btn se-vote-up" type="button" disabled title="@(q.EsMia ? "No puedes votar tu propia pregunta" : "Inicia sesión para votar")"> ▲</button>
+                                    <div class="se-votes-count" id="score-@q.Id">@q.Score</div>
+                                    <button class="se-vote-btn se-vote-down" type="button" disabled title="@(q.EsMia ? "No puedes votar tu propia pregunta" : "Inicia sesión para votar")"> ▼</button>
+                                }
+                                else
+                                {
+                                    <button class="se-vote-btn se-vote-up @(q.UsuarioVoto == 1 ? "active" : "")"
+                                            data-id="@q.Id"
+                                            data-dir="up"
+                                            type="button"
+                                            title="+1"
+                                            aria-label="Votar +1"
+                                            @(disableUp ? "disabled" : null)>
+                                        ▲
+                                    </button>
+                                    <div class="se-votes-count" id="score-@q.Id">@q.Score</div>
+                                    <button class="se-vote-btn se-vote-down"
+                                            data-id="@q.Id"
+                                            data-dir="down"
+                                            type="button"
+                                            title="Quitar voto"
+                                            aria-label="Quitar voto"
+                                            @(disableDown ? "disabled" : null)>
+                                        ▼
+                                    </button>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="se-summary">
+                            <h2 class="se-title">
+                                <a href="/Preguntas/Detalles/@q.Id" title="@q.Titulo">@q.TituloPreview</a>
+                            </h2>
+
+                            <div class="se-excerpt">@q.CuerpoPreview</div>
+
+                            @if ((q.Condiciones?.Any() ?? false) || (q.Sintomas?.Any() ?? false) || (q.Tratamientos?.Any() ?? false))
+                            {
+                                <div class="se-relations">
+                                    @if (q.Condiciones?.Any() ?? false)
+                                    {
+                                        <div class="se-rel-group">
+                                            <span class="se-rel-label">Condiciones</span>
+                                            <div class="se-rel-badges">
+                                                @foreach (var c in q.Condiciones.Take(6))
+                                                {
+                                                    <span class="se-rel-badge">@c</span>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                    @if (q.Sintomas?.Any() ?? false)
+                                    {
+                                        <div class="se-rel-group">
+                                            <span class="se-rel-label">Síntomas</span>
+                                            <div class="se-rel-badges">
+                                                @foreach (var s in q.Sintomas.Take(6))
+                                                {
+                                                    <span class="se-rel-badge">@s</span>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                    @if (q.Tratamientos?.Any() ?? false)
+                                    {
+                                        <div class="se-rel-group">
+                                            <span class="se-rel-label">Tratamientos</span>
+                                            <div class="se-rel-badges">
+                                                @foreach (var t in q.Tratamientos.Take(6))
+                                                {
+                                                    <span class="se-rel-badge">@t</span>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+
+                            <div class="se-meta">
+                                <div class="se-user">
+                                    <img class="se-avatar lazy-avatar"
+                                         src="@Url.Content("~/img/avatar-placeholder.png")"
+                                         data-src="@ResolveAvatar(q.AutorAvatarUrl)"
+                                         alt="@q.AutorNombre"
+                                         width="36"
+                                         height="36"
+                                         decoding="async"
+                                         onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+                                    <a class="se-user-name" href="#">@q.AutorNombre</a>
+                                </div>
+                                <span class="se-time">@q.FechaCreacion.ToLocalTime().ToString("g")</span>
+                                @if (q.EsMia)
+                                {
+                                    <button type="button"
+                                            class="se-action-link se-action-delete"
+                                            data-id="@q.Id"
+                                            data-title="@q.Titulo"
+                                            title="Eliminar pregunta">
+                                        Eliminar
+                                    </button>
+                                    <a class="se-action-link se-action-edit"
+                                       href="~/Identity/Usuario/UusuarioPreguntaDetalle?id=@q.Id"
+                                       title="Editar pregunta">Editar</a>
+                                }
+                            </div>
+
+
+                            <div class="se-answers-float @(q.RespuestasCount > 0 ? "answered" : "unanswered")">
+                                <span class="se-answers-float-count">@q.RespuestasCount</span>
+                                <span class="se-answers-float-label">answers</span>
+                                @if (q.RespondersAvatars?.Any() == true)
+                                {
+                                    <div class="se-answers-responders">
+                                        @{
+                                            var added = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                                            if (!string.IsNullOrWhiteSpace(q.AutorAvatarUrl)) added.Add(q.AutorAvatarUrl);
+                                            var limit = 0;
+                                            foreach (var av in q.RespondersAvatars)
+                                            {
+                                                if (limit >= 6) break;
+                                                if (string.IsNullOrWhiteSpace(av)) continue;
+                                                if (added.Contains(av)) continue;
+                                                added.Add(av);
+                                                <img class="se-responder-avatar lazy-avatar"
+                                                     src="@Url.Content("~/img/avatar-placeholder.png")"
+                                                     data-src="@ResolveAvatar(av)"
+                                                     alt="Responder"
+                                                     width="20"
+                                                     height="20"
+                                                     decoding="async"
+                                                     onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+                                                limit++;
+                                            }
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="preguntas-paginacion" aria-label="Paginación">
+
+        @if (Model.TotalPages > 1)
+        {
+            int current = Model.PageNumber;
+            int total = Model.TotalPages;
+            int window = 2;
+            var list = new List<int>();
+
+            if (total <= 12)
+            {
+                list.AddRange(Enumerable.Range(1, total));
+            }
+            else
+            {
+                int start = Math.Max(1, current - window);
+                int end = Math.Min(total, current + window);
+
+                if (start > 1)
+                {
+                    list.Add(1);
+                    if (start > 2) list.Add(-1);
+                }
+                list.AddRange(Enumerable.Range(start, end - start + 1));
+                if (end < total)
+                {
+                    if (end < total - 1) list.Add(-1);
+                    list.Add(total);
+                }
+            }
+
+            string baseSearch = Model.Search ?? "";
+            // Importante: enlazar a ESTA MISMA página, no a /Preguntas
+            Func<int, string> pageUrl = p => Url.Page(
+            null, // misma página
+            null, // handler
+            new { search = baseSearch, pageSize = Model.PageSize, pageNumber = p },
+            null
+            ) ?? "#";
+
+            <div class="pag-bar">
+                <a class="pag-btn @(current == 1 ? "disabled" : "")"
+                   aria-label="Primera página"
+                   href="@(current == 1 ? "#" : pageUrl(1))">«</a>
+                <a class="pag-btn @(current == 1 ? "disabled" : "")"
+                   aria-label="Página anterior"
+                   href="@(current == 1 ? "#" : pageUrl(current - 1))">‹</a>
+
+                @foreach (var p in list)
+                {
+                    if (p == -1)
+                    {
+                        <span class="pag-ellipsis" aria-hidden="true">…</span>
+                    }
+                    else
+                    {
+                        var active = p == current ? "active" : "";
+                        <a class="pag-num @active"
+                           aria-label="Página @p"
+                           aria-current="@(active == "active" ? "page" : null)"
+                           href="@(active == "active" ? "#" : pageUrl(p))">@p</a>
+                    }
+                }
+
+                <a class="pag-btn @(current == total ? "disabled" : "")"
+                   aria-label="Página siguiente"
+                   href="@(current == total ? "#" : pageUrl(current + 1))">›</a>
+                <a class="pag-btn @(current == total ? "disabled" : "")"
+                   aria-label="Última página"
+                   href="@(current == total ? "#" : pageUrl(total))">»</a>
+
+                <div class="pag-info">
+                    <span>Total: @Model.TotalItems preguntas</span>
+                    <span>Página @Model.PageNumber de @Model.TotalPages</span>
+                    <form method="get" class="pag-size-inline" id="inlineSizeFormBottom">
+                        <input type="hidden" name="search" value="@Model.Search" />
+                        <input type="hidden" name="pageNumber" value="1" />
+                        <label for="inlinePageSize">Tamaño</label>
+                        <select id="inlinePageSize" name="pageSize" onchange="document.getElementById('inlineSizeFormBottom').submit();">
+                            @{
+                                var sizes2 = new[] { 10, 12, 30, 60, 100 };
+                            }
+                            @foreach (var s in sizes2)
+                            {
+                                <option value="@s" selected="@(Model.PageSize == s)">@s</option>
+                            }
+                        </select>
+                    </form>
+
+                </div>
+            </div>
         }
     </div>
 </div>
 
-<!-- Modal original para pregunta rápida -->
+<!-- Modal nueva pregunta rápida -->
 <div class="modal fade" id="preguntaModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <form id="preguntaForm" method="post" action="?handler=CrearPregunta">
+            <form id="preguntaForm" method="post" asp-page-handler="CrearPregunta">
                 @Html.AntiForgeryToken()
                 <div class="modal-header">
                     <h5 class="modal-title">Publicar nueva pregunta</h5>
@@ -183,241 +418,216 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button id="btnSavePregunta" type="submit" class="crm-btn crm-btn-success">Publicar</button>
+                    <button id="btnSavePregunta" type="submit" class="se-btn se-btn-primary">Publicar</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-<!-- Modal confirm delete (sin cambios) -->
-<div class="modal fade modal-confirm" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
+<!-- Modal confirmar eliminación -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-body p-4">
-                <div class="d-flex gap-3 align-items-start">
-                    <div style="font-size:1.6rem;color:#dc2741;">🗑</div>
-                    <div style="flex:1 1 auto;">
-                        <h5 class="mb-2">Confirmar eliminación</h5>
-                        <p id="confirmDeleteMessage" class="mb-0 text-muted">¿Estás seguro que deseas eliminar este elemento? Esta acción no se puede deshacer.</p>
-                    </div>
-                </div>
+                <h5 class="mb-2">Confirmar eliminación</h5>
+                <p id="confirmDeleteMessage" class="mb-0 text-muted">¿Deseas eliminar este elemento? Esta acción es irreversible.</p>
             </div>
             <div class="modal-footer">
-                <button type="button" class="crm-btn crm-btn-cancel" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" id="confirmDeleteBtn" class="crm-btn btn-confirm">Eliminar</button>
+                <button type="button" class="se-btn se-btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="confirmDeleteBtn" class="se-btn se-btn-primary">Eliminar</button>
             </div>
         </div>
     </div>
 </div>
 
-@section Styles {
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" />
-    <link rel="stylesheet" href="~/css/usuario-condiciones-crm.css" />
-    <style>
-        /* Mantengo estilos previos + nuevo botón */
-        .crm-btn-outline {
-            background: #fff;
-            border: 1px solid #c9d6e6;
-            color: #24527a;
-        }
-    </style>
-}
-
 @section Scripts {
-    <!-- Mantengo scripts existentes sin cambios sustanciales -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         (function () {
-            function getAntiForgeryToken() {
-                const tokenInput = document.querySelector('#__antiForgeryForm input[name="__RequestVerificationToken"]');
-                return tokenInput ? tokenInput.value : null;
-            }
-
             function initLazyAvatars() {
                 const imgs = Array.from(document.querySelectorAll('img.lazy-avatar[data-src]'));
                 if (!imgs.length) return;
-                const onLoad = img => img.classList.add('loaded');
-                const onError = img => { img.classList.add('loaded'); img.src = '@Url.Content("~/img/avatar-placeholder.png")'; };
                 const loadImg = img => {
                     const src = img.getAttribute('data-src');
-                    if (!src) { onError(img); return; }
+                    if (!src) { img.src='@Url.Content("~/img/avatar-placeholder.png")'; return; }
                     const tmp = new Image();
                     tmp.decoding = 'async';
-                    tmp.onload = function () { try { img.src = src; } catch {} onLoad(img); };
-                    tmp.onerror = function () { onError(img); };
+                    tmp.onload = () => { img.src = src; img.classList.add('loaded'); };
+                    tmp.onerror = () => { img.src='@Url.Content("~/img/avatar-placeholder.png")'; img.classList.add('loaded'); };
                     tmp.src = src;
                 };
                 if ('IntersectionObserver' in window) {
-                    const io = new IntersectionObserver((entries, observer) => {
-                        entries.forEach(entry => {
-                            if (entry.isIntersecting) {
-                                const img = entry.target;
-                                observer.unobserve(img);
-                                loadImg(img);
-                            }
+                    const io = new IntersectionObserver(entries => {
+                        entries.forEach(e => {
+                            if (e.isIntersecting) { io.unobserve(e.target); loadImg(e.target); }
                         });
                     }, { rootMargin: '200px 0px' });
-                    imgs.forEach(i => {
-                        if (i.getAttribute('data-src') && i.src.indexOf('avatar-placeholder.png') >= 0) io.observe(i);
-                        else if (i.getAttribute('data-src')) i.classList.add('loaded');
+                    imgs.forEach(i => io.observe(i));
+                } else {
+                    imgs.forEach(loadImg);
+                }
+            }
+
+            document.addEventListener('click', async e => {
+                const btn = e.target.closest('.se-vote-btn');
+                if (!btn) return;
+                const item = btn.closest('.se-item');
+                if (!item) return;
+
+                const isAuth = item.getAttribute('data-authenticated') === 'true';
+                const ownerId = item.getAttribute('data-owner');
+                const currentUserId = '@@User.FindFirstValue(ClaimTypes.NameIdentifier)';
+                const userVote = parseInt(item.getAttribute('data-user-vote') || '0', 10);
+                const score = parseInt(item.getAttribute('data-score') || '0', 10);
+                const dir = btn.getAttribute('data-dir');
+                const id = item.getAttribute('data-id');
+
+                if (!isAuth) return;
+                if (ownerId && currentUserId && ownerId === currentUserId) return;
+                if (!id || !dir) return;
+
+                if (dir === 'up' && userVote !== 0) return;
+                if (dir === 'down' && (userVote !== 1 || score <= 0)) return;
+
+                const upBtn = item.querySelector('.se-vote-up');
+                const downBtn = item.querySelector('.se-vote-down');
+                if (upBtn) upBtn.disabled = true;
+                if (downBtn) downBtn.disabled = true;
+
+                const valor = dir === 'up' ? 1 : -1;
+
+                try {
+                    const res = await fetch('/api/preguntas/' + id + '/votar', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ valor })
                     });
-                } else imgs.forEach(i => loadImg(i));
+                    if (!res.ok) {
+                        alert('Error al votar: ' + res.status);
+                        return;
+                    }
+                    const j = await res.json();
+                    let newScore = j.score !== undefined ? parseInt(j.score, 10) : (dir === 'up' ? score + 1 : Math.max(0, score - 1));
+                    let backendVote = (j.userVote !== undefined) ? parseInt(j.userVote, 10) : (dir === 'up' ? 1 : 0);
+                    if (backendVote < 0) backendVote = 0;
+
+                    item.setAttribute('data-score', String(newScore));
+                    item.setAttribute('data-user-vote', String(backendVote));
+
+                    const scoreEl = document.getElementById('score-' + id);
+                    if (scoreEl) scoreEl.textContent = newScore;
+
+                    if (backendVote === 1) {
+                        upBtn?.classList.add('active');
+                        if (upBtn) upBtn.disabled = true;
+                        if (downBtn) downBtn.disabled = newScore <= 0;
+                    } else {
+                        upBtn?.classList.remove('active');
+                        if (upBtn) upBtn.disabled = false;
+                        if (downBtn) downBtn.disabled = true;
+                    }
+                } catch (err) {
+                    console.error('Error votando', err);
+                    alert('Error de red al votar');
+                } finally {
+                    const newUserVote = parseInt(item.getAttribute('data-user-vote') || '0', 10);
+                    const newScoreFinal = parseInt(item.getAttribute('data-score') || '0', 10);
+                    if (upBtn && newUserVote === 0) upBtn.disabled = false;
+                    if (downBtn) downBtn.disabled = !(newUserVote === 1 && newScoreFinal > 0);
+                }
+            });
+
+            const preguntaForm = document.getElementById('preguntaForm');
+            const alertPregunta = document.getElementById('alertPregunta');
+            preguntaForm?.addEventListener('submit', async e => {
+                e.preventDefault();
+                const fd = new FormData(preguntaForm);
+                const btn = document.getElementById('btnSavePregunta');
+                if (btn) btn.disabled = true;
+                try {
+                    const resp = await fetch(preguntaForm.action || '?handler=CrearPregunta', {
+                        method: 'POST',
+                        body: fd
+                    });
+                    if (!resp.ok) {
+                        const t = await resp.text();
+                        showAlert('Error al publicar: ' + t, true);
+                        return;
+                    }
+                    const j = await resp.json();
+                    if (j.ok) {
+                        showAlert('Pregunta publicada correctamente.', false);
+                        setTimeout(() => location.reload(), 800);
+                    } else {
+                        showAlert('Error: ' + (j.error || 'desconocido'), true);
+                    }
+                } catch (ex) {
+                    console.error(ex);
+                    showAlert('Error de red', true);
+                } finally {
+                    if (btn) btn.disabled = false;
+                }
+            });
+
+            function showAlert(msg, isErr) {
+                if (!alertPregunta) return;
+                alertPregunta.textContent = msg;
+                alertPregunta.className = 'alert ' + (isErr ? 'alert-danger' : 'alert-success');
+                alertPregunta.style.display = 'block';
             }
 
             let pendingDelete = null;
-            function initDeleteHandlers() {
+            document.addEventListener('click', e => {
+                const delBtn = e.target.closest('.se-action-delete');
+                if (!delBtn) return;
+                e.preventDefault();
+                const id = delBtn.getAttribute('data-id');
+                const title = delBtn.getAttribute('data-title') || '';
+                if (!id) return;
+                pendingDelete = { id, element: delBtn.closest('.se-item') };
+                const msgEl = document.getElementById('confirmDeleteMessage');
+                if (msgEl) msgEl.textContent = title.Length > 0
+                    ? `¿Eliminar "${title}"? Esta acción no se puede deshacer.`
+                    : '¿Eliminar esta pregunta? Esta acción es irreversible.';
                 const modalEl = document.getElementById('confirmDeleteModal');
                 const modal = modalEl ? bootstrap.Modal.getOrCreateInstance(modalEl) : null;
-                const messageEl = document.getElementById('confirmDeleteMessage');
-                const confirmBtn = document.getElementById('confirmDeleteBtn');
+                modal?.show();
+            });
 
-                document.addEventListener('click', function (e) {
-                    const btnQ = e.target.closest('.btn-delete-pregunta');
-                    const btnA = e.target.closest('.btn-delete-respuesta');
-                    if (!btnQ && !btnA) return;
-                    e.preventDefault();
-                    e.stopPropagation();
-
-                    if (btnQ) {
-                        const id = btnQ.getAttribute('data-id');
-                        const title = btnQ.getAttribute('data-title') || '';
-                        pendingDelete = { type: 'pregunta', id: id, element: btnQ.closest('.qr-card') };
-                        messageEl.textContent = title ? `¿Deseas eliminar "${title}"? Esta acción no se puede deshacer.` : '¿Deseas eliminar esta pregunta? Esta acción no se puede deshacer.';
-                        modal?.show();
+            document.getElementById('confirmDeleteBtn')?.addEventListener('click', async () => {
+                if (!pendingDelete) return;
+                const btn = document.getElementById('confirmDeleteBtn');
+                if (btn) btn.disabled = true;
+                try {
+                    const res = await fetch('/api/preguntas/' + pendingDelete.id + '/eliminar', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    if (!res.ok) {
+                        alert('Error al eliminar: ' + res.status);
                     } else {
-                        const id = btnA.getAttribute('data-id');
-                        pendingDelete = { type: 'respuesta', id: id, element: btnA.closest('.ans-card') };
-                        messageEl.textContent = '¿Deseas eliminar esta respuesta? Esta acción no se puede deshacer.';
-                        modal?.show();
-                    }
-                });
-
-                confirmBtn?.addEventListener('click', async function () {
-                    if (!pendingDelete) { modal?.hide(); return; }
-                    confirmBtn.disabled = true;
-                    try {
-                        const token = getAntiForgeryToken();
-                        const headers = token ? { 'RequestVerificationToken': token, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
-                        const urlBase = pendingDelete.type === 'pregunta' ? '/api/preguntas/' : '/api/respuestas/';
-                        const res = await fetch(urlBase + pendingDelete.id + '/eliminar', { method: 'POST', headers });
-                        if (!res.ok) { alert('Error eliminando: ' + res.status); return; }
                         const j = await res.json();
-                        if (j.ok) pendingDelete.element?.remove(); else alert('No se pudo eliminar: ' + (j.error || 'error'));
-                    } catch (err) { console.error(err); alert('Error de red al eliminar'); }
-                    finally { confirmBtn.disabled = false; pendingDelete = null; modal?.hide(); }
-                });
-            }
-
-            function initVotingHandlers() {
-                document.addEventListener('click', async function (e) {
-                    const btnQ = e.target.closest('.btn-voto-single');
-                    if (btnQ) {
-                        e.preventDefault(); e.stopPropagation();
-                        const id = btnQ.getAttribute('data-id');
-                        const valor = parseInt(btnQ.getAttribute('data-valor') || "0", 10);
-                        if (!id || (valor !== 1 && valor !== -1)) return;
-                        btnQ.disabled = true;
-                        try {
-                            const token = getAntiForgeryToken();
-                            const headers = token ? { 'RequestVerificationToken': token, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
-                            const res = await fetch('/api/preguntas/' + id + '/votar', {
-                                method: 'POST',
-                                headers,
-                                body: JSON.stringify({ valor })
-                            });
-                            if (!res.ok) return;
-                            const j = await res.json();
-                            const card = document.querySelector('.qr-card[data-id="' + id + '"]');
-                            if (!card) return;
-                            const scoreEl = document.getElementById('score-' + id);
-                            if (j.score !== undefined && scoreEl) scoreEl.textContent = 'Score: ' + j.score;
-                            const container = card.querySelector('.vote-container');
-                            const authenticated = card.getAttribute('data-authenticated') === 'true';
-                            const userVote = (j.userVote != null) ? j.userVote : 0;
-                            const score = (j.score != null) ? j.score : parseInt(card.getAttribute('data-score') || "0", 10);
-                            if (container) {
-                                if (!authenticated) {
-                                    container.innerHTML = '<div class="vote-login-hint">Inicia sesión para votar. <a href="/Identity/Account/Login">Iniciar sesión</a></div>';
-                                } else {
-                                    if (userVote === 1) {
-                                        container.innerHTML = '<div class="vote-container"><button class="crm-vote-btn btn-dislike btn-voto-single" data-id="' + id + '" data-valor="-1" type="button" title="Quitar voto"><i class="bi bi-hand-thumbs-down"></i></button></div>';
-                                    } else {
-                                        if (score <= 0) {
-                                            container.innerHTML = '<div class="vote-container"><button class="crm-vote-btn btn-like btn-voto-single" data-id="' + id + '" data-valor="1" type="button" title="Me gusta"><i class="bi bi-hand-thumbs-up"></i></button></div>';
-                                        } else {
-                                            container.innerHTML = '<div class="vote-container"><button class="crm-vote-btn btn-dislike btn-voto-single" data-id="' + id + '" data-valor="-1" type="button" title="Quitar voto"><i class="bi bi-hand-thumbs-down"></i></button></div>';
-                                        }
-                                    }
-                                }
-                                card.setAttribute('data-score', String(j.score ?? score));
-                                card.setAttribute('data-user-vote', String(userVote));
-                            }
-                        } catch (err) { console.error('Error votando', err); }
-                        finally { btnQ.disabled = false; }
-                        return;
+                        if (j.ok) pendingDelete.element?.remove();
+                        else alert('No se pudo eliminar.');
                     }
-                });
-            }
+                } catch (err) {
+                    console.error(err);
+                    alert('Error de red al eliminar.');
+                } finally {
+                    if (btn) btn.disabled = false;
+                    const modalEl = document.getElementById('confirmDeleteModal');
+                    const modal = modalEl ? bootstrap.Modal.getOrCreateInstance(modalEl) : null;
+                    modal?.hide();
+                    pendingDelete = null;
+                }
+            });
 
-            function initModalAndForm() {
-                const preguntaModalEl = document.getElementById('preguntaModal');
-                const preguntaModal = preguntaModalEl ? bootstrap.Modal.getOrCreateInstance(preguntaModalEl) : null;
-                const btnNew = document.getElementById('btnAbrirModalPregunta');
-
-                btnNew?.addEventListener('click', function (e) {
-                    e.preventDefault(); e.stopPropagation();
-                    preguntaModal?.show();
-                    setTimeout(() => { document.getElementById('preguntaTitulo')?.focus(); }, 120);
-                });
-
-                const preguntaForm = document.getElementById('preguntaForm');
-                preguntaForm?.addEventListener('submit', async function (e) {
-                    e.preventDefault(); e.stopPropagation();
-                    const form = e.target;
-                    const data = new FormData(form);
-                    const tokenEl = form.querySelector('input[name="__RequestVerificationToken"]');
-                    const headers = tokenEl ? { 'RequestVerificationToken': tokenEl.value, 'X-Requested-With': 'XMLHttpRequest' } : { 'X-Requested-With': 'XMLHttpRequest' };
-                    const btn = document.getElementById('btnSavePregunta');
-                    if (btn) btn.disabled = true;
-                    try {
-                        const url = new URL(form.action, window.location.href).toString();
-                        const resp = await fetch(url, { method: 'POST', headers, body: data });
-                        if (!resp.ok) { showAlert('alertPregunta', 'Error al publicar: ' + resp.status, true); return; }
-                        const j = await resp.json();
-                        if (j.ok) {
-                            showAlert('alertPregunta', 'Pregunta publicada', false);
-                            setTimeout(() => { preguntaModal?.hide(); location.reload(); }, 700);
-                        } else {
-                            showAlert('alertPregunta', 'Error: ' + (j.error || 'error'), true);
-                        }
-                    } catch (ex) {
-                        console.error(ex);
-                        showAlert('alertPregunta', 'Error de red.', true);
-                    } finally { if (btn) btn.disabled = false; }
-                });
-            }
-
-            function showAlert(id, msg, isError) {
-                const el = document.getElementById(id);
-                if (!el) return;
-                el.textContent = msg;
-                el.className = isError ? 'alert alert-danger' : 'alert alert-success';
-                el.style.display = 'block';
-            }
-
-            function initPage() {
+            function init() {
                 initLazyAvatars();
-                initDeleteHandlers();
-                initVotingHandlers();
-                initModalAndForm();
             }
-
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', initPage);
-            } else {
-                initPage();
-            }
+            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+            else init();
         })();
     </script>
 }

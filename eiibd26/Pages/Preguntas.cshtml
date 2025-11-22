@@ -1,13 +1,13 @@
 ﻿@page
 @model eiibd26.Pages.PreguntasModel
 @{
-    ViewData["Title"] = "Todas las Preguntas";
+    ViewData["Title"] = "Preguntas";
     Layout = "_Layout";
 
     string ResolveAvatar(string avatar)
     {
         if (string.IsNullOrWhiteSpace(avatar)) return Url.Content("~/img/avatar-placeholder.png");
-        if (avatar.StartsWith("http", System.StringComparison.OrdinalIgnoreCase)) return avatar;
+        if (avatar.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return avatar;
         if (avatar.StartsWith("/")) return avatar;
         return Url.Content("~/" + avatar.TrimStart('/'));
     }
@@ -15,255 +15,438 @@
     string HumanizeDate(DateTimeOffset dt)
     {
         var ts = DateTimeOffset.UtcNow - dt;
-        if (ts.TotalDays >= 1) return $"{(int)ts.TotalDays} {(ts.TotalDays < 2 ? "day" : "days")} ago";
-        if (ts.TotalHours >= 1) return $"{(int)ts.TotalHours} {(ts.TotalHours < 2 ? "hour" : "hours")} ago";
-        if (ts.TotalMinutes >= 1) return $"{(int)ts.TotalMinutes} {(ts.TotalMinutes < 2 ? "minute" : "minutes")} ago";
+        if (ts.TotalDays >= 1) return $"{(int)ts.TotalDays} {(ts.TotalDays < 2 ? "day" : "dia(s)")} antes";
+        if (ts.TotalHours >= 1) return $"{(int)ts.TotalHours} {(ts.TotalHours < 2 ? "hour" : "hora(s)")} antes";
+        if (ts.TotalMinutes >= 1) return $"{(int)ts.TotalMinutes} {(ts.TotalMinutes < 2 ? "minute" : "minuto(s)")} antes";
         return "just now";
     }
 }
 
 @section Styles {
     <link rel="stylesheet" href="~/css/preguntas-stack.css" />
+   
 }
 
-<div class="se-container">
-    <div class="se-header">
-        <h1 class="se-page-title">Todas las Preguntas</h1>
+<div class="container py-4">
+    <h1 class="se-page-title">Preguntas</h1>
 
-        <form method="get" id="searchForm" class="se-search" role="search" aria-label="Buscar preguntas">
-            <input name="search"
-                   aria-label="Buscar preguntas"
-                   class="se-search-input"
-                   placeholder="Ej: dolor de cabeza, insomnio, ansiedad..."
-                   value="@Model.Search" />
-            <button class="se-btn se-btn-primary" type="submit" title="Buscar">Buscar</button>
-            <a class="se-btn se-btn-ghost" href="@Url.Page(null, null, new { page = 1, pageSize = Model.PageSize, search = "" }, null)">Limpiar</a>
-        </form>
-
-        <form method="get" id="pageSizeForm" class="se-page-size" aria-label="Tamaño de página">
-            <input type="hidden" name="search" value="@Model.Search" />
-            <input type="hidden" name="page" value="1" />
-            <label for="pageSize" class="se-page-size-label">Mostrar</label>
-            <select id="pageSize" name="pageSize" class="se-select" onchange="document.getElementById('pageSizeForm').submit();">
-                @{
-                    var sizes = new[] { 15, 30, 50, 100 };
-                }
-                @foreach (var s in sizes)
-                {
-                    <option value="@s" selected="@(Model.PageSize == s)">@s</option>
-                }
-            </select>
-            <span class="se-page-size-suffix">por página</span>
-        </form>
+    <div class="qp-wrapper-flex">
+        <div class="preguntas-main-buscador">
+            <div class="se-header">
+                <label for="cpreguntaBuscar" class="se-search-label">
+                    Haz tu mejor pregunta; entre más específico seas, mayor será la probabilidad de encontrar respuestas.
+                </label>
+                <form method="get" id="searchForm" class="se-search" role="search" aria-label="Buscar preguntas">
+                    <input name="search"
+                           aria-label="Buscar preguntas"
+                           class="se-search-input"
+                           placeholder="Ej: ¿Porque duele el lado izquierdo?"
+                           value="@Model.Search" />
+                    <input type="hidden" name="pageSize" value="@Model.PageSize" />
+                    <input type="hidden" name="pageNumber" value="1" />
+                    <button class="se-btn se-btn-primary" type="submit" title="Buscar"><i class="bi bi-search"></i></button>
+                    @if (!string.IsNullOrWhiteSpace(Model.Search))
+                    {
+                        <a class="se-btn se-btn-ghost"
+                           href="@Url.Page(null, null, new { pageNumber = 1, pageSize = Model.PageSize, search = "" })"
+                           title="Limpiar búsqueda">Limpiar</a>
+                    }
+                </form>
+            </div>
+        </div>
     </div>
 
-    @if (!Model.Preguntas.Any())
-    {
-        <div class="se-empty">No se encontraron preguntas.</div>
-    }
-    else
-    {
-        <div class="se-list" id="preguntasList" role="list">
-            @foreach (var q in Model.Preguntas)
+    <div class="preguntas-paginacion" aria-label="Paginación">
+        @if (Model.TotalPages > 1)
+        {
+            int current = Model.PageNumber;
+            int total = Model.TotalPages;
+            int window = 2;
+            var list = new List<int>();
+
+            if (total <= 12)
             {
-                var authAttr = User.Identity.IsAuthenticated ? "true" : "false";
-                var isMineAttr = q.EsMia ? "true" : "false";
-                var disableDown = q.Score <= 0; // evitar negativos
-                var disableUp = q.UsuarioVoto != 0; // si ya votó, no puede volver a +1 con up
-                                                    <article class="se-item"
-                                                             role="listitem"
-                                                             data-id="@q.Id"
-                                                             data-authenticated="@authAttr"
-                                                             data-is-mine="@isMineAttr"
-                                                             data-user-vote="@q.UsuarioVoto"
-                                                             data-score="@q.Score">
-                                                        <div class="se-stats">
-                                                            <div class="se-vote" aria-label="Votación">
-                            @if (!User.Identity.IsAuthenticated || q.EsMia)
-                            {
-                                <button class="se-vote-btn se-vote-up" type="button" disabled title="@(q.EsMia ? "No puedes votar tu propia pregunta" : "Inicia sesión para votar")"></button>
-                                <div class="se-votes-count" id="score-@q.Id">@q.Score</div>
-                                <button class="se-vote-btn se-vote-down" type="button" disabled title="@(q.EsMia ? "No puedes votar tu propia pregunta" : "Inicia sesión para votar")"></button>
+                list.AddRange(Enumerable.Range(1, total));
+            }
+            else
+            {
+                int start = Math.Max(1, current - window);
+                int end = Math.Min(total, current + window);
+
+                if (start > 1)
+                {
+                    list.Add(1);
+                    if (start > 2) list.Add(-1);
+                }
+                list.AddRange(Enumerable.Range(start, end - start + 1));
+                if (end < total)
+                {
+                    if (end < total - 1) list.Add(-1);
+                    list.Add(total);
+                }
+            }
+
+            string baseSearch = Model.Search ?? "";
+            Func<int, string> pageUrl = p => Url.Page("/Preguntas", null, new { search = baseSearch, pageSize = Model.PageSize, pageNumber = p }, null) ?? "#";
+
+            <div class="pag-bar">
+                <a class="pag-btn @(current == 1 ? "disabled" : "")"
+                   aria-label="Primera página"
+                   href="@(current == 1 ? "#" : pageUrl(1))">«</a>
+                <a class="pag-btn @(current == 1 ? "disabled" : "")"
+                   aria-label="Página anterior"
+                   href="@(current == 1 ? "#" : pageUrl(current - 1))">‹</a>
+
+                @foreach (var p in list)
+                {
+                    if (p == -1)
+                    {
+                        <span class="pag-ellipsis" aria-hidden="true">…</span>
+                    }
+                    else
+                    {
+                        var active = p == current ? "active" : "";
+                        <a class="pag-num @active"
+                           aria-label="Página @p"
+                           aria-current="@(active == "active" ? "page" : null)"
+                           href="@(active == "active" ? "#" : pageUrl(p))">@p</a>
+                    }
+                }
+
+                <a class="pag-btn @(current == total ? "disabled" : "")"
+                   aria-label="Página siguiente"
+                   href="@(current == total ? "#" : pageUrl(current + 1))">›</a>
+                <a class="pag-btn @(current == total ? "disabled" : "")"
+                   aria-label="Última página"
+                   href="@(current == total ? "#" : pageUrl(total))">»</a>
+
+                <div class="pag-info">
+                    <span>Total: @Model.TotalItems preguntas</span>
+                    <span>Página @Model.PageNumber de @Model.TotalPages</span>
+                    <form method="get" class="pag-size-inline" id="inlineSizeForm">
+                        <input type="hidden" name="search" value="@Model.Search" />
+                        <input type="hidden" name="pageNumber" value="1" />
+                        <label for="inlinePageSize">Tamaño</label>
+                        <select id="inlinePageSize" name="pageSize" onchange="document.getElementById('inlineSizeForm').submit();">
+                            @{
+                                var sizes2 = new[] { 10, 12, 30, 60, 100 };
                             }
-                            else
+                            @foreach (var s in sizes2)
                             {
-                                var upActive = q.UsuarioVoto == 1 ? "active" : "";
-                                var downActive = q.UsuarioVoto == -1 ? "active" : "";
-                                <button class="se-vote-btn se-vote-up @upActive" data-id="@q.Id" data-dir="up" type="button" title="+1" aria-label="Votar +1" @(disableUp ? "disabled" : null)></button>
-                                <div class="se-votes-count" id="score-@q.Id">@q.Score</div>
-                                <button class="se-vote-btn se-vote-down @downActive" data-id="@q.Id" data-dir="down" type="button" title="-1" aria-label="Votar -1" @(disableDown ? "disabled" : null)></button>
+                                <option value="@s" selected="@(Model.PageSize == s)">@s</option>
                             }
-                        </div>
-                    </div>
+                        </select>
+                    </form>
 
-                    <div class="se-summary">
-                        <h2 class="se-title">
-                            <a href="/Preguntas/Detalles/@q.Id">@q.Titulo</a>
-                        </h2>
+                </div>
+            </div>
+        }
+    </div>
 
-                        <div class="se-excerpt">
-                            @Html.Raw(q.CuerpoPreview)
-                        </div>
+    <div class="qp-wrapper-flex">
+        @if (!Model.Preguntas.Any())
+        {
+            <div class="se-empty">No se encontraron preguntas.</div>
+        }
+        else
+        {
+            <div class="qp-main">
 
-                        <!-- Relaciones clínicas debajo del contenido -->
-                        @if (q.Condiciones.Any() || q.Sintomas.Any() || q.Tratamientos.Any())
-                        {
-                            <div class="se-relations">
-                                @if (q.Condiciones.Any())
-                                {
-                                    <div class="se-rel-group">
-                                        <span class="se-rel-label">condiciones</span>
-                                        <div class="se-rel-badges">
-                                            @foreach (var n in q.Condiciones)
-                                            {
-                                                <span class="se-rel-badge">@n</span>
-                                            }
-                                        </div>
-                                    </div>
-                                }
-                                @if (q.Sintomas.Any())
-                                {
-                                    <div class="se-rel-group">
-                                        <span class="se-rel-label">síntomas</span>
-                                        <div class="se-rel-badges">
-                                            @foreach (var n in q.Sintomas)
-                                            {
-                                                <span class="se-rel-badge">@n</span>
-                                            }
-                                        </div>
-                                    </div>
-                                }
-                                @if (q.Tratamientos.Any())
-                                {
-                                    <div class="se-rel-group">
-                                        <span class="se-rel-label">tratamientos</span>
-                                        <div class="se-rel-badges">
-                                            @foreach (var n in q.Tratamientos)
-                                            {
-                                                <span class="se-rel-badge">@n</span>
-                                            }
-                                        </div>
-                                    </div>
-                                }
-                            </div>
-                        }
-
-                        <div class="se-meta">
-                            <div class="se-user">
-                                <img class="se-avatar lazy-avatar"
-                                     src="@Url.Content("~/img/avatar-placeholder.png")"
-                                     data-src="@ResolveAvatar(q.AutorAvatarUrl)"
-                                     alt="@q.AutorNombre" width="36" height="36"
-                                     decoding="async"
-                                     onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
-                                <a class="se-user-name" href="#" aria-label="Autor">@q.AutorNombre</a>
-                            </div>
-                            <div class="se-time">
-                                asked @HumanizeDate(q.FechaCreacion)
-                            </div>
-
-                            @if (q.EsMia)
-                            {
-                                <form method="post"
-                                      asp-page-handler="EliminarPregunta"
-                                      class="se-inline-form"
-                                      onsubmit="return confirm('¿Deseas eliminar esta pregunta? Esta acción no se puede deshacer.');">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="id" value="@q.Id" />
-                                    <button class="se-btn se-btn-link" type="submit" title="Eliminar">Eliminar</button>
-                                </form>
-                            }
-                        </div>
-
-                        <!-- Answers bottom-right block con avatars de responders debajo -->
-                        <div class="se-answers-float @(q.RespuestasCount > 0 ? "answered" : "unanswered")"
-                             title="Respuestas totales">
-                            <span class="se-answers-float-count">@q.RespuestasCount</span>
-                            <span class="se-answers-float-label">answers</span>
-
-                            @if (q.RespondersAvatars?.Any() == true)
-                            {
-                                <div class="se-answers-responders">
-                                    @foreach (var av in q.RespondersAvatars)
+                <div class="se-list" id="preguntasList" role="list">
+                    @foreach (var q in Model.Preguntas)
+                    {
+                        var authAttr = User.Identity.IsAuthenticated ? "true" : "false";
+                        var isMineAttr = q.EsMia ? "true" : "false";
+                        var disableDown = q.Score <= 0;
+                        var disableUp = q.UsuarioVoto != 0;
+                        <article class="se-item"
+                                 role="listitem"
+                                 data-id="@q.Id"
+                                 data-authenticated="@authAttr"
+                                 data-is-mine="@isMineAttr"
+                                 data-user-vote="@q.UsuarioVoto"
+                                 data-score="@q.Score">
+                            <div class="se-stats">
+                                <div class="se-vote" aria-label="Votación">
+                                    @if (!User.Identity.IsAuthenticated || q.EsMia)
                                     {
-                                        <img class="se-responder-avatar lazy-avatar"
-                                             src="@Url.Content("~/img/avatar-placeholder.png")"
-                                             data-src="@ResolveAvatar(av)"
-                                             alt="Responder"
-                                             width="20" height="20"
-                                             decoding="async"
-                                             onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+                                        <button class="se-vote-btn se-vote-up" type="button" disabled title="@(q.EsMia ? "No puedes votar tu propia pregunta" : "Inicia sesión para votar")">
+                                            ▲
+                                        </button>
+                                        <div class="se-votes-count" id="score-@q.Id">@q.Score</div>
+                                        <button class="se-vote-btn se-vote-down" type="button" disabled title="@(q.EsMia ? "No puedes votar tu propia pregunta" : "Inicia sesión para votar")">
+                                            ▼
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        var upActive = q.UsuarioVoto == 1 ? "active" : "";
+                                        var downActive = q.UsuarioVoto == -1 ? "active" : "";
+                                        <button class="se-vote-btn se-vote-up @upActive"
+                                                data-id="@q.Id"
+                                                data-dir="up"
+                                                type="button"
+                                                title="+1"
+                                                aria-label="Votar +1"
+                                                @(disableUp ? "disabled" : null)>
+                                            ▲
+                                        </button>
+                                        <div class="se-votes-count" id="score-@q.Id">@q.Score</div>
+                                        <button class="se-vote-btn se-vote-down @downActive"
+                                                data-id="@q.Id"
+                                                data-dir="down"
+                                                type="button"
+                                                title="-1"
+                                                aria-label="Votar -1"
+                                                @(disableDown ? "disabled" : null)>
+                                            ▼
+                                        </button>
                                     }
                                 </div>
-                            }
-                        </div>
-                    </div>
-                </article>
-            }
-        </div>
+                            </div>
 
-        <nav class="se-pagination" role="navigation" aria-label="Paginación">
-            @{
-                var prev = Model.Page > 1 ? Model.Page - 1 : 1;
-                var next = Model.Page < Model.TotalPages ? Model.Page + 1 : Model.TotalPages;
-                var qsBase = $"?search={Uri.EscapeDataString(Model.Search ?? "")}&pageSize={Model.PageSize}";
+                            <div class="se-summary">
+                                <h2 class="se-title">
+                                    <a href="/Preguntas/Detalles/@q.Id">@q.Titulo</a>
+                                </h2>
+
+                                <div class="se-excerpt">
+                                    @Html.Raw(q.CuerpoPreview)
+                                </div>
+
+                                @if (q.Condiciones.Any() || q.Sintomas.Any() || q.Tratamientos.Any())
+                                {
+                                    <div class="se-relations">
+                                        @if (q.Condiciones.Any())
+                                        {
+                                            <div class="se-rel-group">
+                                                <span class="se-rel-label">Condiciones</span>
+                                                <div class="se-rel-badges">
+                                                    @foreach (var n in q.Condiciones)
+                                                    {
+                                                        <span class="se-rel-badge">@n</span>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                        @if (q.Sintomas.Any())
+                                        {
+                                            <div class="se-rel-group">
+                                                <span class="se-rel-label">Síntomas</span>
+                                                <div class="se-rel-badges">
+                                                    @foreach (var n in q.Sintomas)
+                                                    {
+                                                        <span class="se-rel-badge">@n</span>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                        @if (q.Tratamientos.Any())
+                                        {
+                                            <div class="se-rel-group">
+                                                <span class="se-rel-label">Tratamientos</span>
+                                                <div class="se-rel-badges">
+                                                    @foreach (var n in q.Tratamientos)
+                                                    {
+                                                        <span class="se-rel-badge">@n</span>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+
+                                <div class="se-meta">
+                                    <div class="se-user">
+                                        <img class="se-avatar lazy-avatar"
+                                             src="@Url.Content("~/img/avatar-placeholder.png")"
+                                             data-src="@ResolveAvatar(q.AutorAvatarUrl)"
+                                             alt="@q.AutorNombre" width="36" height="36"
+                                             decoding="async"
+                                             onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+                                        <a class="se-user-name" href="#" aria-label="Autor">@q.AutorNombre</a>
+                                    </div>
+                                    <div class="se-time">
+                                        pregunto @HumanizeDate(q.FechaCreacion)
+                                    </div>
+                                    @if (q.EsMia)
+                                    {
+                                        <a class="se-action-link se-action-edit"
+                                           href="~/Identity/Usuario/UusuarioPreguntaDetalle?id=@q.Id"
+                                           title="Editar pregunta">Editar</a>
+                                    }
+                                </div>
+
+                                <div class="se-answers-float @(q.RespuestasCount > 0 ? "answered" : "unanswered")"
+                                     title="Respuestas totales">
+                                    <span class="se-answers-float-count">@q.RespuestasCount</span>
+                                    <span class="se-answers-float-label">Respuesta(s</span>
+                                    @if (q.RespondersAvatars?.Any() == true)
+                                    {
+                                        <div class="se-answers-responders">
+                                            @foreach (var av in q.RespondersAvatars)
+                                            {
+                                                <img class="se-responder-avatar lazy-avatar"
+                                                     src="@Url.Content("~/img/avatar-placeholder.png")"
+                                                     data-src="@ResolveAvatar(av)"
+                                                     alt="Responder"
+                                                     width="10" height="10"
+                                                     decoding="async"
+                                                     onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </article>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="preguntas-paginacion" aria-label="Paginación">
+        @if (Model.TotalPages > 1)
+        {
+            int current = Model.PageNumber;
+            int total = Model.TotalPages;
+            int window = 2;
+            var list = new List<int>();
+
+            if (total <= 12)
+            {
+                list.AddRange(Enumerable.Range(1, total));
             }
-            <a class="se-btn se-btn-ghost" href="@($"{qsBase}&page={prev}")">Anterior</a>
-            <span class="se-page-indicator">Página <strong>@Model.Page</strong> de <strong>@Model.TotalPages</strong></span>
-            <a class="se-btn se-btn-ghost" href="@($"{qsBase}&page={next}")">Siguiente</a>
-            <span class="se-total">@Model.TotalItems preguntas</span>
-        </nav>
-    }
+            else
+            {
+                int start = Math.Max(1, current - window);
+                int end = Math.Min(total, current + window);
+
+                if (start > 1)
+                {
+                    list.Add(1);
+                    if (start > 2) list.Add(-1);
+                }
+                list.AddRange(Enumerable.Range(start, end - start + 1));
+                if (end < total)
+                {
+                    if (end < total - 1) list.Add(-1);
+                    list.Add(total);
+                }
+            }
+
+            string baseSearch = Model.Search ?? "";
+            Func<int, string> pageUrl = p => Url.Page("/Preguntas", null, new { search = baseSearch, pageSize = Model.PageSize, pageNumber = p }, null) ?? "#";
+
+            <div class="pag-bar">
+                <a class="pag-btn @(current == 1 ? "disabled" : "")"
+                   aria-label="Primera página"
+                   href="@(current == 1 ? "#" : pageUrl(1))">«</a>
+                <a class="pag-btn @(current == 1 ? "disabled" : "")"
+                   aria-label="Página anterior"
+                   href="@(current == 1 ? "#" : pageUrl(current - 1))">‹</a>
+
+                @foreach (var p in list)
+                {
+                    if (p == -1)
+                    {
+                        <span class="pag-ellipsis" aria-hidden="true">…</span>
+                    }
+                    else
+                    {
+                        var active = p == current ? "active" : "";
+                        <a class="pag-num @active"
+                           aria-label="Página @p"
+                           aria-current="@(active == "active" ? "page" : null)"
+                           href="@(active == "active" ? "#" : pageUrl(p))">@p</a>
+                    }
+                }
+
+                <a class="pag-btn @(current == total ? "disabled" : "")"
+                   aria-label="Página siguiente"
+                   href="@(current == total ? "#" : pageUrl(current + 1))">›</a>
+                <a class="pag-btn @(current == total ? "disabled" : "")"
+                   aria-label="Última página"
+                   href="@(current == total ? "#" : pageUrl(total))">»</a>
+
+                <div class="pag-info">
+                    <span>Total: @Model.TotalItems registros</span>
+                    <span>Página @Model.PageNumber de @Model.TotalPages</span>
+                    <form method="get" class="pag-size-inline" id="inlineSizeForm">
+                        <input type="hidden" name="search" value="@Model.Search" />
+                        <input type="hidden" name="pageNumber" value="1" />
+                        <label for="inlinePageSize">Tamaño</label>
+                        <select id="inlinePageSize" name="pageSize" onchange="document.getElementById('inlineSizeForm').submit();">
+                            @{
+                                var sizes2 = new[] { 10, 12, 30, 60, 100 };
+                            }
+                            @foreach (var s in sizes2)
+                            {
+                                <option value="@s" selected="@(Model.PageSize == s)">@s</option>
+                            }
+                        </select>
+                    </form>
+                    
+                </div>
+            </div>
+        }
+    </div>
 </div>
 
 @section Scripts {
     <script>
         (function () {
-
             function initLazyAvatars() {
                 const imgs = Array.from(document.querySelectorAll('img.lazy-avatar[data-src]'));
                 if (!imgs.length) return;
-                const onLoad = img => img.classList.add('loaded');
-                const onError = img => { img.classList.add('loaded'); img.src = '@Url.Content("~/img/avatar-placeholder.png")'; };
                 const loadImg = img => {
                     const src = img.getAttribute('data-src');
-                    if (!src) { onError(img); return; }
+                    if (!src) { img.src='@Url.Content("~/img/avatar-placeholder.png")'; return; }
                     const tmp = new Image();
-                    tmp.decoding = 'async';
-                    tmp.onload = function () { try { img.src = src; } catch { } onLoad(img); };
-                    tmp.onerror = function () { onError(img); };
+                    tmp.decoding='async';
+                    tmp.onload = () => { img.src = src; img.classList.add('loaded'); };
+                    tmp.onerror= () => { img.src='@Url.Content("~/img/avatar-placeholder.png")'; img.classList.add('loaded'); };
                     tmp.src = src;
                 };
                 if ('IntersectionObserver' in window) {
-                    const io = new IntersectionObserver((entries, observer) => {
-                        entries.forEach(entry => {
-                            if (entry.isIntersecting) {
-                                const img = entry.target;
-                                observer.unobserve(img);
-                                loadImg(img);
+                    const io = new IntersectionObserver(entries=>{
+                        entries.forEach(e=>{
+                            if(e.isIntersecting){
+                                io.unobserve(e.target);
+                                loadImg(e.target);
                             }
                         });
-                    }, { rootMargin: '200px 0px' });
-                    imgs.forEach(i => {
-                        if (i.getAttribute('data-src') && i.src.indexOf('avatar-placeholder.png') >= 0) {
-                            io.observe(i);
-                        } else if (i.getAttribute('data-src')) {
-                            i.classList.add('loaded');
-                        }
-                    });
+                    },{rootMargin:'200px 0px'});
+                    imgs.forEach(i=>io.observe(i));
                 } else {
-                    imgs.forEach(i => loadImg(i));
+                    imgs.forEach(loadImg);
                 }
             }
+            initLazyAvatars();
 
-            // Voting:
-            // - Up = +1; solo funciona si el usuario NO ha votado aún (userVote == 0).
-            // - Down = -1; funciona solo si el score actual > 0 para evitar negativos.
-            // - Ya no hay "toggle" con up. Para revertir o bajar, usar down.
+            const jumpBtn = document.getElementById('jumpBtn');
+            const jumpInput = document.getElementById('jumpPage');
+            if(jumpBtn && jumpInput){
+                jumpBtn.addEventListener('click',()=>{
+                    const v = parseInt(jumpInput.value,10);
+                    const max = @Model.TotalPages;
+                    if(!v || v<1) return;
+                    const page = Math.min(v,max);
+                    const url = "@Url.Page("/Preguntas", null, new { search = Model.Search, pageSize = Model.PageSize, pageNumber = "__PN__" }, null)".replace("__PN__", String(page));
+                    window.location.href = url;
+                });
+                jumpInput.addEventListener('keydown',e=>{
+                    if(e.key==='Enter'){
+                        e.preventDefault();
+                        jumpBtn.click();
+                    }
+                });
+            }
+
+            // Voting (sin cambios)
             document.addEventListener('click', async function (e) {
                 const btn = e.target.closest('.se-vote-btn');
                 if (!btn) return;
-
                 const article = btn.closest('.se-item');
                 if (!article) return;
 
@@ -275,27 +458,19 @@
                 if (!isAuth) { alert('Inicia sesión para votar.'); return; }
                 if (isMine) { alert('No puedes votar tu propia pregunta.'); return; }
 
-                const dir = btn.getAttribute('data-dir'); // 'up' | 'down'
+                const dir = btn.getAttribute('data-dir');
                 const currentScore = parseInt(article.getAttribute('data-score') || '0', 10);
                 const currentUserVote = parseInt(article.getAttribute('data-user-vote') || '0', 10);
 
-                // Regla 1: si ya hay voto (±1), el botón "up" no hace nada.
-                if (dir === 'up' && currentUserVote !== 0) {
-                    return;
-                }
+                if (dir === 'up' && currentUserVote !== 0) return;
+                if (dir === 'down' && currentScore <= 0) return;
 
-                // Regla 2: si score == 0, "down" no funciona para evitar negativos.
-                if (dir === 'down' && currentScore <= 0) {
-                    return;
-                }
-
-                // Preparar envío
                 const upBtn = article.querySelector('.se-vote-up');
                 const downBtn = article.querySelector('.se-vote-down');
                 if (upBtn) upBtn.disabled = true;
                 if (downBtn) downBtn.disabled = true;
 
-                const valor = (dir === 'up') ? 1 : -1;
+                const valor = dir === 'up' ? 1 : -1;
 
                 try {
                     const res = await fetch('/api/preguntas/' + id + '/votar', {
@@ -304,15 +479,11 @@
                         body: JSON.stringify({ valor })
                     });
                     if (!res.ok) {
-                        const txt = await res.text();
-                        alert('Error al votar: ' + (txt || res.status));
+                        alert('Error al votar');
                         return;
                     }
-
                     const j = await res.json();
                     const scoreEl = document.getElementById('score-' + id);
-
-                    // Score y userVote reportados por backend
                     const newScore = (j.score !== undefined) ? parseInt(j.score, 10) : (currentScore + (dir === 'up' ? 1 : -1));
                     const newUserVote = (j.userVote !== undefined) ? parseInt(j.userVote, 10) : (dir === 'up' ? 1 : -1);
 
@@ -320,45 +491,22 @@
                     article.setAttribute('data-score', String(newScore));
                     article.setAttribute('data-user-vote', String(newUserVote));
 
-                    // Visual
                     if (upBtn) {
-                        // activo solo si userVote == 1
                         if (newUserVote === 1) upBtn.classList.add('active'); else upBtn.classList.remove('active');
-                        // Regla UI: deshabilitar up si ya existe voto
-                        upBtn.disabled = (newUserVote !== 0);
+                        upBtn.disabled = newUserVote !== 0;
                     }
                     if (downBtn) {
                         if (newUserVote === -1) downBtn.classList.add('active'); else downBtn.classList.remove('active');
-                        // down deshabilitado si score quedó 0 para evitar negativos
-                        downBtn.disabled = (newScore <= 0);
+                        downBtn.disabled = newScore <= 0;
                     }
-
-                    // Reordenar por score desc
-                    reorderByScore();
                 } catch (err) {
-                    console.error('Error votando', err);
+                    console.error(err);
                     alert('Error de red al votar');
                 } finally {
-                    // Si hubo error, reactivar acorde a reglas actuales
-                    if (upBtn && !upBtn.disabled) upBtn.disabled = (parseInt(article.getAttribute('data-user-vote') || '0', 10) !== 0);
-                    if (downBtn && !downBtn.disabled) downBtn.disabled = (parseInt(article.getAttribute('data-score') || '0', 10) <= 0);
+                    if (upBtn && !upBtn.disabled) upBtn.disabled = parseInt(article.getAttribute('data-user-vote') || '0', 10) !== 0;
+                    if (downBtn && !downBtn.disabled) downBtn.disabled = parseInt(article.getAttribute('data-score') || '0', 10) <= 0;
                 }
             });
-
-            function reorderByScore() {
-                const list = document.getElementById('preguntasList');
-                if (!list) return;
-                const items = Array.from(list.querySelectorAll('.se-item'));
-                items.sort((a, b) => {
-                    const sa = parseInt(a.getAttribute('data-score') || '0', 10);
-                    const sb = parseInt(b.getAttribute('data-score') || '0', 10);
-                    if (sb === sa) return 0;
-                    return sb - sa;
-                });
-                items.forEach(it => list.appendChild(it));
-            }
-
-            initLazyAvatars();
         })();
     </script>
 }

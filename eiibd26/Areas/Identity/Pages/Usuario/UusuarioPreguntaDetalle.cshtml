@@ -5,157 +5,479 @@
     Layout = "_Layout";
 }
 
+@section Styles {
+    <style>
+        .qp-wrapper-flex {
+            display: flex;
+            gap: 24px;
+            align-items: flex-start;
+        }
+
+        .qp-main {
+            flex: 1 1 auto;
+            max-width: 1100px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #e8eef6;
+        }
+
+        .qp-aside {
+            width: 340px;
+            flex: 0 0 340px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .rel-box {
+            background: #fff;
+            border: 1px solid #d9e3ec;
+            border-radius: 10px;
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+        }
+
+            .rel-box h5 {
+                font-size: 1rem;
+                font-weight: 600;
+                margin: 0 0 8px 0;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+        .rel-search-row {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+
+            .rel-search-row input {
+                width: 100%;
+                padding: 6px 8px;
+                border: 1px solid #c9d6e6;
+                border-radius: 6px;
+                font-size: .85rem;
+            }
+
+        .rel-selected-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            max-height: 72px;
+            overflow-y: auto;
+            padding: 2px 0;
+        }
+
+        .rel-badge-sel {
+            background: #eef5ff;
+            color: #24527a;
+            border: 1px solid #c9d6e6;
+            border-radius: 999px;
+            padding: 3px 8px;
+            font-size: .65rem;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+            .rel-badge-sel button {
+                background: transparent;
+                border: 0;
+                cursor: pointer;
+                color: #24527a;
+                padding: 0;
+                font-size: .7rem;
+                line-height: 1;
+            }
+
+        .rel-scroll {
+            flex: 1 1 auto;
+            min-height: 240px;
+            max-height: 300px;
+            overflow: auto;
+            border: 1px solid #e1e7ef;
+            border-radius: 6px;
+            background: #fafbfd;
+            padding: 6px;
+        }
+
+        .rel-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 4px;
+            border-radius: 4px;
+            font-size: .78rem;
+            line-height: 1.2;
+        }
+
+            .rel-item:hover {
+                background: #eef5ff;
+            }
+
+        .rel-empty {
+            font-size: .72rem;
+            color: #6a737c;
+            padding: 4px;
+        }
+
+        .qp-main h3 {
+            margin-top: 0;
+            font-weight: 600;
+        }
+
+        .qp-info-text {
+            font-size: .8rem;
+            color: #6a737c;
+            margin-top: 4px;
+        }
+
+        .disabled-mask {
+            opacity: .55;
+            pointer-events: none;
+        }
+
+        @@media (max-width:1200px) {
+            .qp-wrapper-flex {
+                flex-direction: column
+            }
+
+            .qp-aside {
+                width: 100%;
+                flex: 1 1 auto
+            }
+        }
+    </style>
+}
+
 <div class="container py-4">
-    <h3>@ViewData["Title"]</h3>
-
-    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
-    {
-        <div class="alert alert-danger">@Model.ErrorMessage</div>
-    }
-    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
-    {
-        <div class="alert alert-success">@Model.SuccessMessage</div>
-    }
-
-    <form method="post" asp-page-handler="Save">
+    <form method="post" asp-page-handler="Save" id="preguntaDetForm">
         @Html.AntiForgeryToken()
         <input type="hidden" asp-for="Id" />
 
-        <div class="mb-3">
-            <label class="form-label">Título</label>
-            <input class="form-control" asp-for="Titulo" maxlength="180" required />
-            <div class="form-text">Máx. 180 caracteres</div>
-        </div>
+        <div class="qp-wrapper-flex">
+            <div class="qp-main @(Model.CanModify ? "" : "disabled-mask")">
+                <h3>@ViewData["Title"]</h3>
 
-        <div class="mb-3">
-            <label class="form-label">Cuerpo</label>
-            <textarea class="form-control" asp-for="Cuerpo" rows="7" maxlength="4000" required></textarea>
-            <div class="form-text">Máx. 4000 caracteres</div>
-        </div>
+                @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+                {
+                    <div class="alert alert-danger">@Model.ErrorMessage</div>
+                }
+                @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+                {
+                    <div class="alert alert-success">@Model.SuccessMessage</div>
+                }
+                @if (Model.Id.HasValue && !Model.CanModify)
+                {
+                    <div class="alert alert-warning mb-3">Esta pregunta ya tiene respuestas activas. No puede editarse ni eliminarse.</div>
+                }
 
-        <hr />
-        <h5>Relacionar con tus condiciones / síntomas / tratamientos</h5>
-        <p class="text-muted">Selecciona elementos relacionados para mejorar la relevancia.</p>
-
-        <div class="row g-3">
-            <div class="col-md-4">
-                <div class="d-flex justify-content-between align-items-center">
-                    <label class="form-label mb-1">Condiciones</label>
-                    <small class="text-muted" id="condCount"></small>
-                </div>
-                <input type="text" class="form-control form-control-sm mb-2" placeholder="Filtrar..." oninput="filterList('condicionesBox', this.value)">
-                <div id="condicionesBox" class="border rounded p-2" style="max-height:260px;overflow:auto;">
-                    @if (Model.CondicionesLista.Any())
+                <div class="mb-3">
+                    <label class="form-label">Título</label>
+                    @if (Model.CanModify)
                     {
-                        foreach (var c in Model.CondicionesLista)
+                        <input class="form-control" asp-for="Titulo" maxlength="180" required autocomplete="off" />
+                    }
+                    else
+                    {
+                        <input class="form-control" asp-for="Titulo" maxlength="180" required autocomplete="off" disabled />
+                    }
+                    <div class="qp-info-text">Máx. 180 caracteres</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Cuerpo</label>
+                    @if (Model.CanModify)
+                    {
+                        <textarea class="form-control" asp-for="Cuerpo" rows="8" maxlength="4000" required></textarea>
+                    }
+                    else
+                    {
+                        <textarea class="form-control" asp-for="Cuerpo" rows="8" maxlength="4000" required disabled></textarea>
+                    }
+                    <div class="qp-info-text">Máx. 4000 caracteres</div>
+                </div>
+
+                <div class="mt-4 text-end">
+                    @if (Model.Id.HasValue)
+                    {
+                        @if (Model.CanModify)
                         {
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox"
-                                       name="SelectedCondiciones"
-                                       value="@c.id"
-                                       @(Model.SelectedCondiciones.Contains(c.id) ? "checked" : "") />
-                                <label class="form-check-label">@c.nombre</label>
-                            </div>
+                            <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                            <a href="~/Identity/Usuario/usuarioPreguntasRespuestas" class="btn btn-secondary ms-2">Regresar</a>
+                            <button type="button" class="btn btn-danger ms-2" data-bs-toggle="modal" data-bs-target="#deleteModal">Borrar</button>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn btn-primary" disabled>Guardar cambios</button>
+                            <a href="~/Identity/Usuario/usuarioPreguntasRespuestas" class="btn btn-secondary ms-2">Regresar</a>
+                            <button type="button" class="btn btn-danger ms-2" disabled>Borrar</button>
                         }
                     }
                     else
                     {
-                        <div class="text-muted small">No tienes condiciones registradas.</div>
+                        <button type="submit" class="btn btn-primary">Crear pregunta</button>
+                        <a href="~/Identity/Usuario/usuarioPreguntasRespuestas" class="btn btn-secondary ms-2">Regresar</a>
                     }
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="d-flex justify-content-between align-items-center">
-                    <label class="form-label mb-1">Síntomas</label>
-                    <small class="text-muted" id="sintCount"></small>
-                </div>
-                <input type="text" class="form-control form-control-sm mb-2" placeholder="Filtrar..." oninput="filterList('sintomasBox', this.value)">
-                <div id="sintomasBox" class="border rounded p-2" style="max-height:260px;overflow:auto;">
-                    @if (Model.SintomasLista.Any())
-                    {
-                        foreach (var s in Model.SintomasLista)
-                        {
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox"
-                                       name="SelectedSintomas"
-                                       value="@s.id"
-                                       @(Model.SelectedSintomas.Contains(s.id) ? "checked" : "") />
-                                <label class="form-check-label">@s.nombre</label>
-                            </div>
-                        }
-                    }
-                    else
-                    {
-                        <div class="text-muted small">No tienes síntomas registrados.</div>
-                    }
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="d-flex justify-content-between align-items-center">
-                    <label class="form-label mb-1">Tratamientos</label>
-                    <small class="text-muted" id="tratCount"></small>
-                </div>
-                <input type="text" class="form-control form-control-sm mb-2" placeholder="Filtrar..." oninput="filterList('tratamientosBox', this.value)">
-                <div id="tratamientosBox" class="border rounded p-2" style="max-height:260px;overflow:auto;">
-                    @if (Model.TratamientosLista.Any())
-                    {
-                        foreach (var t in Model.TratamientosLista)
-                        {
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox"
-                                       name="SelectedTratamientos"
-                                       value="@t.id"
-                                       @(Model.SelectedTratamientos.Contains(t.id) ? "checked" : "") />
-                                <label class="form-check-label">@t.nombre</label>
-                            </div>
-                        }
-                    }
-                    else
-                    {
-                        <div class="text-muted small">No tienes tratamientos registrados.</div>
-                    }
-                </div>
-            </div>
-        </div>
 
-        <div class="mt-4">
-            <button type="submit" class="btn btn-success">
-                @(Model.Id.HasValue ? "Guardar cambios" : "Crear pregunta")
-            </button>
-            <a href="~/Identity/Usuario/usuarioPreguntasRespuestas" class="btn btn-secondary ms-2">Regresar</a>
+            <aside class="qp-aside @(Model.CanModify ? "" : "disabled-mask")">
+                <!-- Condiciones -->
+                <div class="rel-box" id="boxCondiciones">
+                    <h5>Condiciones <span class="badge bg-light text-dark">@Model.CondicionesLista.Count</span></h5>
+                    <div class="rel-search-row">
+                        @if (Model.CanModify)
+                        {
+                            <input type="text" id="searchCondiciones" placeholder="Filtrar..." autocomplete="off" />
+                        }
+                        else
+                        {
+                            <input type="text" id="searchCondiciones" placeholder="Filtrar..." autocomplete="off" disabled />
+                        }
+                        <div id="badgesCondiciones" class="rel-selected-badges">
+                            @foreach (var c in Model.CondicionesLista.Where(x => Model.SelectedCondiciones.Contains(x.id)))
+                            {
+                                <span class="rel-badge-sel" data-id="@c.id">
+                                    @c.nombre
+                                    @if (Model.CanModify)
+                                    {
+                                        <button type="button" class="badge-remove" data-target="SelectedCondiciones" data-id="@c.id" aria-label="Quitar">✕</button>
+                                    }
+                                </span>
+                            }
+                        </div>
+                    </div>
+                    <div class="rel-scroll" id="scrollCondiciones">
+                        @if (!Model.CondicionesLista.Any())
+                        {
+                            <div class="rel-empty">No tienes condiciones registradas.</div>
+                        }
+                        else
+                        {
+                            @foreach (var c in Model.CondicionesLista)
+                            {
+                                var checkedAttr = Model.SelectedCondiciones.Contains(c.id) ? "checked" : "";
+                                <label class="rel-item" data-filter="@c.nombre?.ToLowerInvariant()">
+                                    @if (Model.CanModify)
+                                    {
+                                        <input type="checkbox" class="rel-check-condicion" name="SelectedCondiciones" value="@c.id" @checkedAttr />
+                                    }
+                                    else
+                                    {
+                                        <input type="checkbox" class="rel-check-condicion" name="SelectedCondiciones" value="@c.id" @checkedAttr disabled />
+                                    }
+                                    <span>@c.nombre</span>
+                                </label>
+                            }
+                        }
+                    </div>
+                </div>
+
+                <!-- Síntomas -->
+                <div class="rel-box" id="boxSintomas">
+                    <h5>Síntomas <span class="badge bg-light text-dark">@Model.SintomasLista.Count</span></h5>
+                    <div class="rel-search-row">
+                        @if (Model.CanModify)
+                        {
+                            <input type="text" id="searchSintomas" placeholder="Filtrar..." autocomplete="off" />
+                        }
+                        else
+                        {
+                            <input type="text" id="searchSintomas" placeholder="Filtrar..." autocomplete="off" disabled />
+                        }
+                        <div id="badgesSintomas" class="rel-selected-badges">
+                            @foreach (var s in Model.SintomasLista.Where(x => Model.SelectedSintomas.Contains(x.id)))
+                            {
+                                <span class="rel-badge-sel" data-id="@s.id">
+                                    @s.nombre
+                                    @if (Model.CanModify)
+                                    {
+                                        <button type="button" class="badge-remove" data-target="SelectedSintomas" data-id="@s.id">✕</button>
+                                    }
+                                </span>
+                            }
+                        </div>
+                    </div>
+                    <div class="rel-scroll" id="scrollSintomas">
+                        @if (!Model.SintomasLista.Any())
+                        {
+                            <div class="rel-empty">No tienes síntomas registrados.</div>
+                        }
+                        else
+                        {
+                            @foreach (var s in Model.SintomasLista)
+                            {
+                                var checkedAttr = Model.SelectedSintomas.Contains(s.id) ? "checked" : "";
+                                <label class="rel-item" data-filter="@s.nombre?.ToLowerInvariant()">
+                                    @if (Model.CanModify)
+                                    {
+                                        <input type="checkbox" class="rel-check-sintoma" name="SelectedSintomas" value="@s.id" @checkedAttr />
+                                    }
+                                    else
+                                    {
+                                        <input type="checkbox" class="rel-check-sintoma" name="SelectedSintomas" value="@s.id" @checkedAttr disabled />
+                                    }
+                                    <span>@s.nombre</span>
+                                </label>
+                            }
+                        }
+                    </div>
+                </div>
+
+                <!-- Tratamientos -->
+                <div class="rel-box" id="boxTratamientos">
+                    <h5>Tratamientos <span class="badge bg-light text-dark">@Model.TratamientosLista.Count</span></h5>
+                    <div class="rel-search-row">
+                        @if (Model.CanModify)
+                        {
+                            <input type="text" id="searchTratamientos" placeholder="Filtrar..." autocomplete="off" />
+                        }
+                        else
+                        {
+                            <input type="text" id="searchTratamientos" placeholder="Filtrar..." autocomplete="off" disabled />
+                        }
+                        <div id="badgesTratamientos" class="rel-selected-badges">
+                            @foreach (var t in Model.TratamientosLista.Where(x => Model.SelectedTratamientos.Contains(x.id)))
+                            {
+                                <span class="rel-badge-sel" data-id="@t.id">
+                                    @t.nombre
+                                    @if (Model.CanModify)
+                                    {
+                                        <button type="button" class="badge-remove" data-target="SelectedTratamientos" data-id="@t.id">✕</button>
+                                    }
+                                </span>
+                            }
+                        </div>
+                    </div>
+                    <div class="rel-scroll" id="scrollTratamientos">
+                        @if (!Model.TratamientosLista.Any())
+                        {
+                            <div class="rel-empty">No tienes tratamientos registrados.</div>
+                        }
+                        else
+                        {
+                            @foreach (var t in Model.TratamientosLista)
+                            {
+                                var checkedAttr = Model.SelectedTratamientos.Contains(t.id) ? "checked" : "";
+                                <label class="rel-item" data-filter="@t.nombre?.ToLowerInvariant()">
+                                    @if (Model.CanModify)
+                                    {
+                                        <input type="checkbox" class="rel-check-tratamiento" name="SelectedTratamientos" value="@t.id" @checkedAttr />
+                                    }
+                                    else
+                                    {
+                                        <input type="checkbox" class="rel-check-tratamiento" name="SelectedTratamientos" value="@t.id" @checkedAttr disabled />
+                                    }
+                                    <span>@t.nombre</span>
+                                </label>
+                            }
+                        }
+                    </div>
+                </div>
+            </aside>
         </div>
     </form>
 </div>
 
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="Delete">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Id" />
+                <div class="modal-header">
+                    <h5 class="modal-title">Eliminar Pregunta</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    @if (Model.CanModify)
+                    {
+                        <p class="mb-0">¿Seguro que deseas eliminar la pregunta? Se marcará como eliminada y sus relaciones se eliminarán.</p>
+                    }
+                    else
+                    {
+                        <p class="text-danger mb-0">Esta pregunta tiene respuestas activas y no puede eliminarse.</p>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    @if (Model.CanModify)
+                    {
+                        <button type="submit" class="btn btn-danger">Eliminar</button>
+                    }
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script>
-        function filterList(containerId, text){
-            const cont = document.getElementById(containerId);
-            if(!cont) return;
-            const q = (text||'').toLowerCase();
-            cont.querySelectorAll('.form-check').forEach(div=>{
-                const lbl = div.querySelector('label');
-                const match = !q || (lbl && lbl.textContent.toLowerCase().includes(q));
-                div.style.display = match ? '' : 'none';
+        function initFilter(inputId, scrollId){
+            const input=document.getElementById(inputId);
+            const cont=document.getElementById(scrollId);
+            if(!input||!cont) return;
+            input.addEventListener('input',()=>{
+                const term=input.value.trim().toLowerCase();
+                cont.querySelectorAll('.rel-item').forEach(item=>{
+                    const txt=item.getAttribute('data-filter')||'';
+                    item.style.display = !term || txt.includes(term) ? '' : 'none';
+                });
             });
-            updateCounts();
         }
+        initFilter('searchCondiciones','scrollCondiciones');
+        initFilter('searchSintomas','scrollSintomas');
+        initFilter('searchTratamientos','scrollTratamientos');
 
-        function updateCounts(){
-            document.getElementById('condCount')?.innerText =
-                document.querySelectorAll('[name="SelectedCondiciones"]:checked').length + ' seleccionadas';
-            document.getElementById('sintCount')?.innerText =
-                document.querySelectorAll('[name="SelectedSintomas"]:checked').length + ' seleccionadas';
-            document.getElementById('tratCount')?.innerText =
-                document.querySelectorAll('[name="SelectedTratamientos"]:checked').length + ' seleccionadas';
+        function refreshBadges(containerId, selector){
+            const container=document.getElementById(containerId);
+            if(!container) return;
+            const frag=document.createDocumentFragment();
+            document.querySelectorAll(selector).forEach(ch=>{
+                if(ch.checked){
+                    const name=ch.nextElementSibling?.textContent||ch.value;
+                    const span=document.createElement('span');
+                    span.className='rel-badge-sel';
+                    span.dataset.id=ch.value;
+                    span.innerHTML=`${name} <button type="button" class="badge-remove" data-target="${selector}" data-id="${ch.value}">✕</button>`;
+                    frag.appendChild(span);
+                }
+            });
+            container.innerHTML='';
+            container.appendChild(frag);
         }
-
-        document.addEventListener('change', function(e){
-            if(e.target.matches('[name="SelectedCondiciones"],[name="SelectedSintomas"],[name="SelectedTratamientos"]')){
-                updateCounts();
-            }
-        });
-
-        document.addEventListener('DOMContentLoaded', updateCounts);
+        function attachEvents(){
+            document.addEventListener('change',e=>{
+                if(e.target.matches('.rel-check-condicion')){
+                    refreshBadges('badgesCondiciones','.rel-check-condicion');
+                }else if(e.target.matches('.rel-check-sintoma')){
+                    refreshBadges('badgesSintomas','.rel-check-sintoma');
+                }else if(e.target.matches('.rel-check-tratamiento')){
+                    refreshBadges('badgesTratamientos','.rel-check-tratamiento');
+                }
+            });
+            document.addEventListener('click',e=>{
+                const btn=e.target.closest('.badge-remove');
+                if(!btn) return;
+                const id=btn.getAttribute('data-id');
+                const selector=btn.getAttribute('data-target');
+                const el=document.querySelector(`${selector}[value="${CSS.escape(id)}"]`);
+                if(el){
+                    el.checked=false;
+                    el.dispatchEvent(new Event('change'));
+                }
+            });
+        }
+        attachEvents();
+        refreshBadges('badgesCondiciones','.rel-check-condicion');
+        refreshBadges('badgesSintomas','.rel-check-sintoma');
+        refreshBadges('badgesTratamientos','.rel-check-tratamiento');
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 }

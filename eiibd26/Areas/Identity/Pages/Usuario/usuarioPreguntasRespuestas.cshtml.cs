@@ -39,75 +39,87 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             public int RespuestasCount { get; set; }
             public int Score { get; set; }
             public int UsuarioVoto { get; set; } = 0;
-            public List<string> RespondersAvatars { get; set; } = new List<string>();
+            public List<string> RespondersAvatars { get; set; } = new();
             public bool EsMia { get; set; } = false;
+
+            public List<string> Condiciones { get; set; } = new();
+            public List<string> Sintomas { get; set; } = new();
+            public List<string> Tratamientos { get; set; } = new();
         }
 
-        public List<PreguntaCardVm> Preguntas { get; set; } = new List<PreguntaCardVm>();
+        public List<PreguntaCardVm> Preguntas { get; set; } = new();
+        [BindProperty(SupportsGet = true)] public int PageNumber { get; set; } = 1;
+        [BindProperty(SupportsGet = true)] public int PageSize { get; set; } = 12;
+        [BindProperty(SupportsGet = true)] public string Search { get; set; } = "";
 
-        // Paging
-        [BindProperty(SupportsGet = true)]
-        public int Page { get; set; } = 1;
-        [BindProperty(SupportsGet = true)]
-        public int PageSize { get; set; } = 12;
+        public int TotalItems { get; set; }
+        public int TotalPages => (int)Math.Ceiling(TotalItems / (double)PageSize);
+
+        // Propiedad Total no se usa en la vista; mantenida por compatibilidad si la referencian en otro lugar
         public int Total { get; set; }
-
-        // Optional dropdown lists (may be empty)
-        public IEnumerable<object> Condiciones { get; set; } = Array.Empty<object>();
-        public IEnumerable<object> Sintomas { get; set; } = Array.Empty<object>();
-        public IEnumerable<object> Tratamientos { get; set; } = Array.Empty<object>();
 
         private Guid? GetUserIdGuid()
         {
             var v = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(v)) return null;
-            if (Guid.TryParse(v, out var g)) return g;
-            return null;
+            return Guid.TryParse(v, out var g) ? g : null;
         }
 
-        // Utility: remove HTML tags for preview and avoid broken HTML in truncated output
         private static string StripHtml(string? input)
         {
             if (string.IsNullOrEmpty(input)) return string.Empty;
-            // remove tags
             var noTags = Regex.Replace(input, "<.*?>", string.Empty);
-            // collapse whitespace
             noTags = Regex.Replace(noTags, @"\s+", " ").Trim();
             return noTags;
         }
 
-        public async Task<IActionResult> OnGetAsync(int? page, int? pageSize)
+        public async Task<IActionResult> OnGetAsync(int? pageNumber, int? pageSize)
         {
-            if (page.HasValue) Page = Math.Max(1, page.Value);
+            if (pageNumber.HasValue) PageNumber = Math.Max(1, pageNumber.Value);
             if (pageSize.HasValue) PageSize = Math.Max(1, pageSize.Value);
+
+            if (PageSize <= 0) PageSize = 12;
+            if (PageNumber < 1) PageNumber = 1;
 
             var userId = GetUserIdGuid();
             if (!userId.HasValue) return Forbid();
 
-            // Base query: questions created by user OR where user has answered
-            var baseQ = _db.Preguntas.AsNoTracking().Where(p => !p.Eliminado &&
-                (p.UsuarioId == userId.Value ||
-                 _db.Respuestas.Any(r => r.PreguntaId == p.Id && !r.Eliminado && r.UsuarioId == userId.Value)));
+            var baseQ = _db.Preguntas.AsNoTracking()
+                .Where(p => !p.Eliminado &&
+                            (p.UsuarioId == userId.Value ||
+                             _db.Respuestas.Any(r => r.PreguntaId == p.Id && !r.Eliminado && r.UsuarioId == userId.Value) ||
+                             _db.Votos.Any(v => v.EntidadTipo == "pregunta" && v.EntidadId == p.Id && v.UsuarioId == userId.Value && !v.Eliminado)));
 
-            Total = await baseQ.CountAsync();
+            // CORREGIDO: asignar TotalItems (usado por la vista y TotalPages)
+            TotalItems = await baseQ.CountAsync();
+            Total = TotalItems; // mantener Total por si lo usan en otra parte
 
-            var pageQ = baseQ.OrderByDescending(p => p.FechaCreacion).Skip((Page - 1) * PageSize).Take(PageSize);
+            // Ajustar PageNumber si excede TotalPages
+            if (TotalPages > 0 && PageNumber > TotalPages) PageNumber = TotalPages;
 
-            var items = await pageQ.Select(p => new
-            {
-                p.Id,
-                p.Titulo,
-                p.Cuerpo,
-                p.UsuarioId,
-                p.FechaCreacion,
-                RespuestasCount = _db.Respuestas.Count(r => r.PreguntaId == p.Id && !r.Eliminado),
-                Score = _db.Votos.Where(v => v.EntidadTipo == "pregunta" && v.EntidadId == p.Id && !v.Eliminado).Select(v => (int?)v.Valor).Sum() ?? 0
-            }).ToListAsync();
+            var pageQ = baseQ
+                .Select(p => new
+                {
+                    p.Id,
+                    p.Titulo,
+                    p.Cuerpo,
+                    p.UsuarioId,
+                    p.FechaCreacion,
+                    RespuestasCount = _db.Respuestas.Count(r => r.PreguntaId == p.Id && !r.Eliminado),
+                    Score = _db.Votos
+                        .Where(v => v.EntidadTipo == "pregunta" && v.EntidadId == p.Id && !v.Eliminado)
+                        .Select(v => (int?)v.Valor).Sum() ?? 0
+                })
+                .OrderByDescending(x => x.Score)
+                .ThenByDescending(x => x.FechaCreacion)
+                .Skip((PageNumber - 1) * PageSize)
+                .Take(PageSize);
+
+            var items = await pageQ.ToListAsync();
 
             var preguntaIds = items.Select(i => i.Id).ToArray();
             var authorIds = items.Select(i => i.UsuarioId).Distinct().ToArray();
 
-            // Load Perfil for authors
             var authors = new Dictionary<Guid, (string name, string avatar)>();
             if (authorIds.Length > 0)
             {
@@ -118,31 +130,39 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                         .Select(p => new { p.idUser, p.Nombre, p.Apellidos, p.Avatar })
                         .ToListAsync();
 
-                    authors = perfiles.ToDictionary(
-                        x => x.idUser,
-                        x =>
-                        {
-                            var full = string.IsNullOrWhiteSpace(x.Apellidos) ? (x.Nombre ?? "Usuario") : $"{(x.Nombre ?? "Usuario")} {x.Apellidos}";
-                            var avatar = string.IsNullOrWhiteSpace(x.Avatar) ? "/img/avatar-placeholder.png" : x.Avatar;
-                            return (name: full, avatar: avatar);
-                        });
+                    foreach (var pf in perfiles)
+                    {
+                        var full = string.IsNullOrWhiteSpace(pf.Apellidos)
+                            ? (pf.Nombre ?? "Usuario")
+                            : $"{(pf.Nombre ?? "Usuario")} {pf.Apellidos}";
+                        var avatar = string.IsNullOrWhiteSpace(pf.Avatar)
+                            ? "/img/avatar-placeholder.png"
+                            : pf.Avatar;
+                        authors[pf.idUser] = (full, avatar);
+                    }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Error leyendo perfiles de autores en usuarioPreguntasRespuestas.");
+                    _logger.LogWarning(ex, "Error leyendo perfiles de autores.");
                 }
             }
 
-            // responders per question
             var responderRows = new List<(Guid PreguntaId, Guid UsuarioId)>();
             if (preguntaIds.Length > 0)
             {
-                var respuestas = await _db.Respuestas.AsNoTracking()
-                    .Where(r => preguntaIds.Contains(r.PreguntaId) && !r.Eliminado)
-                    .Select(r => new { r.PreguntaId, r.UsuarioId })
-                    .ToListAsync();
+                try
+                {
+                    var respuestas = await _db.Respuestas.AsNoTracking()
+                        .Where(r => preguntaIds.Contains(r.PreguntaId) && !r.Eliminado)
+                        .Select(r => new { r.PreguntaId, r.UsuarioId })
+                        .ToListAsync();
 
-                responderRows = respuestas.Select(r => (r.PreguntaId, r.UsuarioId)).ToList();
+                    responderRows = respuestas.Select(r => (r.PreguntaId, r.UsuarioId)).ToList();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error obteniendo responders.");
+                }
             }
 
             var responderUserIds = responderRows.Select(r => r.UsuarioId).Distinct().ToArray();
@@ -156,73 +176,146 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                         .Select(p => new { p.idUser, p.Nombre, p.Apellidos, p.Avatar })
                         .ToListAsync();
 
-                    responderProfiles = rperfiles.ToDictionary(
-                        x => x.idUser,
-                        x =>
-                        {
-                            var full = string.IsNullOrWhiteSpace(x.Apellidos) ? (x.Nombre ?? "Usuario") : $"{(x.Nombre ?? "Usuario")} {x.Apellidos}";
-                            var avatar = string.IsNullOrWhiteSpace(x.Avatar) ? "/img/avatar-placeholder.png" : x.Avatar;
-                            return (name: full, avatar: avatar);
-                        });
+                    foreach (var pf in rperfiles)
+                    {
+                        var full = string.IsNullOrWhiteSpace(pf.Apellidos)
+                            ? (pf.Nombre ?? "Usuario")
+                            : $"{(pf.Nombre ?? "Usuario")} {pf.Apellidos}";
+                        var avatar = string.IsNullOrWhiteSpace(pf.Avatar)
+                            ? "/img/avatar-placeholder.png"
+                            : pf.Avatar;
+                        responderProfiles[pf.idUser] = (full, avatar);
+                    }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Error leyendo perfiles de responders en usuarioPreguntasRespuestas.");
+                    _logger.LogWarning(ex, "Error leyendo perfiles de responders.");
                 }
             }
 
-            // user's votes for these questions
             var votosUsuario = new Dictionary<Guid, int>();
             if (preguntaIds.Length > 0)
             {
-                var votos = await _db.Votos.AsNoTracking()
-                    .Where(v => v.EntidadTipo == "pregunta" && preguntaIds.Contains(v.EntidadId) && v.UsuarioId == userId.Value && !v.Eliminado)
-                    .GroupBy(v => v.EntidadId)
-                    .Select(g => new { Id = g.Key, Valor = g.Select(x => (int?)x.Valor).FirstOrDefault() })
-                    .ToListAsync();
+                try
+                {
+                    var votos = await _db.Votos.AsNoTracking()
+                        .Where(v => v.EntidadTipo == "pregunta" &&
+                                    preguntaIds.Contains(v.EntidadId) &&
+                                    v.UsuarioId == userId.Value &&
+                                    !v.Eliminado)
+                        .GroupBy(v => v.EntidadId)
+                        .Select(g => new { Id = g.Key, Valor = g.Select(x => (int?)x.Valor).FirstOrDefault() })
+                        .ToListAsync();
 
-                votosUsuario = votos.ToDictionary(x => x.Id, x => x.Valor ?? 0);
+                    votosUsuario = votos.ToDictionary(x => x.Id, x => x.Valor ?? 0);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error obteniendo votos del usuario.");
+                }
             }
 
-            // Build VMs - apply truncation limits for title and body (server-side)
-            const int titleLimit = 80;
-            const int bodyLimit = 140;
+            // Relaciones clínicas
+            var condicionesMap = new Dictionary<Guid, List<string>>();
+            var sintomasMap = new Dictionary<Guid, List<string>>();
+            var tratamientosMap = new Dictionary<Guid, List<string>>();
 
-            var currentUserId = GetUserIdGuid();
+            if (preguntaIds.Length > 0)
+            {
+                try
+                {
+                    condicionesMap = await _db.PreguntaCondiciones.AsNoTracking()
+                        .Where(pc => preguntaIds.Contains(pc.PreguntaId))
+                        .Join(_db.condiciones,
+                              pc => pc.CondicionId,
+                              c => c.id,
+                              (pc, c) => new { pc.PreguntaId, Nombre = c.nombre })
+                        .Where(x => x.Nombre != null && x.Nombre != "")
+                        .GroupBy(x => x.PreguntaId)
+                        .ToDictionaryAsync(g => g.Key, g => g.Select(x => x.Nombre).Distinct().OrderBy(n => n).Take(12).ToList());
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error cargando condiciones preguntas.");
+                }
+
+                try
+                {
+                    sintomasMap = await _db.PreguntaSintomas.AsNoTracking()
+                        .Where(ps => preguntaIds.Contains(ps.PreguntaId))
+                        .Join(_db.sintomas,
+                              ps => ps.SintomaId,
+                              s => s.id,
+                              (ps, s) => new { ps.PreguntaId, Nombre = s.nombre })
+                        .Where(x => x.Nombre != null && x.Nombre != "")
+                        .GroupBy(x => x.PreguntaId)
+                        .ToDictionaryAsync(g => g.Key, g => g.Select(x => x.Nombre).Distinct().OrderBy(n => n).Take(12).ToList());
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error cargando síntomas preguntas.");
+                }
+
+                try
+                {
+                    tratamientosMap = await _db.PreguntaTratamientos.AsNoTracking()
+                        .Where(pt => preguntaIds.Contains(pt.PreguntaId))
+                        .Join(_db.tratamientos,
+                              pt => pt.TratamientoId,
+                              t => t.id,
+                              (pt, t) => new { pt.PreguntaId, Nombre = t.nombre })
+                        .Where(x => x.Nombre != null && x.Nombre != "")
+                        .GroupBy(x => x.PreguntaId)
+                        .ToDictionaryAsync(g => g.Key, g => g.Select(x => x.Nombre).Distinct().OrderBy(n => n).Take(12).ToList());
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error cargando tratamientos preguntas.");
+                }
+            }
+
+            const int titleLimit = 80;
+            const int bodyLimit = 160;
 
             Preguntas = items.Select(i =>
             {
                 var rawTitle = i.Titulo ?? "";
                 var rawBody = StripHtml(i.Cuerpo ?? "");
 
-                var tituloPreview = string.IsNullOrWhiteSpace(rawTitle) ? "" :
-                    (rawTitle.Length > titleLimit ? rawTitle.Substring(0, titleLimit).TrimEnd() + "…" : rawTitle);
+                var tituloPreview = rawTitle.Length > titleLimit
+                    ? rawTitle.Substring(0, titleLimit).TrimEnd() + "…"
+                    : rawTitle;
 
-                var cuerpoText = string.IsNullOrWhiteSpace(rawBody) ? "" :
-                    (rawBody.Length > bodyLimit ? rawBody.Substring(0, bodyLimit).TrimEnd() + "…" : rawBody);
+                var cuerpoPreview = rawBody.Length > bodyLimit
+                    ? rawBody.Substring(0, bodyLimit).TrimEnd() + "…"
+                    : rawBody;
 
                 var vm = new PreguntaCardVm
                 {
                     Id = i.Id,
-                    Titulo = i.Titulo,
+                    Titulo = rawTitle,
                     TituloPreview = tituloPreview,
-                    CuerpoPreview = cuerpoText,
+                    CuerpoPreview = cuerpoPreview,
                     UsuarioId = i.UsuarioId,
-                    AutorNombre = authors.ContainsKey(i.UsuarioId) ? authors[i.UsuarioId].name : "Usuario",
-                    AutorAvatarUrl = authors.ContainsKey(i.UsuarioId) ? authors[i.UsuarioId].avatar : "/img/avatar-placeholder.png",
+                    AutorNombre = authors.TryGetValue(i.UsuarioId, out var info) ? info.name : "Usuario",
+                    AutorAvatarUrl = authors.TryGetValue(i.UsuarioId, out var info2) ? info2.avatar : "/img/avatar-placeholder.png",
                     FechaCreacion = i.FechaCreacion,
                     RespuestasCount = i.RespuestasCount,
                     Score = i.Score,
-                    UsuarioVoto = votosUsuario.TryGetValue(i.Id, out var vv) ? vv : 0,
-                    EsMia = (currentUserId.HasValue && currentUserId.Value == i.UsuarioId)
+                    UsuarioVoto = votosUsuario.TryGetValue(i.Id, out var vv) ? (vv == 1 ? 1 : 0) : 0,
+                    EsMia = userId.Value == i.UsuarioId,
+                    Condiciones = condicionesMap.TryGetValue(i.Id, out var cList) ? cList : new List<string>(),
+                    Sintomas = sintomasMap.TryGetValue(i.Id, out var sList) ? sList : new List<string>(),
+                    Tratamientos = tratamientosMap.TryGetValue(i.Id, out var tList) ? tList : new List<string>()
                 };
 
-                var rForQ = responderRows.Where(r => r.PreguntaId == i.Id)
-                                        .Select(r => r.UsuarioId)
-                                        .Where(uid => uid != i.UsuarioId)
-                                        .Distinct()
-                                        .Take(6)
-                                        .ToList();
+                var rForQ = responderRows
+                    .Where(r => r.PreguntaId == i.Id)
+                    .Select(r => r.UsuarioId)
+                    .Where(uid => uid != i.UsuarioId)
+                    .Distinct()
+                    .Take(8)
+                    .ToList();
 
                 foreach (var rid in rForQ)
                 {
@@ -238,42 +331,39 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             return Page();
         }
 
-        // OnPostCrearPreguntaAsync unchanged
         public async Task<IActionResult> OnPostCrearPreguntaAsync()
         {
             var userId = GetUserIdGuid();
             if (!userId.HasValue)
-            {
-                return new JsonResult(new { ok = false, error = "Usuario no autenticado" }) { StatusCode = 401 };
-            }
+                return new JsonResult(new { ok = false, error = "No autenticado" }) { StatusCode = 401 };
 
             var titulo = (Request.Form["titulo"].FirstOrDefault() ?? "").Trim();
             var cuerpo = (Request.Form["cuerpo"].FirstOrDefault() ?? "").Trim();
 
-            if (string.IsNullOrWhiteSpace(titulo)) return new JsonResult(new { ok = false, error = "El título es obligatorio" }) { StatusCode = 400 };
-            if (string.IsNullOrWhiteSpace(cuerpo)) return new JsonResult(new { ok = false, error = "El cuerpo es obligatorio" }) { StatusCode = 400 };
+            if (string.IsNullOrWhiteSpace(titulo))
+                return new JsonResult(new { ok = false, error = "El título es obligatorio" }) { StatusCode = 400 };
+            if (string.IsNullOrWhiteSpace(cuerpo))
+                return new JsonResult(new { ok = false, error = "El cuerpo es obligatorio" }) { StatusCode = 400 };
 
             try
             {
-                var pregunta = new Pregunta
+                var p = new Pregunta
                 {
                     Id = Guid.NewGuid(),
+                    UsuarioId = userId.Value,
                     Titulo = titulo,
                     Cuerpo = cuerpo,
-                    UsuarioId = userId.Value,
                     FechaCreacion = DateTime.UtcNow,
                     Eliminado = false
                 };
-
-                _db.Preguntas.Add(pregunta);
+                _db.Preguntas.Add(p);
                 await _db.SaveChangesAsync();
-
-                return new JsonResult(new { ok = true, id = pregunta.Id });
+                return new JsonResult(new { ok = true, id = p.Id });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creando pregunta nueva en usuarioPreguntasRespuestas");
-                return StatusCode(500, new { ok = false, error = "Error interno al crear la pregunta" });
+                _logger.LogError(ex, "Error creando pregunta rápida.");
+                return StatusCode(500, new { ok = false, error = "Error interno" });
             }
         }
     }

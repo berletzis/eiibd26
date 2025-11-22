@@ -12,7 +12,6 @@ using eiibd26.Models;
 
 namespace eiibd26.Areas.Identity.Pages.Usuario
 {
-    [IgnoreAntiforgeryToken]
     public class UusuarioPreguntaDetalleModel : PageModel
     {
         private readonly ApplicationDbContext _db;
@@ -38,6 +37,8 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
         public string ErrorMessage { get; set; }
         public string SuccessMessage { get; set; }
+        public bool CanModify { get; set; } = true;
+        public int RespuestasActivasCount { get; set; }
 
         private Guid GetUserId()
         {
@@ -66,6 +67,11 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     return Page();
                 }
 
+                RespuestasActivasCount = await _db.Respuestas
+                    .AsNoTracking()
+                    .CountAsync(r => r.PreguntaId == pregunta.Id && !r.Eliminado);
+
+                CanModify = RespuestasActivasCount == 0;
                 Titulo = pregunta.Titulo;
                 Cuerpo = pregunta.Cuerpo;
 
@@ -124,6 +130,19 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     return Page();
                 }
 
+                RespuestasActivasCount = await _db.Respuestas
+                    .IgnoreQueryFilters()
+                    .CountAsync(r => r.PreguntaId == pregunta.Id && !r.Eliminado);
+
+                if (RespuestasActivasCount > 0)
+                {
+                    ErrorMessage = "La pregunta no se puede editar porque ya tiene respuestas.";
+                    CanModify = false;
+                    Id = pregunta.Id;
+                    await ReloadRelationsSelectionsAsync(pregunta.Id);
+                    return Page();
+                }
+
                 pregunta.Titulo = Titulo;
                 pregunta.Cuerpo = Cuerpo;
                 pregunta.FechaModificacion = DateTimeOffset.UtcNow;
@@ -133,6 +152,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
                 SuccessMessage = "Pregunta actualizada.";
                 Id = pregunta.Id;
+                CanModify = true;
             }
             else
             {
@@ -155,44 +175,103 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
                 SuccessMessage = "Pregunta creada.";
                 Id = nueva.Id;
+                CanModify = true;
             }
 
             if (Id.HasValue)
-            {
-                SelectedCondiciones = await _db.PreguntaCondiciones
-                    .AsNoTracking()
-                    .Where(x => x.PreguntaId == Id.Value)
-                    .Select(x => x.CondicionId)
-                    .ToListAsync();
-
-                SelectedSintomas = await _db.PreguntaSintomas
-                    .AsNoTracking()
-                    .Where(x => x.PreguntaId == Id.Value)
-                    .Select(x => x.SintomaId)
-                    .ToListAsync();
-
-                SelectedTratamientos = await _db.PreguntaTratamientos
-                    .AsNoTracking()
-                    .Where(x => x.PreguntaId == Id.Value)
-                    .Select(x => x.TratamientoId)
-                    .ToListAsync();
-            }
+                await ReloadRelationsSelectionsAsync(Id.Value);
 
             return Page();
         }
 
+        public async Task<IActionResult> OnPostDeleteAsync(Guid? id)
+        {
+            var userId = GetUserId();
+            if (userId == Guid.Empty) return Challenge();
+            if (!id.HasValue)
+            {
+                ErrorMessage = "Identificador inválido.";
+                return Page();
+            }
+
+            var pregunta = await _db.Preguntas
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(p => p.Id == id.Value && p.UsuarioId == userId);
+
+            if (pregunta == null)
+            {
+                ErrorMessage = "Pregunta no encontrada o no es tuya.";
+                return Page();
+            }
+
+            var respuestasActivas = await _db.Respuestas
+                .IgnoreQueryFilters()
+                .CountAsync(r => r.PreguntaId == pregunta.Id && !r.Eliminado);
+
+            if (respuestasActivas > 0)
+            {
+                ErrorMessage = "No se puede eliminar: la pregunta ya tiene respuestas.";
+                RespuestasActivasCount = respuestasActivas;
+                CanModify = false;
+                Id = pregunta.Id;
+                await ReloadRelationsSelectionsAsync(pregunta.Id);
+                return Page();
+            }
+
+            pregunta.Eliminado = true;
+            pregunta.FechaModificacion = DateTimeOffset.UtcNow;
+
+            await DeletePreguntaRelationsAsync(pregunta.Id);
+            await _db.SaveChangesAsync();
+
+            // Página de listado (evita error de RedirectToPage)
+            return Redirect("~/Identity/Usuario/usuarioPreguntasRespuestas");
+        }
+
+        private async Task DeletePreguntaRelationsAsync(Guid preguntaId)
+        {
+            var cond = await _db.PreguntaCondiciones.Where(x => x.PreguntaId == preguntaId).ToListAsync();
+            var sint = await _db.PreguntaSintomas.Where(x => x.PreguntaId == preguntaId).ToListAsync();
+            var trat = await _db.PreguntaTratamientos.Where(x => x.PreguntaId == preguntaId).ToListAsync();
+
+            _db.PreguntaCondiciones.RemoveRange(cond);
+            _db.PreguntaSintomas.RemoveRange(sint);
+            _db.PreguntaTratamientos.RemoveRange(trat);
+        }
+
+        private async Task ReloadRelationsSelectionsAsync(Guid preguntaId)
+        {
+            SelectedCondiciones = await _db.PreguntaCondiciones
+                .AsNoTracking()
+                .Where(x => x.PreguntaId == preguntaId)
+                .Select(x => x.CondicionId)
+                .ToListAsync();
+
+            SelectedSintomas = await _db.PreguntaSintomas
+                .AsNoTracking()
+                .Where(x => x.PreguntaId == preguntaId)
+                .Select(x => x.SintomaId)
+                .ToListAsync();
+
+            SelectedTratamientos = await _db.PreguntaTratamientos
+                .AsNoTracking()
+                .Where(x => x.PreguntaId == preguntaId)
+                .Select(x => x.TratamientoId)
+                .ToListAsync();
+        }
+
         private async Task LoadUserListsAsync(Guid userId)
         {
-            // Condiciones
+            // PROYECCIÓN SEGURA: primero anónimo, luego tuplas en memoria.
             try
             {
                 var rawCond = await _db.condicionUsuario
                     .AsNoTracking()
                     .Where(cu => cu.idUsuario == userId && !cu.Eliminado && cu.idCondicion != null)
                     .Join(_db.condiciones,
-                          cu => cu.idCondicion,
-                          c => c.id,
-                          (cu, c) => new { c.id, c.nombre })
+                        cu => cu.idCondicion,
+                        c => c.id,
+                        (cu, c) => new { c.id, c.nombre })
                     .OrderBy(x => x.nombre)
                     .ToListAsync();
 
@@ -203,19 +282,18 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Error cargando condiciones");
-                CondicionesLista = new List<(int, string)>();
+                CondicionesLista = new();
             }
 
-            // Síntomas (ajusta si el modelo difiere)
             try
             {
                 var rawSint = await _db.sintomasUsuario
                     .AsNoTracking()
                     .Where(su => su.idUsuario == userId && !su.Eliminado && su.idSintoma != null)
                     .Join(_db.sintomas,
-                          su => su.idSintoma,
-                          s => s.id,
-                          (su, s) => new { s.id, s.nombre })
+                        su => su.idSintoma,
+                        s => s.id,
+                        (su, s) => new { s.id, s.nombre })
                     .OrderBy(x => x.nombre)
                     .ToListAsync();
 
@@ -226,19 +304,18 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Error cargando síntomas");
-                SintomasLista = new List<(int, string)>();
+                SintomasLista = new();
             }
 
-            // Tratamientos (ajusta si difiere el modelo)
             try
             {
                 var rawTrat = await _db.tratamientoUsuario
                     .AsNoTracking()
                     .Where(tu => tu.idUsuario == userId && !tu.Eliminado && tu.idTratamiento != null)
                     .Join(_db.tratamientos,
-                          tu => tu.idTratamiento,
-                          t => t.id,
-                          (tu, t) => new { t.id, t.nombre })
+                        tu => tu.idTratamiento,
+                        t => t.id,
+                        (tu, t) => new { t.id, t.nombre })
                     .OrderBy(x => x.nombre)
                     .ToListAsync();
 
@@ -249,7 +326,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Error cargando tratamientos");
-                TratamientosLista = new List<(int, string)>();
+                TratamientosLista = new();
             }
         }
 
@@ -276,45 +353,36 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 if (SelectedCondiciones?.Any() == true)
                 {
                     _db.PreguntaCondiciones.AddRange(
-                        SelectedCondiciones
-                            .Distinct()
-                            .Select(id => new PreguntaCondicion
-                            {
-                                Id = Guid.NewGuid(),
-                                PreguntaId = preguntaId,
-                                CondicionId = id,
-                                FechaCreacion = DateTimeOffset.UtcNow
-                            }));
+                        SelectedCondiciones.Distinct().Select(id => new PreguntaCondicion
+                        {
+                            Id = Guid.NewGuid(),
+                            PreguntaId = preguntaId,
+                            CondicionId = id,
+                            FechaCreacion = DateTimeOffset.UtcNow
+                        }));
                 }
-
                 if (SelectedSintomas?.Any() == true)
                 {
                     _db.PreguntaSintomas.AddRange(
-                        SelectedSintomas
-                            .Distinct()
-                            .Select(id => new PreguntaSintoma
-                            {
-                                Id = Guid.NewGuid(),
-                                PreguntaId = preguntaId,
-                                SintomaId = id,
-                                FechaCreacion = DateTimeOffset.UtcNow
-                            }));
+                        SelectedSintomas.Distinct().Select(id => new PreguntaSintoma
+                        {
+                            Id = Guid.NewGuid(),
+                            PreguntaId = preguntaId,
+                            SintomaId = id,
+                            FechaCreacion = DateTimeOffset.UtcNow
+                        }));
                 }
-
                 if (SelectedTratamientos?.Any() == true)
                 {
                     _db.PreguntaTratamientos.AddRange(
-                        SelectedTratamientos
-                            .Distinct()
-                            .Select(id => new PreguntaTratamiento
-                            {
-                                Id = Guid.NewGuid(),
-                                PreguntaId = preguntaId,
-                                TratamientoId = id,
-                                FechaCreacion = DateTimeOffset.UtcNow
-                            }));
+                        SelectedTratamientos.Distinct().Select(id => new PreguntaTratamiento
+                        {
+                            Id = Guid.NewGuid(),
+                            PreguntaId = preguntaId,
+                            TratamientoId = id,
+                            FechaCreacion = DateTimeOffset.UtcNow
+                        }));
                 }
-                // SaveChanges en caller
             }
             catch (Exception ex)
             {
