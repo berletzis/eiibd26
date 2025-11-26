@@ -4,137 +4,134 @@
     ViewData["Title"] = "Mis condiciones";
     Layout = "_Layout";
 }
-<div class="crm-container">
-    <h2 class="crm-title mb-4">Mis condiciones</h2>
-    <div class="crm-card p-4 mb-4">
-        <form id="agregarCondicionForm" autocomplete="off" class="crm-form-row" onsubmit="return false;">
-     
-            <div class="crm-search-group crm-col-8">
-                <label for="condicionBuscar" class="crm-label">
-                    <i class="bi bi-search-heart crm-icon"></i> Buscar o agregar condición
-                </label>
-
-                <div class="crm-search-horizontal">
-                    <input id="condicionBuscar" type="text" class="crm-input" placeholder="Ej: Asma, Colitis, Diabetes..." autocomplete="off" />
-                    <button id="btnAgregarCondicion" class="crm-btn crm-btn-primary w-100" type="button">
-                        <i class="bi bi-plus-circle me-1"></i> Agregar
-                    </button>
+<div class="container py-4">
+    <h1 class="crm-title mb-4">Mis condiciones</h1>
+    <div class="qp-wrapper-flex">
+        <div class="crm-card">
+            <label for="condicionBuscar" class="crm-label">
+                Busca y agregar la condición con la que fuiste diagnosticad@@
+            </label>
+            <form id="agregarCondicionForm" autocomplete="off" class="crm-form-row" onsubmit="return false;">
+                <div class="crm-search-group crm-col-8">
+                    <div class="crm-search-horizontal">
+                        <input id="condicionBuscar" type="text" class="crm-input" placeholder="Ej: Colitis Ulcerativa, Crohn, etc..." autocomplete="off" />
+                        <button id="btnAgregarCondicion" class="crm-btn crm-btn-primary" type="button">
+                            <i class="bi bi-zoom-in"></i>
+                        </button>
+                    </div>
+                    <input id="condicionIdSeleccionada" type="hidden" />
+                    <ul id="condicionSugerencias" class="crm-list-suggest"></ul>
                 </div>
-                <input id="condicionIdSeleccionada" type="hidden" />
-                <ul id="condicionSugerencias" class="crm-list-suggest"></ul>
-            </div>
-        </form>
+            </form>
+        </div>
+    </div>
+    <div class="condiciones-paginacion" aria-label="Paginación">
+        <span>Lista de todas las condiciones</span>
     </div>
 
-    <!-- Header -->
-    <div class="crm-card mb-3 crm-header-block">
-        <h3>
-            <i class="bi bi-clipboard2-heart text-danger me-1"></i> Condiciones agregadas
-        </h3>
-    </div>
-
-    <!-- Cards grid -->
-    @if (Model.MisCondicionesAgrupadas.Any())
-    {
-        <div class="crm-card-row">
-            @foreach (var grupo in Model.MisCondicionesAgrupadas)
-            {
-                @foreach (var hijo in grupo.Hijos)
+    <div class="condiciones-cards" aria-label="Condiciones">
+        <!-- Cards grid -->
+        @if (Model.MisCondicionesAgrupadas.Any())
+        {
+            <div class="crm-card-row">
+                @foreach (var grupo in Model.MisCondicionesAgrupadas)
                 {
-                    <div class="crm-card-condicion">
-                        <div class="crm-card-inner">
-                            <div class="crm-card-header">
-                                <span class="crm-card-title">
-                                    <i class="bi bi-heart-pulse-fill text-primary me-2"></i>
-                                    @hijo.Nombre
-                                </span>
-                                <button type="button" class="crm-btn crm-btn-delete btn-eliminar"
-                                        data-id="@hijo.Id"
-                                        data-nombre="@hijo.Nombre"
-                                        data-tratamientos="@hijo.TratamientosCount"
-                                        data-sintomas="@hijo.SintomasCount"
-                                        title="Eliminar condición">
-                                    <i class="bi bi-trash3-fill"></i>
-                                </button>
-                            </div>
-                            <div class="crm-card-group">
-                                <span class="crm-card-label"><i class="bi bi-diagram-3"></i> Grupo:</span>
-                                <span class="crm-card-value">@grupo.PadreNombre</span>
-                            </div>
-                            <div class="crm-card-fecha">
-                                <form method="post" class="form-editar-fecha" data-id="@hijo.Id" asp-page-handler="EditarFechaInicio">
-                                    <div class="crm-input-group">
-                                        <span class="crm-input-label">
-                                            <i class="bi bi-calendar2-date"></i> Fecha inicio
-                                        </span>
-                                        <input type="date"
-                                               class="crm-input-date fecha-inicio"
-                                               name="nuevaFechaInicio"
-                                               value="@hijo.FechaInicio.ToString("yyyy-MM-dd")"
-                                               disabled />
-                                        <button type="button"
-                                                class="crm-btn crm-btn-secondary btn-editar-fecha"
-                                                title="Editar fecha de inicio">
-                                            <i class="bi bi-pencil"></i>
-                                        </button>
-                                        <button type="submit"
-                                                class="crm-btn crm-btn-success d-none btn-guardar-fecha"
-                                                title="Guardar nueva fecha">
-                                            <i class="bi bi-save"></i>
-                                        </button>
-                                        <button type="button"
-                                                class="crm-btn crm-btn-cancel d-none btn-cancelar-fecha"
-                                                title="Cancelar edición de fecha">
-                                            <i class="bi bi-x"></i>
-                                        </button>
-                                        <input type="hidden" name="condId" value="@hijo.Id" />
-                                    </div>
-                                </form>
-                            </div>
-                            <div class="crm-card-badges">
-                                <div class="crm-badge-row">
-                                    <span class="crm-badge crm-badge-label">
-                                        <i class="bi bi-capsule-pill me-1"></i>
-                                        Tratamientos
+                    @foreach (var hijo in grupo.Hijos)
+                    {
+                        <div class="crm-card-condicion">
+                            <div class="crm-card-inner">
+                                <div class="crm-card-header">
+                                    <span class="crm-card-title">
+                                        @hijo.Nombre
                                     </span>
-                                    @if (hijo.TratamientosCount > 0)
-                                    {
-                                        <span class="crm-badge crm-badge-count">@hijo.TratamientosCount</span>
-                                    }
+                                    <button type="button" class="crm-btn crm-btn-delete btn-eliminar"
+                                            data-id="@hijo.Id"
+                                            data-nombre="@hijo.Nombre"
+                                            data-tratamientos="@hijo.TratamientosCount"
+                                            data-sintomas="@hijo.SintomasCount"
+                                            title="Eliminar condición">
+                                        <i class="bi bi-trash3-fill"></i>
+                                    </button>
                                 </div>
-                                <div class="crm-badge-row">
-                                    <span class="crm-badge crm-badge-label">
-                                        <i class="bi bi-emoji-frown me-1"></i>
-                                        Síntomas
-                                    </span>
-                                    @if (hijo.SintomasCount > 0)
-                                    {
-                                        <span class="crm-badge crm-badge-count">@hijo.SintomasCount</span>
-                                    }
+                                <div class="crm-card-group">
+                                    <span class="crm-card-label"><i class="bi bi-diagram-3"></i> Grupo:</span>
+                                    <span class="crm-card-value">@grupo.PadreNombre</span>
+                                </div>
+                                <div class="crm-card-fecha">
+                                    <span class="crm-card-label">
+                                        <i class="bi bi-calendar2-date"></i> Fecha de Diagonostico:</span>
+                                    <form method="post" class="form-editar-fecha" data-id="@hijo.Id" asp-page-handler="EditarFechaInicio">
+                                        <div class="crm-input-group">
+                                            <input type="date"
+                                                   class="crm-input-date fecha-inicio"
+                                                   name="nuevaFechaInicio"
+                                                   value="@hijo.FechaInicio.ToString("yyyy-MM-dd")"
+                                                   disabled />
+                                            <button type="button"
+                                                    class="crm-btn crm-btn-secondary btn-editar-fecha"
+                                                    title="Editar fecha de inicio">
+                                                Editar
+                                            </button>
+                                            <button type="submit"
+                                                    class="crm-btn crm-btn-success d-none btn-guardar-fecha"
+                                                    title="Guardar nueva fecha">
+                                                Guardar
+                                            </button>
+                                            <button type="button"
+                                                    class="crm-btn crm-btn-cancel d-none btn-cancelar-fecha"
+                                                    title="Cancelar edición de fecha">
+                                                Cancelar
+                                            </button>
+                                            <input type="hidden" name="condId" value="@hijo.Id" />
+                                        </div>
+                                    </form>
+                                </div>
+                                <div class="crm-card-badges">
+                                    <div class="crm-badge-row">
+                                        <span class="crm-badge crm-badge-label">
+                                            <i class="bi bi-capsule-pill me-1"></i>
+                                            Tratamientos
+                                        </span>
+                                        @if (hijo.TratamientosCount > 0)
+                                        {
+                                            <span class="crm-badge crm-badge-count">@hijo.TratamientosCount</span>
+                                        }
+                                    </div>
+                                    <div class="crm-badge-row">
+                                        <span class="crm-badge crm-badge-label">
+                                            <i class="bi bi-thermometer-half"></i>
+                                            Síntomas
+                                        </span>
+                                        @if (hijo.SintomasCount > 0)
+                                        {
+                                            <span class="crm-badge crm-badge-count">@hijo.SintomasCount</span>
+                                        }
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    }
                 }
-            }
-        </div>
-    }
-    else
-    {
-        <div class="crm-card mb-2">
-            <div class="fw-light text-muted crm-empty">
-                <i class="bi bi-emoji-neutral"></i>
-                Aún no has agregado ninguna condición.
             </div>
-        </div>
+        }
+        else
+        {
+            <div class="crm-card mb-2">
+                <div class="fw-light text-muted crm-empty">
+                    <i class="bi bi-emoji-neutral"></i>
+                    Aún no has agregado ninguna condición.
+                </div>
+            </div>
+        }
+    
+    
+    </div>
+
+    @section Styles {
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" />
+        <link rel="stylesheet" href="~/css/usuario-condiciones-crm.css" />
     }
 </div>
-
-@section Styles {
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" />
-    <link rel="stylesheet" href="~/css/usuario-condiciones-crm.css" />
-}
-
 @section Scripts {
     <script>
         const urlAutocomplete = "/api/condiciones/autocomplete";

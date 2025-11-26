@@ -4,19 +4,20 @@
     ViewData["Title"] = "Mis tratamientos";
     Layout = "_Layout";
 }
-<div class="crm-container">
+<div class="container py-4">
     <h2 class="crm-title mb-4">Mis tratamientos</h2>
-
-    <div class="crm-card p-4 mb-4">
+    <div class="qp-wrapper-flex">
+    <div class="crm-card">
+            <label for="tratamientoBuscar" class="crm-label">
+                Busca y agregar el Tratamiento que te recetaron para tu Condicion o Sintoma.
+            </label>
         <form id="agregarTratamientoForm" autocomplete="off" class="crm-form-row" onsubmit="return false;">
             <div class="crm-search-group crm-col-8">
-                <label for="tratamientoBuscar" class="crm-label">
-                    <i class="bi bi-search-heart crm-icon"></i> Buscar o agregar tratamiento
-                </label>
+         
                 <div class="crm-search-horizontal">
                     <input id="tratamientoBuscar" type="text" class="crm-input" placeholder="Ej: Amoxicilina, Ibuprofeno..." autocomplete="off" />
-                    <button id="btnAgregarTratamiento" class="crm-btn crm-btn-primary w-100" type="button">
-                        <i class="bi bi-plus-circle me-1"></i> Agregar
+                        <button id="btnAgregarTratamiento" class="crm-btn crm-btn-primary" type="button">
+                            <i class="bi bi-zoom-in"></i>
                     </button>
                 </div>
                 <input id="tratamientoIdSeleccionado" type="hidden" />
@@ -24,12 +25,12 @@
             </div>
         </form>
     </div>
-
-    <div class="crm-card mb-3 crm-header-block">
-        <h3>
-            <i class="bi bi-capsule-pill text-danger me-1"></i> Tratamientos agregados
-        </h3>
     </div>
+
+    <div class="condiciones-paginacion" aria-label="Paginación">
+        <span>Lista de todos los Tratamientos</span>
+    </div>
+    <div class="condiciones-cards" aria-label="Condiciones">
     @if (Model.MisTratamientos.Any())
     {
         <div class="crm-card-row">
@@ -39,7 +40,7 @@
                     <div class="crm-card-inner">
                         <div class="crm-card-header">
                             <span class="crm-card-title">
-                                <i class="bi bi-capsule-pill text-success me-1"></i>
+                               
                                 @trat.Nombre
                             </span>
                             <button type="button" class="crm-btn crm-btn-delete btn-eliminar-trat"
@@ -53,12 +54,13 @@
                             </button>
                         </div>
                         <div class="crm-card-fecha">
+                                <span class="crm-card-label">
+                                    <i class="bi bi-calendar2-date"></i>
+                                    Fecha inicio del Tratamiento
+                                </span>
                             <form method="post" class="form-editar-fecha" data-id="@trat.Id" asp-page-handler="EditarFechaInicio">
                                 <div class="crm-input-group" style="column-gap:3px;">
-                                    <span class="crm-input-label">
-                                        <i class="bi bi-calendar2-date"></i>
-                                        Fecha inicio
-                                    </span>
+                                   
                                     <input type="date"
                                            class="crm-input-date fecha-inicio"
                                            style="width:150px; min-width:140px; max-width:170px;"
@@ -69,19 +71,19 @@
                                             class="crm-btn crm-btn-secondary btn-editar-fecha"
                                             style="border:none;"
                                             title="Editar fecha de inicio">
-                                        <i class="bi bi-pencil"></i>
+                                       Editar
                                     </button>
                                     <button type="submit"
                                             class="crm-btn crm-btn-success d-none btn-guardar-fecha"
                                             style="border:none;"
                                             title="Guardar nueva fecha">
-                                        <i class="bi bi-save"></i>
+                                  Guardar
                                     </button>
                                     <button type="button"
                                             class="crm-btn crm-btn-cancel d-none btn-cancelar-fecha"
                                             style="border:none;"
                                             title="Cancelar edición de fecha">
-                                        <i class="bi bi-x"></i>
+                                    Cancelar
                                     </button>
                                     <input type="hidden" name="tratId" value="@trat.Id" />
                                 </div>
@@ -89,7 +91,7 @@
                         </div>
                         <!-- Síntomas asociados -->
                         <div class="crm-card-section mb-2">
-                            <div class="crm-card-subtitle fw-semibold" style="font-size:.98em; color:#315686;">
+                            <div class="crm-card-subtitle" style="font-size:.98em; color:#315686;">
                                 Síntomas
                                 <button type="button" class="crm-btn crm-btn-secondary open-modal-sint ms-1" style="padding:0 8px; border:none;" data-tratid="@trat.Id" title="Asociar síntomas">
                                     <i class="bi bi-plus-circle"></i>
@@ -116,7 +118,7 @@
                         </div>
                         <!-- Condiciones asociadas -->
                         <div class="crm-card-section mb-2">
-                            <div class="crm-card-subtitle fw-semibold" style="font-size:.98em; color:#315686;">
+                            <div class="crm-card-subtitle" style="font-size:.98em; color:#315686;">
                                 Condiciones
                                 <button type="button" class="crm-btn crm-btn-secondary open-modal-cond ms-1" style="padding:0 8px; border:none;" data-tratid="@trat.Id" title="Asociar condiciones">
                                     <i class="bi bi-plus-circle"></i>
@@ -129,7 +131,7 @@
                                     {
                                         <span class="crm-badge bg-success text-white mb-1 d-inline-flex align-items-center">
                                             @cond.Nombre
-                                            <button type="button" class="crm-btn btn-sm btn-link p-0 ms-1 badge-cond-del" style="color:white; border:none;" data-condid="@cond.Id" data-tratid="@trat.Id" title="Quitar condición">
+                                            <button type="button" class="crm-btn btn-sm btn-link p-0 ms-1 badge-cond-del" style="color:red; border:none;" data-condid="@cond.Id" data-tratid="@trat.Id" title="Quitar condición">
                                                 <i class="bi bi-x-circle"></i>
                                             </button>
                                         </span>
@@ -155,7 +157,7 @@
         </div>
     }
 </div>
-
+</div>
 <!-- MODAL SÍNTOMAS -->
 <div class="modal fade" id="modalSintomas" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-scrollable">
