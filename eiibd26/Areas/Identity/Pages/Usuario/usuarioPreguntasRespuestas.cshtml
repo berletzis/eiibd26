@@ -7,9 +7,15 @@
     string ResolveAvatar(string avatar)
     {
         if (string.IsNullOrWhiteSpace(avatar)) return Url.Content("~/img/avatar-placeholder.png");
+        // Normaliza barras invertidas y espacios
+        avatar = avatar.Replace("\\", "/").Trim();
+
         if (avatar.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return avatar;
+        // Si la ruta ya es absoluta del sitio (/...), la devolvemos tal cual
         if (avatar.StartsWith("/")) return avatar;
-        return Url.Content("~/" + avatar.TrimStart('/'));
+        // Quita prefijos ~/ si los tiene y construye Url.Content
+        if (avatar.StartsWith("~/")) avatar = avatar.TrimStart('~', '/');
+        return Url.Content("~/" + avatar);
     }
 }
 

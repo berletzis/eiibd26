@@ -135,10 +135,32 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                         var full = string.IsNullOrWhiteSpace(pf.Apellidos)
                             ? (pf.Nombre ?? "Usuario")
                             : $"{(pf.Nombre ?? "Usuario")} {pf.Apellidos}";
+
+                        // SI Avatar está vacío usamos la ruta uploads/avatars/{GUID}/avatar-64.png
                         var avatar = string.IsNullOrWhiteSpace(pf.Avatar)
-                            ? "/img/avatar-placeholder.png"
-                            : pf.Avatar;
+                            ? $"uploads/avatars/{pf.idUser}/avatar-64.png"
+                            : pf.Avatar.Replace("\\", "/").Trim();
+
                         authors[pf.idUser] = (full, avatar);
+                    }
+
+                    var missing = authorIds.Except(authors.Keys).ToArray();
+                    if (missing.Length > 0)
+                    {
+                        var users = await _db.Users.AsNoTracking()
+                            .Where(u => missing.Contains(u.Id))
+                            .Select(u => new { u.Id, u.UserName })
+                            .ToListAsync();
+
+                        foreach (var u in users)
+                        {
+                            if (!authors.ContainsKey(u.Id))
+                            {
+                                var name = string.IsNullOrWhiteSpace(u.UserName) ? "Usuario" : u.UserName;
+                                var avatar = $"uploads/avatars/{u.Id}/avatar-64.png";
+                                authors[u.Id] = (name, avatar);
+                            }
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -181,10 +203,32 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                         var full = string.IsNullOrWhiteSpace(pf.Apellidos)
                             ? (pf.Nombre ?? "Usuario")
                             : $"{(pf.Nombre ?? "Usuario")} {pf.Apellidos}";
+
+                        // SI Avatar está vacío usamos la ruta uploads/avatars/{GUID}/avatar-64.png
                         var avatar = string.IsNullOrWhiteSpace(pf.Avatar)
-                            ? "/img/avatar-placeholder.png"
-                            : pf.Avatar;
+                            ? $"uploads/avatars/{pf.idUser}/avatar-64.png"
+                            : pf.Avatar.Replace("\\", "/").Trim();
+
                         responderProfiles[pf.idUser] = (full, avatar);
+                    }
+
+                    var missingR = responderUserIds.Except(responderProfiles.Keys).ToArray();
+                    if (missingR.Length > 0)
+                    {
+                        var rusers = await _db.Users.AsNoTracking()
+                            .Where(u => missingR.Contains(u.Id))
+                            .Select(u => new { u.Id, u.UserName })
+                            .ToListAsync();
+
+                        foreach (var u in rusers)
+                        {
+                            if (!responderProfiles.ContainsKey(u.Id))
+                            {
+                                var name = string.IsNullOrWhiteSpace(u.UserName) ? "Usuario" : u.UserName;
+                                var avatar = $"uploads/avatars/{u.Id}/avatar-64.png";
+                                responderProfiles[u.Id] = (name, avatar);
+                            }
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -298,7 +342,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     CuerpoPreview = cuerpoPreview,
                     UsuarioId = i.UsuarioId,
                     AutorNombre = authors.TryGetValue(i.UsuarioId, out var info) ? info.name : "Usuario",
-                    AutorAvatarUrl = authors.TryGetValue(i.UsuarioId, out var info2) ? info2.avatar : "/img/avatar-placeholder.png",
+                    AutorAvatarUrl = authors.TryGetValue(i.UsuarioId, out var info2) ? info2.avatar : $"uploads/avatars/{i.UsuarioId}/avatar-64.png",
                     FechaCreacion = i.FechaCreacion,
                     RespuestasCount = i.RespuestasCount,
                     Score = i.Score,
@@ -322,7 +366,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     if (responderProfiles.TryGetValue(rid, out var rp))
                         vm.RespondersAvatars.Add(rp.avatar);
                     else
-                        vm.RespondersAvatars.Add("/img/avatar-placeholder.png");
+                        vm.RespondersAvatars.Add($"uploads/avatars/{rid}/avatar-64.png");
                 }
 
                 return vm;

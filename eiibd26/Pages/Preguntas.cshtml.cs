@@ -127,7 +127,10 @@ namespace eiibd26.Pages
                         var full = string.IsNullOrWhiteSpace(pf.Apellidos)
                             ? (pf.Nombre ?? "Usuario")
                             : $"{(pf.Nombre ?? "Usuario")} {pf.Apellidos}";
-                        var avatar = string.IsNullOrWhiteSpace(pf.Avatar) ? "/img/avatar-placeholder.png" : pf.Avatar;
+                        // Si no hay Avatar almacenado, apuntamos a uploads/avatars/{userId}/avatar-64.png
+                        var avatar = string.IsNullOrWhiteSpace(pf.Avatar)
+                            ? $"uploads/avatars/{pf.idUser}/avatar-64.png"
+                            : pf.Avatar.Replace("\\", "/");
                         authors[pf.idUser] = (full, avatar);
                     }
 
@@ -142,7 +145,8 @@ namespace eiibd26.Pages
                         foreach (var u in users)
                         {
                             if (!authors.ContainsKey(u.Id))
-                                authors[u.Id] = (string.IsNullOrWhiteSpace(u.UserName) ? "Usuario" : u.UserName, "/img/avatar-placeholder.png");
+                                // Intentamos usar la ruta por GUID aunque no exista; el <img> tendrá onerror que volverá al placeholder
+                                authors[u.Id] = (string.IsNullOrWhiteSpace(u.UserName) ? "Usuario" : u.UserName, $"uploads/avatars/{u.Id}/avatar-64.png");
                         }
                     }
                 }
@@ -188,7 +192,9 @@ namespace eiibd26.Pages
                         var full = string.IsNullOrWhiteSpace(pf.Apellidos)
                             ? (pf.Nombre ?? "Usuario")
                             : $"{(pf.Nombre ?? "Usuario")} {pf.Apellidos}";
-                        var avatar = string.IsNullOrWhiteSpace(pf.Avatar) ? "/img/avatar-placeholder.png" : pf.Avatar;
+                        var avatar = string.IsNullOrWhiteSpace(pf.Avatar)
+                            ? $"uploads/avatars/{pf.idUser}/avatar-64.png"
+                            : pf.Avatar.Replace("\\", "/");
                         responderUsers[pf.idUser] = (full, avatar);
                     }
 
@@ -203,7 +209,7 @@ namespace eiibd26.Pages
                         foreach (var u in rusers)
                         {
                             if (!responderUsers.ContainsKey(u.Id))
-                                responderUsers[u.Id] = (string.IsNullOrWhiteSpace(u.UserName) ? "Usuario" : u.UserName, "/img/avatar-placeholder.png");
+                                responderUsers[u.Id] = (string.IsNullOrWhiteSpace(u.UserName) ? "Usuario" : u.UserName, $"uploads/avatars/{u.Id}/avatar-64.png");
                         }
                     }
                 }

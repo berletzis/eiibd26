@@ -124,9 +124,10 @@ namespace eiibd26.Pages.Preguntas
                     var nombre = string.IsNullOrWhiteSpace(perfilAutor.Apellidos)
                         ? (perfilAutor.Nombre ?? "Usuario")
                         : $"{(perfilAutor.Nombre ?? "Usuario")} {perfilAutor.Apellidos}";
+                    // Si no hay Avatar almacenado, apuntamos a uploads/avatars/{userId}/avatar-64.png
                     var avatar = string.IsNullOrWhiteSpace(perfilAutor.Avatar)
-                        ? "/img/avatar-placeholder.png"
-                        : perfilAutor.Avatar;
+                        ? $"uploads/avatars/{preguntaRow.UsuarioId}/avatar-64.png"
+                        : perfilAutor.Avatar.Replace("\\", "/");
                     preguntaAutor = new AuthorInfo(nombre, avatar);
                 }
             }
@@ -256,9 +257,10 @@ namespace eiibd26.Pages.Preguntas
                         var full = string.IsNullOrWhiteSpace(pf.Apellidos)
                             ? (pf.Nombre ?? "Usuario")
                             : $"{(pf.Nombre ?? "Usuario")} {pf.Apellidos}";
+                        // Si no hay Avatar almacenado, apuntamos a uploads/avatars/{userId}/avatar-64.png
                         var avatar = string.IsNullOrWhiteSpace(pf.Avatar)
-                            ? "/img/avatar-placeholder.png"
-                            : pf.Avatar;
+                            ? $"uploads/avatars/{pf.idUser}/avatar-64.png"
+                            : pf.Avatar.Replace("\\", "/");
                         ansAuthors[pf.idUser] = new AuthorInfo(full, avatar);
                     }
 
@@ -275,7 +277,7 @@ namespace eiibd26.Pages.Preguntas
                             if (!ansAuthors.ContainsKey(u.Id))
                                 ansAuthors[u.Id] = new AuthorInfo(
                                     string.IsNullOrWhiteSpace(u.UserName) ? "Usuario" : u.UserName,
-                                    "/img/avatar-placeholder.png");
+                                    $"uploads/avatars/{u.Id}/avatar-64.png");
                         }
                     }
                 }
@@ -312,7 +314,7 @@ namespace eiibd26.Pages.Preguntas
             {
                 var autorInfo = ansAuthors.TryGetValue(a.UsuarioId, out var ai)
                     ? ai
-                    : new AuthorInfo("Usuario", "/img/avatar-placeholder.png");
+                    : new AuthorInfo("Usuario", $"uploads/avatars/{a.UsuarioId}/avatar-64.png");
 
                 return new RespuestaVm
                 {

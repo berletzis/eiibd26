@@ -14,9 +14,9 @@ namespace eiibd26.Models
         public string Avatar { get; set; }
 
         public int? imagenFondo { get; set; }
-        [Required]
-        [StringLength(256)]
-        public string? Titulo { get; set; }
+        
+        
+       public string? Titulo { get; set; }
 
         public bool Activo { get; set; }
 
@@ -40,6 +40,8 @@ namespace eiibd26.Models
         [Required]
         [StringLength(500)]
         public string? UsoPlataforma { get; set; }
+
+        public int? EstoyAqui { get; set; }
 
         public int? idZone { get; set; }
 

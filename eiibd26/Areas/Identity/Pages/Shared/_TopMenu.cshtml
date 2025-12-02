@@ -1,6 +1,45 @@
 ﻿@using Microsoft.AspNetCore.Http
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Hosting
 @{
     var isAuth = User?.Identity?.IsAuthenticated ?? false;
+
+    // Default avatar (virtual path)
+    var avatarSrc = Url.Content("~/img/default-avatar.png");
+
+    if (isAuth)
+    {
+        // Intentamos obtener el id del usuario (GUID) desde el claim NameIdentifier
+        var userId = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (!string.IsNullOrEmpty(userId))
+        {
+            // Intentamos resolver si el archivo físico existe en wwwroot/uploads/avatars/{userId}/avatar-64.png
+            var env = Context.RequestServices.GetService(typeof(IWebHostEnvironment)) as IWebHostEnvironment;
+            if (env != null)
+            {
+                try
+                {
+                    var physicalPath = System.IO.Path.Combine(env.WebRootPath ?? "wwwroot", "uploads", "avatars", userId, "avatar-64.png");
+                    if (System.IO.File.Exists(physicalPath))
+                    {
+                        // Usamos la ruta virtual para mostrar el avatar en la vista
+                        avatarSrc = Url.Content($"~/uploads/avatars/{userId}/avatar-64.png");
+                    }
+                }
+                catch
+                {
+                    // en caso de error dejamos avatar por defecto
+                    avatarSrc = Url.Content("~/img/default-avatar.png");
+                }
+            }
+            else
+            {
+                // Si no tenemos IWebHostEnvironment, intentamos construir la ruta virtual de todos modos
+                avatarSrc = Url.Content($"~/uploads/avatars/{userId}/avatar-64.png");
+            }
+        }
+    }
 }
 <header>
     <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom mb-3">
@@ -29,18 +68,22 @@
                         <a class="nav-link" href="/Privacy">Privacidad</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center" href="/Preguntas" title="Ir a mi Preguntas y Respuestas" aria-label="Preguntas y Respuestas">
+                        <a class="nav-link d-flex align-items-center" href="/Preguntas" title="Ir a Preguntas y Respuestas" aria-label="Preguntas y Respuestas">
                             <i class="bi bi-person-circle me-1"></i>
                             <span>Preguntas y Respuestas</span>
                         </a>
                     </li>
 
-                    @* "Ir a Mi Perfil" se mantiene a la izquierda y sólo se muestra si está autenticado *@
+                    @* "Ir a Mi Perfil" se mantiene a la izquierda y sólo se muestra si está autenticado.
+                       Ahora el ícono es la fotografía almacenada en wwwroot/uploads/avatars/{GUID}/avatar-64.png *@
                     @if (isAuth)
                     {
                         <li class="nav-item">
                             <a class="nav-link d-flex align-items-center" href="/Identity/Usuario/UsuarioPerfil" title="Ir a mi perfil" aria-label="Ir a mi perfil">
-                                <i class="bi bi-person-circle me-1"></i>
+                                <img src="@avatarSrc"
+                                     alt="Mi avatar"
+                                     class="rounded-circle me-2"
+                                     style="height:28px;width:28px;object-fit:cover;border:1px solid rgba(0,0,0,0.06);" />
                                 <span>Ir a Mi Perfil</span>
                             </a>
                         </li>
@@ -48,7 +91,7 @@
                 </ul>
 
                 <!-- Menú de usuario derecha: Login & Registro (cuando NO está autenticado)
-                     y el dropdown "Mi Perfil (Opciones)" (cuando SÍ está autenticado) -->
+                     y el dropdown "Mis datos de inicio de sesión" (cuando SÍ está autenticado) -->
                 <ul class="navbar-nav ms-auto align-items-center">
                     @if (!isAuth)
                     {
@@ -67,40 +110,43 @@
                     {
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="perfilDropdown" role="button"
-                               data-bs-toggle="dropdown" aria-expanded="false" title="Mi Perfil" aria-label="Mi Perfil">
-                                <i class="bi bi-person-gear me-1"></i>
-                                <span>Mi Perfil (Opciones)</span>
+                               data-bs-toggle="dropdown" aria-expanded="false"
+                               title="Mis datos de inicio de sesión" aria-label="Mis datos de inicio de sesión">
+                                @* Icono cambiado a engranaje *@
+                                <i class="bi bi-gear-fill me-1" aria-hidden="true"></i>
+                                <span>Mis datos de inicio de sesión</span>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="perfilDropdown">
                                 <li>
-                                    <a class="dropdown-item" href="/Identity/Account/Manage">
-                                        <i class="bi bi-person-card me-1"></i> Perfil principal
+                                    <a class="dropdown-item d-flex align-items-center" href="/Identity/Account/Manage">
+                                        <i class="bi bi-person-card me-1"></i>
+                                        <span>Perfil principal</span>
                                     </a>
                                 </li>
                                 <li>
-                                    <a class="dropdown-item" href="/Identity/Account/Manage/Email">
+                                    <a class="dropdown-item d-flex align-items-center" href="/Identity/Account/Manage/Email">
                                         <i class="bi bi-envelope me-1"></i> Cambiar email
                                     </a>
                                 </li>
                                 <li>
-                                    <a class="dropdown-item" href="/Identity/Account/Manage/ChangePassword">
+                                    <a class="dropdown-item d-flex align-items-center" href="/Identity/Account/Manage/ChangePassword">
                                         <i class="bi bi-key me-1"></i> Cambiar contraseña
                                     </a>
                                 </li>
                                 <li>
-                                    <a class="dropdown-item" href="/Identity/Account/Manage/TwoFactorAuthentication">
+                                    <a class="dropdown-item d-flex align-items-center" href="/Identity/Account/Manage/TwoFactorAuthentication">
                                         <i class="bi bi-shield-lock me-1"></i> Doble factor
                                     </a>
                                 </li>
                                 <li>
-                                    <a class="dropdown-item" href="/Identity/Account/Manage/ExternalLogins">
+                                    <a class="dropdown-item d-flex align-items-center" href="/Identity/Account/Manage/ExternalLogins">
                                         <i class="bi bi-box-arrow-in-right me-1"></i> Logins externos
                                     </a>
                                 </li>
                                 <li><hr class="dropdown-divider" /></li>
                                 <li>
                                     <form method="post" asp-area="Identity" asp-page="/Account/Logout" class="d-inline">
-                                        <button type="submit" class="dropdown-item">
+                                        <button type="submit" class="dropdown-item d-flex align-items-center">
                                             <i class="bi bi-box-arrow-right me-1"></i> Cerrar sesión
                                         </button>
                                     </form>

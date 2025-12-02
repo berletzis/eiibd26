@@ -4,183 +4,44 @@
 @{
     ViewData["Title"] = "Perfil de Usuario";
 }
+
 @section Styles {
     <link rel="stylesheet" href="~/css/avatar-card.css" />
+    <link rel="stylesheet" href="~/css/perfil.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.min.css">
-    <style>
-        body {
-            background: #f5f7fb;
-        }
-
-        .crm-container-admin {
-            max-width: 1320px;
-            margin: 0 auto 30px auto;
-            padding-left: 10px;
-            padding-right: 10px;
-        }
-
-        .perfil-title {
-            font-size: 2.08rem;
-            font-weight: 600;
-            letter-spacing: -0.07em;
-            color: #172849;
-            margin-bottom: .7em;
-        }
-
-        .card-row {
-            display: flex;
-            gap: 32px;
-            flex-wrap: wrap;
-        }
-
-        .card-block-modern {
-            background: #fff;
-            border-radius: 18px;
-            box-shadow: 0 6px 30px rgba(50,65,120,0.07);
-            border: none;
-            padding: 2.1rem 2.2rem 1.8rem;
-            margin-bottom: 36px;
-            flex: 1 1 0px;
-        }
-
-        .block-title {
-            font-size: 1.38rem;
-            font-weight: 600;
-            margin-bottom: 19px;
-            color: #305586;
-            letter-spacing: -.02em;
-        }
-
-        .form-col {
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-        }
-
-        .form-row {
-            display: flex;
-            gap: 16px;
-            align-items: center;
-        }
-
-            .form-row .form-col {
-                width: 100%;
-            }
-
-        .form-col-sm {
-            flex: 0 0 45%;
-        }
-
-        .form-col-lg {
-            flex: 1 0 55%;
-        }
-
-        .card-block-modern input.form-control, .card-block-modern textarea.form-control, .card-block-modern select.form-select {
-            border-radius: 8px;
-            border: 1px solid #dde6f1;
-            background: #f8fafd;
-            font-size: 1.07em;
-        }
-
-        .card-block-modern input[type="checkbox"] {
-            margin-right: 10px;
-            height: 20px;
-            width: 20px;
-            accent-color: #1e88e5;
-        }
-
-        .avatar-perfil-box img {
-            width: 110px;
-            height: 110px;
-            border-radius: 70px;
-            box-shadow: 0 2px 13px #cad6ea54;
-            border: 2px solid #b4d3ee;
-            object-fit: cover;
-            display: block;
-            margin: 0 auto;
-        }
-
-        .perfil-label {
-            font-size: 1.07em;
-            font-weight: 500;
-            color: #375586;
-        }
-
-        .form-text-error {
-            color: #c92a2a;
-            font-size: 0.97em;
-            margin-left: 3px;
-        }
-
-        .readonly-label {
-            background: #f8fafd;
-            border-radius: 6px;
-            border: 1px solid #dde6f1;
-            padding: 7px 10px;
-            font-size: 1.05em;
-            color: #1e355e;
-            min-height: 37px;
-        }
-
-        .form-check-label {
-            font-size: 1.05em;
-            color: #305586;
-        }
-
-        input[type="hidden"] {
-            display: none !important;
-        }
-
-        .avatar-controls-row {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            margin-top: 12px;
-            justify-content: center;
-        }
-
-        .btn-loading {
-            opacity: 0.7;
-            pointer-events: none;
-        }
-
-        @@media (max-width: 900px) {
-            .crm-container-admin {
-                max-width: 98vw;
-            }
-
-            .card-row {
-                flex-direction: column;
-                gap: 24px;
-            }
-
-            .card-block-modern {
-                padding: 1.1rem 0.7rem 1.0rem 0.7rem;
-            }
-
-            .form-row {
-                flex-direction: column;
-            }
-
-            .form-col-sm, .form-col-lg {
-                flex: 1 1 100%;
-            }
-        }
-    </style>
 }
 
-<div class="crm-container-admin">
-    <h2 class="perfil-title mb-4">Perfil de Usuario</h2>
+<div class="container my-4">
+    <div class="mb-4 text-center">
+        <h1 class="perfil-title">Perfil de Usuario</h1>
+    </div>
 
-    @* Solo un alert para success, se auto-ocultará con JS *@
-    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
-    {
-        <div class="alert alert-success text-center" role="alert" id="perfil-success-alert">@Model.SuccessMessage</div>
+    @{
+        var tieneErroresModelo = !ViewData.ModelState.IsValid;
+        var hayErrorTexto = !string.IsNullOrEmpty(Model.ErrorMessage);
     }
 
-    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    @* Éxito: solo se muestra si NO hay errores ni ErrorMessage *@
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage) && !tieneErroresModelo && !hayErrorTexto)
     {
-        <div class="alert alert-danger text-center" role="alert">@Model.ErrorMessage</div>
+        <div class="alert alert-success text-center perfil-alert" role="alert" id="perfil-success-alert">
+            @Model.SuccessMessage
+        </div>
+    }
+
+    @* Error general: se muestra si hay ErrorMessage o errores de modelo *@
+    @if (hayErrorTexto || tieneErroresModelo)
+    {
+        <div class="alert alert-danger text-center perfil-alert" role="alert">
+            @if (hayErrorTexto)
+            {
+                @Model.ErrorMessage
+            }
+            else
+            {
+                <span>Faltan campos requeridos en el perfil. Revisa la lista de campos faltantes.</span>
+            }
+        </div>
     }
 
     @if (Model.Perfil != null)
@@ -190,217 +51,340 @@
             <input asp-for="Perfil.idUser" type="hidden" id="Perfil_idUser" />
             <input asp-for="Perfil.Avatar" type="hidden" id="Perfil_AvatarHidden" />
 
-            <!-- Card: Mi Perfil público -->
-            <div class="card-block-modern mb-3">
-                <h3 class="block-title mb-3"><i class="bi bi-eye"></i> Mi Perfil público</h3>
-                <div class="form-row">
-                    <div class="form-col-lg">
-                        <label class="perfil-label" for="Perfil_slug">Slug público</label>
-                        <div style="display:flex;gap:8px;align-items:center;">
-                            <input asp-for="Perfil.slug" class="form-control" id="Perfil_slug" placeholder="mi-slug-personal"
-                                   data-check-url="@Url.Page(null, null, new { handler = "CheckSlug" }, Request.Scheme)" />
-                            <button type="button" id="generate-slug-btn" class="btn btn-outline-primary" data-generate-url="@Url.Page(null, null, new { handler = "GenerateSlug" }, Request.Scheme)">Generar slug</button>
-                        </div>
-                        <div class="form-text mt-1 text-muted">El slug será parte de la URL pública. Puedes escribir el tuyo o generar uno único automáticamente.</div>
-                        <div class="form-text-error mt-1" id="slug-error" style="display:@(ViewData.ModelState.ContainsKey("Perfil.slug") && ViewData.ModelState["Perfil.slug"].Errors.Any() ? "block" : "none")">
-                            @if (ViewData.ModelState.ContainsKey("Perfil.slug") && ViewData.ModelState["Perfil.slug"].Errors.Any())
-                            {
-                                @ViewData.ModelState["Perfil.slug"].Errors.First().ErrorMessage
-                            }
-                        </div>
-                        <div class="form-text text-success mt-1" id="slug-ok" style="display:none;"></div>
-
-                        <div class="mt-2 text-muted">
-                            Slug actual: <strong id="slug-current">@Model.Perfil?.slug</strong>
-                        </div>
-                        <div class="mt-2">
-                            URL pública: <a id="slug-preview" href="@(Model.Perfil?.slug != null ? $"{Request.Scheme}://{Request.Host}/u/{Model.Perfil.slug}" : "#")" target="_blank">
-                                @(Model.Perfil?.slug != null ? $"{Request.Scheme}://{Request.Host}/u/{Model.Perfil.slug}" : "—")
-                            </a>
-                        </div>
-
-                        <div class="mt-2" id="slug-suggestion-row" style="display:none;">
-                            <span class="text-muted">Sugerencia disponible:</span>
-                            <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="use-suggestion-btn">Usar sugerencia</button>
-                            <span id="slug-suggestion" class="ms-2 fw-bold"></span>
+            <!-- ROW 1: Card de Perfil (izquierda) + Datos informativos (derecha) -->
+            <div class="row g-4">
+                <!-- Columna izquierda: avatar / card de perfil -->
+                <div class="col-12 col-lg-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            @await Html.PartialAsync("_AvatarCard", Model)
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Avatar block: preview + upload (server centers/crops) -->
-            <div class="card-row">
-                <div class="card-block-modern" style="flex:0 0 300px;">
-                    @* Dentro de Areas/Identity/Pages/Usuario/UsuarioPerfil.cshtml *@
-                    @await Html.PartialAsync("_AvatarCard", Model)
-                </div>
+                <!-- Columna derecha: Datos Informativos y privados -->
+                <div class="col-12 col-lg-8">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h2 class="card-section-title mb-3">
+                                Datos informativos y privados de la persona que tiene la condición
+                            </h2>
 
-                <!-- Información General -->
-                <div class="card-block-modern" style="flex:1 1 0px;">
-                    <h3 class="block-title mb-3"><i class="bi bi-person-badge"></i> Información General</h3>
+                            <div class="row mb-3">
+                                <div class="col-sm-5 mb-3 mb-sm-0">
+                                    <label class="perfil-label" asp-for="Perfil.Nombre"></label>
+                                    <input asp-for="Perfil.Nombre" class="form-control" id="Perfil_Nombre" />
+                                    <span asp-validation-for="Perfil.Nombre" class="text-danger"></span>
+                                </div>
+                                <div class="col-sm-5">
+                                    <label class="perfil-label" asp-for="Perfil.Apellidos">Apellidos (NO obligatorio)</label>
+                                    <input asp-for="Perfil.Apellidos" class="form-control" id="Perfil_Apellidos" />
+                                    <span asp-validation-for="Perfil.Apellidos" class="text-danger"></span>
+                                </div>
+                            </div>
 
-                    <div class="form-row">
-                        <div class="form-col-sm">
-                            <label class="perfil-label" asp-for="Perfil.Titulo">Título</label>
-                            <input asp-for="Perfil.Titulo" class="form-control" />
-                        </div>
-                        <div class="form-col-lg">
-                            <label class="perfil-label" asp-for="Perfil.Nombre">Nombre</label>
-                            <input asp-for="Perfil.Nombre" class="form-control" id="Perfil_Nombre" />
-                        </div>
-                    </div>
+                            <div class="row mb-3">
+                                <div class="col-sm-5 mb-3 mb-sm-0">
+                                    <label class="perfil-label" asp-for="Perfil.Telefono"></label>
+                                    <input asp-for="Perfil.Telefono"
+                                           class="form-control"
+                                           id="telefono-input"
+                                           maxlength="14" />
+                                    <span class="form-text-error d-none" id="telefono-error">Teléfono debe tener 10 dígitos numéricos.</span>
+                                    <span asp-validation-for="Perfil.Telefono" class="text-danger"></span>
+                                </div>
 
-                    <div class="form-row">
-                        <div class="form-col">
-                            <label class="perfil-label" asp-for="Perfil.Apellidos">Apellidos</label>
-                            <input asp-for="Perfil.Apellidos" class="form-control" id="Perfil_Apellidos" />
-                        </div>
-                        <div class="form-col">
-                            <label class="perfil-label" asp-for="Perfil.UsoPlataforma">Uso plataforma</label>
-                            <input asp-for="Perfil.UsoPlataforma" class="form-control" readonly style="background:#f4f6fa;" />
-                        </div>
-                    </div>
+                                <div class="col-sm-5">
+                                    <div class="mb-1">
+                                        <input type="hidden" name="Perfil.PermitirTelefonoReal" value="false" />
+                                        <div class="form-check">
+                                            <input class="form-check-input"
+                                                   type="checkbox"
+                                                   id="Perfil_PermitirTelefonoReal"
+                                                   name="Perfil.PermitirTelefonoReal"
+                                                   value="true"
+                                                   @(Model.Perfil?.PermitirTelefonoReal == true ? "checked" : "") />
+                                            <label class="form-check-label" for="Perfil_PermitirTelefonoReal">
+                                                Permitir utilizar teléfono para saber si soy real
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <label class="form-check-label" for="Perfil_saberSiSoyReal">
+                                        <a href="#">Leer más del método “Saber si soy real”.</a>
+                                    </label>
+                                </div>
+                            </div>
 
-                    <div class="form-row">
-                        <div class="form-col">
-                            <label class="perfil-label" asp-for="Perfil.FechaDeNacimiento">Fecha de nacimiento</label>
-                            <input asp-for="Perfil.FechaDeNacimiento" class="form-control" type="date" />
-                            <span class="form-text-error d-none" id="fnac-error">La fecha no puede ser futura.</span>
-                        </div>
-                        <div class="form-col">
-                            <label class="perfil-label" asp-for="Perfil.Genero">Género</label>
-                            <select asp-for="Perfil.Genero" asp-items="Model.GenerosList" class="form-select" id="genero-select">
-                                <option value="">Selecciona...</option>
-                            </select>
-                        </div>
-                    </div>
+                            <div class="row mb-3">
+                                <div class="col-sm-5 mb-3 mb-sm-0">
+                                    <label class="perfil-label" asp-for="Perfil.Email"></label>
+                                    <input asp-for="Perfil.Email"
+                                           class="form-control"
+                                           id="email-input" />
+                                    <span class="form-text-error d-none" id="email-error">Ingrese un email válido.</span>
+                                    <span asp-validation-for="Perfil.Email" class="text-danger"></span>
+                                </div>
 
-                    <div class="form-row">
-                        <div class="form-col">
-                            <label class="perfil-label" asp-for="Perfil.AcercaDe">Acerca de</label>
-                            <textarea asp-for="Perfil.AcercaDe" class="form-control" rows="2"></textarea>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Datos para la plataforma -->
-            <div class="card-row">
-                <div class="card-block-modern">
-                    <h3 class="block-title mb-3"><i class="bi bi-geo-alt"></i> Datos para la plataforma</h3>
-
-                    <div class="form-row">
-                        <div class="form-col">
-                            <label class="perfil-label" asp-for="Perfil.NombrePais">País</label>
-                            <select asp-for="Perfil.NombrePais" asp-items="Model.PaisesSelectList" class="form-select" id="pais-select">
-                                <option value="">Selecciona país...</option>
-                            </select>
-                        </div>
-                        <div class="form-col">
-                            <label class="perfil-label" asp-for="Perfil.NombreCiudad">Ciudad</label>
-                            <input asp-for="Perfil.NombreCiudad" class="form-control" id="ciudad-input" autocomplete="off" />
-                            <span class="form-text-error d-none" id="ciudad-error">Debes elegir una ciudad válida.</span>
-                        </div>
-                    </div>
-
-                    <div class="form-row mt-2">
-                        <div class="form-col">
-                            <div class="form-check">
-                                <input type="hidden" name="Perfil.PermitirMostrarPais" value="false" />
-                                <input class="form-check-input" type="checkbox" id="Perfil_PermitirMostrarPais" name="Perfil.PermitirMostrarPais" value="true"
-                                       @(Model.Perfil?.PermitirMostrarPais == true ? "checked" : "") />
-                                <label class="form-check-label" for="Perfil_PermitirMostrarPais">Permitir que otros usuarios vean de qué país soy</label>
+                                <div class="col-sm-5">
+                                    <div class="mb-1">
+                                        <input type="hidden" name="Perfil.PermitirCorreoNoticias" value="false" />
+                                        <div class="form-check">
+                                            <input class="form-check-input"
+                                                   type="checkbox"
+                                                   id="Perfil_PermitirCorreoNoticias"
+                                                   name="Perfil.PermitirCorreoNoticias"
+                                                   value="true"
+                                                   @(Model.Perfil?.PermitirCorreoNoticias == true ? "checked" : "") />
+                                            <label class="form-check-label" for="Perfil_PermitirCorreoNoticias">
+                                                Permitir enviarme notificaciones o noticias
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <label class="form-check-label" for="Perfil_leerMasTipoCorreos">
+                                        <a href="#">Leer más del tipo de correos.</a>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>
-
-                    <div class="form-row mt-2">
-                        <div class="form-col">
-                            <label class="perfil-label" asp-for="Perfil.Telefono">Teléfono</label>
-                            <input asp-for="Perfil.Telefono" class="form-control" id="telefono-input" maxlength="14" />
-                            <span class="form-text-error d-none" id="telefono-error">Teléfono debe tener 10 dígitos.</span>
-                        </div>
-                    </div>
-
-                    <div class="form-row mt-1">
-                        <div class="form-col">
-                            <div class="form-check">
-                                <input type="hidden" name="Perfil.PermitirTelefonoReal" value="false" />
-                                <input class="form-check-input" type="checkbox" id="Perfil_PermitirTelefonoReal" name="Perfil.PermitirTelefonoReal" value="true"
-                                       @(Model.Perfil?.PermitirTelefonoReal == true ? "checked" : "") />
-                                <label class="form-check-label" for="Perfil_PermitirTelefonoReal">Permitir utilizar teléfono para saber si soy real</label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="form-row mt-2">
-                        <div class="form-col">
-                            <label class="perfil-label" asp-for="Perfil.Email">Email</label>
-                            <input asp-for="Perfil.Email" class="form-control" id="email-input" />
-                            <span class="form-text-error d-none" id="email-error">Ingrese un email válido.</span>
-                        </div>
-                    </div>
-
-                    <div class="form-row mt-1">
-                        <div class="form-col">
-                            <div class="form-check">
-                                <input type="hidden" name="Perfil.PermitirCorreoNoticias" value="false" />
-                                <input class="form-check-input" type="checkbox" id="Perfil_PermitirCorreoNoticias" name="Perfil.PermitirCorreoNoticias" value="true"
-                                       @(Model.Perfil?.PermitirCorreoNoticias == true ? "checked" : "") />
-                                <label class="form-check-label" for="Perfil_PermitirCorreoNoticias">Permitir enviarme correos de notificaciones o noticias</label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <input asp-for="Perfil.Latitud" type="hidden" id="latitud-input" />
-                    <input asp-for="Perfil.Longitud" type="hidden" id="longitud-input" />
                 </div>
             </div>
 
-            <!-- Estado y Privacidad -->
-            <div class="card-block-modern mb-3" style="max-width:700px;margin:0 auto;">
-                <h3 class="block-title mb-3"><i class="bi bi-info-circle"></i> Estado y Privacidad</h3>
-                <div class="form-row">
-                    <div class="form-col">
-                        <div class="form-check">
-                            <input type="hidden" name="Perfil.Activo" value="false" />
-                            <input class="form-check-input" type="checkbox" id="Perfil_Activo" name="Perfil.Activo" value="true"
-                                   @(Model.Perfil?.Activo == true ? "checked" : "") />
-                            <label class="perfil-label form-check-label" for="Perfil_Activo">Activo</label>
+            <!-- ROW 2: ID en línea (izquierda) + Datos estadísticos (derecha) -->
+            <div class="row g-4 mt-3">
+                <!-- Columna izquierda: ID en línea -->
+                <div class="col-12 col-lg-6">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h2 class="card-section-title mb-3">
+                                ID en línea
+                            </h2>
+
+                            <div class="mb-3">
+                                <label class="perfil-label" for="Perfil_slug">
+                                    Usuario / Slug público –
+                                    <a id="slug-preview"
+                                       href="@(Model.Perfil?.slug != null ? $"{Request.Scheme}://{Request.Host}/u/{Model.Perfil.slug}" : "#")"
+                                       target="_blank">
+                                        @(Model.Perfil?.slug != null ? $"{Request.Scheme}://{Request.Host}/u/{Model.Perfil.slug}" : "—")
+                                    </a>
+                                </label>
+
+                                <div class="position-relative" style="min-width:220px;">
+                                    <input asp-for="Perfil.slug"
+                                           class="form-control pe-5"
+                                           id="Perfil_slug"
+                                           placeholder="mi-slug-personal"
+                                           autocomplete="off"
+                                           data-check-url="@Url.Page(null, null, new { handler = "CheckSlug" }, Request.Scheme)"
+                                           data-suggestions-url="@Url.Page(null, null, new { handler = "GenerateSlug" }, Request.Scheme)" />
+
+                                    <span id="slug-status-icon"
+                                          class="position-absolute top-50 end-0 translate-middle-y me-2"
+                                          style="display:none;">
+                                        <span id="slug-status-badge" class="slug-status-badge"></span>
+                                    </span>
+                                </div>
+
+                                <small class="form-text text-muted d-block mt-1">
+                                    El slug será parte de la URL pública. Puedes escribir el tuyo o elegir alguna de las opciones sugeridas.
+                                </small>
+
+                                <span asp-validation-for="Perfil.slug" class="text-danger"></span>
+
+                                <div class="form-text-error mt-1" id="slug-error" style="display:none;"></div>
+                                <div class="form-text text-success mt-1" id="slug-ok" style="display:none;"></div>
+
+                                <div class="mt-2">
+                                    <span class="text-muted d-block mb-1">Algunas opciones disponibles:</span>
+                                    <ul class="slug-suggestions" id="slug-suggestions-list" style="display:none;"></ul>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="perfil-label" asp-for="Perfil.AcercaDe"></label>
+                                <textarea asp-for="Perfil.AcercaDe" class="form-control" rows="2"></textarea>
+                                <span asp-validation-for="Perfil.AcercaDe" class="text-danger"></span>
+                            </div>
                         </div>
                     </div>
-                    <div class="form-col">
-                        <div class="form-check">
-                            <input type="hidden" name="Perfil.AceptoPP" value="false" />
-                            <input class="form-check-input" type="checkbox" id="Perfil_AceptoPP" name="Perfil.AceptoPP" value="true"
-                                   @(Model.Perfil?.AceptoPP == true ? "checked" : "") />
-                            <label class="perfil-label form-check-label" for="Perfil_AceptoPP">Aceptó Política Privacidad</label>
-                        </div>
-                    </div>
-                    <div class="form-col">
-                        <div class="form-check">
-                            <input type="hidden" name="Perfil.Eliminado" value="false" />
-                            <input class="form-check-input" type="checkbox" id="Perfil_Eliminado" name="Perfil.Eliminado" value="true"
-                                   @(Model.Perfil?.Eliminado == true ? "checked" : "") />
-                            <label class="perfil-label form-check-label" for="Perfil_Eliminado">Eliminado</label>
+                </div>
+
+                <!-- Columna derecha: Datos estadísticos para la plataforma -->
+                <div class="col-12 col-lg-6">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h2 class="card-section-title mb-3">
+                                Datos estadísticos para la plataforma
+                            </h2>
+
+                            <div class="row mb-3">
+                                <div class="col-md-7 mb-3 mb-md-0">
+                                    <label class="perfil-label" asp-for="Perfil.EstoyAqui"></label>
+                                    <select asp-for="Perfil.EstoyAqui"
+                                            class="form-select"
+                                            id="Perfil_EstoyAqui">
+                                        <option value="">Selecciona una opción...</option>
+                                        <option value="1">por mi</option>
+                                        <option value="2">por mi hijo</option>
+                                        <option value="3">por mi hija</option>
+                                        <option value="4">por mi papá</option>
+                                        <option value="5">por mi mamá</option>
+                                        <option value="6">por mi hermano</option>
+                                        <option value="7">por mi hermana</option>
+                                        <option value="8">por otro tipo de familia sanguínea</option>
+                                        <option value="9">por alguien más</option>
+                                    </select>
+                                    <span asp-validation-for="Perfil.EstoyAqui" class="text-danger"></span>
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="perfil-label" asp-for="Perfil.UsoPlataforma"></label>
+                                    <input asp-for="Perfil.UsoPlataforma" class="form-control" readonly />
+                                    <span asp-validation-for="Perfil.UsoPlataforma" class="text-danger"></span>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6 mb-3 mb-md-0">
+                                    <label class="perfil-label" asp-for="Perfil.FechaDeNacimiento"></label>
+                                    <input asp-for="Perfil.FechaDeNacimiento" class="form-control" type="date" />
+                                    <span class="form-text-error d-none" id="fnac-error">La fecha no puede ser futura.</span>
+                                    <span asp-validation-for="Perfil.FechaDeNacimiento" class="text-danger"></span>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="perfil-label" asp-for="Perfil.Genero"></label>
+                                    <select asp-for="Perfil.Genero" asp-items="Model.GenerosList" class="form-select" id="genero-select">
+                                        <option value="">Selecciona...</option>
+                                    </select>
+                                    <span asp-validation-for="Perfil.Genero" class="text-danger"></span>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6 mb-3 mb-md-0">
+                                    <label class="perfil-label" asp-for="Perfil.NombrePais"></label>
+                                    <select asp-for="Perfil.NombrePais"
+                                            asp-items="Model.PaisesSelectList"
+                                            class="form-select"
+                                            id="pais-select">
+                                        <option value="">Selecciona país...</option>
+                                    </select>
+                                    <span asp-validation-for="Perfil.NombrePais" class="text-danger"></span>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="perfil-label" asp-for="Perfil.NombreCiudad"></label>
+                                    <input asp-for="Perfil.NombreCiudad"
+                                           class="form-control"
+                                           id="ciudad-input"
+                                           autocomplete="off" />
+                                    <span class="form-text-error d-none" id="ciudad-error">Debes elegir una ciudad válida.</span>
+                                    <span asp-validation-for="Perfil.NombreCiudad" class="text-danger"></span>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input type="hidden" name="Perfil.PermitirMostrarPais" value="false" />
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           id="Perfil_PermitirMostrarPais"
+                                           name="Perfil.PermitirMostrarPais"
+                                           value="true"
+                                           @(Model.Perfil?.PermitirMostrarPais == true ? "checked" : "") />
+                                    <label class="form-check-label" for="Perfil_PermitirMostrarPais">
+                                        Permitir que otros usuarios vean de qué país soy
+                                    </label>
+                                </div>
+                                <span asp-validation-for="Perfil.PermitirMostrarPais" class="text-danger"></span>
+                            </div>
+
+                            <input asp-for="Perfil.Latitud" type="hidden" id="latitud-input" />
+                            <input asp-for="Perfil.Longitud" type="hidden" id="longitud-input" />
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="text-center mt-3 mb-5">
-                <button class="btn btn-success" type="submit"><i class="bi bi-save"></i> Guardar Cambios</button>
-                <a class="btn btn-secondary ms-2" href="/">Volver</a>
+            <!-- ROW 3: Estado y Privacidad -->
+            <div class="row g-4 mt-3">
+                <div class="col-12">
+                    <div class="card shadow-sm">
+                        <div class="card-body">
+                            <h2 class="card-section-title mb-3">
+                                Estado y Privacidad
+                            </h2>
+
+                            <div class="row">
+                                <div class="col-md-4 mb-2">
+                                    <div class="form-check">
+                                        <input type="hidden" name="Perfil.Activo" value="false" />
+                                        <input class="form-check-input"
+                                               type="checkbox"
+                                               id="Perfil_Activo"
+                                               name="Perfil.Activo"
+                                               value="true"
+                                               @(Model.Perfil?.Activo == true ? "checked" : "") />
+                                        <label class="form-check-label perfil-label" for="Perfil_Activo">Activo</label>
+                                    </div>
+                                    <span asp-validation-for="Perfil.Activo" class="text-danger"></span>
+                                </div>
+
+                                <div class="col-md-4 mb-2">
+                                    <div class="form-check">
+                                        <input type="hidden" name="Perfil.AceptoPP" value="false" />
+                                        <input class="form-check-input"
+                                               type="checkbox"
+                                               id="Perfil_AceptoPP"
+                                               name="Perfil.AceptoPP"
+                                               value="true"
+                                               @(Model.Perfil?.AceptoPP == true ? "checked" : "") />
+                                        <label class="form-check-label perfil-label" for="Perfil_AceptoPP">
+                                            Aceptó Política Privacidad
+                                        </label>
+                                    </div>
+                                    <span asp-validation-for="Perfil.AceptoPP" class="text-danger"></span>
+                                </div>
+
+                                <div class="col-md-4 mb-2">
+                                    <div class="form-check">
+                                        <input type="hidden" name="Perfil.Eliminado" value="false" />
+                                        <input class="form-check-input"
+                                               type="checkbox"
+                                               id="Perfil_Eliminado"
+                                               name="Perfil.Eliminado"
+                                               value="true"
+                                               @(Model.Perfil?.Eliminado == true ? "checked" : "") />
+                                        <label class="form-check-label perfil-label" for="Perfil_Eliminado">
+                                            Eliminado
+                                        </label>
+                                    </div>
+                                    <span asp-validation-for="Perfil.Eliminado" class="text-danger"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botones -->
+            <div class="text-center mt-4 mb-5">
+                <button class="btn btn-primary me-2" type="submit">
+                    Guardar cambios
+                </button>
+                <a class="btn btn-outline-secondary" href="/">Volver</a>
             </div>
         </form>
     }
     else
     {
-        <div class="alert alert-danger">No se encontró usuario/perfil.</div>
+        <div class="alert alert-danger text-center">No se encontró usuario/perfil.</div>
     }
 </div>
 
 @section Scripts {
+
+    <script src="~/js/avatar-card.js" asp-append-version="true"></script>
+
     <!-- Google maps wrapper (unchanged) -->
     <script>
         window.initAutocomplete = function() {
@@ -414,7 +398,7 @@
                 if (typeof window.initAutocompleteImpl === 'function') {
                     clearInterval(wait);
                     window.initAutocompleteImpl();
-                } else if (tries > 50) { // ~5s timeout
+                } else if (tries > 50) {
                     clearInterval(wait);
                     console.warn('initAutocompleteImpl not defined after waiting');
                 }
@@ -460,14 +444,15 @@
 
                 autocomplete.addListener('place_changed', function(){
                     var place = autocomplete.getPlace();
+                    var ciudadErr = document.getElementById('ciudad-error');
                     if (place && place.geometry && place.geometry.location) {
-                        document.getElementById('ciudad-error') && document.getElementById('ciudad-error').classList.add('d-none');
+                        if (ciudadErr) ciudadErr.classList.add('d-none');
                         if (latEl) latEl.value = place.geometry.location.lat();
                         if (lngEl) lngEl.value = place.geometry.location.lng();
                     } else {
                         if (latEl) latEl.value = '';
                         if (lngEl) lngEl.value = '';
-                        document.getElementById('ciudad-error') && document.getElementById('ciudad-error').classList.remove('d-none');
+                        if (ciudadErr) ciudadErr.classList.remove('d-none');
                     }
                 });
 
@@ -479,26 +464,127 @@
     </script>
 
     <script>
-        // slug live-check + generate (unchanged)
+        // slug live-check + 3 sugerencias únicas + badge de estado
         (function(){
             function el(id){return document.getElementById(id);}
             var slugInput = el('Perfil_slug');
-            var generateBtn = el('generate-slug-btn');
             var slugOk = el('slug-ok');
             var slugErr = el('slug-error');
             var slugCurrent = el('slug-current');
             var slugPreview = el('slug-preview');
-            var suggestionRow = el('slug-suggestion-row');
-            var suggestionEl = el('slug-suggestion');
-            var useSuggestionBtn = el('use-suggestion-btn');
+
+            var slugStatusIcon = el('slug-status-icon');
+            var slugStatusBadge = el('slug-status-badge');
+            var suggestionsList = el('slug-suggestions-list');
+
             var userId = (el('Perfil_idUser') && el('Perfil_idUser').value) ? el('Perfil_idUser').value : '';
 
             function updatePreview(slug){
-                if(!slug){ if(slugPreview){ slugPreview.href = '#'; slugPreview.textContent = '—'; } return; }
+                if(!slug){
+                    if(slugPreview){
+                        slugPreview.href = '#';
+                        slugPreview.textContent = '—';
+                    }
+                    return;
+                }
                 var origin = window.location.origin;
                 var url = origin + '/u/' + slug;
-                if(slugPreview){ slugPreview.href = url; slugPreview.textContent = url; }
+                if(slugPreview){
+                    slugPreview.href = url;
+                    slugPreview.textContent = url;
+                }
                 if(slugCurrent) slugCurrent.textContent = slug;
+            }
+
+            function clearStatus(){
+                if(slugStatusIcon){
+                    slugStatusIcon.style.display = 'none';
+                }
+                if(slugStatusBadge){
+                    slugStatusBadge.textContent = '';
+                    slugStatusBadge.classList.remove('error');
+                }
+            }
+
+            function setStatus(ok, text){
+                if(!slugStatusIcon || !slugStatusBadge) return;
+                slugStatusIcon.style.display = 'inline-flex';
+                slugStatusBadge.textContent = text || (ok ? 'Disponible' : 'Ocupado');
+                if(ok){
+                    slugStatusBadge.classList.remove('error');
+                } else {
+                    slugStatusBadge.classList.add('error');
+                }
+            }
+
+            function clearSuggestions(){
+                if(!suggestionsList) return;
+                suggestionsList.innerHTML = '';
+                suggestionsList.style.display = 'none';
+            }
+
+            function buildSuggestionListFromResponse(data){
+                var list = [];
+                if (Array.isArray(data.slugs)) {
+                    list = data.slugs;
+                } else if (data.slug) {
+                    list = [data.slug];
+                    for (var i = 2; i <= 3; i++) {
+                        list.push(data.slug + "-" + i);
+                    }
+                }
+                var seen = {};
+                list = list.filter(function(s){
+                    if(!s) return false;
+                    var key = s.toLowerCase();
+                    if(seen[key]) return false;
+                    seen[key] = true;
+                    return true;
+                });
+                return list.slice(0, 3);
+            }
+
+            function fetchSuggestions(baseText){
+                if(!baseText || !suggestionsList || !slugInput) return;
+
+                var suggestionsUrl = slugInput.dataset.suggestionsUrl || (window.location.pathname + '?handler=GenerateSlug');
+                var url = suggestionsUrl + '&baseText=' + encodeURIComponent(baseText) + '&count=3';
+                if(userId) url += '&userId=' + encodeURIComponent(userId);
+
+                fetch(url, { method:'GET', credentials:'same-origin' })
+                    .then(function(resp){
+                        if(!resp.ok) throw new Error('HTTP ' + resp.status);
+                        return resp.json();
+                    })
+                    .then(function(data){
+                        clearSuggestions();
+                        var list = buildSuggestionListFromResponse(data);
+                        if(!list.length) return;
+
+                        list.forEach(function(s){
+                            var li = document.createElement('li');
+                            var btn = document.createElement('button');
+                            btn.type = 'button';
+                            btn.className = 'slug-suggestion-pill';
+                            btn.textContent = s;
+                            btn.addEventListener('click', function(){
+                                slugInput.value = s;
+                                updatePreview(s);
+                                if (slugErr) slugErr.style.display = 'none';
+                                if (slugOk) {
+                                    slugOk.style.display = 'block';
+                                    slugOk.textContent = 'Has seleccionado: ' + s;
+                                }
+                                setStatus(true, 'Disponible');
+                            });
+                            li.appendChild(btn);
+                            suggestionsList.appendChild(li);
+                        });
+
+                        suggestionsList.style.display = 'block';
+                    }).catch(function(e){
+                        console.error('[slug] suggestions error', e);
+                    });
             }
 
             if(slugInput){
@@ -509,79 +595,65 @@
                     var val = this.value.trim();
                     updatePreview(val);
                     clearTimeout(timeout);
-                    if(!val){ slugOk.style.display='none'; slugErr.style.display='none'; suggestionRow.style.display='none'; return; }
+                    if(!val){
+                        if (slugOk) slugOk.style.display='none';
+                        if (slugErr) slugErr.style.display='none';
+                        clearStatus();
+                        clearSuggestions();
+                        return;
+                    }
                     timeout = setTimeout(function(){
                         var url = (checkUrl || window.location.pathname + '?handler=CheckSlug') + '&slug=' + encodeURIComponent(val);
                         if(userId) url += '&userId=' + encodeURIComponent(userId);
                         fetch(url, { method:'GET', credentials:'same-origin' })
-                            .then(function(resp){ if(!resp.ok) throw new Error('HTTP ' + resp.status); return resp.json(); })
+                            .then(function(resp){
+                                if(!resp.ok) throw new Error('HTTP ' + resp.status);
+                                return resp.json();
+                            })
                             .then(function(json){
                                 if(json.exists){
-                                    slugErr.style.display = 'block';
-                                    slugErr.textContent = 'El slug ya está en uso.';
-                                    slugOk.style.display = 'none';
-                                    if(json.suggestion){
-                                        suggestionEl.textContent = json.suggestion;
-                                        suggestionRow.style.display = 'block';
+                                    if(slugErr){
+                                        slugErr.style.display = 'block';
+                                        slugErr.textContent = 'El slug ya está en uso.';
                                     }
+                                    if(slugOk) slugOk.style.display = 'none';
+                                    setStatus(false, 'Ocupado');
+                                    var base = json.suggestion || val;
+                                    fetchSuggestions(base);
                                 } else {
-                                    slugErr.style.display = 'none';
-                                    slugOk.style.display = 'block';
-                                    slugOk.textContent = 'Slug disponible';
-                                    suggestionRow.style.display = 'none';
+                                    if(slugErr) slugErr.style.display = 'none';
+                                    if(slugOk){
+                                        slugOk.style.display = 'block';
+                                        slugOk.textContent = 'Slug disponible';
+                                    }
+                                    setStatus(true, 'Disponible');
+                                    fetchSuggestions(val);
                                 }
-                            }).catch(function(e){ console.error('[slug] check error', e); });
+                            }).catch(function(e){
+                                console.error('[slug] check error', e);
+                            });
                     }, 350);
                 });
             }
 
-            if(useSuggestionBtn){
-                useSuggestionBtn.addEventListener('click', function(){
-                    var s = suggestionEl.textContent;
-                    if(s && slugInput){ slugInput.value = s; updatePreview(s); suggestionRow.style.display='none'; slugOk.style.display='block'; slugOk.textContent='Sugerencia aplicada'; slugErr.style.display='none'; }
-                });
-            }
-
-            if(generateBtn){
-                generateBtn.addEventListener('click', function(){
-                    var base = slugInput && slugInput.value.trim() ? slugInput.value.trim() : '';
-                    if(!base){
-                        var nombre = (document.getElementById('Perfil_Nombre') && document.getElementById('Perfil_Nombre').value) || '';
-                        var apellidos = (document.getElementById('Perfil_Apellidos') && document.getElementById('Perfil_Apellidos').value) || '';
-                        base = (nombre + ' ' + apellidos).trim();
+            document.addEventListener('DOMContentLoaded', function(){
+                if(!slugInput) return;
+                if(slugInput.value){
+                    fetchSuggestions(slugInput.value.trim());
+                } else {
+                    var nombre = el('Perfil_Nombre') ? el('Perfil_Nombre').value : '';
+                    var apellidos = el('Perfil_Apellidos') ? el('Perfil_Apellidos').value : '';
+                    var base = (nombre + ' ' + apellidos).trim();
+                    if(base){
+                        fetchSuggestions(base);
                     }
-                    if(!base){ slugErr.style.display='block'; slugErr.textContent='Proporciona un nombre o apellidos para generar el slug.'; slugOk.style.display='none'; return; }
-                    slugErr.style.display='none';
-                    slugOk.style.display='none';
-                    var urlBase = generateBtn.getAttribute('data-generate-url') || window.location.pathname + '?handler=GenerateSlug';
-                    var url = urlBase + '&baseText=' + encodeURIComponent(base);
-                    fetch(url, { method:'GET', credentials:'same-origin' })
-                        .then(function(resp){ if(!resp.ok) throw new Error('HTTP ' + resp.status); return resp.json(); })
-                        .then(function(data){
-                            if(data && data.slug){
-                                if(slugInput) slugInput.value = data.slug;
-                                updatePreview(data.slug);
-                                slugOk.style.display='block';
-                                slugOk.textContent = 'Slug generado: ' + data.slug;
-                                slugErr.style.display='none';
-                                suggestionRow.style.display='none';
-                                suggestionEl.textContent = '';
-                            } else {
-                                slugErr.style.display='block';
-                                slugErr.textContent = 'No se pudo generar slug.';
-                                slugOk.style.display='none';
-                            }
-                        }).catch(function(e){ console.error('[slug] generate error', e); slugErr.style.display='block'; slugErr.textContent='Error al generar slug.'; slugOk.style.display='none'; });
-                });
-            }
+                }
+            });
         })();
     </script>
 
-    <!-- Include avatar JS once, at the end of the page -->
-    <script src="~/js/avatar-card.js" asp-append-version="true"></script>
-
-    <!-- Auto-hide success alert (3s) -->
     <script>
+        // Auto-hide success alert (3s)
         (function(){
             try {
                 var success = document.getElementById('perfil-success-alert');
@@ -589,10 +661,68 @@
                     setTimeout(function(){
                         success.style.transition = 'opacity 0.45s ease';
                         success.style.opacity = '0';
-                        setTimeout(function(){ if (success.parentNode) success.parentNode.removeChild(success); }, 500);
+                        setTimeout(function(){
+                            if (success.parentNode) success.parentNode.removeChild(success);
+                        }, 500);
                     }, 3000);
                 }
             } catch(e){ console.error(e); }
+        })();
+
+        // Validación cliente de Teléfono (solo números + longitud) y Email (formato)
+        (function(){
+            var tel = document.getElementById('telefono-input');
+            var telError = document.getElementById('telefono-error');
+            var email = document.getElementById('email-input');
+            var emailError = document.getElementById('email-error');
+
+            if (tel) {
+                tel.addEventListener('keydown', function (e) {
+                    var allowedControlKeys = [
+                        'Backspace', 'Delete', 'ArrowLeft', 'ArrowRight',
+                        'Tab', 'Home', 'End'
+                    ];
+                    if (allowedControlKeys.indexOf(e.key) !== -1) {
+                        return;
+                    }
+                    if ((e.ctrlKey || e.metaKey) && ['a','c','v','x'].indexOf(e.key.toLowerCase()) !== -1) {
+                        return;
+                    }
+                    if (!/^[0-9]$/.test(e.key)) {
+                        e.preventDefault();
+                    }
+                });
+
+                tel.addEventListener('blur', function () {
+                    this.value = this.value.replace(/\D/g, '');
+                    if (this.value.length > 0 && this.value.length !== 10) {
+                        if (telError) telError.classList.remove('d-none');
+                        this.classList.add('is-invalid');
+                    } else {
+                        if (telError) telError.classList.add('d-none');
+                        this.classList.remove('is-invalid');
+                    }
+                });
+            }
+
+            if (email) {
+                email.addEventListener('blur', function () {
+                    var val = this.value.trim();
+                    if (!val) {
+                        if (emailError) emailError.classList.add('d-none');
+                        this.classList.remove('is-invalid');
+                        return;
+                    }
+                    var re = /^[^\s@@]+@@[^\s@@]+\.[^\s@@]+$/;
+                    if (!re.test(val)) {
+                        if (emailError) emailError.classList.remove('d-none');
+                        this.classList.add('is-invalid');
+                    } else {
+                        if (emailError) emailError.classList.add('d-none');
+                        this.classList.remove('is-invalid');
+                    }
+                });
+            }
         })();
     </script>
 }

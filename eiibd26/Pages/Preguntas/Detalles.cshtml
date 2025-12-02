@@ -7,15 +7,20 @@
     string ResolveAvatar(string avatar)
     {
         if (string.IsNullOrWhiteSpace(avatar)) return Url.Content("~/img/avatar-placeholder.png");
+        // Normaliza barras invertidas y espacios
+        avatar = avatar.Replace("\\", "/").Trim();
+
         if (avatar.StartsWith("http", System.StringComparison.OrdinalIgnoreCase)) return avatar;
-        if (avatar.StartsWith("/")) return avatar;
-        return Url.Content("~/" + avatar.TrimStart('/'));
+        // Quita prefijos ~/ o / para construir Url.Content de forma consistente
+        if (avatar.StartsWith("~/")) avatar = avatar.TrimStart('~', '/');
+        if (avatar.StartsWith("/")) avatar = avatar.TrimStart('/');
+        return Url.Content("~/" + avatar);
     }
 }
 
 @section Styles {
     <link rel="stylesheet" href="~/css/preguntas.css" />
-    
+
 }
 
 <form id="__antiForgeryForm" style="display:none;">@Html.AntiForgeryToken()</form>
@@ -258,9 +263,9 @@
                 {
                     <div class="se-reply-box">
                         <div class="vote-login-hint">
-                    Inicia sesión para ver las respuestas. 
-                        <a href="/Account/Login">Iniciar sesión</a>
-                    </div>
+                            Inicia sesión para ver las respuestas.
+                            <a href="/Account/Login">Iniciar sesión</a>
+                        </div>
                     </div>
                 }
                 else

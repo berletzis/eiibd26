@@ -99,12 +99,13 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                         {
                             p.idUser,
                             Avatar = p.Avatar,
-                            Titulo = p.Titulo,
+                            //Titulo = p.Titulo,
                             Nombre = p.Nombre,
                             Apellidos = p.Apellidos,
                             Telefono = p.Telefono,
                             Email = p.Email,
                             UsoPlataforma = p.UsoPlataforma,
+                            EstoyAqui = p.EstoyAqui,
                             Latitud = p.Latitud,
                             Longitud = p.Longitud,
                             p.NombreCiudad,
@@ -128,12 +129,13 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                         {
                             idUser = perfilRow.idUser,
                             Avatar = perfilRow.Avatar ?? $"https://ui-avatars.com/api/?name=Usuario+{perfilRow.idUser.ToString().Substring(0, 6)}&size=110",
-                            Titulo = perfilRow.Titulo ?? string.Empty,
+                            //Titulo = perfilRow.Titulo ?? string.Empty,
                             Nombre = perfilRow.Nombre ?? string.Empty,
                             Apellidos = perfilRow.Apellidos,
                             Telefono = perfilRow.Telefono ?? string.Empty,
                             Email = perfilRow.Email ?? string.Empty,
                             UsoPlataforma = perfilRow.UsoPlataforma ?? string.Empty,
+                            EstoyAqui = perfilRow.EstoyAqui,
                             Latitud = perfilRow.Latitud ?? string.Empty,
                             Longitud = perfilRow.Longitud ?? string.Empty,
                             NombreCiudad = perfilRow.NombreCiudad,
@@ -146,7 +148,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
                         // Detectar columnas NULL originales para revisión (las que proyectamos)
                         if (perfilRow.Avatar == null) missingFields.Add(nameof(Perfil.Avatar));
-                        if (perfilRow.Titulo == null) missingFields.Add(nameof(Perfil.Titulo));
+                        //if (perfilRow.Titulo == null) missingFields.Add(nameof(Perfil.Titulo));
                         if (perfilRow.Nombre == null) missingFields.Add(nameof(Perfil.Nombre));
                         if (perfilRow.Telefono == null) missingFields.Add(nameof(Perfil.Telefono));
                         if (perfilRow.Email == null) missingFields.Add(nameof(Perfil.Email));
@@ -163,13 +165,14 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     {
                         idUser = id.Value,
                         Avatar = $"https://ui-avatars.com/api/?name=Usuario+{id.Value.ToString().Substring(0, 6)}&size=110",
-                        Titulo = string.Empty,
+                        //Titulo = string.Empty,
                         Nombre = string.Empty,
                         Apellidos = string.Empty,
                         Telefono = string.Empty,
                         Email = string.Empty,
                         UsoPlataforma = string.Empty,
-                        Latitud = string.Empty,
+                        EstoyAqui = 0,
+                         Latitud = string.Empty,
                         Longitud = string.Empty,
                         FechaCreacion = DateTime.UtcNow,
                         FechaCreado = DateTime.UtcNow
@@ -178,7 +181,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     // Todos los campos 'requeridos' estarán vacíos en este caso
                     missingFields.AddRange(new[]
                     {
-                        nameof(Perfil.Titulo),
+                        //nameof(Perfil.Titulo),
                         nameof(Perfil.Nombre),
                         nameof(Perfil.Telefono),
                         nameof(Perfil.Email),
@@ -191,7 +194,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 {
                     // Validación adicional: comprobar qué campos están vacíos o whitespace
                     if (string.IsNullOrWhiteSpace(Perfil.Avatar)) missingFields.Add(nameof(Perfil.Avatar));
-                    if (string.IsNullOrWhiteSpace(Perfil.Titulo)) missingFields.Add(nameof(Perfil.Titulo));
+                    //if (string.IsNullOrWhiteSpace(Perfil.Titulo)) missingFields.Add(nameof(Perfil.Titulo));
                     if (string.IsNullOrWhiteSpace(Perfil.Nombre)) missingFields.Add(nameof(Perfil.Nombre));
                     if (string.IsNullOrWhiteSpace(Perfil.Telefono)) missingFields.Add(nameof(Perfil.Telefono));
                     if (string.IsNullOrWhiteSpace(Perfil.Email)) missingFields.Add(nameof(Perfil.Email));
@@ -566,7 +569,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 {
                     existing.Avatar = string.IsNullOrWhiteSpace(Perfil.Avatar) ? existing.Avatar : Perfil.Avatar;
                     existing.imagenFondo = Perfil.imagenFondo;
-                    existing.Titulo = Perfil.Titulo;
+                    //existing.Titulo = Perfil.Titulo;
                     existing.Activo = Perfil.Activo;
                     existing.Nombre = Perfil.Nombre;
                     existing.Apellidos = Perfil.Apellidos;
@@ -574,6 +577,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     existing.Email = Perfil.Email;
                     existing.FechaDeNacimiento = Perfil.FechaDeNacimiento;
                     existing.UsoPlataforma = Perfil.UsoPlataforma;
+                    existing.EstoyAqui = Perfil.EstoyAqui;
                     existing.idZone = Perfil.idZone;
                     existing.slug = Perfil.slug;
                     existing.Genero = Perfil.Genero;
