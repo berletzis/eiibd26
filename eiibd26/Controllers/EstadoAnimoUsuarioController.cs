@@ -23,21 +23,31 @@ namespace eiibd26.Controllers
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (userId == null) return Unauthorized();
-            var guid = Guid.Parse(userId);
+            if (!Guid.TryParse(userId, out var guid)) return Unauthorized();
 
             var lista = await _db.EstadoAnimoUsuario
                 .Where(x => x.IdUsuario == guid)
                 .OrderByDescending(x => x.FechaRegistro)
                 .Include(x => x.CondicionUsuario).ThenInclude(c => c.Condicion)
+                .Include(x => x.SintomaUsuario).ThenInclude(su => su.Sintoma)
+                .Include(x => x.TratamientoUsuario).ThenInclude(tu => tu.Tratamiento)
                 .Select(x => new
                 {
                     EstadoMood = x.EstadoMood,
                     Texto = x.Texto,
-                    FechaRegistro = x.FechaRegistro,
-                    RelacionNombre = x.CondicionUsuario != null ? x.CondicionUsuario.Condicion.nombre : null,
-                    TipoRelacion = x.CondicionUsuario != null ? "Condicion" : null
+                    // Enviar la fecha como string ISO (ISO 8601) para evitar ambigüedades de zona/parseo en el cliente
+                    FechaRegistro = x.FechaRegistro.ToString("o"),
+                    RelacionNombre = x.CondicionUsuario != null ? x.CondicionUsuario.Condicion.nombre
+                                   : x.SintomaUsuario != null ? x.SintomaUsuario.Sintoma.nombre
+                                   : x.TratamientoUsuario != null ? x.TratamientoUsuario.Tratamiento.nombre
+                                   : null,
+                    TipoRelacion = x.CondicionUsuario != null ? "Condicion"
+                                 : x.SintomaUsuario != null ? "Sintoma"
+                                 : x.TratamientoUsuario != null ? "Tratamiento"
+                                 : null
                 })
                 .ToListAsync();
+
             return Ok(lista);
         }
 
@@ -46,7 +56,7 @@ namespace eiibd26.Controllers
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (userId == null) return Unauthorized();
-            var guid = Guid.Parse(userId);
+            if (!Guid.TryParse(userId, out var guid)) return Unauthorized();
 
             var condiciones = await _db.condicionUsuario
                 .Where(x => x.idUsuario == guid && !x.Eliminado)
@@ -60,9 +70,17 @@ namespace eiibd26.Controllers
         [HttpPost("nuevo")]
         public async Task<ActionResult<object>> Nuevo([FromForm] string mood, [FromForm] string? texto, [FromForm] int? condicionUsuarioId)
         {
-             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (userId == null) return Unauthorized();
-            var guid = Guid.Parse(userId);
+            if (!Guid.TryParse(userId, out var guid)) return Unauthorized();
+
+            if (string.IsNullOrWhiteSpace(mood))
+                return BadRequest(new { ok = false, error = "El campo mood es requerido." });
+
+            // Opcional: validar valores permitidos para EstadoMood
+            var allowed = new[] { "MuyBien", "Bien", "Neutral", "Mal", "MuyMal" };
+            if (!allowed.Contains(mood))
+                return BadRequest(new { ok = false, error = "Valor de mood inválido." });
 
             if (string.IsNullOrWhiteSpace(texto)) texto = null;
 
@@ -71,11 +89,22 @@ namespace eiibd26.Controllers
                 IdUsuario = guid,
                 EstadoMood = mood,
                 Texto = texto,
-                FechaRegistro = DateTime.Now,
+                // Usar UTC para consistencia en la API y serialización
+                FechaRegistro = DateTime.UtcNow,
                 IdCondicionUsuario = condicionUsuarioId
             };
+
             _db.EstadoAnimoUsuario.Add(nuevo);
-            await _db.SaveChangesAsync();
+
+            try
+            {
+                await _db.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                // En un proyecto real aquí sería mejor loggear el error.
+                return StatusCode(500, new { ok = false, error = "Error al guardar el estado de ánimo." });
+            }
 
             string nombre = null; string tipo = null;
             if (condicionUsuarioId.HasValue)
@@ -92,7 +121,8 @@ namespace eiibd26.Controllers
             {
                 EstadoMood = nuevo.EstadoMood,
                 Texto = nuevo.Texto,
-                FechaRegistro = nuevo.FechaRegistro,
+                // devolver fecha en ISO para que el cliente la parsee sin ambigüedad
+                FechaRegistro = nuevo.FechaRegistro.ToString("o"),
                 RelacionNombre = nombre,
                 TipoRelacion = tipo
             });
