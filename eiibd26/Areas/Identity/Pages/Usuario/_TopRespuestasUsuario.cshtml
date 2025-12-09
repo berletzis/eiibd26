@@ -1,0 +1,96 @@
+﻿@model eiibd26.Models.DashboardViewModel
+@using System
+@using System.Collections.Generic
+@using System.Linq
+@{
+    // Muestra top 2 respuestas del usuario (según VM.Respuestas.Votes)
+    var top2 = Model?.Respuestas?.OrderByDescending(r => r.Votes).ThenByDescending(r => r.Id).Take(2).ToList()
+               ?? new List<eiibd26.Models.AnswerItem>();
+}
+
+<style>
+    .top-answers-card {
+        padding: .75rem;
+        background: #fff;
+        border-radius: 12px;
+        margin-top: 8px;
+    }
+
+        .top-answers-card .title {
+            font-weight: 600;
+            color: #203e6b;
+            margin-bottom: .5rem;
+        }
+
+        .top-answers-card .a-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f3f6;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+            .top-answers-card .a-item:last-child {
+                border-bottom: none;
+            }
+
+        .top-answers-card .a-body {
+            color: #374151;
+            font-size: .95rem;
+            max-width: 420px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .top-answers-card .a-meta {
+            font-size: .85rem;
+            color: #6b7280;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .top-answers-card .badge-votes {
+            background: #FEF3C7;
+            color: #92400e;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-weight: 600;
+        }
+
+    .link-view {
+        color: #2563eb;
+        text-decoration: none;
+    }
+</style>
+
+<div class="top-answers-card">
+    <div class="title">Top respuestas</div>
+
+    @if (!top2.Any())
+    {
+        <div class="text-muted small">No hay respuestas para mostrar.</div>
+    }
+    else
+    {
+        foreach (var a in top2)
+        {
+            var aId = (a.Id != Guid.Empty) ? a.Id.ToString() : "";
+            <div class="a-item">
+                <div style="flex:1;min-width:0;">
+                    <div class="a-body">@a.Cuerpo</div>
+                    <div class="a-meta">
+                        <div class="badge-votes">@a.Votes</div>
+                        <div class="text-muted small">Respuesta</div>
+                        <div class="text-muted">·</div>
+                        <div class="text-muted small">Id: @aId</div>
+                    </div>
+                </div>
+                <div>
+                    <a href="@Url.Page("/Foro/Pregunta", new { id = a.PreguntaId })" class="link-view">Ver pregunta</a>
+                </div>
+            </div>
+        }
+    }
+</div>

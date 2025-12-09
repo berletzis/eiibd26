@@ -118,7 +118,7 @@ namespace eiibd26.Pages
                 {
                     var perfiles = await _db.Set<Perfil>()
                         .AsNoTracking()
-                        .Where(p => userIds.Contains(p.idUser) && (p.Eliminado == null || p.Eliminado == false))
+                        .Where(p => userIds.Contains(p.idUser))
                         .Select(p => new { p.idUser, p.Nombre, p.Apellidos, p.Avatar })
                         .ToListAsync();
 
@@ -183,7 +183,7 @@ namespace eiibd26.Pages
                 {
                     var rperfiles = await _db.Set<Perfil>()
                         .AsNoTracking()
-                        .Where(p => responderUserIds.Contains(p.idUser) && (p.Eliminado == null || p.Eliminado == false))
+                        .Where(p => responderUserIds.Contains(p.idUser))
                         .Select(p => new { p.idUser, p.Nombre, p.Apellidos, p.Avatar })
                         .ToListAsync();
 

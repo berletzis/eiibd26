@@ -3,6 +3,7 @@ using eiibd26.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity.UI.Services;
+using eiibd26.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,8 +19,10 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
 {
     options.SignIn.RequireConfirmedAccount = false;
+    options.User.RequireUniqueEmail = true;
     // Aquí puedes ajustar opciones de password, lockout, etc.
     // options.Password.RequiredLength = 8;
+
 })
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
@@ -42,6 +45,7 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 // Servicio de EmailSender (SendGrid)
 builder.Services.AddTransient<IEmailSender, SendGridEmailSender>();
+builder.Services.AddTransient<ISmsSender, TwilioSmsSender>();
 
 // Razor Pages
 builder.Services.AddRazorPages();

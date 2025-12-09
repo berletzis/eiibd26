@@ -1,0 +1,94 @@
+﻿@model eiibd26.Models.DashboardViewModel
+@using System
+@using System.Collections.Generic
+@using System.Linq
+@{
+    // Muestra top 2 preguntas del usuario (según VM.Preguntas)
+    var top2 = Model?.Preguntas?.OrderByDescending(p => p.Votes).ThenByDescending(p => p.AnswersCount).Take(2).ToList()
+               ?? new List<eiibd26.Models.QuestionItem>();
+}
+
+<style>
+    .top-questions-card {
+        padding: .75rem;
+        background: #fff;
+        border-radius: 12px;
+        margin-top: 8px;
+    }
+
+        .top-questions-card .title {
+            font-weight: 600;
+            color: #203e6b;
+            margin-bottom: .5rem;
+        }
+
+        .top-questions-card .q-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f3f6;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+            .top-questions-card .q-item:last-child {
+                border-bottom: none;
+            }
+
+        .top-questions-card .q-title {
+            font-weight: 600;
+            color: #1f2937;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 320px;
+        }
+
+        .top-questions-card .q-meta {
+            font-size: .85rem;
+            color: #6b7280;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .top-questions-card .badge-votes {
+            background: #EEF2FF;
+            color: #1e40af;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-weight: 600;
+        }
+
+        .top-questions-card .link-view {
+            color: #2563eb;
+            text-decoration: none;
+        }
+</style>
+
+<div class="top-questions-card">
+    <div class="title">Top preguntas</div>
+
+    @if (!top2.Any())
+    {
+        <div class="text-muted small">No hay preguntas para mostrar.</div>
+    }
+    else
+    {
+        @foreach (var q in top2)
+        {
+            var qId = (q.Id != Guid.Empty) ? q.Id.ToString() : "";
+            <div class="q-item">
+                <div style="flex:1;min-width:0;">
+                    <div class="q-title">
+                        <a class="link-view" href="@Url.Page("/Foro/Pregunta", new { id = q.Id })" title="@q.Titulo">@q.Titulo</a>
+                    </div>
+                    <div class="q-meta">
+                        <div class="badge-votes">@q.Votes</div>
+                        <div>@(q.AnswersCount) respuestas</div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>

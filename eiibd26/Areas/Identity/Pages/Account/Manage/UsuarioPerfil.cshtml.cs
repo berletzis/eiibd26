@@ -26,7 +26,7 @@ using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using System.Threading;
 
-namespace eiibd26.Areas.Identity.Pages.Usuario
+namespace eiibd26.Areas.Identity.Pages.Account.Manage
 {
     [Authorize]
     public class UsuarioPerfilModel : PageModel
@@ -63,7 +63,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
         public async Task<IActionResult> OnGetAsync(Guid? id = null)
         {
             var missingFields = new List<string>();
-
+            ViewData["ActivePage"] = ManageNavPages.UsuarioPerfil;
             try
             {
                 // Cargar lista de países para los select antes de cualquier return
@@ -102,9 +102,6 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                             //Titulo = p.Titulo,
                             Nombre = p.Nombre,
                             Apellidos = p.Apellidos,
-                            Telefono = p.Telefono,
-                            Email = p.Email,
-                            UsoPlataforma = p.UsoPlataforma,
                             EstoyAqui = p.EstoyAqui,
                             Latitud = p.Latitud,
                             Longitud = p.Longitud,
@@ -132,9 +129,6 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                             //Titulo = perfilRow.Titulo ?? string.Empty,
                             Nombre = perfilRow.Nombre ?? string.Empty,
                             Apellidos = perfilRow.Apellidos,
-                            Telefono = perfilRow.Telefono ?? string.Empty,
-                            Email = perfilRow.Email ?? string.Empty,
-                            UsoPlataforma = perfilRow.UsoPlataforma ?? string.Empty,
                             EstoyAqui = perfilRow.EstoyAqui,
                             Latitud = perfilRow.Latitud ?? string.Empty,
                             Longitud = perfilRow.Longitud ?? string.Empty,
@@ -150,9 +144,6 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                         if (perfilRow.Avatar == null) missingFields.Add(nameof(Perfil.Avatar));
                         //if (perfilRow.Titulo == null) missingFields.Add(nameof(Perfil.Titulo));
                         if (perfilRow.Nombre == null) missingFields.Add(nameof(Perfil.Nombre));
-                        if (perfilRow.Telefono == null) missingFields.Add(nameof(Perfil.Telefono));
-                        if (perfilRow.Email == null) missingFields.Add(nameof(Perfil.Email));
-                        if (perfilRow.UsoPlataforma == null) missingFields.Add(nameof(Perfil.UsoPlataforma));
                         if (perfilRow.Latitud == null) missingFields.Add(nameof(Perfil.Latitud));
                         if (perfilRow.Longitud == null) missingFields.Add(nameof(Perfil.Longitud));
                     }
@@ -168,9 +159,6 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                         //Titulo = string.Empty,
                         Nombre = string.Empty,
                         Apellidos = string.Empty,
-                        Telefono = string.Empty,
-                        Email = string.Empty,
-                        UsoPlataforma = string.Empty,
                         EstoyAqui = 0,
                          Latitud = string.Empty,
                         Longitud = string.Empty,
@@ -183,9 +171,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     {
                         //nameof(Perfil.Titulo),
                         nameof(Perfil.Nombre),
-                        nameof(Perfil.Telefono),
-                        nameof(Perfil.Email),
-                        nameof(Perfil.UsoPlataforma),
+                        
                         nameof(Perfil.Latitud),
                         nameof(Perfil.Longitud)
                     });
@@ -196,9 +182,6 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     if (string.IsNullOrWhiteSpace(Perfil.Avatar)) missingFields.Add(nameof(Perfil.Avatar));
                     //if (string.IsNullOrWhiteSpace(Perfil.Titulo)) missingFields.Add(nameof(Perfil.Titulo));
                     if (string.IsNullOrWhiteSpace(Perfil.Nombre)) missingFields.Add(nameof(Perfil.Nombre));
-                    if (string.IsNullOrWhiteSpace(Perfil.Telefono)) missingFields.Add(nameof(Perfil.Telefono));
-                    if (string.IsNullOrWhiteSpace(Perfil.Email)) missingFields.Add(nameof(Perfil.Email));
-                    if (string.IsNullOrWhiteSpace(Perfil.UsoPlataforma)) missingFields.Add(nameof(Perfil.UsoPlataforma));
                     if (string.IsNullOrWhiteSpace(Perfil.Latitud)) missingFields.Add(nameof(Perfil.Latitud));
                     if (string.IsNullOrWhiteSpace(Perfil.Longitud)) missingFields.Add(nameof(Perfil.Longitud));
                 }
@@ -441,7 +424,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
         public async Task<IActionResult> OnPostAsync()
         {
             await PopulatePaisesAsync();
-
+            ViewData["ActivePage"] = ManageNavPages.UsuarioPerfil;
             var form = Request.Form;
 
             if (_logger.IsEnabled(LogLevel.Debug))
@@ -497,9 +480,8 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             Perfil.PermitirCorreoNoticias = FormBool("Perfil.PermitirCorreoNoticias");
             Perfil.PermitirMostrarPais = FormBool("Perfil.PermitirMostrarPais");
 
-            Perfil.Activo = FormBool("Perfil.Activo");
             Perfil.AceptoPP = FormBool("Perfil.AceptoPP");
-            Perfil.Eliminado = FormBool("Perfil.Eliminado");
+            
 
             if (!string.IsNullOrWhiteSpace(Perfil.slug))
             {
@@ -570,13 +552,11 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     existing.Avatar = string.IsNullOrWhiteSpace(Perfil.Avatar) ? existing.Avatar : Perfil.Avatar;
                     existing.imagenFondo = Perfil.imagenFondo;
                     //existing.Titulo = Perfil.Titulo;
-                    existing.Activo = Perfil.Activo;
+                    
                     existing.Nombre = Perfil.Nombre;
                     existing.Apellidos = Perfil.Apellidos;
-                    existing.Telefono = Perfil.Telefono;
-                    existing.Email = Perfil.Email;
                     existing.FechaDeNacimiento = Perfil.FechaDeNacimiento;
-                    existing.UsoPlataforma = Perfil.UsoPlataforma;
+                    
                     existing.EstoyAqui = Perfil.EstoyAqui;
                     existing.idZone = Perfil.idZone;
                     existing.slug = Perfil.slug;
@@ -586,19 +566,16 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     existing.NombreCiudad = Perfil.NombreCiudad;
                     existing.NombrePais = Perfil.NombrePais;
                     existing.AceptoPP = Perfil.AceptoPP;
-                    existing.UltimosEstudios = Perfil.UltimosEstudios;
-                    existing.ExperienciaLaboral = Perfil.ExperienciaLaboral;
-                    existing.UltimaCertificacion = Perfil.UltimaCertificacion;
+                    
                     existing.AcercaDe = Perfil.AcercaDe;
-                    existing.Extras = Perfil.Extras;
+                    
                     existing.FechaModificado = DateTime.UtcNow;
                     existing.UsuarioModificacion = GetUserIdGuid();
-                    existing.Eliminado = Perfil.Eliminado;
-
+                    
                     existing.PermitirTelefonoReal = Perfil.PermitirTelefonoReal;
                     existing.PermitirCorreoNoticias = Perfil.PermitirCorreoNoticias;
                     existing.PermitirMostrarPais = Perfil.PermitirMostrarPais;
-                    existing.Activo = Perfil.Activo;
+                    
                     existing.AceptoPP = Perfil.AceptoPP;
 
                     _db.Perfil.Update(existing);

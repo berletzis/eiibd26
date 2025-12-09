@@ -1,18 +1,20 @@
 ﻿@page
 @model eiibd26.Areas.Identity.Pages.Usuario.DashboardModel
+
 @{
     ViewData["Title"] = "Mi Dashboard";
     Layout = "_Layout";
 }
 
-/* Grid simple 2 columnas responsive */
+
 <style>
     .dashboard-grid {
         display: grid;
         grid-template-columns: 1fr;
         gap: 16px;
     }
-    @@media(min - width:900px) {
+
+    @@media (min-width: 900px) {
         .dashboard-grid {
             grid-template-columns: 1fr 1fr;
         }
@@ -20,6 +22,9 @@
 </style>
 
 <h1>Mi Dashboard</h1>
+
+@* Notifications card (full-width row) *@
+@await Html.PartialAsync("_DashboardNotifications", Model.VM)
 
 <div class="dashboard-grid">
     <div>
@@ -30,14 +35,23 @@
     <div>
         @* Columna 2: placeholder para Mis Síntomas / Mis Preguntas / Mis Respuestas (implementa tus cards aquí) *@
         <div class="card p-3">
-            <h3>Mis Síntomas</h3>
-            <p class="text-muted">Top 3 y botón para agregar (implementa aquí los componentes que prefieras).</p>
 
-            <h3 class="mt-4">Mis Preguntas</h3>
-            <p class="text-muted">Últimas 3 preguntas.</p>
+            @* Incluir aquí el partial que muestra Top 5 síntomas (ayer + hoy) *@
+            @await Html.PartialAsync("_SintomasTop5Seguimiento", Model.VM)
 
-            <h3 class="mt-4">Mis Respuestas</h3>
-            <p class="text-muted">Últimas 3 respuestas.</p>
+        </div>
+    </div>
+
+    <div>
+        @* Columna 2: placeholder para Mis Síntomas / Mis Preguntas / Mis Respuestas (implementa tus cards aquí) *@
+        <div class="card p-3">
+                   <div class="dashboard-col1-title">Preguntas y Respuestas</div>
+            <div class="small-muted" style="font-size:.9rem;">Se muestran registros  en orden con Mayor Votación.</div>
+            @* Top preguntas partial *@
+            @await Html.PartialAsync("_TopPreguntasUsuario", Model.VM)
+
+            @* Top respuestas partial *@
+            @await Html.PartialAsync("_TopRespuestasUsuario", Model.VM)
         </div>
     </div>
 </div>

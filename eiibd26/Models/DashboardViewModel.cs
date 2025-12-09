@@ -10,6 +10,16 @@ namespace eiibd26.Models
         public List<SymptomTopItem> TopSintomas { get; set; } = new List<SymptomTopItem>();
         public List<QuestionItem> Preguntas { get; set; } = new List<QuestionItem>();
         public List<AnswerItem> Respuestas { get; set; } = new List<AnswerItem>();
+
+        // New: properties for the notifications card
+        public bool EmailConfirmed { get; set; }
+        public bool PhoneNumberConfirmed { get; set; }
+        public bool HasAnyCondition { get; set; }
+        public bool HasMoodToday { get; set; }
+
+        // Counts / metadata for notifications
+        public int NewAnswersCount { get; set; } = 0;
+        public int ScheduledItemsCount { get; set; } = 0; // placeholder for future scheduled tasks
     }
 
     public class MoodPoint
@@ -32,6 +42,8 @@ namespace eiibd26.Models
         public int SintomaUsuarioId { get; set; }
         public string Nombre { get; set; }
         public int Interacciones { get; set; }
+        public List<string> Condiciones { get; set; } = new List<string>();
+        public Dictionary<string, string> SeguimientoPorDia { get; set; } = new Dictionary<string, string>();
     }
 
     public class QuestionItem

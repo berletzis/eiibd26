@@ -183,15 +183,12 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios
                 perfil.Titulo = Request.Form["Titulo"];
                 perfil.Nombre = Request.Form["Nombre"];
                 perfil.Apellidos = Request.Form["Apellidos"];
-                perfil.Telefono = Request.Form["Telefono"];
-                perfil.Email = Request.Form["PerfilEmail"];
-                perfil.Activo = Request.Form["Activo"] == "true";
-                perfil.Eliminado = Request.Form["PerfilEliminado"] == "true";
+                
                 perfil.FechaDeNacimiento = DateTime.TryParse(Request.Form["FechaDeNacimiento"], out var fnac) ? fnac : perfil.FechaDeNacimiento;
                 perfil.Genero = Request.Form["Genero"];
                 perfil.NombreCiudad = Request.Form["Ciudad"];
                 perfil.NombrePais = Request.Form["Pais"];
-                perfil.UsoPlataforma = Request.Form["UsoPlataforma"];
+                
                 //perfil.notas = Request.Form["Notas"];
                 //perfil.descripcion = Request.Form["Descripcion"];
                 perfil.AcercaDe = Request.Form["AcercaDe"];

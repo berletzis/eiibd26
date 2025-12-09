@@ -1,6 +1,104 @@
 ﻿@using Microsoft.AspNetCore.Http
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Hosting
+@using Microsoft.EntityFrameworkCore
+@using eiibd26.Data
+@using eiibd26.Models
+@inject ApplicationDbContext Db
+@inject UserManager<ApplicationUser> UserManager
 @{
     var isAuth = User?.Identity?.IsAuthenticated ?? false;
+
+    // Default avatar (virtual path)
+    var avatarSrc = Url.Content("~/img/default-avatar.png");
+
+    // Valores del usuario (id, nombre y nombre de usuario) disponibles para toda la vista
+    string userId = null;
+    string displayName = null;     // desde Perfil (Nombre + Apellidos) o fallback
+    string userName = null;        // el username (UserName) que quieres mostrar como "ID/usuario"
+
+    if (isAuth)
+    {
+        // Intentamos obtener el id del usuario (GUID o string) desde el claim NameIdentifier
+        userId = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        // Obtener username desde UserManager si es posible (no hace ToString/parse)
+        if (!string.IsNullOrEmpty(userId))
+        {
+            try
+            {
+                var identityUser = await UserManager.FindByIdAsync(userId);
+                if (identityUser != null)
+                {
+                    userName = identityUser.UserName;
+                }
+            }
+            catch
+            {
+                // ignore - fallback a claim o a Identity.Name abajo
+                userName = userName ?? User?.Identity?.Name;
+            }
+        }
+        else
+        {
+            // Sin claim NameIdentifier, usar Identity.Name como username fallback
+            userName = User?.Identity?.Name;
+        }
+
+        // Primero intentamos leer el Perfil desde la BD (si existe) para mostrar el nombre completo
+        if (!string.IsNullOrEmpty(userId))
+        {
+            try
+            {
+                // Buscar Perfil por GUID parseado (más eficiente).
+                Perfil perfil = null;
+                if (Guid.TryParse(userId, out var userGuid))
+                {
+                    perfil = await Db.Set<Perfil>().FirstOrDefaultAsync(p => p.idUser == userGuid);
+                }
+                else
+                {
+                    // Fallback: comparar ToString si por alguna razón el id no es GUID
+                    perfil = await Db.Set<Perfil>().FirstOrDefaultAsync(p => p.idUser.ToString() == userId);
+                }
+
+                if (perfil != null)
+                {
+                    if (!string.IsNullOrWhiteSpace(perfil.Nombre))
+                    {
+                        displayName = perfil.Nombre + (string.IsNullOrWhiteSpace(perfil.Apellidos) ? "" : " " + perfil.Apellidos);
+                    }
+                }
+            }
+            catch
+            {
+                // ignorar errores y usar fallback
+            }
+        }
+
+        // Si no obtuvimos nombre desde Perfil, fallback a claims / Identity.Name
+        displayName = displayName ?? User?.FindFirst(ClaimTypes.Name)?.Value ?? User?.Identity?.Name ?? "Usuario";
+
+        // Intentamos resolver si el archivo físico existe en wwwroot/uploads/avatars/{userId}/avatar-64.png
+        var env = Context.RequestServices.GetService(typeof(IWebHostEnvironment)) as IWebHostEnvironment;
+        if (!string.IsNullOrEmpty(userId) && env != null)
+        {
+            try
+            {
+                var physicalPath = System.IO.Path.Combine(env.WebRootPath ?? "wwwroot", "uploads", "avatars", userId, "avatar-64.png");
+                if (System.IO.File.Exists(physicalPath))
+                {
+                    // Usamos la ruta virtual para mostrar el avatar en la vista
+                    avatarSrc = Url.Content($"~/uploads/avatars/{userId}/avatar-64.png");
+                }
+            }
+            catch
+            {
+                // en caso de error dejamos avatar por defecto
+                avatarSrc = Url.Content("~/img/default-avatar.png");
+            }
+        }
+    }
 }
 <header>
     <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom mb-3">
@@ -28,21 +126,16 @@
                     <li class="nav-item">
                         <a class="nav-link" href="/Privacy">Privacidad</a>
                     </li>
-
-                    @* "Ir a Mi Perfil" se mantiene a la izquierda y sólo se muestra si está autenticado *@
-                    @if (isAuth)
-                    {
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center" href="/Identity/Usuario/UsuarioPerfil" title="Ir a mi perfil" aria-label="Ir a mi perfil">
-                                <i class="bi bi-person-circle me-1"></i>
-                                <span>Ir a Mi Perfil</span>
-                            </a>
-                        </li>
-                    }
+                    <li class="nav-item">
+                        <a class="nav-link d-flex align-items-center" href="/Preguntas" title="Ir a Preguntas y Respuestas" aria-label="Preguntas y Respuestas">
+                            <i class="bi bi-person-circle me-1"></i>
+                            <span>Preguntas y Respuestas</span>
+                        </a>
+                    </li>
                 </ul>
 
                 <!-- Menú de usuario derecha: Login & Registro (cuando NO está autenticado)
-                     y el dropdown "Mi Perfil (Opciones)" (cuando SÍ está autenticado) -->
+                     y el dropdown "Mis datos de inicio de sesión" (cuando SÍ está autenticado) -->
                 <ul class="navbar-nav ms-auto align-items-center">
                     @if (!isAuth)
                     {
@@ -61,40 +154,60 @@
                     {
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="perfilDropdown" role="button"
-                               data-bs-toggle="dropdown" aria-expanded="false" title="Mi Perfil" aria-label="Mi Perfil">
-                                <i class="bi bi-person-gear me-1"></i>
-                                <span>Mi Perfil (Opciones)</span>
+                               data-bs-toggle="dropdown" aria-expanded="false"
+                               title="Mis datos de inicio de sesión" aria-label="Mis datos de inicio de sesión">
+                                <img src="@avatarSrc"
+                                     alt="Mi avatar"
+                                     class="rounded-circle me-2"
+                                     style="height:28px;width:28px;object-fit:cover;border:1px solid rgba(0,0,0,0.06);" />
+                                <span class="me-2">@displayName</span>
+                                <i class="bi bi-gear-fill" aria-hidden="true"></i>
                             </a>
+
                             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="perfilDropdown">
+                                @* Header within dropdown showing name + username *@
+                                <li class="px-3 py-2">
+                                    <div class="d-flex align-items-start">
+                                        <img src="@avatarSrc" alt="Avatar" class="rounded-circle me-2" style="height:36px;width:36px;object-fit:cover;border:1px solid rgba(0,0,0,0.06);" />
+                                        <div>
+                                            <div class="fw-semibold">@displayName</div>
+                                            @if (!string.IsNullOrEmpty(userName))
+                                            {
+                                                <div class="small text-muted">Usuario: @userName</div>
+                                            }
+                                            else if (!string.IsNullOrEmpty(userId))
+                                            {
+                                                <div class="small text-muted">Usuario: @userId</div>
+                                            }
+                                        </div>
+                                    </div>
+                                </li>
+                                <li><hr class="dropdown-divider" /></li>
+
                                 <li>
-                                    <a class="dropdown-item" href="/Identity/Account/Manage">
-                                        <i class="bi bi-person-card me-1"></i> Perfil principal
+                                    <a class="dropdown-item d-flex align-items-center" href="/Identity/Account/Manage/UsuarioPerfil">
+                                        <span>Perfil público</span>
                                     </a>
                                 </li>
                                 <li>
-                                    <a class="dropdown-item" href="/Identity/Account/Manage/Email">
-                                        <i class="bi bi-envelope me-1"></i> Cambiar email
+                                    <a class="dropdown-item d-flex align-items-center" href="/Identity/Account/Manage">
+                                        <span>Usuario/Registro</span>
                                     </a>
                                 </li>
                                 <li>
-                                    <a class="dropdown-item" href="/Identity/Account/Manage/ChangePassword">
-                                        <i class="bi bi-key me-1"></i> Cambiar contraseña
+                                    <a class="dropdown-item d-flex align-items-center" href="/Identity/Account/Manage/Email">
+                                        Cambiar email
                                     </a>
                                 </li>
                                 <li>
-                                    <a class="dropdown-item" href="/Identity/Account/Manage/TwoFactorAuthentication">
-                                        <i class="bi bi-shield-lock me-1"></i> Doble factor
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="/Identity/Account/Manage/ExternalLogins">
-                                        <i class="bi bi-box-arrow-in-right me-1"></i> Logins externos
+                                    <a class="dropdown-item d-flex align-items-center" href="/Identity/Account/Manage/ChangePassword">
+                                        Cambiar contraseña
                                     </a>
                                 </li>
                                 <li><hr class="dropdown-divider" /></li>
                                 <li>
                                     <form method="post" asp-area="Identity" asp-page="/Account/Logout" class="d-inline">
-                                        <button type="submit" class="dropdown-item">
+                                        <button type="submit" class="dropdown-item d-flex align-items-center">
                                             <i class="bi bi-box-arrow-right me-1"></i> Cerrar sesión
                                         </button>
                                     </form>

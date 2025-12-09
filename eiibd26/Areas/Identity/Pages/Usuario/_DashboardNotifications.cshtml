@@ -1,0 +1,278 @@
+﻿@model eiibd26.Models.DashboardViewModel
+@using System
+@{
+    // Card that shows actionable notifications at top of dashboard
+    // Renders based on flags set in DashboardViewModel
+    var showConfirmEmail = !Model.EmailConfirmed;
+    var showConfirmPhone = !Model.PhoneNumberConfirmed;
+    var showAddCondition = !Model.HasAnyCondition;
+    var showAddMood = !Model.HasMoodToday;
+    var newAnswers = Model.NewAnswersCount;
+    var scheduled = Model.ScheduledItemsCount;
+}
+
+<style>
+    /* Card */
+    .notifications-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin-bottom: 16px;
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 1px 6px rgba(16,24,40,.04);
+        position: relative; /* for close button */
+        overflow: hidden;
+    }
+
+    /* Close button (top-right) */
+    .notifications-close {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        z-index: 10;
+    }
+
+    /* Left section containing items */
+    .notifications-left {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        flex: 1;
+        min-width: 0;
+    }
+
+    /* Per-notification icon */
+    .notifications-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #92400e; /* dark amber text */
+        font-weight: 700;
+        flex-shrink: 0;
+        font-size: 1.1rem;
+    }
+
+    /* Yellow variant for icons */
+    .notifications-icon--yellow {
+        background: #FFFBEB; /* very light yellow */
+        color: #D97706; /* amber-600 */
+    }
+
+    /* Items column */
+    .notifications-items {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-width: 0;
+        width: 100%;
+    }
+
+    /* Each notification row now a link */
+    .notification-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        justify-content: space-between;
+        width: 100%;
+        min-width: 0;
+        padding: 8px;
+        transition: background .12s ease, transform .08s ease;
+        border-radius: 8px;
+    }
+
+    /* Make the row appear as a link while keeping layout */
+    .notification-link {
+        text-decoration: none;
+        color: inherit;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+    }
+
+        /* Hover/focus effect for link rows */
+        .notification-link:hover,
+        .notification-link:focus {
+            background: #F8FAFC;
+            text-decoration: none;
+            outline: none;
+        }
+
+    /* Text container inside row */
+    .notification-text-wrap {
+        min-width: 0;
+        flex: 1;
+    }
+
+    /* Title and subtitle */
+    .notification-text {
+        color: #0f172a;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .notification-sub {
+        color: #6b7280;
+        font-size: .9rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Badge (small count) */
+    .badge-count {
+        background: #FEF3C7;
+        color: #92400e;
+        padding: 4px 8px;
+        border-radius: 999px;
+        font-weight: 700;
+        margin-left: 12px;
+        flex-shrink: 0;
+    }
+
+    /* Responsive tweaks */
+    @@media (max-width: 575.98px) {
+        .notifications-card {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .notifications-left {
+            width: 100%;
+        }
+    }
+</style>
+
+<div class="notifications-card" id="dashboardNotificationsCard" role="region" aria-label="Notificaciones">
+    <!-- Close button top-right -->
+    <button type="button" class="btn-close notifications-close" id="btnCloseNotifications" aria-label="Cerrar notificaciones"></button>
+
+    <div class="notifications-left">
+        <div class="notifications-items">
+
+            @* EMAIL confirmation *@
+            @if (showConfirmEmail)
+            {
+                <a class="notification-row notification-link" href="@Url.Page("/Account/Manage/Email", new { area = "Identity" })" aria-label="Confirmar correo">
+                    <div class="d-flex align-items-center gap-3" style="min-width:0;">
+                        <div class="notifications-icon notifications-icon--yellow" aria-hidden="true">
+                            <i class="bi bi-envelope-fill" title="Correo"></i>
+                        </div>
+                        <div class="notification-text-wrap">
+                            <div class="notification-text">Confirma tu correo</div>
+                            <div class="notification-sub">Te recomendamos confirmar tu email para seguridad y notificaciones.</div>
+                        </div>
+                    </div>
+                </a>
+            }
+
+            @* PHONE confirmation (if you still use it) *@
+            @if (showConfirmPhone)
+            {
+                <a class="notification-row notification-link" href="@Url.Page("/Account/Manage/Index", new { area = "Identity" })" aria-label="Confirmar teléfono">
+                    <div class="d-flex align-items-center gap-3" style="min-width:0;">
+                        <div class="notifications-icon notifications-icon--yellow" aria-hidden="true">
+                            <i class="bi bi-telephone-fill" title="Teléfono"></i>
+                        </div>
+                        <div class="notification-text-wrap">
+                            <div class="notification-text">Confirma tu teléfono</div>
+                            <div class="notification-sub">Verifica tu número para recibir alertas y mejorar seguridad.</div>
+                        </div>
+                    </div>
+                </a>
+            }
+
+            @* Add condition *@
+            @if (showAddCondition)
+            {
+                <a class="notification-row notification-link" href="@Url.Page("/Usuario/UsuarioCondiciones", new { area = "Identity" })" aria-label="Agregar condición">
+                    <div class="d-flex align-items-center gap-3" style="min-width:0;">
+                        <div class="notifications-icon notifications-icon--yellow" aria-hidden="true">
+                            <i class="bi bi-heart-pulse-fill" title="Condición"></i>
+                        </div>
+                        <div class="notification-text-wrap">
+                            <div class="notification-text">Agrega al menos 1 condición</div>
+                            <div class="notification-sub">Relacionar una condición mejora tus sugerencias y seguimiento.</div>
+                        </div>
+                    </div>
+                </a>
+            }
+
+            @* Add mood *@
+            @if (showAddMood)
+            {
+                <a class="notification-row notification-link" href="@Url.Page("/Usuario/UsuarioEstadoAnimo", new { area = "Identity" })" aria-label="Registrar estado de ánimo">
+                    <div class="d-flex align-items-center gap-3" style="min-width:0;">
+                        <div class="notifications-icon notifications-icon--yellow" aria-hidden="true">
+                            <i class="bi bi-emoji-smile-fill" title="Estado de ánimo"></i>
+                        </div>
+                        <div class="notification-text-wrap">
+                            <div class="notification-text">Registra tu estado de ánimo de hoy</div>
+                            <div class="notification-sub">Lleva un seguimiento diario para ver tu evolución.</div>
+                        </div>
+                    </div>
+                </a>
+            }
+
+            @* New answers *@
+            @if (newAnswers > 0)
+            {
+                <a class="notification-row notification-link" href="@Url.Page("/Usuario/usuarioPreguntasRespuestas", new { area = "Identity" })" aria-label="Ver respuestas">
+                    <div class="d-flex align-items-center gap-3" style="min-width:0;">
+                        <div class="notifications-icon notifications-icon--yellow" aria-hidden="true">
+                            <i class="bi bi-reply-fill" title="Respuestas"></i>
+                        </div>
+                        <div class="notification-text-wrap">
+                            <div class="notification-text">Nuevas respuestas a tus preguntas</div>
+                            <div class="notification-sub">@($"{newAnswers} respuesta(s) en los últimos 7 días")</div>
+                        </div>
+                        <span class="badge-count">@newAnswers</span>
+                    </div>
+                </a>
+            }
+
+            @* Scheduled items *@
+            @if (scheduled > 0)
+            {
+                <a class="notification-row notification-link" href="@Url.Page("/Usuario/Programados", new { area = "Identity" })" aria-label="Ver programados">
+                    <div class="d-flex align-items-center gap-3" style="min-width:0;">
+                        <div class="notifications-icon notifications-icon--yellow" aria-hidden="true">
+                            <i class="bi bi-calendar-check-fill" title="Programados"></i>
+                        </div>
+                        <div class="notification-text-wrap">
+                            <div class="notification-text">Tienes tareas o servicios programados</div>
+                            <div class="notification-sub">@($"{scheduled} ítem(s) programado(s)")</div>
+                        </div>
+                        <span class="badge-count">@scheduled</span>
+                    </div>
+                </a>
+            }
+
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const btnClose = document.getElementById('btnCloseNotifications');
+        if (!btnClose) return;
+        btnClose.addEventListener('click', function () {
+            const card = document.getElementById('dashboardNotificationsCard');
+            if (!card) return;
+            card.style.transition = 'opacity .25s ease, height .25s ease, transform .25s ease';
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(-6px)';
+            setTimeout(() => {
+                if (card.parentNode) card.parentNode.removeChild(card);
+            }, 270);
+        });
+    })();
+</script>

@@ -75,7 +75,7 @@ namespace eiibd26.Areas.Identity.Pages.Account
 
         public async Task OnGetAsync(string returnUrl = null)
         {
-            ReturnUrl = returnUrl ?? Url.Content("~/");
+            ReturnUrl = returnUrl ?? Url.Content("~/Usuario/UsuarioPerfil");
             await PopulatePaisesAsync();
             await PopulateCondicionesPadreAsync();
         }
@@ -172,13 +172,10 @@ namespace eiibd26.Areas.Identity.Pages.Account
                     idUser = userGuid,
                     Avatar = avatarUrl,                     // [Required]
                     Titulo = string.Empty,                  // [Required]
-                    Activo = true,
                     Nombre = string.Empty,
                     Apellidos = string.Empty,
-                    Telefono = string.Empty,                // [Required]
-                    Email = user.Email,                     // [Required]
                     FechaDeNacimiento = null,
-                    UsoPlataforma = "Paciente",             // [Required]
+                    
                     idZone = null,
                     FechaCreacion = DateTime.UtcNow,
                     UltimaActividad = DateTime.UtcNow,
@@ -190,16 +187,14 @@ namespace eiibd26.Areas.Identity.Pages.Account
                     NombreCiudad = null,
                     NombrePais = codigoPais,                // guarda la clave/código del país
                     AceptoPP = null,
-                    UltimosEstudios = null,
-                    ExperienciaLaboral = null,
-                    UltimaCertificacion = null,
+                    
                     AcercaDe = null,
-                    Extras = null,
+                    
                     UsuarioModificacion = null,
                     UsuarioCreacion = null,
                     FechaModificado = null,
                     FechaCreado = DateTime.UtcNow,
-                    Eliminado = false,
+                    
                     PermitirTelefonoReal = true,
                     PermitirCorreoNoticias = true,
                     PermitirMostrarPais = true

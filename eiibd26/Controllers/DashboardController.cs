@@ -178,5 +178,67 @@ namespace eiibd26.Controllers
 
             return RedirectToAction(nameof(Index));
         }
+
+        // Añade dentro de la clase DashboardModel:
+
+        public async Task<IActionResult> OnPostTrackSintomaMatriz()
+        {
+            var form = Request.Form;
+            if (!form.ContainsKey("sintomaUsuarioId") || !form.ContainsKey("estado") || !form.ContainsKey("fecha"))
+                return BadRequest();
+
+            if (!int.TryParse(form["sintomaUsuarioId"], out var sintomaUsuarioId))
+                return BadRequest();
+
+            var estado = form["estado"].ToString();
+            if (!DateTime.TryParse(form["fecha"], out var fecha))
+                return BadRequest();
+
+            // Ejemplo genérico: inserta o actualiza registro en tabla de seguimiento
+            // Ajusta nombres de entidad/propiedades a tu modelo real:
+            // Supongamos que existe entidad SintomaSeguimiento { Id, SintomaUsuarioId, Fecha, Estado }
+            try
+            {
+                // Buscar registro existente para ese día
+                var start = fecha.Date;
+                var end = start.AddDays(1).AddMilliseconds(-1);
+
+                // Ajusta el nombre DbSet y propiedades a tu modelo real
+                var existing = await _db.Set<object>()
+                    .FromSqlRaw("SELECT TOP(1) * FROM SintomaSeguimiento WHERE SintomaUsuarioId = {0} AND Fecha >= {1} AND Fecha <= {2}", sintomaUsuarioId, start, end)
+                    .ToListAsync();
+
+                // Si no tienes la entidad mapeada, en vez de raw SQL deberás mapear la entidad en ApplicationDbContext.
+                // Aquí doy un flujo genérico: crear una nueva entidad y guardarla.
+                // Reemplaza por el código real para tu tabla.
+
+                // EJEMPLO SIMPLIFICADO (si tienes entidad SintomaSeguimiento en el modelo EF):
+                /*
+                var existing = await _db.SintomaSeguimiento
+                    .Where(ss => ss.SintomaUsuarioId == sintomaUsuarioId && ss.Fecha >= start && ss.Fecha <= end)
+                    .FirstOrDefaultAsync();
+
+                if (existing != null)
+                {
+                    existing.Estado = estado;
+                    _db.SintomaSeguimiento.Update(existing);
+                }
+                else
+                {
+                    var nuevo = new SintomaSeguimiento { SintomaUsuarioId = sintomaUsuarioId, Fecha = DateTime.Now, Estado = estado };
+                    _db.SintomaSeguimiento.Add(nuevo);
+                }
+                await _db.SaveChangesAsync();
+                */
+
+                // Retornamos OK para que el partial actualice la celda en el cliente
+                return new OkResult();
+            }
+            catch (Exception ex)
+            {
+                // Log ex
+                return StatusCode(500);
+            }
+        }
     }
 }

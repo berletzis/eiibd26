@@ -1,0 +1,328 @@
+﻿@model eiibd26.Models.DashboardViewModel
+@using System
+@using System.Collections.Generic
+@using System.Linq
+@{
+    var hoy = DateTime.Today;
+    var ayer = hoy.AddDays(-1);
+    var top = Model?.TopSintomas?.Take(5).ToList() ?? new List<eiibd26.Models.SymptomTopItem>();
+
+    Func<string,string> estadoToColor = estado =>
+    {
+        if (string.IsNullOrWhiteSpace(estado)) return "#E6E6EB";
+        switch (estado.Trim().ToLowerInvariant())
+        {
+            case "ninguno": return "#E6E6EB";
+            case "leve": return "#B6C2D7";
+            case "moderado": return "#FFD121";
+            case "severo": return "#FF8A65";
+            case "extremo": return "#D32F2F";
+            default: return "#E6E6EB";
+        }
+    };
+
+    string KeyForDate(DateTime d) => d.ToString("yyyy-MM-dd");
+}
+
+<style>
+.sintomas-top5 { padding: 0.6rem; }
+.sintomas-top5 .crm-table-title { font-weight:600; color:#315686; margin-bottom:.6rem; }
+.sintomas-top5 .crm-circle { display:inline-block; border-radius:50%; width:18px; height:18px; box-shadow:0 1px 4px rgba(204,209,234,.23); border:2px solid #f3f4f8; vertical-align:middle; cursor:pointer; }
+.sintomas-top5 .btn-agregar { border-radius:9px; padding:4px 8px; font-size:.95rem; }
+.sintomas-top5 .wrap-condiciones { max-width:220px; white-space:normal; word-break:break-word; color:#6b7280; }
+.sintomas-top5 .empty-msg { color:#6b7280; padding:1.4rem; text-align:center; }
+.table-sm td, .table-sm th { vertical-align: middle; }
+.btn-agregar i { font-size:1.05rem; line-height:1; }
+</style>
+
+<div id="sintomasTop5Root" class="sintomas-top5">
+    <div class="dashboard-col1-title">Top 5 síntomas por seguimiento (ayer + hoy)</div>
+            <div class="small-muted" style="font-size:.9rem;">Ordenados con Mayor Seguimiento.</div>
+
+    <div class="table-responsive">
+        <table class="table table-sm table-borderless align-middle">
+            <thead>
+                <tr>
+                    <th class="text-start">Síntoma</th>
+                    <th class="text-center" style="min-width:120px;">
+                        @ayer.ToString("dd/MM")<br /><small class="text-muted">@ayer.ToString("ddd")</small>
+                        <div class="small fw-bold text-warning">AYER</div>
+                    </th>
+                    <th class="text-center" style="min-width:120px;">
+                        @hoy.ToString("dd/MM")<br /><small class="text-muted">@hoy.ToString("ddd")</small>
+                        <div class="small fw-bold text-warning">HOY</div>
+                    </th>
+                    <th class="text-start">Condición(s)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!top.Any())
+                {
+                    <tr>
+                        <td colspan="4" class="empty-msg">No hay síntomas para mostrar.</td>
+                    </tr>
+                }
+                else
+                {
+                    foreach (var s in top)
+                    {
+                        var sintId = s.SintomaUsuarioId.ToString();
+                        var keyAyer = KeyForDate(ayer);
+                        var keyHoy = KeyForDate(hoy);
+
+                        string seguimientoAyer = s.SeguimientoPorDia != null && s.SeguimientoPorDia.ContainsKey(keyAyer) ? s.SeguimientoPorDia[keyAyer] : "";
+                        string seguimientoHoy = s.SeguimientoPorDia != null && s.SeguimientoPorDia.ContainsKey(keyHoy) ? s.SeguimientoPorDia[keyHoy] : "";
+                        var condiciones = s.Condiciones ?? new List<string>();
+
+                        <tr>
+                            <td class="fw-semibold text-start">@s.Nombre</td>
+
+                            <td class="text-center" data-sintid="@sintId" data-dia="@keyAyer" data-nombre="@s.Nombre">
+                                @if (!string.IsNullOrEmpty(seguimientoAyer))
+                                {
+                                    var color = estadoToColor(seguimientoAyer);
+                                    <span class="crm-circle" style="background:@color" title="@seguimientoAyer" alt="@seguimientoAyer"></span>
+                                }
+                                else
+                                {
+                                    <button type="button"
+                                            class="btn btn-outline-secondary btn-sm btn-agregar"
+                                            data-sintid="@sintId"
+                                            data-dia="@keyAyer"
+                                            data-nombre="@s.Nombre"
+                                            title="Agregar seguimiento (ayer)">
+                                        <i class="bi bi-plus-lg"></i>
+                                    </button>
+                                }
+                            </td>
+
+                            <td class="text-center" data-sintid="@sintId" data-dia="@keyHoy" data-nombre="@s.Nombre">
+                                @if (!string.IsNullOrEmpty(seguimientoHoy))
+                                {
+                                    var color = estadoToColor(seguimientoHoy);
+                                    <span class="crm-circle" style="background:@color" title="@seguimientoHoy" alt="@seguimientoHoy"></span>
+                                }
+                                else
+                                {
+                                    <button type="button"
+                                            class="btn btn-outline-secondary btn-sm btn-agregar"
+                                            data-sintid="@sintId"
+                                            data-dia="@keyHoy"
+                                            data-nombre="@s.Nombre"
+                                            title="Agregar seguimiento (hoy)">
+                                        <i class="bi bi-plus-lg"></i>
+                                    </button>
+                                }
+                            </td>
+
+                            <td class="wrap-condiciones">
+                                @if (condiciones.Any())
+                                {
+                                    @string.Join(", ", condiciones)
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">Sin condición relacionada</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="modalTrackingPartial" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content crm-modal-content">
+            <form id="formTrackingPartial" method="post" class="p-0">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 id="tituloTrackingPartial" class="modal-title">Seguimiento de síntoma</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="mensajeTrackingPartial" class="alert alert-success py-2 px-3 small mb-2 d-none">Seguimiento agregado</div>
+                    <div id="errorTrackingPartial" class="alert alert-danger py-2 px-3 small mb-2 d-none"></div>
+                    <div class="mb-2 fw-semibold" id="preguntaTrackingPartial"></div>
+                    <div id="opcionesTrackingPartial" class="d-flex flex-column gap-2"></div>
+                </div>
+                <div class="modal-footer"></div>
+
+                <input type="hidden" id="sintomaIdTrackingPartial" name="sintomaUsuarioId" />
+                <input type="hidden" id="fechaTrackingPartial" name="fecha" />
+                <input type="hidden" id="nombreSintomaTrackingPartial" name="nombre" />
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const opcionesTracking = [
+        { val: "Ninguno", label: "Ninguno", color: "#E6E6EB" },
+        { val: "Leve", label: "Leve", color: "#B6C2D7" },
+        { val: "Moderado", label: "Moderado", color: "#FFD121" },
+        { val: "Severo", label: "Severo", color: "#FF8A65" },
+        { val: "Extremo", label: "Extremo", color: "#D32F2F" }
+    ];
+
+    const root = document.getElementById('sintomasTop5Root');
+
+    function normalize(s) { return (s||"").toString().trim(); }
+    function colorFor(estado) {
+        switch (normalize(estado).toLowerCase()) {
+            case "ninguno": return "#E6E6EB";
+            case "leve": return "#B6C2D7";
+            case "moderado": return "#FFD121";
+            case "severo": return "#FF8A65";
+            case "extremo": return "#D32F2F";
+            default: return "#E6E6EB";
+        }
+    }
+
+    function getAntiForgeryToken() {
+        const f = document.getElementById('formTrackingPartial');
+        if (!f) return null;
+        const el = f.querySelector('input[name="__RequestVerificationToken"]');
+        return el ? el.value : null;
+    }
+
+    function buildOptionsHtml(current) {
+        let html = '';
+        opcionesTracking.forEach(o => {
+            const active = normalize(current).toLowerCase() === o.val.toLowerCase() ? "active" : "";
+            html += `<button type="button" class="btn btn-outline-primary w-100 btn-opcion-track-partial ${active}" data-estado="${o.val}" style="display:flex;align-items:center;gap:10px;">
+                        <span style="background:${o.color};width:18px;height:18px;border-radius:50%;display:inline-block;margin-right:8px;"></span>${o.label}
+                    </button>`;
+        });
+        return html;
+    }
+
+    function openModal(sintId, fecha, nombre, estadoActual) {
+        document.getElementById('sintomaIdTrackingPartial').value = sintId;
+        document.getElementById('fechaTrackingPartial').value = fecha;
+        document.getElementById('nombreSintomaTrackingPartial').value = nombre;
+
+        document.getElementById('errorTrackingPartial').classList.add('d-none');
+        document.getElementById('mensajeTrackingPartial').classList.add('d-none');
+
+        const fechaObj = new Date(fecha + "T12:00:00");
+        const fechaTxt = `${fechaObj.getDate().toString().padStart(2,"0")}/${(fechaObj.getMonth()+1).toString().padStart(2,"0")}/${fechaObj.getFullYear()}`;
+        document.getElementById('preguntaTrackingPartial').innerText = `¿Cómo estuvo "${nombre}" el ${fechaTxt}?`;
+
+        document.getElementById('opcionesTrackingPartial').innerHTML = buildOptionsHtml(estadoActual);
+
+        const opcionesContainer = document.getElementById('opcionesTrackingPartial');
+        opcionesContainer.onclick = function (ev) {
+            const btn = ev.target.closest && ev.target.closest('.btn-opcion-track-partial');
+            if (!btn) return;
+            const estado = btn.dataset.estado;
+            handleOptionSelected(estado);
+        };
+
+        var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTrackingPartial'));
+        modal.show();
+    }
+
+    function findCellsFor(sintomaUsuarioId, fecha) {
+        const selector = `[data-sintid="${sintomaUsuarioId}"][data-dia="${fecha}"]`;
+        return Array.from(document.querySelectorAll(selector));
+    }
+
+    async function handleOptionSelected(estado) {
+        const sintomaUsuarioId = document.getElementById('sintomaIdTrackingPartial').value;
+        const fechaTrack = document.getElementById('fechaTrackingPartial').value;
+        const nombreSintoma = document.getElementById('nombreSintomaTrackingPartial').value;
+
+        // Optimistic update
+        const cells = findCellsFor(sintomaUsuarioId, fechaTrack);
+        const prevHTML = cells.map(c => c.innerHTML);
+        const badgeHtml = `<span class="crm-circle" style="background:${colorFor(estado)}" alt="${estado}" title="${estado}"></span>`;
+
+        cells.forEach(c => {
+            c.innerHTML = badgeHtml;
+            c.onclick = function () { openModal(sintomaUsuarioId, fechaTrack, nombreSintoma, estado); };
+        });
+
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTrackingPartial')).hide();
+
+        const fd = new FormData();
+        fd.append('sintomaUsuarioId', sintomaUsuarioId);
+        fd.append('estado', estado);
+        fd.append('fecha', fechaTrack);
+
+        const token = getAntiForgeryToken();
+        const headers = token ? { 'RequestVerificationToken': token } : {};
+
+        try {
+            const resp = await fetch('?handler=TrackSintomaMatriz', {
+                method: 'POST',
+                body: fd,
+                headers: headers,
+                credentials: 'same-origin'
+            });
+
+            if (!resp.ok) {
+                // revert
+                cells.forEach((c,i) => c.innerHTML = prevHTML[i] || '');
+                const errorEl = document.getElementById('errorTrackingPartial');
+                let text = '';
+                try { text = await resp.text(); } catch(e) {}
+                errorEl.textContent = text ? `Error: ${text}` : 'Error guardando seguimiento';
+                errorEl.classList.remove('d-none');
+                setTimeout(()=> errorEl.classList.add('d-none'), 4000);
+                return;
+            }
+
+            // If server returns JSON with estado, use it to ensure consistency
+            let json = null;
+            try { json = await resp.json().catch(()=>null); } catch(e) { json = null; }
+            if (json && json.estado) {
+                const serverEstado = json.estado;
+                const badgeHtml2 = `<span class="crm-circle" style="background:${colorFor(serverEstado)}" alt="${serverEstado}" title="${serverEstado}"></span>`;
+                cells.forEach(c => {
+                    c.innerHTML = badgeHtml2;
+                    c.onclick = function () { openModal(sintomaUsuarioId, fechaTrack, nombreSintoma, serverEstado); };
+                });
+            }
+        } catch (err) {
+            // revert and show error
+            cells.forEach((c,i) => c.innerHTML = prevHTML[i] || '');
+            console.error('Network error saving seguimiento', err);
+            const errorEl = document.getElementById('errorTrackingPartial');
+            errorEl.textContent = 'Error de red al guardar seguimiento';
+            errorEl.classList.remove('d-none');
+            setTimeout(()=> errorEl.classList.add('d-none'), 4000);
+        }
+    }
+
+    // Delegated click handling
+    if (root) {
+        root.addEventListener('click', function (ev) {
+            const target = ev.target;
+            const addBtn = target.closest ? target.closest('.btn-agregar') : null;
+            if (addBtn) {
+                const sintId = addBtn.dataset.sintid;
+                const fecha = addBtn.dataset.dia;
+                const nombre = addBtn.dataset.nombre;
+                openModal(sintId, fecha, nombre, "");
+                return;
+            }
+            const circle = target.closest ? target.closest('.crm-circle') : null;
+            if (circle) {
+                const td = circle.closest('td');
+                if (!td) return;
+                const sintId = td.getAttribute('data-sintid');
+                const fecha = td.getAttribute('data-dia');
+                const nombre = td.getAttribute('data-nombre');
+                const estado = circle.getAttribute('alt') || "";
+                openModal(sintId, fecha, nombre, estado);
+                return;
+            }
+        });
+    }
+})();
+</script>

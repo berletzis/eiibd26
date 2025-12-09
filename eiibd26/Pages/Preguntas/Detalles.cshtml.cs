@@ -115,7 +115,7 @@ namespace eiibd26.Pages.Preguntas
             try
             {
                 var perfilAutor = await _db.Set<Perfil>().AsNoTracking()
-                    .Where(p => p.idUser == preguntaRow.UsuarioId && (p.Eliminado == null || p.Eliminado == false))
+                    .Where(p => p.idUser == preguntaRow.UsuarioId)
                     .Select(p => new { p.Nombre, p.Apellidos, p.Avatar })
                     .FirstOrDefaultAsync();
 
@@ -248,7 +248,7 @@ namespace eiibd26.Pages.Preguntas
                 try
                 {
                     var perfiles = await _db.Set<Perfil>().AsNoTracking()
-                        .Where(p => ansUserIds.Contains(p.idUser) && (p.Eliminado == null || p.Eliminado == false))
+                        .Where(p => ansUserIds.Contains(p.idUser))
                         .Select(p => new { p.idUser, p.Nombre, p.Apellidos, p.Avatar })
                         .ToListAsync();
 
