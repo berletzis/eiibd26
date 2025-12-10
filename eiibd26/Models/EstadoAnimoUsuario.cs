@@ -21,6 +21,10 @@ namespace eiibd26.Models
         [Required]
         public DateTime FechaRegistro { get; set; }
 
+
+        // Soft-delete flag
+        public bool Eliminado { get; set; } = false;
+
         // Relaciones opcionales a contexto clínico del usuario
         public int? IdCondicionUsuario { get; set; }
         public int? IdSintomaUsuario { get; set; }

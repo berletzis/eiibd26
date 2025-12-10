@@ -53,6 +53,12 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
             await LoadUserListsAsync(userId);
 
+            // If TempData contains success message (from PRG), assign it so the view can show it
+            if (TempData.ContainsKey("SuccessMessage"))
+            {
+                SuccessMessage = TempData["SuccessMessage"]?.ToString();
+            }
+
             if (id.HasValue)
             {
                 Id = id;
@@ -97,7 +103,8 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             return Page();
         }
 
-        public async Task<IActionResult> OnPostSaveAsync(Guid? id)
+        // FIX: usar PRG: después de crear/editar redirigimos a la GET con id para evitar re-POST y así el siguiente Guardar será actualización.
+        public async Task<IActionResult> OnPostSaveAsync()
         {
             var userId = GetUserId();
             if (userId == Guid.Empty) return Challenge();
@@ -118,11 +125,11 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             Titulo = Titulo.Trim();
             Cuerpo = Cuerpo.Trim();
 
-            if (id.HasValue)
+            if (Id.HasValue)
             {
                 var pregunta = await _db.Preguntas
                     .IgnoreQueryFilters()
-                    .FirstOrDefaultAsync(p => p.Id == id.Value && p.UsuarioId == userId);
+                    .FirstOrDefaultAsync(p => p.Id == Id.Value && p.UsuarioId == userId);
 
                 if (pregunta == null)
                 {
@@ -150,9 +157,9 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 await ReplaceRelationsAsync(pregunta.Id);
                 await _db.SaveChangesAsync();
 
-                SuccessMessage = "Pregunta actualizada.";
-                Id = pregunta.Id;
-                CanModify = true;
+                // use TempData and redirect (PRG) so subsequent clicks will edit instead of create
+                TempData["SuccessMessage"] = "Pregunta actualizada.";
+                return RedirectToPage(new { id = pregunta.Id });
             }
             else
             {
@@ -173,15 +180,10 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 await InsertRelationsAsync(nueva.Id);
                 await _db.SaveChangesAsync();
 
-                SuccessMessage = "Pregunta creada.";
-                Id = nueva.Id;
-                CanModify = true;
+                // use TempData and redirect (PRG) so the page becomes the edit state and further saves update
+                TempData["SuccessMessage"] = "Pregunta creada.";
+                return RedirectToPage(new { id = nueva.Id });
             }
-
-            if (Id.HasValue)
-                await ReloadRelationsSelectionsAsync(Id.Value);
-
-            return Page();
         }
 
         public async Task<IActionResult> OnPostDeleteAsync(Guid? id)

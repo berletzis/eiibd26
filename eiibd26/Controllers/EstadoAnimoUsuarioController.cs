@@ -26,13 +26,14 @@ namespace eiibd26.Controllers
             if (!Guid.TryParse(userId, out var guid)) return Unauthorized();
 
             var lista = await _db.EstadoAnimoUsuario
-                .Where(x => x.IdUsuario == guid)
+                .Where(x => x.IdUsuario == guid && !x.Eliminado)
                 .OrderByDescending(x => x.FechaRegistro)
                 .Include(x => x.CondicionUsuario).ThenInclude(c => c.Condicion)
                 .Include(x => x.SintomaUsuario).ThenInclude(su => su.Sintoma)
                 .Include(x => x.TratamientoUsuario).ThenInclude(tu => tu.Tratamiento)
                 .Select(x => new
                 {
+                    Id = x.Id,
                     EstadoMood = x.EstadoMood,
                     Texto = x.Texto,
                     // Enviar la fecha como string ISO (ISO 8601) para evitar ambigüedades de zona/parseo en el cliente
@@ -126,6 +127,29 @@ namespace eiibd26.Controllers
                 RelacionNombre = nombre,
                 TipoRelacion = tipo
             });
+        }
+
+        [HttpPost("eliminar/{id}")]
+        public async Task<IActionResult> Eliminar(int id)
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
+            if (!Guid.TryParse(userId, out var guid)) return Unauthorized();
+
+            var estado = await _db.EstadoAnimoUsuario.FirstOrDefaultAsync(e => e.Id == id && e.IdUsuario == guid);
+            if (estado == null) return NotFound(new { ok = false, error = "Registro no encontrado." });
+
+            estado.Eliminado = true;
+            try
+            {
+                await _db.SaveChangesAsync();
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, new { ok = false, error = "Error al eliminar el estado de ánimo." });
+            }
+
+            return Ok(new { ok = true });
         }
     }
 }

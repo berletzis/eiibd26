@@ -31,9 +31,9 @@
         <div class="crm-card">
             <div class="d-flex flex-wrap justify-content-between align-items-center">
                 <div>
-                    
+
                     <div class="text-muted mb-2">Lista de tus preguntas y aquellas en las que has participado..</div>
-                 
+
                 </div>
                 <div class="d-inline-flex align-items-center">
                     <a class="se-btn se-btn-primary me-0" style="font-size:28px;"
@@ -47,7 +47,7 @@
                     </button>
                 </div>
 
-   
+
             </div>
         </div>
     </div>
@@ -261,16 +261,32 @@
                                 <span class="se-time">@q.FechaCreacion.ToLocalTime().ToString("g")</span>
                                 @if (q.EsMia)
                                 {
-                                    <button type="button"
-                                            class="se-action-link se-action-delete"
-                                            data-id="@q.Id"
-                                            data-title="@q.Titulo"
-                                            title="Eliminar pregunta">
-                                        Eliminar
-                                    </button>
-                                    <a class="se-action-link se-action-edit"
-                                       href="~/Identity/Usuario/UusuarioPreguntaDetalle?id=@q.Id"
-                                       title="Editar pregunta">Editar</a>
+                                    @* Si la pregunta ya tiene respuestas, renderizamos un link "bloqueado" que mostrará una alerta al hacer click. *@
+                                    @if (q.RespuestasCount > 0)
+                                    {
+                                        <a href="#" class="se-action-link se-action-delete-blocked"
+                                           data-id="@q.Id"
+                                           data-title="@q.Titulo"
+                                           data-responses="@q.RespuestasCount"
+                                           title="No se puede eliminar: ya tiene respuestas">
+                                            Eliminar
+                                        </a>
+                                        <a class="se-action-link se-action-edit"
+                                           href="~/Identity/Usuario/UusuarioPreguntaDetalle?id=@q.Id"
+                                           title="Editar pregunta">Editar</a>
+                                    }
+                                    else
+                                    {
+                                        <a href="#" class="se-action-link se-action-delete"
+                                           data-id="@q.Id"
+                                           data-title="@q.Titulo"
+                                           title="Eliminar pregunta">
+                                            Eliminar
+                                        </a>
+                                        <a class="se-action-link se-action-edit"
+                                           href="~/Identity/Usuario/UusuarioPreguntaDetalle?id=@q.Id"
+                                           title="Editar pregunta">Editar</a>
+                                    }
                                 }
                             </div>
 
@@ -438,26 +454,45 @@
     </div>
 </div>
 
-<!-- Modal confirmar eliminación -->
+<!-- Modal confirmar eliminación (sin botón "Cancelar"; cierre con la X en la esquina superior derecha) -->
 <div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar eliminación</h5>
+                <!-- X para cerrar en la esquina superior derecha -->
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
             <div class="modal-body p-4">
-                <h5 class="mb-2">Confirmar eliminación</h5>
                 <p id="confirmDeleteMessage" class="mb-0 text-muted">¿Deseas eliminar este elemento? Esta acción es irreversible.</p>
             </div>
             <div class="modal-footer">
-                <button type="button" class="se-btn se-btn-ghost" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" id="confirmDeleteBtn" class="se-btn se-btn-primary">Eliminar</button>
+                <!-- Cancelamos el botón "Cancelar" según lo pedido y dejamos solo confirmar -->
+                <button type="button" id="confirmDeleteBtn" class="se-btn se-btn-primary"><i class="bi bi-trash3"></i></button>
             </div>
         </div>
     </div>
 </div>
 
 @section Scripts {
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Fallback: si bootstrap no está disponible localmente, cargar CDN -->
+    <script>
+        (function(){
+            if (typeof bootstrap === 'undefined') {
+                var s = document.createElement('script');
+                s.src = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js';
+                s.crossOrigin = 'anonymous';
+                s.onload = function(){ console.debug('Bootstrap fallback loaded'); };
+                document.head.appendChild(s);
+            }
+        })();
+    </script>
+
     <script>
         (function () {
+            // pendingDelete debe estar en scope superior para que lo usen varias funciones
+            let pendingDelete = null;
+
             function initLazyAvatars() {
                 const imgs = Array.from(document.querySelectorAll('img.lazy-avatar[data-src]'));
                 if (!imgs.length) return;
@@ -483,72 +518,102 @@
             }
 
             document.addEventListener('click', async e => {
-                const btn = e.target.closest('.se-vote-btn');
-                if (!btn) return;
-                const item = btn.closest('.se-item');
-                if (!item) return;
+                // Votación: buscar botones de voto primero
+                const voteBtn = e.target.closest('.se-vote-btn');
+                if (voteBtn) {
+                    const item = voteBtn.closest('.se-item');
+                    if (!item) return;
 
-                const isAuth = item.getAttribute('data-authenticated') === 'true';
-                const ownerId = item.getAttribute('data-owner');
-                const currentUserId = '@@User.FindFirstValue(ClaimTypes.NameIdentifier)';
-                const userVote = parseInt(item.getAttribute('data-user-vote') || '0', 10);
-                const score = parseInt(item.getAttribute('data-score') || '0', 10);
-                const dir = btn.getAttribute('data-dir');
-                const id = item.getAttribute('data-id');
+                    const isAuth = item.getAttribute('data-authenticated') === 'true';
+                    const ownerId = item.getAttribute('data-owner');
+                    const currentUserId = '@@User.FindFirstValue(ClaimTypes.NameIdentifier)';
+                    const userVote = parseInt(item.getAttribute('data-user-vote') || '0', 10);
+                    const score = parseInt(item.getAttribute('data-score') || '0', 10);
+                    const dir = voteBtn.getAttribute('data-dir');
+                    const id = item.getAttribute('data-id');
 
-                if (!isAuth) return;
-                if (ownerId && currentUserId && ownerId === currentUserId) return;
-                if (!id || !dir) return;
+                    if (!isAuth) return;
+                    if (ownerId && currentUserId && ownerId === currentUserId) return;
+                    if (!id || !dir) return;
 
-                if (dir === 'up' && userVote !== 0) return;
-                if (dir === 'down' && (userVote !== 1 || score <= 0)) return;
+                    if (dir === 'up' && userVote !== 0) return;
+                    if (dir === 'down' && (userVote !== 1 || score <= 0)) return;
 
-                const upBtn = item.querySelector('.se-vote-up');
-                const downBtn = item.querySelector('.se-vote-down');
-                if (upBtn) upBtn.disabled = true;
-                if (downBtn) downBtn.disabled = true;
+                    const upBtn = item.querySelector('.se-vote-up');
+                    const downBtn = item.querySelector('.se-vote-down');
+                    if (upBtn) upBtn.disabled = true;
+                    if (downBtn) downBtn.disabled = true;
 
-                const valor = dir === 'up' ? 1 : -1;
+                    const valor = dir === 'up' ? 1 : -1;
 
-                try {
-                    const res = await fetch('/api/preguntas/' + id + '/votar', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ valor })
-                    });
-                    if (!res.ok) {
-                        alert('Error al votar: ' + res.status);
-                        return;
+                    try {
+                        const res = await fetch('/api/preguntas/' + id + '/votar', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ valor })
+                        });
+                        if (!res.ok) {
+                            alert('Error al votar: ' + res.status);
+                            return;
+                        }
+                        const j = await res.json();
+                        let newScore = j.score !== undefined ? parseInt(j.score, 10) : (dir === 'up' ? score + 1 : Math.max(0, score - 1));
+                        let backendVote = (j.userVote !== undefined) ? parseInt(j.userVote, 10) : (dir === 'up' ? 1 : 0);
+                        if (backendVote < 0) backendVote = 0;
+
+                        item.setAttribute('data-score', String(newScore));
+                        item.setAttribute('data-user-vote', String(backendVote));
+
+                        const scoreEl = document.getElementById('score-' + id);
+                        if (scoreEl) scoreEl.textContent = newScore;
+
+                        if (backendVote === 1) {
+                            upBtn?.classList.add('active');
+                            if (upBtn) upBtn.disabled = true;
+                            if (downBtn) downBtn.disabled = newScore <= 0;
+                        } else {
+                            upBtn?.classList.remove('active');
+                            if (upBtn) upBtn.disabled = false;
+                            if (downBtn) downBtn.disabled = true;
+                        }
+                    } catch (err) {
+                        console.error('Error votando', err);
+                        alert('Error de red al votar');
+                    } finally {
+                        const newUserVote = parseInt(item.getAttribute('data-user-vote') || '0', 10);
+                        const newScoreFinal = parseInt(item.getAttribute('data-score') || '0', 10);
+                        if (upBtn && newUserVote === 0) upBtn.disabled = false;
+                        if (downBtn) downBtn.disabled = !(newUserVote === 1 && newScoreFinal > 0);
                     }
-                    const j = await res.json();
-                    let newScore = j.score !== undefined ? parseInt(j.score, 10) : (dir === 'up' ? score + 1 : Math.max(0, score - 1));
-                    let backendVote = (j.userVote !== undefined) ? parseInt(j.userVote, 10) : (dir === 'up' ? 1 : 0);
-                    if (backendVote < 0) backendVote = 0;
-
-                    item.setAttribute('data-score', String(newScore));
-                    item.setAttribute('data-user-vote', String(backendVote));
-
-                    const scoreEl = document.getElementById('score-' + id);
-                    if (scoreEl) scoreEl.textContent = newScore;
-
-                    if (backendVote === 1) {
-                        upBtn?.classList.add('active');
-                        if (upBtn) upBtn.disabled = true;
-                        if (downBtn) downBtn.disabled = newScore <= 0;
-                    } else {
-                        upBtn?.classList.remove('active');
-                        if (upBtn) upBtn.disabled = false;
-                        if (downBtn) downBtn.disabled = true;
-                    }
-                } catch (err) {
-                    console.error('Error votando', err);
-                    alert('Error de red al votar');
-                } finally {
-                    const newUserVote = parseInt(item.getAttribute('data-user-vote') || '0', 10);
-                    const newScoreFinal = parseInt(item.getAttribute('data-score') || '0', 10);
-                    if (upBtn && newUserVote === 0) upBtn.disabled = false;
-                    if (downBtn) downBtn.disabled = !(newUserVote === 1 && newScoreFinal > 0);
+                    return;
                 }
+
+                // manejar clicks de eliminar (normales o bloqueados)
+                const delBtn = e.target.closest('.se-action-delete, .se-action-delete-blocked');
+                if (!delBtn) return;
+                e.preventDefault();
+
+                // Si está bloqueado por tener respuestas, mostramos alerta informativa y no abrimos el modal
+                if (delBtn.classList.contains('se-action-delete-blocked')) {
+                    const responses = parseInt(delBtn.getAttribute('data-responses') || '0', 10);
+                    const msg = responses > 0
+                        ? 'Esta pregunta ya tiene respuestas asignadas y no se puede editar ni eliminar.'
+                        : 'No es posible eliminar esta pregunta.';
+                    alert(msg);
+                    return;
+                }
+
+                const id = delBtn.getAttribute('data-id');
+                const title = delBtn.getAttribute('data-title') || '';
+                if (!id) return;
+                pendingDelete = { id, element: delBtn.closest('.se-item') };
+                const msgEl = document.getElementById('confirmDeleteMessage');
+                if (msgEl) msgEl.textContent = (title && title.length > 0)
+                    ? `¿Eliminar "${title}"? Esta acción no se puede deshacer.`
+                    : "¿Eliminar esta pregunta? Esta acción es irreversible.";
+                const modalEl = document.getElementById('confirmDeleteModal');
+                const modal = modalEl ? bootstrap.Modal.getOrCreateInstance(modalEl) : null;
+                modal?.show();
             });
 
             const preguntaForm = document.getElementById('preguntaForm');
@@ -589,24 +654,6 @@
                 alertPregunta.className = 'alert ' + (isErr ? 'alert-danger' : 'alert-success');
                 alertPregunta.style.display = 'block';
             }
-
-            let pendingDelete = null;
-            document.addEventListener('click', e => {
-                const delBtn = e.target.closest('.se-action-delete');
-                if (!delBtn) return;
-                e.preventDefault();
-                const id = delBtn.getAttribute('data-id');
-                const title = delBtn.getAttribute('data-title') || '';
-                if (!id) return;
-                pendingDelete = { id, element: delBtn.closest('.se-item') };
-                const msgEl = document.getElementById('confirmDeleteMessage');
-                if (msgEl) msgEl.textContent = title.Length > 0
-                    ? `¿Eliminar "${title}"? Esta acción no se puede deshacer.`
-                    : '¿Eliminar esta pregunta? Esta acción es irreversible.';
-                const modalEl = document.getElementById('confirmDeleteModal');
-                const modal = modalEl ? bootstrap.Modal.getOrCreateInstance(modalEl) : null;
-                modal?.show();
-            });
 
             document.getElementById('confirmDeleteBtn')?.addEventListener('click', async () => {
                 if (!pendingDelete) return;
