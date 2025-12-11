@@ -75,7 +75,7 @@ namespace eiibd26.Areas.Identity.Pages.Account
                 await _emailSender.SendEmailAsync(
                     Input.Email,
                     "Reset Password",
-                    $"Please reset your password by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");
+                    $"Porfavor resetea tu contraseña dando <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>Click Aquí</a>.");
 
                 return RedirectToPage("./ForgotPasswordConfirmation");
             }

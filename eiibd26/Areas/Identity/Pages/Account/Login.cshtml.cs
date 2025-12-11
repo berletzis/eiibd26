@@ -56,7 +56,7 @@ namespace eiibd26.Areas.Identity.Pages.Account
             [DataType(DataType.Password)]
             public string Password { get; set; }
 
-            [Display(Name = "Remember me?")]
+            [Display(Name = "¿Recordar mis datos?")]
             public bool RememberMe { get; set; }
         }
 
@@ -109,12 +109,12 @@ namespace eiibd26.Areas.Identity.Pages.Account
                 }
                 if (result.IsLockedOut)
                 {
-                    _logger.LogWarning("User account locked out.");
+                    _logger.LogWarning("La Cuenta ha sido Bloqueada.");
                     return RedirectToPage("./Lockout");
                 }
                 else
                 {
-                    ModelState.AddModelError(string.Empty, "Invalid login attempt.");
+                    ModelState.AddModelError(string.Empty, "Intento de Inicio de Sesión Incorrecto.");
                     return Page();
                 }
             }

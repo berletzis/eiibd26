@@ -1,0 +1,248 @@
+﻿@page
+@model eiibd26.Pages.Home.IndexModel
+@{
+    ViewData["Title"] = "Inicio";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/preguntas.css" />
+    <style>
+        .home-hero {
+            padding: 60px 0 40px;
+            text-align: center;
+            background: linear-gradient(180deg,#fafbfd,#fff);
+        }
+
+            .home-hero h1 {
+                font-size: 3rem;
+                margin-bottom: .6rem;
+                font-weight: 700;
+            }
+
+            .home-hero p.lead {
+                color: #6b7280;
+                max-width: 760px;
+                margin: 0 auto 1rem;
+            }
+
+        .blog-list {
+            padding: 30px 0 80px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .blog-card {
+            display: flex;
+            gap: 18px;
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #eef2f7;
+            padding: 18px;
+            margin-bottom: 20px;
+            align-items: stretch;
+            box-shadow: 0 6px 18px rgba(16,24,40,0.04);
+        }
+
+            .blog-card .thumb {
+                flex: 0 0 44%;
+                max-width: 44%;
+                border-radius: 10px;
+                overflow: hidden;
+                background: #f3f6fa;
+            }
+
+                .blog-card .thumb img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    display: block;
+                }
+
+            .blog-card .content {
+                flex: 1 1 56%;
+                padding: 6px 6px;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+            }
+
+        .blog-meta {
+            font-size: .85rem;
+            color: #2563eb;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+
+        .blog-title {
+            font-size: 1.4rem;
+            margin: 8px 0 10px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .blog-excerpt {
+            color: #6b7280;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+
+        .blog-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-top: 6px;
+        }
+
+        .author {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #334155;
+            font-size: .9rem;
+        }
+
+            .author .avatar {
+                width: 32px;
+                height: 32px;
+                border-radius: 999px;
+                background: #e6eef9;
+                overflow: hidden;
+            }
+
+                .author .avatar img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    display: block;
+                }
+
+        .pubdate {
+            color: #94a3b8;
+            font-size: .9rem;
+        }
+
+        @@media (max-width:900px) {
+            .blog-card {
+                flex-direction: column;
+            }
+
+                .blog-card .thumb {
+                    width: 100%;
+                    max-width: 100%;
+                    height: 180px;
+                }
+        }
+
+        .load-more-wrap {
+            text-align: center;
+            margin-top: 18px;
+        }
+    </style>
+}
+
+<main>
+    <section class="home-hero">
+        @* Hero partial *@
+        <partial name="~/Pages/Shared/HeroPartial.cshtml" model="Model.Hero" />
+    </section>
+
+    <section class="blog-list" aria-label="Artículos recientes">
+        <div class="items-container">
+            @* Render initial items via shared partial that accepts IEnumerable<BlogItemVm> *@
+            <partial name="~/Pages/Shared/_BlogItems.cshtml" model="Model.BlogList.Items" />
+        </div>
+
+        <div class="load-more-wrap">
+            <button id="loadMoreBtn"
+                    class="btn btn-outline-primary"
+                    data-nextpage="2"
+                    data-pagesize="@Model.BlogList.PageSize"
+                    data-total="@Model.BlogList.TotalCount">
+                Cargar más
+            </button>
+        </div>
+    </section>
+</main>
+
+@section Scripts {
+    <script>
+        (function () {
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            if (!loadMoreBtn) return;
+
+            const pageSize = parseInt(loadMoreBtn.getAttribute('data-pagesize') || '3', 10);
+            const total = parseInt(loadMoreBtn.getAttribute('data-total') || '0', 10);
+
+            // initial: count cards already rendered
+            let loadedCount = document.querySelectorAll('.blog-card').length;
+
+            function setLoading(on) {
+                loadMoreBtn.disabled = on;
+                loadMoreBtn.textContent = on ? 'Cargando...' : 'Cargar más';
+            }
+
+            function checkHide() {
+                if (total > 0 && loadedCount >= total) {
+                    loadMoreBtn.style.display = 'none';
+                }
+            }
+
+            // Check initially in case everything is already loaded
+            checkHide();
+
+            loadMoreBtn.addEventListener('click', async function () {
+                const next = parseInt(loadMoreBtn.getAttribute('data-nextpage') || '2', 10);
+                setLoading(true);
+                try {
+                    const url = new URL('@Url.Page("/Home/BlogMore")', window.location.origin);
+                    url.searchParams.set('pageNumber', String(next));
+                    url.searchParams.set('pageSize', String(pageSize));
+
+                    const res = await fetch(url.toString(), { method: 'GET', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                    if (!res.ok) {
+                        console.error('Error loading more:', res.status);
+                        alert('Error cargando más artículos.');
+                        setLoading(false);
+                        return;
+                    }
+
+                    const html = await res.text();
+                    if (!html || html.trim().length === 0) {
+                        // no more items
+                        loadMoreBtn.style.display = 'none';
+                        setLoading(false);
+                        return;
+                    }
+
+                    const container = document.querySelector('.blog-list .items-container');
+
+                    // Parse HTML into a temporary container so we can count items before appending
+                    const temp = document.createElement('div');
+                    temp.innerHTML = html;
+                    const added = temp.querySelectorAll('.blog-card').length;
+
+                    // Move parsed nodes into the real container
+                    while (temp.firstChild) {
+                        container.appendChild(temp.firstChild);
+                    }
+
+                    // update counters and next page
+                    loadedCount += added;
+                    loadMoreBtn.setAttribute('data-nextpage', String(next + 1));
+
+                    // hide button if we've loaded all
+                    checkHide();
+
+                } catch (e) {
+                    console.error(e);
+                    alert('Error de red al cargar más artículos.');
+                } finally {
+                    setLoading(false);
+                }
+            });
+        })();
+    </script>
+}
