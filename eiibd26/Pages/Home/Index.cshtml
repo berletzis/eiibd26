@@ -7,67 +7,74 @@
 @section Styles {
     <link rel="stylesheet" href="~/css/preguntas.css" />
     <style>
+        /* Hero */
         .home-hero {
             padding: 60px 0 40px;
             text-align: center;
             background: linear-gradient(180deg,#fafbfd,#fff);
         }
+        .home-hero h1 {
+            font-size: 3rem;
+            margin-bottom: .6rem;
+            font-weight: 700;
+        }
+        .home-hero p.lead {
+            color: #6b7280;
+            max-width: 760px;
+            margin: 0 auto 1rem;
+        }
 
-            .home-hero h1 {
-                font-size: 3rem;
-                margin-bottom: .6rem;
-                font-weight: 700;
-            }
-
-            .home-hero p.lead {
-                color: #6b7280;
-                max-width: 760px;
-                margin: 0 auto 1rem;
-            }
-
+        /* Blog list container: ancho estándar (ajustable) */
         .blog-list {
             padding: 30px 0 80px;
-            max-width: 1000px;
+            max-width: 1140px; /* estándar de diseño */
             margin: 0 auto;
         }
 
+        /* Grid de items: 3 columnas en desktop */
+        .items-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            align-items: start;
+        }
+
+        /* Card vertical (imagen arriba, contenido abajo) */
         .blog-card {
             display: flex;
-            gap: 18px;
+            flex-direction: column;
             background: #fff;
             border-radius: 12px;
             border: 1px solid #eef2f7;
-            padding: 18px;
-            margin-bottom: 20px;
-            align-items: stretch;
+            overflow: hidden;
             box-shadow: 0 6px 18px rgba(16,24,40,0.04);
+            min-height: 100%;
         }
 
-            .blog-card .thumb {
-                flex: 0 0 44%;
-                max-width: 44%;
-                border-radius: 10px;
-                overflow: hidden;
-                background: #f3f6fa;
-            }
+        .blog-card .thumb {
+            width: 100%;
+            height: 180px;
+            background: #f3f6fa;
+            overflow: hidden;
+            display: block;
+        }
+        .blog-card .thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
 
-                .blog-card .thumb img {
-                    width: 100%;
-                    height: 100%;
-                    object-fit: cover;
-                    display: block;
-                }
-
-            .blog-card .content {
-                flex: 1 1 56%;
-                padding: 6px 6px;
-                display: flex;
-                flex-direction: column;
-                justify-content: space-between;
-            }
+        .blog-card .content {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 12px;
+        }
 
         .blog-meta {
-            font-size: .85rem;
+            font-size: .82rem;
             color: #2563eb;
             display: inline-flex;
             align-items: center;
@@ -76,16 +83,18 @@
         }
 
         .blog-title {
-            font-size: 1.4rem;
-            margin: 8px 0 10px;
+            font-size: 1.05rem;
+            margin: 6px 0;
             font-weight: 700;
             color: #0f172a;
+            line-height: 1.2;
         }
 
         .blog-excerpt {
             color: #6b7280;
             line-height: 1.5;
-            margin-bottom: 12px;
+            flex: 1 1 auto;
+            font-size: .95rem;
         }
 
         .blog-footer {
@@ -94,6 +103,7 @@
             align-items: center;
             gap: 12px;
             margin-top: 6px;
+            font-size: .9rem;
         }
 
         .author {
@@ -101,39 +111,40 @@
             align-items: center;
             gap: 8px;
             color: #334155;
-            font-size: .9rem;
         }
-
-            .author .avatar {
-                width: 32px;
-                height: 32px;
-                border-radius: 999px;
-                background: #e6eef9;
-                overflow: hidden;
-            }
-
-                .author .avatar img {
-                    width: 100%;
-                    height: 100%;
-                    object-fit: cover;
-                    display: block;
-                }
+        .author .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 999px;
+            background: #e6eef9;
+            overflow: hidden;
+            flex: 0 0 32px;
+        }
+        .author .avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
 
         .pubdate {
             color: #94a3b8;
             font-size: .9rem;
         }
 
-        @@media (max-width:900px) {
-            .blog-card {
-                flex-direction: column;
+        /* Responsive: 2 columns en tablet, 1 en móvil */
+        @@media (max-width: 991.98px) {
+            .items-container {
+                grid-template-columns: repeat(2, 1fr);
             }
-
-                .blog-card .thumb {
-                    width: 100%;
-                    max-width: 100%;
-                    height: 180px;
-                }
+        }
+        @@media (max-width: 575.98px) {
+            .items-container {
+                grid-template-columns: 1fr;
+            }
+            .blog-card .thumb {
+                height: 220px;
+            }
         }
 
         .load-more-wrap {
@@ -190,7 +201,7 @@
                 }
             }
 
-            // Check initially in case everything is already loaded
+            // initial hide check
             checkHide();
 
             loadMoreBtn.addEventListener('click', async function () {
@@ -211,15 +222,14 @@
 
                     const html = await res.text();
                     if (!html || html.trim().length === 0) {
-                        // no more items
                         loadMoreBtn.style.display = 'none';
                         setLoading(false);
                         return;
                     }
 
-                    const container = document.querySelector('.blog-list .items-container');
+                    const container = document.querySelector('.items-container');
 
-                    // Parse HTML into a temporary container so we can count items before appending
+                    // Temporarily parse to count items to be added
                     const temp = document.createElement('div');
                     temp.innerHTML = html;
                     const added = temp.querySelectorAll('.blog-card').length;
@@ -233,7 +243,7 @@
                     loadedCount += added;
                     loadMoreBtn.setAttribute('data-nextpage', String(next + 1));
 
-                    // hide button if we've loaded all
+                    // hide button if all loaded
                     checkHide();
 
                 } catch (e) {

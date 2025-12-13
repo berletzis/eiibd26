@@ -248,9 +248,13 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
         {
             b.ToTable("contenidosPreguntasRelacion");
             b.HasKey(x => x.Sequence);
+            // mapear explícitamente la columna que en la BD es 'idContenido'
+            b.Property(x => x.ContenidoId).HasColumnName("idContenido");
+            b.Property(x => x.PreguntaId).HasColumnName("PreguntaId");
             b.HasIndex(x => x.ContenidoId);
             b.HasIndex(x => x.PreguntaId);
             b.HasIndex(x => new { x.ContenidoId, x.PreguntaId }).IsUnique();
+            b.HasQueryFilter(x => !x.Borrado);
         });
 
         builder.Entity<ContenidoRespuestaRelacion>(b =>

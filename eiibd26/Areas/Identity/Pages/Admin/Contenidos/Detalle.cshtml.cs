@@ -46,10 +46,15 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         [BindProperty] public IFormFile UploadedImage { get; set; }
         [BindProperty] public string URLImagenPrincipal { get; set; }
 
-        // Relaciones seleccionadas
+        // Relaciones seleccionadas (domain)
         [BindProperty] public List<int> SelectedCondicionesIds { get; set; } = new();
         [BindProperty] public List<int> SelectedSintomasIds { get; set; } = new();
         [BindProperty] public List<int> SelectedTratamientosIds { get; set; } = new();
+
+        // Relaciones manuales (para contenidos relacionados)
+        [BindProperty] public List<int> SelectedManualContenidoIds { get; set; } = new();
+        // Ahora preguntas como GUIDs
+        [BindProperty] public List<Guid> SelectedManualPreguntasIds { get; set; } = new();
 
         // Lookups
         public List<CategoryItem> CategoryItems { get; set; } = new();
@@ -61,6 +66,10 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         public List<(int id, string nombre)> AllCondiciones { get; set; } = new();
         public List<(int id, string nombre)> AllSintomas { get; set; } = new();
         public List<(int id, string nombre)> AllTratamientos { get; set; } = new();
+
+        // New lookups
+        public List<(int id, string title)> AllGeneralContenidos { get; set; } = new();
+        public List<(Guid id, string title)> AllPreguntasCandidate { get; set; } = new();
 
         public string ErrorMessage { get; set; }
         public string SuccessMessage { get; set; }
@@ -78,6 +87,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         {
             await LoadLookupsAsync();
             await LoadRelLookupsAsync();
+            await LoadManualListsAsync();
 
             if (!id.HasValue)
             {
@@ -100,6 +110,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
             MapContenidoToModel(contenido);
             await LoadSelectedRelationsAsync(Id.Value);
+            await LoadSelectedManualRelationsAsync(Id.Value);
             ResolveCategorySelectionFromRelation();
             BuildSubcategories();
             BuildDebug();
@@ -129,6 +140,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             {
                 await LoadLookupsAsync();
                 await LoadRelLookupsAsync();
+                await LoadManualListsAsync();
 
                 CaptureRelationSelectionsFromForm();
 
@@ -220,6 +232,11 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     await _db.SaveChangesAsync();
 
                     await SaveCategoryRelationAsync(entity.Id, selectedCategory, currentUser, now);
+
+                    // save manual relations (contenidos + preguntas)
+                    await SaveManualRelationsAsync(entity.Id, SelectedManualContenidoIds, SelectedManualPreguntasIds, currentUser, now);
+
+                    // save domain relations
                     await SaveContenidoRelationsAsync(entity.Id, SelectedCondicionesIds, SelectedSintomasIds, SelectedTratamientosIds);
                 }
                 else
@@ -251,6 +268,11 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     Id = entity.Id;
 
                     await SaveCategoryRelationAsync(entity.Id, selectedCategory, currentUser, now);
+
+                    // save manual relations
+                    await SaveManualRelationsAsync(entity.Id, SelectedManualContenidoIds, SelectedManualPreguntasIds, currentUser, now);
+
+                    // save domain relations
                     await SaveContenidoRelationsAsync(entity.Id, SelectedCondicionesIds, SelectedSintomasIds, SelectedTratamientosIds);
                 }
 
@@ -266,6 +288,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             }
         }
 
+        // ------------------------------
+        // SaveCategoryRelationAsync: agrega la relación de categoría (existía en tu versión original)
+        // ------------------------------
         private async Task SaveCategoryRelationAsync(int contenidoId, int? selectedCategory, Guid user, DateTime now)
         {
             if (!selectedCategory.HasValue) return;
@@ -305,13 +330,111 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             await _db.SaveChangesAsync();
         }
 
+        private async Task SaveManualRelationsAsync(int contenidoId, List<int> contenidoRelacionadosIds, List<Guid> preguntasRelacionadasGuids, Guid user, DateTime now)
+        {
+            // Manage manual related entries:
+            // - contenidos in ContenidosRelacionados (Tipo = 1)
+            // - preguntas in ContenidoPreguntaRelacion (PreguntaId = Guid)
+            try
+            {
+                contenidoRelacionadosIds = contenidoRelacionadosIds?.Where(i => i > 0).Distinct().ToList() ?? new List<int>();
+                preguntasRelacionadasGuids = preguntasRelacionadasGuids?.Where(g => g != Guid.Empty).Distinct().ToList() ?? new List<Guid>();
+
+                // ---- Contenidos (contenidosRelacionados, Tipo = 1) ----
+                var existingContentRels = await _db.ContenidosRelacionados
+                    .Where(r => r.IdContenido == contenidoId && !r.Borrado && r.Tipo == 1)
+                    .ToListAsync();
+
+                var existingContentIds = existingContentRels.Select(r => r.IdContenidoRelacionado).ToHashSet();
+
+                // Soft-delete removed content relations
+                foreach (var rel in existingContentRels.Where(r => !contenidoRelacionadosIds.Contains(r.IdContenidoRelacionado)))
+                {
+                    rel.Borrado = true;
+                    rel.FechaModificacion = now;
+                    rel.UsuarioModificacion = user;
+                }
+
+                // Add new content relations
+                foreach (var id in contenidoRelacionadosIds.Where(i => !existingContentIds.Contains(i)))
+                {
+                    _db.ContenidosRelacionados.Add(new ContenidoRelacionado
+                    {
+                        IdContenido = contenidoId,
+                        IdContenidoRelacionado = id,
+                        Tipo = 1,
+                        Descripcion = null,
+                        FechaCreacion = now,
+                        FechaModificacion = now,
+                        UsuarioCreacion = user,
+                        UsuarioModificacion = user,
+                        Borrado = false
+                    });
+                }
+
+                await _db.SaveChangesAsync();
+
+                // ---- Preguntas (ContenidoPreguntaRelacion table, PreguntaId is GUID) ----
+                var cprSet = _db.ContenidosPreguntasRelacion;
+
+                var existingPreguntaRels = await cprSet
+                    .Where(r => r.ContenidoId == contenidoId && !r.Borrado)
+                    .ToListAsync();
+
+                var existingPreguntaGuids = existingPreguntaRels.Select(r => r.PreguntaId).ToHashSet();
+
+                // Soft-delete preguntas removed
+                foreach (var rel in existingPreguntaRels.Where(r => !preguntasRelacionadasGuids.Contains(r.PreguntaId)))
+                {
+                    rel.Borrado = true;
+                    rel.FechaModificacion = now;
+                    rel.UsuarioModificacion = user;
+                }
+
+                // Add new pregunta relations
+                foreach (var guid in preguntasRelacionadasGuids.Where(g => !existingPreguntaGuids.Contains(g)))
+                {
+                    cprSet.Add(new ContenidoPreguntaRelacion
+                    {
+                        ContenidoId = contenidoId,
+                        PreguntaId = guid,
+                        UsuarioCreacion = user,
+                        UsuarioModificacion = user,
+                        FechaCreacion = now,
+                        FechaModificacion = now,
+                        Borrado = false
+                    });
+                }
+
+                await _db.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error guardando relaciones manuales");
+                throw;
+            }
+        }
+
         private void CaptureRelationSelectionsFromForm()
         {
             if (!Request.HasFormContentType) return;
+
+            SelectedManualContenidoIds = Request.Form["SelectedManualContenidoIds"]
+                .Select(v => int.TryParse(v, out var i) ? i : 0).Where(i => i > 0).Distinct().ToList();
+
+            // Preguntas: parse GUIDs from form values
+            SelectedManualPreguntasIds = Request.Form["SelectedManualPreguntasIds"]
+                .Select(v => Guid.TryParse(v, out var g) ? g : Guid.Empty)
+                .Where(g => g != Guid.Empty)
+                .Distinct()
+                .ToList();
+
             SelectedCondicionesIds = Request.Form["SelectedCondicionesIds"]
                 .Select(v => int.TryParse(v, out var i) ? i : 0).Where(i => i > 0).Distinct().ToList();
+
             SelectedSintomasIds = Request.Form["SelectedSintomasIds"]
                 .Select(v => int.TryParse(v, out var i) ? i : 0).Where(i => i > 0).Distinct().ToList();
+
             SelectedTratamientosIds = Request.Form["SelectedTratamientosIds"]
                 .Select(v => int.TryParse(v, out var i) ? i : 0).Where(i => i > 0).Distinct().ToList();
         }
@@ -408,6 +531,23 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 .ToListAsync();
         }
 
+        private async Task LoadSelectedManualRelationsAsync(int contenidoId)
+        {
+            // Cargar relaciones manuales donde el contenido es origen (contenidos)
+            var manual = await _db.ContenidosRelacionados.AsNoTracking()
+                .Where(r => r.IdContenido == contenidoId && !r.Borrado && r.Tipo == 1)
+                .ToListAsync();
+
+            SelectedManualContenidoIds = manual.Select(r => r.IdContenidoRelacionado).Distinct().ToList();
+
+            // Preguntas: cargar desde ContenidoPreguntaRelacion (PreguntaId es Guid) using DbSet property
+            SelectedManualPreguntasIds = await _db.ContenidosPreguntasRelacion.AsNoTracking()
+                .Where(r => r.ContenidoId == contenidoId && !r.Borrado)
+                .Select(r => r.PreguntaId)
+                .Distinct()
+                .ToListAsync();
+        }
+
         private void ResolveCategorySelectionFromRelation()
         {
             // Determinar categoría y subcategoría a partir de la relación activa más reciente
@@ -497,6 +637,65 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 AllTratamientos = tratRaw.Select(t => (t.id, t.nombre ?? string.Empty)).ToList();
             }
             catch { AllTratamientos = new(); }
+        }
+
+        private async Task LoadManualListsAsync()
+        {
+            // 1) Contenidos tipo 3 (contenidos generales)
+            try
+            {
+                var general = await _db.Contenidos.AsNoTracking()
+                    .Where(c => !c.Eliminado && c.IdTipo == 3)
+                    .OrderByDescending(c => c.FechaCreado)
+                    .Select(c => new { c.Id, Title = c.ContenidoTitulo })
+                    .ToListAsync();
+
+                AllGeneralContenidos = general.Select(g => (g.Id, g.Title ?? string.Empty)).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error cargando contenidos tipo 3");
+                AllGeneralContenidos = new();
+            }
+
+            // 2) Preguntas candidatas: las que tienen respuestas o votos
+            try
+            {
+                // Obtener Ids de preguntas que tienen votos (Voto.EntidadTipo == "pregunta")
+                var preguntaIdsWithVotes = await _db.Votos.AsNoTracking()
+                    .Where(v => v.EntidadTipo == "pregunta" && !v.Eliminado)
+                    .Select(v => v.EntidadId)
+                    .Distinct()
+                    .ToListAsync();
+
+                // Traer preguntas que tengan respuestas OR estén en la lista de ids con votos
+                var preguntasFiltered = await _db.Preguntas.AsNoTracking()
+                    .Where(p => !p.Eliminado && (p.Respuestas.Any() || preguntaIdsWithVotes.Contains(p.Id)))
+                    .OrderByDescending(p => p.FechaCreacion)
+                    .Select(p => new { p.Id, Title = p.Titulo })
+                    .ToListAsync();
+
+                // Fallback: si la lista resultante está vacía, traer preguntas recientes
+                if (preguntasFiltered == null || !preguntasFiltered.Any())
+                {
+                    var fallback = await _db.Preguntas.AsNoTracking()
+                        .Where(p => !p.Eliminado)
+                        .OrderByDescending(p => p.FechaCreacion)
+                        .Take(200)
+                        .Select(p => new { p.Id, Title = p.Titulo })
+                        .ToListAsync();
+                    AllPreguntasCandidate = fallback.Select(f => (f.Id, f.Title ?? string.Empty)).ToList();
+                }
+                else
+                {
+                    AllPreguntasCandidate = preguntasFiltered.Select(f => (f.Id, f.Title ?? string.Empty)).ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error cargando preguntas candidatas; devolviendo lista vacía.");
+                AllPreguntasCandidate = new();
+            }
         }
 
         private async Task LoadCategoriesAsync()
@@ -611,7 +810,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 SubCat = IdCategoria,
                 CondSel = SelectedCondicionesIds,
                 SintSel = SelectedSintomasIds,
-                TratSel = SelectedTratamientosIds
+                TratSel = SelectedTratamientosIds,
+                ManualContSel = SelectedManualContenidoIds,
+                ManualPregSel = SelectedManualPreguntasIds
             };
             DebugInfoHtml = JsonSerializer.Serialize(dbg, new JsonSerializerOptions { WriteIndented = true });
         }

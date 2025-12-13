@@ -46,4 +46,6 @@ namespace eiibd26.Models
         public virtual ICollection<ContenidoPreguntaRelacion> PreguntasRelacion { get; set; } = new List<ContenidoPreguntaRelacion>();
         public virtual ICollection<ContenidoRespuestaRelacion> RespuestasRelacion { get; set; } = new List<ContenidoRespuestaRelacion>();
     }
+
+
 }
