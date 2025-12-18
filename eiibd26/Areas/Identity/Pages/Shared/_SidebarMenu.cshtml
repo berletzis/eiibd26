@@ -4,18 +4,26 @@
     var path = ViewContext.HttpContext.Request.Path.ToString();
     // Mustard color for the icon
     var mustard = "#D4A017";
+
+    // Helpers for active states
+    bool IsActive(string p) => string.Equals(path, p, StringComparison.OrdinalIgnoreCase);
+    bool IsStartingWith(string p) => path.StartsWith(p ?? "", StringComparison.OrdinalIgnoreCase);
+
+    // Content submenu open if any contenidos route is active
+    var contenidosRoot = "/Identity/Admin/Contenidos";
+    var contenidosOpen = IsStartingWith(contenidosRoot);
 }
 
 <div class="d-flex flex-column flex-shrink-0 p-3 bg-light sidebar-menu" style="width: 230px; min-height: 100vh; border-right: 1px solid #ececec;">
     <ul class="nav nav-pills flex-column mb-auto">
         <!-- Inicio -->
         <li class="nav-item mb-1">
-            <a href="/" class="nav-link text-dark @(path == "/" ? "active" : "")">
+            <a href="/" class="nav-link text-dark @(IsActive("/") ? "active" : "")">
                 <i class="bi bi-house"></i> Inicio
             </a>
         </li>
 
-       <!-- Admin encabezado (solo escudo rojo en cuadro, palabra normal) -->
+        <!-- Admin encabezado (solo escudo rojo en cuadro, palabra normal) -->
         @if (User.Identity?.IsAuthenticated == true && User.IsInRole("Administrador"))
         {
             <li class="nav-item mt-2 mb-1">
@@ -26,29 +34,56 @@
                     <span>Admin</span>
                 </span>
             </li>
-            <li>
-                <a href="/Identity/Admin/Contenidos/Index" class="nav-link admin ms-4 text-dark @(path == "/Identity/Admin/Contenidos/Index" ? "active" : "")">
-                    <i class="bi bi-person-vcard"></i> Contenidos
+
+            @* Contenidos parent with collapsible submenu *@
+            <li class="nav-item">
+                <a class="nav-link admin d-flex ms-2 text-dark @(contenidosOpen ? "active" : "")"
+                   data-bs-toggle="collapse"
+                   href="#submenuContenidos"
+                   role="button"
+                   aria-expanded="@(contenidosOpen.ToString().ToLower())"
+                   aria-controls="submenuContenidos"
+                   style="gap:.5rem;">
+                    <i class="bi bi-folder2-open me-2"></i>
+                    <span>Contenidos</span>
+                    <i class="bi bi-chevron-down ms-auto"></i>
                 </a>
+
+                <div class="collapse @(contenidosOpen ? "show" : "")" id="submenuContenidos">
+                    <ul class="btn-toggle-nav list-unstyled fw-normal pb-1 small">
+                        <li>
+                            <a href="/Identity/Admin/Contenidos/Index"
+                               class="nav-link ms-4 text-dark @(IsActive("/Identity/Admin/Contenidos/Index") ? "active" : "")">
+                                <i class="bi bi-file-earmark-text"></i> Panel Contenidos
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/Identity/Admin/Contenidos/ContenidosCategorias"
+                               class="nav-link ms-4 text-dark @(IsActive("/Identity/Admin/Contenidos/ContenidosCategorias") ? "active" : "")">
+                                <i class="bi bi-tags"></i> Categorías de Contenido
+                            </a>
+                        </li>
+                    </ul>
+                </div>
             </li>
 
             <li>
-                <a href="/Identity/Admin/Usuarios/Index" class="nav-link admin ms-4 text-dark @(path == "/Identity/Admin/Usuarios/Index" ? "active" : "")">
+                <a href="/Identity/Admin/Usuarios/Index" class="nav-link admin ms-4 text-dark @(IsActive("/Identity/Admin/Usuarios/Index") ? "active" : "")">
                     <i class="bi bi-person-vcard"></i> Usuarios
                 </a>
             </li>
             <li>
-                <a href="/Identity/Admin/Condiciones/Index" class="nav-link admin ms-4 text-dark @(path == "/Identity/Admin/Condiciones/Index" ? "active" : "")">
+                <a href="/Identity/Admin/Condiciones/Index" class="nav-link admin ms-4 text-dark @(IsActive("/Identity/Admin/Condiciones/Index") ? "active" : "")">
                     <i class="bi bi-hospital"></i> Condiciones
                 </a>
             </li>
             <li>
-                <a href="/Identity/Admin/Sintomas/Index" class="nav-link admin ms-4 text-dark @(path == "/Identity/Admin/Sintomas/Index" ? "active" : "")">
+                <a href="/Identity/Admin/Sintomas/Index" class="nav-link admin ms-4 text-dark @(IsActive("/Identity/Admin/Sintomas/Index") ? "active" : "")">
                     <i class="bi bi-activity"></i> Síntomas
                 </a>
             </li>
             <li>
-                <a href="/Identity/Admin/Tratamientos/Index" class="nav-link admin ms-4 text-dark @(path == "/Identity/Admin/Tratamientos/Index" ? "active" : "")">
+                <a href="/Identity/Admin/Tratamientos/Index" class="nav-link admin ms-4 text-dark @(IsActive("/Identity/Admin/Tratamientos/Index") ? "active" : "")">
                     <i class="bi bi-prescription2"></i> Tratamientos
                 </a>
             </li>
@@ -58,7 +93,7 @@
         {
             <li class="nav-item mb-1">
                 <a href="/Identity/Usuario/Dashboard"
-                   class="nav-link text-dark d-flex align-items-center @(path == "/Identity/Usuario/Dashboard" ? "active fw-bold" : "fw-bold")"
+                   class="nav-link text-dark d-flex align-items-center @(IsActive("/Identity/Usuario/Dashboard") ? "active fw-bold" : "fw-bold")"
                    style="gap:.5rem;">
                     <span class="d-inline-flex align-items-center justify-content-center rounded border me-2" style="width:30px;height:30px; border-width:2px;">
                         <i class="bi bi-motherboard" style="color:@mustard; font-size:1.3em"></i>
@@ -69,7 +104,7 @@
 
             <li class="nav-item mb-1">
                 <a href="/Identity/Usuario/usuarioPreguntasRespuestas"
-                   class="nav-link text-dark d-flex align-items-center @(path == "/Identity/Usuario/usuarioPreguntasRespuestas" ? "active fw-bold" : "fw-bold")"
+                   class="nav-link text-dark d-flex align-items-center @(IsActive("/Identity/Usuario/usuarioPreguntasRespuestas") ? "active fw-bold" : "fw-bold")"
                    style="gap:.5rem;">
                     <span class="d-inline-flex align-items-center justify-content-center rounded border me-2" style="width:30px;height:30px; border-width:2px;">
                         <i class="bi bi-chat-left-dots" style="color:@mustard; font-size:1.3em"></i>
@@ -90,27 +125,27 @@
         </li>
 
         <li>
-            <a href="/Identity/Usuario/UsuarioEstadoAnimo" class="nav-link salud ms-4 text-dark @(path == "/Identity/Usuario/UsuarioEstadoAnimo" ? "active" : "")">
+            <a href="/Identity/Usuario/UsuarioEstadoAnimo" class="nav-link salud ms-4 text-dark @(IsActive("/Identity/Usuario/UsuarioEstadoAnimo") ? "active" : "")">
                 <i class="bi bi-person-vcard"></i> Mi Mood
             </a>
         </li>
         <li>
-            <a href="/Identity/Usuario/UsuarioCondiciones" class="nav-link salud ms-4 text-dark @(path == "/Identity/Usuario/UsuarioCondiciones" ? "active" : "")">
+            <a href="/Identity/Usuario/UsuarioCondiciones" class="nav-link salud ms-4 text-dark @(IsActive("/Identity/Usuario/UsuarioCondiciones") ? "active" : "")">
                 <i class="bi bi-lungs"></i> Mis condiciones
             </a>
         </li>
         <li>
-            <a href="/Identity/Usuario/UsuarioSintomas" class="nav-link salud ms-4 text-dark @(path == "/Identity/Usuario/UsuarioSintomas" ? "active" : "")">
+            <a href="/Identity/Usuario/UsuarioSintomas" class="nav-link salud ms-4 text-dark @(IsActive("/Identity/Usuario/UsuarioSintomas") ? "active" : "")">
                 <i class="bi bi-heartbreak"></i> Mis síntomas
             </a>
         </li>
         <li>
-            <a href="/Identity/Usuario/UsuarioSintomasSeguimiento" class="nav-link salud ms-4 text-dark @(path == "/Identity/Usuario/UsuarioSintomasSeguimiento" ? "active" : "")">
+            <a href="/Identity/Usuario/UsuarioSintomasSeguimiento" class="nav-link salud ms-4 text-dark @(IsActive("/Identity/Usuario/UsuarioSintomasSeguimiento") ? "active" : "")">
                 <i class="bi bi-graph-up"></i> Seguimiento de síntomas
             </a>
         </li>
         <li>
-            <a href="/Identity/Usuario/UsuarioTratamientos" class="nav-link salud ms-4 text-dark @(path == "/Identity/Usuario/UsuarioTratamientos" ? "active" : "")">
+            <a href="/Identity/Usuario/UsuarioTratamientos" class="nav-link salud ms-4 text-dark @(IsActive("/Identity/Usuario/UsuarioTratamientos") ? "active" : "")">
                 <i class="bi bi-capsule-pill"></i> Mis tratamientos
             </a>
         </li>

@@ -12,45 +12,32 @@
     // Default avatar (virtual path)
     var avatarSrc = Url.Content("~/img/default-avatar.png");
 
-    // Valores del usuario (id, nombre y nombre de usuario) disponibles para toda la vista
     string userId = null;
-    string displayName = null;     // desde Perfil (Nombre + Apellidos) o fallback
-    string userName = null;        // el username (UserName) que quieres mostrar como "ID/usuario"
+    string displayName = null;
+    string userName = null;
 
     if (isAuth)
     {
-        // Intentamos obtener el id del usuario (GUID o string) desde el claim NameIdentifier
         userId = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-        // Obtener username desde UserManager si es posible (no hace ToString/parse)
         if (!string.IsNullOrEmpty(userId))
         {
             try
             {
                 var identityUser = await UserManager.FindByIdAsync(userId);
-                if (identityUser != null)
-                {
-                    userName = identityUser.UserName;
-                }
+                if (identityUser != null) userName = identityUser.UserName;
             }
-            catch
-            {
-                // ignore - fallback a claim o a Identity.Name abajo
-                userName = userName ?? User?.Identity?.Name;
-            }
+            catch { userName = userName ?? User?.Identity?.Name; }
         }
         else
         {
-            // Sin claim NameIdentifier, usar Identity.Name como username fallback
             userName = User?.Identity?.Name;
         }
 
-        // Primero intentamos leer el Perfil desde la BD (si existe) para mostrar el nombre completo
         if (!string.IsNullOrEmpty(userId))
         {
             try
             {
-                // Buscar Perfil por GUID parseado (más eficiente).
                 Perfil perfil = null;
                 if (Guid.TryParse(userId, out var userGuid))
                 {
@@ -58,28 +45,19 @@
                 }
                 else
                 {
-                    // Fallback: comparar ToString si por alguna razón el id no es GUID
                     perfil = await Db.Set<Perfil>().FirstOrDefaultAsync(p => p.idUser.ToString() == userId);
                 }
 
-                if (perfil != null)
+                if (perfil != null && !string.IsNullOrWhiteSpace(perfil.Nombre))
                 {
-                    if (!string.IsNullOrWhiteSpace(perfil.Nombre))
-                    {
-                        displayName = perfil.Nombre + (string.IsNullOrWhiteSpace(perfil.Apellidos) ? "" : " " + perfil.Apellidos);
-                    }
+                    displayName = perfil.Nombre + (string.IsNullOrWhiteSpace(perfil.Apellidos) ? "" : " " + perfil.Apellidos);
                 }
             }
-            catch
-            {
-                // ignorar errores y usar fallback
-            }
+            catch { /* ignore */ }
         }
 
-        // Si no obtuvimos nombre desde Perfil, fallback a claims / Identity.Name
         displayName = displayName ?? User?.FindFirst(ClaimTypes.Name)?.Value ?? User?.Identity?.Name ?? "Usuario";
 
-        // Intentamos resolver si el archivo físico existe en wwwroot/uploads/avatars/{userId}/avatar-64.png
         var env = Context.RequestServices.GetService(typeof(IWebHostEnvironment)) as IWebHostEnvironment;
         if (!string.IsNullOrEmpty(userId) && env != null)
         {
@@ -88,36 +66,149 @@
                 var physicalPath = System.IO.Path.Combine(env.WebRootPath ?? "wwwroot", "uploads", "avatars", userId, "avatar-64.png");
                 if (System.IO.File.Exists(physicalPath))
                 {
-                    // Usamos la ruta virtual para mostrar el avatar en la vista
                     avatarSrc = Url.Content($"~/uploads/avatars/{userId}/avatar-64.png");
                 }
             }
-            catch
-            {
-                // en caso de error dejamos avatar por defecto
-                avatarSrc = Url.Content("~/img/default-avatar.png");
-            }
+            catch { avatarSrc = Url.Content("~/img/default-avatar.png"); }
         }
     }
 }
 <header>
-    <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom mb-3">
-        <div class="container-fluid">
-            <a class="navbar-brand d-flex align-items-center gap-2" href="/">
-                <img src="~/img/logo.png" alt="eiibd26 logo" height="38"
-                     style="max-height:38px;max-width:140px;object-fit:contain;" />
+    <style>
+        /* Layout: left brand (250px) | center menu (940px) | user area (auto right) */
+        /* Changed topbar background to the same grey tone used in footer (no white) */
+        .topbar {
+            background: #f8fafc; /* same tone as footer */
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .topbar-inner {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding: 8px 16px;
+            box-sizing: border-box;
+            width: 100%;
+            max-width: none;
+        }
+
+        /* Brand column fixed 250px */
+        .topbar-brand {
+            flex: 0 0 250px;
+            max-width: 250px;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+        }
+
+            .topbar-brand img {
+                height: 38px;
+                max-height: 38px;
+                object-fit: contain;
+                max-width: 140px;
+                width: auto;
+                display: block;
+            }
+
+        /* Toggler sits after brand but does not take space from brand */
+        .topbar-toggler {
+            border: none;
+            background: transparent;
+            margin-left: 6px;
+        }
+
+        /* Center column: holds the collapsed menu; base width 940px */
+        .topbar-center {
+            flex: 0 0 940px; /* fixed base width */
+            max-width: 940px;
+            min-width: 0; /* allow collapse/shrink inside */
+            display: flex;
+            align-items: center;
+            box-sizing: border-box;
+            justify-content: flex-start;
+        }
+
+            /* The nav inside center: horizontal layout on desktop */
+            .topbar-center .navbar-nav {
+                display: flex;
+                gap: 1rem;
+                align-items: center;
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+        /* User area fixed to the right; margin-left:auto keeps it at far right */
+        .topbar-user {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            flex: 0 0 auto;
+        }
+
+            /* avatar */
+            .topbar-user img {
+                height: 28px;
+                width: 28px;
+                object-fit: cover;
+                border-radius: 50%;
+                border: 1px solid rgba(0,0,0,0.06);
+            }
+
+        /* Responsive: when <= 991.98px use bootstrap collapse default: the center will stack */
+        @@media (max-width: 991.98px) {
+            .topbar-inner {
+                padding-left: 12px;
+                padding-right: 12px;
+            }
+
+            .topbar-brand {
+                flex: 0 0 auto;
+                max-width: none;
+            }
+
+            .topbar-center {
+                flex: 1 1 auto;
+                max-width: none;
+            }
+
+                .topbar-center .navbar-nav {
+                    flex-direction: column;
+                    gap: .5rem;
+                }
+
+            .topbar-user {
+                margin-left: 0;
+            }
+        }
+
+        /* very small screens tweak */
+        @@media (max-width: 575.98px) {
+            .topbar-brand img {
+                height: 32px;
+            }
+
+            .topbar-user img {
+                height: 24px;
+                width: 24px;
+            }
+        }
+    </style>
+
+    <nav class="navbar navbar-expand-lg topbar">
+        <div class="topbar-inner container-fluid">
+            <!-- LEFT: brand column (fixed 250px) -->
+            <a class="navbar-brand topbar-brand" href="/">
+                <img src="~/img/logo.png" alt="eiibd26 logo" />
             </a>
 
-            <button class="navbar-toggler" type="button"
-                    title="Abrir menú principal" aria-label="Abrir menú principal"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#navbarNav" aria-controls="navbarNav"
-                    aria-expanded="false">
+            <!-- toggler (targets the center collapse) -->
+            <button class="navbar-toggler topbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topbarCenterCollapse" aria-controls="topbarCenterCollapse" aria-expanded="false" aria-label="Abrir menú">
                 <span class="navbar-toggler-icon"></span>
             </button>
 
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <!-- Menú principal izquierda -->
+            <!-- CENTER: collapse area with menu items (fixed base 940px on desktop) -->
+            <div class="collapse navbar-collapse topbar-center" id="topbarCenterCollapse">
                 <ul class="navbar-nav me-auto align-items-center">
                     <li class="nav-item">
                         <a class="nav-link" href="/">Inicio</a>
@@ -126,6 +217,7 @@
                     <li class="nav-item">
                         <a class="nav-link" href="/Privacy">Privacidad</a>
                     </li>
+
                     <li class="nav-item">
                         <a class="nav-link d-flex align-items-center" href="/Preguntas" title="Ir a Preguntas y Respuestas" aria-label="Preguntas y Respuestas">
                             <i class="bi bi-person-circle me-1"></i>
@@ -133,9 +225,10 @@
                         </a>
                     </li>
                 </ul>
+            </div>
 
-                <!-- Menú de usuario derecha: Login & Registro (cuando NO está autenticado)
-                     y el dropdown "Mis datos de inicio de sesión" (cuando SÍ está autenticado) -->
+            <!-- RIGHT: user area (stays flush right) -->
+            <div class="topbar-user">
                 <ul class="navbar-nav ms-auto align-items-center">
                     @if (!isAuth)
                     {
@@ -154,18 +247,13 @@
                     {
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="perfilDropdown" role="button"
-                               data-bs-toggle="dropdown" aria-expanded="false"
-                               title="Mis datos de inicio de sesión" aria-label="Mis datos de inicio de sesión">
-                                <img src="@avatarSrc"
-                                     alt="Mi avatar"
-                                     class="rounded-circle me-2"
-                                     style="height:28px;width:28px;object-fit:cover;border:1px solid rgba(0,0,0,0.06);" />
-                                <span class="me-2">@displayName</span>
+                               data-bs-toggle="dropdown" aria-expanded="false" title="Mis datos de inicio de sesión" aria-label="Mis datos de inicio de sesión">
+                                <img src="@avatarSrc" alt="Mi avatar" />
+                                <span class="ms-2 me-2">@displayName</span>
                                 <i class="bi bi-gear-fill" aria-hidden="true"></i>
                             </a>
 
                             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="perfilDropdown">
-                                @* Header within dropdown showing name + username *@
                                 <li class="px-3 py-2">
                                     <div class="d-flex align-items-start">
                                         <img src="@avatarSrc" alt="Avatar" class="rounded-circle me-2" style="height:36px;width:36px;object-fit:cover;border:1px solid rgba(0,0,0,0.06);" />

@@ -1,0 +1,565 @@
+﻿@page
+@model eiibd26.Areas.Identity.Pages.Admin.Contenidos.ContenidosCategoriasModel
+
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.min.css">
+    <style>
+        .admin-page {
+            max-width: 1100px;
+            margin: 24px auto;
+            padding: 16px;
+        }
+
+        .card {
+            background: #fff;
+            border: 1px solid #e6eef6;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .dt-controls-flex {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .dt-controls-left, .dt-controls-right {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .small-muted {
+            font-size: .9rem;
+            color: #6b7280;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #eef5ff;
+            color: #24527a;
+            font-weight: 600;
+            font-size: .85rem;
+        }
+
+        .cond-padre {
+            font-weight: 700;
+        }
+
+        .cond-hijo {
+            padding-left: 1.2rem;
+            color: #6b7280;
+        }
+
+        #contenidosCategoriasGrid th, #contenidosCategoriasGrid td {
+            border-bottom: 1px solid #eef4fa;
+            vertical-align: middle;
+        }
+
+        .btn-action-grid {
+            background: #f6f8fd;
+            border: 0;
+            border-radius: 8px;
+            padding: 6px 10px;
+            margin-right: 6px;
+        }
+
+        .btn-action-edit i {
+            color: #ffbe17;
+        }
+
+        .btn-action-delete i {
+            color: #c92a2a;
+        }
+
+        .badge-grid-gray {
+            background: #ededed;
+            color: #191919;
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        .crm-modal-header {
+            background: #f7f9fd;
+            border-bottom: 1px solid #e5e8ef;
+            padding: 12px 18px;
+        }
+
+        .crm-modal-title {
+            font-weight: 700;
+            color: #315686;
+        }
+
+        .form-error {
+            color: #b3212d;
+            font-size: .9rem;
+            margin-top: 6px;
+            display: none;
+        }
+
+        .slug-small {
+            font-size: .85rem;
+            color: #6b7280;
+        }
+    </style>
+}
+
+<div class="admin-page">
+    <h2>Categorías de Contenido</h2>
+
+    <div class="card">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="dt-controls-left">
+                <div id="gridLengthWrapper"></div>
+                <div id="gridSearchWrapper"></div>
+            </div>
+            <div class="dt-controls-right">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="switchEliminados" />
+                    <label class="form-check-label small-muted" for="switchEliminados">Mostrar eliminados</label>
+                </div>
+                <button id="btnCrear" class="btn btn-primary">Crear categoría</button>
+            </div>
+        </div>
+
+        <table id="contenidosCategoriasGrid" class="table table-hover table-striped w-100">
+            <thead>
+                <tr>
+                    <th>Sequence</th>
+                    <th>Nombre</th>
+                    <th>Padre</th>
+                    <th>Clave / Slug</th>
+                    <th>Relevante</th>
+                    <th>Creada</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Crear -->
+<div class="modal fade" id="modalCrear" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <form id="formCrear" class="modal-content" novalidate>
+            @Html.AntiForgeryToken()
+            <div class="crm-modal-header modal-header">
+                <h5 class="crm-modal-title">Crear categoría</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="createFormError" class="form-error"></div>
+
+                <div class="mb-3">
+                    <label class="form-label">Nombre</label>
+                    <input name="Nombre" id="create_Nombre" class="form-control" maxlength="@Model.MaxNombreLength" required />
+                    <div class="small-muted">Máx. @Model.MaxNombreLength caracteres</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Padre (opcional)</label>
+                    <select name="CategoriaPadre" id="create_CategoriaPadre" class="form-select">
+                        <option value="">(ninguno)</option>
+                        @foreach (var p in Model.AllCategoriesSelect)
+                        {
+                            <option value="@p.Sequence">@p.Label</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="mb-3 row g-2">
+                    <div class="col">
+                        <label class="form-label">Clave</label>
+                        <input name="Clave" id="create_Clave" class="form-control" maxlength="@Model.MaxClaveLength" />
+                        <div class="small-muted">Máx. @Model.MaxClaveLength caracteres</div>
+                    </div>
+                    <div class="col">
+                        <label class="form-label">Slug</label>
+                        <input name="CategoriaSlug" id="create_CategoriaSlug" class="form-control" maxlength="@Model.MaxSlugLength" />
+                        <div class="small-muted">Máx. @Model.MaxSlugLength caracteres. Debe ser único.</div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Imagen (URL)</label>
+                    <input name="Imagen" id="create_Imagen" class="form-control" maxlength="@Model.MaxImagenLength" />
+                </div>
+
+                <div class="mb-3 form-check form-switch">
+                    <input type="checkbox" class="form-check-input" id="create_Relevante" name="Relevante" />
+                    <label class="form-check-label" for="create_Relevante">Relevante</label>
+                </div>
+
+                <div class="alert alert-success d-none" id="msgCreateSuccess">Categoría creada correctamente.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Crear</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Editar -->
+<div class="modal fade" id="modalEditar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <form id="formEditar" class="modal-content" novalidate>
+            @Html.AntiForgeryToken()
+            <div class="crm-modal-header modal-header">
+                <h5 class="crm-modal-title">Editar categoría</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="editFormError" class="form-error"></div>
+
+                <input type="hidden" name="Sequence" id="edit_Sequence" />
+                <div class="mb-3">
+                    <label class="form-label">Nombre</label>
+                    <input name="Nombre" id="edit_Nombre" class="form-control" maxlength="@Model.MaxNombreLength" required />
+                    <div class="small-muted">Máx. @Model.MaxNombreLength caracteres</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Padre (opcional)</label>
+                    <select name="CategoriaPadre" id="edit_CategoriaPadre" class="form-select">
+                        <option value="">(ninguno)</option>
+                        @foreach (var p in Model.AllCategoriesSelect)
+                        {
+                            <option value="@p.Sequence">@p.Label</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="mb-3 row g-2">
+                    <div class="col">
+                        <label class="form-label">Clave</label>
+                        <input name="Clave" id="edit_Clave" class="form-control" maxlength="@Model.MaxClaveLength" />
+                    </div>
+                    <div class="col">
+                        <label class="form-label">Slug</label>
+                        <input name="CategoriaSlug" id="edit_CategoriaSlug" class="form-control" maxlength="@Model.MaxSlugLength" />
+                        <div class="small-muted">Máx. @Model.MaxSlugLength caracteres. Debe ser único.</div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Imagen (URL)</label>
+                    <input name="Imagen" id="edit_Imagen" class="form-control" maxlength="@Model.MaxImagenLength" />
+                </div>
+
+                <div class="mb-3 form-check form-switch">
+                    <input type="checkbox" class="form-check-input" id="edit_Relevante" name="Relevante" />
+                    <label class="form-check-label" for="edit_Relevante">Relevante</label>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">¿Eliminado?</label>
+                    <select name="Borrado" id="edit_Borrado" class="form-select">
+                        <option value="false">No</option>
+                        <option value="true">Sí</option>
+                    </select>
+                </div>
+
+                <div class="alert alert-success d-none" id="msgEditSuccess">Categoría actualizada correctamente.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@{
+    var urlGrid = Url.Page(null, "GridData");
+    var urlGet = Url.Page(null, "GetCategoria");
+    var urlCreate = Url.Page(null, "CrearCategoria");
+    var urlEdit = Url.Page(null, "EditarCategoria");
+    var urlDelete = Url.Page(null, "EliminarCategoria");
+    var urlRestore = Url.Page(null, "RestaurarCategoria");
+    var urlParents = Url.Page(null, "ParentsList");
+}
+
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // read antiforgery token if present and attach to POSTs
+        function getAntiForgeryToken() {
+            var tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+            return tokenInput ? tokenInput.value : null;
+        }
+        (function configureAjaxForAntiForgery() {
+            var token = getAntiForgeryToken();
+            if (token) {
+                $.ajaxSetup({
+                    beforeSend: function (xhr, settings) {
+                        if (settings.type && settings.type.toUpperCase() === 'POST') {
+                            xhr.setRequestHeader('RequestVerificationToken', token);
+                        }
+                    }
+                });
+            }
+        })();
+
+        // simple html escaper
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str).replace(/[&<>"'`=\/]/g, function (s) {
+                return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'})[s];
+            });
+        }
+
+        var categoriasTabla;
+        var hijosPorPadre = {};
+
+        function actualizarDiccionarioHijos(data) {
+            hijosPorPadre = {};
+            if (!Array.isArray(data)) return;
+            data.forEach(function(item) {
+                var pid = item.categoriaPadre;
+                var seq = item.sequence;
+                if (pid !== null && pid !== undefined && pid !== 0) {
+                    if (!hijosPorPadre[pid]) hijosPorPadre[pid] = [];
+                    hijosPorPadre[pid].push(seq);
+                }
+            });
+        }
+
+        function repopulateParentSelects(parents) {
+            var $create = $('#create_CategoriaPadre');
+            var $edit = $('#edit_CategoriaPadre');
+            $create.empty();
+            $edit.empty();
+            $create.append($('<option>').attr('value', '').text('(ninguno)'));
+            $edit.append($('<option>').attr('value', '').text('(ninguno)'));
+            if (!Array.isArray(parents)) return;
+            parents.forEach(function(p) {
+                var optCreate = $('<option>').attr('value', p.sequence).text(p.label);
+                var optEdit = optCreate.clone();
+                $create.append(optCreate);
+                $edit.append(optEdit);
+            });
+        }
+
+        function updateParentsSelectFromServer() {
+            return $.getJSON('@urlParents')
+                .done(function(res) {
+                    if (Array.isArray(res)) repopulateParentSelects(res);
+                })
+                .fail(function() { console.warn('No se pudo actualizar lista de padres'); });
+        }
+
+        $(function() {
+            categoriasTabla = $('#contenidosCategoriasGrid').DataTable({
+                processing: true,
+                serverSide: true,
+                ajax: {
+                    url: '@urlGrid',
+                    type: 'GET',
+                    data: function(d) {
+                        d.mostrarEliminados = $('#switchEliminados').is(':checked');
+                    },
+                    dataSrc: function(json) {
+                        if (json && Array.isArray(json.data)) actualizarDiccionarioHijos(json.data);
+                        return (json && Array.isArray(json.data)) ? json.data : [];
+                    }
+                },
+                lengthMenu: [[10,25,50,100],[10,25,50,100]],
+                pageLength: 10,
+                columns: [
+                    { data: 'sequence', orderable: false },
+                    {
+                        data: 'nombre',
+                        orderable: false,
+                        render: function(data, type, row) {
+                            if (!row || row.categoriaPadre === null || row.categoriaPadre === undefined) {
+                                return '<span class="cond-padre">' + escapeHtml(data) + '</span>';
+                            }
+                            return '<span class="cond-hijo">' + escapeHtml(data) + '</span>';
+                        }
+                    },
+                    { data: 'padreNombre', orderable: false, defaultContent: '' },
+                    {
+                        data: null,
+                        orderable: false,
+                        render: function(data, type, row) {
+                            var clave = row && row.clave ? row.clave : '';
+                            var slug = row && row.categoriaSlug ? row.categoriaSlug : '';
+                            var out = '';
+                            if (clave) out += '<div>' + escapeHtml(clave) + '</div>';
+                            if (slug) out += '<div><small class="slug-small">' + escapeHtml(slug) + '</small></div>';
+                            return out;
+                        }
+                    },
+                    {
+                        data: 'relevante',
+                        orderable: false,
+                        render: function(d) { return d ? '<span class="badge">Sí</span>' : '<span class="small-muted">No</span>'; }
+                    },
+                    { data: 'fechaCreacion', orderable: false },
+                    {
+                        data: null,
+                        orderable: false,
+                        render: function(data, type, row) {
+                            var seq = row.sequence;
+                            var isChild = (row.categoriaPadre !== null && row.categoriaPadre !== undefined);
+                            var hasChildren = hijosPorPadre[seq] && hijosPorPadre[seq].length > 0;
+                            var $editBtn = $('<button>').addClass('btn btn-action-grid btn-action-edit btn-editar').attr('data-seq', seq).attr('title','Editar').html('<i class="bi bi-pencil-square"></i>');
+                            var $actionBtn = $('<span>');
+                            if (row.borrado) {
+                                $actionBtn = $('<button>').addClass('btn btn-action-grid btn-restaurar').attr('data-seq', seq).attr('title','Restaurar').html('<i class="bi bi-arrow-counterclockwise"></i>');
+                            } else {
+                                if (isChild && !hasChildren) {
+                                    $actionBtn = $('<button>').addClass('btn btn-action-grid btn-action-delete btn-borrar').attr('data-seq', seq).attr('title','Eliminar').html('<i class="bi bi-trash"></i>');
+                                }
+                            }
+                            // Return concatenated HTML (safe because escaped above)
+                            return $editBtn.prop('outerHTML') + $actionBtn.prop('outerHTML');
+                        }
+                    }
+                ],
+                language: {
+                    emptyTable: "No hay categorías registradas.",
+                    search: "Buscar:",
+                    lengthMenu: "Mostrar _MENU_ registros",
+                    paginate: { previous: "Anterior", next: "Siguiente" }
+                },
+                initComplete: function() {
+                    if ($('#contenidosCategoriasGrid_length').length) {
+                        var $len = $('#contenidosCategoriasGrid_length');
+                        $('#gridLengthWrapper').empty().append($len.children());
+                        $len.css({display:'inline-flex','align-items':'center'});
+                    }
+                    if ($('#contenidosCategoriasGrid_filter').length) {
+                        var $f = $('#contenidosCategoriasGrid_filter');
+                        $('#gridSearchWrapper').empty().append($f.children());
+                        $f.css({display:'inline-flex','align-items':'center'});
+                    }
+                }
+            });
+
+            $('#switchEliminados').change(function(){ categoriasTabla.ajax.reload(); });
+
+            // Initial parents list population
+            updateParentsSelectFromServer();
+
+            // Open create modal
+            $('#btnCrear').on('click', function(){
+                $('#formCrear')[0].reset();
+                $('#createFormError').hide().text('');
+                $('#msgCreateSuccess').addClass('d-none');
+                updateParentsSelectFromServer();
+                $('#modalCrear').modal('show');
+            });
+
+            // Create submit
+            $('#formCrear').on('submit', function(e){
+                e.preventDefault();
+                $('#createFormError').hide().text('');
+                var data = $(this).serialize();
+                $.ajax({
+                    url: '@urlCreate',
+                    type: 'POST',
+                    data: data
+                }).done(function(res){
+                    if (res && res.success) {
+                        $('#msgCreateSuccess').removeClass('d-none');
+                        categoriasTabla.ajax.reload(null,false);
+                        updateParentsSelectFromServer();
+                        setTimeout(function(){ $('#modalCrear').modal('hide'); },700);
+                    } else {
+                        $('#createFormError').show().text((res && res.message) ? res.message : 'Error creando categoría');
+                    }
+                }).fail(function(){ $('#createFormError').show().text('Error en servidor'); });
+            });
+
+            // Edit open
+            $('#contenidosCategoriasGrid').on('click', '.btn-editar', function(){
+                var seq = $(this).data('seq');
+                $.get('@urlGet', { sequence: seq })
+                    .done(function(res){
+                        if (res) {
+                            $('#edit_Sequence').val(res.sequence);
+                            $('#edit_Nombre').val(res.nombre);
+                            $('#edit_Clave').val(res.clave || '');
+                            $('#edit_CategoriaSlug').val(res.categoriaSlug || '');
+                            $('#edit_Imagen').val(res.imagen || '');
+                            $('#edit_Relevante').prop('checked', !!res.relevante);
+                            $('#edit_Borrado').val(res.borrado ? "true" : "false");
+                            updateParentsSelectFromServer().then(function(){
+                                $('#edit_CategoriaPadre').val((res.categoriaPadre !== undefined && res.categoriaPadre !== null) ? res.categoriaPadre.toString() : '');
+                            });
+                            $('#editFormError').hide().text('');
+                            $('#msgEditSuccess').addClass('d-none');
+                            $('#modalEditar').modal('show');
+                        } else {
+                            alert('No se encontró la categoría');
+                        }
+                    })
+                    .fail(function(){ alert('Error cargando categoría'); });
+            });
+
+            // Edit submit
+            $('#formEditar').on('submit', function(e){
+                e.preventDefault();
+                $('#editFormError').hide().text('');
+                var data = $(this).serialize();
+                $.ajax({
+                    url: '@urlEdit',
+                    type: 'POST',
+                    data: data
+                }).done(function(res){
+                    if (res && res.success) {
+                        $('#msgEditSuccess').removeClass('d-none');
+                        categoriasTabla.ajax.reload(null,false);
+                        updateParentsSelectFromServer();
+                        setTimeout(function(){ $('#modalEditar').modal('hide'); },700);
+                    } else {
+                        $('#editFormError').show().text((res && res.message) ? res.message : 'Error actualizando categoría');
+                    }
+                }).fail(function(){ $('#editFormError').show().text('Error en servidor'); });
+            });
+
+            // Delete
+            $('#contenidosCategoriasGrid').on('click', '.btn-borrar', function(){
+                var seq = $(this).data('seq');
+                if (!confirm('¿Eliminar categoría? (soft-delete)')) return;
+                $.post('@urlDelete', { sequence: seq })
+                    .done(function(res){
+                        if (res && res.success) {
+                            categoriasTabla.ajax.reload();
+                            updateParentsSelectFromServer();
+                        } else alert((res && res.message) ? res.message : 'Error al eliminar');
+                    })
+                    .fail(function(){ alert('Error en servidor'); });
+            });
+
+            // Restore
+            $('#contenidosCategoriasGrid').on('click', '.btn-restaurar', function(){
+                var seq = $(this).data('seq');
+                if (!confirm('¿Restaurar categoría?')) return;
+                $.post('@urlRestore', { sequence: seq })
+                    .done(function(res){
+                        if (res && res.success) {
+                            categoriasTabla.ajax.reload();
+                            updateParentsSelectFromServer();
+                        } else alert((res && res.message) ? res.message : 'Error al restaurar');
+                    })
+                    .fail(function(){ alert('Error en servidor'); });
+            });
+
+        }); // end ready
+    </script>
+}
