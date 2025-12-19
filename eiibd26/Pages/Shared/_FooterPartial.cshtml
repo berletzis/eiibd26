@@ -28,6 +28,15 @@
 }
 
 <style>
+    /* Tipografía y tamaño iguales al TopMenu / plantilla .NET */
+    /* System font stack + 14px base, line-height 1.4 for readability */
+    .site-footer,
+    .site-footer * {
+        font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+        font-size: 16px;
+        line-height: 1.4;
+    }
+
     /* Valores fijos solicitados:
            - primera columna: 250px
            - dos columnas centrales: 320px cada una
@@ -40,9 +49,11 @@
 
     .site-footer {
         background: #f8fafc;
+        ;
         padding: 28px 16px;
         box-sizing: border-box;
         width: 100%;
+        color: #000000a6; /* texto principal */
     }
 
     .footer-row {
@@ -59,29 +70,57 @@
         display: flex;
         gap: 20px;
         box-sizing: border-box;
-        align-items: stretch; /* estira columnas al mismo alto */
+        align-items: stretch;
     }
 
-    /* Primera columna: 250px + línea divisoria a la derecha (igual que sidebar) */
+    /* Primera columna: 250px + línea divisoria a la derecha (igual que sidebar)
+           CENTRADO del logo y de los iconos */
     .footer-col-first {
         width: 250px;
         box-sizing: border-box;
-        padding-right: 16px; /* espacio antes de la border interna */
-        border-right: 1px solid #ececec; /* same as sidebar */
+        padding-right: 16px;
+        border-right: 1px solid #ececec;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        gap: 8px;
     }
+
+    .footer-brand img {
+    height: 38px;
+    max-height: 38px;
+    object-fit: contain;
+    max-width: 140px;
+    width: auto;
+    display: block;
+}
 
         .footer-col-first img {
             max-width: 160px;
             height: auto;
             display: block;
-            margin-bottom: 12px;
+            margin: 0 auto 8px auto;
         }
 
     .footer-first-text {
         color: #6b7280;
-        font-size: .95rem;
+        font-size: 14px;
         margin-bottom: 8px;
+        line-height: 1.4;
     }
+
+    .footer-social {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        align-items: center;
+    }
+
+        .footer-social a {
+            color: inherit;
+        }
 
     /* Bloque central fijo: 3 columnas (320px, 320px, 240px) con gaps */
     .footer-center {
@@ -97,8 +136,14 @@
         .footer-center > div {
             display: block;
             box-sizing: border-box;
-            min-width: 0; /* crucial: permite que el grid no sea forzado por contenido largo */
+            min-width: 0;
             word-break: break-word;
+        }
+
+        .footer-center h5 {
+            margin: 0 0 12px 0;
+            font-size: 16px;
+            font-weight: 600;
         }
 
     /* Listas y jerarquía */
@@ -112,6 +157,12 @@
             margin-bottom: .5rem;
         }
 
+        .footer-list a {
+            color: #111827;
+            text-decoration: underline;
+            font-size: 14px;
+        }
+
     .footer-list-children {
         margin-left: 1rem;
         margin-top: .5rem;
@@ -121,6 +172,7 @@
     .footer-actions .btn {
         min-height: 42px;
         white-space: nowrap;
+        font-size: 14px;
     }
 
     /* Quinta columna (separada a la derecha) */
@@ -134,7 +186,7 @@
 
         .footer-far .copyright {
             color: #6b7280;
-            font-size: .95rem;
+            font-size: 14px;
         }
 
     /* Evitar que textos largos rompan layout */
@@ -160,6 +212,8 @@
             padding-right: 0;
             margin-bottom: 12px;
             border-right: none;
+            align-items: flex-start;
+            text-align: left;
         }
 
         .footer-center {
@@ -195,15 +249,15 @@
         <div class="footer-left-block">
             <!-- Column 1: 250px with vertical divider aligned to sidebar -->
             <div class="footer-col-first" aria-label="Footer brand column">
-                <img src="~/images/logo.png" alt="Logo" />
-                <div class="footer-first-text small">
-                    Este es un texto de ejemplo para el pie de página. Puedes reemplazarlo por una descripción breve de tu sitio.
-                </div>
-                <div class="footer-social d-flex align-items-center">
-                    <a href="#" aria-label="Facebook" class="text-dark me-2"><i class="bi bi-facebook"></i></a>
-                    <a href="#" aria-label="Twitter" class="text-dark me-2"><i class="bi bi-twitter"></i></a>
-                    <a href="#" aria-label="Instagram" class="text-dark me-2"><i class="bi bi-instagram"></i></a>
-                    <a href="#" aria-label="LinkedIn" class="text-dark"><i class="bi bi-linkedin"></i></a>
+                
+                <a href="#" class="footer-brand">
+                <img src="~/img/logo.png" alt="eiibd26 logo" />
+                </a>
+                <div class="footer-social">
+                    <a href="#" aria-label="Facebook" class="text-dark"><i class="bi bi-facebook" aria-hidden="true"></i></a>
+                    <a href="#" aria-label="Twitter" class="text-dark"><i class="bi bi-twitter" aria-hidden="true"></i></a>
+                    <a href="#" aria-label="Instagram" class="text-dark"><i class="bi bi-instagram" aria-hidden="true"></i></a>
+                    <a href="#" aria-label="LinkedIn" class="text-dark"><i class="bi bi-linkedin" aria-hidden="true"></i></a>
                 </div>
             </div>
 
@@ -211,21 +265,21 @@
             <div class="footer-center" role="navigation" aria-label="Footer links">
                 <!-- Col 2: categories (320px) -->
                 <div>
-                    <h5 class="mb-3">Categorías destacadas</h5>
+                    
                     @{
                         var parent12 = GetParent(categorias12, 12);
                         var children12 = GetChildren(categorias12, 12).ToList();
 
                         if (parent12 != null)
                         {
-                            <ul class="footer-list small">
-                                <li><a class="text-dark fw-bold" href="@Url.Page("/Identity/Admin/Contenidos/ContenidosCategorias", new { sequence = parent12.Sequence })">@Html.Raw(Escape(parent12.Nombre ?? "(sin nombre)"))</a></li>
+                            <ul class="footer-list">
+                                <li><a class="fw-bold" href="@Url.Page("/Identity/Admin/Contenidos/ContenidosCategorias", new { sequence = parent12.Sequence })">@Html.Raw(Escape(parent12.Nombre ?? "(sin nombre)"))</a></li>
                                 @if (children12.Any())
                                 {
                                     <ul class="footer-list footer-list-children">
                                         @foreach (var c in children12)
                                         {
-                                            <li><a class="text-dark" href="@Url.Page("/Identity/Admin/Contenidos/ContenidosCategorias", new { sequence = c.Sequence })">@Html.Raw(Escape(c.Nombre ?? "(sin nombre)"))</a></li>
+                                            <li><a href="@Url.Page("/Identity/Admin/Contenidos/ContenidosCategorias", new { sequence = c.Sequence })">@Html.Raw(Escape(c.Nombre ?? "(sin nombre)"))</a></li>
                                         }
                                     </ul>
                                 }
@@ -233,40 +287,39 @@
                         }
                         else if (children12.Any())
                         {
-                            <ul class="footer-list small">
+                            <ul class="footer-list">
                                 <li class="text-muted">(Categoría padre no encontrada)</li>
                                 <ul class="footer-list footer-list-children">
                                     @foreach (var c in children12)
                                     {
-                                        <li><a class="text-dark" href="@Url.Page("/Identity/Admin/Contenidos/ContenidosCategorias", new { sequence = c.Sequence })">@Html.Raw(Escape(c.Nombre ?? "(sin nombre)"))</a></li>
+                                        <li><a href="@Url.Page("/Identity/Admin/Contenidos/ContenidosCategorias", new { sequence = c.Sequence })">@Html.Raw(Escape(c.Nombre ?? "(sin nombre)"))</a></li>
                                     }
                                 </ul>
                             </ul>
                         }
                         else
                         {
-                            <div class="small text-muted">No hay categorías relevantes.</div>
+                            <div class="text-muted">No hay categorías relevantes.</div>
                         }
                     }
                 </div>
 
                 <!-- Col 3: contenido (320px) -->
                 <div>
-                    <h5 class="mb-3">Contenido destacado</h5>
                     @{
                         var parent47 = GetParent(categorias47, 47);
                         var children47 = GetChildren(categorias47, 47).ToList();
 
                         if (parent47 != null)
                         {
-                            <ul class="footer-list small">
-                                <li><a class="text-dark fw-bold" href="@Url.Page("/Identity/Admin/Contenidos/ContenidosCategorias", new { sequence = parent47.Sequence })">@Html.Raw(Escape(parent47.Nombre ?? "(sin nombre)"))</a></li>
+                            <ul class="footer-list">
+                                <li><a class="fw-bold" href="@Url.Page("/Identity/Admin/Contenidos/ContenidosCategorias", new { sequence = parent47.Sequence })">@Html.Raw(Escape(parent47.Nombre ?? "(sin nombre)"))</a></li>
                                 @if (children47.Any())
                                 {
                                     <ul class="footer-list footer-list-children">
                                         @foreach (var c in children47)
                                         {
-                                            <li><a class="text-dark" href="@Url.Page("/Identity/Admin/Contenidos/ContenidosCategorias", new { sequence = c.Sequence })">@Html.Raw(Escape(c.Nombre ?? "(sin nombre)"))</a></li>
+                                            <li><a href="@Url.Page("/Identity/Admin/Contenidos/ContenidosCategorias", new { sequence = c.Sequence })">@Html.Raw(Escape(c.Nombre ?? "(sin nombre)"))</a></li>
                                         }
                                     </ul>
                                 }
@@ -274,29 +327,25 @@
                         }
                         else if (children47.Any())
                         {
-                            <ul class="footer-list small">
+                            <ul class="footer-list">
                                 <li class="text-muted">(Categoría padre no encontrada)</li>
                                 <ul class="footer-list footer-list-children">
                                     @foreach (var c in children47)
                                     {
-                                        <li><a class="text-dark" href="@Url.Page("/Identity/Admin/Contenidos/ContenidosCategorias", new { sequence = c.Sequence })">@Html.Raw(Escape(c.Nombre ?? "(sin nombre)"))</a></li>
+                                        <li><a href="@Url.Page("/Identity/Admin/Contenidos/ContenidosCategorias", new { sequence = c.Sequence })">@Html.Raw(Escape(c.Nombre ?? "(sin nombre)"))</a></li>
                                     }
                                 </ul>
                             </ul>
                         }
                         else
                         {
-                            <div class="small text-muted">No hay contenidos relevantes.</div>
+                            <div class="text-muted">No hay contenidos relevantes.</div>
                         }
                     }
                 </div>
 
                 <!-- Col 4: acciones (240px) -->
                 <div class="footer-actions">
-                    <div class="mb-3">
-                        <img src="~/images/logo.png" alt="Logo pequeño" style="max-width:120px; height:auto;">
-                    </div>
-
                     <div class="d-flex flex-column gap-2">
                         <form method="post" action="/Contacto/Subscribe" class="d-inline">
                             <button type="submit" class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center">
@@ -321,7 +370,7 @@
             <div class="mb-2">
                 <strong>Derechos</strong>
             </div>
-            <div class="small text-muted copyright">
+            <div class="copyright">
                 &copy; @(DateTime.UtcNow.Year) - eiibd26<br />
                 Todos los derechos reservados.
             </div>

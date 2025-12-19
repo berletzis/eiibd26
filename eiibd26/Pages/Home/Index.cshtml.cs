@@ -19,9 +19,9 @@ namespace eiibd26.Pages.Home
         public async Task OnGetAsync()
         {
             // Hero placeholder
-            Hero.Title = "Just a Blog Floating Through the Noise";
-            Hero.Subtitle = "A quiet space in the noise — drifting thoughts, small truths, and everything in between.";
-            Hero.CallToAction = "Contact Me";
+            Hero.Title = "#HazViralLoQueImporta";
+            Hero.Subtitle = "Analizamos datos relacionados la Enfermedad Inflamatoria Intestinal";
+            Hero.CallToAction = "Registrate!";
 
             const int pageSize = 7;
             BlogList.PageSize = pageSize;
