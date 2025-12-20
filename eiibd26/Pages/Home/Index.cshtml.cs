@@ -44,7 +44,14 @@ namespace eiibd26.Pages.Home
                     Excerpt = c.ContenidoTextoC ?? "",
                     ImageUrl = string.IsNullOrEmpty(c.URLImagenPrincipal) ? null : ("/uploads/contenidos/" + c.URLImagenPrincipal),
                     Author = string.IsNullOrEmpty(c.Autor) ? "Autor" : c.Autor,
-                    CreatedAt = c.FechaCreado
+                    CreatedAt = c.FechaCreado,
+                    // Obtener el nombre de la primera categoría relacionada (si existe)
+                    Category = _db.ContenidosCategorias
+                        .Where(cat =>
+                            !cat.Borrado &&
+                            _db.ContenidosCategoriasRelacion.Any(r => !r.Borrado && r.IdContenido == c.Id && r.IdCategoria == cat.Sequence))
+                        .Select(cat => cat.Nombre)
+                        .FirstOrDefault() ?? ""
                 })
                 .ToListAsync();
 

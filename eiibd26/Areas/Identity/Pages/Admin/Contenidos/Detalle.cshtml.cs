@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+ï»¿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -144,7 +144,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
                 CaptureRelationSelectionsFromForm();
 
-                // Capturar categoría seleccionada explícitamente (padre y sub)
+                // Capturar categorï¿½a seleccionada explï¿½citamente (padre y sub)
                 if (Request.HasFormContentType)
                 {
                     var parentRaw = Request.Form["IdCategoriaPadre"].FirstOrDefault();
@@ -162,7 +162,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
                 if (string.IsNullOrWhiteSpace(ContenidoTitulo))
                 {
-                    ErrorMessage = "El título es obligatorio."; BuildDebug(); return Page();
+                    ErrorMessage = "El tï¿½tulo es obligatorio."; BuildDebug(); return Page();
                 }
                 if (string.IsNullOrWhiteSpace(ContenidoTextoC))
                 {
@@ -276,7 +276,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     await SaveContenidoRelationsAsync(entity.Id, SelectedCondicionesIds, SelectedSintomasIds, SelectedTratamientosIds);
                 }
 
-                // Redirect (PRG) para recargar con selección persistida
+                // Redirect (PRG) para recargar con selecciï¿½n persistida
                 return RedirectToPage(new { id = Id, saved = true });
             }
             catch (Exception ex)
@@ -289,25 +289,42 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         }
 
         // ------------------------------
-        // SaveCategoryRelationAsync: agrega la relación de categoría (existía en tu versión original)
+        // SaveCategoryRelationAsync: agrega la relaciï¿½n de categorï¿½a (existï¿½a en tu versiï¿½n original)
+        // Ahora guarda relaciÃ³n para la categorÃ­a seleccionada y su padre (si aplica)
         // ------------------------------
         private async Task SaveCategoryRelationAsync(int contenidoId, int? selectedCategory, Guid user, DateTime now)
         {
             if (!selectedCategory.HasValue) return;
 
-            // Última relación activa
-            var lastActive = await _db.ContenidosCategoriasRelacion
+            // Determinar conjunto de categorÃ­as objetivo:
+            // - la categorÃ­a seleccionada
+            // - su padre (si existe)
+            var desiredCategoryIds = new List<int> { selectedCategory.Value };
+
+            var selectedCat = await _db.ContenidosCategorias
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Sequence == selectedCategory.Value);
+
+            if (selectedCat != null && selectedCat.CategoriaPadre.HasValue && selectedCat.CategoriaPadre.Value > 0)
+            {
+                if (!desiredCategoryIds.Contains(selectedCat.CategoriaPadre.Value))
+                    desiredCategoryIds.Add(selectedCat.CategoriaPadre.Value);
+            }
+
+            // Obtener relaciones activas actuales para este contenido (IdCategoria != null)
+            var existingRels = await _db.ContenidosCategoriasRelacion
                 .Where(r => r.IdContenido == contenidoId && !r.Borrado && r.IdCategoria != null)
-                .OrderByDescending(r => r.FechaCreacion)
-                .FirstOrDefaultAsync();
-
-            if (lastActive != null && lastActive.IdCategoria == selectedCategory.Value)
-                return; // ya está asociada esa categoría, no duplicar
-
-            // Borrar lógicamente relaciones previas distintas
-            var toSoftDelete = await _db.ContenidosCategoriasRelacion
-                .Where(r => r.IdContenido == contenidoId && !r.Borrado && r.IdCategoria != selectedCategory.Value)
                 .ToListAsync();
+
+            var existingCategoryIds = existingRels
+                .Where(r => r.IdCategoria.HasValue)
+                .Select(r => r.IdCategoria.Value)
+                .ToHashSet();
+
+            // Soft-delete: marcar como borrado aquellas relaciones que NO estÃ¡n en desiredCategoryIds
+            var toSoftDelete = existingRels
+                .Where(r => !r.IdCategoria.HasValue || !desiredCategoryIds.Contains(r.IdCategoria.Value))
+                .ToList();
 
             foreach (var rel in toSoftDelete)
             {
@@ -316,16 +333,20 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 rel.UsuarioModificacion = user;
             }
 
-            _db.ContenidosCategoriasRelacion.Add(new ContenidoCategoriaRelacion
+            // Agregar relaciones faltantes para cada categorÃ­a deseada
+            foreach (var catId in desiredCategoryIds.Where(id => !existingCategoryIds.Contains(id)))
             {
-                IdContenido = contenidoId,
-                IdCategoria = selectedCategory.Value,
-                FechaCreacion = now,
-                FechaModificacion = now,
-                UsuarioCreacion = user,
-                UsuarioModificacion = user,
-                Borrado = false
-            });
+                _db.ContenidosCategoriasRelacion.Add(new ContenidoCategoriaRelacion
+                {
+                    IdContenido = contenidoId,
+                    IdCategoria = catId,
+                    FechaCreacion = now,
+                    FechaModificacion = now,
+                    UsuarioCreacion = user,
+                    UsuarioModificacion = user,
+                    Borrado = false
+                });
+            }
 
             await _db.SaveChangesAsync();
         }
@@ -334,7 +355,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         {
             // Manage manual related entries:
             // - contenidos in ContenidosRelacionados (Tipo = 1)
-            // - preguntas in ContenidoPreguntaRelacion (PreguntaId = Guid)
+            // - preguntas in ContenidoPreguntaRelacion (PreguntaId is GUID)
             try
             {
                 contenidoRelacionadosIds = contenidoRelacionadosIds?.Where(i => i > 0).Distinct().ToList() ?? new List<int>();
@@ -374,7 +395,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
                 await _db.SaveChangesAsync();
 
-                // ---- Preguntas (ContenidoPreguntaRelacion table, PreguntaId is GUID) ----
+                // ---- Preguntas (ContenidoPreguntaRelacion table, PreguntaId is Guid) ----
                 var cprSet = _db.ContenidosPreguntasRelacion;
 
                 var existingPreguntaRels = await cprSet
@@ -465,7 +486,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 });
             }
 
-            // Síntomas
+            // Sï¿½ntomas
             var existingSint = await _db.ContenidoSintomas.Where(x => x.ContenidoId == contenidoId && !x.Borrado).ToListAsync();
             var existingSintSet = existingSint.Select(x => x.SintomaId).ToHashSet();
             foreach (var rel in existingSint.Where(x => !sintomaIds.Contains(x.SintomaId)))
@@ -550,7 +571,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
         private void ResolveCategorySelectionFromRelation()
         {
-            // Determinar categoría y subcategoría a partir de la relación activa más reciente
+            // Determinar categorï¿½a y subcategorï¿½a a partir de la relaciï¿½n activa mï¿½s reciente
             if (!Id.HasValue) return;
             var last = _db.ContenidosCategoriasRelacion
                 .AsNoTracking()
@@ -668,14 +689,14 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     .Distinct()
                     .ToListAsync();
 
-                // Traer preguntas que tengan respuestas OR estén en la lista de ids con votos
+                // Traer preguntas que tengan respuestas OR estï¿½n en la lista de ids con votos
                 var preguntasFiltered = await _db.Preguntas.AsNoTracking()
                     .Where(p => !p.Eliminado && (p.Respuestas.Any() || preguntaIdsWithVotes.Contains(p.Id)))
                     .OrderByDescending(p => p.FechaCreacion)
                     .Select(p => new { p.Id, Title = p.Titulo })
                     .ToListAsync();
 
-                // Fallback: si la lista resultante está vacía, traer preguntas recientes
+                // Fallback: si la lista resultante estï¿½ vacï¿½a, traer preguntas recientes
                 if (preguntasFiltered == null || !preguntasFiltered.Any())
                 {
                     var fallback = await _db.Preguntas.AsNoTracking()
@@ -693,7 +714,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Error cargando preguntas candidatas; devolviendo lista vacía.");
+                _logger.LogWarning(ex, "Error cargando preguntas candidatas; devolviendo lista vacï¿½a.");
                 AllPreguntasCandidate = new();
             }
         }
@@ -716,7 +737,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error categorías");
+                _logger.LogError(ex, "Error categorï¿½as");
                 CategoryItems = new();
             }
         }

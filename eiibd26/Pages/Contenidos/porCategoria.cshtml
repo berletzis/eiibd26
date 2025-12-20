@@ -1,0 +1,148 @@
+﻿@page "/Contenidos/categoria/{categorySegment?}"
+@model eiibd26.Pages.Contenidos.PorCategoriaModel
+@using System.Globalization
+@{
+    ViewData["Title"] = Model.CategoryName ?? "Contenidos por categoría";
+    var nextPage = (Model.PageNumber < 1) ? 2 : (Model.PageNumber + 1);
+}
+
+<section class="conte-detail" style="padding:28px 16px; max-width:1140px; margin:0 auto;">
+    @* Breadcrumb *@
+    @if (Model.Breadcrumbs != null && Model.Breadcrumbs.Any())
+    {
+        <nav aria-label="breadcrumb" style="margin-bottom:12px;">
+            <ol class="breadcrumb" style="display:flex; gap:8px; list-style:none; padding:0; margin:0; align-items:center; justify-content:center;">
+                @foreach (var b in Model.Breadcrumbs)
+                {
+                    if (b.IsCurrent)
+                    {
+                        <li class="breadcrumb-item active" aria-current="page" style="color:#374151; font-weight:600;">@b.Title</li>
+                    }
+                    else
+                    {
+                        <li class="breadcrumb-item" style="margin-right:4px;">
+                            <a href="@b.Url" style="color:#6b7280; text-decoration:none;">@b.Title</a>
+                            <span style="color:#9ca3af; margin:0 8px;">/</span>
+                        </li>
+                    }
+                }
+            </ol>
+        </nav>
+    }
+
+    <header style="margin-bottom:18px; text-align:center;">
+        <h1 style="margin:0 0 8px 0; font-size:2.2rem;">@Model.CategoryName</h1>
+        <p style="color:#6b7280; margin:0;">Mostrando contenidos de la categoría seleccionada.</p>
+    </header>
+
+    <div class="container">
+        <div class="row">
+            <div class="col-12">
+                @if (Model.Items == null || !Model.Items.Any())
+                {
+                    <p class="text-muted">No hay artículos en esta categoría.</p>
+                }
+                else
+                {
+                    <div class="items-container" id="itemsContainer" style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: start;">
+                        @* Reutilizamos partial que iguala el index *@
+                        @await Html.PartialAsync("~/Pages/Shared/_BlogItems.cshtml", Model.Items)
+                    </div>
+                }
+            </div>
+        </div>
+
+        @if (Model.TotalCount > (Model.Items?.Count ?? 0))
+        {
+            <div class="load-more-wrap" style="text-align:center; margin-top:18px;">
+                <button id="loadMoreBtn"
+                        class="btn btn-outline-primary"
+                        data-nextpage="@nextPage"
+                        data-pagesize="@Model.PageSize"
+                        data-total="@Model.TotalCount"
+                        data-categorysegment="@Model.CategorySegment">
+                    Cargar más
+                </button>
+            </div>
+        }
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        (function () {
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            if (!loadMoreBtn) return;
+
+            const pageSize = parseInt(loadMoreBtn.getAttribute('data-pagesize') || '7', 10);
+            const total = parseInt(loadMoreBtn.getAttribute('data-total') || '0', 10);
+            const categorySegment = loadMoreBtn.getAttribute('data-categorysegment') || '';
+
+            // initial: count cards already rendered
+            let loadedCount = document.querySelectorAll('.blog-card').length;
+
+            function setLoading(on) {
+                loadMoreBtn.disabled = on;
+                loadMoreBtn.textContent = on ? 'Cargando...' : 'Cargar más';
+            }
+
+            function checkHide() {
+                if (total > 0 && loadedCount >= total) {
+                    loadMoreBtn.style.display = 'none';
+                }
+            }
+
+            checkHide();
+
+            loadMoreBtn.addEventListener('click', async function () {
+                const next = parseInt(loadMoreBtn.getAttribute('data-nextpage') || '2', 10);
+                setLoading(true);
+                try {
+                    const url = new URL('@Url.Page("/Home/BlogMore")', window.location.origin);
+                    url.searchParams.set('pageNumber', String(next));
+                    url.searchParams.set('pageSize', String(pageSize));
+
+                    if (/^\d+$/.test(categorySegment)) {
+                        url.searchParams.set('categorySeq', String(categorySegment));
+                    } else if (categorySegment) {
+                        url.searchParams.set('categorySlug', String(categorySegment));
+                    }
+
+                    const res = await fetch(url.toString(), { method: 'GET', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                    if (!res.ok) {
+                        console.error('Error loading more:', res.status);
+                        alert('Error cargando más artículos.');
+                        setLoading(false);
+                        return;
+                    }
+
+                    const html = await res.text();
+                    if (!html || html.trim().length === 0) {
+                        loadMoreBtn.style.display = 'none';
+                        setLoading(false);
+                        return;
+                    }
+
+                    const container = document.getElementById('itemsContainer');
+                    const temp = document.createElement('div');
+                    temp.innerHTML = html;
+                    const added = temp.querySelectorAll('.blog-card').length;
+
+                    while (temp.firstChild) {
+                        container.appendChild(temp.firstChild);
+                    }
+
+                    loadedCount += added;
+                    loadMoreBtn.setAttribute('data-nextpage', String(next + 1));
+                    checkHide();
+
+                } catch (e) {
+                    console.error(e);
+                    alert('Error de red al cargar más artículos.');
+                } finally {
+                    setLoading(false);
+                }
+            });
+        })();
+    </script>
+}
