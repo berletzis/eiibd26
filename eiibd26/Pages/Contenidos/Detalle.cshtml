@@ -19,63 +19,21 @@
             margin-bottom: 8px;
         }
 
-        .detail-header {
-            display: flex;
-            justify-content: space-between;
-            gap: 16px;
-            align-items: flex-start;
-            margin-bottom: 18px;
+        .page-title {
+            margin: 8px 0 18px 0;
         }
 
-        .detail-title {
-            flex: 1 1 auto;
-        }
-
-            .detail-title h1 {
+            .page-title h1 {
                 font-size: 2.2rem;
-                margin: 0 0 8px;
+                margin: 0;
                 line-height: 1.05;
-                font-weight: 700;
+                font-weight: 200;
                 color: #0f172a;
             }
 
         .detail-sub {
             color: #6b7280;
-            margin-bottom: 6px;
-        }
-
-        .meta-right {
-            flex: 0 0 220px;
-            text-align: right;
-            font-size: .95rem;
-            color: #374151;
-        }
-
-            .meta-right .author {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                justify-content: flex-end;
-            }
-
-                .meta-right .author img {
-                    width: 40px;
-                    height: 40px;
-                    border-radius: 999px;
-                    object-fit: cover;
-                }
-
-            .meta-right .date {
-                color: #94a3b8;
-                font-size: .85rem;
-                margin-top: 6px;
-            }
-
-        .share-icons {
-            margin-top: 10px;
-            display: flex;
-            justify-content: flex-end;
-            gap: 8px;
+            margin-top: 6px;
         }
 
         .detail-image {
@@ -85,6 +43,7 @@
             background: #f3f6fa;
             aspect-ratio: 16 / 7;
             position: relative;
+            margin-bottom: 18px;
         }
 
             .detail-image .img-fallback {
@@ -104,11 +63,19 @@
                 display: block;
             }
 
+        /* Main content + right sidebar */
         .detail-grid {
             display: grid;
-            grid-template-columns: 280px 1fr 320px;
+            grid-template-columns: 1fr 320px;
             gap: 24px;
             align-items: start;
+        }
+
+        .content-panel .contenido-html {
+            background: #fff;
+            border-radius: 10px;
+            padding: 18px;
+            border: 1px solid #eef2f7;
         }
 
         .read-time {
@@ -128,13 +95,33 @@
             }
 
         .categories-list {
+             /* background: #fff; */
+             border-radius: 2px;
+            /*border: 1px solid #eef2f7;  */
+/*             padding: 6px;
+            margin-bottom: 12px; */
+        }
+
+            .categories-list .badge-cat {
+                display: inline-block;
+                background: #f4edfc;
+                color: #24527a;
+
+                padding: 6px 10px;
+                border-radius: 10px;
+                font-size: .85rem;
+                
+            }
+
+        .social-list {
             background: #fff;
             border-radius: 10px;
             border: 1px solid #eef2f7;
             padding: 12px;
+            margin-bottom: 12px;
         }
 
-            .categories-list .badge-cat {
+            .social-list .badge-cat {
                 display: inline-block;
                 background: #eef5ff;
                 color: #24527a;
@@ -144,11 +131,40 @@
                 margin: 6px 6px 0 0;
             }
 
-        .content-panel .contenido-html {
-            background: #fff;
-            border-radius: 10px;
-            padding: 18px;
-            border: 1px solid #eef2f7;
+
+        .meta-card {
+            /* background: #fff; */
+            /* border-radius: 5px;
+            border: 1px solid #eef2f7; */
+            padding: 12px;
+            margin-bottom: 12px;
+            text-align: left;
+            font-weight:100;
+        }
+
+            .meta-card .author {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+                .meta-card .author img {
+                    width: 30px;
+                    height: 30px;
+                    border-radius: 999px;
+                    object-fit: cover;
+                }
+
+            .meta-card .meta-row {
+                color: #6b7280;
+                font-size: .9rem;
+                margin-top: 8px;
+            }
+
+        .share-icons {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
         }
 
         .related-card {
@@ -219,16 +235,6 @@
                 grid-template-columns: 1fr;
             }
 
-            .meta-right {
-                text-align: left;
-                order: 2;
-            }
-
-            .detail-header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
             .manual-block {
                 grid-template-columns: 1fr;
             }
@@ -237,90 +243,81 @@
 }
 
 <div class="conte-detail">
-    <nav class="breadcrumbs" aria-label="breadcrumbs">
-        <a href="/">Home</a> ›
+    <div class="categories-list" aria-labelledby="left-panel-heading">
         @if (Model.Item?.Categories?.Any() == true)
         {
-            <text> @Model.Item.Categories.First() </text>
+            foreach (var c in Model.Item.Categories)
+            {
+                <span class="badge-cat">@c</span>
+            }
         }
         else
         {
-            <text> Contenidos </text>
+            <div class="text-muted" style="font-size:.9rem;">Sin categorías</div>
         }
-        › <span>@Model.Item?.Title</span>
-    </nav>
+    </div>
 
-    <header class="detail-header" role="banner">
-        <div class="detail-title">
-            <div class="detail-sub">@Model.Item?.Categories?.FirstOrDefault()</div>
-            <h1>@Model.Item?.Title</h1>
-            @if (!string.IsNullOrWhiteSpace(Model.Item?.Excerpt))
+
+    <div class="page-title">
+        @* <div class="detail-sub">@Model.Item?.Categories?.FirstOrDefault()</div> *@
+        <h1>@Model.Item?.Title</h1>
+    </div>
+    <div class="meta-card" role="complementary" aria-label="Meta del artículo">
+        <div class="author">
+            <img src="~/img/avatar-placeholder.png" alt="@Model.Item?.Author" />
+            <div>
+                <div style="font-weight:100;">por @Model.Item?.Author | <i class="bi bi-calendar"></i> @Model.Item?.CreatedAt.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture) | <i class="bi bi-clock"></i> @Model.Item?.ReadMinutes min read (aprox).</div>
+            </div>
+        </div>
+
+        
+    </div>
+
+
+    @* Main grid: left article, right sidebar with meta and widgets *@
+    <div class="detail-grid" role="main">
+        <article class="content-panel" aria-labelledby="article-title">
+            @* Image placed inside main content *@
+            @if (!string.IsNullOrWhiteSpace(Model.Item?.ImageUrl))
             {
-                <p class="detail-sub">@Model.Item.Excerpt</p>
+                <div class="detail-image" role="img" aria-label="@Model.Item.Title">
+                    <div class="img-fallback"></div>
+                    <img src="@Model.Item.ImageUrl" alt="@Model.Item.Title" />
+                </div>
             }
-        </div>
-
-        <div class="meta-right" aria-hidden="false">
-            <div class="author">
-                <img src="~/img/avatar-placeholder.png" alt="@Model.Item?.Author" />
-                <div style="text-align:right;">
-                    <div style="font-weight:700;">@Model.Item?.Author</div>
-                    <div class="date">@Model.Item?.CreatedAt.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</div>
-                </div>
-            </div>
-
-            <div class="share-icons" aria-label="Share">
-                <a title="Share on X" href="#" aria-label="Share on X">X</a>
-                <a title="Share on Facebook" href="#" aria-label="Share on Facebook">f</a>
-                <a title="Share on LinkedIn" href="#" aria-label="Share on LinkedIn">in</a>
-            </div>
-        </div>
-    </header>
-
-    @if (!string.IsNullOrWhiteSpace(Model.Item?.ImageUrl))
-    {
-        <div class="detail-image" role="img" aria-label="@Model.Item.Title">
-            <div class="img-fallback"></div>
-            <img src="@Model.Item.ImageUrl" alt="@Model.Item.Title" />
-        </div>
-    }
-
-    <div class="detail-grid">
-        <aside class="left-panel" aria-labelledby="left-panel-heading">
-            <div class="read-time" role="status" aria-live="polite">
-                <div>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
-                </div>
-                <div>
-                    <div class="minutes">@Model.Item?.ReadMinutes min read</div>
-                    <div style="font-size:.85rem;color:#6b7280;">Approx.</div>
-                </div>
-            </div>
-
-            <div class="categories-list" aria-labelledby="left-panel-heading">
-                <h4 style="margin:0 0 8px 0;font-size:.95rem;color:#374151;">Categorías</h4>
+         
+            @* Breadcrumb and title only at top *@
+            <nav class="breadcrumbs" aria-label="breadcrumbs">
+                <a href="/">Inicio</a> ›
                 @if (Model.Item?.Categories?.Any() == true)
                 {
-                    foreach (var c in Model.Item.Categories)
-                    {
-                        <span class="badge-cat">@c</span>
-                    }
+                    <text> @Model.Item.Categories.First() </text>
                 }
                 else
                 {
-                    <div class="text-muted" style="font-size:.9rem;">Sin categorías</div>
+                    <text>Contenidos </text>
                 }
-            </div>
-        </aside>
+                › <span>@Model.Item?.Title</span>
+            </nav>
 
-        <article class="content-panel" aria-labelledby="article-title">
+
+            @* Excerpt under the image (moved from header) *@
+            @if (!string.IsNullOrWhiteSpace(Model.Item?.Excerpt))
+            {
+                <p class="detail-sub" style="margin-bottom:12px;">@Model.Item.Excerpt</p>
+            }
+
             <div class="contenido-html">
                 @Html.Raw(Model.Item?.ContentHtml ?? "<p>Sin contenido disponible.</p>")
             </div>
 
+            @* Manual relation boxes (conditions, symptoms, treatments) *@
+            
+            <section style="margin-top:26px;">
+                <h4 style="margin:0 0 12px 0;color:#374151;">Datos relacionados</h4>
             <div class="manual-block" aria-label="Relaciones manuales">
                 <div class="manual-box">
-                    <h5>Condiciones relacionadas</h5>
+                    <h5>Condiciones</h5>
                     @if (Model.Item?.ManualCondiciones?.Any() == true)
                     {
                         foreach (var n in Model.Item.ManualCondiciones)
@@ -335,7 +332,7 @@
                 </div>
 
                 <div class="manual-box">
-                    <h5>Síntomas relacionados</h5>
+                    <h5>Síntomas</h5>
                     @if (Model.Item?.ManualSintomas?.Any() == true)
                     {
                         foreach (var n in Model.Item.ManualSintomas)
@@ -350,7 +347,7 @@
                 </div>
 
                 <div class="manual-box">
-                    <h5>Tratamientos relacionados</h5>
+                    <h5>Tratamientos</h5>
                     @if (Model.Item?.ManualTratamientos?.Any() == true)
                     {
                         foreach (var n in Model.Item.ManualTratamientos)
@@ -364,47 +361,46 @@
                     }
                 </div>
             </div>
-        </article>
-
-        <aside class="right-panel" aria-labelledby="related-heading">
-            <h4 id="related-heading" style="margin-top:0;font-size:1rem;color:#374151;">Relacionados</h4>
-
-            @* 1) Manual related contents *@
+            </section>
+            @* Related contents (manual) placed after main content and manual boxes *@
             @if (Model.Item?.ManualRelated?.Any() == true)
             {
-                foreach (var r in Model.Item.ManualRelated)
-                {
-                    <a href="@(Url.Page("/Contenidos/Detalle", new { slug = string.IsNullOrWhiteSpace(r.Slug) ? (object)r.Id : r.Slug }))" style="text-decoration:none;color:inherit;">
-                        <div class="related-card" title="@r.Note">
-                            @if (!string.IsNullOrWhiteSpace(r.ImageUrl))
-                            {
-                                <img src="@r.ImageUrl" alt="@r.Title" />
-                            }
-                            else
-                            {
-                                <div style="width:64px;height:48px;background:#f3f6fa;border-radius:8px;flex:0 0 64px;"></div>
-                            }
-                            <div>
-                                <div style="display:flex;gap:8px;align-items:center;">
-                                    <div class="r-title">@r.Title</div>
-                                    <span style="background:#eef5ff;color:#24527a;padding:4px 8px;border-radius:999px;font-size:.72rem;margin-left:8px;">Manual</span>
-                                </div>
-                                <div class="r-meta">@r.CreatedAt.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</div>
-                                @if (!string.IsNullOrWhiteSpace(r.Note))
+                <section style="margin-top:26px;">
+                    <h4 style="margin:0 0 12px 0;color:#374151;">Artículos relacionados</h4>
+                    @foreach (var r in Model.Item.ManualRelated)
+                    {
+                        <a href="@(Url.Page("/Contenidos/Detalle", new { slug = string.IsNullOrWhiteSpace(r.Slug) ? (object)r.Id : r.Slug }))" style="text-decoration:none;color:inherit;">
+                            <div class="related-card" title="@r.Note">
+                                @if (!string.IsNullOrWhiteSpace(r.ImageUrl))
                                 {
-                                    <div style="font-size:.78rem;color:#6b7280;margin-top:4px;">@r.Note</div>
+                                    <img src="@r.ImageUrl" alt="@r.Title" />
                                 }
+                                else
+                                {
+                                    <div style="width:64px;height:48px;background:#f3f6fa;border-radius:8px;flex:0 0 64px;"></div>
+                                }
+                                <div>
+                                    <div style="display:flex;gap:8px;align-items:center;">
+                                        <div class="r-title">@r.Title</div>
+                                        <span style="background:#eef5ff;color:#24527a;padding:4px 8px;border-radius:999px;font-size:.72rem;margin-left:8px;">Manual</span>
+                                    </div>
+                                    <div class="r-meta">@r.CreatedAt.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</div>
+                                    @if (!string.IsNullOrWhiteSpace(r.Note))
+                                    {
+                                        <div style="font-size:.78rem;color:#6b7280;margin-top:4px;">@r.Note</div>
+                                    }
+                                </div>
                             </div>
-                        </div>
-                    </a>
-                }
+                        </a>
+                    }
+                </section>
             }
 
-            @* 2) Automatic related by categories *@
+            @* Related by categories *@
             @if (Model.Item?.RelatedByCategories?.Any() == true)
             {
-                <div style="margin-top:12px;">
-                    <h5 style="margin:6px 0 8px 0;color:#374151;font-size:.95rem;">Recomendados</h5>
+                <section style="margin-top:24px;">
+                    <h4 style="margin:0 0 12px 0;color:#374151;">Recomendados</h4>
                     @foreach (var r in Model.Item.RelatedByCategories)
                     {
                         <a href="@(Url.Page("/Contenidos/Detalle", new { slug = string.IsNullOrWhiteSpace(r.Slug) ? (object)r.Id : r.Slug }))" style="text-decoration:none;color:inherit;">
@@ -424,14 +420,14 @@
                             </div>
                         </a>
                     }
-                </div>
+                </section>
             }
 
-            @* 3) Manual related questions *@
+            @* Related questions *@
             @if (Model.Item?.ManualPreguntas?.Any() == true)
             {
-                <div style="margin-top:14px;">
-                    <h5 style="margin:6px 0 8px 0;color:#374151;font-size:.95rem;">Preguntas relacionadas</h5>
+                <section style="margin-top:24px;">
+                    <h4 style="margin:0 0 12px 0;color:#374151;">Preguntas relacionadas</h4>
                     @foreach (var q in Model.Item.ManualPreguntas)
                     {
                         <div class="pregunta-card">
@@ -441,12 +437,30 @@
                             </a>
                         </div>
                     }
-                </div>
+                </section>
             }
+        </article>
 
+        @* Right sidebar: author, date, share, read-time, categories, social, fallback message *@
+        <aside class="right-panel" aria-labelledby="related-heading">
+        
+
+   
+
+            <div class="social-list" aria-labelledby="social-heading">
+                <h4 id="social-heading" style="margin:0 0 8px 0;font-size:.95rem;color:#374151;">Redes sociales</h4>
+                <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
+                    <a class="badge-cat" href="#" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Instagram</a>
+                    <a class="badge-cat" href="#" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Twitter</a>
+                    <a class="badge-cat" href="#" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Facebook</a>
+                    <a class="badge-cat" href="#" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">YouTube</a>
+                </div>
+            </div>
+
+            @* If there is no related content moved to main, show a fallback message here *@
             @if ((Model.Item?.ManualRelated?.Any() != true) && (Model.Item?.RelatedByCategories?.Any() != true) && (Model.Item?.ManualPreguntas?.Any() != true))
             {
-                <div class="text-muted" style="font-size:.9rem;">No hay artículos o preguntas relacionadas.</div>
+                <div class="text-muted" style="font-size:.9rem; margin-top:12px;">No hay artículos o preguntas relacionadas.</div>
             }
         </aside>
     </div>
