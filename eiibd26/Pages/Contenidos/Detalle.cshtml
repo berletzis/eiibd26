@@ -34,6 +34,12 @@
         .detail-sub {
             color: #6b7280;
             margin-top: 6px;
+            display: inline-block;
+            background: #f4edfc;
+            color: #24527a;
+            padding: 6px 10px;
+            border-radius: 10px;
+            font-size: .85rem;
         }
 
         .detail-image {
@@ -95,22 +101,20 @@
             }
 
         .categories-list {
-             /* background: #fff; */
-             border-radius: 2px;
+            /* background: #fff; */
+            border-radius: 2px;
             /*border: 1px solid #eef2f7;  */
-/*             padding: 6px;
-            margin-bottom: 12px; */
+            /*             padding: 6px;
+                            margin-bottom: 12px; */
         }
 
             .categories-list .badge-cat {
                 display: inline-block;
                 background: #f4edfc;
                 color: #24527a;
-
                 padding: 6px 10px;
                 border-radius: 10px;
                 font-size: .85rem;
-                
             }
 
         .social-list {
@@ -131,15 +135,20 @@
                 margin: 6px 6px 0 0;
             }
 
+            .social-list::after h5 {
+                content: '\A'; /* El '\A' representa un salto de línea */
+                white-space: pre; /* Esto es crucial para que funcione el '\A' */
+            }
+
 
         .meta-card {
             /* background: #fff; */
             /* border-radius: 5px;
-            border: 1px solid #eef2f7; */
+                            border: 1px solid #eef2f7; */
             padding: 12px;
             margin-bottom: 12px;
             text-align: left;
-            font-weight:100;
+            font-weight: 100;
         }
 
             .meta-card .author {
@@ -188,7 +197,7 @@
 
             .related-card .r-title {
                 font-size: .95rem;
-                font-weight: 600;
+                font-weight: 100;
                 color: #0f172a;
             }
 
@@ -198,24 +207,28 @@
             }
 
         .manual-block {
-            margin-top: 28px;
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 12px;
-        }
-
-        .manual-box {
             background: #fff;
             border-radius: 10px;
             border: 1px solid #eef2f7;
             padding: 12px;
+            margin-bottom: 12px;
         }
 
-            .manual-box h5 {
-                margin-top: 0;
-                font-size: 1rem;
-                color: #374151;
+            .manual-block .lista {
+                display: inline-block;
+                background: #eef5ff;
+                color: #24527a;
+                padding: 6px 10px;
+                border-radius: 999px;
+                font-size: .85rem;
+                margin: 6px 6px 0 0;
             }
+
+        .manual-box h5 {
+            margin-top: 0;
+            font-size: 1rem;
+            color: #374151;
+        }
 
         .pregunta-card {
             background: #fff;
@@ -223,12 +236,64 @@
             border: 1px solid #eef2f7;
             padding: 10px;
             margin-bottom: 10px;
+            font-weight: 100;
+            font-size: .95rem;
         }
 
             .pregunta-card a {
                 text-decoration: none;
-                color: inherit;
+                
+                color: #000;
             }
+
+        /* --- Tabs for related content --- */
+        .tabs {
+            margin-top: 26px;
+            background: #fff;
+            border: 1px solid #eef2f7;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .tab-list {
+            display: flex;
+            gap: 8px;
+            padding: 12px;
+            background: #f8fafc;
+            border-bottom: 1px solid #eef2f7;
+        }
+
+            .tab-list button {
+                background: transparent;
+                border: 0;
+                padding: 8px 12px;
+                border-radius: 999px;
+                cursor: pointer;
+                color: #6b7280;
+                font-weight:100;
+            }
+
+                .tab-list button.active {
+                    background: #eef5ff;
+                    color: #24527a; 
+                }
+
+        .tab-panels {
+            padding: 16px;
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+            .tab-panel.active {
+                display: block;
+            }
+
+        .similar-internet {
+            font-size: .95rem;
+            color: #6b7280;
+        }
 
         @@media (max-width:991.98px) {
             .detail-grid {
@@ -270,7 +335,7 @@
             </div>
         </div>
 
-        
+
     </div>
 
 
@@ -285,7 +350,7 @@
                     <img src="@Model.Item.ImageUrl" alt="@Model.Item.Title" />
                 </div>
             }
-         
+
             @* Breadcrumb and title only at top *@
             <nav class="breadcrumbs" aria-label="breadcrumbs">
                 <a href="/">Inicio</a> ›
@@ -308,131 +373,106 @@
             }
 
             <div class="contenido-html">
-                @Html.Raw(Model.Item?.ContentHtml ?? "<p>Sin contenido disponible.</p>")
+                @Html.Raw(Model.Item?.ContentHtml ?? "<p>Sin contenido disponible.</p>") 
             </div>
 
-            @* Manual relation boxes (conditions, symptoms, treatments) *@
-            
-            <section style="margin-top:26px;">
-                <h4 style="margin:0 0 12px 0;color:#374151;">Datos relacionados</h4>
-            <div class="manual-block" aria-label="Relaciones manuales">
-                <div class="manual-box">
-                    <h5>Condiciones</h5>
-                    @if (Model.Item?.ManualCondiciones?.Any() == true)
-                    {
-                        foreach (var n in Model.Item.ManualCondiciones)
-                        {
-                            <div style="margin:6px 0;">• @n</div>
-                        }
-                    }
-                    else
-                    {
-                        <div class="text-muted">No hay condiciones relacionadas.</div>
-                    }
+
+            @* --- Tabs: Artículos relacionados | Recomendados | Similar en Internet --- *@
+            <div class="tabs" id="relatedTabs" role="tablist" aria-label="Contenido relacionado">
+                <div class="tab-list" role="tablist" aria-hidden="false">
+                    <button type="button" class="tab-btn active" data-panel="tab-manual" role="tab" aria-selected="true">Artículos relacionados (@(Model.Item?.ManualRelated?.Count() ?? 0))</button>
+                    <button type="button" class="tab-btn" data-panel="tab-reco" role="tab" aria-selected="false">Recomendados por Nuestra IA  (@(Model.Item?.RelatedByCategories?.Count() ?? 0))</button>
+                    <button type="button" class="tab-btn" data-panel="tab-similar" role="tab" aria-selected="false">Contenido similar en Internet</button>
                 </div>
 
-                <div class="manual-box">
-                    <h5>Síntomas</h5>
-                    @if (Model.Item?.ManualSintomas?.Any() == true)
-                    {
-                        foreach (var n in Model.Item.ManualSintomas)
+                <div class="tab-panels">
+                    <div id="tab-manual" class="tab-panel active" role="tabpanel" aria-hidden="false">
+                        @if (Model.Item?.ManualRelated?.Any() == true)
                         {
-                            <div style="margin:6px 0;">• @n</div>
-                        }
-                    }
-                    else
-                    {
-                        <div class="text-muted">No hay síntomas relacionados.</div>
-                    }
-                </div>
-
-                <div class="manual-box">
-                    <h5>Tratamientos</h5>
-                    @if (Model.Item?.ManualTratamientos?.Any() == true)
-                    {
-                        foreach (var n in Model.Item.ManualTratamientos)
-                        {
-                            <div style="margin:6px 0;">• @n</div>
-                        }
-                    }
-                    else
-                    {
-                        <div class="text-muted">No hay tratamientos relacionados.</div>
-                    }
-                </div>
-            </div>
-            </section>
-            @* Related contents (manual) placed after main content and manual boxes *@
-            @if (Model.Item?.ManualRelated?.Any() == true)
-            {
-                <section style="margin-top:26px;">
-                    <h4 style="margin:0 0 12px 0;color:#374151;">Artículos relacionados</h4>
-                    @foreach (var r in Model.Item.ManualRelated)
-                    {
-                        <a href="@(Url.Page("/Contenidos/Detalle", new { slug = string.IsNullOrWhiteSpace(r.Slug) ? (object)r.Id : r.Slug }))" style="text-decoration:none;color:inherit;">
-                            <div class="related-card" title="@r.Note">
-                                @if (!string.IsNullOrWhiteSpace(r.ImageUrl))
-                                {
-                                    <img src="@r.ImageUrl" alt="@r.Title" />
-                                }
-                                else
-                                {
-                                    <div style="width:64px;height:48px;background:#f3f6fa;border-radius:8px;flex:0 0 64px;"></div>
-                                }
-                                <div>
-                                    <div style="display:flex;gap:8px;align-items:center;">
-                                        <div class="r-title">@r.Title</div>
-                                        <span style="background:#eef5ff;color:#24527a;padding:4px 8px;border-radius:999px;font-size:.72rem;margin-left:8px;">Manual</span>
+                            @foreach (var r in Model.Item.ManualRelated)
+                            {
+                                <a href="@(Url.Page("/Contenidos/Detalle", new { slug = string.IsNullOrWhiteSpace(r.Slug) ? (object)r.Id : r.Slug }))" style="text-decoration:none;color:inherit;">
+                                    <div class="related-card" title="@r.Note">
+                                        @if (!string.IsNullOrWhiteSpace(r.ImageUrl))
+                                        {
+                                            <img src="@r.ImageUrl" alt="@r.Title" />
+                                        }
+                                        else
+                                        {
+                                            <div style="width:64px;height:48px;background:#f3f6fa;border-radius:8px;flex:0 0 64px;"></div>
+                                        }
+                                        <div>
+                                            <div style="display:flex;gap:8px;align-items:center;">
+                                                <div class="r-title">@r.Title</div>
+                                                <span style="background:#eef5ff;color:#24527a;padding:4px 8px;border-radius:999px;font-size:.72rem;margin-left:8px;">Manual</span>
+                                            </div>
+                                            <div class="r-meta">@r.CreatedAt.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</div>
+                                            @if (!string.IsNullOrWhiteSpace(r.Note))
+                                            {
+                                                <div style="font-size:.78rem;color:#6b7280;margin-top:4px;">@r.Note</div>
+                                            }
+                                        </div>
                                     </div>
-                                    <div class="r-meta">@r.CreatedAt.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</div>
-                                    @if (!string.IsNullOrWhiteSpace(r.Note))
-                                    {
-                                        <div style="font-size:.78rem;color:#6b7280;margin-top:4px;">@r.Note</div>
-                                    }
-                                </div>
-                            </div>
-                        </a>
-                    }
-                </section>
-            }
+                                </a>
+                            }
+                        }
+                        else
+                        {
+                            <div class="text-muted">No hay artículos relacionados manuales.</div>
+                        }
+                    </div>
 
-            @* Related by categories *@
-            @if (Model.Item?.RelatedByCategories?.Any() == true)
-            {
-                <section style="margin-top:24px;">
-                    <h4 style="margin:0 0 12px 0;color:#374151;">Recomendados</h4>
-                    @foreach (var r in Model.Item.RelatedByCategories)
-                    {
-                        <a href="@(Url.Page("/Contenidos/Detalle", new { slug = string.IsNullOrWhiteSpace(r.Slug) ? (object)r.Id : r.Slug }))" style="text-decoration:none;color:inherit;">
-                            <div class="related-card" title="@r.Note">
-                                @if (!string.IsNullOrWhiteSpace(r.ImageUrl))
-                                {
-                                    <img src="@r.ImageUrl" alt="@r.Title" />
-                                }
-                                else
-                                {
-                                    <div style="width:64px;height:48px;background:#f3f6fa;border-radius:8px;flex:0 0 64px;"></div>
-                                }
-                                <div>
-                                    <div class="r-title">@r.Title</div>
-                                    <div class="r-meta">@r.CreatedAt.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</div>
-                                </div>
-                            </div>
-                        </a>
-                    }
-                </section>
-            }
+                    <div id="tab-reco" class="tab-panel" role="tabpanel" aria-hidden="true">
+                        @if (Model.Item?.RelatedByCategories?.Any() == true)
+                        {
+                            @foreach (var r in Model.Item.RelatedByCategories)
+                            {
+                                <a href="@(Url.Page("/Contenidos/Detalle", new { slug = string.IsNullOrWhiteSpace(r.Slug) ? (object)r.Id : r.Slug }))" style="text-decoration:none;color:inherit;">
+                                    <div class="related-card" title="@r.Note">
+                                        @if (!string.IsNullOrWhiteSpace(r.ImageUrl))
+                                        {
+                                            <img src="@r.ImageUrl" alt="@r.Title" />
+                                        }
+                                        else
+                                        {
+                                            <div style="width:64px;height:48px;background:#f3f6fa;border-radius:8px;flex:0 0 64px;"></div>
+                                        }
+                                        <div>
+                                            <div class="r-title">@r.Title</div>
+                                            <div class="r-meta">@r.CreatedAt.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</div>
+                                        </div>
+                                    </div>
+                                </a>
+                            }
+                        }
+                        else
+                        {
+                            <div class="text-muted">No hay recomendaciones disponibles.</div>
+                        }
+                    </div>
+
+                    <div id="tab-similar" class="tab-panel" role="tabpanel" aria-hidden="true">
+                        @* Placeholder for "Similar en Internet" — puedes reemplazar por integración real (API, búsqueda, iframe) *@
+                        <div class="similar-internet">
+                            <p style="margin-top:0;margin-bottom:8px;">Artículos similares encontrados en la web:</p>
+                            <ul>
+                                <li>No hay resultados externos configurados. Aquí puedes mostrar resultados de búsqueda (Google, Bing, etc.) o un widget externo.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             @* Related questions *@
             @if (Model.Item?.ManualPreguntas?.Any() == true)
             {
                 <section style="margin-top:24px;">
-                    <h4 style="margin:0 0 12px 0;color:#374151;">Preguntas relacionadas</h4>
+                    <h4 style="margin:0 0 12px 0;color:#374151; font-weight:100;  font-size: 1.1rem;">Preguntas relacionadas</h4>
                     @foreach (var q in Model.Item.ManualPreguntas)
                     {
                         <div class="pregunta-card">
                             <a href="@(Url.Page("/Preguntas/Detalles", new { id = q.Id }))">
-                                <div style="font-weight:700;color:#0b5cff;">@q.Title</div>
+                                <div >@q.Title</div>
                                 <div style="font-size:.85rem;color:#6b7280;">@q.CreatedAt.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</div>
                             </a>
                         </div>
@@ -443,17 +483,70 @@
 
         @* Right sidebar: author, date, share, read-time, categories, social, fallback message *@
         <aside class="right-panel" aria-labelledby="related-heading">
-        
 
-   
+
+
 
             <div class="social-list" aria-labelledby="social-heading">
-                <h4 id="social-heading" style="margin:0 0 8px 0;font-size:.95rem;color:#374151;">Redes sociales</h4>
+                <h4 id="social-heading" style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">Redes sociales</h4>
                 <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
                     <a class="badge-cat" href="#" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Instagram</a>
                     <a class="badge-cat" href="#" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Twitter</a>
                     <a class="badge-cat" href="#" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Facebook</a>
                     <a class="badge-cat" href="#" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">YouTube</a>
+                </div>
+            </div>
+
+            <h4 id="social-heading" style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">Datos Relacionados</h4>
+            <div class="social-list" aria-labelledby="social-heading">
+
+                <h5 id="social-heading" style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">Condiciones</h5>
+                <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
+
+                    @if (Model.Item?.ManualCondiciones?.Any() == true)
+                    {
+                        foreach (var n in Model.Item.ManualCondiciones)
+                        {
+                            <div class="badge-cat">@n</div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-muted">No hay condiciones relacionadas.</div>
+                    }
+                </div>
+            </div>
+            <div class="social-list" aria-labelledby="social-heading">
+                <h5 id="social-heading" style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">Sintomas</h5>
+                <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
+                    @if (Model.Item?.ManualSintomas?.Any() == true)
+                    {
+                        foreach (var n in Model.Item.ManualSintomas)
+                        {
+                            <div class="badge-cat">@n</div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-muted">No hay síntomas relacionados.</div>
+                    }
+                </div>
+            </div>
+            <div class="social-list" aria-labelledby="social-heading">
+                <h5 id="social-heading" style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">Tratamientos</h5>
+                <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
+                    @if (Model.Item?.ManualTratamientos?.Any() == true)
+                    {
+                        foreach (var n in Model.Item.ManualTratamientos)
+                        {
+                            <div class="badge-cat">@n</div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-muted">No hay tratamientos relacionados.</div>
+                    }
+
                 </div>
             </div>
 
@@ -465,3 +558,60 @@
         </aside>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            // Tabs behavior for related content
+            const tabContainer = document.getElementById('relatedTabs');
+            if (!tabContainer) return;
+
+            const buttons = tabContainer.querySelectorAll('.tab-btn');
+            const panels = tabContainer.querySelectorAll('.tab-panel');
+
+            function activate(panelId, btn) {
+                panels.forEach(p => {
+                    if (p.id === panelId) {
+                        p.classList.add('active');
+                        p.setAttribute('aria-hidden', 'false');
+                    } else {
+                        p.classList.remove('active');
+                        p.setAttribute('aria-hidden', 'true');
+                    }
+                });
+                buttons.forEach(b => {
+                    if (b === btn) {
+                        b.classList.add('active');
+                        b.setAttribute('aria-selected', 'true');
+                    } else {
+                        b.classList.remove('active');
+                        b.setAttribute('aria-selected', 'false');
+                    }
+                });
+            }
+
+            buttons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const panel = btn.getAttribute('data-panel');
+                    activate(panel, btn);
+                });
+
+                btn.addEventListener('keydown', (e) => {
+                    // left/right navigation
+                    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                        e.preventDefault();
+                        const idx = Array.from(buttons).indexOf(btn);
+                        const nextIdx = e.key === 'ArrowRight' ? (idx + 1) % buttons.length : (idx - 1 + buttons.length) % buttons.length;
+                        buttons[nextIdx].focus();
+                    }
+                });
+            });
+
+            // set initial (first) active
+            if (buttons.length) {
+                const first = buttons[0];
+                activate(first.getAttribute('data-panel'), first);
+            }
+        })();
+    </script>
+}
