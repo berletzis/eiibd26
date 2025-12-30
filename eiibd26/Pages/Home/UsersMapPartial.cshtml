@@ -1,0 +1,369 @@
+﻿@page
+@model eiibd26.Pages.Home.UsersMapPartialModel
+@{
+    Layout = null; // partial must not render the site layout
+}
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500" />
+
+<style>
+    /* Root layout: two rows — controles arriba, mapa abajo */
+    .users-map-root {
+        max-width: 1140px;
+        margin: 0 auto 16px;
+        box-sizing: border-box;
+    }
+
+    .users-map-controls {
+        background: #fff;
+        border: 1px solid #eef2f7;
+        border-radius: 8px;
+        padding: 12px 14px;
+        margin-bottom: 12px;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .ums-left {
+        min-width: 220px;
+        flex: 1 1 320px;
+        margin-bottom: 0;
+    }
+
+        .ums-left h4 {
+            margin: 0 0 6px 0;
+            font-size: 1rem;
+            color: #374151;
+            font-weight: 500;
+        }
+
+        .ums-left label {
+            display: block;
+            margin-bottom: 6px;
+            color: #374151;
+            font-size: .9rem;
+        }
+
+    .ums-country-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+        .ums-country-row select.form-select {
+            flex: 1 1 auto;
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid #cfdbe8;
+            background: #fff;
+            margin-bottom: 0;
+        }
+
+    .ums-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .ums-count {
+        color: #6b7280;
+        font-size: .95rem;
+    }
+
+    .users-map-canvas {
+        width: 100%;
+        min-height: 420px;
+        height: 560px;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid #e6eef6;
+        box-sizing: border-box;
+        margin-top: 0;
+    }
+
+    /* Responsive adjustments: reduce gaps and padding so map sits closer to controls */
+    @@media (max-width: 991.98px) {
+        .users-map-controls {
+            flex-direction: column;
+            align-items: stretch;
+            padding: 8px 10px; /* reduced padding */
+            gap: 8px; /* reduced gap */
+            margin-bottom: 8px; /* smaller space under controls */
+        }
+
+        .ums-left {
+            flex: 1 1 100%;
+            min-width: auto;
+            margin-bottom: 0; /* remove extra bottom margin */
+        }
+
+        .ums-country-row {
+            gap: 6px;
+            align-items: center;
+        }
+
+            .ums-country-row select.form-select {
+                width: 100%;
+                margin-bottom: 0; /* ensure no extra spacing */
+            }
+
+        .ums-actions {
+            justify-content: flex-start;
+            margin-top: 0;
+        }
+        /* reduce map height on small screens to avoid very tall canvas leaving space */
+        .users-map-canvas {
+            height: 360px;
+        }
+    }
+</style>
+
+<div class="users-map-root">
+    <!-- Row 1: buscador / controls -->
+    <div class="users-map-controls" role="region" aria-label="Controles del mapa">
+        <div class="ums-left" aria-label="Filtro por país">
+            <span>País / <span id="ums_count">Mostrando <b> 0 </b> ubicaciones de usuarios registrados</span> </span>
+            <div class="ums-country-row">
+                <label class="visually-hidden" for="ums_country">Selecciona tu País</label>
+                <select id="ums_country" class="form-select" aria-label="Selecciona tu País">
+                    <option value="">---Selecciona tu país---</option>
+                    @foreach (var c in Model.Countries)
+                    {
+                        <option value="@c.Code">@c.Name (@c.Code)</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <!-- botones eliminados: el filtrado se hace al cambiar el select -->
+        <div class="ums-actions" aria-hidden="true">
+            <!-- vacío intencionalmente -->
+        </div>
+    </div>
+
+    <!-- Row 2: mapa -->
+    <div id="ums_map" class="users-map-canvas" role="application" aria-label="Mapa de usuarios"></div>
+</div>
+
+<!-- Google Maps JS API: utiliza tu ApiKey o inyecta desde PageModel -->
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBUUBxDv3VvzMmdR_pf9aFOd7frbTeUWXk"></script>
+<!-- Official MarkerClusterer (renderer-capable) -->
+<script src="https://unpkg.com/@@googlemaps/markerclusterer/dist/index.min.js"></script>
+
+<script>
+    (function () {
+        // Data injected from server
+        const profiles = @Html.Raw(Model.ProfilesJson ?? "[]");
+        const mapEl = document.getElementById('ums_map');
+        if (!mapEl) return;
+
+        // Configuration: conservative zoom to show areas (not exact points)
+        const MIN_ZOOM = 2;
+        const MAX_ZOOM = 8;               // adjust if you want more detail
+        const MAX_ZOOM_CLUSTER_CLICK = 7; // cap after cluster click
+        const JITTER_MAX_DEG = 0.02;      // small jitter (degrees) to avoid exact locations
+
+        // Initialize map with double-click zoom disabled
+        const map = new google.maps.Map(mapEl, {
+            center: { lat: 20, lng: 0 },
+            zoom: 2,
+            minZoom: MIN_ZOOM,
+            maxZoom: MAX_ZOOM,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: true,
+            clickableIcons: false,
+            disableDoubleClickZoom: true
+        });
+
+        // jitter helper
+        function jitterCoord(lat, lng) {
+            const factor = JITTER_MAX_DEG;
+            return { lat: lat + (Math.random() - 0.5) * factor, lng: lng + (Math.random() - 0.5) * factor };
+        }
+
+        // Build invisible markers used by the clusterer
+        const markers = profiles.map(p => {
+            const lat = Number(p.lat);
+            const lng = Number(p.lng);
+            const pos = isFinite(lat) && isFinite(lng) ? jitterCoord(lat, lng) : { lat: 0, lng: 0 };
+            const m = new google.maps.Marker({
+                position: pos,
+                title: p.name,
+                opacity: 0,
+                clickable: true
+            });
+            m._umsInfo = p;
+            return m;
+        });
+
+        // SVG cluster icon generator with centered text and thin white stroke
+        function createClusterSvg(count, size) {
+            const strokeFactor = 0.04; // thinner border
+            const fontFactor = 0.34;   // font relative to size
+            const stroke = Math.max(1, Math.round(size * strokeFactor));
+            const radius = (size - stroke * 2) / 2;
+            const cx = size / 2;
+            const cy = size / 2;
+            const fill = '#7c3aed';
+            const strokeColor = '#ffffff';
+            const fontSize = Math.max(10, Math.round(size * fontFactor));
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+                <circle cx="${cx}" cy="${cy}" r="${radius}" fill="${fill}" stroke="${strokeColor}" stroke-width="${stroke}" />
+                <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" font-family="Roboto, Arial, sans-serif" font-weight="700" font-size="${fontSize}" fill="#ffffff">${count}</text>
+            </svg>`;
+            return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+        }
+
+        // Size selection via log scaling to avoid extreme bubble sizes
+        function sizeForCount(count) {
+            const min = 30;
+            const max = 76;
+            if (count <= 1) return 32;
+            const t = Math.min(1, Math.log10(count) / 3); // counts up to ~1000 map to t in [0,1]
+            return Math.round(min + (max - min) * t);
+        }
+
+        // Renderer for official MarkerClusterer: returns a google.maps.Marker with an SVG icon (number centered)
+        const renderer = {
+            render({ count, position }) {
+                const size = sizeForCount(count);
+                const svg = createClusterSvg(count, size);
+                return new google.maps.Marker({
+                    position,
+                    icon: {
+                        url: svg,
+                        scaledSize: new google.maps.Size(size, size)
+                    },
+                    zIndex: Number(google.maps.Marker.MAX_ZINDEX) + count
+                });
+            }
+        };
+
+        // Detect MarkerClusterer constructor robustly (UMD differences)
+        let MarkerClustererCtor = window.MarkerClusterer || (window.markerClusterer && window.markerClusterer.MarkerClusterer) || (window.markerClusterer && window.markerclusterer && window.markerclusterer.default) || null;
+        if (!MarkerClustererCtor && window.markerClusterer && window.markerClusterer.MarkerClusterer) {
+            MarkerClustererCtor = window.markerClusterer.MarkerClusterer;
+        }
+        if (!MarkerClustererCtor && window.markerClusterer) {
+            MarkerClustererCtor = window.markerClusterer;
+        }
+        if (!MarkerClustererCtor) {
+            console.error('MarkerClusterer constructor not found. Check that markerclusterer script loaded.');
+            return;
+        }
+
+        // Create clusterer instance
+        const clusterer = new MarkerClustererCtor({ map, markers, renderer });
+
+        // When a cluster is clicked: fit bounds and cap the zoom
+        if (clusterer.addListener) {
+            clusterer.addListener('clusterclick', (evt) => {
+                const clusterMarkers = evt.markers || (evt.cluster && typeof evt.cluster.getMarkers === 'function' ? evt.cluster.getMarkers() : []);
+                if (!clusterMarkers || !clusterMarkers.length) return;
+                const bounds = new google.maps.LatLngBounds();
+                clusterMarkers.forEach(m => bounds.extend(m.getPosition()));
+                map.fitBounds(bounds);
+                google.maps.event.addListenerOnce(map, 'idle', function() {
+                    if (map.getZoom() > MAX_ZOOM_CLUSTER_CLICK) map.setZoom(MAX_ZOOM_CLUSTER_CLICK);
+                });
+            });
+        }
+
+        // Enforce zoom constraints strictly (covers wheel/pinch/dblclick attempts)
+        map.addListener('zoom_changed', function() {
+            const z = map.getZoom();
+            if (z > MAX_ZOOM) setTimeout(() => map.setZoom(MAX_ZOOM), 0);
+            if (z < MIN_ZOOM) setTimeout(() => map.setZoom(MIN_ZOOM), 0);
+        });
+
+        // InfoWindow for invisible markers (open on marker click)
+        const infoWindow = new google.maps.InfoWindow();
+        markers.forEach(m => {
+            m.addListener('click', function() {
+                const p = m._umsInfo || {};
+                const infoHtml = `<div style="min-width:200px;font-family:Roboto,Arial,sans-serif">
+                    <div style="font-weight:700;margin-bottom:6px;">${escapeHtml(p.name)}</div>
+                    <div style="color:#6b7280;font-size:.9rem;margin-bottom:6px;">${escapeHtml(p.country)}</div>
+                    <div style="font-size:.85rem;color:#2563eb;"><a href="/Perfil/${p.id}" style="color:inherit;text-decoration:none;">Ver perfil</a></div>
+                </div>`;
+                infoWindow.setContent(infoHtml);
+                infoWindow.open(map, m);
+            });
+        });
+
+        // Update visible markers count
+        function updateCount() {
+            let currentMarkers = [];
+            try {
+                if (typeof clusterer.getMarkers === 'function') currentMarkers = clusterer.getMarkers();
+                else currentMarkers = markers;
+            } catch (e) {
+                currentMarkers = markers;
+            }
+            const count = currentMarkers.length;
+            const el = document.getElementById('ums_count');
+            if (el) el.textContent = `Mostrando ${count} ubicación${count === 1 ? '' : 'es'}`;
+        }
+
+        // Filter logic using the same clusterer instance
+        const countrySel = document.getElementById('ums_country');
+
+        function applyFilter() {
+            const code = (countrySel.value || '').trim().toUpperCase();
+            const visible = markers.filter(m => {
+                const p = m._umsInfo || {};
+                const mcode = (p.countryCode || '').toString().toUpperCase();
+                const mcountry = (p.country || '').toString().toLowerCase();
+                const selText = (countrySel.options[countrySel.selectedIndex]?.text || '').toLowerCase();
+                return (!code) || mcode === code || mcountry.indexOf(code.toLowerCase()) !== -1 || mcountry.indexOf(selText) !== -1;
+            });
+
+            if (clusterer.clearMarkers) clusterer.clearMarkers();
+            if (visible.length) {
+                clusterer.addMarkers(visible);
+                const bounds = new google.maps.LatLngBounds();
+                visible.forEach(m => bounds.extend(m.getPosition()));
+                map.fitBounds(bounds);
+                google.maps.event.addListenerOnce(map, 'idle', function() {
+                    if (map.getZoom() > MAX_ZOOM_CLUSTER_CLICK) map.setZoom(MAX_ZOOM_CLUSTER_CLICK);
+                });
+            } else {
+                // show all if none matched (or if code === '')
+                clusterer.addMarkers(markers);
+                map.setCenter({ lat: 20, lng: 0 });
+                map.setZoom(2);
+            }
+
+            updateCount();
+        }
+
+        // trigger filter when country selection changes
+        countrySel.addEventListener('change', applyFilter);
+
+        // initial population (show all)
+        clusterer.addMarkers(markers);
+        updateCount();
+
+        // Fit to all markers initially and cap zoom after fit
+        if (markers.length) {
+            const bounds = new google.maps.LatLngBounds();
+            markers.forEach(m => bounds.extend(m.getPosition()));
+            map.fitBounds(bounds);
+            google.maps.event.addListenerOnce(map, 'idle', function() {
+                if (map.getZoom() > MAX_ZOOM_CLUSTER_CLICK) map.setZoom(MAX_ZOOM_CLUSTER_CLICK);
+            });
+        }
+
+        // Helpers
+        function escapeHtml(s) {
+            if (!s) return '';
+            return String(s).replace(/[&<>"'`=\/]/g, function (c) {
+                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#47;','`':'&#96;','=':'&#61;'}[c];
+            });
+        }
+
+    })();
+</script>

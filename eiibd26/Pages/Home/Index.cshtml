@@ -13,16 +13,18 @@
             text-align: center;
             /* background: linear-gradient(180deg,#fafbfd,#fff); */
         }
-        .home-hero h1 {
-            font-size: 3rem;
-            margin-bottom: .6rem;
-            font-weight: 700;
-        }
-        .home-hero p.lead {
-            color: #6b7280;
-            max-width: 760px;
-            margin: 0 auto 1rem;
-        }
+
+            .home-hero h1 {
+                font-size: 3rem;
+                margin-bottom: .6rem;
+                font-weight: 700;
+            }
+
+            .home-hero p.lead {
+                color: #6b7280;
+                max-width: 760px;
+                margin: 0 auto 1rem;
+            }
 
         /* Blog list container: ancho estándar (ajustable) */
         .blog-list {
@@ -51,27 +53,28 @@
             min-height: 100%;
         }
 
-        .blog-card .thumb {
-            width: 100%;
-            height: 180px;
-            background: #f3f6fa;
-            overflow: hidden;
-            display: block;
-        }
-        .blog-card .thumb img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-        }
+            .blog-card .thumb {
+                width: 100%;
+                height: 180px;
+                background: #f3f6fa;
+                overflow: hidden;
+                display: block;
+            }
 
-        .blog-card .content {
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            gap: 12px;
-        }
+                .blog-card .thumb img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    display: block;
+                }
+
+            .blog-card .content {
+                padding: 16px;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                gap: 12px;
+            }
 
         .blog-meta {
             font-size: .82rem;
@@ -112,20 +115,22 @@
             gap: 8px;
             color: #334155;
         }
-        .author .avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 999px;
-            background: #e6eef9;
-            overflow: hidden;
-            flex: 0 0 32px;
-        }
-        .author .avatar img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-        }
+
+            .author .avatar {
+                width: 32px;
+                height: 32px;
+                border-radius: 999px;
+                background: #e6eef9;
+                overflow: hidden;
+                flex: 0 0 32px;
+            }
+
+                .author .avatar img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    display: block;
+                }
 
         .pubdate {
             color: #94a3b8;
@@ -138,10 +143,12 @@
                 grid-template-columns: repeat(2, 1fr);
             }
         }
+
         @@media (max-width: 575.98px) {
             .items-container {
                 grid-template-columns: 1fr;
             }
+
             .blog-card .thumb {
                 height: 220px;
             }
@@ -151,6 +158,12 @@
             text-align: center;
             margin-top: 18px;
         }
+
+        /* Mapa: margen/ajuste para la sección del mapa parcial */
+        .mapa {
+            max-width: 1140px;
+            margin: 0 auto 24px;
+        }
     </style>
 }
 
@@ -159,6 +172,84 @@
         @* Hero partial *@
         <partial name="~/Pages/Shared/HeroPartial.cshtml" model="Model.Hero" />
     </section>
+
+    <!-- MAP PARTIAL INSERTION -->
+    <section class="mapa" aria-label="Mapa de usuarios">
+        <div id="usersMapRoot">Cargando mapa…</div>
+
+        <script>
+            (function () {
+                // Fetch the partial (this executes UsersMapPartialModel.OnGetAsync)
+                fetch('@Url.Page("/Home/UsersMapPartial")', { credentials: 'same-origin' })
+                    .then(function (r) {
+                        if (!r.ok) throw new Error('Error fetching UsersMapPartial: ' + r.status);
+                        return r.text();
+                    })
+                    .then(function (html) {
+                        var root = document.getElementById('usersMapRoot');
+                        if (!root) return;
+                        // Parse the returned HTML into a temporary container
+                        var temp = document.createElement('div');
+                        temp.innerHTML = html;
+
+                        // Extract all script tags from the temp content
+                        var scripts = Array.prototype.slice.call(temp.querySelectorAll('script'));
+                        // Separate external (src) and inline scripts
+                        var externalScripts = scripts.filter(function (s) { return s.src && s.src.trim().length > 0; });
+                        var inlineScripts = scripts.filter(function (s) { return !s.src || s.src.trim().length === 0; });
+
+                        // Remove script tags from temp so we can safely insert HTML without duplicate execution
+                        scripts.forEach(function (s) { if (s.parentNode) s.parentNode.removeChild(s); });
+
+                        // Insert the HTML fragment (without scripts) into the page
+                        root.innerHTML = temp.innerHTML;
+
+                        // Helper to load external scripts sequentially and wait for each to load
+                        function loadExternalSequentially(sources) {
+                            return sources.reduce(function (prev, scriptTag) {
+                                return prev.then(function () {
+                                    return new Promise(function (resolve) {
+                                        var s = document.createElement('script');
+                                        s.src = scriptTag.src;
+                                        s.async = false;
+                                        s.onload = function () { resolve(); };
+                                        s.onerror = function () {
+                                            console.error('Failed to load script: ' + scriptTag.src);
+                                            // still resolve to continue loading others
+                                            resolve();
+                                        };
+                                        document.body.appendChild(s);
+                                    });
+                                });
+                            }, Promise.resolve());
+                        }
+
+                        // After external scripts loaded, execute inline scripts in order
+                        loadExternalSequentially(externalScripts).then(function () {
+                            inlineScripts.forEach(function (oldScript) {
+                                try {
+                                    var s = document.createElement('script');
+                                    // preserve type if present
+                                    if (oldScript.type) s.type = oldScript.type;
+                                    s.text = oldScript.textContent || oldScript.innerText || '';
+                                    document.body.appendChild(s);
+                                    // remove to keep DOM clean
+                                    document.body.removeChild(s);
+                                } catch (e) {
+                                    console.error('Error executing inline script from partial:', e);
+                                }
+                            });
+                        });
+                    })
+                    .catch(function (err) {
+                        console.error('Error cargando UsersMapPartial:', err);
+                        var root = document.getElementById('usersMapRoot');
+                        if (root) root.textContent = 'Error al cargar el mapa.';
+                    });
+            })();
+        </script>
+    </section>
+    <!-- END MAP PARTIAL INSERTION -->
 
     <section class="blog-list" aria-label="Artículos recientes">
         <div class="items-container">

@@ -26,6 +26,15 @@ namespace eiibd26.Pages.Contenidos
 
         public ContenidoDetailViewModel Item { get; set; }
 
+        // New: breadcrumb items (category chain) exposed to view
+        public List<BreadcrumbItem> CategoryCrumbs { get; set; } = new List<BreadcrumbItem>();
+
+        public class BreadcrumbItem
+        {
+            public string Title { get; set; }
+            public string Url { get; set; }
+        }
+
         public async Task<IActionResult> OnGetAsync()
         {
             // 1) Load content by slug or id
@@ -81,6 +90,37 @@ namespace eiibd26.Pages.Contenidos
                     .ToListAsync();
 
                 vm.Categories = catNames.Where(n => !string.IsNullOrWhiteSpace(n)).ToList();
+            }
+
+            // Build category breadcrumb chain (choose primary category = first cat id if available)
+            if (catIds.Any())
+            {
+                // pick first category id as primary
+                int primaryCatId = catIds.First();
+
+                // walk up parents collecting (name, segment)
+                var crumbsReversed = new List<BreadcrumbItem>();
+                int? current = primaryCatId;
+                while (current.HasValue && current.Value > 0)
+                {
+                    var cat = await _db.ContenidosCategorias.AsNoTracking()
+                        .FirstOrDefaultAsync(c => c.Sequence == current.Value && !c.Borrado);
+                    if (cat == null) break;
+
+                    var segment = !string.IsNullOrWhiteSpace(cat.CategoriaSlug) ? cat.CategoriaSlug : cat.Sequence.ToString();
+                    var url = Url.Content($"/Contenidos/categoria/{segment}");
+                    crumbsReversed.Add(new BreadcrumbItem { Title = cat.Nombre ?? $"Categoría {cat.Sequence}", Url = url });
+
+                    current = cat.CategoriaPadre;
+                }
+
+                // reverse so top-most parent first
+                crumbsReversed.Reverse();
+                CategoryCrumbs = crumbsReversed;
+            }
+            else
+            {
+                CategoryCrumbs = new List<BreadcrumbItem>();
             }
 
             // 4) Manual relations (both directions) — only consider Tipo == 1 (Contenido) for manual "articles"
@@ -256,7 +296,6 @@ namespace eiibd26.Pages.Contenidos
 
                     foreach (var p in preguntas)
                     {
-                        // p.CreatedAt is a DateTimeOffset (FechaCreacion) — convert to DateTime (UTC) for the VM CreatedAt
                         vm.ManualPreguntas.Add(new ContenidoDetailViewModel.RelatedPreguntaVm
                         {
                             Id = p.Id,

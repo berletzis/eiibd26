@@ -61,6 +61,11 @@
             .filter-inline select {
                 min-width: 220px;
             }
+
+        /* map container spacing */
+        #usersMapRoot {
+            margin-top: 20px;
+        }
     </style>
 }
 
@@ -122,6 +127,10 @@
             </thead>
         </table>
     </div>
+
+    <!-- PLACE TO INSERT MAP PARTIAL -->
+    <div id="usersMapRoot">Cargando mapa…</div>
+    <!-- end map container -->
 </div>
 
 <!-- Modal Detalle -->
@@ -178,8 +187,8 @@
     const postRestaurarUrl = '@restaurarUrl';
     // Lista completa de categorías para poblar subcategorías dinámicamente
     const categoriasFlat = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
-                Model.CategoriesFlat.Select(c => new { seq = c.seq, parent = c.parent, name = c.name })
-        ));
+                                Model.CategoriesFlat.Select(c => new { seq = c.seq, parent = c.parent, name = c.name })
+                ));
 </script>
 
 @section Scripts {
@@ -348,6 +357,44 @@
             $(function () {
                 initGrid();
             });
+        })();
+    </script>
+
+    <!-- FETCH & INSERT partial de mapa (UsersMapPartial). Asegúrate Pages/Home/UsersMapPartial.cshtml tiene Layout = null -->
+    <script>
+        (function () {
+            const usersMapUrl = '@Url.Page("/Home/UsersMapPartial")';
+            const root = document.getElementById('usersMapRoot');
+            if (!root) return;
+
+            fetch(usersMapUrl, { credentials: 'same-origin' })
+                .then(r => {
+                    if (!r.ok) throw new Error('Network response was not ok: ' + r.status);
+                    return r.text();
+                })
+                .then(html => {
+                    // Insert HTML
+                    root.innerHTML = html;
+
+                    // Re-execute scripts inside the fetched HTML to ensure they run
+                    const scripts = root.querySelectorAll('script');
+                    scripts.forEach(oldScript => {
+                        const s = document.createElement('script');
+                        if (oldScript.src) {
+                            s.src = oldScript.src;
+                            s.defer = oldScript.defer || false;
+                            document.body.appendChild(s);
+                        } else {
+                            s.text = oldScript.textContent;
+                            document.body.appendChild(s);
+                            document.body.removeChild(s);
+                        }
+                    });
+                })
+                .catch(err => {
+                    console.error('Error cargando UsersMapPartial:', err);
+                    if (root) root.textContent = 'Error al cargar el mapa.';
+                });
         })();
     </script>
 }

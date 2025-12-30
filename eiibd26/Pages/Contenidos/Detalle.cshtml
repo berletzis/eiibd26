@@ -1,8 +1,10 @@
 ﻿@page "{slug?}"
 @model eiibd26.Pages.Contenidos.DetalleModel
 @using System.Globalization
+@using Microsoft.AspNetCore.Http.Extensions;
+
 @{
-    ViewData["Title"] = Model.Item?.Title ?? "Contenido";
+    ViewData["Title"] = (Model.Item?.Title != null ? Model.Item.Title + " - #HazViralLoQueImporta" : "Contenido");
 }
 
 @section Styles {
@@ -101,11 +103,7 @@
             }
 
         .categories-list {
-            /* background: #fff; */
             border-radius: 2px;
-            /*border: 1px solid #eef2f7;  */
-            /*             padding: 6px;
-                            margin-bottom: 12px; */
         }
 
             .categories-list .badge-cat {
@@ -118,11 +116,7 @@
             }
 
         .social-list {
-            background: #fff;
-            border-radius: 10px;
-            border: 1px solid #eef2f7;
-            padding: 12px;
-            margin-bottom: 12px;
+            margin-bottom: 32px;
         }
 
             .social-list .badge-cat {
@@ -135,16 +129,25 @@
                 margin: 6px 6px 0 0;
             }
 
-            .social-list::after h5 {
-                content: '\A'; /* El '\A' representa un salto de línea */
-                white-space: pre; /* Esto es crucial para que funcione el '\A' */
+        .datosRelacionados-list {
+                        background: #fff;
+                    border-radius: 10px;
+                    border: 1px solid #eef2f7;
+          padding: 12px;
+            margin-bottom: 12px;
+        }
+
+            .datosRelacionados-list .badge-cat {
+                display: inline-block;
+                background: #eef5ff;
+                color: #24527a;
+                padding: 6px 10px;
+                border-radius: 999px;
+                font-size: .85rem;
+                margin: 6px 6px 0 0;
             }
 
-
         .meta-card {
-            /* background: #fff; */
-            /* border-radius: 5px;
-                            border: 1px solid #eef2f7; */
             padding: 12px;
             margin-bottom: 12px;
             text-align: left;
@@ -242,7 +245,6 @@
 
             .pregunta-card a {
                 text-decoration: none;
-                
                 color: #000;
             }
 
@@ -270,12 +272,12 @@
                 border-radius: 999px;
                 cursor: pointer;
                 color: #6b7280;
-                font-weight:100;
+                font-weight: 100;
             }
 
                 .tab-list button.active {
                     background: #eef5ff;
-                    color: #24527a; 
+                    color: #24527a;
                 }
 
         .tab-panels {
@@ -322,11 +324,10 @@
         }
     </div>
 
-
     <div class="page-title">
-        @* <div class="detail-sub">@Model.Item?.Categories?.FirstOrDefault()</div> *@
         <h1>@Model.Item?.Title</h1>
     </div>
+
     <div class="meta-card" role="complementary" aria-label="Meta del artículo">
         <div class="author">
             <img src="~/img/avatar-placeholder.png" alt="@Model.Item?.Author" />
@@ -334,15 +335,10 @@
                 <div style="font-weight:100;">por @Model.Item?.Author | <i class="bi bi-calendar"></i> @Model.Item?.CreatedAt.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture) | <i class="bi bi-clock"></i> @Model.Item?.ReadMinutes min read (aprox).</div>
             </div>
         </div>
-
-
     </div>
 
-
-    @* Main grid: left article, right sidebar with meta and widgets *@
     <div class="detail-grid" role="main">
         <article class="content-panel" aria-labelledby="article-title">
-            @* Image placed inside main content *@
             @if (!string.IsNullOrWhiteSpace(Model.Item?.ImageUrl))
             {
                 <div class="detail-image" role="img" aria-label="@Model.Item.Title">
@@ -351,37 +347,40 @@
                 </div>
             }
 
-            @* Breadcrumb and title only at top *@
+            @* Breadcrumb: Home -> category parents -> category (all links) -> current content title (plain) *@
             <nav class="breadcrumbs" aria-label="breadcrumbs">
-                <a href="/">Inicio</a> ›
-                @if (Model.Item?.Categories?.Any() == true)
+                <a href="@Url.Content("~/")">Inicio</a> ›
+                @if (Model.CategoryCrumbs != null && Model.CategoryCrumbs.Any())
                 {
-                    <text> @Model.Item.Categories.First() </text>
+                    foreach (var bc in Model.CategoryCrumbs)
+                    {
+                <a href="@bc.Url">@bc.Title</a>
+                                
+                                }
                 }
                 else
                 {
-                    <text>Contenidos </text>
-                }
-                › <span>@Model.Item?.Title</span>
+                <a href="@Url.Content("~/Contenidos")">Contenidos</a>
+                                
+                                }
+                <span>@Model.Item?.Title</span>
             </nav>
 
-
-            @* Excerpt under the image (moved from header) *@
             @if (!string.IsNullOrWhiteSpace(Model.Item?.Excerpt))
             {
                 <p class="detail-sub" style="margin-bottom:12px;">@Model.Item.Excerpt</p>
             }
 
             <div class="contenido-html">
-                @Html.Raw(Model.Item?.ContentHtml ?? "<p>Sin contenido disponible.</p>") 
+                @Html.Raw(Model.Item?.ContentHtml ?? "<p>Sin contenido disponible.</p>")
             </div>
 
-
-            @* --- Tabs: Artículos relacionados | Recomendados | Similar en Internet --- *@
+            
+            @* Tabs for related content (manual / recommended / similar internet) *@
             <div class="tabs" id="relatedTabs" role="tablist" aria-label="Contenido relacionado">
                 <div class="tab-list" role="tablist" aria-hidden="false">
                     <button type="button" class="tab-btn active" data-panel="tab-manual" role="tab" aria-selected="true">Artículos relacionados (@(Model.Item?.ManualRelated?.Count() ?? 0))</button>
-                    <button type="button" class="tab-btn" data-panel="tab-reco" role="tab" aria-selected="false">Recomendados por Nuestra IA  (@(Model.Item?.RelatedByCategories?.Count() ?? 0))</button>
+                    <button type="button" class="tab-btn" data-panel="tab-reco" role="tab" aria-selected="false">Recomendados (@(Model.Item?.RelatedByCategories?.Count() ?? 0))</button>
                     <button type="button" class="tab-btn" data-panel="tab-similar" role="tab" aria-selected="false">Contenido similar en Internet</button>
                 </div>
 
@@ -452,7 +451,6 @@
                     </div>
 
                     <div id="tab-similar" class="tab-panel" role="tabpanel" aria-hidden="true">
-                        @* Placeholder for "Similar en Internet" — puedes reemplazar por integración real (API, búsqueda, iframe) *@
                         <div class="similar-internet">
                             <p style="margin-top:0;margin-bottom:8px;">Artículos similares encontrados en la web:</p>
                             <ul>
@@ -463,7 +461,6 @@
                 </div>
             </div>
 
-            @* Related questions *@
             @if (Model.Item?.ManualPreguntas?.Any() == true)
             {
                 <section style="margin-top:24px;">
@@ -472,7 +469,7 @@
                     {
                         <div class="pregunta-card">
                             <a href="@(Url.Page("/Preguntas/Detalles", new { id = q.Id }))">
-                                <div >@q.Title</div>
+                                <div>@q.Title</div>
                                 <div style="font-size:.85rem;color:#6b7280;">@q.CreatedAt.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</div>
                             </a>
                         </div>
@@ -481,28 +478,30 @@
             }
         </article>
 
-        @* Right sidebar: author, date, share, read-time, categories, social, fallback message *@
         <aside class="right-panel" aria-labelledby="related-heading">
-
-
-
-
+            <h4 id="social-heading" style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">#HazViralLoQueImporta</h4>
             <div class="social-list" aria-labelledby="social-heading">
-                <h4 id="social-heading" style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">Redes sociales</h4>
                 <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
-                    <a class="badge-cat" href="#" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Instagram</a>
-                    <a class="badge-cat" href="#" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Twitter</a>
-                    <a class="badge-cat" href="#" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Facebook</a>
-                    <a class="badge-cat" href="#" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">YouTube</a>
+                    <div class="a2a_kit a2a_kit_size_32 a2a_default_style" data-a2a-url="@HttpContext.Request.GetDisplayUrl();" data-a2a-title="@(Model.Item?.Title ?? ViewData["Title"])" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">
+                        <a class="a2a_button_whatsapp"></a>
+                        <a class="a2a_button_facebook"></a>
+                        <a class="a2a_button_x"></a>
+                        <a class="a2a_button_email"></a>
+                        <a class="a2a_dd" href="https://www.addtoany.com/share"></a>
+                    </div>
+                    <script>
+                        var a2a_config = a2a_config || {};
+                        a2a_config.locale = "es";
+                    </script>
+                    <script defer src="https://static.addtoany.com/menu/page.js"></script>
                 </div>
             </div>
 
-            <h4 id="social-heading" style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">Datos Relacionados</h4>
-            <div class="social-list" aria-labelledby="social-heading">
+            <h4 id="datosRelacionados-heading" style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">Datos Relacionados</h4>
 
-                <h5 id="social-heading" style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">Condiciones</h5>
+            <div class="datosRelacionados-list" aria-labelledby="social-heading">
+                <h5 style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">Condiciones</h5>
                 <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
-
                     @if (Model.Item?.ManualCondiciones?.Any() == true)
                     {
                         foreach (var n in Model.Item.ManualCondiciones)
@@ -516,8 +515,9 @@
                     }
                 </div>
             </div>
-            <div class="social-list" aria-labelledby="social-heading">
-                <h5 id="social-heading" style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">Sintomas</h5>
+
+            <div class="datosRelacionados-list" aria-labelledby="datosRelacionados-heading">
+                <h5 style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">Sintomas</h5>
                 <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
                     @if (Model.Item?.ManualSintomas?.Any() == true)
                     {
@@ -532,8 +532,9 @@
                     }
                 </div>
             </div>
-            <div class="social-list" aria-labelledby="social-heading">
-                <h5 id="social-heading" style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">Tratamientos</h5>
+
+            <div class="datosRelacionados-list" aria-labelledby="datosRelacionados-heading">
+                <h5 style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">Tratamientos</h5>
                 <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
                     @if (Model.Item?.ManualTratamientos?.Any() == true)
                     {
@@ -546,11 +547,9 @@
                     {
                         <div class="text-muted">No hay tratamientos relacionados.</div>
                     }
-
                 </div>
             </div>
 
-            @* If there is no related content moved to main, show a fallback message here *@
             @if ((Model.Item?.ManualRelated?.Any() != true) && (Model.Item?.RelatedByCategories?.Any() != true) && (Model.Item?.ManualPreguntas?.Any() != true))
             {
                 <div class="text-muted" style="font-size:.9rem; margin-top:12px;">No hay artículos o preguntas relacionadas.</div>
