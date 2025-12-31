@@ -20,6 +20,14 @@ namespace eiibd26.Models
         public string Author { get; set; } = "";
         public DateTime CreatedAt { get; set; }
         public string Category { get; set; } = "Business";
+
+        // Related metadata (lazy-loaded via ContentMeta endpoint or prefilled)
+        public List<string> Conditions { get; set; } = new List<string>();
+        public List<string> Symptoms { get; set; } = new List<string>();
+        public List<string> Treatments { get; set; } = new List<string>();
+
+        // Number of distinct related questions for this content
+        public int RelatedQuestionsCount { get; set; } = 0;
     }
 
     public class BlogListViewModel

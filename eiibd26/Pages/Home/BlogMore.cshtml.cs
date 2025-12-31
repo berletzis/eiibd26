@@ -17,11 +17,23 @@ namespace eiibd26.Pages.Home
         [BindProperty(SupportsGet = true)] public int PageNumber { get; set; } = 1;
         [BindProperty(SupportsGet = true)] public int PageSize { get; set; } = 3;
 
-        // Parámetros opcionales para filtrar por categoría
+        [BindProperty(SupportsGet = true)] public string Q { get; set; }
+        [BindProperty(SupportsGet = true)] public string ConditionIds { get; set; }
+        [BindProperty(SupportsGet = true)] public string SintomaIds { get; set; }
+        [BindProperty(SupportsGet = true)] public string TratamientoIds { get; set; }
+
         [BindProperty(SupportsGet = true)] public int? CategorySeq { get; set; }
         [BindProperty(SupportsGet = true)] public string CategorySlug { get; set; }
 
         public List<BlogItemVm> Items { get; set; } = new List<BlogItemVm>();
+
+        private static List<int> ParseIds(string csv)
+        {
+            if (string.IsNullOrWhiteSpace(csv)) return new List<int>();
+            return csv.Split(new[] { ',' }, System.StringSplitOptions.RemoveEmptyEntries)
+                      .Select(s => { int.TryParse(s.Trim(), out var v); return v; })
+                      .Where(v => v > 0).Distinct().ToList();
+        }
 
         public async Task<IActionResult> OnGetAsync()
         {
@@ -29,95 +41,75 @@ namespace eiibd26.Pages.Home
             if (PageSize < 1) PageSize = 3;
             var skip = (PageNumber - 1) * PageSize;
 
-            // Si llega categorySlug, resolver sequence y nombre
-            string resolvedCategoryName = null;
-            int? resolvedCategorySeq = CategorySeq;
-            if (!string.IsNullOrWhiteSpace(CategorySlug))
-            {
-                var cat = await _db.ContenidosCategorias
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(c => c.CategoriaSlug == CategorySlug && !c.Borrado);
+            var baseQuery = _db.Contenidos.AsNoTracking().Where(c => !c.Eliminado && (c.EstadoPublicacion ?? 0) == 1);
 
-                if (cat == null)
+            if (CategorySeq.HasValue)
+            {
+                var ids = await _db.ContenidosCategoriasRelacion.AsNoTracking()
+                    .Where(r => !r.Borrado && r.IdCategoria == CategorySeq.Value)
+                    .Select(r => r.IdContenido).Distinct().ToListAsync();
+                if (!ids.Any()) { Items = new List<BlogItemVm>(); Response.Headers["X-Total-Count"] = "0"; return Page(); }
+                baseQuery = baseQuery.Where(c => ids.Contains(c.Id));
+            }
+            else if (!string.IsNullOrWhiteSpace(CategorySlug))
+            {
+                var cat = await _db.ContenidosCategorias.AsNoTracking().FirstOrDefaultAsync(c => c.CategoriaSlug == CategorySlug && !c.Borrado);
+                if (cat != null)
                 {
-                    Items = new List<BlogItemVm>();
-                    return Page();
+                    var ids = await _db.ContenidosCategoriasRelacion.AsNoTracking()
+                        .Where(r => !r.Borrado && r.IdCategoria == cat.Sequence)
+                        .Select(r => r.IdContenido).Distinct().ToListAsync();
+                    if (!ids.Any()) { Items = new List<BlogItemVm>(); Response.Headers["X-Total-Count"] = "0"; return Page(); }
+                    baseQuery = baseQuery.Where(c => ids.Contains(c.Id));
                 }
-
-                resolvedCategorySeq = cat.Sequence;
-                resolvedCategoryName = cat.Nombre ?? "";
-            }
-            else if (CategorySeq.HasValue)
-            {
-                var cat = await _db.ContenidosCategorias
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(c => c.Sequence == CategorySeq.Value && !c.Borrado);
-
-                if (cat != null) resolvedCategoryName = cat.Nombre ?? "";
             }
 
-            if (resolvedCategorySeq.HasValue)
+            if (!string.IsNullOrWhiteSpace(Q))
             {
-                // Filtrar por categoría: obtener ids distintos desde la tabla de relación
-                var distinctIds = await _db.ContenidosCategoriasRelacion
-                    .AsNoTracking()
-                    .Where(r => !r.Borrado && r.IdCategoria == resolvedCategorySeq.Value)
-                    .Select(r => r.IdContenido)
-                    .Distinct()
-                    .ToListAsync();
+                var q = Q.Trim();
+                baseQuery = baseQuery.Where(c => (c.ContenidoTitulo ?? "").Contains(q) || (c.ContenidoTextoC ?? "").Contains(q) || (c.ContenidoTextoL ?? "").Contains(q));
+            }
 
-                if (!distinctIds.Any())
+            var condIds = ParseIds(ConditionIds);
+            var sintIds = ParseIds(SintomaIds);
+            var tratIds = ParseIds(TratamientoIds);
+
+            IQueryable<int> idsQuery = baseQuery.Select(c => c.Id);
+
+            if (condIds.Any())
+            {
+                var condContentIds = _db.ContenidoCondiciones.AsNoTracking().Where(rel => !rel.Borrado && condIds.Contains(rel.CondicionId)).Select(rel => rel.ContenidoId).Distinct();
+                idsQuery = idsQuery.Where(id => condContentIds.Contains(id));
+            }
+            if (sintIds.Any())
+            {
+                var sintContentIds = _db.ContenidoSintomas.AsNoTracking().Where(rel => !rel.Borrado && sintIds.Contains(rel.SintomaId)).Select(rel => rel.ContenidoId).Distinct();
+                idsQuery = idsQuery.Where(id => sintContentIds.Contains(id));
+            }
+            if (tratIds.Any())
+            {
+                var tratContentIds = _db.ContenidoTratamientos.AsNoTracking().Where(rel => !rel.Borrado && tratIds.Contains(rel.TratamientoId)).Select(rel => rel.ContenidoId).Distinct();
+                idsQuery = idsQuery.Where(id => tratContentIds.Contains(id));
+            }
+
+            var total = await idsQuery.Distinct().CountAsync();
+            Response.Headers["X-Total-Count"] = total.ToString();
+
+            var contentsQuery = _db.Contenidos.AsNoTracking().Where(c => idsQuery.Contains(c.Id)).OrderByDescending(c => c.FechaCreado);
+
+            var items = await contentsQuery.Skip(skip).Take(PageSize)
+                .Select(c => new BlogItemVm
                 {
-                    Items = new List<BlogItemVm>();
-                    return Page();
-                }
+                    Id = c.Id,
+                    Title = c.ContenidoTitulo ?? "",
+                    Excerpt = c.ContenidoTextoC ?? "",
+                    ImageUrl = string.IsNullOrEmpty(c.URLImagenPrincipal) ? null : ("/uploads/contenidos/" + c.URLImagenPrincipal),
+                    Author = string.IsNullOrEmpty(c.Autor) ? "Autor" : c.Autor,
+                    CreatedAt = c.FechaCreado
+                }).ToListAsync();
 
-                // traer entidades filtradas (no eliminadas y publicadas), ordenar y paginar
-                var items = await _db.Contenidos
-                    .AsNoTracking()
-                    .Where(c => !c.Eliminado && (c.EstadoPublicacion ?? 0) == 1 && distinctIds.Contains(c.Id))
-                    .OrderByDescending(c => c.FechaCreado)
-                    .Skip(skip)
-                    .Take(PageSize)
-                    .Select(c => new BlogItemVm
-                    {
-                        Id = c.Id,
-                        Title = c.ContenidoTitulo ?? "",
-                        Excerpt = c.ContenidoTextoC ?? "",
-                        ImageUrl = string.IsNullOrEmpty(c.URLImagenPrincipal) ? null : ("/uploads/contenidos/" + c.URLImagenPrincipal),
-                        Author = string.IsNullOrEmpty(c.Autor) ? "Autor" : c.Autor,
-                        CreatedAt = c.FechaCreado,
-                        Category = resolvedCategoryName ?? ""
-                    })
-                    .ToListAsync();
-
-                Items = items;
-                return Page();
-            }
-            else
-            {
-                // Comportamiento original (sin filtrar por categoría)
-                var items = await _db.Contenidos
-                    .AsNoTracking()
-                    .Where(c => !c.Eliminado && (c.EstadoPublicacion ?? 0) == 1)
-                    .OrderByDescending(c => c.FechaCreado)
-                    .Skip(skip)
-                    .Take(PageSize)
-                    .Select(c => new BlogItemVm
-                    {
-                        Id = c.Id,
-                        Title = c.ContenidoTitulo ?? "",
-                        Excerpt = c.ContenidoTextoC ?? "",
-                        ImageUrl = string.IsNullOrEmpty(c.URLImagenPrincipal) ? null : ("/uploads/contenidos/" + c.URLImagenPrincipal),
-                        Author = string.IsNullOrEmpty(c.Autor) ? "Autor" : c.Autor,
-                        CreatedAt = c.FechaCreado,
-                        Category = "" // opcional
-                    })
-                    .ToListAsync();
-
-                Items = items;
-                return Page();
-            }
+            Items = items;
+            return Page(); // returns fragment rendering _BlogItems partial
         }
     }
 }

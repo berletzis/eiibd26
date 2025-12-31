@@ -1,10 +1,11 @@
-// eiibd26/Pages/Home/Index.cshtml.cs
+// File: Pages/Home/Index.cshtml.cs
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
 using System.Threading.Tasks;
 using eiibd26.Data;
 using eiibd26.Models;
+using System.Collections.Generic;
 
 namespace eiibd26.Pages.Home
 {
@@ -45,17 +46,60 @@ namespace eiibd26.Pages.Home
                     ImageUrl = string.IsNullOrEmpty(c.URLImagenPrincipal) ? null : ("/uploads/contenidos/" + c.URLImagenPrincipal),
                     Author = string.IsNullOrEmpty(c.Autor) ? "Autor" : c.Autor,
                     CreatedAt = c.FechaCreado,
-                    // Obtener el nombre de la primera categoría relacionada (si existe)
-                    Category = _db.ContenidosCategorias
-                        .Where(cat =>
-                            !cat.Borrado &&
-                            _db.ContenidosCategoriasRelacion.Any(r => !r.Borrado && r.IdContenido == c.Id && r.IdCategoria == cat.Sequence))
-                        .Select(cat => cat.Nombre)
-                        .FirstOrDefault() ?? ""
+                    Conditions = new List<string>(),
+                    Symptoms = new List<string>(),
+                    Treatments = new List<string>(),
+                    RelatedQuestionsCount = 0
                 })
                 .ToListAsync();
 
             BlogList.Items = items;
+
+            // Batch load related metadata for the items shown (so home initial page shows metadata)
+            var contentIds = BlogList.Items.Select(i => i.Id).ToList();
+            if (contentIds.Any())
+            {
+                var conds = await _db.ContenidoCondiciones
+                    .AsNoTracking()
+                    .Where(r => contentIds.Contains(r.ContenidoId) && !r.Borrado)
+                    .Join(_db.condiciones.AsNoTracking(), rel => rel.CondicionId, c => c.id, (rel, c) => new { rel.ContenidoId, Name = c.nombre })
+                    .ToListAsync();
+
+                var condsByContent = conds.GroupBy(x => x.ContenidoId).ToDictionary(g => g.Key, g => g.Select(x => x.Name).Distinct().ToList());
+
+                var snts = await _db.ContenidoSintomas
+                    .AsNoTracking()
+                    .Where(r => contentIds.Contains(r.ContenidoId) && !r.Borrado)
+                    .Join(_db.sintomas.AsNoTracking(), rel => rel.SintomaId, s => s.id, (rel, s) => new { rel.ContenidoId, Name = s.nombre })
+                    .ToListAsync();
+
+                var sntsByContent = snts.GroupBy(x => x.ContenidoId).ToDictionary(g => g.Key, g => g.Select(x => x.Name).Distinct().ToList());
+
+                var trts = await _db.ContenidoTratamientos
+                    .AsNoTracking()
+                    .Where(r => contentIds.Contains(r.ContenidoId) && !r.Borrado)
+                    .Join(_db.tratamientos.AsNoTracking(), rel => rel.TratamientoId, t => t.id, (rel, t) => new { rel.ContenidoId, Name = t.nombre })
+                    .ToListAsync();
+
+                var trtsByContent = trts.GroupBy(x => x.ContenidoId).ToDictionary(g => g.Key, g => g.Select(x => x.Name).Distinct().ToList());
+
+                var qCounts = await _db.ContenidosPreguntasRelacion
+                    .AsNoTracking()
+                    .Where(r => contentIds.Contains(r.ContenidoId) && !r.Borrado)
+                    .GroupBy(r => r.ContenidoId)
+                    .Select(g => new { ContentId = g.Key, Count = g.Select(x => x.PreguntaId).Distinct().Count() })
+                    .ToListAsync();
+
+                var qCountsDict = qCounts.ToDictionary(x => x.ContentId, x => x.Count);
+
+                foreach (var it in BlogList.Items)
+                {
+                    if (condsByContent.TryGetValue(it.Id, out var lc)) it.Conditions = lc;
+                    if (sntsByContent.TryGetValue(it.Id, out var ls)) it.Symptoms = ls;
+                    if (trtsByContent.TryGetValue(it.Id, out var lt)) it.Treatments = lt;
+                    if (qCountsDict.TryGetValue(it.Id, out var qc)) it.RelatedQuestionsCount = qc;
+                }
+            }
         }
     }
 }

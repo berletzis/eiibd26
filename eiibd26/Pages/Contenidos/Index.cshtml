@@ -1,0 +1,443 @@
+﻿@page "/Contenidos"
+@model eiibd26.Pages.Contenidos.IndexModel
+@using System.Globalization
+@{
+    ViewData["Title"] = "Contenidos";
+    var nextPage = (Model.PageNumber < 1) ? 2 : (Model.PageNumber + 1);
+    const int TAG_PREVIEW = 12;
+}
+
+@section Styles {
+    <style>
+        /* Make layout match Preguntas: use container + se-page-title */
+        .conte-page {
+            /* uses the site container for consistent width with Preguntas */
+            padding-top: 16px;
+            padding-bottom: 24px;
+        }
+
+        .se-page-title {
+            font-size: 1.75rem;
+            margin: 0 0 12px 0;
+            font-weight: 400;
+            color: #0f172a;
+        }
+
+        /* Reuse Preguntas search card look */
+        .se-header {
+            background: #fff;
+            border: 1px solid #eef2f7;
+            border-radius: 8px;
+            padding: 18px;
+            box-sizing: border-box;
+            margin-bottom: 12px;
+        }
+
+        .se-search {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .se-search-input {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid #e6eef6;
+            background: #f8fafc;
+            color: #0f172a;
+            box-sizing: border-box;
+        }
+
+        .se-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            padding: 8px 12px;
+            cursor: pointer;
+        }
+
+            .se-btn.se-btn-primary {
+                background: #1b6ec2;
+                color: #fff;
+                border: 1px solid #1861ac;
+            }
+
+            .se-btn.se-btn-ghost {
+                background: transparent;
+                border: 1px solid transparent;
+                color: #6b7280;
+            }
+
+        /* Tags blocks keep left alignment and compact style */
+        .tags-blocks {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            align-items: start;
+            margin-bottom: 16px;
+            text-align: left;
+        }
+
+        @@media (min-width: 992px) {
+            .tags-blocks {
+                grid-template-columns: 1fr 1fr 1fr;
+            }
+        }
+
+        .tag-group {
+            background: #fff;
+            border: 1px solid #eef2f7;
+            padding: 10px;
+            border-radius: 8px;
+            box-sizing: border-box;
+            min-height: 56px;
+        }
+
+            .tag-group .group-title {
+                font-weight: 700;
+                font-size: 0.95rem;
+                margin-bottom: 8px;
+                color: #0f172a;
+            }
+
+        .group-tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            justify-content: flex-start;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #f3f4f6;
+            color: #0f172a;
+            font-size: .9rem;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+
+            .tag:focus {
+                outline: 2px dashed rgba(27,110,194,0.4);
+                outline-offset: 3px;
+            }
+
+            .tag.active {
+                background: #1b6ec2;
+                color: #fff;
+                border-color: #1861ac;
+            }
+
+        .more-tags-toggle {
+            background: transparent;
+            border: none;
+            color: #1b6ec2;
+            cursor: pointer;
+            padding: 0;
+            margin-left: 4px;
+            font-size: .9rem;
+        }
+
+        /* Cards grid for items — same as existing */
+        .items-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            align-items: start;
+        }
+
+        @@media (max-width: 991.98px) {
+            .items-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @@media (max-width: 575.98px) {
+            .items-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .load-more-wrap {
+            text-align: center;
+            margin-top: 18px;
+        }
+
+        .results-spinner {
+            display: none;
+            text-align: center;
+            padding: 12px 0;
+            color: #6b7280;
+        }
+
+        .highlight {
+            background: #fff3b0;
+        }
+    </style>
+}
+
+<main class="conte-page" role="main" aria-label="Listado de contenidos">
+    <div class="container py-4">
+        <h1 class="se-page-title">Contenidos</h1>
+        <p class="lead" style="margin-bottom:12px; color:#6b7280;">Listado de artículos y recursos.</p>
+
+        <!-- Search header identical to Preguntas -->
+        <div class="se-header" role="region" aria-label="Buscador de contenidos">
+            <form id="searchForm" class="se-search" onsubmit="event.preventDefault(); (function(){ /* handled by JS */ })();" role="search" aria-label="Buscar contenidos">
+                <input name="q" class="se-search-input" placeholder="Ej: ¿Por qué duele el lado izquierdo?" aria-label="Buscar contenidos" value="@(Model.SearchQuery ?? "")" />
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <button id="btnSearch" class="se-btn se-btn-primary" type="button" title="Buscar" aria-label="Buscar">
+                        <i class="bi bi-search"></i>
+                    </button>
+                    <button id="btnClear" class="se-btn se-btn-ghost" type="button" title="Limpiar búsqueda" aria-label="Limpiar búsqueda">Limpiar</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- TAG GROUPS -->
+        <div class="tags-blocks" role="region" aria-label="Filtros por etiquetas">
+            <div class="tag-group" aria-label="Condiciones">
+                <div class="group-title">Condiciones</div>
+                <div class="group-tags" data-group="conditions">
+                    @if (Model.AvailableConditions != null && Model.AvailableConditions.Any())
+                    {
+                        var idx = 0;
+                        foreach (var tc in Model.AvailableConditions)
+                        {
+                            var active = Model.FilterConditionIds?.Contains(tc.Id) ?? false;
+                            var hiddenAttr = idx >= TAG_PREVIEW ? "data-hidden='true'" : "";
+                            <button type="button" class="tag @(active ? "active" : "")" data-filter-type="condition" data-id="@tc.Id" tabindex="0" @Html.Raw(hiddenAttr)>@tc.Name</button>
+                            idx++;
+                        }
+                        if (Model.AvailableConditions.Count > TAG_PREVIEW)
+                        {
+                            <button type="button" class="more-tags-toggle" data-toggle-group="conditions" aria-expanded="false">Ver más</button>
+                        }
+                    }
+                    else
+                    {
+                        <span class="tag" aria-hidden="true">No hay condiciones</span>
+                    }
+                </div>
+            </div>
+
+            <div class="tag-group" aria-label="Síntomas">
+                <div class="group-title">Síntomas</div>
+                <div class="group-tags" data-group="sintomas">
+                    @if (Model.AvailableSintomas != null && Model.AvailableSintomas.Any())
+                    {
+                        var idx = 0;
+                        foreach (var s in Model.AvailableSintomas)
+                        {
+                            var active = Model.FilterSintomaIds?.Contains(s.Id) ?? false;
+                            var hiddenAttr = idx >= TAG_PREVIEW ? "data-hidden='true'" : "";
+                            <button type="button" class="tag @(active ? "active" : "")" data-filter-type="sintoma" data-id="@s.Id" tabindex="0" @Html.Raw(hiddenAttr)>@s.Name</button>
+                            idx++;
+                        }
+                        if (Model.AvailableSintomas.Count > TAG_PREVIEW)
+                        {
+                            <button type="button" class="more-tags-toggle" data-toggle-group="sintomas" aria-expanded="false">Ver más</button>
+                        }
+                    }
+                    else
+                    {
+                        <span class="tag" aria-hidden="true">No hay síntomas</span>
+                    }
+                </div>
+            </div>
+
+            <div class="tag-group" aria-label="Tratamientos">
+                <div class="group-title">Tratamientos</div>
+                <div class="group-tags" data-group="tratamientos">
+                    @if (Model.AvailableTratamientos != null && Model.AvailableTratamientos.Any())
+                    {
+                        var idx = 0;
+                        foreach (var t in Model.AvailableTratamientos)
+                        {
+                            var active = Model.FilterTratamientoIds?.Contains(t.Id) ?? false;
+                            var hiddenAttr = idx >= TAG_PREVIEW ? "data-hidden='true'" : "";
+                            <button type="button" class="tag @(active ? "active" : "")" data-filter-type="tratamiento" data-id="@t.Id" tabindex="0" @Html.Raw(hiddenAttr)>@t.Name</button>
+                            idx++;
+                        }
+                        if (Model.AvailableTratamientos.Count > TAG_PREVIEW)
+                        {
+                            <button type="button" class="more-tags-toggle" data-toggle-group="tratamientos" aria-expanded="false">Ver más</button>
+                        }
+                    }
+                    else
+                    {
+                        <span class="tag" aria-hidden="true">No hay tratamientos</span>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <section aria-label="Artículos">
+            <div class="results-spinner" id="resultsSpinner">Cargando…</div>
+            <div class="items-container" id="itemsContainer">
+                <partial name="~/Pages/Shared/_BlogItems.cshtml" model="Model.Items" />
+            </div>
+
+            <div class="load-more-wrap" id="loadMoreWrap" style="display:@(Model.TotalCount > (Model.Items?.Count ?? 0) ? "block" : "none")">
+                <button id="loadMoreBtn"
+                        class="btn btn-outline-primary"
+                        data-nextpage="@nextPage"
+                        data-pagesize="@Model.PageSize"
+                        data-total="@Model.TotalCount">
+                    Cargar más
+                </button>
+            </div>
+        </section>
+    </div>
+</main>
+
+@section Scripts {
+    <script>
+        (function () {
+            const pageSize = @Model.PageSize;
+            const selectedIds = { condition: new Set(), sintoma: new Set(), tratamiento: new Set() };
+            const spinner = document.getElementById('resultsSpinner');
+            const searchInput = document.querySelector('.se-search-input');
+            const btnSearch = document.getElementById('btnSearch');
+            const btnClear = document.getElementById('btnClear');
+
+            // Initialize selected from server-rendered active tags
+            document.querySelectorAll('.tag.active').forEach(btn => {
+                const type = btn.getAttribute('data-filter-type');
+                const id = btn.getAttribute('data-id');
+                if (type && id) selectedIds[type].add(id);
+            });
+
+            function debounce(fn, wait) {
+                let t;
+                return function (...args) { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), wait); };
+            }
+
+            function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+            function highlight(container, term) {
+                if (!term) return;
+                const regex = new RegExp('(' + escapeRegExp(term) + ')', 'ig');
+                container.querySelectorAll('.blog-title a, .blog-excerpt').forEach(el => {
+                    el.innerHTML = el.textContent.replace(regex, '<span class="highlight">$1</span>');
+                });
+            }
+
+            function showSpinner(show) { if (!spinner) return; spinner.style.display = show ? 'block' : 'none'; }
+
+            async function loadItemsAjax(pageNumber = 1, append = false, pushToHistory = true) {
+                try {
+                    showSpinner(true);
+                    const params = new URLSearchParams();
+                    const q = (searchInput && searchInput.value) ? searchInput.value.trim() : '';
+                    if (q) params.set('q', q);
+                    if (selectedIds.condition.size) params.set('conditionIds', Array.from(selectedIds.condition).join(','));
+                    if (selectedIds.sintoma.size) params.set('sintomaIds', Array.from(selectedIds.sintoma).join(','));
+                    if (selectedIds.tratamiento.size) params.set('tratamientoIds', Array.from(selectedIds.tratamiento).join(','));
+                    params.set('pageNumber', String(pageNumber));
+                    params.set('pageSize', String(pageSize));
+
+                    const url = '@Url.Page("/Home/BlogMore")' + '?' + params.toString();
+                    const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                    if (!res.ok) throw new Error('Error cargando items: ' + res.status);
+                    const html = await res.text();
+                    const totalHeader = res.headers.get('X-Total-Count');
+                    const total = totalHeader ? parseInt(totalHeader, 10) : null;
+
+                    const container = document.getElementById('itemsContainer');
+                    if (!append) container.innerHTML = html;
+                    else {
+                        const tmp = document.createElement('div'); tmp.innerHTML = html; while (tmp.firstChild) container.appendChild(tmp.firstChild);
+                    }
+
+                    if (q) highlight(container, q);
+
+                    const loadMoreWrap = document.getElementById('loadMoreWrap');
+                    const loadMoreBtn = document.getElementById('loadMoreBtn');
+                    if (total !== null && loadMoreBtn) {
+                        const loadedCount = document.querySelectorAll('.blog-card').length;
+                        loadMoreBtn.setAttribute('data-total', String(total));
+                        if (loadedCount >= total) loadMoreWrap.style.display = 'none'; else loadMoreWrap.style.display = 'block';
+                    }
+
+                    if (pushToHistory) {
+                        const stateUrl = new URL(window.location.href);
+                        stateUrl.searchParams.delete('q'); stateUrl.searchParams.delete('conditionIds'); stateUrl.searchParams.delete('sintomaIds'); stateUrl.searchParams.delete('tratamientoIds');
+                        if (q) stateUrl.searchParams.set('q', q);
+                        if (selectedIds.condition.size) stateUrl.searchParams.set('conditionIds', Array.from(selectedIds.condition).join(','));
+                        if (selectedIds.sintoma.size) stateUrl.searchParams.set('sintomaIds', Array.from(selectedIds.sintoma).join(','));
+                        if (selectedIds.tratamiento.size) stateUrl.searchParams.set('tratamientoIds', Array.from(selectedIds.tratamiento).join(','));
+                        history.pushState({ q: q, cond: Array.from(selectedIds.condition), sint: Array.from(selectedIds.sintoma), trat: Array.from(selectedIds.tratamiento) }, '', stateUrl.toString());
+                    }
+                } catch (e) {
+                    console.error(e);
+                    alert('Error cargando contenidos.');
+                } finally { showSpinner(false); }
+            }
+
+            const debouncedLoad = debounce(() => loadItemsAjax(1, false, true), 400);
+
+            function toggleTag(btn) {
+                const type = btn.getAttribute('data-filter-type');
+                const id = btn.getAttribute('data-id');
+                if (!type || !id) return;
+                if (btn.classList.contains('active')) { btn.classList.remove('active'); selectedIds[type].delete(id); }
+                else { btn.classList.add('active'); selectedIds[type].add(id); }
+            }
+
+            document.addEventListener('click', function (e) {
+                const tag = e.target.closest('.tag');
+                if (tag) { toggleTag(tag); loadItemsAjax(1, false, true); }
+                const mt = e.target.closest('.more-tags-toggle');
+                if (mt) {
+                    const group = mt.getAttribute('data-toggle-group');
+                    const container = document.querySelector('.group-tags[data-group="' + group + '"]');
+                    if (container) {
+                        const hiddenBtns = container.querySelectorAll('[data-hidden="true"]');
+                        const expanded = mt.getAttribute('aria-expanded') === 'true';
+                        if (!expanded) { hiddenBtns.forEach(b => b.removeAttribute('data-hidden')); mt.setAttribute('aria-expanded', 'true'); mt.textContent = 'Ver menos'; }
+                        else { hiddenBtns.forEach(b => b.setAttribute('data-hidden', 'true')); mt.setAttribute('aria-expanded', 'false'); mt.textContent = 'Ver más'; }
+                    }
+                }
+            });
+
+            document.addEventListener('keydown', function (e) { if (e.key !== 'Enter' && e.key !== ' ') return; const el = document.activeElement; if (el && el.classList && el.classList.contains('tag')) { e.preventDefault(); el.click(); } });
+
+            if (searchInput) { searchInput.addEventListener('input', debouncedLoad); searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); loadItemsAjax(1, false, true); } }); }
+            if (btnSearch) btnSearch.addEventListener('click', () => loadItemsAjax(1, false, true));
+            if (btnClear) btnClear.addEventListener('click', () => { if (searchInput) searchInput.value = ''; document.querySelectorAll('.tag.active').forEach(t => t.classList.remove('active')); selectedIds.condition.clear(); selectedIds.sintoma.clear(); selectedIds.tratamiento.clear(); loadItemsAjax(1, false, true); });
+
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            if (loadMoreBtn) {
+                loadMoreBtn.addEventListener('click', async function () {
+                    const next = parseInt(loadMoreBtn.getAttribute('data-nextpage') || '2', 10);
+                    await loadItemsAjax(next, true, true);
+                    loadMoreBtn.setAttribute('data-nextpage', String(next + 1));
+                });
+            }
+
+            window.addEventListener('popstate', function (e) {
+                const state = e.state || {};
+                const q = state.q || '';
+                if (searchInput) searchInput.value = q;
+                selectedIds.condition.clear(); selectedIds.sintoma.clear(); selectedIds.tratamiento.clear();
+                document.querySelectorAll('.tag').forEach(t => t.classList.remove('active'));
+                if (state.cond && state.cond.length) state.cond.forEach(id => { const btn = document.querySelector('.tag[data-filter-type="condition"][data-id="' + id + '"]'); if (btn) { btn.classList.add('active'); selectedIds.condition.add(id); }});
+                if (state.sint && state.sint.length) state.sint.forEach(id => { const btn = document.querySelector('.tag[data-filter-type="sintoma"][data-id="' + id + '"]'); if (btn) { btn.classList.add('active'); selectedIds.sintoma.add(id); }});
+                if (state.trat && state.trat.length) state.trat.forEach(id => { const btn = document.querySelector('.tag[data-filter-type="tratamiento"][data-id="' + id + '"]'); if (btn) { btn.classList.add('active'); selectedIds.tratamiento.add(id); }});
+                loadItemsAjax(1, false, false);
+            });
+
+            const initialState = { q: (searchInput ? searchInput.value : ''), cond: Array.from(selectedIds.condition), sint: Array.from(selectedIds.sintoma), trat: Array.from(selectedIds.tratamiento) };
+            history.replaceState(initialState, '', window.location.href);
+
+        })();
+    </script>
+}
