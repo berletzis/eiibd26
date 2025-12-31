@@ -5,6 +5,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Security.Claims;
 using eiibd26.Data;
 using eiibd26.Models;
 
@@ -41,7 +42,7 @@ namespace eiibd26.Pages.Contenidos
         public int TotalCount { get; set; }
         public List<BlogItemVm> Items { get; set; } = new List<BlogItemVm>();
 
-        // AVAILABLE tags (derived from contents) — used in header to filter
+        // AVAILABLE tags (now: tags assigned to the current user)
         public List<TagVm> AvailableConditions { get; set; } = new List<TagVm>();
         public List<TagVm> AvailableSintomas { get; set; } = new List<TagVm>();
         public List<TagVm> AvailableTratamientos { get; set; } = new List<TagVm>();
@@ -70,7 +71,83 @@ namespace eiibd26.Pages.Contenidos
             FilterSintomaIds = ParseIds(SintomaIds);
             FilterTratamientoIds = ParseIds(TratamientoIds);
 
-            // Build baseQuery (published contents), apply search if provided
+            // --- 1) Resolve user-associated tags (conditions, sintomas, tratamientos) if authenticated ---
+            if (User?.Identity?.IsAuthenticated ?? false)
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (Guid.TryParse(userIdClaim, out var userGuid))
+                {
+                    try
+                    {
+                        // Conditions associated to user (only non-deleted associations)
+                        var userCondIds = await _db.condicionUsuario
+                            .AsNoTracking()
+                            .Where(x => x.Usuario.Id == userGuid && !x.Eliminado)
+                            .Select(x => x.Condicion.id)
+                            .Distinct()
+                            .ToListAsync();
+
+                        if (userCondIds.Any())
+                        {
+                            // Fetch only child conditions (idPadre != null) to satisfy "registros hijos"
+                            // Note: propiedades usadas: 'id' and 'idPadre' assume your condiciones model uses these names (as in OnModelCreating).
+                            AvailableConditions = await _db.condiciones
+                                .AsNoTracking()
+                                .Where(c => userCondIds.Contains(c.id) && c.idPadre != null)
+                                .OrderBy(c => c.nombre)
+                                .Select(c => new TagVm { Id = c.id, Name = c.nombre })
+                                .ToListAsync();
+                        }
+
+                        // Sintomas associated to user
+                        var userSintIds = await _db.sintomasUsuario
+                            .AsNoTracking()
+                            .Where(x => x.Usuario.Id == userGuid && !x.Eliminado)
+                            .Select(x => x.Sintoma.id)
+                            .Distinct()
+                            .ToListAsync();
+
+                        if (userSintIds.Any())
+                        {
+                            // If your 'sintomas' table has a parent field, you can add '&& s.idPadre != null' here.
+                            AvailableSintomas = await _db.sintomas
+                                .AsNoTracking()
+                                .Where(s => userSintIds.Contains(s.id))
+                                .OrderBy(s => s.nombre)
+                                .Select(s => new TagVm { Id = s.id, Name = s.nombre })
+                                .ToListAsync();
+                        }
+
+                        // Tratamientos associated to user
+                        var userTratIds = await _db.tratamientoUsuario
+                            .AsNoTracking()
+                            .Where(x => x.Usuario.Id == userGuid && !x.Eliminado)
+                            .Select(x => x.Tratamiento.id)
+                            .Distinct()
+                            .ToListAsync();
+
+                        if (userTratIds.Any())
+                        {
+                            // Fetch only child tratamientos (idPadre != null)
+                            AvailableTratamientos = await _db.tratamientos
+                                .AsNoTracking()
+                                .Where(t => userTratIds.Contains(t.id) && t.idPadre != null)
+                                .OrderBy(t => t.nombre)
+                                .Select(t => new TagVm { Id = t.id, Name = t.nombre })
+                                .ToListAsync();
+                        }
+                    }
+                    catch
+                    {
+                        // If anything fails, leave lists empty but keep page functional.
+                        AvailableConditions = new List<TagVm>();
+                        AvailableSintomas = new List<TagVm>();
+                        AvailableTratamientos = new List<TagVm>();
+                    }
+                }
+            }
+
+            // --- 2) Build baseQuery for contents (apply search if any) ---
             var baseQuery = _db.Contenidos
                 .AsNoTracking()
                 .Where(c => !c.Eliminado && (c.EstadoPublicacion ?? 0) == 1);
@@ -81,10 +158,10 @@ namespace eiibd26.Pages.Contenidos
                 baseQuery = baseQuery.Where(c => (c.ContenidoTitulo ?? "").Contains(q) || (c.ContenidoTextoC ?? "").Contains(q) || (c.ContenidoTextoL ?? "").Contains(q));
             }
 
-            // Build IDs subquery and apply filters (OR within types, AND across types)
+            // --- 3) Build IDs subquery and apply filters avoiding duplicates ---
             IQueryable<int> idsQuery = baseQuery.Select(c => c.Id);
 
-            if (FilterConditionIds.Any())
+            if (FilterConditionIds != null && FilterConditionIds.Any())
             {
                 var condContentIds = _db.ContenidoCondiciones
                     .AsNoTracking()
@@ -94,7 +171,7 @@ namespace eiibd26.Pages.Contenidos
                 idsQuery = idsQuery.Where(id => condContentIds.Contains(id));
             }
 
-            if (FilterSintomaIds.Any())
+            if (FilterSintomaIds != null && FilterSintomaIds.Any())
             {
                 var sintContentIds = _db.ContenidoSintomas
                     .AsNoTracking()
@@ -104,7 +181,7 @@ namespace eiibd26.Pages.Contenidos
                 idsQuery = idsQuery.Where(id => sintContentIds.Contains(id));
             }
 
-            if (FilterTratamientoIds.Any())
+            if (FilterTratamientoIds != null && FilterTratamientoIds.Any())
             {
                 var tratContentIds = _db.ContenidoTratamientos
                     .AsNoTracking()
@@ -114,7 +191,7 @@ namespace eiibd26.Pages.Contenidos
                 idsQuery = idsQuery.Where(id => tratContentIds.Contains(id));
             }
 
-            // Compute total and page results
+            // --- 4) Use idsQuery to compute total and page items ---
             TotalCount = await idsQuery.Distinct().CountAsync();
 
             var contentsQuery = _db.Contenidos
@@ -142,7 +219,7 @@ namespace eiibd26.Pages.Contenidos
 
             Items = items;
 
-            // Batch load related metadata for the items shown
+            // Batch load related metadata (only for visible items)
             var contentIds = Items.Select(i => i.Id).ToList();
             if (contentIds.Any())
             {
@@ -187,44 +264,6 @@ namespace eiibd26.Pages.Contenidos
                     if (qCountsDict.TryGetValue(it.Id, out var qc)) it.RelatedQuestionsCount = qc;
                 }
             }
-
-            // --- AVAILABLE TAGS (derived from published contents globally) ---
-            // We get distinct condition/sintoma/tratamiento values associated to published contents (optionally limited)
-            var availableCond = await _db.ContenidoCondiciones
-                .AsNoTracking()
-                .Where(rel => !rel.Borrado)
-                .Join(_db.Contenidos.AsNoTracking().Where(c => !c.Eliminado && (c.EstadoPublicacion ?? 0) == 1),
-                      rel => rel.ContenidoId, c => c.Id, (rel, c) => rel)
-                .Join(_db.condiciones.AsNoTracking(), rel => rel.CondicionId, cond => cond.id, (rel, cond) => new { Id = cond.id, Name = cond.nombre })
-                .Distinct()
-                .OrderBy(x => x.Name)
-                .ToListAsync();
-
-            AvailableConditions = availableCond.Select(x => new TagVm { Id = x.Id, Name = x.Name }).ToList();
-
-            var availableSint = await _db.ContenidoSintomas
-                .AsNoTracking()
-                .Where(rel => !rel.Borrado)
-                .Join(_db.Contenidos.AsNoTracking().Where(c => !c.Eliminado && (c.EstadoPublicacion ?? 0) == 1),
-                      rel => rel.ContenidoId, c => c.Id, (rel, c) => rel)
-                .Join(_db.sintomas.AsNoTracking(), rel => rel.SintomaId, s => s.id, (rel, s) => new { Id = s.id, Name = s.nombre })
-                .Distinct()
-                .OrderBy(x => x.Name)
-                .ToListAsync();
-
-            AvailableSintomas = availableSint.Select(x => new TagVm { Id = x.Id, Name = x.Name }).ToList();
-
-            var availableTrat = await _db.ContenidoTratamientos
-                .AsNoTracking()
-                .Where(rel => !rel.Borrado)
-                .Join(_db.Contenidos.AsNoTracking().Where(c => !c.Eliminado && (c.EstadoPublicacion ?? 0) == 1),
-                      rel => rel.ContenidoId, c => c.Id, (rel, c) => rel)
-                .Join(_db.tratamientos.AsNoTracking(), rel => rel.TratamientoId, t => t.id, (rel, t) => new { Id = t.id, Name = t.nombre })
-                .Distinct()
-                .OrderBy(x => x.Name)
-                .ToListAsync();
-
-            AvailableTratamientos = availableTrat.Select(x => new TagVm { Id = x.Id, Name = x.Name }).ToList();
 
             return Page();
         }
