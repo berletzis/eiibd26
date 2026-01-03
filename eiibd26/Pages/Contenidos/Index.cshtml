@@ -11,16 +11,16 @@
     <style>
         /* Make layout match Preguntas: use container + se-page-title */
         .conte-page {
-            /* uses the site container for consistent width with Preguntas */
             padding-top: 16px;
             padding-bottom: 24px;
         }
 
         .se-page-title {
-            font-size: 1.75rem;
-            margin: 0 0 12px 0;
-            font-weight: 400;
-            color: #0f172a;
+            font-size: 2.1rem;
+            font-weight: 250;
+            letter-spacing: -0.06em;
+            color: #172849;
+            padding-bottom: 20px;
         }
 
         /* Reuse Preguntas search card look */
@@ -39,6 +39,7 @@
             align-items: center;
             justify-content: space-between;
             width: 100%;
+            padding-bottom: 15px;
         }
 
         .se-search-input {
@@ -51,31 +52,75 @@
             box-sizing: border-box;
         }
 
+            .se-search-input:focus {
+                outline: 2px solid var(--se-link-hover);
+                outline-offset: 2px;
+            }
+
+        .se-search-label {
+            margin: 4px 0 0px 0;
+            font-weight: 100;
+            font-size: .9rem;
+            padding-bottom: 15px;
+        }
+        /* remove right border so circular button border shows cleanly */
+        .se-search-input.no-right-border {
+            border-right: none;
+            border-top-right-radius: 8px;
+            border-bottom-right-radius: 8px;
+        }
+
         .se-btn {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            border-radius: 999px;
             padding: 8px 12px;
             cursor: pointer;
+            background: transparent;
+            border: none;
+            color: inherit;
         }
 
+            /* Purple style requested: light purple background + purple border */
             .se-btn.se-btn-primary {
-                background: #1b6ec2;
-                color: #fff;
-                border: 1px solid #1861ac;
+                background: #fff; /* light purple background */
+                color: #6a4e7a; /* purple icon/text */
+                border: 2px solid #e3e6e8; /* purple border (adjusted below on hover/focus) */
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                padding: 0;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: none;
+                transition: background .12s ease, border-color .12s ease, color .12s ease;
+                line-height: 0;
             }
+
+                .se-btn.se-btn-primary:hover {
+                    background: #ecd9f7; /* slightly darker light purple */
+                    border-color: #6a4e7a;
+                    color: #6a4e7a;
+                }
+
+                .se-btn.se-btn-primary:focus {
+                    outline: none;
+                    box-shadow: 0 0 0 3px rgba(106,78,122,0.12);
+                }
 
             .se-btn.se-btn-ghost {
                 background: transparent;
                 border: 1px solid transparent;
                 color: #6b7280;
+                padding: 8px 12px;
+                border-radius: 8px;
             }
 
         /* Tags blocks keep left alignment and compact style */
         .tags-blocks {
             display: grid;
-            grid-template-columns: 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
             gap: 12px;
             align-items: start;
             margin-bottom: 16px;
@@ -84,29 +129,29 @@
 
         @@media (min-width: 992px) {
             .tags-blocks {
-                grid-template-columns: 1fr 1fr 1fr;
+                grid-template-rows: 1fr 1fr 1fr;
             }
         }
 
         .tag-group {
-            background: #fff;
-            border: 1px solid #eef2f7;
-            padding: 10px;
+            padding: 0px;
             border-radius: 8px;
             box-sizing: border-box;
-            min-height: 56px;
+            min-height: 36px;
         }
 
             .tag-group .group-title {
-                font-weight: 700;
-                font-size: 0.95rem;
-                margin-bottom: 8px;
+                display: inline-flex;
+                align-items: left;
+                gap: 8px;
+                padding: 6px 10px;
                 color: #0f172a;
+                font-size: 1rem;
             }
 
         .group-tags {
             display: flex;
-            gap: 8px;
+            gap: 4px;
             flex-wrap: wrap;
             align-items: flex-start;
             justify-content: flex-start;
@@ -126,20 +171,20 @@
         }
 
             .tag:focus {
-                outline: 2px dashed rgba(27,110,194,0.4);
+                outline: 2px dashed rgba(106,78,122,0.35);
                 outline-offset: 3px;
             }
 
             .tag.active {
-                background: #1b6ec2;
-                color: #fff;
-                border-color: #1861ac;
+                background: #f4edfc;
+                color: #6a4e7a;
+                border-color: #6a4e7a;
             }
 
         .more-tags-toggle {
             background: transparent;
             border: none;
-            color: #1b6ec2;
+            color: #6a4e7a;
             cursor: pointer;
             padding: 0;
             margin-left: 4px;
@@ -181,108 +226,139 @@
         .highlight {
             background: #fff3b0;
         }
+
+        /* No results message (match Preguntas .se-empty style) */
+        .no-results {
+            background: #fff;
+            border: 1px solid #eef2f7;
+            border-radius: 8px;
+            padding: 18px;
+            color: #6b7280;
+            text-align: left;
+            margin-top: 12px;
+        }
+        
+        .content-meta-fragment {
+            font-size: .9rem;
+        }
     </style>
 }
 
 <main class="conte-page" role="main" aria-label="Listado de contenidos">
     <div class="container py-4">
         <h1 class="se-page-title">Contenidos</h1>
-        <p class="lead" style="margin-bottom:12px; color:#6b7280;">Listado de artículos y recursos.</p>
 
-        <!-- Search header identical to Preguntas -->
         <div class="se-header" role="region" aria-label="Buscador de contenidos">
-            <form id="searchForm" class="se-search" onsubmit="event.preventDefault(); (function(){ /* handled by JS */ })();" role="search" aria-label="Buscar contenidos">
-                <input name="q" class="se-search-input" placeholder="Ej: ¿Por qué duele el lado izquierdo?" aria-label="Buscar contenidos" value="@(Model.SearchQuery ?? "")" />
+            <label for="cpcontenidoBuscar" class="se-search-label">
+                Haz tu mejor pregunta; entre más específico seas, mayor será la probabilidad de encontrar resultados.
+            </label>
+            <form id="searchForm" class="se-search" onsubmit="event.preventDefault();" role="search" aria-label="Buscar contenidos">
+                <input id="cpcontenidoBuscar" name="q" class="se-search-input no-right-border" placeholder="Ej: ¿Por qué duele el lado izquierdo?" aria-label="Buscar contenidos" value="@(Model.SearchQuery ?? "")" />
                 <div style="display:flex; gap:8px; align-items:center;">
                     <button id="btnSearch" class="se-btn se-btn-primary" type="button" title="Buscar" aria-label="Buscar">
-                        <i class="bi bi-search"></i>
+                        <i class="bi bi-search" style="font-size:1.05rem;"></i>
                     </button>
-                    <button id="btnClear" class="se-btn se-btn-ghost" type="button" title="Limpiar búsqueda" aria-label="Limpiar búsqueda">Limpiar</button>
                 </div>
             </form>
         </div>
 
         <!-- TAG GROUPS -->
         <div class="tags-blocks" role="region" aria-label="Filtros por etiquetas">
-            <div class="tag-group" aria-label="Condiciones">
-                <div class="group-title">Condiciones</div>
-                <div class="group-tags" data-group="conditions">
-                    @if (Model.AvailableConditions != null && Model.AvailableConditions.Any())
-                    {
-                        var idx = 0;
-                        foreach (var tc in Model.AvailableConditions)
+            @if (User?.Identity?.IsAuthenticated ?? false)
+            {
+                <div class="tag-group" aria-label="Condiciones">
+                    <div class="group-tags" data-group="conditions">
+                        <label class="group-title">Condiciones</label>
+                        @if (Model.AvailableConditions != null && Model.AvailableConditions.Any())
                         {
-                            var active = Model.FilterConditionIds?.Contains(tc.Id) ?? false;
-                            var hiddenAttr = idx >= TAG_PREVIEW ? "data-hidden='true'" : "";
-                            <button type="button" class="tag @(active ? "active" : "")" data-filter-type="condition" data-id="@tc.Id" tabindex="0" @Html.Raw(hiddenAttr)>@tc.Name</button>
-                            idx++;
+                            var idx = 0;
+                            foreach (var tc in Model.AvailableConditions)
+                            {
+                                var active = Model.FilterConditionIds?.Contains(tc.Id) ?? false;
+                                var hiddenAttr = idx >= TAG_PREVIEW ? "data-hidden='true'" : "";
+                                <button type="button" class="tag @(active ? "active" : "")" data-filter-type="condition" data-id="@tc.Id" tabindex="0" @Html.Raw(hiddenAttr)>@tc.Name</button>
+                                idx++;
+                            }
+                            if (Model.AvailableConditions.Count > TAG_PREVIEW)
+                            {
+                                <button type="button" class="more-tags-toggle" data-toggle-group="conditions" aria-expanded="false">Ver más</button>
+                            }
                         }
-                        if (Model.AvailableConditions.Count > TAG_PREVIEW)
+                        else
                         {
-                            <button type="button" class="more-tags-toggle" data-toggle-group="conditions" aria-expanded="false">Ver más</button>
+                            <span class="tag" aria-hidden="true">No hay condiciones</span>
                         }
-                    }
-                    else
-                    {
-                        <span class="tag" aria-hidden="true">No hay condiciones</span>
-                    }
+                    </div>
                 </div>
-            </div>
 
-            <div class="tag-group" aria-label="Síntomas">
-                <div class="group-title">Síntomas</div>
-                <div class="group-tags" data-group="sintomas">
-                    @if (Model.AvailableSintomas != null && Model.AvailableSintomas.Any())
-                    {
-                        var idx = 0;
-                        foreach (var s in Model.AvailableSintomas)
+                <div class="tag-group" aria-label="Síntomas">
+                    <div class="group-tags" data-group="sintomas">
+                        <label class="group-title">Síntomas</label>
+                        @if (Model.AvailableSintomas != null && Model.AvailableSintomas.Any())
                         {
-                            var active = Model.FilterSintomaIds?.Contains(s.Id) ?? false;
-                            var hiddenAttr = idx >= TAG_PREVIEW ? "data-hidden='true'" : "";
-                            <button type="button" class="tag @(active ? "active" : "")" data-filter-type="sintoma" data-id="@s.Id" tabindex="0" @Html.Raw(hiddenAttr)>@s.Name</button>
-                            idx++;
+                            var idx = 0;
+                            foreach (var s in Model.AvailableSintomas)
+                            {
+                                var active = Model.FilterSintomaIds?.Contains(s.Id) ?? false;
+                                var hiddenAttr = idx >= TAG_PREVIEW ? "data-hidden='true'" : "";
+                                <button type="button" class="tag @(active ? "active" : "")" data-filter-type="sintoma" data-id="@s.Id" tabindex="0" @Html.Raw(hiddenAttr)>@s.Name</button>
+                                idx++;
+                            }
+                            if (Model.AvailableSintomas.Count > TAG_PREVIEW)
+                            {
+                                <button type="button" class="more-tags-toggle" data-toggle-group="sintomas" aria-expanded="false">Ver más</button>
+                            }
                         }
-                        if (Model.AvailableSintomas.Count > TAG_PREVIEW)
+                        else
                         {
-                            <button type="button" class="more-tags-toggle" data-toggle-group="sintomas" aria-expanded="false">Ver más</button>
+                            <span class="tag" aria-hidden="true">No hay síntomas</span>
                         }
-                    }
-                    else
-                    {
-                        <span class="tag" aria-hidden="true">No hay síntomas</span>
-                    }
+                    </div>
                 </div>
-            </div>
 
-            <div class="tag-group" aria-label="Tratamientos">
-                <div class="group-title">Tratamientos</div>
-                <div class="group-tags" data-group="tratamientos">
-                    @if (Model.AvailableTratamientos != null && Model.AvailableTratamientos.Any())
-                    {
-                        var idx = 0;
-                        foreach (var t in Model.AvailableTratamientos)
+                <div class="tag-group" aria-label="Tratamientos">
+                    <div class="group-tags" data-group="tratamientos">
+                        <label class="group-title">Tratamientos</label>
+                        @if (Model.AvailableTratamientos != null && Model.AvailableTratamientos.Any())
                         {
-                            var active = Model.FilterTratamientoIds?.Contains(t.Id) ?? false;
-                            var hiddenAttr = idx >= TAG_PREVIEW ? "data-hidden='true'" : "";
-                            <button type="button" class="tag @(active ? "active" : "")" data-filter-type="tratamiento" data-id="@t.Id" tabindex="0" @Html.Raw(hiddenAttr)>@t.Name</button>
-                            idx++;
+                            var idx = 0;
+                            foreach (var t in Model.AvailableTratamientos)
+                            {
+                                var active = Model.FilterTratamientoIds?.Contains(t.Id) ?? false;
+                                var hiddenAttr = idx >= TAG_PREVIEW ? "data-hidden='true'" : "";
+                                <button type="button" class="tag @(active ? "active" : "")" data-filter-type="tratamiento" data-id="@t.Id" tabindex="0" @Html.Raw(hiddenAttr)>@t.Name</button>
+                                idx++;
+                            }
+                            if (Model.AvailableTratamientos.Count > TAG_PREVIEW)
+                            {
+                                <button type="button" class="more-tags-toggle" data-toggle-group="tratamientos" aria-expanded="false">Ver más</button>
+                            }
                         }
-                        if (Model.AvailableTratamientos.Count > TAG_PREVIEW)
+                        else
                         {
-                            <button type="button" class="more-tags-toggle" data-toggle-group="tratamientos" aria-expanded="false">Ver más</button>
+                            <span class="tag" aria-hidden="true">No hay tratamientos</span>
                         }
-                    }
-                    else
-                    {
-                        <span class="tag" aria-hidden="true">No hay tratamientos</span>
-                    }
+                    </div>
                 </div>
-            </div>
+            }
+            else
+            {
+                <div class="vote-login-hint">
+                    Inicia sesión para filtrar por tus condiciones, síntomas y tratamientos.
+                    <a href="/Account/Login">Iniciar sesión</a>
+                </div>
+            }
         </div>
 
         <section aria-label="Artículos">
             <div class="results-spinner" id="resultsSpinner">Cargando…</div>
-            <div class="items-container" id="itemsContainer">
+
+            @* No results message — shown initially if no items, and shown when AJAX returns no results *@
+            <div id="noResults" class="no-results" style="display:@((Model.Items == null || !Model.Items.Any()) ? "block" : "none")">
+                No se encontraron contenidos con los criterios especificados.
+            </div>
+
+            <div class="items-container" id="itemsContainer" style="display:@((Model.Items == null || !Model.Items.Any()) ? "none" : "grid")">
                 <partial name="~/Pages/Shared/_BlogItems.cshtml" model="Model.Items" />
             </div>
 
@@ -307,7 +383,9 @@
             const spinner = document.getElementById('resultsSpinner');
             const searchInput = document.querySelector('.se-search-input');
             const btnSearch = document.getElementById('btnSearch');
-            const btnClear = document.getElementById('btnClear');
+            const noResultsEl = document.getElementById('noResults');
+            const itemsContainer = document.getElementById('itemsContainer');
+            const loadMoreWrap = document.getElementById('loadMoreWrap');
 
             // Initialize selected from server-rendered active tags
             document.querySelectorAll('.tag.active').forEach(btn => {
@@ -332,6 +410,18 @@
 
             function showSpinner(show) { if (!spinner) return; spinner.style.display = show ? 'block' : 'none'; }
 
+            function updateNoResultsAndContainer(hasItems) {
+                if (hasItems) {
+                    noResultsEl.style.display = 'none';
+                    itemsContainer.style.display = 'grid';
+                } else {
+                    noResultsEl.style.display = 'block';
+                    itemsContainer.style.display = 'none';
+                    // hide load more when no items
+                    if (loadMoreWrap) loadMoreWrap.style.display = 'none';
+                }
+            }
+
             async function loadItemsAjax(pageNumber = 1, append = false, pushToHistory = true) {
                 try {
                     showSpinner(true);
@@ -352,14 +442,23 @@
                     const total = totalHeader ? parseInt(totalHeader, 10) : null;
 
                     const container = document.getElementById('itemsContainer');
-                    if (!append) container.innerHTML = html;
-                    else {
-                        const tmp = document.createElement('div'); tmp.innerHTML = html; while (tmp.firstChild) container.appendChild(tmp.firstChild);
+
+                    // Place the returned HTML into a temp element to count items
+                    const temp = document.createElement('div');
+                    temp.innerHTML = html;
+                    const itemsFound = temp.querySelectorAll('.blog-card').length;
+
+                    if (!append) {
+                        container.innerHTML = html;
+                    } else {
+                        while (temp.firstChild) container.appendChild(temp.firstChild);
                     }
+
+                    // Update UI for no results
+                    updateNoResultsAndContainer(itemsFound > 0);
 
                     if (q) highlight(container, q);
 
-                    const loadMoreWrap = document.getElementById('loadMoreWrap');
                     const loadMoreBtn = document.getElementById('loadMoreBtn');
                     if (total !== null && loadMoreBtn) {
                         const loadedCount = document.querySelectorAll('.blog-card').length;
@@ -392,6 +491,7 @@
                 else { btn.classList.add('active'); selectedIds[type].add(id); }
             }
 
+            // Wire global click handlers
             document.addEventListener('click', function (e) {
                 const tag = e.target.closest('.tag');
                 if (tag) { toggleTag(tag); loadItemsAjax(1, false, true); }
@@ -412,7 +512,6 @@
 
             if (searchInput) { searchInput.addEventListener('input', debouncedLoad); searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); loadItemsAjax(1, false, true); } }); }
             if (btnSearch) btnSearch.addEventListener('click', () => loadItemsAjax(1, false, true));
-            if (btnClear) btnClear.addEventListener('click', () => { if (searchInput) searchInput.value = ''; document.querySelectorAll('.tag.active').forEach(t => t.classList.remove('active')); selectedIds.condition.clear(); selectedIds.sintoma.clear(); selectedIds.tratamiento.clear(); loadItemsAjax(1, false, true); });
 
             const loadMoreBtn = document.getElementById('loadMoreBtn');
             if (loadMoreBtn) {
@@ -434,6 +533,12 @@
                 if (state.trat && state.trat.length) state.trat.forEach(id => { const btn = document.querySelector('.tag[data-filter-type="tratamiento"][data-id="' + id + '"]'); if (btn) { btn.classList.add('active'); selectedIds.tratamiento.add(id); }});
                 loadItemsAjax(1, false, false);
             });
+
+            // On initial load, ensure noResults visibility matches server-rendered items
+            (function initNoResults() {
+                const initialHasItems = document.querySelectorAll('.blog-card').length > 0;
+                updateNoResultsAndContainer(initialHasItems);
+            })();
 
             const initialState = { q: (searchInput ? searchInput.value : ''), cond: Array.from(selectedIds.condition), sint: Array.from(selectedIds.sintoma), trat: Array.from(selectedIds.tratamiento) };
             history.replaceState(initialState, '', window.location.href);
