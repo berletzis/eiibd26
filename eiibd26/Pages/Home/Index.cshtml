@@ -1,5 +1,6 @@
 ﻿@page
 @model eiibd26.Pages.Home.IndexModel
+@using System.Linq
 @{
     ViewData["Title"] = "Inicio";
 }
@@ -11,7 +12,6 @@
         .home-hero {
             padding: 60px 0 40px;
             text-align: center;
-            /* background: linear-gradient(180deg,#fafbfd,#fff); */
         }
 
             .home-hero h1 {
@@ -26,11 +26,12 @@
                 margin: 0 auto 1rem;
             }
 
-        /* Blog list container: ancho estándar (ajustable) */
+        /* Container widths */
+        .row-small,
         .blog-list {
-            padding: 30px 0 80px;
-            max-width: 1140px; /* estándar de diseño */
-            margin: 0 auto;
+            max-width: 1140px;
+            margin: 0 auto 24px;
+            padding: 0 8px;
         }
 
         /* Grid de items: 3 columnas en desktop */
@@ -40,6 +41,12 @@
             gap: 20px;
             align-items: start;
         }
+
+            /* Featured specific containers (visual separation if needed) */
+            .items-container.featured-1042,
+            .items-container.featured-1043 {
+                margin-bottom: 8px;
+            }
 
         /* Card vertical (imagen arriba, contenido abajo) */
         .blog-card {
@@ -132,11 +139,6 @@
                     display: block;
                 }
 
-        .pubdate {
-            color: #94a3b8;
-            font-size: .9rem;
-        }
-
         /* Responsive: 2 columns en tablet, 1 en móvil */
         @@media (max-width: 991.98px) {
             .items-container {
@@ -154,15 +156,20 @@
             }
         }
 
-        .load-more-wrap {
-            text-align: center;
-            margin-top: 18px;
+        .section-title {
+            margin: 24px 0 12px;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #172849;
         }
 
-        /* Mapa: margen/ajuste para la sección del mapa parcial */
-        .mapa {
-            max-width: 1140px;
-            margin: 0 auto 24px;
+        /* Map root */
+        #usersMapRoot {
+            /* background: #fff;
+            border: 1px solid #eef2f7; */
+            border-radius: 8px;
+            padding: 12px;
+            min-height: 220px;
         }
     </style>
 }
@@ -174,7 +181,7 @@
     </section>
 
     <!-- MAP PARTIAL INSERTION -->
-    <section class="mapa" aria-label="Mapa de usuarios">
+    <section class="row-small" aria-label="Mapa de usuarios">
         <div id="usersMapRoot">Cargando mapa…</div>
 
         <script>
@@ -188,23 +195,17 @@
                     .then(function (html) {
                         var root = document.getElementById('usersMapRoot');
                         if (!root) return;
-                        // Parse the returned HTML into a temporary container
                         var temp = document.createElement('div');
                         temp.innerHTML = html;
 
-                        // Extract all script tags from the temp content
                         var scripts = Array.prototype.slice.call(temp.querySelectorAll('script'));
-                        // Separate external (src) and inline scripts
                         var externalScripts = scripts.filter(function (s) { return s.src && s.src.trim().length > 0; });
                         var inlineScripts = scripts.filter(function (s) { return !s.src || s.src.trim().length === 0; });
 
-                        // Remove script tags from temp so we can safely insert HTML without duplicate execution
                         scripts.forEach(function (s) { if (s.parentNode) s.parentNode.removeChild(s); });
 
-                        // Insert the HTML fragment (without scripts) into the page
                         root.innerHTML = temp.innerHTML;
 
-                        // Helper to load external scripts sequentially and wait for each to load
                         function loadExternalSequentially(sources) {
                             return sources.reduce(function (prev, scriptTag) {
                                 return prev.then(function () {
@@ -215,7 +216,6 @@
                                         s.onload = function () { resolve(); };
                                         s.onerror = function () {
                                             console.error('Failed to load script: ' + scriptTag.src);
-                                            // still resolve to continue loading others
                                             resolve();
                                         };
                                         document.body.appendChild(s);
@@ -224,16 +224,13 @@
                             }, Promise.resolve());
                         }
 
-                        // After external scripts loaded, execute inline scripts in order
                         loadExternalSequentially(externalScripts).then(function () {
                             inlineScripts.forEach(function (oldScript) {
                                 try {
                                     var s = document.createElement('script');
-                                    // preserve type if present
                                     if (oldScript.type) s.type = oldScript.type;
                                     s.text = oldScript.textContent || oldScript.innerText || '';
                                     document.body.appendChild(s);
-                                    // remove to keep DOM clean
                                     document.body.removeChild(s);
                                 } catch (e) {
                                     console.error('Error executing inline script from partial:', e);
@@ -250,100 +247,27 @@
         </script>
     </section>
     <!-- END MAP PARTIAL INSERTION -->
-
-    <section class="blog-list" aria-label="Artículos recientes">
-        <div class="items-container">
-            @* Render initial items via shared partial that accepts IEnumerable<BlogItemVm> *@
-            <partial name="~/Pages/Shared/_BlogItems.cshtml" model="Model.BlogList.Items" />
+    <!-- Featured for category 1042 (Top 3) -->
+    <section class="row-small" aria-label="Destacados">
+        <div class="section-title">Destacados (1042)</div>
+        <div class="items-container featured-1042">
+            @* Force at most 3 in the view as defense-in-depth *@
+            <partial name="~/Pages/Shared/_BlogItems.cshtml" model="Model.Featured1042?.Take(3)" />
         </div>
+    </section>
 
-        <div class="load-more-wrap">
-            <button id="loadMoreBtn"
-                    class="btn btn-outline-primary"
-                    data-nextpage="2"
-                    data-pagesize="@Model.BlogList.PageSize"
-                    data-total="@Model.BlogList.TotalCount">
-                Cargar más
-            </button>
+    <!-- Featured for category 1043 (Top 3) -->
+    <section class="row-small" aria-label="Populares">
+        <div class="section-title">Destacados (1043)</div>
+        <div class="items-container featured-1043">
+            @* Force at most 3 in the view as defense-in-depth *@
+            <partial name="~/Pages/Shared/_BlogItems.cshtml" model="Model.Featured1043?.Take(3)" />
         </div>
     </section>
 </main>
 
 @section Scripts {
     <script>
-        (function () {
-            const loadMoreBtn = document.getElementById('loadMoreBtn');
-            if (!loadMoreBtn) return;
-
-            const pageSize = parseInt(loadMoreBtn.getAttribute('data-pagesize') || '3', 10);
-            const total = parseInt(loadMoreBtn.getAttribute('data-total') || '0', 10);
-
-            // initial: count cards already rendered
-            let loadedCount = document.querySelectorAll('.blog-card').length;
-
-            function setLoading(on) {
-                loadMoreBtn.disabled = on;
-                loadMoreBtn.textContent = on ? 'Cargando...' : 'Cargar más';
-            }
-
-            function checkHide() {
-                if (total > 0 && loadedCount >= total) {
-                    loadMoreBtn.style.display = 'none';
-                }
-            }
-
-            // initial hide check
-            checkHide();
-
-            loadMoreBtn.addEventListener('click', async function () {
-                const next = parseInt(loadMoreBtn.getAttribute('data-nextpage') || '2', 10);
-                setLoading(true);
-                try {
-                    const url = new URL('@Url.Page("/Home/BlogMore")', window.location.origin);
-                    url.searchParams.set('pageNumber', String(next));
-                    url.searchParams.set('pageSize', String(pageSize));
-
-                    const res = await fetch(url.toString(), { method: 'GET', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-                    if (!res.ok) {
-                        console.error('Error loading more:', res.status);
-                        alert('Error cargando más artículos.');
-                        setLoading(false);
-                        return;
-                    }
-
-                    const html = await res.text();
-                    if (!html || html.trim().length === 0) {
-                        loadMoreBtn.style.display = 'none';
-                        setLoading(false);
-                        return;
-                    }
-
-                    const container = document.querySelector('.items-container');
-
-                    // Temporarily parse to count items to be added
-                    const temp = document.createElement('div');
-                    temp.innerHTML = html;
-                    const added = temp.querySelectorAll('.blog-card').length;
-
-                    // Move parsed nodes into the real container
-                    while (temp.firstChild) {
-                        container.appendChild(temp.firstChild);
-                    }
-
-                    // update counters and next page
-                    loadedCount += added;
-                    loadMoreBtn.setAttribute('data-nextpage', String(next + 1));
-
-                    // hide button if all loaded
-                    checkHide();
-
-                } catch (e) {
-                    console.error(e);
-                    alert('Error de red al cargar más artículos.');
-                } finally {
-                    setLoading(false);
-                }
-            });
-        })();
+        // No load-more script here anymore (we only show the two featured rows + map)
     </script>
 }
