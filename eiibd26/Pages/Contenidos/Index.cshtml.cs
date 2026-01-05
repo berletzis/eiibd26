@@ -150,7 +150,7 @@ namespace eiibd26.Pages.Contenidos
             // --- 2) Build baseQuery for contents (apply search if any) ---
             var baseQuery = _db.Contenidos
                 .AsNoTracking()
-                .Where(c => !c.Eliminado && (c.EstadoPublicacion ?? 0) == 1);
+                .Where(c => !c.Eliminado && c.EstadoPublicacion != 0 );
 
             if (!string.IsNullOrWhiteSpace(SearchQuery))
             {

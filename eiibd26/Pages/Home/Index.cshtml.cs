@@ -107,22 +107,22 @@ namespace eiibd26.Pages.Home
 
             // --- New: featured rows for categories 1042 and 1043 ---
             // Helper to get top N items for a category sequence
-            async Task<List<BlogItemVm>> GetTopForCategoryAsync(int categorySeq, int topN)
+            async Task<List<BlogItemVm>> GetTopForEstadoAsync(int estadoPublicacion)
             {
-                var distinctIds = await _db.ContenidosCategoriasRelacion
-                    .AsNoTracking()
-                    .Where(r => !r.Borrado && r.IdCategoria == categorySeq)
-                    .Select(r => r.IdContenido)
-                    .Distinct()
-                    .ToListAsync();
+                //var distinctIds = await _db.Contenidos
+                //    .AsNoTracking()
+                //    .Where(r => !r.Eliminado && r.EstadoPublicacion == estadoPublicacion)
+                //    .Select(r => r.Id)
+                //    .Distinct()
+                //    .ToListAsync();
 
-                if (!distinctIds.Any()) return new List<BlogItemVm>();
+                //if (!distinctIds.Any()) return new List<BlogItemVm>();
 
                 var list = await _db.Contenidos
                     .AsNoTracking()
-                    .Where(c => !c.Eliminado && (c.EstadoPublicacion ?? 0) == 1 && distinctIds.Contains(c.Id))
+                    .Where(c => !c.Eliminado && c.EstadoPublicacion == estadoPublicacion)
                     .OrderByDescending(c => c.FechaCreado)
-                    .Take(topN)
+                    .Take(3)
                     .Select(c => new BlogItemVm
                     {
                         Id = c.Id,
@@ -137,8 +137,8 @@ namespace eiibd26.Pages.Home
                 return list;
             }
 
-            Featured1042 = await GetTopForCategoryAsync(1042, 3);
-            Featured1043 = await GetTopForCategoryAsync(1043, 3);
+            Featured1042 = await GetTopForEstadoAsync(2);
+            Featured1043 = await GetTopForEstadoAsync(3);
         }
     }
 }
