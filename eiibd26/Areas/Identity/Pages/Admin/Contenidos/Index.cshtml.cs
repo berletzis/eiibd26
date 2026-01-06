@@ -68,7 +68,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 var length = int.TryParse(Request.Query["length"], out var lVal) ? lVal : 10;
                 var searchValue = (Request.Query["search[value]"].ToString() ?? "").Trim();
 
-                // Mostrar eliminados
+                // Mostrar eliminados (existing)
                 string mostrarElimQuery = Request.Query["mostrarEliminados"].ToString();
                 if (string.IsNullOrEmpty(mostrarElimQuery))
                 {
@@ -86,6 +86,24 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     || mostrarElimQuery.Equals("true", StringComparison.OrdinalIgnoreCase)
                     || mostrarElimQuery.Equals("on", StringComparison.OrdinalIgnoreCase);
 
+                // Mostrar borradores (nuevo switch)
+                string mostrarDraftsQuery = Request.Query["mostrarBorradores"].ToString();
+                if (string.IsNullOrEmpty(mostrarDraftsQuery))
+                {
+                    foreach (var k in Request.Query.Keys)
+                    {
+                        if (k.IndexOf("mostrar", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                            (k.IndexOf("borrador", StringComparison.OrdinalIgnoreCase) >= 0 || k.IndexOf("draft", StringComparison.OrdinalIgnoreCase) >= 0))
+                        {
+                            mostrarDraftsQuery = Request.Query[k].ToString();
+                            break;
+                        }
+                    }
+                }
+                bool mostrarDraftsFlag = mostrarDraftsQuery == "1"
+                    || mostrarDraftsQuery.Equals("true", StringComparison.OrdinalIgnoreCase)
+                    || mostrarDraftsQuery.Equals("on", StringComparison.OrdinalIgnoreCase);
+
                 // Filtros de categoría
                 int? idCategoriaPadre = null;
                 int? idSubcategoria = null;
@@ -102,8 +120,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     : _db.Contenidos.AsNoTracking();
 
                 // Lógica de filtro jerárquico:
-                // 1) Si hay subcategoría -> filtrar solo por ese IdCategoria.
-                // 2) Else si hay categoría padre -> filtrar contenidos relacionados al padre o a sus hijos.
                 if (idSubcategoria.HasValue)
                 {
                     baseQuery = baseQuery.Where(c =>
@@ -115,7 +131,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 }
                 else if (idCategoriaPadre.HasValue)
                 {
-                    // Padre + hijos directos
                     var cats = await _db.ContenidosCategorias
                         .AsNoTracking()
                         .Where(c => c.Borrado == false &&
@@ -150,6 +165,12 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
                 var recordsFiltered = await baseQuery.CountAsync();
 
+                // Excluir borradores por defecto, salvo que pedir mostrarlos
+                if (!mostrarDraftsFlag)
+                {
+                    baseQuery = baseQuery.Where(c => (c.EstadoPublicacion ?? 0) != 0);
+                }
+
                 // Ordenamiento FechaCreado
                 var orderColStr = Request.Query["order[0][column]"].ToString();
                 var orderDir = Request.Query["order[0][dir]"].ToString();
@@ -168,22 +189,76 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     baseQuery = baseQuery.OrderByDescending(c => c.FechaCreado);
                 }
 
-                var data = await baseQuery
+                // Fetch page of contenidos including Tipo, image info and descripcion
+                var pageItems = await baseQuery
                     .Skip(start)
                     .Take(length)
                     .Select(c => new
                     {
                         id = c.Id,
                         contenidoTitulo = c.ContenidoTitulo,
+                        descripcion = c.ContenidoTextoC,
                         autor = c.Autor,
                         estadoPublicacion = c.EstadoPublicacion,
                         fechaCreado = c.FechaCreado,
-                        eliminado = c.Eliminado
+                        eliminado = c.Eliminado,
+                        uRLImagenPrincipal = c.URLImagenPrincipal,
+                        hasImage = (c.URLImagenPrincipal != null && c.URLImagenPrincipal != ""),
+                        tipo = c.IdTipo
                     })
                     .ToListAsync();
 
-                _logger.LogDebug("GridData (elim={Mostrar}, padre={Padre}, sub={Sub}) total={Total} filtered={Filtered} returned={Returned} search='{Search}'",
-                    mostrarElimFlag, idCategoriaPadre, idSubcategoria, recordsTotal, recordsFiltered, data.Count, searchValue);
+                var contentIds = pageItems.Select(i => i.id).Distinct().ToList();
+
+                // Fetch latest category relation per content (in-memory grouping)
+                var rels = await _db.ContenidosCategoriasRelacion
+                    .AsNoTracking()
+                    .Where(r => contentIds.Contains(r.IdContenido) && !r.Borrado && r.IdCategoria != null)
+                    .Select(r => new { r.IdContenido, r.IdCategoria, r.FechaCreacion })
+                    .ToListAsync();
+
+                var catIds = rels.Select(r => r.IdCategoria.Value).Distinct().ToList();
+                var categories = new Dictionary<int, string>();
+                if (catIds.Any())
+                {
+                    var cats = await _db.ContenidosCategorias
+                        .AsNoTracking()
+                        .Where(c => catIds.Contains(c.Sequence))
+                        .Select(c => new { c.Sequence, Nombre = c.Nombre ?? "" })
+                        .ToListAsync();
+                    categories = cats.ToDictionary(c => c.Sequence, c => c.Nombre);
+                }
+
+                var latestRelByContent = rels
+                    .GroupBy(r => r.IdContenido)
+                    .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.FechaCreacion).FirstOrDefault());
+
+                // Build final projection including category name
+                var data = pageItems.Select(pi =>
+                {
+                    string categoriaNombre = null;
+                    if (latestRelByContent.TryGetValue(pi.id, out var rel) && rel != null && rel.IdCategoria.HasValue)
+                    {
+                        categories.TryGetValue(rel.IdCategoria.Value, out categoriaNombre);
+                    }
+                    return new
+                    {
+                        pi.id,
+                        pi.contenidoTitulo,
+                        descripcion = pi.descripcion ?? "",
+                        pi.autor,
+                        pi.estadoPublicacion,
+                        pi.fechaCreado,
+                        pi.eliminado,
+                        pi.uRLImagenPrincipal,
+                        pi.hasImage,
+                        tipo = pi.tipo,
+                        categoriaNombre = categoriaNombre ?? ""
+                    };
+                }).ToList();
+
+                _logger.LogDebug("GridData (elim={Mostrar}, padre={Padre}, sub={Sub}, drafts={Drafts}) total={Total} filtered={Filtered} returned={Returned} search='{Search}'",
+                    mostrarElimFlag, idCategoriaPadre, idSubcategoria, mostrarDraftsFlag, recordsTotal, recordsFiltered, data.Count, searchValue);
 
                 return new JsonResult(new
                 {
@@ -197,6 +272,37 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             {
                 _logger.LogError(ex, "Error en OnGetGridDataAsync");
                 return StatusCode(500, new { success = false, message = "Error interno al obtener datos." });
+            }
+        }
+
+        // New handler: change status from modal (AJAX)
+        public async Task<IActionResult> OnPostChangeStatusAsync()
+        {
+            try
+            {
+                if (!Request.HasFormContentType || string.IsNullOrWhiteSpace(Request.Form["id"]) || string.IsNullOrWhiteSpace(Request.Form["status"]))
+                    return BadRequest(new { success = false, message = "ID o status inválido" });
+
+                if (!int.TryParse(Request.Form["id"], out var id))
+                    return BadRequest(new { success = false, message = "ID inválido" });
+
+                if (!int.TryParse(Request.Form["status"], out var status))
+                    return BadRequest(new { success = false, message = "Status inválido" });
+
+                var entity = await _db.Contenidos.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.Id == id);
+                if (entity == null) return NotFound(new { success = false, message = "Contenido no encontrado" });
+
+                entity.EstadoPublicacion = status;
+                entity.FechaModificado = DateTime.UtcNow;
+
+                await _db.SaveChangesAsync();
+
+                return new JsonResult(new { success = true, status });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en OnPostChangeStatusAsync");
+                return StatusCode(500, new { success = false, message = "Error interno al cambiar estatus." });
             }
         }
 
