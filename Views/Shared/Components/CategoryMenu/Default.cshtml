@@ -1,0 +1,30 @@
+@model eiibd26.ViewComponents.CategoryMenuViewComponent.Vm
+@using Microsoft.AspNetCore.Mvc
+
+@if (Model?.Parent != null)
+{
+    <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="cat@Model.Parent.Sequence@-Dropdown" role="button"
+           data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-list-ul me-1" aria-hidden="true"></i>
+            <span>@(Model.Parent.Nombre ?? "Categoría")</span>
+        </a>
+        <ul class="dropdown-menu" aria-labelledby="cat@Model.Parent.Sequence@-Dropdown">
+            @if (Model.Children != null && Model.Children.Any())
+            {
+                foreach (var ch in Model.Children)
+                {
+                    var slug = string.IsNullOrWhiteSpace(ch.CategoriaSlug) ? ch.Sequence.ToString() : ch.CategoriaSlug;
+                    var url = Url.Page("/Contenidos", null, new { categorySlug = slug }, null);
+                    <li><a class="dropdown-item" href="@url">@ch.Nombre</a></li>
+                }
+            }
+            else
+            {
+                var slugParent = string.IsNullOrWhiteSpace(Model.Parent.CategoriaSlug) ? Model.Parent.Sequence.ToString() : Model.Parent.CategoriaSlug;
+                var urlParent = Url.Page("/Contenidos", null, new { categorySlug = slugParent }, null);
+                <li><a class="dropdown-item" href="@urlParent">Ver categoría</a></li>
+            }
+        </ul>
+    </li>
+}
