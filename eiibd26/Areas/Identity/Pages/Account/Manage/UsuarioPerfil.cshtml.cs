@@ -9,7 +9,7 @@ using Microsoft.Data.SqlClient; // para capturar SqlNullValueException
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
-// ImageSharp — instala si aún no lo hiciste:
+// ImageSharp – instala si aún no lo hiciste:
 // dotnet add package SixLabors.ImageSharp
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
@@ -160,7 +160,7 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                         Nombre = string.Empty,
                         Apellidos = string.Empty,
                         EstoyAqui = 0,
-                         Latitud = string.Empty,
+                        Latitud = string.Empty,
                         Longitud = string.Empty,
                         FechaCreacion = DateTime.UtcNow,
                         FechaCreado = DateTime.UtcNow
@@ -171,7 +171,7 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                     {
                         //nameof(Perfil.Titulo),
                         nameof(Perfil.Nombre),
-                        
+
                         nameof(Perfil.Latitud),
                         nameof(Perfil.Longitud)
                     });
@@ -261,15 +261,15 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                         // Resize + Save (PNG)
                         using (var clone = image.Clone(ctx => ctx.Resize(new SixLabors.ImageSharp.Processing.ResizeOptions { Size = new SixLabors.ImageSharp.Size(256, 256), Mode = SixLabors.ImageSharp.Processing.ResizeMode.Crop })))
                         {
-                            await clone.SaveAsync(tmp256, new SixLabors.ImageSharp.Formats.Png.PngEncoder());
+                            await clone.SaveAsync(tmp256, new PngEncoder());
                         }
                         using (var clone = image.Clone(ctx => ctx.Resize(new SixLabors.ImageSharp.Processing.ResizeOptions { Size = new SixLabors.ImageSharp.Size(110, 110), Mode = SixLabors.ImageSharp.Processing.ResizeMode.Crop })))
                         {
-                            await clone.SaveAsync(tmp110, new SixLabors.ImageSharp.Formats.Png.PngEncoder());
+                            await clone.SaveAsync(tmp110, new PngEncoder());
                         }
                         using (var clone = image.Clone(ctx => ctx.Resize(new SixLabors.ImageSharp.Processing.ResizeOptions { Size = new SixLabors.ImageSharp.Size(64, 64), Mode = SixLabors.ImageSharp.Processing.ResizeMode.Crop })))
                         {
-                            await clone.SaveAsync(tmp64, new SixLabors.ImageSharp.Formats.Png.PngEncoder());
+                            await clone.SaveAsync(tmp64, new PngEncoder());
                         }
 
                         // Rutas finales
@@ -278,7 +278,6 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                         var final64 = Path.Combine(uploadsRoot, "avatar-64.png");
 
                         // Reemplazo atómico: eliminar los finales si existen y mover los temporales
-                        // Primero eliminar ficheros finales si existen (para evitar excepciones de Move)
                         try { if (System.IO.File.Exists(final256)) System.IO.File.Delete(final256); } catch { /*ignore*/ }
                         try { if (System.IO.File.Exists(final110)) System.IO.File.Delete(final110); } catch { /*ignore*/ }
                         try { if (System.IO.File.Exists(final64)) System.IO.File.Delete(final64); } catch { /*ignore*/ }
@@ -316,7 +315,7 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
 #if DEBUG
                 var message = ex.Message;
 #else
-        var message = "Error procesando imagen";
+                var message = "Error procesando imagen";
 #endif
                 return new JsonResult(new { error = message }) { StatusCode = 500 };
             }
@@ -375,8 +374,8 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             }
         }
 
-        // GenerateSlug
-        public async Task<JsonResult> OnGetGenerateSlugAsync(string baseText)
+        // GenerateSlug — ahora acepta userId opcional para excluir al propio usuario
+        public async Task<JsonResult> OnGetGenerateSlugAsync(string baseText, Guid? userId = null)
         {
             if (string.IsNullOrWhiteSpace(baseText))
                 return new JsonResult(new { slug = "" });
@@ -388,7 +387,8 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             string candidate = baseSlug;
             int suffix = 0;
 
-            while (await _db.Perfil.AnyAsync(p => p.slug == candidate))
+            // Excluir el userId si se pasa (evita colisiones con el mismo perfil al generar sugerencias)
+            while (await _db.Perfil.AsNoTracking().AnyAsync(p => p.slug == candidate && (!userId.HasValue || p.idUser != userId.Value)))
             {
                 suffix++;
                 candidate = $"{baseSlug}-{suffix}";
@@ -481,11 +481,26 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             Perfil.PermitirMostrarPais = FormBool("Perfil.PermitirMostrarPais");
 
             Perfil.AceptoPP = FormBool("Perfil.AceptoPP");
-            
+
+            // ***** MOVER la asignación de Perfil.idUser AQUI, ANTES de chequear slug *****
+            if (Perfil.idUser == Guid.Empty)
+            {
+                var current = GetUserIdGuid();
+                if (current == null)
+                {
+                    ErrorMessage = "Usuario no autenticado.";
+                    ModelState.AddModelError(string.Empty, ErrorMessage);
+                    CreateSelectLists();
+                    return Page();
+                }
+                Perfil.idUser = current.Value;
+            }
+            // **********************************************************************
 
             if (!string.IsNullOrWhiteSpace(Perfil.slug))
             {
                 var sanitized = Slugify(Perfil.slug);
+                // Ahora la comprobación excluye correctamente el id del perfil (Perfil.idUser ya asignado)
                 var conflict = await _db.Perfil
                     .AsNoTracking()
                     .Where(p => p.slug == sanitized && p.idUser != Perfil.idUser)
@@ -499,19 +514,6 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                 {
                     Perfil.slug = sanitized;
                 }
-            }
-
-            if (Perfil.idUser == Guid.Empty)
-            {
-                var current = GetUserIdGuid();
-                if (current == null)
-                {
-                    ErrorMessage = "Usuario no autenticado.";
-                    ModelState.AddModelError(string.Empty, ErrorMessage);
-                    CreateSelectLists();
-                    return Page();
-                }
-                Perfil.idUser = current.Value;
             }
 
             if (!string.IsNullOrWhiteSpace(Perfil.NombreCiudad) &&
@@ -552,11 +554,11 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                     existing.Avatar = string.IsNullOrWhiteSpace(Perfil.Avatar) ? existing.Avatar : Perfil.Avatar;
                     existing.imagenFondo = Perfil.imagenFondo;
                     //existing.Titulo = Perfil.Titulo;
-                    
+
                     existing.Nombre = Perfil.Nombre;
                     existing.Apellidos = Perfil.Apellidos;
                     existing.FechaDeNacimiento = Perfil.FechaDeNacimiento;
-                    
+
                     existing.EstoyAqui = Perfil.EstoyAqui;
                     existing.idZone = Perfil.idZone;
                     existing.slug = Perfil.slug;
@@ -566,16 +568,16 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                     existing.NombreCiudad = Perfil.NombreCiudad;
                     existing.NombrePais = Perfil.NombrePais;
                     existing.AceptoPP = Perfil.AceptoPP;
-                    
+
                     existing.AcercaDe = Perfil.AcercaDe;
-                    
+
                     existing.FechaModificado = DateTime.UtcNow;
                     existing.UsuarioModificacion = GetUserIdGuid();
-                    
+
                     existing.PermitirTelefonoReal = Perfil.PermitirTelefonoReal;
                     existing.PermitirCorreoNoticias = Perfil.PermitirCorreoNoticias;
                     existing.PermitirMostrarPais = Perfil.PermitirMostrarPais;
-                    
+
                     existing.AceptoPP = Perfil.AceptoPP;
 
                     _db.Perfil.Update(existing);

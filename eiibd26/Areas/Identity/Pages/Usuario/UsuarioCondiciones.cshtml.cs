@@ -42,7 +42,9 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             if (userId == null) return;
             var userIdGuid = Guid.Parse(userId);
 
-            // Trae hijo+padre y datos de vínculo (solo las asignadas de usuario)
+            // Trae hijo+padre y datos de vínculo (solo las asignadas de usuario).
+            // Importante: capturamos también el id de la fila en condicionUsuario (CondicionUsuarioId)
+            // porque las tablas de relación referencian esa PK, y los contadores deben agruparse por ella.
             var condiciones = await (from cu in _db.condicionUsuario
                                      join c in _db.condiciones on cu.idCondicion equals c.id
                                      join padre in _db.condiciones on c.idPadre equals padre.id into padres
@@ -50,18 +52,50 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                                      where cu.idUsuario == userIdGuid && !cu.Eliminado && c.idPadre != null
                                      select new
                                      {
-                                         HijoId = c.id,
+                                         CondicionUsuarioId = cu.id,       // PK de condicionUsuario (usada por relaciones)
+                                         HijoId = c.id,                    // id de la condicion hija (tabla condiciones)
                                          HijoNombre = c.nombre,
                                          PadreNombre = padreJoin != null ? padreJoin.nombre : "(Sin padre)",
-                                         cu.fechaInicio,
-                                         // Tratamientos asociados a la condición del usuario
-                                         TratamientosCount = _db.TratamientoCondicionUsuario
-                                            .Count(tcu => tcu.IdCondicionUsuario == cu.id && tcu.IdUsuario == userIdGuid),
-                                         // Síntomas asociados a la condición del usuario
-                                         SintomasCount = _db.SintomaCondicionUsuario
-                                            .Count(scu => scu.IdCondicionUsuario == cu.id && scu.IdUsuario == userIdGuid)
-                                     }
-                                    ).ToListAsync();
+                                         cu.fechaInicio
+                                     }).ToListAsync();
+
+            if (!condiciones.Any())
+            {
+                MisCondicionesAgrupadas = new List<PadreCondicionGroup>();
+                return;
+            }
+
+            var condUsuarioIds = condiciones.Select(x => x.CondicionUsuarioId).ToList();
+
+            // TratamientosCount: contamos TratamientoCondicionUsuario que pertenezcan al usuario,
+            // cuyo tratamientoUsuario esté activo (no eliminado) y su IdCondicionUsuario corresponda
+            // a una de las filas de condicionUsuario obtenidas.
+            var tratamientosCounts = await (from tcr in _db.TratamientoCondicionUsuario
+                                            join tu in _db.tratamientoUsuario on tcr.IdTratamientoUsuario equals tu.id
+                                            where tcr.IdUsuario == userIdGuid
+                                                  && tu.idUsuario == userIdGuid
+                                                  && !tu.Eliminado
+                                                  && tcr.IdCondicionUsuario != null
+                                                  && condUsuarioIds.Contains(tcr.IdCondicionUsuario.Value)
+                                            group tcr by tcr.IdCondicionUsuario.Value into g
+                                            select new { IdCondicionUsuario = g.Key, Count = g.Count() })
+                                            .ToListAsync();
+
+            // SintomasCount: contamos SintomaCondicionUsuario que pertenezcan al usuario,
+            // cuyo sintomasUsuario esté activo (no eliminado) y su IdCondicionUsuario corresponda
+            // a una de las filas de condicionUsuario obtenidas.
+            var sintomasCounts = await (from scr in _db.SintomaCondicionUsuario
+                                        join su in _db.sintomasUsuario on scr.IdSintomaUsuario equals su.id
+                                        where scr.IdUsuario == userIdGuid
+                                              && su.idUsuario == userIdGuid
+                                              && !su.Eliminado
+                                              && condUsuarioIds.Contains(scr.IdCondicionUsuario)
+                                        group scr by scr.IdCondicionUsuario into g
+                                        select new { IdCondicionUsuario = g.Key, Count = g.Count() })
+                                       .ToListAsync();
+
+            var tratCountMap = tratamientosCounts.ToDictionary(x => x.IdCondicionUsuario, x => x.Count);
+            var sintCountMap = sintomasCounts.ToDictionary(x => x.IdCondicionUsuario, x => x.Count);
 
             MisCondicionesAgrupadas = condiciones
                 .GroupBy(x => x.PadreNombre)
@@ -70,11 +104,13 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     PadreNombre = g.Key,
                     Hijos = g.Select(h => new CondicionConDatos
                     {
+                        // Id here is the child condition id (tabla condiciones) as shown in the UI
                         Id = h.HijoId,
                         Nombre = h.HijoNombre,
                         FechaInicio = h.fechaInicio ?? DateTime.UtcNow,
-                        TratamientosCount = h.TratamientosCount,
-                        SintomasCount = h.SintomasCount
+                        // counts looked up by condicionUsuarioId
+                        TratamientosCount = tratCountMap.TryGetValue(h.CondicionUsuarioId, out var tc) ? tc : 0,
+                        SintomasCount = sintCountMap.TryGetValue(h.CondicionUsuarioId, out var sc) ? sc : 0
                     }).ToList()
                 })
                 .ToList();

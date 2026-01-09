@@ -73,6 +73,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                                                      Nombre = c.nombre
                                                  }).ToListAsync();
 
+            // IMPORTANT: ensure related-symptom and related-condition subqueries are filtered by IdUsuario
             MisTratamientos = await (from tu in _db.tratamientoUsuario
                                      join t in _db.tratamientos on tu.idTratamiento equals t.id
                                      where tu.idUsuario == userIdGuid && !tu.Eliminado
@@ -85,7 +86,9 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                                              from rel in _db.TratamientoSintomaUsuario
                                              join su in _db.sintomasUsuario on rel.IdSintomaUsuario equals su.id
                                              join s in _db.sintomas on su.idSintoma equals s.id
-                                             where rel.IdTratamientoUsuario == tu.id && !su.Eliminado
+                                             where rel.IdTratamientoUsuario == tu.id
+                                                   && rel.IdUsuario == tu.idUsuario   // ensure relation belongs to same user
+                                                   && !su.Eliminado                    // only show active sintomasUsuario
                                              select new RelSimple
                                              {
                                                  Id = rel.IdSintomaUsuario ?? 0,
@@ -95,7 +98,9 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                                              from rel in _db.TratamientoCondicionUsuario
                                              join cu in _db.condicionUsuario on rel.IdCondicionUsuario equals cu.id
                                              join c in _db.condiciones on cu.idCondicion equals c.id
-                                             where rel.IdTratamientoUsuario == tu.id && !cu.Eliminado
+                                             where rel.IdTratamientoUsuario == tu.id
+                                                   && rel.IdUsuario == tu.idUsuario   // ensure relation belongs to same user
+                                                   && !cu.Eliminado                    // only show active condicionUsuario
                                              select new RelSimple
                                              {
                                                  Id = rel.IdCondicionUsuario ?? 0,
@@ -165,17 +170,29 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             {
                 var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
                 if (userId == null) return Unauthorized();
+                var userGuid = Guid.Parse(userId);
 
                 var tratamiento = await _db.tratamientoUsuario
-                    .FirstOrDefaultAsync(x => x.idUsuario == Guid.Parse(userId) && x.id == tratId && !x.Eliminado);
+                    .FirstOrDefaultAsync(x => x.idUsuario == userGuid && x.id == tratId && !x.Eliminado);
 
                 if (tratamiento == null)
                     return new JsonResult(new { ok = false, mensaje = "No encontrado o ya eliminado." }) { StatusCode = 404 };
 
-                var tieneSintomas = await _db.TratamientoSintomaUsuario
-                    .AnyAsync(x => x.IdUsuario == Guid.Parse(userId) && x.IdTratamientoUsuario == tratId);
-                var tieneCondiciones = await _db.TratamientoCondicionUsuario
-                    .AnyAsync(x => x.IdUsuario == Guid.Parse(userId) && x.IdTratamientoUsuario == tratId);
+                // Check relations filtered by the current user AND ensure the referenced child is not soft-deleted
+                var tieneSintomas = await (
+                    from rel in _db.TratamientoSintomaUsuario
+                    join su in _db.sintomasUsuario on rel.IdSintomaUsuario equals su.id
+                    where rel.IdUsuario == userGuid && rel.IdTratamientoUsuario == tratId && !su.Eliminado
+                    select rel
+                ).AnyAsync();
+
+                var tieneCondiciones = await (
+                    from rel in _db.TratamientoCondicionUsuario
+                    join cu in _db.condicionUsuario on rel.IdCondicionUsuario equals cu.id
+                    where rel.IdUsuario == userGuid && rel.IdTratamientoUsuario == tratId && !cu.Eliminado
+                    select rel
+                ).AnyAsync();
+
                 if (tieneSintomas || tieneCondiciones)
                     return new JsonResult(new { ok = false, mensaje = "Elimina primero los síntomas o condiciones asociados." }) { StatusCode = 400 };
 

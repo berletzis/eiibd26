@@ -29,7 +29,7 @@
         min-width: 220px;
         flex: 1 1 320px;
         margin-bottom: 0;
-        padding-bottom:15px;
+        padding-bottom: 15px;
     }
 
         .ums-left h4 {
@@ -128,16 +128,17 @@
                 <label class="visually-hidden" for="ums_country">Selecciona tu País</label>
                 <select id="ums_country" class="form-select" aria-label="Selecciona tu País">
                     <option value="">---Selecciona tu país---</option>
+                    @* IMPORTANT: add data-name with the country display name (without code) to avoid parsing option text *@
                     @foreach (var c in Model.Countries)
                     {
-                        <option value="@c.Code">@c.Name (@c.Code)</option>
+                        <option value="@c.Code" data-name="@c.Name">@c.Name (@c.Code)</option>
                     }
                 </select>
             </div>
         </div>
 
         <div class="ums-actions" aria-hidden="true"></div>
-    </div>    
+    </div>
 </div>
 <div id="ums_map" class="users-map-canvas" role="application" aria-label="Mapa de usuarios"></div>
 <!-- Google Maps JS API -->
@@ -149,6 +150,8 @@
     (function () {
         const profiles = @Html.Raw(Model.ProfilesJson ?? "[]");
         const mapEl = document.getElementById('ums_map');
+        const countrySel = document.getElementById('ums_country');
+        const countEl = document.getElementById('ums_count');
         if (!mapEl) return;
 
         const MIN_ZOOM = 2;
@@ -156,6 +159,7 @@
         const MAX_ZOOM_CLUSTER_CLICK = 7;
         const JITTER_MAX_DEG = 0.02;
 
+        let geocoder = new google.maps.Geocoder();
         const map = new google.maps.Map(mapEl, {
             center: { lat: 20, lng: 0 }, zoom: 2, minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM,
             mapTypeControl: false, streetViewControl: false, fullscreenControl: true,
@@ -167,18 +171,17 @@
             return { lat: lat + (Math.random() - 0.5) * f, lng: lng + (Math.random() - 0.5) * f };
         }
 
-        const markers = profiles.map(p => {
-            const lat = Number(p.lat), lng = Number(p.lng);
-            const pos = isFinite(lat) && isFinite(lng) ? jitterCoord(lat, lng) : { lat: 0, lng: 0 };
-            const m = new google.maps.Marker({ position: pos, title: p.name, opacity: 0, clickable: true });
-            m._umsInfo = p;
-            return m;
-        });
-
-        function smallMarkerSvgDataUrl(size = 14) {
+        function smallMarkerSvgDataUrl(size = 14, label = '') {
             const stroke = 2;
             const cx = size/2, cy = size/2, r = Math.max(4, Math.round((size - stroke*2)/2));
-            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${cx}" cy="${cy}" r="${r}" fill="#7c3aed" stroke="#fff" stroke-width="${stroke}"/></svg>`;
+            const fill = '#7c3aed';
+            const strokeColor = '#ffffff';
+            let textSvg = '';
+            if (label !== null && String(label).length) {
+                const fontSize = Math.max(8, Math.round(size * 0.5));
+                textSvg = `<text x="50%" y="50%" font-size="${fontSize}" fill="#fff" text-anchor="middle" dominant-baseline="central" font-family="Arial, sans-serif">${String(label)}</text>`;
+            }
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${strokeColor}" stroke-width="${stroke}" />${textSvg}</svg>`;
             return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
         }
 
@@ -189,7 +192,7 @@
             const cx = size/2, cy = size/2;
             const fill = '#7c3aed', strokeColor = '#ffffff';
             const fontSize = Math.max(10, Math.round(size * fontFactor));
-            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${cx}" cy="${cy}" r="${radius}" fill="${fill}" stroke="${strokeColor}" stroke-width="${stroke}" /><text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" font-family="Roboto, Arial, sans-serif" font-weight="700" font-size="${fontSize}" fill="#ffffff">${count}</text></svg>`;
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${cx}" cy="${cy}" r="${radius}" fill="${fill}" stroke="${strokeColor}" stroke-width="${stroke}" /><text x="50%" y="50%" font-size="${fontSize}" fill="#fff" text-anchor="middle" dominant-baseline="central" font-family="Arial, sans-serif">${count}</text></svg>`;
             return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
         }
 
@@ -203,7 +206,7 @@
         const renderer = {
             render({ count, position }) {
                 const size = sizeForCount(count);
-                const svg = createClusterSvg(count, size);
+                const svg = createClusterSvg(count || 0, size);
                 return new google.maps.Marker({
                     position,
                     icon: { url: svg, scaledSize: new google.maps.Size(size, size) },
@@ -212,7 +215,6 @@
             }
         };
 
-        // detect MarkerClusterer constructor safely
         let MarkerClustererCtor = window.MarkerClusterer || (window.markerClusterer && window.markerClusterer.MarkerClusterer) || (window.markerclusterer && window.markerclusterer.MarkerClusterer) || null;
         if (!MarkerClustererCtor && window.markerClusterer && window.markerClusterer.default) MarkerClustererCtor = window.markerClusterer.default;
         if (!MarkerClustererCtor && window.markerclusterer && window.markerclusterer.default) MarkerClustererCtor = window.markerclusterer.default;
@@ -225,13 +227,22 @@
             console.warn('MarkerClusterer constructor not found — using fallback markers');
         }
 
+        // Create markers from profiles
+        const markers = profiles.map(p => {
+            const lat = Number(p.lat), lng = Number(p.lng);
+            const pos = isFinite(lat) && isFinite(lng) ? jitterCoord(lat, lng) : { lat: 0, lng: 0 };
+            const iconUrl = smallMarkerSvgDataUrl(14, '1'); // show "1" inside single circle
+            const m = new google.maps.Marker({ position: pos, title: p.name, icon: { url: iconUrl, scaledSize: new google.maps.Size(14, 14) } });
+            m._umsInfo = p;
+            return m;
+        });
+
         // fallback visible markers if clusterer absent
         let visibleFallbackMarkers = [];
-
         function showFallbackMarkers(list) {
             visibleFallbackMarkers.forEach(vm => vm.setMap(null));
             visibleFallbackMarkers = [];
-            const iconUrl = smallMarkerSvgDataUrl(18);
+            const iconUrl = smallMarkerSvgDataUrl(18, '1');
             list.forEach(mProto => {
                 const vm = new google.maps.Marker({
                     position: mProto.getPosition(), map, title: mProto.getTitle(),
@@ -240,64 +251,73 @@
                 vm._umsInfo = mProto._umsInfo;
                 vm.addListener('click', function() {
                     const p = vm._umsInfo || {};
-                    const infoHtml = `<div style="min-width:200px;font-family:Roboto,Arial,sans-serif"><div style="font-weight:700;margin-bottom:6px;">${escapeHtml(p.name)}</div><div style="color:#6b7280;font-size:.9rem;margin-bottom:6px;">${escapeHtml(p.country)}</div><div style="font-size:.85rem;color:#2563eb;"><a href="/Perfil/${p.id}" style="color:inherit;text-decoration:none;">Ver perfil</a></div></div>`;
+                    const infoHtml = `<div style="min-width:200px;font-family:Roboto,Arial,sans-serif"><div style="font-weight:700;margin-bottom:6px;">${escapeHtml(p.name)}</div><div style="color:#6b7280;font-size:.9rem;">${escapeHtml(p.country || '')}</div></div>`;
                     new google.maps.InfoWindow({ content: infoHtml }).open(map, vm);
                 });
                 visibleFallbackMarkers.push(vm);
             });
         }
 
-        function wireClusterClickListener(ct) {
-            if (!ct || !ct.addListener) return;
-            ct.addListener('clusterclick', (evt) => {
-                const clusterMarkers = evt.markers || (evt.cluster && typeof evt.cluster.getMarkers === 'function' ? evt.cluster.getMarkers() : []);
-                if (!clusterMarkers || !clusterMarkers.length) return;
-                const bounds = new google.maps.LatLngBounds();
-                clusterMarkers.forEach(m => bounds.extend(m.getPosition()));
-                map.fitBounds(bounds);
-                google.maps.event.addListenerOnce(map, 'idle', function() {
-                    if (map.getZoom() > MAX_ZOOM_CLUSTER_CLICK) map.setZoom(MAX_ZOOM_CLUSTER_CLICK);
-                });
-            });
-        }
-
-        wireClusterClickListener(clusterer);
-
-        map.addListener('zoom_changed', function() {
-            const z = map.getZoom();
-            if (z > MAX_ZOOM) setTimeout(() => map.setZoom(MAX_ZOOM), 0);
-            if (z < MIN_ZOOM) setTimeout(() => map.setZoom(MIN_ZOOM), 0);
-        });
-
-        const infoWindow = new google.maps.InfoWindow();
+        // attach click info window to markers
         markers.forEach(m => {
             m.addListener('click', function() {
                 const p = m._umsInfo || {};
-                const infoHtml = `<div style="min-width:200px;font-family:Roboto,Arial,sans-serif"><div style="font-weight:700;margin-bottom:6px;">${escapeHtml(p.name)}</div><div style="color:#6b7280;font-size:.9rem;margin-bottom:6px;">${escapeHtml(p.country)}</div><div style="font-size:.85rem;color:#2563eb;"><a href="/Perfil/${p.id}" style="color:inherit;text-decoration:none;">Ver perfil</a></div></div>`;
-                infoWindow.setContent(infoHtml);
-                infoWindow.open(map, m);
+                const infoHtml = `<div style="min-width:200px;font-family:Roboto,Arial,sans-serif"><div style="font-weight:700;margin-bottom:6px;">${escapeHtml(p.name)}</div><div style="color:#6b7280;font-size:.9rem;">${escapeHtml(p.country || '')}</div></div>`;
+                new google.maps.InfoWindow({ content: infoHtml }).open(map, m);
             });
         });
 
+        // Keep track of currently visible markers for count
         let currentVisibleMarkers = [];
 
         function updateCount() {
             const count = currentVisibleMarkers.length;
-            const el = document.getElementById('ums_count');
-            if (el) el.innerHTML = `Mostrando <b>${count}</b> ubicaciones de usuarios registrados`;
+            if (countEl) countEl.innerHTML = `Mostrando <b>${count}</b> ubicaciones de usuarios registrados`;
         }
 
-        const countrySel = document.getElementById('ums_country');
-
+        // applyFilter: show only markers matching selected country (use data-name attribute to avoid option text noise)
         function applyFilter() {
             const code = (countrySel.value || '').trim().toUpperCase();
+            const selName = (countrySel.selectedOptions[0]?.dataset?.name || '').toLowerCase(); // clean name only
+            // Debug helper: will collect any matches that don't look right
+            const unexpected = [];
+
             const visible = markers.filter(m => {
+                const p = m._umsInfo || {};
+                const mcode = (p.countryCode || '').toString().toUpperCase(); // prefer explicit countryCode if provided by server
+                const mcountry = (p.country || '').toString().toLowerCase();
+
+                if (!code) return true; // no filter -> all
+
+                // 1) exact country code match (most reliable)
+                if (mcode && mcode === code) return true;
+
+                // 2) match by country name (use selName, which is just the display name)
+                if (selName && mcountry && mcountry.indexOf(selName) !== -1) return true;
+
+                // otherwise not a match
+                // collect for debug if it was included by some other logic later
+                return false;
+            });
+
+            // Debugging: log markers that would be included but don't match by code/name (should be none)
+            // (This helps spot entries with missing/incorrect countryCode or country fields)
+            markers.forEach(m => {
                 const p = m._umsInfo || {};
                 const mcode = (p.countryCode || '').toString().toUpperCase();
                 const mcountry = (p.country || '').toString().toLowerCase();
-                const selText = (countrySel.options[countrySel.selectedIndex]?.text || '').toLowerCase();
-                return (!code) || mcode === code || mcountry.indexOf(code.toLowerCase()) !== -1 || mcountry.indexOf(selText) !== -1;
+                const included = visible.indexOf(m) !== -1;
+                if (included && code) {
+                    const byCode = mcode && mcode === code;
+                    const byName = selName && mcountry && mcountry.indexOf(selName) !== -1;
+                    if (!byCode && !byName) {
+                        unexpected.push({ id: p.id || p.idUser || null, name: p.name, country: p.country, countryCode: p.countryCode, lat: p.lat, lng: p.lng });
+                    }
+                }
             });
+            if (unexpected.length) {
+                console.warn('Unexpected markers included for country filter', code, selName, unexpected);
+            }
 
             // clear previous display
             if (clusterer && typeof clusterer.clearMarkers === 'function') clusterer.clearMarkers();
@@ -315,18 +335,46 @@
                     if (map.getZoom() > MAX_ZOOM_CLUSTER_CLICK) map.setZoom(MAX_ZOOM_CLUSTER_CLICK);
                 });
             } else {
-                // show all
-                if (clusterer && typeof clusterer.addMarkers === 'function') clusterer.addMarkers(markers);
-                else showFallbackMarkers(markers);
-
-                currentVisibleMarkers = markers.slice();
-                map.setCenter({ lat: 20, lng: 0 });
-                map.setZoom(2);
+                // if no visible markers, center on the country selected (use selName for geocoding)
+                if (code || selName) {
+                    const textToUse = selName || code;
+                    geocoder.geocode({ address: textToUse }, function(results, status) {
+                        if (status === 'OK' && results && results[0]) {
+                            const r = results[0];
+                            const bounds = r.geometry && (r.geometry.bounds || r.geometry.viewport) ? (r.geometry.bounds || r.geometry.viewport) : null;
+                            if (bounds) {
+                                map.fitBounds(bounds);
+                                google.maps.event.addListenerOnce(map, 'idle', function() {
+                                    if (map.getZoom() > MAX_ZOOM_CLUSTER_CLICK) map.setZoom(MAX_ZOOM_CLUSTER_CLICK);
+                                });
+                            } else if (r.geometry && r.geometry.location) {
+                                map.setCenter(r.geometry.location);
+                                map.setZoom(MAX_ZOOM_CLUSTER_CLICK);
+                            }
+                        } else {
+                            // no geocode result: show everything (fallback)
+                            if (clusterer && typeof clusterer.addMarkers === 'function') clusterer.addMarkers(markers);
+                            else showFallbackMarkers(markers);
+                            currentVisibleMarkers = markers.slice();
+                            map.setCenter({ lat: 20, lng: 0 });
+                            map.setZoom(2);
+                        }
+                    });
+                } else {
+                    // no selection: show all
+                    if (clusterer && typeof clusterer.addMarkers === 'function') clusterer.addMarkers(markers);
+                    else showFallbackMarkers(markers);
+                    currentVisibleMarkers = markers.slice();
+                    const bounds = new google.maps.LatLngBounds();
+                    markers.forEach(m => bounds.extend(m.getPosition()));
+                    try { map.fitBounds(bounds); } catch (e) { map.setCenter({ lat: 20, lng: 0 }); map.setZoom(2); }
+                }
             }
 
             updateCount();
         }
 
+        // wire change event
         countrySel.addEventListener('change', applyFilter);
 
         // initial population (show all)
