@@ -1,3 +1,4 @@
+// Reemplaza el archivo existente por este (UTF-8 sin BOM)
 using eiibd26.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -107,7 +108,7 @@ namespace eiibd26.Pages.Mapa
             }
         }
 
-        // Score-based ordering (marketing) + filtering por yearsRange correctamente aplicada
+        // OnGetProfilesAsync: devuelve total + items paginados. Se añadió diagnosisAgeText para evitar "0 años".
         public async Task<IActionResult> OnGetProfilesAsync(string country = "", int? conditionId = null, string yearsRange = "", int skip = 0, int take = 48)
         {
             int version = 0;
@@ -133,7 +134,7 @@ namespace eiibd26.Pages.Mapa
                     basePerfil = basePerfil.Where(p => (p.NombrePais ?? "").ToUpper().Contains(cUp));
                 }
 
-                // compute acceptedConditionIds if conditionId supplied (include descendants)
+                // build accepted condition ids if conditionId provided (include descendants)
                 List<int> acceptedConditionIds = null;
                 if (conditionId.HasValue)
                 {
@@ -161,7 +162,7 @@ namespace eiibd26.Pages.Mapa
                     acceptedConditionIds = set.ToList();
                 }
 
-                // projected query: includes condFechaInicio (nullable) and condId
+                // projected query
                 var projectedQuery = basePerfil.Select(p => new
                 {
                     idUser = p.idUser,
@@ -193,21 +194,18 @@ namespace eiibd26.Pages.Mapa
                         .FirstOrDefault()
                 });
 
-                // apply condition filter (include descendants) if requested
                 if (acceptedConditionIds != null && acceptedConditionIds.Any())
                 {
-                    var acc = acceptedConditionIds; // materialize to list
+                    var acc = acceptedConditionIds;
                     projectedQuery = projectedQuery.Where(x => x.condId.HasValue && acc.Contains(x.condId.Value));
                 }
 
-                // --- NEW: apply yearsRange filter ---
+                // apply yearsRange filtering (as before)
                 if (!string.IsNullOrWhiteSpace(yearsRange))
                 {
-                    // compute boundaries based on "now"
                     if (yearsRange == "0-1")
                     {
                         var a = now.AddYears(-1);
-                        // include those with condDate within last year OR without condDate (as your label indicated)
                         projectedQuery = projectedQuery.Where(x => x.condFechaInicio == null || (x.condFechaInicio <= now && x.condFechaInicio > a));
                     }
                     else if (yearsRange == "1-3")
@@ -235,7 +233,7 @@ namespace eiibd26.Pages.Mapa
                     }
                 }
 
-                // For marketing: compute simple score (translated to SQL-friendly expressions)
+                // compute marketing score
                 var scoredQuery = projectedQuery.Select(x => new
                 {
                     x.idUser,
@@ -311,12 +309,29 @@ namespace eiibd26.Pages.Mapa
                     string lastMoodText = lm != null ? (lm.Texto ?? "") : "";
                     string condNombre = o.condId.HasValue && condLookup.ContainsKey(o.condId.Value) ? condLookup[o.condId.Value] : "";
 
+                    // compute display text for diagnosis age
+                    string diagnosisAgeText = null;
                     int? yearsSinceDiagnosis = null;
                     if (o.condFechaInicio.HasValue && o.condFechaInicio.Value > minValidDate && o.condFechaInicio.Value <= now)
                     {
                         var span = now - o.condFechaInicio.Value;
-                        if (span.TotalDays >= 0)
-                            yearsSinceDiagnosis = (int)Math.Floor(span.TotalDays / 365.25);
+                        if (span.TotalDays < 30.44)
+                        {
+                            diagnosisAgeText = "Menos de 1 mes";
+                            yearsSinceDiagnosis = 0;
+                        }
+                        else if (span.TotalDays < 365)
+                        {
+                            var months = (int)Math.Floor(span.TotalDays / 30.44);
+                            diagnosisAgeText = months + (months == 1 ? " mes" : " meses");
+                            yearsSinceDiagnosis = 0;
+                        }
+                        else
+                        {
+                            var years = (int)Math.Floor(span.TotalDays / 365.25);
+                            diagnosisAgeText = years == 1 ? "1 año" : (years + " años");
+                            yearsSinceDiagnosis = years;
+                        }
                     }
 
                     return new
@@ -332,6 +347,7 @@ namespace eiibd26.Pages.Mapa
                         condFechaInicio = o.condFechaInicio.HasValue ? o.condFechaInicio.Value.ToString("o") : null,
                         hasFechaDiagnostico = o.condFechaInicio.HasValue,
                         yearsSinceDiagnosis = yearsSinceDiagnosis,
+                        diagnosisAgeText = diagnosisAgeText,
                         lastMood = lastMood,
                         lastMoodText = lastMoodText
                     };

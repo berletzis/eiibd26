@@ -267,9 +267,10 @@
 
     <script>
         (function () {
-            // JS completo (lazy avatars, paginación por scroll, clusterer renderer declarado antes de initMap)
-            // --- configuración ---
-            const PAGE_SIZE = 48, SCROLL_THRESHOLD_PX = 300, DEBOUNCE_MS = 350;
+            const PAGE_SIZE = 48;
+            const SCROLL_THRESHOLD_PX = 300;
+            const DEBOUNCE_MS = 350;
+
             const cardsContainer = document.getElementById('cardsContainer');
             const cardsScroll = document.getElementById('cardsScroll');
             const loaderEl = document.getElementById('loader');
@@ -286,41 +287,74 @@
             let firstLoadDone = false;
             let geocoder = null;
 
-            const avatarExistenceCache = new Map();
+            // Avatar logic: use Avatar field directly; avoid double-encoding when Avatar already contains a path.
+            const knownPlaceholderPatterns = [
+                /default[-_]?avatar/i,
+                /default\.jpg/i,
+                /ui-avatars\.com/i,
+                /placeholder/i
+            ];
+            function looksLikePlaceholder(raw) {
+                if (!raw) return true;
+                const s = String(raw).trim();
+                if (!s) return true;
+                for (const rx of knownPlaceholderPatterns) if (rx.test(s)) return true;
+                return false;
+            }
+            function isAbsoluteUrl(u) { return /^https?:\/\//i.test(u); }
 
             function toAbsolute(candidate) {
-                if (!candidate) return candidate;
-                if (/^https?:\/\//i.test(candidate)) return candidate;
+                if (!candidate) return null;
+                if (isAbsoluteUrl(candidate)) return candidate;
+                // candidate may already start with '/', keep it
                 return location.origin + (candidate.startsWith('/') ? candidate : ('/' + candidate));
             }
 
-            function tryLoadImage(candidate, timeoutMs = 3000) {
-                return new Promise(resolve => {
-                    if (!candidate) return resolve(false);
-                    const abs = toAbsolute(candidate);
-                    if (avatarExistenceCache.has(abs)) return resolve(avatarExistenceCache.get(abs));
-                    const img = new Image();
-                    let done = false;
-                    const timer = setTimeout(() => {
-                        if (!done) { done = true; avatarExistenceCache.set(abs, false); img.src = ''; resolve(false); }
-                    }, timeoutMs);
-                    img.onload = function () { if (!done) { done = true; clearTimeout(timer); avatarExistenceCache.set(abs, true); resolve(true); } };
-                    img.onerror = function () { if (!done) { done = true; clearTimeout(timer); avatarExistenceCache.set(abs, false); resolve(false); } };
-                    img.src = abs;
-                });
-            }
+            async function resolveAvatarForElement(imgEl) {
+                if (!imgEl) return;
+                if (imgEl.dataset.resolved === '1') return;
+                if (imgEl.dataset.resolving === '1') return;
+                imgEl.dataset.resolving = '1';
 
-            // cluster renderer must be declared before initMap
-            const clustererRenderer = {
-                render({ count, position }) {
-                    const size = Math.max(30, Math.min(76, 30 + Math.round(Math.log10(count || 1) * 10)));
-                    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${size/2}" cy="${size/2}" r="${(size-4)/2}" fill="#7c3aed" stroke="#fff" stroke-width="2"/><text x="50%" y="50%" font-size="${Math.max(10, Math.round(size*0.34))}" fill="#fff" text-anchor="middle" dominant-baseline="central">${count}</text></svg>`;
-                    return new google.maps.Marker({
-                        position,
-                        icon: { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg), scaledSize: new google.maps.Size(size, size) }
-                    });
+                try {
+                    const rawAvatar = (imgEl.dataset.avatar || '').trim();
+
+                    if (!rawAvatar || looksLikePlaceholder(rawAvatar)) {
+                        imgEl.src = '/img/default-avatar.png';
+                        imgEl.dataset.resolved = '1';
+                        return;
+                    }
+
+                    // If it's an absolute URL, use it
+                    if (isAbsoluteUrl(rawAvatar)) {
+                        imgEl.src = rawAvatar;
+                        imgEl.dataset.resolved = '1';
+                        return;
+                    }
+
+                    // If the avatar field already contains a full uploads path, use it as-is (avoid encode)
+                    // Accept both "/uploads/avatars/..." and "uploads/avatars/..."
+                    if (rawAvatar.toLowerCase().includes('/uploads/avatars/') || rawAvatar.toLowerCase().startsWith('uploads/avatars/')) {
+                        const asIs = rawAvatar.startsWith('/') ? rawAvatar : ('/' + rawAvatar.replace(/^\/+/, ''));
+                        imgEl.src = toAbsolute(asIs);
+                        imgEl.dataset.resolved = '1';
+                        return;
+                    }
+
+                    // Otherwise assume the avatar field is a filename stored in uploads/avatars/
+                    // Use /uploads/avatars/{filename}
+                    // Do not double-encode slashes because filename should not contain slashes here.
+                    const path = '/uploads/avatars/' + encodeURIComponent(rawAvatar);
+                    imgEl.src = toAbsolute(path);
+                    imgEl.dataset.resolved = '1';
+                } catch (err) {
+                    console.debug('resolveAvatarForElement error', err);
+                    imgEl.src = '/img/default-avatar.png';
+                    imgEl.dataset.resolved = '1';
+                } finally {
+                    delete imgEl.dataset.resolving;
                 }
-            };
+            }
 
             // IntersectionObserver for lazy avatars
             const ioOptions = { root: null, rootMargin: '200px', threshold: 0.01 };
@@ -331,7 +365,7 @@
                         entries.forEach(entry => {
                             if (entry.isIntersecting) {
                                 const img = entry.target;
-                                if (img && img.dataset && img.dataset.avatar) {
+                                if (img && img.dataset) {
                                     avatarObserver.unobserve(img);
                                     resolveAvatarForElement(img);
                                 }
@@ -343,68 +377,31 @@
                 avatarObserver = null;
             }
 
-            async function resolveAvatarForElement(imgEl) {
-                if (!imgEl) return;
-                if (imgEl.dataset.resolved === '1') return;
-                if (imgEl.dataset.resolving === '1') return;
-                imgEl.dataset.resolving = '1';
-
-                const rawAvatar = (imgEl.dataset.avatar || '').trim();
-                const userId = (imgEl.dataset.userid || imgEl.dataset.id || '').trim();
-
-                try {
-                    if (rawAvatar && userId) {
-                        const filename = rawAvatar.includes('/') ? rawAvatar.split('/').pop() : rawAvatar;
-                        if (filename) {
-                            const c1 = '/uploads/avatars/' + encodeURIComponent(userId) + '/' + encodeURIComponent(filename);
-                            if (await tryLoadImage(c1)) {
-                                imgEl.src = c1;
-                                imgEl.dataset.resolved = '1';
-                                delete imgEl.dataset.resolving;
-                                return;
-                            }
-                        }
-                    }
-
-                    if (rawAvatar) {
-                        if (/\/uploads\/avatars\//i.test(rawAvatar) || rawAvatar.startsWith('/')) {
-                            const asIs = rawAvatar.startsWith('/') ? rawAvatar : ('/' + rawAvatar);
-                            if (await tryLoadImage(asIs)) {
-                                imgEl.src = asIs;
-                                imgEl.dataset.resolved = '1';
-                                delete imgEl.dataset.resolving;
-                                return;
-                            }
-                        }
-                        if (!rawAvatar.includes('/')) {
-                            const c2 = '/uploads/avatars/' + encodeURIComponent(rawAvatar);
-                            if (await tryLoadImage(c2)) {
-                                imgEl.src = c2;
-                                imgEl.dataset.resolved = '1';
-                                delete imgEl.dataset.resolving;
-                                return;
-                            }
-                        }
-                    }
-
-                    imgEl.src = '/img/default-avatar.png';
-                    imgEl.dataset.resolved = '1';
-                } catch (e) {
-                    imgEl.src = '/img/default-avatar.png';
-                    imgEl.dataset.resolved = '1';
-                } finally {
-                    delete imgEl.dataset.resolving;
-                }
-            }
-
             function observeAvatar(img) {
                 if (!img) return;
                 img.setAttribute('loading', 'lazy');
+                const raw = img.dataset.avatar || '';
+                if (!raw || looksLikePlaceholder(raw)) {
+                    img.src = '/img/default-avatar.png';
+                    img.dataset.resolved = '1';
+                    return;
+                }
                 if (avatarObserver) {
-                    try { avatarObserver.observe(img); return; } catch(e){ /* fallback */ }
+                    try { avatarObserver.observe(img); return; } catch (e) { /* fallback */ }
                 }
                 resolveAvatarForElement(img);
             }
+
+            const clustererRenderer = {
+                render({ count, position }) {
+                    const size = Math.max(30, Math.min(76, 30 + Math.round(Math.log10(count || 1) * 10)));
+                    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${size/2}" cy="${size/2}" r="${(size-4)/2}" fill="#7c3aed" stroke="#fff" stroke-width="2"/><text x="50%" y="50%" font-size="${Math.max(10, Math.round(size*0.34))}" fill="#fff" text-anchor="middle" dominant-baseline="central">${count}</text></svg>`;
+                    return new google.maps.Marker({
+                        position,
+                        icon: { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg), scaledSize: new google.maps.Size(size, size) }
+                    });
+                }
+            };
 
             function escapeHtml(s) { if (!s) return ''; return String(s).replace(/[&<>"'`=\/]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#47;','`':'&#96;','=':'&#61;'}[c])); }
             function jitterCoord(lat, lng) { const f = JITTER_MAX_DEG; return { lat: lat + (Math.random() - 0.5) * f, lng: lng + (Math.random() - 0.5) * f }; }
@@ -414,12 +411,12 @@
                 const avatar = profile.avatar || '';
                 const id = profile.id || profile.idUser || '';
                 const src = '/img/default-avatar.png';
+                // keep raw avatar value in data-avatar (escaped)
                 return `<img src="${src}" data-avatar="${escapeHtml(avatar)}" data-userid="${escapeHtml(String(id))}" class="ums-avatar" alt="${escapeHtml(profile.name || 'Usuario')}" loading="lazy" />`;
             }
 
             function buildCardHtml(p) {
-                const years = p.yearsSinceDiagnosis;
-                const yearsText = (p.hasFechaDiagnostico === false || years === null || years === undefined) ? 'Sin Fecha' : (years === 1 ? '1 año' : (years + ' años'));
+                const yearsText = p.diagnosisAgeText ? p.diagnosisAgeText : (p.yearsSinceDiagnosis != null ? (p.yearsSinceDiagnosis === 1 ? '1 año' : (p.yearsSinceDiagnosis + ' años')) : 'Sin Fecha');
                 const condName = p.condicionNombre || '';
                 const mood = p.lastMood ? (p.lastMood + (p.lastMoodText ? ` — ${p.lastMoodText}` : '')) : 'Sin estado';
                 const displayName = p.name || 'Usuario';
@@ -449,7 +446,6 @@
 
                 const fragment = document.createDocumentFragment();
                 profiles.forEach(p => {
-                    if (p.hasFechaDiagnostico === false) p.yearsSinceDiagnosis = null;
                     const wrapper = document.createElement('div');
                     wrapper.innerHTML = buildCardHtml(p);
                     fragment.appendChild(wrapper.firstElementChild);
@@ -564,7 +560,7 @@
                 });
             }
 
-            function initMap() {
+            window.initMap = function initMap() {
                 try {
                     if (!window.google || !google.maps) {
                         console.warn('Google Maps not available at initMap time.');
@@ -586,18 +582,44 @@
                 } catch (ex) {
                     console.error('initMap error', ex);
                 }
+            };
+
+            function debounce(fn, wait) {
+                let t;
+                return function (...args) {
+                    clearTimeout(t);
+                    t = setTimeout(() => fn.apply(this, args), wait);
+                };
             }
 
-            function debounce(fn, wait) { let t; return function (...args) { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), wait); }; }
-            function onScroll() { if (isLoading) return; const el = cardsScroll; if (!el) return; const remaining = el.scrollHeight - el.scrollTop - el.clientHeight; if (remaining <= SCROLL_THRESHOLD_PX) loadNextBatch(); }
+            function onScroll() {
+                if (isLoading) return;
+                const el = cardsScroll;
+                if (!el) return;
+                const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
+                if (remaining <= SCROLL_THRESHOLD_PX) loadNextBatch();
+            }
 
-            const debouncedReset = debounce(() => { loadedCount = 0; totalCount = 0; loadedProfiles = []; clearCards(); clearMarkers(); loadNextBatch(); }, DEBOUNCE_MS);
+            const debouncedReset = debounce(() => {
+                loadedCount = 0; totalCount = 0; loadedProfiles = [];
+                clearCards(); clearMarkers();
+                loadNextBatch();
+            }, DEBOUNCE_MS);
 
-            document.getElementById('btnReload').addEventListener('click', function () { const countryText = document.getElementById('filter_country').selectedOptions[0]?.text || ''; if (countryText && countryText !== '(Todos)') centerMapOnCountry(countryText); loadedCount = 0; totalCount = 0; loadedProfiles = []; clearCards(); clearMarkers(); loadNextBatch(); });
-            ['filter_country','filter_condition','filter_years'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('change', debouncedReset); });
+            document.getElementById('btnReload').addEventListener('click', function () {
+                const countryText = document.getElementById('filter_country').selectedOptions[0]?.text || '';
+                if (countryText && countryText !== '(Todos)') centerMapOnCountry(countryText);
+                loadedCount = 0; totalCount = 0; loadedProfiles = [];
+                clearCards(); clearMarkers();
+                loadNextBatch();
+            });
+
+            ['filter_country','filter_condition','filter_years'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('change', debouncedReset);
+            });
             cardsScroll.addEventListener('scroll', onScroll);
 
-            initMap();
             if (USER_COUNTRY) centerMapOnCountry(USER_COUNTRY);
             loadNextBatch();
         })();
