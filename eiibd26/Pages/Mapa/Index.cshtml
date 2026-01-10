@@ -68,6 +68,12 @@
             min-height: 70vh;
             position: relative;
         }
+        /* Ensure map canvas fills container */
+        #mapCanvas {
+            width: 100%;
+            height: 100%;
+            min-height: 70vh;
+        }
 
         .section-title {
             font-size: 1.25rem;
@@ -231,9 +237,7 @@
             </select>
         </div>
 
-        <div>
-            <button id="btnReload" class="btn btn-primary btn-sm" style="margin-top:20px;">Aplicar filtros</button>
-        </div>
+        <div><button id="btnReload" class="btn btn-primary btn-sm" style="margin-top:20px;">Aplicar filtros</button></div>
     </div>
 
     <div id="resultsCount" class="results-count">Cargando…</div>
@@ -246,23 +250,21 @@
             </div>
         </aside>
 
-        <div class="mapa-right" id="mapCanvas" role="application" aria-label="Mapa de usuarios"></div>
+        <div class="mapa-right"><div id="mapCanvas" role="application" aria-label="Mapa de usuarios"></div></div>
     </div>
 </main>
 
 <div id="initialOverlay" class="initial-overlay" style="display:none;">
-    <div>
-        <div style="text-align:center;">
-            <div class="spinner-border text-primary" role="status" style="width:3rem;height:3rem;">
-                <span class="visually-hidden">Cargando...</span>
-            </div>
-            <div style="margin-top:12px;color:#374151">Cargando mapas y usuarios…</div>
-        </div>
+    <div style="text-align:center;">
+        <div class="spinner-border text-primary" role="status" style="width:3rem;height:3rem;"></div>
+        <div style="margin-top:12px;color:#374151">Cargando mapas y usuarios…</div>
     </div>
 </div>
 
 @section Scripts {
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBUUBxDv3VvzMmdR_pf9aFOd7frbTeUWXk"></script>
+    <!-- Replace key and keep async+defer with callback -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBUUBxDv3VvzMmdR_pf9aFOd7frbTeUWXk&callback=initMap"></script>
+    @* <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBUUBxDv3VvzMmdR_pf9aFOd7frbTeUWXk"></script> *@
     @Html.Raw("<script src=\"https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js\"></script>")
 
     <script>
@@ -287,121 +289,64 @@
             let firstLoadDone = false;
             let geocoder = null;
 
-            // Avatar logic: use Avatar field directly; avoid double-encoding when Avatar already contains a path.
-            const knownPlaceholderPatterns = [
-                /default[-_]?avatar/i,
-                /default\.jpg/i,
-                /ui-avatars\.com/i,
-                /placeholder/i
-            ];
-            function looksLikePlaceholder(raw) {
-                if (!raw) return true;
-                const s = String(raw).trim();
-                if (!s) return true;
-                for (const rx of knownPlaceholderPatterns) if (rx.test(s)) return true;
-                return false;
-            }
-            function isAbsoluteUrl(u) { return /^https?:\/\//i.test(u); }
+            // Ensure there is a global clustererRenderer (fallback safe renderer)
+            window.clustererRenderer = window.clustererRenderer || {
+                render({ count, position }) {
+                    const size = Math.max(30, Math.min(76, 30 + Math.round(Math.log10(count || 1) * 10)));
+                    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${size/2}" cy="${size/2}" r="${(size-4)/2}" fill="#7c3aed" stroke="#fff" stroke-width="2"/><text x="50%" y="50%" font-size="${Math.max(10, Math.round(size*0.34))}" fill="#fff" text-anchor="middle" dominant-baseline="central">${count}</text></svg>`;
+                    // If google.maps not ready, return minimal marker-like object
+                    if (window.google && google.maps && google.maps.Marker) {
+                        return new google.maps.Marker({
+                            position,
+                            icon: { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg), scaledSize: new google.maps.Size(size, size) }
+                        });
+                    }
+                    return { position, icon: svg };
+                }
+            };
 
-            function toAbsolute(candidate) {
-                if (!candidate) return null;
-                if (isAbsoluteUrl(candidate)) return candidate;
-                // candidate may already start with '/', keep it
-                return location.origin + (candidate.startsWith('/') ? candidate : ('/' + candidate));
-            }
+            // Avatar helper functions (kept as before)
+            const knownPlaceholderPatterns = [/default[-_]?avatar/i, /default\.jpg/i, /ui-avatars\.com/i, /placeholder/i];
+            function looksLikePlaceholder(raw) { if (!raw) return true; const s = String(raw).trim(); if (!s) return true; for (const rx of knownPlaceholderPatterns) if (rx.test(s)) return true; return false; }
+            function isAbsoluteUrl(u) { return /^https?:\/\//i.test(u); }
+            function toAbsolute(candidate) { if (!candidate) return null; if (isAbsoluteUrl(candidate)) return candidate; return location.origin + (candidate.startsWith('/') ? candidate : ('/' + candidate)); }
 
             async function resolveAvatarForElement(imgEl) {
                 if (!imgEl) return;
                 if (imgEl.dataset.resolved === '1') return;
                 if (imgEl.dataset.resolving === '1') return;
                 imgEl.dataset.resolving = '1';
-
                 try {
                     const rawAvatar = (imgEl.dataset.avatar || '').trim();
-
-                    if (!rawAvatar || looksLikePlaceholder(rawAvatar)) {
-                        imgEl.src = '/img/default-avatar.png';
-                        imgEl.dataset.resolved = '1';
-                        return;
-                    }
-
-                    // If it's an absolute URL, use it
-                    if (isAbsoluteUrl(rawAvatar)) {
-                        imgEl.src = rawAvatar;
-                        imgEl.dataset.resolved = '1';
-                        return;
-                    }
-
-                    // If the avatar field already contains a full uploads path, use it as-is (avoid encode)
-                    // Accept both "/uploads/avatars/..." and "uploads/avatars/..."
+                    if (!rawAvatar || looksLikePlaceholder(rawAvatar)) { imgEl.src = '/img/default-avatar.png'; imgEl.dataset.resolved = '1'; return; }
+                    if (isAbsoluteUrl(rawAvatar)) { imgEl.src = rawAvatar; imgEl.dataset.resolved = '1'; return; }
                     if (rawAvatar.toLowerCase().includes('/uploads/avatars/') || rawAvatar.toLowerCase().startsWith('uploads/avatars/')) {
                         const asIs = rawAvatar.startsWith('/') ? rawAvatar : ('/' + rawAvatar.replace(/^\/+/, ''));
-                        imgEl.src = toAbsolute(asIs);
-                        imgEl.dataset.resolved = '1';
-                        return;
+                        imgEl.src = toAbsolute(asIs); imgEl.dataset.resolved = '1'; return;
                     }
-
-                    // Otherwise assume the avatar field is a filename stored in uploads/avatars/
-                    // Use /uploads/avatars/{filename}
-                    // Do not double-encode slashes because filename should not contain slashes here.
                     const path = '/uploads/avatars/' + encodeURIComponent(rawAvatar);
-                    imgEl.src = toAbsolute(path);
-                    imgEl.dataset.resolved = '1';
+                    imgEl.src = toAbsolute(path); imgEl.dataset.resolved = '1';
                 } catch (err) {
                     console.debug('resolveAvatarForElement error', err);
-                    imgEl.src = '/img/default-avatar.png';
-                    imgEl.dataset.resolved = '1';
-                } finally {
-                    delete imgEl.dataset.resolving;
-                }
+                    imgEl.src = '/img/default-avatar.png'; imgEl.dataset.resolved = '1';
+                } finally { delete imgEl.dataset.resolving; }
             }
 
-            // IntersectionObserver for lazy avatars
             const ioOptions = { root: null, rootMargin: '200px', threshold: 0.01 };
             let avatarObserver = null;
-            try {
-                if ('IntersectionObserver' in window) {
-                    avatarObserver = new IntersectionObserver(entries => {
-                        entries.forEach(entry => {
-                            if (entry.isIntersecting) {
-                                const img = entry.target;
-                                if (img && img.dataset) {
-                                    avatarObserver.unobserve(img);
-                                    resolveAvatarForElement(img);
-                                }
-                            }
-                        });
-                    }, ioOptions);
-                }
-            } catch (e) {
-                avatarObserver = null;
-            }
+            try { if ('IntersectionObserver' in window) avatarObserver = new IntersectionObserver(entries => { entries.forEach(entry => { if (entry.isIntersecting) { const img = entry.target; if (img && img.dataset) { avatarObserver.unobserve(img); resolveAvatarForElement(img); } } }); }, ioOptions); } catch(e){ avatarObserver = null; }
 
             function observeAvatar(img) {
                 if (!img) return;
                 img.setAttribute('loading', 'lazy');
                 const raw = img.dataset.avatar || '';
-                if (!raw || looksLikePlaceholder(raw)) {
-                    img.src = '/img/default-avatar.png';
-                    img.dataset.resolved = '1';
-                    return;
-                }
-                if (avatarObserver) {
-                    try { avatarObserver.observe(img); return; } catch (e) { /* fallback */ }
-                }
+                if (!raw || looksLikePlaceholder(raw)) { img.src = '/img/default-avatar.png'; img.dataset.resolved = '1'; return; }
+                if (avatarObserver) { try { avatarObserver.observe(img); return; } catch (e) {} }
                 resolveAvatarForElement(img);
             }
 
-            const clustererRenderer = {
-                render({ count, position }) {
-                    const size = Math.max(30, Math.min(76, 30 + Math.round(Math.log10(count || 1) * 10)));
-                    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${size/2}" cy="${size/2}" r="${(size-4)/2}" fill="#7c3aed" stroke="#fff" stroke-width="2"/><text x="50%" y="50%" font-size="${Math.max(10, Math.round(size*0.34))}" fill="#fff" text-anchor="middle" dominant-baseline="central">${count}</text></svg>`;
-                    return new google.maps.Marker({
-                        position,
-                        icon: { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg), scaledSize: new google.maps.Size(size, size) }
-                    });
-                }
-            };
+            // clustererRenderer local reference (use global)
+            const clustererRendererLocal = window.clustererRenderer;
 
             function escapeHtml(s) { if (!s) return ''; return String(s).replace(/[&<>"'`=\/]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#47;','`':'&#96;','=':'&#61;'}[c])); }
             function jitterCoord(lat, lng) { const f = JITTER_MAX_DEG; return { lat: lat + (Math.random() - 0.5) * f, lng: lng + (Math.random() - 0.5) * f }; }
@@ -411,7 +356,6 @@
                 const avatar = profile.avatar || '';
                 const id = profile.id || profile.idUser || '';
                 const src = '/img/default-avatar.png';
-                // keep raw avatar value in data-avatar (escaped)
                 return `<img src="${src}" data-avatar="${escapeHtml(avatar)}" data-userid="${escapeHtml(String(id))}" class="ums-avatar" alt="${escapeHtml(profile.name || 'Usuario')}" loading="lazy" />`;
             }
 
@@ -421,7 +365,6 @@
                 const mood = p.lastMood ? (p.lastMood + (p.lastMoodText ? ` — ${p.lastMoodText}` : '')) : 'Sin estado';
                 const displayName = p.name || 'Usuario';
                 const avatarImgHtml = buildAvatarPlaceholder(p);
-
                 return `
                     <div class="user-card" data-id="${p.id}">
                         <div class="user-card-top">
@@ -438,20 +381,10 @@
 
             function appendCards(profiles) {
                 let grid = cardsContainer.querySelector('.cards-grid');
-                if (!grid) {
-                    grid = document.createElement('div');
-                    grid.className = 'cards-grid';
-                    cardsContainer.appendChild(grid);
-                }
-
+                if (!grid) { grid = document.createElement('div'); grid.className = 'cards-grid'; cardsContainer.appendChild(grid); }
                 const fragment = document.createDocumentFragment();
-                profiles.forEach(p => {
-                    const wrapper = document.createElement('div');
-                    wrapper.innerHTML = buildCardHtml(p);
-                    fragment.appendChild(wrapper.firstElementChild);
-                });
+                profiles.forEach(p => { const wrapper = document.createElement('div'); wrapper.innerHTML = buildCardHtml(p); fragment.appendChild(wrapper.firstElementChild); });
                 grid.appendChild(fragment);
-
                 Array.from(cardsContainer.querySelectorAll('.user-card')).forEach(el => {
                     if (el.dataset.bound) return;
                     el.dataset.bound = '1';
@@ -459,20 +392,17 @@
                         const id = this.getAttribute('data-id');
                         const m = markers.find(x => String(x._profile.id) === String(id));
                         if (m) {
-                            map.setCenter(m.getPosition());
-                            map.setZoom(MAX_ZOOM_CLUSTER_CLICK);
+                            if (map && m.getPosition) { map.setCenter(m.getPosition()); map.setZoom(MAX_ZOOM_CLUSTER_CLICK); }
                             const content = `<div style="min-width:200px"><strong>${escapeHtml(m._profile.name || '')}</strong><div>${escapeHtml(m._profile.condicionNombre||'')}</div><div style="color:#6b7280;font-size:.9rem;margin-top:6px;">${escapeHtml(m._profile.lastMood||'')}${m._profile.lastMoodText ? ' — ' + escapeHtml(m._profile.lastMoodText) : ''}</div></div>`;
-                            new google.maps.InfoWindow({ content }).open(map, m);
+                            try { if (window.google && google.maps && google.maps.InfoWindow) new google.maps.InfoWindow({ content }).open(map, m); } catch(e) { /* ignore */ }
                         }
                     });
                 });
-
-                const imgs = cardsContainer.querySelectorAll('img[data-avatar]:not([data-resolved="1"])');
-                imgs.forEach(img => observeAvatar(img));
+                const imgs = cardsContainer.querySelectorAll('img[data-avatar]:not([data-resolved="1"])'); imgs.forEach(img => observeAvatar(img));
             }
 
             function clearCards() { cardsContainer.innerHTML = ''; }
-            function clearMarkers() { if (clusterer && typeof clusterer.clearMarkers === 'function') clusterer.clearMarkers(); markers.forEach(m => m.setMap(null)); markers = []; }
+            function clearMarkers() { if (clusterer && typeof clusterer.clearMarkers === 'function') clusterer.clearMarkers(); markers.forEach(m => m.setMap && m.setMap(null)); markers = []; }
 
             function addMarkersFromLoaded() {
                 clearMarkers();
@@ -482,22 +412,44 @@
                     const pos = { lat: jittered.lat, lng: jittered.lng };
                     const size = 14;
                     const iconUrl = smallMarkerSvgDataUrl(size);
-                    const m = new google.maps.Marker({ position: pos, title: (p.name || 'Usuario'), icon: { url: iconUrl, scaledSize: new google.maps.Size(size, size) } });
+                    let m;
+                    try {
+                        m = new google.maps.Marker({ position: pos, title: (p.name || 'Usuario'), icon: { url: iconUrl, scaledSize: new google.maps.Size(size, size) } });
+                    } catch (e) {
+                        m = { _position: pos, _profile: p, getPosition: () => pos };
+                        m._profile = p;
+                    }
                     m._profile = p;
                     return m;
                 });
-                if (markers.length) {
-                    clusterer.addMarkers(markers);
-                    const bounds = new google.maps.LatLngBounds();
-                    markers.forEach(m => bounds.extend(m.getPosition()));
-                    try { map.fitBounds(bounds); } catch (e) { /* ignore */ }
-                } else {
-                    if (USER_COUNTRY) centerMapOnCountry(USER_COUNTRY);
-                    else { map.setCenter({ lat: 20, lng: 0 }); map.setZoom(MIN_ZOOM); }
+                try {
+                    if (markers.length && typeof markerClusterer !== 'undefined' && markerClusterer && markerClusterer.MarkerClusterer) {
+                        // prefer library clusterer if available
+                        clusterer = new markerClusterer.MarkerClusterer({ map, renderer: window.clustererRenderer });
+                        clusterer.addMarkers(markers);
+                    } else if (markers.length && typeof markerClusterer === 'undefined' && window.clustererRenderer && window.google && google.maps) {
+                        // use low-level clusterer if lib exists
+                        clusterer = new markerClusterer.MarkerClusterer({ map, renderer: window.clustererRenderer });
+                        clusterer.addMarkers(markers);
+                    } else {
+                        markers.forEach(m => m.setMap && m.setMap(map));
+                    }
+                    if (markers.length && map && markers[0] && markers[0].getPosition) {
+                        const bounds = new google.maps.LatLngBounds();
+                        markers.forEach(m => bounds.extend(m.getPosition()));
+                        try { map.fitBounds(bounds); } catch (e) {}
+                    } else {
+                        if (USER_COUNTRY) centerMapOnCountry(USER_COUNTRY);
+                        else { map.setCenter({ lat: 20, lng: 0 }); map.setZoom(MIN_ZOOM); }
+                    }
+                } catch (ex) {
+                    console.error('addMarkersFromLoaded error', ex);
+                    markers.forEach(m => m.setMap && m.setMap(map));
                 }
             }
 
-            async function loadNextBatch() {
+            // Expose loadNextBatch globally so we can call it for debugging if needed
+            window.loadNextBatch = async function loadNextBatch() {
                 if (isLoading) return;
                 if (loadedCount >= totalCount && totalCount !== 0) return;
                 isLoading = true;
@@ -531,12 +483,13 @@
                     addMarkersFromLoaded();
                 } catch (e) {
                     console.error('Error loading batch', e);
+                    // show minimal error and still hide overlay
                 } finally {
                     isLoading = false;
                     loaderEl.style.display = 'none';
                     if (!firstLoadDone) { initialOverlay.style.display = 'none'; firstLoadDone = true; }
                 }
-            }
+            };
 
             function centerMapOnCountry(countryText) {
                 if (!geocoder || !countryText) return;
@@ -544,28 +497,16 @@
                     if (status === 'OK' && results && results[0]) {
                         const r = results[0];
                         const bounds = r.geometry && (r.geometry.bounds || r.geometry.viewport) ? (r.geometry.bounds || r.geometry.viewport) : null;
-                        if (bounds) {
-                            map.fitBounds(bounds);
-                            google.maps.event.addListenerOnce(map, 'idle', function() {
-                                if (map.getZoom() > MAX_ZOOM_CLUSTER_CLICK) map.setZoom(MAX_ZOOM_CLUSTER_CLICK);
-                            });
-                        } else if (r.geometry && r.geometry.location) {
-                            map.setCenter(r.geometry.location);
-                            map.setZoom(MAX_ZOOM_CLUSTER_CLICK);
-                        }
-                    } else {
-                        map.setCenter({ lat: 20, lng: 0 });
-                        map.setZoom(MIN_ZOOM);
-                    }
+                        if (bounds) { map.fitBounds(bounds); google.maps.event.addListenerOnce(map, 'idle', function() { if (map.getZoom() > MAX_ZOOM_CLUSTER_CLICK) map.setZoom(MAX_ZOOM_CLUSTER_CLICK); }); }
+                        else if (r.geometry && r.geometry.location) { map.setCenter(r.geometry.location); map.setZoom(MAX_ZOOM_CLUSTER_CLICK); }
+                    } else { map.setCenter({ lat: 20, lng: 0 }); map.setZoom(MIN_ZOOM); }
                 });
             }
 
+            // Global initMap for Google callback – make robust vs missing renderer/markerClusterer
             window.initMap = function initMap() {
                 try {
-                    if (!window.google || !google.maps) {
-                        console.warn('Google Maps not available at initMap time.');
-                        return;
-                    }
+                    if (!window.google || !google.maps) { console.warn('Google Maps not available at initMap time.'); return; }
                     geocoder = new google.maps.Geocoder();
                     map = new google.maps.Map(mapEl, {
                         center: { lat: 20, lng: 0 },
@@ -578,50 +519,39 @@
                         clickableIcons: false,
                         gestureHandling: 'greedy'
                     });
-                    clusterer = new markerClusterer.MarkerClusterer({ map, renderer: clustererRenderer });
+                    // Use the global renderer (we ensured window.clustererRenderer above)
+                    try {
+                        if (window.markerClusterer && typeof markerClusterer.MarkerClusterer === 'function') {
+                            // will create clusterer when adding markers
+                        } else {
+                            // markerClusterer library may not be present; that's okay
+                        }
+                    } catch (e) {
+                        console.debug('clusterer availability check failed', e);
+                    }
                 } catch (ex) {
                     console.error('initMap error', ex);
                 }
             };
 
-            function debounce(fn, wait) {
-                let t;
-                return function (...args) {
-                    clearTimeout(t);
-                    t = setTimeout(() => fn.apply(this, args), wait);
-                };
-            }
+            function debounce(fn, wait) { let t; return function (...args) { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), wait); }; }
+            function onScroll() { if (isLoading) return; const el = cardsScroll; if (!el) return; const remaining = el.scrollHeight - el.scrollTop - el.clientHeight; if (remaining <= SCROLL_THRESHOLD_PX) window.loadNextBatch(); }
 
-            function onScroll() {
-                if (isLoading) return;
-                const el = cardsScroll;
-                if (!el) return;
-                const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
-                if (remaining <= SCROLL_THRESHOLD_PX) loadNextBatch();
-            }
-
-            const debouncedReset = debounce(() => {
-                loadedCount = 0; totalCount = 0; loadedProfiles = [];
-                clearCards(); clearMarkers();
-                loadNextBatch();
-            }, DEBOUNCE_MS);
+            const debouncedReset = debounce(() => { loadedCount = 0; totalCount = 0; loadedProfiles = []; clearCards(); clearMarkers(); window.loadNextBatch(); }, DEBOUNCE_MS);
 
             document.getElementById('btnReload').addEventListener('click', function () {
                 const countryText = document.getElementById('filter_country').selectedOptions[0]?.text || '';
                 if (countryText && countryText !== '(Todos)') centerMapOnCountry(countryText);
-                loadedCount = 0; totalCount = 0; loadedProfiles = [];
-                clearCards(); clearMarkers();
-                loadNextBatch();
+                loadedCount = 0; totalCount = 0; loadedProfiles = []; clearCards(); clearMarkers(); window.loadNextBatch();
             });
 
-            ['filter_country','filter_condition','filter_years'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.addEventListener('change', debouncedReset);
-            });
+            ['filter_country','filter_condition','filter_years'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('change', debouncedReset); });
             cardsScroll.addEventListener('scroll', onScroll);
 
-            if (USER_COUNTRY) centerMapOnCountry(USER_COUNTRY);
-            loadNextBatch();
+            // Start: if Google already loaded, initMap will be called via callback; ensure we still fetch profiles
+            try { if (USER_COUNTRY) { /* center attempt will occur when map ready */ } } catch {}
+            // Always load first batch of profiles (so left column shows even if map fails)
+            window.loadNextBatch();
         })();
     </script>
 }

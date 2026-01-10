@@ -1,4 +1,3 @@
-// Reemplaza el archivo existente por este (UTF-8 sin BOM)
 using eiibd26.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -108,7 +107,7 @@ namespace eiibd26.Pages.Mapa
             }
         }
 
-        // OnGetProfilesAsync: devuelve total + items paginados. Se añadió diagnosisAgeText para evitar "0 años".
+        // Score-based ordering adjusted to favor avatar, condition, country+location, diagnosis date and mood.
         public async Task<IActionResult> OnGetProfilesAsync(string country = "", int? conditionId = null, string yearsRange = "", int skip = 0, int take = 48)
         {
             int version = 0;
@@ -200,7 +199,7 @@ namespace eiibd26.Pages.Mapa
                     projectedQuery = projectedQuery.Where(x => x.condId.HasValue && acc.Contains(x.condId.Value));
                 }
 
-                // apply yearsRange filtering (as before)
+                // yearsRange filtering (unchanged)
                 if (!string.IsNullOrWhiteSpace(yearsRange))
                 {
                     if (yearsRange == "0-1")
@@ -233,7 +232,14 @@ namespace eiibd26.Pages.Mapa
                     }
                 }
 
-                // compute marketing score
+                // compute flags and score with chosen weights
+                // Weights chosen:
+                // hasDiagnosisDate = 80
+                // avatarReal = 40
+                // hasLastMood = 30
+                // hasCondition = 30
+                // hasCountry = 20
+                // hasLocation = 10
                 var scoredQuery = projectedQuery.Select(x => new
                 {
                     x.idUser,
@@ -246,11 +252,13 @@ namespace eiibd26.Pages.Mapa
                     x.condFechaInicio,
                     x.condId,
                     x.lastMoodDate,
-                    hasCond = x.condFechaInicio.HasValue ? 1 : 0,
-                    avatarReal = ((x.avatar != null) && !x.avatar.ToLower().Contains("default-avatar") && !x.avatar.ToLower().Contains("ui-avatars.com")) ? 1 : 0,
+                    hasCond = x.condId.HasValue ? 1 : 0,
+                    avatarReal = ((x.avatar != null) && !x.avatar.ToLower().Contains("default") && !x.avatar.ToLower().Contains("ui-avatars.com")) ? 1 : 0,
                     hasLastMood = x.lastMoodDate.HasValue ? 1 : 0,
                     hasAbout = (x.acercaDe != null && x.acercaDe != "") ? 1 : 0,
-                    hasCity = (x.nombreCiudad != null && x.nombreCiudad != "") ? 1 : 0
+                    hasCity = (x.nombreCiudad != null && x.nombreCiudad != "") ? 1 : 0,
+                    hasCountry = (x.country != null && x.country != "") ? 1 : 0,
+                    hasLocation = (x.lat != null && x.lat != "" && x.lng != null && x.lng != "") ? 1 : 0
                 })
                 .Select(x => new
                 {
@@ -264,7 +272,12 @@ namespace eiibd26.Pages.Mapa
                     x.condFechaInicio,
                     x.condId,
                     x.lastMoodDate,
-                    score = x.hasCond * 100 + x.avatarReal * 20 + x.hasLastMood * 15 + x.hasAbout * 5 + x.hasCity * 5
+                    score = (x.condFechaInicio.HasValue ? 80 : 0)
+                            + x.avatarReal * 40
+                            + x.hasLastMood * 30
+                            + x.hasCond * 30
+                            + x.hasCountry * 20
+                            + x.hasLocation * 10
                 });
 
                 var ordered = scoredQuery
@@ -278,6 +291,7 @@ namespace eiibd26.Pages.Mapa
 
                 var userIds = page.Select(x => x.idUser).Distinct().ToList();
 
+                // get last mood details for display
                 var latestMoods = new List<EstadoAnimoUsuario>();
                 if (userIds.Any())
                 {
