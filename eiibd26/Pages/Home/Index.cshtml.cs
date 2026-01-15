@@ -1,4 +1,3 @@
-// File: Pages/Home/Index.cshtml.cs
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
@@ -105,19 +104,9 @@ namespace eiibd26.Pages.Home
                 }
             }
 
-            // --- New: featured rows for categories 1042 and 1043 ---
-            // Helper to get top N items for a category sequence
+            // Featured rows: use exact estado 2 and 3
             async Task<List<BlogItemVm>> GetTopForEstadoAsync(int estadoPublicacion)
             {
-                //var distinctIds = await _db.Contenidos
-                //    .AsNoTracking()
-                //    .Where(r => !r.Eliminado && r.EstadoPublicacion == estadoPublicacion)
-                //    .Select(r => r.Id)
-                //    .Distinct()
-                //    .ToListAsync();
-
-                //if (!distinctIds.Any()) return new List<BlogItemVm>();
-
                 var list = await _db.Contenidos
                     .AsNoTracking()
                     .Where(c => !c.Eliminado && c.EstadoPublicacion == estadoPublicacion)
@@ -139,6 +128,31 @@ namespace eiibd26.Pages.Home
 
             Featured1042 = await GetTopForEstadoAsync(2);
             Featured1043 = await GetTopForEstadoAsync(3);
+
+            // Attach categories for featured (optional)
+            async Task AttachCatsAsync(List<BlogItemVm> list)
+            {
+                if (list == null || !list.Any()) return;
+                var ids = list.Select(x => x.Id).ToList();
+                var catRels = await _db.ContenidosCategoriasRelacion.AsNoTracking().Where(r => ids.Contains(r.IdContenido) && !r.Borrado && r.IdCategoria != null)
+                    .Join(_db.ContenidosCategorias.AsNoTracking(), rel => rel.IdCategoria, cat => cat.Sequence, (rel, cat) => new { rel.IdContenido, cat.Sequence, cat.CategoriaSlug, cat.Nombre, cat.CategoriaPadre }).ToListAsync();
+
+                var map = catRels.GroupBy(x => x.IdContenido).ToDictionary(g => g.Key, g => {
+                    var chosen = g.OrderBy(x => x.CategoriaPadre.HasValue ? 0 : 1).ThenBy(x => x.Sequence).FirstOrDefault();
+                    if (chosen == null) return (Name: (string)null, Link: (string)null);
+                    var segment = !string.IsNullOrWhiteSpace(chosen.CategoriaSlug) ? chosen.CategoriaSlug : chosen.Sequence.ToString();
+                    return (chosen.Nombre, "/Contenidos/categoria/" + segment);
+                });
+
+                foreach (var it in list)
+                {
+                    if (map.TryGetValue(it.Id, out var v) && !string.IsNullOrWhiteSpace(v.Item1) && !string.IsNullOrWhiteSpace(v.Item2))
+                        it.Category = $"<a href=\"{v.Item2}\" class=\"blog-category\">{v.Item1}</a>";
+                }
+            }
+
+            await AttachCatsAsync(Featured1042);
+            await AttachCatsAsync(Featured1043);
         }
     }
 }

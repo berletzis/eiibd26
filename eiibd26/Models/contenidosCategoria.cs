@@ -14,6 +14,7 @@ namespace eiibd26.Models
         // Nullable porque en la BD estas columnas pueden contener NULL
         public string? Clave { get; set; }
 
+        public int? Orden { get; set; }
         public string? Nombre { get; set; }
 
         public string? Descripcion { get; set; }

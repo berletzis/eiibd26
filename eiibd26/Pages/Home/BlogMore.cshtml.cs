@@ -41,7 +41,10 @@ namespace eiibd26.Pages.Home
             if (PageSize < 1) PageSize = 3;
             var skip = (PageNumber - 1) * PageSize;
 
-            var baseQuery = _db.Contenidos.AsNoTracking().Where(c => !c.Eliminado && (c.EstadoPublicacion ?? 0) == 1);
+            // default allowed statuses for content lists: 1,2,3
+            var allowedStatuses = new[] { 1, 2, 3 };
+
+            var baseQuery = _db.Contenidos.AsNoTracking().Where(c => !c.Eliminado && allowedStatuses.Contains((c.EstadoPublicacion ?? 0)));
 
             if (CategorySeq.HasValue)
             {
@@ -108,8 +111,41 @@ namespace eiibd26.Pages.Home
                     CreatedAt = c.FechaCreado
                 }).ToListAsync();
 
+            // Attach category links as before
+            var contentIds = items.Select(i => i.Id).ToList();
+            if (contentIds.Any())
+            {
+                var catRels = await _db.ContenidosCategoriasRelacion
+                    .AsNoTracking()
+                    .Where(r => contentIds.Contains(r.IdContenido) && !r.Borrado && r.IdCategoria != null)
+                    .Join(_db.ContenidosCategorias.AsNoTracking(),
+                          rel => rel.IdCategoria,
+                          cat => cat.Sequence,
+                          (rel, cat) => new { rel.IdContenido, cat.Sequence, cat.CategoriaSlug, cat.Nombre, cat.CategoriaPadre })
+                    .ToListAsync();
+
+                var map = catRels
+                    .GroupBy(x => x.IdContenido)
+                    .ToDictionary(g => g.Key, g =>
+                    {
+                        var chosen = g.OrderBy(x => x.CategoriaPadre.HasValue ? 0 : 1).ThenBy(x => x.Sequence).FirstOrDefault();
+                        if (chosen == null) return (Name: (string)null, Link: (string)null);
+                        var segment = !string.IsNullOrWhiteSpace(chosen.CategoriaSlug) ? chosen.CategoriaSlug : chosen.Sequence.ToString();
+                        var link = "/Contenidos/categoria/" + segment;
+                        return (Name: chosen.Nombre, Link: link);
+                    });
+
+                foreach (var it in items)
+                {
+                    if (map.TryGetValue(it.Id, out var v) && !string.IsNullOrWhiteSpace(v.Name) && !string.IsNullOrWhiteSpace(v.Link))
+                    {
+                        it.Category = $"<a href=\"{v.Link}\" class=\"blog-category\">{v.Name}</a>";
+                    }
+                }
+            }
+
             Items = items;
-            return Page(); // returns fragment rendering _BlogItems partial
+            return Page();
         }
     }
 }

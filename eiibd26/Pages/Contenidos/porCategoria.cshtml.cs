@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using eiibd26.Data;
 using eiibd26.Models;
 using System.Collections.Generic;
+using System.Security.Claims;
+using System;
 
 namespace eiibd26.Pages.Contenidos
 {
@@ -14,25 +16,35 @@ namespace eiibd26.Pages.Contenidos
         private readonly ApplicationDbContext _db;
         public PorCategoriaModel(ApplicationDbContext db) { _db = db; }
 
-        // Route segment (slug or numeric)
         [BindProperty(SupportsGet = true)]
         public string categorySegment { get; set; }
 
-        // Container view-model requested to live in Models/
+        [BindProperty(SupportsGet = true)]
+        public int PageNumber { get; set; } = 1;
+        [BindProperty(SupportsGet = true)]
+        public int PageSize { get; set; } = 7;
+
+        [BindProperty(SupportsGet = true)]
+        public string ConditionIds { get; set; }
+        [BindProperty(SupportsGet = true)]
+        public string SintomaIds { get; set; }
+        [BindProperty(SupportsGet = true)]
+        public string TratamientoIds { get; set; }
+
+        public List<int> FilterConditionIds { get; set; } = new List<int>();
+        public List<int> FilterSintomaIds { get; set; } = new List<int>();
+        public List<int> FilterTratamientoIds { get; set; } = new List<int>();
+
         public ContenidoporCategoria ContenidoPorCategoria { get; set; } = new ContenidoporCategoria();
 
-        // Backwards-compatible properties
-        public int PageNumber { get => ContenidoPorCategoria.PageNumber; set => ContenidoPorCategoria.PageNumber = value; }
-        public int PageSize { get => ContenidoPorCategoria.PageSize; set => ContenidoPorCategoria.PageSize = value; }
+        public int PageSizeView { get => ContenidoPorCategoria.PageSize; set => ContenidoPorCategoria.PageSize = value; }
         public int CategorySeq { get => ContenidoPorCategoria.CategorySeq; set => ContenidoPorCategoria.CategorySeq = value; }
         public string CategoryName { get => ContenidoPorCategoria.CategoryName; set => ContenidoPorCategoria.CategoryName = value; }
         public List<BlogItemVm> Items { get => ContenidoPorCategoria.Items; set => ContenidoPorCategoria.Items = value; }
         public int TotalCount { get => ContenidoPorCategoria.TotalCount; set => ContenidoPorCategoria.TotalCount = value; }
 
-        // Expose the incoming segment for view (used by JS)
         public string CategorySegment => categorySegment ?? "";
 
-        // Breadcrumb items
         public List<BreadcrumbItem> Breadcrumbs { get; set; } = new List<BreadcrumbItem>();
 
         public class BreadcrumbItem
@@ -42,15 +54,38 @@ namespace eiibd26.Pages.Contenidos
             public bool IsCurrent { get; set; }
         }
 
+        public class TagVm { public int Id { get; set; } public string Name { get; set; } = ""; }
+        public List<TagVm> AvailableConditions { get; set; } = new List<TagVm>();
+        public List<TagVm> AvailableSintomas { get; set; } = new List<TagVm>();
+        public List<TagVm> AvailableTratamientos { get; set; } = new List<TagVm>();
+
+        private static List<int> ParseIds(string csv)
+        {
+            if (string.IsNullOrWhiteSpace(csv)) return new List<int>();
+            return csv
+                .Split(new[] { ',' }, System.StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => { int.TryParse(s.Trim(), out var v); return v; })
+                .Where(v => v > 0)
+                .Distinct()
+                .ToList();
+        }
+
         public async Task<IActionResult> OnGetAsync()
         {
+            // DEBUG: log categorySegment received
+            System.Diagnostics.Debug.WriteLine($"[porCategoria] categorySegment raw: '{categorySegment}'");
+
             if (string.IsNullOrWhiteSpace(categorySegment)) return NotFound();
 
             if (PageNumber < 1) PageNumber = 1;
             if (PageSize < 1) PageSize = 7;
             var skip = (PageNumber - 1) * PageSize;
 
-            // Resolver categoría por segment: si es número -> sequence, sino -> slug
+            FilterConditionIds = ParseIds(ConditionIds);
+            FilterSintomaIds = ParseIds(SintomaIds);
+            FilterTratamientoIds = ParseIds(TratamientoIds);
+
+            // Resolve target category
             ContenidoCategoria cat = null;
             if (int.TryParse(categorySegment, out var seq))
             {
@@ -70,14 +105,12 @@ namespace eiibd26.Pages.Contenidos
             CategorySeq = cat.Sequence;
             CategoryName = cat.Nombre ?? $"Categoría {CategorySeq}";
 
-            // Construir breadcrumbs:
-            // Home -> (padres en orden) -> categoría actual (sin link)
+            // Breadcrumbs build
             var crumbs = new List<BreadcrumbItem>
             {
                 new BreadcrumbItem { Title = "Home", Url = Url.Content("~/"), IsCurrent = false }
             };
 
-            // recolectar padres (stack) siguiendo CategoriaPadre
             var parents = new List<ContenidoCategoria>();
             var parentSeq = cat.CategoriaPadre;
             while (parentSeq.HasValue && parentSeq.Value > 0)
@@ -91,8 +124,7 @@ namespace eiibd26.Pages.Contenidos
                 parentSeq = p.CategoriaPadre;
             }
 
-            parents.Reverse(); // del más alto al más cercano
-
+            parents.Reverse();
             foreach (var p in parents)
             {
                 var segment = !string.IsNullOrWhiteSpace(p.CategoriaSlug) ? p.CategoriaSlug : p.Sequence.ToString();
@@ -104,18 +136,35 @@ namespace eiibd26.Pages.Contenidos
                 });
             }
 
-            // categoría actual (sin link)
             crumbs.Add(new BreadcrumbItem { Title = CategoryName, Url = null, IsCurrent = true });
-
             Breadcrumbs = crumbs;
 
-            // 1) Obtener ids distintos de contenidos relacionados (desde la tabla de relación)
+            // --- Load user-associated tags for UI only (do NOT auto-apply them) ---
+            await PopulateUserTagLists(); // populates Available* only if user authenticated
+
+            // --- Resolve target category sequences:
+            var targetCategorySeqs = new List<int> { cat.Sequence };
+            if (!cat.CategoriaPadre.HasValue)
+            {
+                var children = await _db.ContenidosCategorias
+                    .AsNoTracking()
+                    .Where(c => c.CategoriaPadre == cat.Sequence && !c.Borrado)
+                    .Select(c => c.Sequence)
+                    .ToListAsync();
+                if (children.Any()) targetCategorySeqs.AddRange(children);
+            }
+
+            System.Diagnostics.Debug.WriteLine("[porCategoria] targetCategorySeqs: " + string.Join(",", targetCategorySeqs));
+
+            // 1) Obtener ids distintos de contenidos relacionados (desde la tabla de relación) usando targetCategorySeqs
             var distinctIds = await _db.ContenidosCategoriasRelacion
                 .AsNoTracking()
-                .Where(r => !r.Borrado && r.IdCategoria == CategorySeq)
+                .Where(r => !r.Borrado && r.IdCategoria != null && targetCategorySeqs.Contains(r.IdCategoria.Value))
                 .Select(r => r.IdContenido)
                 .Distinct()
                 .ToListAsync();
+
+            System.Diagnostics.Debug.WriteLine("[porCategoria] distinctIds COUNT: " + (distinctIds?.Count ?? 0) + " ; sample: " + (distinctIds != null ? string.Join(",", distinctIds.Take(20)) : ""));
 
             if (!distinctIds.Any())
             {
@@ -124,18 +173,70 @@ namespace eiibd26.Pages.Contenidos
                 return Page();
             }
 
-            // 2) Contar totales (aplicando filtro de no eliminado y publicado)
+            // IMPORTANT: filters (AND)
+            try
+            {
+                if (FilterConditionIds.Any())
+                {
+                    var condContentIds = await _db.ContenidoCondiciones
+                        .AsNoTracking()
+                        .Where(rel => !rel.Borrado && FilterConditionIds.Contains(rel.CondicionId) && distinctIds.Contains(rel.ContenidoId))
+                        .Select(rel => rel.ContenidoId)
+                        .Distinct()
+                        .ToListAsync();
+
+                    distinctIds = distinctIds.Intersect(condContentIds).ToList();
+                }
+
+                if (FilterSintomaIds.Any())
+                {
+                    var sintContentIds = await _db.ContenidoSintomas
+                        .AsNoTracking()
+                        .Where(rel => !rel.Borrado && FilterSintomaIds.Contains(rel.SintomaId) && distinctIds.Contains(rel.ContenidoId))
+                        .Select(rel => rel.ContenidoId)
+                        .Distinct()
+                        .ToListAsync();
+
+                    distinctIds = distinctIds.Intersect(sintContentIds).ToList();
+                }
+
+                if (FilterTratamientoIds.Any())
+                {
+                    var tratContentIds = await _db.ContenidoTratamientos
+                        .AsNoTracking()
+                        .Where(rel => !rel.Borrado && FilterTratamientoIds.Contains(rel.TratamientoId) && distinctIds.Contains(rel.ContenidoId))
+                        .Select(rel => rel.ContenidoId)
+                        .Distinct()
+                        .ToListAsync();
+
+                    distinctIds = distinctIds.Intersect(tratContentIds).ToList();
+                }
+            }
+            catch
+            {
+                // ignore
+            }
+
+            if (!distinctIds.Any())
+            {
+                Items = new List<BlogItemVm>();
+                TotalCount = 0;
+                return Page();
+            }
+
+            // Contenidos por categoría: allow states 1,2,3
+            var allowedStatuses = new[] { 1, 2, 3 };
+
             TotalCount = await _db.Contenidos
                 .AsNoTracking()
-                .Where(c => !c.Eliminado && (c.EstadoPublicacion ?? 0) == 1 && distinctIds.Contains(c.Id))
+                .Where(c => !c.Eliminado && allowedStatuses.Contains((c.EstadoPublicacion ?? 0)) && distinctIds.Contains(c.Id))
                 .CountAsync();
 
-            // 3) Traer entidades usando Contains sobre los ids (ordenar / paginar), aplicando filtro de publicación
             var items = await _db.Contenidos
                 .AsNoTracking()
-                .Where(c => !c.Eliminado && (c.EstadoPublicacion ?? 0) == 1 && distinctIds.Contains(c.Id))
+                .Where(c => !c.Eliminado && allowedStatuses.Contains((c.EstadoPublicacion ?? 0)) && distinctIds.Contains(c.Id))
                 .OrderByDescending(c => c.FechaCreado)
-                .Skip(skip)
+                .Skip((PageNumber - 1) * PageSize)
                 .Take(PageSize)
                 .Select(c => new BlogItemVm
                 {
@@ -144,13 +245,193 @@ namespace eiibd26.Pages.Contenidos
                     Excerpt = c.ContenidoTextoC ?? "",
                     ImageUrl = string.IsNullOrEmpty(c.URLImagenPrincipal) ? null : ("/uploads/contenidos/" + c.URLImagenPrincipal),
                     Author = string.IsNullOrEmpty(c.Autor) ? "Autor" : c.Autor,
-                    CreatedAt = c.FechaCreado,
-                    Category = CategoryName
+                    CreatedAt = c.FechaCreado
                 })
                 .ToListAsync();
 
+            await AttachCategoriesAsync(items);
+
             Items = items;
             return Page();
+        }
+
+        // Populate Available* only from user associations (NO fallback)
+        private async Task PopulateUserTagLists()
+        {
+            AvailableConditions = new List<TagVm>();
+            AvailableSintomas = new List<TagVm>();
+            AvailableTratamientos = new List<TagVm>();
+
+            var userIdClaim = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userGuid))
+            {
+                // Not authenticated -> leave lists empty
+                return;
+            }
+
+            try
+            {
+                var userCondIds = await _db.condicionUsuario
+                    .AsNoTracking()
+                    .Where(x => x.Usuario.Id == userGuid && !x.Eliminado)
+                    .Select(x => x.Condicion.id)
+                    .Distinct()
+                    .ToListAsync();
+                if (userCondIds.Any())
+                {
+                    AvailableConditions = await _db.condiciones
+                        .AsNoTracking()
+                        .Where(c => userCondIds.Contains(c.id) && c.idPadre != null)
+                        .OrderBy(c => c.nombre)
+                        .Select(c => new TagVm { Id = c.id, Name = c.nombre })
+                        .ToListAsync();
+                }
+
+                var userSintIds = await _db.sintomasUsuario
+                    .AsNoTracking()
+                    .Where(x => x.Usuario.Id == userGuid && !x.Eliminado)
+                    .Select(x => x.Sintoma.id)
+                    .Distinct()
+                    .ToListAsync();
+                if (userSintIds.Any())
+                {
+                    AvailableSintomas = await _db.sintomas
+                        .AsNoTracking()
+                        .Where(s => userSintIds.Contains(s.id))
+                        .OrderBy(s => s.nombre)
+                        .Select(s => new TagVm { Id = s.id, Name = s.nombre })
+                        .ToListAsync();
+                }
+
+                var userTratIds = await _db.tratamientoUsuario
+                    .AsNoTracking()
+                    .Where(x => x.Usuario.Id == userGuid && !x.Eliminado)
+                    .Select(x => x.Tratamiento.id)
+                    .Distinct()
+                    .ToListAsync();
+                if (userTratIds.Any())
+                {
+                    AvailableTratamientos = await _db.tratamientos
+                        .AsNoTracking()
+                        .Where(t => userTratIds.Contains(t.id) && t.idPadre != null)
+                        .OrderBy(t => t.nombre)
+                        .Select(t => new TagVm { Id = t.id, Name = t.nombre })
+                        .ToListAsync();
+                }
+            }
+            catch
+            {
+                AvailableConditions = new List<TagVm>();
+                AvailableSintomas = new List<TagVm>();
+                AvailableTratamientos = new List<TagVm>();
+            }
+        }
+
+        private async Task AttachCategoriesAsync(List<BlogItemVm> list)
+        {
+            if (list == null || !list.Any()) return;
+
+            var ids = list.Select(x => x.Id).ToList();
+
+            var catRels = await _db.ContenidosCategoriasRelacion
+                .AsNoTracking()
+                .Where(r => ids.Contains(r.IdContenido) && !r.Borrado && r.IdCategoria != null)
+                .Join(_db.ContenidosCategorias.AsNoTracking(),
+                      rel => rel.IdCategoria,
+                      cat => cat.Sequence,
+                      (rel, cat) => new { rel.IdContenido, cat.Sequence, cat.CategoriaSlug, cat.Nombre, cat.CategoriaPadre })
+                .ToListAsync();
+
+            var map = catRels
+                .GroupBy(x => x.IdContenido)
+                .ToDictionary(g => g.Key, g =>
+                {
+                    var chosen = g.OrderBy(x => x.CategoriaPadre.HasValue ? 0 : 1).ThenBy(x => x.Sequence).FirstOrDefault();
+                    if (chosen == null) return (Name: (string)null, Link: (string)null);
+                    var segment = !string.IsNullOrWhiteSpace(chosen.CategoriaSlug) ? chosen.CategoriaSlug : chosen.Sequence.ToString();
+                    var link = "/Contenidos/categoria/" + segment;
+                    return (Name: chosen.Nombre, Link: link);
+                });
+
+            var missingIds = ids.Where(id => !map.ContainsKey(id)).ToList();
+            if (missingIds.Any())
+            {
+                var contents = await _db.Contenidos
+                    .AsNoTracking()
+                    .Where(c => missingIds.Contains(c.Id))
+                    .Select(c => new
+                    {
+                        c.Id,
+                        SubCat = EF.Property<int?>(c, "SubCat"),
+                        CatPadre = EF.Property<int?>(c, "CatPadre")
+                    })
+                    .ToListAsync();
+
+                var subCatIds = contents.Select(c => c.SubCat).Where(v => v.HasValue).Select(v => v.Value).Distinct().ToList();
+                if (subCatIds.Any())
+                {
+                    var cats = await _db.ContenidosCategorias
+                        .AsNoTracking()
+                        .Where(cat => subCatIds.Contains(cat.Sequence) && !cat.Borrado)
+                        .Select(cat => new { cat.Sequence, cat.Nombre, cat.CategoriaSlug, cat.CategoriaPadre })
+                        .ToListAsync();
+
+                    var catsBySeq = cats.ToDictionary(c => c.Sequence, c => c);
+                    foreach (var row in contents)
+                    {
+                        if (!row.SubCat.HasValue) continue;
+                        if (catsBySeq.TryGetValue(row.SubCat.Value, out var cat))
+                        {
+                            var seg = !string.IsNullOrWhiteSpace(cat.CategoriaSlug) ? cat.CategoriaSlug : cat.Sequence.ToString();
+                            map[row.Id] = (Name: cat.Nombre, Link: "/Contenidos/categoria/" + seg);
+                        }
+                    }
+                }
+
+                var stillMissing = ids.Where(id => !map.ContainsKey(id)).ToList();
+                if (stillMissing.Any())
+                {
+                    var contents2 = await _db.Contenidos
+                        .AsNoTracking()
+                        .Where(c => stillMissing.Contains(c.Id))
+                        .Select(c => new { c.Id, CatPadre = EF.Property<int?>(c, "CatPadre") })
+                        .ToListAsync();
+
+                    var parentIds = contents2.Select(c => c.CatPadre).Where(v => v.HasValue).Select(v => v.Value).Distinct().ToList();
+                    if (parentIds.Any())
+                    {
+                        var parentCats = await _db.ContenidosCategorias
+                            .AsNoTracking()
+                            .Where(cat => parentIds.Contains(cat.Sequence) && !cat.Borrado)
+                            .Select(cat => new { cat.Sequence, cat.Nombre, cat.CategoriaSlug })
+                            .ToListAsync();
+
+                        var parentBySeq = parentCats.ToDictionary(c => c.Sequence, c => c);
+                        foreach (var row in contents2)
+                        {
+                            if (!row.CatPadre.HasValue) continue;
+                            if (parentBySeq.TryGetValue(row.CatPadre.Value, out var cat))
+                            {
+                                var seg = !string.IsNullOrWhiteSpace(cat.CategoriaSlug) ? cat.CategoriaSlug : cat.Sequence.ToString();
+                                map[row.Id] = (Name: cat.Nombre, Link: "/Contenidos/categoria/" + seg);
+                            }
+                        }
+                    }
+                }
+            }
+
+            foreach (var it in list)
+            {
+                if (map.TryGetValue(it.Id, out var v) && !string.IsNullOrWhiteSpace(v.Name) && !string.IsNullOrWhiteSpace(v.Link))
+                {
+                    it.Category = $"<a href=\"{v.Link}\" class=\"blog-category\">{v.Name}</a>";
+                    System.Diagnostics.Debug.WriteLine($"[AttachCategories] Content {it.Id} => Category '{v.Name}' ({v.Link})");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"[AttachCategories] Content {it.Id} => NO category found");
+                }
+            }
         }
     }
 }

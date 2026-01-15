@@ -4,24 +4,26 @@
 @inject ApplicationDbContext Db
 
 @{
-    // Parent sequence to show in menu
-    const int parentSequence = 11;
+    // Parent sequence to show in menu (same as original)
+    const int parentSequence = 1;
 
     ContenidoCategoria parent = null;
     List<ContenidoCategoria> children = new();
 
     try
     {
+        // Only take parent if Relevante = true and not deleted
         parent = await Db.ContenidosCategorias
             .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Sequence == parentSequence && !c.Borrado);
+            .FirstOrDefaultAsync(c => c.Sequence == parentSequence && !c.Borrado && c.Relevante == true);
 
         if (parent != null)
         {
-            // Ordenar primero por Orden (nuevo campo) y luego por Nombre
+            // Only include children where Relevante = true and not deleted
+            // Order by Orden then Nombre
             children = await Db.ContenidosCategorias
                 .AsNoTracking()
-                .Where(c => c.CategoriaPadre == parentSequence && !c.Borrado)
+                .Where(c => c.CategoriaPadre == parentSequence && !c.Borrado && c.Relevante == true)
                 .OrderBy(c => c.Orden)
                 .ThenBy(c => c.Nombre)
                 .ToListAsync();
@@ -40,15 +42,15 @@
     <li class="nav-item dropdown">
         <a class="nav-link dropdown-toggle d-flex align-items-center"
            href="#"
-           id="cat@parent.Sequence-Dropdown"
+           id="menuContenido@parent.Sequence-Dropdown"
            role="button"
            data-bs-toggle="dropdown"
            aria-expanded="false">
-            <i class="bi bi-list-ul me-1" aria-hidden="true"></i>
-            <span>@(parent.Nombre ?? "Categoría")</span>
+            <i class="bi bi-star me-1" aria-hidden="true"></i>
+            <span>@(parent.Nombre ?? "Relevantes")</span>
         </a>
 
-        <ul class="dropdown-menu" aria-labelledby="cat@parent.Sequence-Dropdown">
+        <ul class="dropdown-menu" aria-labelledby="menuContenido@parent.Sequence-Dropdown">
             @if (children != null && children.Any())
             {
                 foreach (var ch in children)
@@ -62,7 +64,7 @@
             {
                 var slugParent = string.IsNullOrWhiteSpace(parent.CategoriaSlug) ? parent.Sequence.ToString() : parent.CategoriaSlug;
                 var urlParent = $"/Contenidos/Categoria/{slugParent}";
-                <li><a class="dropdown-item" href="@urlParent">Ver categoría</a></li>
+                <li><a class="dropdown-item" href="@urlParent">Ver categoría relevante</a></li>
             }
         </ul>
     </li>

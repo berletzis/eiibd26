@@ -42,7 +42,7 @@ namespace eiibd26.Pages.Contenidos
         public int TotalCount { get; set; }
         public List<BlogItemVm> Items { get; set; } = new List<BlogItemVm>();
 
-        // AVAILABLE tags (now: tags assigned to the current user)
+        // AVAILABLE tags (tags assigned to the current user, shown in UI)
         public List<TagVm> AvailableConditions { get; set; } = new List<TagVm>();
         public List<TagVm> AvailableSintomas { get; set; } = new List<TagVm>();
         public List<TagVm> AvailableTratamientos { get; set; } = new List<TagVm>();
@@ -71,7 +71,7 @@ namespace eiibd26.Pages.Contenidos
             FilterSintomaIds = ParseIds(SintomaIds);
             FilterTratamientoIds = ParseIds(TratamientoIds);
 
-            // --- 1) Resolve user-associated tags (conditions, sintomas, tratamientos) if authenticated ---
+            // --- Resolve user-associated tags (for UI only) ---
             if (User?.Identity?.IsAuthenticated ?? false)
             {
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -79,7 +79,6 @@ namespace eiibd26.Pages.Contenidos
                 {
                     try
                     {
-                        // Conditions associated to user (only non-deleted associations)
                         var userCondIds = await _db.condicionUsuario
                             .AsNoTracking()
                             .Where(x => x.Usuario.Id == userGuid && !x.Eliminado)
@@ -89,8 +88,6 @@ namespace eiibd26.Pages.Contenidos
 
                         if (userCondIds.Any())
                         {
-                            // Fetch only child conditions (idPadre != null) to satisfy "registros hijos"
-                            // Note: propiedades usadas: 'id' and 'idPadre' assume your condiciones model uses these names (as in OnModelCreating).
                             AvailableConditions = await _db.condiciones
                                 .AsNoTracking()
                                 .Where(c => userCondIds.Contains(c.id) && c.idPadre != null)
@@ -99,7 +96,6 @@ namespace eiibd26.Pages.Contenidos
                                 .ToListAsync();
                         }
 
-                        // Sintomas associated to user
                         var userSintIds = await _db.sintomasUsuario
                             .AsNoTracking()
                             .Where(x => x.Usuario.Id == userGuid && !x.Eliminado)
@@ -109,7 +105,6 @@ namespace eiibd26.Pages.Contenidos
 
                         if (userSintIds.Any())
                         {
-                            // If your 'sintomas' table has a parent field, you can add '&& s.idPadre != null' here.
                             AvailableSintomas = await _db.sintomas
                                 .AsNoTracking()
                                 .Where(s => userSintIds.Contains(s.id))
@@ -118,7 +113,6 @@ namespace eiibd26.Pages.Contenidos
                                 .ToListAsync();
                         }
 
-                        // Tratamientos associated to user
                         var userTratIds = await _db.tratamientoUsuario
                             .AsNoTracking()
                             .Where(x => x.Usuario.Id == userGuid && !x.Eliminado)
@@ -128,7 +122,6 @@ namespace eiibd26.Pages.Contenidos
 
                         if (userTratIds.Any())
                         {
-                            // Fetch only child tratamientos (idPadre != null)
                             AvailableTratamientos = await _db.tratamientos
                                 .AsNoTracking()
                                 .Where(t => userTratIds.Contains(t.id) && t.idPadre != null)
@@ -139,7 +132,6 @@ namespace eiibd26.Pages.Contenidos
                     }
                     catch
                     {
-                        // If anything fails, leave lists empty but keep page functional.
                         AvailableConditions = new List<TagVm>();
                         AvailableSintomas = new List<TagVm>();
                         AvailableTratamientos = new List<TagVm>();
@@ -147,10 +139,13 @@ namespace eiibd26.Pages.Contenidos
                 }
             }
 
-            // --- 2) Build baseQuery for contents (apply search if any) ---
+            // --- Build baseQuery for contents (apply search if any) ---
+            // Contenidos/Index should show estados 1,2,3 (Publicado + published variants)
+            var allowedStatuses = new[] { 1, 2, 3 };
+
             var baseQuery = _db.Contenidos
                 .AsNoTracking()
-                .Where(c => !c.Eliminado && c.EstadoPublicacion != 0 );
+                .Where(c => !c.Eliminado && allowedStatuses.Contains((c.EstadoPublicacion ?? 0)));
 
             if (!string.IsNullOrWhiteSpace(SearchQuery))
             {
@@ -158,7 +153,7 @@ namespace eiibd26.Pages.Contenidos
                 baseQuery = baseQuery.Where(c => (c.ContenidoTitulo ?? "").Contains(q) || (c.ContenidoTextoC ?? "").Contains(q) || (c.ContenidoTextoL ?? "").Contains(q));
             }
 
-            // --- 3) Build IDs subquery and apply filters avoiding duplicates ---
+            // --- Build IDs subquery and apply filters (AND across types) ---
             IQueryable<int> idsQuery = baseQuery.Select(c => c.Id);
 
             if (FilterConditionIds != null && FilterConditionIds.Any())
@@ -191,7 +186,7 @@ namespace eiibd26.Pages.Contenidos
                 idsQuery = idsQuery.Where(id => tratContentIds.Contains(id));
             }
 
-            // --- 4) Use idsQuery to compute total and page items ---
+            // --- Compute totals and load page of contents ---
             TotalCount = await idsQuery.Distinct().CountAsync();
 
             var contentsQuery = _db.Contenidos
@@ -219,7 +214,7 @@ namespace eiibd26.Pages.Contenidos
 
             Items = items;
 
-            // Batch load related metadata (only for visible items)
+            // --- Batch load related metadata for visible items ---
             var contentIds = Items.Select(i => i.Id).ToList();
             if (contentIds.Any())
             {
@@ -262,6 +257,37 @@ namespace eiibd26.Pages.Contenidos
                     if (sntsByContent.TryGetValue(it.Id, out var ls)) it.Symptoms = ls;
                     if (trtsByContent.TryGetValue(it.Id, out var lt)) it.Treatments = lt;
                     if (qCountsDict.TryGetValue(it.Id, out var qc)) it.RelatedQuestionsCount = qc;
+                }
+
+                // --- Load per-content assigned category name+slug and attach link ---
+                var catRels = await _db.ContenidosCategoriasRelacion
+                    .AsNoTracking()
+                    .Where(r => contentIds.Contains(r.IdContenido) && !r.Borrado && r.IdCategoria != null)
+                    .Join(_db.ContenidosCategorias.AsNoTracking(),
+                          rel => rel.IdCategoria,
+                          cat => cat.Sequence,
+                          (rel, cat) => new { rel.IdContenido, cat.Sequence, cat.CategoriaSlug, cat.Nombre, cat.CategoriaPadre })
+                    .ToListAsync();
+
+                var map = catRels
+                    .GroupBy(x => x.IdContenido)
+                    .ToDictionary(g => g.Key, g =>
+                    {
+                        // Prefer child category (CategoriaPadre != null) if present
+                        var chosen = g.OrderBy(x => x.CategoriaPadre.HasValue ? 0 : 1).ThenBy(x => x.Sequence).FirstOrDefault();
+                        if (chosen == null) return (Name: (string)null, Link: (string)null);
+                        var segment = !string.IsNullOrWhiteSpace(chosen.CategoriaSlug) ? chosen.CategoriaSlug : chosen.Sequence.ToString();
+                        var link = "/Contenidos/categoria/" + segment;
+                        return (Name: chosen.Nombre, Link: link);
+                    });
+
+                foreach (var it in Items)
+                {
+                    if (map.TryGetValue(it.Id, out var v) && !string.IsNullOrWhiteSpace(v.Name) && !string.IsNullOrWhiteSpace(v.Link))
+                    {
+                        // store an HTML anchor in Category so the view can render it
+                        it.Category = $"<a href=\"{v.Link}\" class=\"blog-category\">{v.Name}</a>";
+                    }
                 }
             }
 

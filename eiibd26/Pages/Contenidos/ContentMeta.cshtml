@@ -1,59 +1,77 @@
-﻿
-@page
+﻿@page
 @model eiibd26.Pages.Contenidos.ContentMetaModel
 @{
-    Layout = null; // fragment
+    // This is a fragment returned to AJAX requests - no layout
+    Layout = null;
 }
-@section Styles {
-    
-    </style>
-}
-@if (Model == null || Model.Item == null)
-{
-    <div style="color:#6b7280;">No hay información relacionada.</div>
-}
-else
-{
-    <div class="content-meta-fragment">
-        <div style="margin-bottom:8px;">
-            <strong>Condiciones:</strong>
-            @if (Model.Item.Conditions.Any())
-            {
-                <span>@string.Join(", ", Model.Item.Conditions)</span>
-            }
-            else
-            {
-                <span class="text-muted">No hay condiciones relacionadas</span>
-            }
-        </div>
 
-        <div style="margin-bottom:8px;">
-            <strong>Síntomas:</strong>
-            @if (Model.Item.Symptoms.Any())
+<div class="content-meta-fragment" role="region" aria-label="Información relacionada">
+    @if (Model.NotFound)
+    {
+        <div style="color:#6b7280">No se encontró información relacionada.</div>
+    }
+    else
+    {
+        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:8px;">
+            @if (Model.Conditions?.Any() ?? false)
             {
-                <span>@string.Join(", ", Model.Item.Symptoms)</span>
+                <div>
+                    <strong>Condiciones:</strong>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">
+                        @foreach (var c in Model.Conditions)
+                        {
+                            @* Render as plain badge (no link) *@
+                            <span class="badge bg-light text-primary" style="padding:6px 10px; border-radius:999px; border:1px solid #e6eef7; color:#2563eb;">@c</span>
+                        }
+                    </div>
+                </div>
             }
-            else
-            {
-                <span class="text-muted">No hay síntomas relacionados</span>
-            }
-        </div>
 
-        <div style="margin-bottom:8px;">
-            <strong>Tratamientos:</strong>
-            @if (Model.Item.Treatments.Any())
+            @if (Model.Symptoms?.Any() ?? false)
             {
-                <span>@string.Join(", ", Model.Item.Treatments)</span>
+                <div>
+                    <strong>Síntomas:</strong>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">
+                        @foreach (var s in Model.Symptoms)
+                        {
+                            <span class="badge bg-light" style="padding:6px 10px; border-radius:999px; border:1px solid #e6eef7">@s</span>
+                        }
+                    </div>
+                </div>
             }
-            else
+
+            @if (Model.Treatments?.Any() ?? false)
             {
-                <span class="text-muted">No hay tratamientos relacionados</span>
+                <div>
+                    <strong>Tratamientos:</strong>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">
+                        @foreach (var t in Model.Treatments)
+                        {
+                            <span class="badge bg-light" style="padding:6px 10px; border-radius:999px; border:1px solid #e6eef7">@t</span>
+                        }
+                    </div>
+                </div>
             }
         </div>
 
         <div style="margin-top:6px;">
             <strong>Preguntas relacionadas:</strong>
-            <span>@Model.Item.RelatedQuestionsCount</span>
+            @if (Model.RelatedQuestions != null && Model.RelatedQuestions.Any())
+            {
+                <ul style="margin:8px 0 0 18px; color:#374151;">
+                    @foreach (var q in Model.RelatedQuestions)
+                    {
+                        <li>
+                            <a href="@Url.Page("/Preguntas/Detalle", new { id = q.Id })" style="text-decoration:none;">@q.Title</a>
+                            <small style="color:#6b7280; margin-left:6px;">(@q.CreatedAt.ToString("yyyy-MM-dd"))</small>
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <div style="color:#6b7280; margin-top:6px;">No hay preguntas relacionadas.</div>
+            }
         </div>
-    </div>
-}
+    }
+</div>
