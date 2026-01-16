@@ -1,59 +1,41 @@
-﻿﻿@using Microsoft.AspNetCore.Http
+﻿@using Microsoft.AspNetCore.Http
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Hosting
 @using Microsoft.EntityFrameworkCore
 @using eiibd26.Data
 @using eiibd26.Models
+@using System
 @inject ApplicationDbContext Db
 @inject UserManager<ApplicationUser> UserManager
 @{
     var isAuth = User?.Identity?.IsAuthenticated ?? false;
-
-    // Default avatar (virtual path)
     var avatarSrc = Url.Content("~/img/default-avatar.png");
-
-    string userId = null;
-    string displayName = null;
-    string userName = null;
+    string userId = null; string displayName = null; string userName = null;
 
     if (isAuth)
     {
         userId = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
         if (!string.IsNullOrEmpty(userId))
         {
-            try
-            {
-                var identityUser = await UserManager.FindByIdAsync(userId);
-                if (identityUser != null) userName = identityUser.UserName;
-            }
+            try { var identityUser = await UserManager.FindByIdAsync(userId); if (identityUser != null) userName = identityUser.UserName; }
             catch { userName = userName ?? User?.Identity?.Name; }
         }
-        else
-        {
-            userName = User?.Identity?.Name;
-        }
+        else { userName = User?.Identity?.Name; }
 
         if (!string.IsNullOrEmpty(userId))
         {
             try
             {
                 Perfil perfil = null;
-                if (Guid.TryParse(userId, out var userGuid))
-                {
-                    perfil = await Db.Set<Perfil>().FirstOrDefaultAsync(p => p.idUser == userGuid);
-                }
-                else
-                {
-                    perfil = await Db.Set<Perfil>().FirstOrDefaultAsync(p => p.idUser.ToString() == userId);
-                }
+                if (Guid.TryParse(userId, out var userGuid)) perfil = await Db.Set<Perfil>().FirstOrDefaultAsync(p => p.idUser == userGuid);
+                else perfil = await Db.Set<Perfil>().FirstOrDefaultAsync(p => p.idUser.ToString() == userId);
 
                 if (perfil != null && !string.IsNullOrWhiteSpace(perfil.Nombre))
                 {
                     displayName = perfil.Nombre + (string.IsNullOrWhiteSpace(perfil.Apellidos) ? "" : " " + perfil.Apellidos);
                 }
             }
-            catch { /* ignore */ }
+            catch { }
         }
 
         displayName = displayName ?? User?.FindFirst(ClaimTypes.Name)?.Value ?? User?.Identity?.Name ?? "Usuario";
@@ -64,21 +46,41 @@
             try
             {
                 var physicalPath = System.IO.Path.Combine(env.WebRootPath ?? "wwwroot", "uploads", "avatars", userId, "avatar-64.png");
-                if (System.IO.File.Exists(physicalPath))
-                {
-                    avatarSrc = Url.Content($"~/uploads/avatars/{userId}/avatar-64.png");
-                }
+                if (System.IO.File.Exists(physicalPath)) avatarSrc = Url.Content($"~/uploads/avatars/{userId}/avatar-64.png");
             }
             catch { avatarSrc = Url.Content("~/img/default-avatar.png"); }
         }
     }
+
+    // New robust helper: compare first path segment (treat "/" as special)
+    var rawPath = (Context.Request.Path.Value ?? "").TrimEnd('/');
+    if (string.IsNullOrEmpty(rawPath)) rawPath = "/";
+
+    string GetFirstSegment(string path)
+    {
+        if (string.IsNullOrEmpty(path) || path == "/") return "/";
+        var trimmed = path.Trim('/');
+        var parts = trimmed.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length > 0 ? "/" + parts[0].ToLowerInvariant() : "/";
+    }
+
+    var currentFirst = GetFirstSegment(rawPath);
+
+    Func<string, bool> IsActivePath = seg =>
+    {
+        if (string.IsNullOrEmpty(seg)) return false;
+        var normSeg = seg.StartsWith("/") ? seg.TrimEnd('/') : ("/" + seg.TrimEnd('/'));
+        if (normSeg == "/") return currentFirst == "/";
+        var segFirst = GetFirstSegment(normSeg);
+        return string.Equals(segFirst, currentFirst, StringComparison.OrdinalIgnoreCase);
+    };
+
+    Func<string, string> ActiveClass = seg => IsActivePath(seg) ? " active" : "";
 }
 <header>
     <style>
-        /* Layout: left brand (250px) | center menu (940px) | user area (auto right) */
-        /* Changed topbar background to the same grey tone used in footer (no white) */
         .topbar {
-            background: #f8fafc; /* same tone as footer */
+            background: #f8fafc;
             border-bottom: 1px solid #e9ecef;
         }
 
@@ -92,13 +94,12 @@
             max-width: none;
         }
 
-        /* Brand column fixed 250px; centered horizontally and vertically */
         .topbar-brand {
             flex: 0 0 250px;
             max-width: 250px;
             display: flex;
             align-items: center;
-            justify-content: center; /* CENTRAR el logo */
+            justify-content: center;
             gap: .5rem;
         }
 
@@ -111,25 +112,22 @@
                 display: block;
             }
 
-        /* Toggler sits after brand but does not take space from brand */
         .topbar-toggler {
             border: none;
             background: transparent;
             margin-left: 6px;
         }
 
-        /* Center column: holds the collapsed menu; base width 940px */
         .topbar-center {
-            flex: 0 0 940px; /* fixed base width */
+            flex: 0 0 940px;
             max-width: 940px;
-            min-width: 0; /* allow collapse/shrink inside */
+            min-width: 0;
             display: flex;
             align-items: center;
             box-sizing: border-box;
             justify-content: flex-start;
         }
 
-            /* The nav inside center: horizontal layout on desktop */
             .topbar-center .navbar-nav {
                 display: flex;
                 gap: 1rem;
@@ -138,7 +136,16 @@
                 justify-content: flex-start;
             }
 
-        /* User area fixed to the right; margin-left:auto keeps it at far right */
+        /* mark active item in purple + bold */
+        .topbar .nav-link.active {
+            color: #6a4e7a !important;
+            font-weight: 600;
+        }
+
+            .topbar .nav-link.active i {
+                color: #6a4e7a !important;
+            }
+
         .topbar-user {
             margin-left: auto;
             display: flex;
@@ -147,7 +154,6 @@
             flex: 0 0 auto;
         }
 
-            /* avatar */
             .topbar-user img {
                 height: 28px;
                 width: 28px;
@@ -156,7 +162,7 @@
                 border: 1px solid rgba(0,0,0,0.06);
             }
 
-        /* Responsive: when <= 991.98px use bootstrap collapse default: the center will stack */
+        /* Responsive */
         @@media (max-width: 991.98px) {
             .topbar-inner {
                 padding-left: 12px;
@@ -183,8 +189,7 @@
             }
         }
 
-        /* very small screens tweak */
-        @@media (max-width: 575.98px) {
+        @@media (max-width:575.98px) {
             .topbar-brand img {
                 height: 32px;
             }
@@ -198,70 +203,51 @@
 
     <nav class="navbar navbar-expand-lg topbar">
         <div class="topbar-inner container-fluid">
-            <!-- LEFT: brand column (fixed 250px) -->
-            <a class="navbar-brand topbar-brand" href="/">
-                <img src="~/img/logo.png" alt="eiibd26 logo" />
-            </a>
+            <a class="navbar-brand topbar-brand" href="/"><img src="~/img/logo.png" alt="eiibd26 logo" /></a>
 
-            <!-- toggler (targets the center collapse) -->
             <button class="navbar-toggler topbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topbarCenterCollapse" aria-controls="topbarCenterCollapse" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
 
-            <!-- CENTER: collapse area with menu items (fixed base 940px on desktop) -->
             <div class="collapse navbar-collapse topbar-center" id="topbarCenterCollapse">
                 <ul class="navbar-nav me-auto align-items-center">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/"><i class="bi bi-house-door-fill"></i>&nbsp;Inicio</a>
-                    </li>
+                    <li class="nav-item"><a class="nav-link@(ActiveClass("/"))" href="/"><i class="bi bi-house-door-fill"></i>&nbsp;Inicio</a></li>
 
                     <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center" href="/Contenidos" title="Ir a Contenidos" aria-label="Contenidos">
+                        <a class="nav-link d-flex align-items-center@(ActiveClass("/Contenidos"))" href="/Contenidos" title="Ir a Contenidos" aria-label="Contenidos">
                             <i class="bi bi-search"></i>
                             <span>&nbsp;Buscador</span>
                         </a>
                     </li>
+
                     <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center" href="/Preguntas" title="Ir a Preguntas y Respuestas" aria-label="Preguntas y Respuestas">
+                        <a class="nav-link d-flex align-items-center@(ActiveClass("/Preguntas"))" href="/Preguntas" title="Ir a Preguntas y Respuestas" aria-label="Preguntas y Respuestas">
                             <i class="bi bi-view-stacked"></i>
-                            <span> &nbsp;Preguntas y Respuestas</span>
+                            <span>&nbsp;Preguntas y Respuestas</span>
                         </a>
                     </li>
 
-                    @* Category menu partial inserted after Preguntas y Respuestas *@
                     <partial name="~/Pages/Shared/_CategoryMenuPartial.cshtml" />
                     <partial name="~/Pages/Shared/_menuContenidoPartial.cshtml" />
 
                     @if (isAuth)
                     {
-                        <li class="nav-item">
-                            <a class="nav-link" href="/Identity/Usuario/Dashboard"><i class="bi bi-motherboard"></i> &nbsp;Panel de Control</a>
-                        </li>
+                        <li class="nav-item"><a class="nav-link@(ActiveClass("/Identity/Usuario/Dashboard"))" href="/Identity/Usuario/Dashboard"><i class="bi bi-motherboard"></i>&nbsp;Panel de Control</a></li>
                     }
                 </ul>
             </div>
 
-            <!-- RIGHT: user area (stays flush right) -->
             <div class="topbar-user">
                 <ul class="navbar-nav ms-auto align-items-center">
                     @if (!isAuth)
                     {
-                        <li class="nav-item">
-                            <a class="nav-link" href="/Identity/Account/Login">
-                                <i class="bi bi-box-arrow-in-right me-1"></i> Iniciar sesión
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="/Identity/Account/Register">
-                                <i class="bi bi-person-plus me-1"></i> Registro
-                            </a>
-                        </li>
+                        <li class="nav-item"><a class="nav-link@(ActiveClass("/Identity/Account/Login"))" href="/Identity/Account/Login"><i class="bi bi-box-arrow-in-right me-1"></i> Iniciar sesión</a></li>
+                        <li class="nav-item"><a class="nav-link@(ActiveClass("/Identity/Account/Register"))" href="/Identity/Account/Register"><i class="bi bi-person-plus me-1"></i> Registro</a></li>
                     }
                     else
                     {
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="perfilDropdown" role="button"
-                               data-bs-toggle="dropdown" aria-expanded="false" title="Mis datos de inicio de sesión" aria-label="Mis datos de inicio de sesión">
+                            <a class="nav-link dropdown-toggle d-flex align-items-center@(ActiveClass("/Identity/Account/Manage"))" href="#" id="perfilDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="Mis datos de inicio de sesión" aria-label="Mis datos de inicio de sesión">
                                 <img src="@avatarSrc" alt="Mi avatar" />
                                 <span class="ms-2 me-2">@displayName</span>
                                 <i class="bi bi-gear-fill" aria-hidden="true"></i>
@@ -286,32 +272,14 @@
                                 </li>
                                 <li><hr class="dropdown-divider" /></li>
 
-                                <li>
-                                    <a class="dropdown-item d-flex align-items-center" href="/Identity/Account/Manage/UsuarioPerfil">
-                                        <span>Perfil público</span>
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item d-flex align-items-center" href="/Identity/Account/Manage">
-                                        <span>Usuario/Registro</span>
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item d-flex align-items-center" href="/Identity/Account/Manage/Email">
-                                        Cambiar email
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item d-flex align-items-center" href="/Identity/Account/Manage/ChangePassword">
-                                        Cambiar contraseña
-                                    </a>
-                                </li>
+                                <li><a class="dropdown-item d-flex align-items-center" href="/Identity/Account/Manage/UsuarioPerfil"><span>Perfil público</span></a></li>
+                                <li><a class="dropdown-item d-flex align-items-center" href="/Identity/Account/Manage"><span>Usuario/Registro</span></a></li>
+                                <li><a class="dropdown-item d-flex align-items-center" href="/Identity/Account/Manage/Email">Cambiar email</a></li>
+                                <li><a class="dropdown-item d-flex align-items-center" href="/Identity/Account/Manage/ChangePassword">Cambiar contraseña</a></li>
                                 <li><hr class="dropdown-divider" /></li>
                                 <li>
                                     <form method="post" asp-area="Identity" asp-page="/Account/Logout" class="d-inline">
-                                        <button type="submit" class="dropdown-item d-flex align-items-center">
-                                            <i class="bi bi-box-arrow-right me-1"></i> Cerrar sesión
-                                        </button>
+                                        <button type="submit" class="dropdown-item d-flex align-items-center"><i class="bi bi-box-arrow-right me-1"></i> Cerrar sesión</button>
                                     </form>
                                 </li>
                             </ul>

@@ -1,45 +1,84 @@
-﻿@using System.Linq
+﻿@using System
+@using System.Linq
 @using Microsoft.EntityFrameworkCore
-@using eiibd26.Models
+@using eiibd26.Data
 @inject ApplicationDbContext Db
 
 @{
     // Parent sequence to show in menu
     const int parentSequence = 11;
 
-    ContenidoCategoria parent = null;
-    List<ContenidoCategoria> children = new();
-
-    try
+    // Active helper (same behavior as top menu)
+    var currentPath = (Context.Request.Path.Value ?? "").TrimEnd('/');
+    if (string.IsNullOrEmpty(currentPath)) currentPath = "/";
+    Func<string, bool> IsActivePath = seg =>
     {
-        parent = await Db.ContenidosCategorias
-            .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Sequence == parentSequence && !c.Borrado);
+        if (string.IsNullOrEmpty(seg)) return false;
+        var normSeg = seg.StartsWith("/") ? seg.TrimEnd('/') : ("/" + seg.TrimEnd('/'));
+        if (normSeg == "/") return string.Equals(currentPath, "/", StringComparison.OrdinalIgnoreCase);
+        return string.Equals(currentPath, normSeg, StringComparison.OrdinalIgnoreCase)
+            || currentPath.StartsWith(normSeg + "/", StringComparison.OrdinalIgnoreCase);
+    };
 
-        if (parent != null)
+    // Load parent + children (materialize before using dynamic)
+    var parent = await Db.ContenidosCategorias
+        .AsNoTracking()
+        .FirstOrDefaultAsync(c => c.Sequence == parentSequence && !c.Borrado);
+
+    List<dynamic> children = new();
+    var childrenPaths = new List<string>();
+    if (parent != null)
+    {
+        var childEntities = await Db.ContenidosCategorias
+            .AsNoTracking()
+            .Where(c => c.CategoriaPadre == (int?)parentSequence && !c.Borrado)
+            .OrderBy(c => c.Orden)
+            .ThenBy(c => c.Nombre)
+            .ToListAsync();
+
+        children = childEntities.Cast<dynamic>().ToList();
+
+        // build child paths to check parent active when any child is active
+        foreach (var ch in children)
         {
-            // Ordenar primero por Orden (nuevo campo) y luego por Nombre
-            children = await Db.ContenidosCategorias
-                .AsNoTracking()
-                .Where(c => c.CategoriaPadre == parentSequence && !c.Borrado)
-                .OrderBy(c => c.Orden)
-                .ThenBy(c => c.Nombre)
-                .ToListAsync();
+            var slugChild = !string.IsNullOrWhiteSpace((string)ch.CategoriaSlug) ? (string)ch.CategoriaSlug : ch.Sequence.ToString();
+            var childPath = "/Contenidos/categoria/" + slugChild;
+            childrenPaths.Add(childPath);
         }
     }
-    catch
+
+    // Determine parent path and whether parent should be considered active:
+    string parentPath = null;
+    bool parentIsActive = false;
+    if (parent != null)
     {
-        // fail silently — partial should not break the page
-        parent = null;
-        children = new List<ContenidoCategoria>();
+        var slugParent = !string.IsNullOrWhiteSpace((string)parent.CategoriaSlug) ? (string)parent.CategoriaSlug : parent.Sequence.ToString();
+        parentPath = "/Contenidos/categoria/" + slugParent;
+
+        // Active if parent path matches OR any child path matches currentPath
+        parentIsActive = IsActivePath(parentPath) || childrenPaths.Any(p => IsActivePath(p));
     }
+
+    Func<bool, string> BoldClassIf = isBold => isBold ? " fw-bold" : "";
 }
 
 @if (parent != null)
 {
+    <style>
+        /* Make dropdown-item with fw-bold remain transparent (no background) and purple text */
+        .dropdown-item.fw-bold {
+            background: transparent !important;
+        }
+
+        .text-purple {
+            color: #6a4e7a !important;
+        }
+    </style>
+
     <li class="nav-item dropdown">
-        <a class="nav-link dropdown-toggle d-flex align-items-center"
-           href="#"
+        @* Parent link: add fw-bold when parent or any child is active. Parent keeps using nav-link.active for color if desired. *@
+        <a class="nav-link dropdown-toggle d-flex align-items-center@(parentIsActive ? " fw-bold" : "")"
+           href="@Url.Content(parentPath)"
            id="cat@parent.Sequence-Dropdown"
            role="button"
            data-bs-toggle="dropdown"
@@ -53,16 +92,20 @@
             {
                 foreach (var ch in children)
                 {
-                    var slug = string.IsNullOrWhiteSpace(ch.CategoriaSlug) ? ch.Sequence.ToString() : ch.CategoriaSlug;
-                    var url = $"/Contenidos/Categoria/{slug}";
-                    <li><a class="dropdown-item" href="@url">@ch.Nombre</a></li>
+                    var slug = string.IsNullOrWhiteSpace((string)ch.CategoriaSlug) ? ch.Sequence.ToString() : (string)ch.CategoriaSlug;
+                    var url = "/Contenidos/categoria/" + slug;
+                    var childIsActive = IsActivePath(url);
+                    <li>
+                        @* No 'active' class: only fw-bold + purple text when active, no background *@
+                        <a class="dropdown-item@(childIsActive ? " fw-bold text-purple" : "")" href="@Url.Content(url)">@ch.Nombre</a>
+                    </li>
                 }
             }
             else
             {
-                var slugParent = string.IsNullOrWhiteSpace(parent.CategoriaSlug) ? parent.Sequence.ToString() : parent.CategoriaSlug;
-                var urlParent = $"/Contenidos/Categoria/{slugParent}";
-                <li><a class="dropdown-item" href="@urlParent">Ver categoría</a></li>
+                <li>
+                    <a class="dropdown-item@(IsActivePath(parentPath) ? " fw-bold text-purple" : "")" href="@Url.Content(parentPath)">Ver categoría</a>
+                </li>
             }
         </ul>
     </li>
