@@ -11,7 +11,7 @@ namespace Conectar3eros
             // To customize application configuration such as set high DPI settings or default font,
             // see https://aka.ms/applicationconfiguration.
             ApplicationConfiguration.Initialize();
-            Application.Run(new MailchimpHttpClient("",""));
+            Application.Run(new MailchimpHttpClient());
         }
     }
 }

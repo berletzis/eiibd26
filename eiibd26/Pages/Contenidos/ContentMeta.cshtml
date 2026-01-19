@@ -5,6 +5,90 @@
     Layout = null;
 }
 
+<style>
+    /* Estilos para el fragmento de información relacionada (scoped dentro del fragmento) */
+    .content-meta-fragment {
+        color: #374151;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+        font-size: 0.95rem;
+    }
+
+        .content-meta-fragment .meta-row {
+            display: block;
+            margin-top: 8px;
+        }
+
+        .content-meta-fragment .meta-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #0f172a;
+        }
+
+        /* Listado de palabras (no cápsulas): palabras simples, separadas por guiones o comas visuales */
+        .content-meta-fragment .meta-list {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .content-meta-fragment .meta-word {
+            display: inline-block;
+            color: #334155; /* texto principal */
+            background: transparent; /* sin fondo */
+            border: none; /* sin borde */
+            padding: 0;
+            margin: 0;
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+
+        /* Si quieres una distinción de color por tipo (opcional, sutil) */
+        .content-meta-fragment .meta-conditions .meta-word {
+            color: #0f5bd9;
+        }
+        /* azul para condiciones */
+        .content-meta-fragment .meta-symptoms .meta-word {
+            color: #c05621;
+        }
+        /* naranja para sintomas */
+        .content-meta-fragment .meta-treatments .meta-word {
+            color: #15803d;
+        }
+        /* verde para tratamientos */
+
+        /* Pequeño muting para la fecha */
+        .content-meta-fragment .meta-date {
+            color: #6b7280;
+            font-size: 0.85rem;
+            margin-left: 8px;
+        }
+
+        /* Lista de preguntas relacionadas: simple, con bullets pero sin enlaces */
+        .content-meta-fragment .related-questions {
+            margin-top: 8px;
+            padding-left: 18px;
+            color: #374151;
+        }
+
+            .content-meta-fragment .related-questions li {
+                margin-bottom: 6px;
+                line-height: 1.25;
+            }
+
+            .content-meta-fragment .related-questions .q-title {
+                color: #0f172a;
+                font-weight: 500;
+            }
+
+            .content-meta-fragment .related-questions .q-date {
+                color: #6b7280;
+                font-size: 0.85rem;
+                margin-left: 6px;
+            }
+</style>
+
 <div class="content-meta-fragment" role="region" aria-label="Información relacionada">
     @if (Model.NotFound)
     {
@@ -12,16 +96,16 @@
     }
     else
     {
-        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:8px;">
+        <div style="display:block; margin-bottom:8px;">
             @if (Model.Conditions?.Any() ?? false)
             {
-                <div>
-                    <strong>Condiciones:</strong>
-                    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">
+                <div class="meta-row meta-conditions" aria-label="Condiciones">
+                    <div class="meta-label">Condiciones:</div>
+                    <div class="meta-list" role="list">
                         @foreach (var c in Model.Conditions)
                         {
-                            @* Render as plain badge (no link) *@
-                            <span class="badge bg-light text-primary" style="padding:6px 10px; border-radius:999px; border:1px solid #e6eef7; color:#2563eb;">@c</span>
+                            @* Render as plain word (no link, no capsule) *@
+                            <span role="listitem" class="meta-word">@c</span>
                         }
                     </div>
                 </div>
@@ -29,12 +113,12 @@
 
             @if (Model.Symptoms?.Any() ?? false)
             {
-                <div>
-                    <strong>Síntomas:</strong>
-                    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">
+                <div class="meta-row meta-symptoms" aria-label="Síntomas">
+                    <div class="meta-label">Síntomas:</div>
+                    <div class="meta-list" role="list">
                         @foreach (var s in Model.Symptoms)
                         {
-                            <span class="badge bg-light" style="padding:6px 10px; border-radius:999px; border:1px solid #e6eef7">@s</span>
+                            <span role="listitem" class="meta-word">@s</span>
                         }
                     </div>
                 </div>
@@ -42,12 +126,12 @@
 
             @if (Model.Treatments?.Any() ?? false)
             {
-                <div>
-                    <strong>Tratamientos:</strong>
-                    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">
+                <div class="meta-row meta-treatments" aria-label="Tratamientos">
+                    <div class="meta-label">Tratamientos:</div>
+                    <div class="meta-list" role="list">
                         @foreach (var t in Model.Treatments)
                         {
-                            <span class="badge bg-light" style="padding:6px 10px; border-radius:999px; border:1px solid #e6eef7">@t</span>
+                            <span role="listitem" class="meta-word">@t</span>
                         }
                     </div>
                 </div>
@@ -58,12 +142,13 @@
             <strong>Preguntas relacionadas:</strong>
             @if (Model.RelatedQuestions != null && Model.RelatedQuestions.Any())
             {
-                <ul style="margin:8px 0 0 18px; color:#374151;">
+                <ul class="related-questions" role="list">
                     @foreach (var q in Model.RelatedQuestions)
                     {
                         <li>
-                            <a href="@Url.Page("/Preguntas/Detalle", new { id = q.Id })" style="text-decoration:none;">@q.Title</a>
-                            <small style="color:#6b7280; margin-left:6px;">(@q.CreatedAt.ToString("yyyy-MM-dd"))</small>
+                            @* Render as plain text (no link) *@
+                            <span class="q-title">@q.Title</span>
+                            <small class="q-date">(@q.CreatedAt.ToString("yyyy-MM-dd"))</small>
                         </li>
                     }
                 </ul>
