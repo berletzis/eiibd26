@@ -20,12 +20,40 @@
 
 @section Styles {
     <link rel="stylesheet" href="~/css/preguntas.css" />
+    <style>
+        /* Subtitle style for details page (now below the title, not bold) */
+        .se-subtitle {
+            color: #6b7280;
+            font-size: 0.95rem;
+            font-weight: 400; /* not bold */
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-top: 6px;
+            margin-bottom: 12px;
+        }
 
+        /* Title duplicated inside card: match size but not bold */
+        .se-card-title {
+            margin: 0 0 8px 0;
+            font-size: 1.05rem;
+            font-weight: 400; /* non-bold inside card */
+            color: #0f172a;
+        }
+    </style>
 }
 
 <form id="__antiForgeryForm" style="display:none;">@Html.AntiForgeryToken()</form>
 
 <div class="container py-4">
+    @if (Model.Pregunta != null)
+    {
+        <!-- Main title (as on Preguntas list) -->
+        <div class="mb-3">
+            <h1 class="se-page-title">@Model.Pregunta.Titulo</h1>
+            <div class="se-subtitle">Pregunta</div> @* subtitle below the title and not bold *@
+        </div>
+    }
+
     <div class="qp-wrapper-flex">
         <div class="qp-main">
 
@@ -76,7 +104,9 @@
                     </div>
 
                     <div class="se-summary">
-                        <h1 class="se-title">@Model.Pregunta.Titulo</h1>
+                        @* Re-introduce the title inside the card but not bold *@
+                        <h2 class="se-card-title">@Model.Pregunta.Titulo</h2>
+
                         <div class="se-excerpt">@Html.Raw(Model.Pregunta.Cuerpo)</div>
                         <div class="se-answers-float answered" title="Respuestas totales">
                             <span class="se-answers-float-count">@Model.TotalItems</span>
@@ -203,7 +233,7 @@
 
                         // Usar answersPage (NO page) para evitar colisión con Razor Pages
                         Func<int, string> pageUrl = p => Url.Page(
-                        "/Preguntas/Detalles",
+                                        "/Preguntas/Detalles",
                         new { id = Model.Pregunta.Id, answersPage = p, pageSize = Model.PageSize, search = Model.Search }
                         ) ?? "#";
 
@@ -377,7 +407,7 @@
 
                         // Usar answersPage (NO page) para evitar colisión con Razor Pages
                         Func<int, string> pageUrl = p => Url.Page(
-                        "/Preguntas/Detalles",
+                                        "/Preguntas/Detalles",
                         new { id = Model.Pregunta.Id, answersPage = p, pageSize = Model.PageSize, search = Model.Search }
                         ) ?? "#";
 
