@@ -516,6 +516,24 @@
                 }
             }
 
+            function resetLoadMoreUI() {
+                const loadMoreBtn = document.getElementById('loadMoreBtn');
+                if (!loadMoreBtn || !loadMoreWrap) return;
+                loadMoreBtn.disabled = false;
+                loadMoreBtn.textContent = 'Cargar más';
+                loadMoreBtn.removeAttribute('aria-disabled');
+                loadMoreWrap.style.display = 'block';
+            }
+
+            function markLoadMoreEnded() {
+                const loadMoreBtn = document.getElementById('loadMoreBtn');
+                if (!loadMoreBtn || !loadMoreWrap) return;
+                loadMoreBtn.disabled = true;
+                loadMoreBtn.textContent = 'No hay más registros que mostrar';
+                loadMoreBtn.setAttribute('aria-disabled', 'true');
+                loadMoreWrap.style.display = 'block';
+            }
+
             async function loadItemsAjax(pageNumber = 1, append = false, pushToHistory = true) {
                 try {
                     showSpinner(true);
@@ -541,10 +559,17 @@
                     const itemsFound = temp.querySelectorAll('.blog-card').length;
 
                     if (!append) {
+                        // replace list
                         itemsContainer.innerHTML = html;
+                        updateNoResultsAndContainer(itemsFound > 0);
+                        resetLoadMoreUI();
                     } else {
-                        // append nodes (only the fragment nodes)
-                        while (temp.firstChild) itemsContainer.appendChild(temp.firstChild);
+                        // append nodes (load-more): if no nodes returned, do not clear/hide current list
+                        if (itemsFound === 0) {
+                            markLoadMoreEnded();
+                        } else {
+                            while (temp.firstChild) itemsContainer.appendChild(temp.firstChild);
+                        }
                     }
 
                     // update load-more button / wrapper using header
@@ -556,11 +581,17 @@
                             loadMoreBtn.setAttribute('data-total', String(total));
                             // next page attribute management
                             loadMoreBtn.setAttribute('data-nextpage', String(pageNumber + 1));
-                            if (loadedCount >= total) loadMoreWrap.style.display = 'none'; else loadMoreWrap.style.display = 'block';
+                            if (loadedCount >= total) loadMoreWrap.style.display = 'none'; else resetLoadMoreUI();
+                        }
+                    } else {
+                        // no total: infer from returned count
+                        if (append) {
+                            if (itemsFound > 0 && itemsFound < pageSize) markLoadMoreEnded();
+                        } else {
+                            // initial load: if fewer than pageSize, hide wrapper
+                            if (itemsFound > 0 && itemsFound < pageSize && loadMoreWrap) loadMoreWrap.style.display = 'none';
                         }
                     }
-
-                    updateNoResultsAndContainer(itemsFound > 0);
 
                     if (pushToHistory) {
                         const stateUrl = new URL(window.location.href);
@@ -644,6 +675,9 @@
             (function initNoResults() {
                 const initialHasItems = document.querySelectorAll('.blog-card').length > 0;
                 updateNoResultsAndContainer(initialHasItems);
+                // hide load more if initial items fewer than pageSize
+                const initialCount = document.querySelectorAll('.blog-card').length;
+                if (initialCount > 0 && initialCount < pageSize && loadMoreWrap) loadMoreWrap.style.display = 'none';
             })();
         })();
     </script>

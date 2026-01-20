@@ -22,7 +22,7 @@ namespace eiibd26.Pages.Contenidos
         [BindProperty(SupportsGet = true)]
         public int PageNumber { get; set; } = 1;
         [BindProperty(SupportsGet = true)]
-        public int PageSize { get; set; } = 7;
+        public int PageSize { get; set; } = 9;
 
         [BindProperty(SupportsGet = true)]
         public string ConditionIds { get; set; }

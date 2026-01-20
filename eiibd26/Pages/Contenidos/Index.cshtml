@@ -564,6 +564,25 @@
                 }
             }
 
+            function resetLoadMoreUI() {
+                const loadMoreBtn = document.getElementById('loadMoreBtn');
+                if (!loadMoreBtn || !loadMoreWrap) return;
+                loadMoreBtn.disabled = false;
+                loadMoreBtn.textContent = 'Cargar más';
+                loadMoreBtn.removeAttribute('aria-disabled');
+                loadMoreWrap.style.display = 'block';
+            }
+
+            function markLoadMoreEnded() {
+                const loadMoreBtn = document.getElementById('loadMoreBtn');
+                if (!loadMoreBtn || !loadMoreWrap) return;
+                loadMoreBtn.disabled = true;
+                loadMoreBtn.textContent = 'No hay más registros que mostrar';
+                loadMoreBtn.setAttribute('aria-disabled', 'true');
+                // keep the wrapper visible so the message is shown - alternative: hide wrapper if you prefer disappearance
+                loadMoreWrap.style.display = 'block';
+            }
+
             async function loadItemsAjax(pageNumber = 1, append = false, pushToHistory = true) {
                 try {
                     showSpinner(true);
@@ -588,19 +607,53 @@
                     const itemsFound = temp.querySelectorAll('.blog-card').length;
 
                     if (!append) {
+                        // replace list (normal search / refresh behavior)
                         if (itemsContainer) itemsContainer.innerHTML = html;
+                        // update visibility according to whether new list has items
+                        updateNoResultsAndContainer(itemsFound > 0);
+                        // reset load-more UI; we'll adjust below according to totals
+                        resetLoadMoreUI();
                     } else {
-                        if (itemsContainer) {
-                            while (temp.firstChild) itemsContainer.appendChild(temp.firstChild);
+                        // append nodes (load-more)
+                        if (itemsFound === 0) {
+                            // no new items returned -> mark as ended
+                            markLoadMoreEnded();
+                        } else {
+                            if (itemsContainer) {
+                                while (temp.firstChild) itemsContainer.appendChild(temp.firstChild);
+                            }
                         }
                     }
 
+                    // update load-more button / wrapper using header (preferred)
                     if (total !== null) {
                         const loadedCount = document.querySelectorAll('.blog-card').length;
                         const loadMoreBtn = document.getElementById('loadMoreBtn');
                         if (loadMoreBtn) {
                             loadMoreBtn.setAttribute('data-total', String(total));
-                            if (loadedCount >= total) loadMoreWrap.style.display = 'none'; else loadMoreWrap.style.display = 'flex';
+                            // update next page
+                            loadMoreBtn.setAttribute('data-nextpage', String(pageNumber + 1));
+                            if (loadedCount >= total) {
+                                // all loaded -> hide wrapper
+                                if (loadMoreWrap) loadMoreWrap.style.display = 'none';
+                            } else {
+                                // still items available -> ensure normal state
+                                resetLoadMoreUI();
+                            }
+                        }
+                    } else {
+                        // no total header: infer end by returned count
+                        if (append) {
+                            // if last append returned fewer than pageSize -> ended
+                            if (itemsFound > 0 && itemsFound < pageSize) {
+                                markLoadMoreEnded();
+                            }
+                            // if itemsFound === 0 we already marked ended above
+                        } else {
+                            // replace case: if first page returned fewer than pageSize, likely no more pages
+                            if (itemsFound > 0 && itemsFound < pageSize) {
+                                if (loadMoreWrap) loadMoreWrap.style.display = 'none';
+                            }
                         }
                     }
 
@@ -682,8 +735,10 @@
                         await loadItemsAjax(next, true, true);
                         loadMoreBtn.setAttribute('data-nextpage', String(next + 1));
                     } finally {
-                        loadMoreBtn.disabled = false;
-                        loadMoreBtn.textContent = 'Cargar más';
+                        // If button was not ended by server logic, restore text (ended state will keep it disabled and changed)
+                        const btn = document.getElementById('loadMoreBtn');
+                        if (btn && !btn.disabled) btn.textContent = 'Cargar más';
+                        if (btn && !btn.disabled) btn.disabled = false;
                     }
                 });
             }
@@ -698,8 +753,9 @@
             (function initNoResults() {
                 const initialHasItems = document.querySelectorAll('.blog-card').length > 0;
                 updateNoResultsAndContainer(initialHasItems);
-                // ensure spinner hidden on initial paint
-                showSpinner(false);
+                // If initial items are fewer than pageSize, hide load more
+                const initialCount = document.querySelectorAll('.blog-card').length;
+                if (initialCount > 0 && initialCount < pageSize && loadMoreWrap) loadMoreWrap.style.display = 'none';
             })();
         })();
     </script>
