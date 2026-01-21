@@ -162,28 +162,16 @@
         }
     </style>
 
-    <nav class="navbar navbar-expand-lg topbar">
+    @* Desktop topbar: visible only on lg+ (mobile partial renders the mobile toggler/offcanvas) *@
+    <nav class="navbar navbar-expand-lg topbar d-none d-lg-flex">
         <div class="container-fluid">
             <a class="navbar-brand d-flex align-items-center" href="/"><img src="~/img/logo.png" class="brand-img" alt="eiibd26 logo" /></a>
 
-            @* mobile avatar for quick session visual (left of toggler) *@
-            @if (isAuth)
-            {
-                <div class="d-lg-none me-2 d-flex align-items-center">
-                    <img src="@avatarSrc" alt="Avatar" class="mobile-avatar" />
-                </div>
-            }
-
-            @* Hamburger toggler -> inline SVG fallback if Bootstrap icon unavailable *@
-            <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#topbarOffcanvas" aria-controls="topbarOffcanvas" aria-label="Abrir menú">
-                @* Prefer built-in icon, but include inline SVG fallback to ensure visibility *@
+            @* Desktop toggler (only visible on lg+ if you want an offcanvas/collapse on large screens) *@
+            @* Hide it on small screens via the nav wrapper; add d-none d-lg-block to be explicit and avoid duplicates. *@
+            @* <button class="navbar-toggler d-none d-lg-block" type="button" data-bs-toggle="offcanvas" data-bs-target="#topbarOffcanvas" aria-controls="topbarOffcanvas" aria-label="Abrir menú">
                 <span class="navbar-toggler-icon" aria-hidden="true"></span>
-                <svg class="d-inline-block d-lg-none" width="22" height="16" viewBox="0 0 22 16" aria-hidden="true" focusable="false" style="vertical-align:middle;">
-                    <rect width="22" height="2" y="0" rx="1" fill="#222"></rect>
-                    <rect width="22" height="2" y="7" rx="1" fill="#222"></rect>
-                    <rect width="22" height="2" y="14" rx="1" fill="#222"></rect>
-                </svg>
-            </button>
+            </button> *@
 
             @* Desktop inline menu (visible lg+) *@
             <div class="collapse navbar-collapse d-none d-lg-flex" id="topbarCenterCollapse">
@@ -245,63 +233,7 @@
                 </ul>
             </div>
 
-            @* Offcanvas for mobile (contains same menu + user area) *@
-            @* Offcanvas for mobile (contains same menu + user area) *@
-            <div class="offcanvas offcanvas-start d-lg-none" tabindex="-1" id="topbarOffcanvas" aria-labelledby="topbarOffcanvasLabel">
-                <div class="offcanvas-header">
-                    <h5 class="offcanvas-title" id="topbarOffcanvasLabel"><img src="~/img/logo.png" alt="eiibd26" style="height:34px;object-fit:contain;" /></h5>
-                    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
-                </div>
-
-                <div class="offcanvas-body offcanvas-menu">
-                    <nav class="offcanvas-nav mb-3">
-                        <ul>
-                            <li><a class="nav-link@(ActiveClass("/"))" href="/">Inicio</a></li>
-                            <li><a class="nav-link@(ActiveClass("/Contenidos"))" href="/Contenidos">Buscador</a></li>
-                            <li><a class="nav-link@(ActiveClass("/Preguntas"))" href="/Preguntas">Preguntas y Respuestas</a></li>
-
-                            @* Insert partials directly for mobile — avoid adding an extra header that duplicates the partial content *@
-                            <li class="mobile-partial">
-                                <partial name="~/Pages/Shared/_CategoryMenuPartial.cshtml" />
-                            </li>
-
-                            <li class="mobile-partial">
-                                <partial name="~/Pages/Shared/_menuContenidoPartial.cshtml" />
-                            </li>
-                        </ul>
-                    </nav>
-
-                    <div class="offcanvas-user">
-                        @if (!isAuth)
-                        {
-                            <div class="mb-2">
-                                <a class="btn btn-outline-primary w-100 mb-2" href="/Identity/Account/Login">Iniciar sesión</a>
-                                <a class="btn btn-outline-secondary w-100" href="/Identity/Account/Register">Registro</a>
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="d-flex align-items-center gap-2 mb-2">
-                                <img src="@avatarSrc" alt="Avatar" class="avatar" />
-                                <div>
-                                    <div class="fw-semibold">@displayName</div>
-                                    <div class="small text-muted">@userName</div>
-                                </div>
-                            </div>
-
-                            <div>
-                                <a class="d-block py-1" href="/Identity/Account/Manage/UsuarioPerfil">Perfil público</a>
-                                <a class="d-block py-1" href="/Identity/Account/Manage">Usuario/Registro</a>
-                                <a class="d-block py-1" href="/Identity/Account/Manage/Email">Cambiar email</a>
-                                <a class="d-block py-1" href="/Identity/Account/Manage/ChangePassword">Cambiar contraseña</a>
-                                <form method="post" asp-area="Identity" asp-page="/Account/Logout" class="mt-2">
-                                    <button type="submit" class="btn btn-outline-danger w-100">Cerrar sesión</button>
-                                </form>
-                            </div>
-                        }
-                    </div>
-                </div>
-            </div>
+            @* Offcanvas for mobile is rendered in the mobile partial. Keep desktop partial free of mobile-only markup. *@
         </div>
     </nav>
 </header>
@@ -319,16 +251,13 @@
                 // toggle class to collapse (we show by default)
                 if (submenu.classList.contains('collapse-sub')) {
                     submenu.classList.remove('collapse-sub');
-                    h.querySelector && (h.querySelector('::after'));
                 } else {
                     submenu.classList.add('collapse-sub');
                 }
                 e.preventDefault();
             });
 
-            // Ensure toggler icon visible if Bootstrap provides no background
-            // (Bootstrap normally sets .navbar-toggler-icon background; our SVG fallback ensures visibility)
-            // No-op here; kept for future enhancements.
+            // No-op placeholder: kept for possible future toggler enhancements.
         })();
     </script>
 }

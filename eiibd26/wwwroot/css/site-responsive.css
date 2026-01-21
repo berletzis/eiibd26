@@ -1,26 +1,24 @@
 ﻿/* site-responsive.css
-   Mejoras para navbar / offcanvas (móvil) y layout de topbar (escritorio)
-   - Icono toggler con fallback SVG
-   - Offcanvas overlay limpio y con z-index alto
-   - Avatar móvil
-   - Menú móvil: ocultar sub-ULs (mostrar solo padres)
-   - Estilos de escritorio: layout tipo "footer" (logo - columnas - acciones)
+   Offcanvas / topbar fixes: ancho consistente, overlay fijo, evitar layout-shift
+   (Cargar este archivo DESPUÉS de bootstrap.min.css para que los overrides funcionen)
 */
 
-/* -------------------------------------------------------------
-   Variables (ajusta a tu tema si lo deseas)
-   ------------------------------------------------------------- */
 :root {
     --brand-color: #6a4e7a;
     --muted: #6b7280;
     --bg: #ffffff;
     --border: #eef2f7;
-    --offcanvas-width: 320px;
+    --offcanvas-width: 360px;
+    --offcanvas-sidebar-width: 320px;
 }
 
-/* -------------------------------------------------------------
-   Helpers básicos
-   ------------------------------------------------------------- */
+/* Evitar layout shift */
+html {
+    overflow-y: scroll;
+    scrollbar-gutter: stable both-edges;
+}
+
+/* Small helpers */
 .container {
     max-width: 1140px;
     margin: 0 auto;
@@ -28,16 +26,13 @@
     box-sizing: border-box;
 }
 
-/* -------------------------------------------------------------
-   Navbar toggler icon (fallback si Bootstrap CSS está ausente o override)
-   ------------------------------------------------------------- */
+/* Toggler icon fallback */
 .navbar-toggler {
     border: none;
     padding: 6px;
     background: transparent;
 }
 
-/* Force visible hamburger icon via data-uri SVG (fallback) */
 .navbar-toggler-icon {
     display: inline-block;
     width: 22px;
@@ -48,224 +43,111 @@
     background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='16' viewBox='0 0 22 16'%3E%3Crect width='22' height='2' y='0' rx='1' fill='%23000'/%3E%3Crect width='22' height='2' y='7' rx='1' fill='%23000'/%3E%3Crect width='22' height='2' y='14' rx='1' fill='%23000'/%3E%3C/svg%3E");
 }
 
-/* -------------------------------------------------------------
-   Offcanvas (móvil): apariencia y contenido
-   ------------------------------------------------------------- */
-.offcanvas {
-    width: var(--offcanvas-width);
-    max-width: 86%;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
-    border-right: 1px solid rgba(0,0,0,0.04);
-    z-index: 1200;
-    background: var(--bg);
+/* ------------------------
+   Offcanvas overrides (específicos y con !important)
+   ------------------------ */
+
+/* Aplica el ancho preferido pero no permita ocupar casi toda la pantalla:
+   - min(var(--offcanvas-width), 86vw) -> usa la variable pero la limita por viewport.
+   - usamos selectors concretos y !important para vencer reglas y algunos inline.
+*/
+.offcanvas,
+.offcanvas.offcanvas-start,
+#topbarOffcanvas,
+#topbarOffcanvasMobile {
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: auto !important;
+    height: 100vh !important;
+    width: min(var(--offcanvas-width), 86vw) !important;
+    max-width: 86vw !important;
+    box-sizing: border-box !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18) !important;
+    border-right: 1px solid rgba(0,0,0,0.04) !important;
+    z-index: 1200 !important;
+    background: var(--bg) !important;
 }
 
-    .offcanvas .offcanvas-header {
-        padding: .75rem 1rem;
-        border-bottom: 1px solid rgba(0,0,0,0.04);
-    }
+/* Sidebar offcanvas diferenciado */
+.offcanvas-sidebar {
+    width: min(var(--offcanvas-sidebar-width), 92vw) !important;
+    max-width: 92vw !important;
+}
 
-    .offcanvas .offcanvas-body {
-        padding: 1rem;
-    }
+/* Espaciado interno */
+.offcanvas .offcanvas-header {
+    padding: .75rem 1rem !important;
+    border-bottom: 1px solid rgba(0,0,0,0.04) !important;
+}
 
-/* Offcanvas nav: quitar bullets y organizar */
+.offcanvas .offcanvas-body {
+    padding: 1rem !important;
+}
+
+/* Nav dentro del offcanvas */
 .offcanvas-nav ul {
-    list-style: none;
-    padding-left: 0;
-    margin: 0;
-    font-size: .95rem;
+    list-style: none !important;
+    padding-left: 0 !important;
+    margin: 0 !important;
+    font-size: .95rem !important;
 }
 
 .offcanvas-nav li {
-    padding: 6px 0;
+    padding: 6px 0 !important;
 }
 
-/* Submenu dentro del offcanvas (se puede mostrar/ocultar con JS) */
-.offcanvas-nav .submenu {
-    padding-left: 12px;
-    margin-top: 6px;
-}
-
-/* Si las partials generan ULs anidados, evitar indent excesivo */
-.offcanvas-nav ul ul {
-    list-style: none;
-    padding-left: 12px;
-    margin-top: 6px;
-}
-
-/* Visual de enlaces en offcanvas */
 .offcanvas-nav a {
-    color: #0f172a;
-    text-decoration: none;
-    display: block;
-    padding: 6px 4px;
-    border-radius: 4px;
+    color: #0f172a !important;
+    text-decoration: none !important;
+    display: block !important;
+    padding: 6px 4px !important;
+    border-radius: 4px !important;
 }
 
-    .offcanvas-nav a:hover,
-    .offcanvas-nav a:focus {
-        background: rgba(0,0,0,0.03);
-        outline: none;
+    .offcanvas-nav a:hover, .offcanvas-nav a:focus {
+        background: rgba(0,0,0,0.03) !important;
+        outline: none !important;
     }
 
-/* Avatar / cue móvil (junto al toggler) */
+/* Avatar */
 .mobile-avatar {
-    border-radius: 50%;
-    width: 36px;
-    height: 36px;
-    object-fit: cover;
-    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: 50% !important;
+    width: 36px !important;
+    height: 36px !important;
+    object-fit: cover !important;
+    border: 1px solid rgba(0,0,0,0.06) !important;
 }
 
-/* -------------------------------------------------------------
-   Mobile-only: esconder hijos en offcanvas (solo mostrar padres)
-   ------------------------------------------------------------- */
-@media (max-width: 991.98px) {
-    /* Visual fallback: ocultar UL anidados dentro del offcanvas */
+/* Mobile only: collapse nested ULs */
+@media (max-width:991.98px) {
     .offcanvas-nav ul ul,
     .offcanvas .mobile-partial ul ul,
     .offcanvas-nav .mobile-partial ul ul {
         display: none !important;
     }
 
-    /* Quitar indicadores de expansión si existen */
     .offcanvas-nav li.has-children > .nav-link::after {
         display: none !important;
     }
 
-    /* Ajuste de espacio para avatar en navbar */
     .navbar .mobile-avatar {
-        margin-right: .5rem;
+        margin-right: .5rem !important;
     }
 }
 
-/* -------------------------------------------------------------
-   Desktop topbar layout (logo - menu columnas - actions)
-   - Usa grid en el listado para generar columnas al estilo footer
-   ------------------------------------------------------------- */
-.topbar-desktop {
-    border-bottom: 1px solid var(--border);
-    background: var(--bg);
-    position: relative;
-    z-index: 1100;
+/* Mantener topbar arriba */
+.topbar, .topbar .container-fluid {
+    position: relative !important;
+    z-index: 1300 !important;
 }
 
-/* Alineación principal: centrar verticalmente logo/menu/actions */
-.topbar-desktop-inner {
-    display: flex;
-    align-items: center; /* center to align with logo height */
-    gap: 28px;
-    padding-top: 12px;
-    padding-bottom: 12px;
+.navbar-toggler, .mobile-avatar {
+    position: relative !important;
+    z-index: 1350 !important;
 }
 
-/* Logo column: espacio fijo (similar al footer) */
-.logo-col {
-    flex: 0 0 220px;
-    max-width: 220px;
-    padding-right: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-}
-
-.brand-img-desktop {
-    height: 46px;
-    object-fit: contain;
-}
-
-/* Nav column: ocupa el espacio y organiza en columnas con CSS Grid */
-.nav-col {
-    flex: 1 1 auto;
-    min-width: 0; /* allow the grid to shrink properly */
-}
-
-/* Grid-based columns for nav items */
-.desktop-nav-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); /* ajusta min width si deseas más/menos columnas */
-    gap: 8px 24px; /* row-gap, column-gap */
-    margin: 0;
-    padding: 0;
-    align-items: start;
-}
-
-    /* Cada item como bloque, sin width fijo para permitir grid */
-    .desktop-nav-list .nav-item {
-        list-style: none;
-        box-sizing: border-box;
-        padding: 4px 0;
-        width: auto;
-    }
-
-    /* Enlaces dentro del grid */
-    .desktop-nav-list .nav-link {
-        display: inline-block;
-        color: #0f172a;
-        text-decoration: none;
-        padding: 0;
-        font-size: 0.95rem;
-    }
-
-        .desktop-nav-list .nav-link:hover,
-        .desktop-nav-list .nav-link:focus {
-            text-decoration: underline;
-            outline: none;
-        }
-
-/* Acciones / auth column alineada a la derecha */
-.actions-col {
-    flex: 0 0 260px;
-    max-width: 260px;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-}
-
-/* Ensure dropdowns from the desktop nav appear above */
-.topbar-desktop .dropdown-menu {
-    z-index: 1400;
-}
-
-/* Small adjustments for medium desktops */
-@media (min-width: 992px) and (max-width: 1199.98px) {
-    .logo-col {
-        flex-basis: 180px;
-        max-width: 180px;
-        padding-right: 16px;
-    }
-
-    .actions-col {
-        flex-basis: 200px;
-        max-width: 200px;
-    }
-
-    .desktop-nav-list {
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    }
-}
-
-/* Accessibility focus visible */
-.desktop-nav-list .nav-link:focus {
-    outline: 3px solid rgba(106,78,122,0.12);
-    outline-offset: 2px;
-}
-
-/* -------------------------------------------------------------
-   Small helpers and fallbacks
-   ------------------------------------------------------------- */
-/* Make bold dropdown items not get Bootstrap active background */
-.dropdown-item.fw-bold {
-    background: transparent !important;
-}
-
-/* Brand color helper */
-.text-purple {
-    color: var(--brand-color) !important;
-}
-
-/* Prevent body scroll when offcanvas open (if you use this class via JS) */
-body.nav-open {
-    overflow: hidden;
-}
+/* Nota: si quieres ajustar el ancho por dispositivo, modifica --offcanvas-width en :root o mediante media queries */

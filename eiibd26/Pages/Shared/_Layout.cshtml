@@ -15,6 +15,10 @@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/miSalud.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/account.css" asp-append-version="true" />
+
+    <!-- Responsive overrides: must be loaded after app/bootstrap styles -->
+    <link rel="stylesheet" href="~/css/site-responsive.css" asp-append-version="true" />
+
     @RenderSection("Styles", required: false)
 
     <style>
@@ -82,30 +86,21 @@
 </head>
 <body class="bg-light">
     <div class="layout-root">
-        @* Header / top menu *@
-        @* @await Html.PartialAsync("_TopMenu") *@
-
-
-        @* Desktop partial (visible en lg+) *@
+        @* --- Use explicit desktop + mobile top menus (no duplicate header) --- *@
         @await Html.PartialAsync("~/Pages/Shared/_TopMenuDesktop.cshtml", model: null)
-
-        @* Mobile partial (visible en xs..md via its own classes) *@
         @await Html.PartialAsync("~/Pages/Shared/_TopMenuMobile.cshtml", model: null)
 
         <main class="layout-main">
             <div class="container-fluid app-container">
-                @* Row: sidebar (desktop) + main column. On small screens, show offcanvas instead. *@
-
                 @{
                     // Determine current Razor Page path (e.g. "/Home/Index")
                     var currentPage = (ViewContext.RouteData.Values["page"] as string) ?? "";
                     var currentPageNorm = currentPage?.Trim().ToLowerInvariant() ?? "";
 
                     // Should we show the sidebar?
-                    // Show sidebar only when user is authenticated AND the current page is NOT Home nor Preguntas
                     var isAuthenticated = User?.Identity?.IsAuthenticated ?? false;
 
-                    // Hide sidebar for Home pages and Preguntas pages
+                    // Hide sidebar for Home, Preguntas, Contenidos, Mapa
                     var isHomePage = currentPageNorm.StartsWith("/home");
                     var isPreguntasPage = currentPageNorm.StartsWith("/preguntas");
                     var iscontenidosPage = currentPageNorm.StartsWith("/contenidos");
@@ -125,7 +120,7 @@
                         <div class="col ps-3">
                             @* Small-screen toggle: opens offcanvas sidebar for mobile *@
                             <div class="d-md-none mb-2 d-flex justify-content-end">
-                                <button class="btn btn-outline-primary" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarOffcanvas" aria-controls="sidebarOffcanvas" aria-label="Abrir menú">
+                                <button class="btn btn-outline-primary" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarOffcanvas" aria-controls="sidebarOffcanvas" aria-label="Abrir menú del sidebar">
                                     <i class="bi bi-list"></i>
                                 </button>
                             </div>
@@ -160,19 +155,128 @@
             </div>
         </main>
 
-        @* Insert the footer partial (centered, same container width as blog, 4 columns) *@
+        @* Insert the footer partial *@
         @await Html.PartialAsync("/Pages/Shared/_Footer.cshtml")
     </div>
 
     <!-- Small-screen floating toggle (optional UX helper) -->
     @if (showSidebar)
     {
-        <button class="btn btn-primary sidebar-toggle-sm d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarOffcanvas" aria-controls="sidebarOffcanvas" aria-label="Abrir menú">
+        <button class="btn btn-primary sidebar-toggle-sm d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarOffcanvas" aria-controls="sidebarOffcanvas" aria-label="Abrir menú del sidebar">
             <i class="bi bi-list" style="font-size:1.2rem;color:#fff;"></i>
         </button>
     }
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Clear offcanvas inline width/max-width that some scripts (or bootstrap) may set at runtime -->
+    <script>
+        (function(){
+          function clearOffcanvasInlineStyles(el) {
+            try {
+              if (!el || !el.style) return;
+              el.style.removeProperty('width');
+              el.style.removeProperty('max-width');
+            } catch (e) { /* ignore */ }
+          }
+
+          document.addEventListener('show.bs.offcanvas', function (ev) {
+            var el = ev.target || ev.srcElement;
+            // After bootstrap has applied inline styles, remove them so our CSS override wins
+            requestAnimationFrame(function(){ clearOffcanvasInlineStyles(el); });
+            setTimeout(function(){ clearOffcanvasInlineStyles(el); }, 60);
+          });
+
+          // Observe offcanvas elements for inline style changes and clear suspicious widths
+          try {
+            var mo = new MutationObserver(function (mutations) {
+              mutations.forEach(function (m) {
+                if (m.type === 'attributes' && m.attributeName === 'style') {
+                  var t = m.target;
+                  if (t && t.classList && t.classList.contains('offcanvas')) {
+                    var w = (t.style.width || t.style.maxWidth || '').toString();
+                    if (w && w.length) {
+                      var numeric = parseInt(w.replace('px','').replace('vw',''), 10);
+                      if (isNaN(numeric) || numeric > 86) {
+                        t.style.removeProperty('width');
+                        t.style.removeProperty('max-width');
+                      }
+                    }
+                  }
+                }
+              });
+            });
+
+            document.querySelectorAll('.offcanvas').forEach(function(n){ mo.observe(n, { attributes: true, attributeFilter: ['style'] }); });
+
+            // If new offcanvas nodes are added later, observe them too
+            var bodyObserver = new MutationObserver(function(muts){
+              muts.forEach(function(m){
+                if (m.type === 'childList' && m.addedNodes && m.addedNodes.length) {
+                  m.addedNodes.forEach(function(n){
+                    if (n.nodeType === 1 && n.classList && n.classList.contains('offcanvas')) {
+                      try { mo.observe(n, { attributes: true, attributeFilter: ['style'] }); } catch(e) {}
+                    }
+                  });
+                }
+              });
+            });
+            bodyObserver.observe(document.body, { childList: true, subtree: true });
+          } catch(e) { /* ignore */ }
+        })();
+    </script>
+
+    <script>
+        // --- Prevent layout shift from Bootstrap's body padding compensation for scrollbar ---
+        (function () {
+            function clearBodyPadding() {
+                try {
+                    if (document.body && document.body.style) {
+                        // Only clear if an inline paddingRight exists and it's suspiciously large
+                        var pr = document.body.style.paddingRight;
+                        if (pr) {
+                            var val = parseInt(pr.replace('px',''), 10);
+                            // if the calculated compensation is large ( > 40px ), remove it
+                            if (isNaN(val) || val > 40) {
+                                document.body.style.paddingRight = '';
+                            }
+                        }
+                    }
+                } catch (e) { /* ignore */ }
+            }
+
+            // Listen to Bootstrap offcanvas events and clear the padding after Bootstrap sets it
+            document.addEventListener('show.bs.offcanvas', function () {
+                requestAnimationFrame(clearBodyPadding);
+                setTimeout(clearBodyPadding, 50);
+            });
+            document.addEventListener('shown.bs.offcanvas', clearBodyPadding);
+            document.addEventListener('hide.bs.offcanvas', clearBodyPadding);
+            document.addEventListener('hidden.bs.offcanvas', clearBodyPadding);
+
+            // Mutation observer as a safety-net: if some script later writes a very large padding-right,
+            // remove it automatically (helps when other scripts toggle body styles)
+            try {
+                var observer = new MutationObserver(function (mutations) {
+                    mutations.forEach(function (m) {
+                        if (m.type === 'attributes' && m.attributeName === 'style' && m.target === document.body) {
+                            var pr = document.body.style.paddingRight;
+                            if (pr) {
+                                var val = parseInt(pr.replace('px',''), 10);
+                                if (!isNaN(val) && val > 40) {
+                                    document.body.style.paddingRight = '';
+                                }
+                            }
+                        }
+                    });
+                });
+                observer.observe(document.body, { attributes: true, attributeFilter: ['style'] });
+            } catch (e) {
+                // ignore (older browsers)
+            }
+        })();
+    </script>
+
     <script>
         (function () {
             // Cache for fetched content meta by contentId
@@ -202,7 +306,6 @@
                         try {
                             // fetch meta fragment
                             const url = '/Contenidos/ContentMeta?id=' + encodeURIComponent(contentId);
-                            // prefer no-cache if you want freshest data
                             const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                             if (!res.ok) throw new Error('Error ' + res.status);
                             const html = await res.text();
@@ -213,17 +316,13 @@
                             console.error(err);
                             if (panel) panel.innerHTML = '<div style="color:#c00">Error cargando datos relacionados.</div>';
                         }
-                    } else {
-                        // already loaded, nothing to do
                     }
-
                     // show panel
                     panel.style.display = 'block';
                     panel.setAttribute('data-open', 'true');
                     panel.setAttribute('aria-hidden', 'false');
                     btn.setAttribute('aria-expanded', 'true');
                     btn.textContent = btn.textContent.replace(/^\+/, '-').trim();
-
                 } else {
                     // close
                     panel.style.display = 'none';
@@ -246,8 +345,6 @@
         })();
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    @* Removed local /lib/bootstrap/js/bootstrap.bundle.min.js to avoid 404; use CDN above *@
 
     @* Permitir que páginas y partials inyecten scripts en esta sección *@
     @await RenderSectionAsync("Scripts", required: false)
