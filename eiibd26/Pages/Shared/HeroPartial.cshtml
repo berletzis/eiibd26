@@ -1,16 +1,100 @@
 ﻿@model eiibd26.Models.HeroViewModel
 
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-lg-10">
-            <div class="hero-inner">
-                <h1>@Model.Title</h1>
-                <p class="lead">@Model.Subtitle</p>
-                @if (!string.IsNullOrEmpty(Model.CallToAction))
-                {
-                    <p><a href="~/Identity/Account/Manage" class="btn btn-primary">@Model.CallToAction</a></p>
-                }
-            </div>
-        </div>
+<style>
+    /* Hero partial: responsive, avoids layout shifts between mobile/desktop.
+       Use clamp() for fluid typography and limit container width so nothing overflows.
+       These rules are intentionally local to the partial to be safe; you can move them
+       to site-responsive.css later if preferred.
+    */
+    .home-hero {
+        box-sizing: border-box;
+        padding: 40px 0 24px;
+        text-align: center;
+        overflow-x: hidden; /* prevent accidental horizontal overflow from long words */
+    }
+
+        /* inner constraint so hero never forces page wider than viewport */
+        .home-hero .hero-inner {
+            max-width: 920px; /* desktop comfortable reading width */
+            margin: 0 auto;
+            padding: 0 12px;
+            box-sizing: border-box;
+        }
+
+        /* Fluid, clamped H1 that scales with viewport but stays reasonable */
+        .home-hero h1 {
+            margin: 0 0 .6rem 0;
+            line-height: 1.05;
+            font-weight: 700;
+            /* min 1.6rem, ideal based on viewport, max 3.8rem */
+            font-size: clamp(1.6rem, 6.5vw, 3.8rem);
+            word-break: break-word;
+            hyphens: auto;
+        }
+
+        /* Lead paragraph width and spacing */
+        .home-hero p.lead {
+            margin: 0 auto 1rem;
+            color: #6b7280;
+            max-width: 760px;
+            font-size: 1rem;
+            line-height: 1.5;
+            box-sizing: border-box;
+        }
+
+        /* CTA spacing */
+        .home-hero .hero-cta {
+            margin-top: .75rem;
+        }
+
+    /* Desktop tweaks */
+    @@media (min-width: 768px) {
+        .home-hero {
+            padding: 64px 0 48px;
+        }
+
+            .home-hero .hero-inner {
+                padding: 0 16px;
+            }
+            /* slightly larger step for tablets/desktop but clamp keeps it bounded */
+            .home-hero p.lead {
+                font-size: 1.05rem;
+            }
+    }
+
+    /* Large desktop */
+    @@media (min-width: 1200px) {
+        .home-hero {
+            padding: 80px 0 56px;
+        }
+
+            .home-hero .hero-inner {
+                padding: 0 24px;
+            }
+
+            .home-hero p.lead {
+                font-size: 1.05rem;
+            }
+    }
+
+    /* Defensive: ensure images inside hero (if any) never overflow */
+    .home-hero img {
+        max-width: 100%;
+        height: auto;
+        display: block;
+    }
+</style>
+
+<section class="home-hero" role="region" aria-label="Hero">
+    <div class="hero-inner">
+        <h1>@Model.Title</h1>
+        <p class="lead">@Model.Subtitle</p>
+
+        @if (!string.IsNullOrEmpty(Model.CallToAction))
+        {
+            <p class="hero-cta">
+                <a href="~/Identity/Account/Manage" class="btn btn-primary" role="button">@Model.CallToAction</a>
+            </p>
+        }
     </div>
-</div>
+</section>
