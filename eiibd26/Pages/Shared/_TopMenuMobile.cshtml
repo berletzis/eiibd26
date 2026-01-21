@@ -1,0 +1,98 @@
+﻿@using System.Security.Claims
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment Env
+@{
+    var isAuth = User?.Identity?.IsAuthenticated ?? false;
+    var avatarSrc = Url.Content("~/img/default-avatar.png");
+    var userName = User?.Identity?.Name ?? "";
+    // Attempt to read an uploaded avatar if exists (best-effort)
+    try
+    {
+        var userId = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!string.IsNullOrEmpty(userId))
+        {
+            var physicalPath = System.IO.Path.Combine(Env.WebRootPath ?? "wwwroot", "uploads", "avatars", userId, "avatar-64.png");
+            if (System.IO.File.Exists(physicalPath)) avatarSrc = Url.Content($"~/uploads/avatars/{userId}/avatar-64.png");
+        }
+    }
+    catch { /* ignore */ }
+}
+
+<nav class="navbar topbar d-lg-none" role="navigation" aria-label="Navegación móvil">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/"><img src="~/img/logo.png" alt="eiibd26" style="height:38px;object-fit:contain;" /></a>
+
+        @* Show small avatar as cue if logged-in *@
+        @if (isAuth)
+        {
+            <div class="d-flex align-items-center me-2">
+                <img src="@avatarSrc" alt="Avatar" class="mobile-avatar" />
+            </div>
+        }
+
+        @* Toggler opens offcanvas drawer (overlay) *@
+        <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#topbarOffcanvasMobile" aria-controls="topbarOffcanvasMobile" aria-label="Abrir menú móvil">
+            <span class="navbar-toggler-icon" aria-hidden="true"></span>
+            @* Inline SVG fallback for older/overridden CSS *@
+            <svg class="d-inline-block" width="22" height="16" viewBox="0 0 22 16" aria-hidden="true" focusable="false" style="vertical-align:middle;">
+                <rect width="22" height="2" y="0" rx="1" fill="#222"></rect>
+                <rect width="22" height="2" y="7" rx="1" fill="#222"></rect>
+                <rect width="22" height="2" y="14" rx="1" fill="#222"></rect>
+            </svg>
+        </button>
+
+        <div class="offcanvas offcanvas-start" tabindex="-1" id="topbarOffcanvasMobile" aria-labelledby="topbarOffcanvasMobileLabel">
+            <div class="offcanvas-header">
+                <h5 class="offcanvas-title" id="topbarOffcanvasMobileLabel"><img src="~/img/logo.png" alt="eiibd26" style="height:34px;object-fit:contain;" /></h5>
+                <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+            </div>
+
+            <div class="offcanvas-body">
+                <nav class="offcanvas-nav mb-3" aria-label="Menú principal (móvil)">
+                    <ul>
+                        <li><a class="nav-link" href="/">Inicio</a></li>
+                        <li><a class="nav-link" href="/Contenidos">Buscador</a></li>
+                        <li><a class="nav-link" href="/Preguntas">Preguntas y Respuestas</a></li>
+
+                        @* Include parent-only partials (they emit <li> items) *@
+                        <partial name="~/Pages/Shared/_CategoryMenuMobile.cshtml" />
+                        <partial name="~/Pages/Shared/_menuContenidoMobile.cshtml" />
+                               @* Dashboard link for authenticated users (last item in mobile menu) *@
+                        @if (isAuth)
+                        {
+                            <li><a class="nav-link" href="@Url.Page("/Usuario/Dashboard", new { area = "Identity" })">Dashboard</a></li>
+                        }
+                    </ul>
+                </nav>
+
+                <div class="offcanvas-user">
+                    @if (!isAuth)
+                    {
+                        <div class="mb-2">
+                            <a class="btn btn-outline-primary w-100 mb-2" href="/Identity/Account/Login">Iniciar sesión</a>
+                            <a class="btn btn-outline-secondary w-100" href="/Identity/Account/Register">Registro</a>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <img src="@avatarSrc" alt="Avatar" class="avatar" />
+                            <div>
+                                <div class="fw-semibold">@userName</div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <a class="d-block py-1" href="/Identity/Account/Manage/UsuarioPerfil">Perfil público</a>
+                            <a class="d-block py-1" href="/Identity/Account/Manage">Usuario/Registro</a>
+                            <a class="d-block py-1" href="/Identity/Account/Manage/Email">Cambiar email</a>
+                            <a class="d-block py-1" href="/Identity/Account/Manage/ChangePassword">Cambiar contraseña</a>
+                            <form method="post" asp-area="Identity" asp-page="/Account/Logout" class="mt-2">
+                                <button type="submit" class="btn btn-outline-danger w-100">Cerrar sesión</button>
+                            </form>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>

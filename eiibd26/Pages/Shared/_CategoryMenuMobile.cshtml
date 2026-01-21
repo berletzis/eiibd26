@@ -1,0 +1,45 @@
+﻿@using System
+@using System.Linq
+@using Microsoft.EntityFrameworkCore
+@using eiibd26.Data
+@inject ApplicationDbContext Db
+
+@{
+    // Parent sequence to show in the mobile menu (ajusta si necesitas otro)
+    const int parentSequence = 11;
+
+    // Helper to determine active path
+    var currentPath = (Context.Request.Path.Value ?? "").TrimEnd('/');
+    if (string.IsNullOrEmpty(currentPath)) currentPath = "/";
+    Func<string, bool> IsActivePath = seg =>
+    {
+        if (string.IsNullOrEmpty(seg)) return false;
+        var normSeg = seg.StartsWith("/") ? seg.TrimEnd('/') : ("/" + seg.TrimEnd('/'));
+        if (normSeg == "/") return string.Equals(currentPath, "/", StringComparison.OrdinalIgnoreCase);
+        return string.Equals(currentPath, normSeg, StringComparison.OrdinalIgnoreCase)
+            || currentPath.StartsWith(normSeg + "/", StringComparison.OrdinalIgnoreCase);
+    };
+
+    // Load parent (single item) and compute path + active
+    var parent = await Db.ContenidosCategorias
+        .AsNoTracking()
+        .FirstOrDefaultAsync(c => c.Sequence == parentSequence && !c.Borrado);
+
+    string parentPath = null;
+    bool parentIsActive = false;
+    if (parent != null)
+    {
+        var slugParent = !string.IsNullOrWhiteSpace(parent.CategoriaSlug) ? parent.CategoriaSlug : parent.Sequence.ToString();
+        parentPath = "/Contenidos/categoria/" + slugParent;
+        parentIsActive = IsActivePath(parentPath);
+    }
+}
+
+@if (parent != null)
+{
+    <li class="nav-item">
+        <a class="nav-link@(parentIsActive ? " active fw-bold text-purple" : "")" href="@Url.Content(parentPath)">
+            @parent.Nombre
+        </a>
+    </li>
+}
