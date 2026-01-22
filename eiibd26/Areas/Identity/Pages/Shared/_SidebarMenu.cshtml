@@ -1,4 +1,10 @@
-﻿@* Shared sidebar menu (Mi PyR icon updated: replaced SVG with same size/structure as Admin block) *@
+﻿@* Shared sidebar menu (corrección final)
+   - Mantengo tu markup intacto.
+   - Incluyo botón inline (class="sidebar-toggle-inline") dentro del sidebar.
+   - Incluyo script que ELIMINA (remove()) cualquier otro botón que abra #sidebarOffcanvas
+     siempre que esté fuera de .sidebar-menu o ubicado en la topbar.
+*@
+
 @using Microsoft.AspNetCore.Http
 @{
     var path = ViewContext.HttpContext.Request.Path.ToString();
@@ -14,7 +20,19 @@
     var contenidosOpen = IsStartingWith(contenidosRoot);
 }
 
-<div class="d-flex flex-column flex-shrink-0 p-3 bg-light sidebar-menu" style="width: 230px; min-height: 100vh; border-right: 1px solid #ececec;">
+<div class="d-flex flex-column flex-shrink-0 p-3 bg-light sidebar-menu" style="width: 230px; min-height: 100vh; border-right: 1px solid #ececec; position:relative;">
+    @* Mobile inline toggler: visible only on small screens, positioned at top-right of the sidebar box *@
+    <button class="btn sidebar-toggle-inline d-md-none"
+            type="button"
+            data-sidebar-toggle-id="1"
+            data-bs-toggle="offcanvas"
+            data-bs-target="#sidebarOffcanvas"
+            aria-controls="sidebarOffcanvas"
+            aria-label="Abrir menú lateral">
+        <span class="visually-hidden">Abrir menú</span>
+        <i class="bi bi-list" aria-hidden="true"></i>
+    </button>
+
     <ul class="nav nav-pills flex-column mb-auto">
         <!-- Inicio -->
         <li class="nav-item mb-1">
@@ -151,3 +169,84 @@
         </li>
     </ul>
 </div>
+
+<script>
+    (function () {
+        // Definitive removal of duplicate togglers:
+        // Keep only the button that belongs to .sidebar-menu (the inline toggler).
+        function removeDuplicateSidebarTogglers() {
+            try {
+                // find togglers that target the sidebar offcanvas
+                var selectors = 'button[data-bs-target="#sidebarOffcanvas"], button[aria-controls="sidebarOffcanvas"], [data-bs-toggle="offcanvas"][data-bs-target="#sidebarOffcanvas"]';
+                var all = document.querySelectorAll(selectors);
+
+                all.forEach(function (btn) {
+                    // if button is inside .sidebar-menu -> keep it
+                    if (btn.closest && btn.closest('.sidebar-menu')) {
+                        return;
+                    }
+
+                    // if the button is inside a topbar/header-like area -> remove it
+                    if (btn.closest && (btn.closest('.topbar') || btn.closest('.navbar') || btn.closest('header') || btn.closest('.site-header') || btn.closest('.topbar-desktop') || btn.closest('.topbar-mobile'))) {
+                        btn.remove();
+                        return;
+                    }
+
+                    // As fallback: remove any button that is near the top of the viewport (likely the top toggler)
+                    var rect = btn.getBoundingClientRect && btn.getBoundingClientRect();
+                    if (rect && rect.top < (window.innerHeight * 0.25)) {
+                        btn.remove();
+                        return;
+                    }
+
+                    // Finally, if there is already a .sidebar-menu toggler present, remove other buttons
+                    if (document.querySelector('.sidebar-menu .sidebar-toggle-inline')) {
+                        btn.remove();
+                    }
+                });
+            } catch (e) {
+                console && console.warn && console.warn('removeDuplicateSidebarTogglers error', e);
+            }
+        }
+
+        // Run on DOM ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function () {
+                removeDuplicateSidebarTogglers();
+                setTimeout(removeDuplicateSidebarTogglers, 700);
+            });
+        } else {
+            removeDuplicateSidebarTogglers();
+            setTimeout(removeDuplicateSidebarTogglers, 700);
+        }
+
+        // Observe DOM changes and remove any duplicated toggler that may be injected later
+        var observer = new MutationObserver(function (mutations) {
+            mutations.forEach(function (m) {
+                m.addedNodes.forEach(function (node) {
+                    if (!node || node.nodeType !== 1) return;
+                    try {
+                        if (node.matches && node.matches('button[data-bs-target="#sidebarOffcanvas"], button[aria-controls="sidebarOffcanvas"], [data-bs-toggle="offcanvas"][data-bs-target="#sidebarOffcanvas"]')) {
+                            // if not inside .sidebar-menu -> remove
+                            if (!node.closest('.sidebar-menu')) node.remove();
+                        } else {
+                            // if descendants include such buttons
+                            var found = node.querySelector && node.querySelector('button[data-bs-target="#sidebarOffcanvas"], button[aria-controls="sidebarOffcanvas"], [data-bs-toggle="offcanvas"][data-bs-target="#sidebarOffcanvas"]');
+                            if (found && !found.closest('.sidebar-menu')) found.remove();
+                        }
+                    } catch (e) { /* ignore */ }
+                });
+            });
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+
+        // Extra safety: run a few times during initial load
+        var tries = 0;
+        var interval = setInterval(function () {
+            removeDuplicateSidebarTogglers();
+            tries++;
+            if (tries > 6) clearInterval(interval);
+        }, 500);
+    })();
+</script>

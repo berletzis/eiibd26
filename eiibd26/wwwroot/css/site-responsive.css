@@ -1,6 +1,7 @@
 ﻿/* site-responsive.css
    Offcanvas / topbar fixes + Footer layout.
    Ajustes para mostrar los padres en columna en móvil (col-12).
+   Incluye ajustes para el toggler inline del sidebar (móvil).
 */
 
 /* -------------------------------------------------------------
@@ -13,6 +14,8 @@
     --border: #eef2f7;
     --offcanvas-width: 360px;
     --offcanvas-sidebar-width: 320px;
+    /* altura aproximada del topbar (ajusta si tu topbar cambia) */
+    --topbar-height: 56px;
 }
 
 /* Basic helpers */
@@ -89,7 +92,8 @@ html {
     text-decoration: none;
 }
 
-    .footer-heading-link:hover, .footer-heading-link:focus {
+    .footer-heading-link:hover,
+    .footer-heading-link:focus {
         color: var(--brand-color);
         text-decoration: underline;
     }
@@ -110,7 +114,8 @@ html {
     font-size: .92rem;
 }
 
-    .footer-link:hover, .footer-link:focus {
+    .footer-link:hover,
+    .footer-link:focus {
         color: var(--brand-color);
         text-decoration: none;
     }
@@ -193,7 +198,7 @@ html {
     .footer-main {
         display: block;
     }
-        /* make each parent block full width and add small gap */
+
         .footer-main .col-12, .footer-main .col-6 {
             width: 100%;
         }
@@ -217,7 +222,6 @@ html {
     .footer-desktop-actions {
         display: none !important;
     }
-    /* hide desktop block on mobile */
 }
 
 /* Desktop / tablet layout: show lists and the desktop icons block */
@@ -264,4 +268,137 @@ html {
     font-size: .82rem;
     line-height: 1.35;
     color: #6b7280;
+}
+
+/* -------------------------------------------------------------
+   Sidebar inline toggler (móvil) - integrado en el mismo archivo
+   ------------------------------------------------------------- */
+
+/* Ensure the sidebar container is positioned so the absolute button is relative to it */
+.sidebar-menu {
+    position: relative;
+}
+
+/* Inline toggler inside the sidebar, visible only on mobile.
+   Matches other togglers: 44x44, rounded, small shadow, spaced from topbar.
+*/
+.sidebar-toggle-inline {
+    position: absolute;
+    top: calc(var(--topbar-height, 56px) + 8px);
+    right: 12px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: var(--brand-color); /* morado */
+    border: 2px solid rgba(0,0,0,0.06);
+    color: #ffffff;
+    box-shadow: 0 6px 12px rgba(16,24,40,0.06);
+    font-size: 1.05rem;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 1400; /* above many items but below full-screen overlays */
+}
+
+    /* Icon inside */
+    .sidebar-toggle-inline .bi {
+        font-size: 1.15rem;
+        vertical-align: middle;
+        color: #fff;
+    }
+
+    /* Hover / focus affordance */
+    .sidebar-toggle-inline:hover,
+    .sidebar-toggle-inline:focus {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 18px rgba(16,24,40,0.08);
+        outline: none;
+    }
+
+/* Hide the inline toggler on medium+ screens (sidebar visible by default) */
+@media (min-width: 768px) {
+    .sidebar-toggle-inline {
+        display: none !important;
+    }
+}
+
+/* Slightly different offsets for various small breakpoints to avoid overlap */
+@media (max-width: 420px) {
+    .sidebar-toggle-inline {
+        top: calc(var(--topbar-height, 56px) + 14px);
+        right: 10px;
+    }
+}
+
+@media (min-width: 576px) and (max-width: 767.98px) {
+    .sidebar-toggle-inline {
+        top: calc(var(--topbar-height, 56px) + 12px);
+        right: 12px;
+    }
+}
+
+
+/* Floating hamburger visual rules (fallback) */
+.fhb-toggle {
+    display: none;
+    position: fixed;
+    bottom: 18px;
+    right: 18px;
+    z-index: 2147483647;
+    width: 56px;
+    height: 56px;
+    min-width: 56px;
+    min-height: 56px;
+    border-radius: 12px;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+    background-color: var(--brand-color);
+    border: 2px solid rgba(0,0,0,0.08);
+    box-shadow: 0 8px 24px rgba(16,24,40,0.12);
+    color: #fff;
+}
+
+/* Icon bars */
+.fhb-icon {
+    display: inline-block;
+    width: 22px;
+    height: 14px;
+    position: relative;
+}
+
+    .fhb-icon::before, .fhb-icon::after, .fhb-icon span {
+        content: '';
+        display: block;
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 2.6px;
+        background: #fff;
+        border-radius: 2px;
+    }
+
+    .fhb-icon::before {
+        top: 0
+    }
+
+    .fhb-icon span {
+        top: 6px
+    }
+
+    .fhb-icon::after {
+        bottom: 0
+    }
+
+/* Mobile only */
+@media (max-width: 767.98px) {
+    .fhb-toggle {
+        display: inline-flex !important;
+    }
 }

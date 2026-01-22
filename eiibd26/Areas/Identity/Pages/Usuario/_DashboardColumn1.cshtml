@@ -1,8 +1,8 @@
 ﻿@model eiibd26.Models.DashboardViewModel
 @using Newtonsoft.Json
 @{
-    // Partial: Dashboard column — últimos 7 días.
-    // Ahora usamos eje X categorical: una etiqueta por registro (fecha), así varios registros del mismo día se muestran claramente.
+    // Partial: Dashboard column — últimos N días.
+    // Responsive: en móvil mostramos sólo los últimos 3 días (anteayer + ayer + hoy).
 }
 
 <style>
@@ -12,6 +12,7 @@
         padding: 1rem;
         box-shadow: 0 2px 14px rgba(0,0,0,0.06);
         margin-bottom: 1rem;
+        box-sizing: border-box;
     }
 
     .dashboard-col1-header {
@@ -31,12 +32,17 @@
         height: 335px;
         position: relative;
         margin-top: 12px;
+        box-sizing: border-box;
+        width: 100%;
+        padding: 0; /* evita que padding externo provoque overflow del canvas */
     }
 
         .chart-wrapper canvas {
             width: 100% !important;
+            max-width: 100% !important;
             height: 100% !important;
             display: block;
+            box-sizing: border-box;
         }
 
     .mood-leyenda-row {
@@ -45,7 +51,7 @@
         margin-top: 12px;
         flex-wrap: wrap;
         align-items: center;
-    }Mis Síntomas
+    }
 
     .mood-leyenda-item {
         display: flex;
@@ -88,6 +94,18 @@
         z-index: 1200;
         min-width: 220px;
     }
+
+    /* Responsive: reduce chart height on small screens */
+    @@media (max-width: 767.98px) {
+        .chart-wrapper {
+            height: 220px;
+        }
+
+        .mood-leyenda-img {
+            width: 24px;
+            height: 24px;
+        }
+    }
 </style>
 
 <div class="dashboard-col1-card">
@@ -100,7 +118,7 @@
     </div>
 
     <div class="chart-wrapper" id="col1ChartWrapper">
-        <canvas id="col1MoodChart" aria-label="Gráfica últimos 7 días"></canvas>
+        <canvas id="col1MoodChart" aria-label="Gráfica últimos días"></canvas>
     </div>
 
     <div class="mood-leyenda-row" aria-hidden="true">
@@ -150,7 +168,6 @@
                                 foreach (var r in Model.MoodRelations)
                                 {
                                     <option value="@r.Id">@r.Nombre (@r.Tipo)</option>
-                                    ;
                                 }
                             }
                         </select>
@@ -202,12 +219,20 @@
         } catch (e) { return null; }
       }
 
-      // last 7 days window (used only to filter; labels built per-record)
       function getLast7Window() {
         const today = new Date();
         const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6);
         const startMs = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
         const endMs = startMs + 7 * DAY_MS - 1;
+        return { startMs, endMs };
+      }
+
+      // New: get window for 'anteayer + ayer + hoy' (3 days)
+      function getLast3Window() {
+        const today = new Date();
+        const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 2); // anteayer 00:00
+        const startMs = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
+        const endMs = startMs + 3 * DAY_MS - 1;
         return { startMs, endMs };
       }
 
@@ -224,27 +249,93 @@
           if (ts < w.startMs || ts > w.endMs) return;
           out.push({ estado, fecha, ts, texto: x.texto ?? x.Texto ?? "", relacion: x.relacionNombre ?? x.RelacionNombre ?? "" });
         });
-        // ordenar por tiempo ascendente
         out.sort((a,b) => a.ts - b.ts);
         return out;
       }
 
-      // Build labels (one per record) and data arrays so multiple records same day are separate indices
       function buildLabelsAndData(normalizedList) {
         const labels = [];
         const data = [];
         const bg = [];
         normalizedList.forEach(n => {
-          // label as locale short date (same format as full page)
-          labels.push(new Date(n.ts).toLocaleDateString('es-ES'));
+          labels.push(new Date(n.ts).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }));
           data.push(mapVal[n.estado]);
           bg.push(mapColor[n.estado]);
         });
         return { labels, data, bg, raws: normalizedList };
       }
 
+      // Filter normalized list for mobile: keep only last 3 days
+      function filterForMobile(normalizedList) {
+        const w3 = getLast3Window();
+        return normalizedList.filter(n => n.ts >= w3.startMs && n.ts <= w3.endMs);
+      }
+
       let chartInstance = null;
-      function renderChartFromArrays(arr) {
+
+      function createChartOptions(isMobile, arrRaw) {
+        const baseOptions = {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: function(items) {
+                  if (!items || !items.length) return '';
+                  const idx = items[0].dataIndex;
+                  const raw = arrRaw && arrRaw[idx];
+                  return new Date(raw.ts).toLocaleString('es-ES', { weekday:'short', day:'2-digit', month:'short' });
+                },
+                label: function(ctx) {
+                  const idx = ctx.dataIndex;
+                  const raw = arrRaw && arrRaw[idx];
+                  const val = ctx.parsed.y;
+                  const time = raw && raw.fecha ? new Date(raw.fecha).toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }) : '';
+                  return (moodLabelFromNum(val) || val) + (time ? ' — ' + time : '');
+                },
+                afterBody: function(ctxArr) {
+                  const idx = ctxArr && ctxArr[0] && ctxArr[0].dataIndex;
+                  const raw = arrRaw && arrRaw[idx];
+                  if (raw && raw.texto) return ['"' + raw.texto + '"'];
+                  if (raw && raw.relacion) return ['Relacionado: ' + raw.relacion];
+                  return [];
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: {
+                autoSkip: true,
+                maxTicksLimit: isMobile ? 3 : 7,
+                callback: function(val, index) {
+                  return this.getLabelForValue(index);
+                },
+                font: { size: isMobile ? 10 : 12 }
+              },
+              grid: { display: false }
+            },
+            y: {
+              min: 1, max: 5,
+              ticks: {
+                stepSize: 1,
+                callback: function(v){ return {5:"Muy bien",4:"Bien",3:"Neutral",2:"Mal",1:"Muy mal"}[v] || ""; },
+                font: { size: isMobile ? 10 : 12 }
+              }
+            }
+          }
+        };
+
+        if (isMobile) {
+          baseOptions.plugins.tooltip.bodyFont = { size: 12 };
+          baseOptions.plugins.tooltip.titleFont = { size: 12 };
+        }
+
+        return baseOptions;
+      }
+
+      function renderChartFromArrays(arr, isMobile) {
         const canvas = document.getElementById('col1MoodChart');
         if (!canvas) {
           const wrapper = document.getElementById('col1ChartWrapper');
@@ -254,9 +345,16 @@
         const ctx = canvas.getContext('2d');
         if (chartInstance) try { chartInstance.destroy(); } catch(e) {}
 
+        // dataset visual tweaks for mobile
+        const pointRadius = isMobile ? 8 : 12;
+        const pointHoverRadius = isMobile ? 12 : 16;
+        const borderWidth = isMobile ? 1.5 : 2;
+
         const labels = arr.labels;
         const datasetData = arr.data;
         const backgroundColors = arr.bg;
+
+        const options = createChartOptions(isMobile, arr.raws);
 
         chartInstance = new Chart(ctx, {
           type: 'line',
@@ -267,84 +365,70 @@
               data: datasetData,
               backgroundColor: backgroundColors,
               borderColor: "#3498db",
-              borderWidth: 2,
+              borderWidth: borderWidth,
               pointBackgroundColor: backgroundColors,
-              pointRadius: 12,
-              pointHoverRadius: 16,
+              pointRadius: pointRadius,
+              pointHoverRadius: pointHoverRadius,
               pointStyle: 'circle',
               spanGaps: false,
               fill: false,
               tension: 0.3
             }]
           },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                callbacks: {
-                  title: function(items) {
-                    if (!items || !items.length) return '';
-                    const idx = items[0].dataIndex;
-                    const raw = arr.raws[idx];
-                    return new Date(raw.ts).toLocaleString('es-ES', { weekday:'short', day:'2-digit', month:'short' });
-                  },
-                  label: function(ctx) {
-                    const idx = ctx.dataIndex;
-                    const raw = arr.raws[idx];
-                    const val = ctx.parsed.y;
-                    const time = raw && raw.fecha ? new Date(raw.fecha).toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }) : '';
-                    return (moodLabelFromNum(val) || val) + (time ? ' — ' + time : '');
-                  },
-                  afterBody: function(ctxArr) {
-                    const idx = ctxArr && ctxArr[0] && ctxArr[0].dataIndex;
-                    const raw = arr.raws[idx];
-                    if (raw && raw.texto) return ['"' + raw.texto + '"'];
-                    if (raw && raw.relacion) return ['Relacionado: ' + raw.relacion];
-                    return [];
-                  }
-                }
-              }
-            },
-            scales: {
-              x: {
-                // categorical axis uses provided labels; show only one tick per day label
-                ticks: {
-                  autoSkip: true,
-                  maxTicksLimit: 7,
-                  callback: function(val, index) {
-                    // show label as-is
-                    return this.getLabelForValue(index);
-                  }
-                },
-                grid: { display: false }
-              },
-              y: {
-                min: 1, max: 5,
-                ticks: {
-                  stepSize: 1,
-                  callback: function(v){ return {5:"Muy bien",4:"Bien",3:"Neutral",2:"Mal",1:"Muy mal"}[v] || ""; }
-                }
-              }
-            }
-          }
+          options: options
         });
+
+        // Ensure canvas uses CSS width and Chart recalculates - solves cases where canvas
+        // had fixed width attribute or was initialised inside layout with transforms
+        try {
+          // remove width attribute so CSS width applies
+          if (canvas.hasAttribute('width')) canvas.removeAttribute('width');
+          canvas.style.width = '100%';
+          canvas.style.height = '100%';
+        } catch (e) { /* ignore */ }
+
+        // Force a resize after a tick to ensure Chart reads container size
+        setTimeout(function () {
+          try { chartInstance.resize(); } catch (e) { /* ignore */ }
+        }, 50);
+
+        // Extra safety: another tick later
+        setTimeout(function () {
+          try { chartInstance.resize(); } catch (e) { /* ignore */ }
+        }, 300);
       }
 
       async function loadAndRenderHistorico(){
         try {
           const res = await fetch(ENDPOINT_HISTORICO, { cache: "no-store" });
-          if (!res.ok) { console.warn("histórico fetch failed", res.status); renderChartFromArrays({labels:[],data:[],bg:[],raws:[]}); return; }
+          if (!res.ok) { console.warn("histórico fetch failed", res.status); renderChartFromArrays({labels:[],data:[],bg:[],raws:[]}, false); return; }
           const json = await res.json();
           const normalized = normalize(json);
-          const arr = buildLabelsAndData(normalized);
-          renderChartFromArrays(arr);
+
+          // Decide mobile or not
+          const isMobile = (Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0) <= 767.98);
+
+          // If mobile, show only last 3 days
+          const toUse = isMobile ? filterForMobile(normalized) : normalized;
+
+          const arr = buildLabelsAndData(toUse);
+          renderChartFromArrays(arr, isMobile);
         } catch (e) { console.error("loadAndRenderHistorico error", e); }
       }
 
       // initial render
       loadAndRenderHistorico();
+
+      // Re-render on resize (debounced) so chart adapts when rotating or resizing viewport
+      (function setupResize() {
+        let timer = null;
+        window.addEventListener('resize', function () {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(function () {
+            loadAndRenderHistorico();
+          }, 200);
+        });
+      })();
 
       // Open modal button
       (function attachOpenButton(){
