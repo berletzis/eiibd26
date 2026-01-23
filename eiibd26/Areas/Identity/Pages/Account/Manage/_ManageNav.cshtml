@@ -1,22 +1,242 @@
-@using eiibd26.Areas.Identity.Pages.Account.Manage
+@{
+    // Detect current Razor page path (e.g. "/Account/Manage/ChangePassword")
+    var currentPage = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
+    bool IsPage(string page) => string.Equals(currentPage, page, StringComparison.OrdinalIgnoreCase);
+}
 
-<ul class="nav nav-pills flex-column">
-    <li class="nav-item">
-        <a class="nav-link @ManageNavPages.UsuarioPerfilNavClass(ViewContext)" asp-page="./UsuarioPerfil">Datos Públicos</a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link @ManageNavPages.IndexNavClass(ViewContext)" asp-page="./Index">Datos de Registro</a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link @ManageNavPages.EmailNavClass(ViewContext)" asp-page="./Email">Correo</a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link @ManageNavPages.ChangePasswordNavClass(ViewContext)" asp-page="./ChangePassword">Contraseña</a>
-    </li>
-    @* <li class="nav-item">
-        <a class="nav-link @ManageNavPages.PersonalDataNavClass(ViewContext)" asp-page="./PersonalData">Otros Datos</a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link @ManageNavPages.TwoFactorAuthenticationNavClass(ViewContext)" asp-page="./TwoFactorAuthentication">Otro Inicio de Sesión</a>
-    </li> *@
-</ul>
+<style>
+    /* Manage nav card - responsive */
+    .manage-nav-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 0.75rem;
+        box-shadow: 0 6px 18px rgba(21,32,64,0.04);
+        box-sizing: border-box;
+        margin-bottom: 1rem; /* important on mobile: space between nav and content */
+    }
+
+    .manage-nav-list {
+        list-style: none;
+        margin: 0;
+        padding: 0.5rem 0;
+        display: flex;
+        flex-direction: row;
+        gap: 0.25rem;
+        flex-wrap: wrap;
+    }
+
+    .manage-nav-item {
+        margin: 0;
+    }
+
+    .manage-nav-link {
+        display: inline-flex;
+        align-items: center;
+        gap: .6rem;
+        padding: 0.55rem 0.9rem;
+        border-radius: 8px;
+        color: #2b3440;
+        text-decoration: none;
+        font-weight: 500;
+        background: transparent;
+        border: 1px solid transparent;
+        transition: all .12s ease-in-out;
+        white-space: nowrap;
+    }
+
+        .manage-nav-link:hover,
+        .manage-nav-link:focus {
+            background: #f3f6fb;
+            color: #1f2d4a;
+            text-decoration: none;
+            transform: translateY(-1px);
+        }
+
+        /* Active state: purple (morado) theme */
+        .manage-nav-link.active {
+            background: #F3E8FF; /* very light purple background */
+            color: #5B21B6 !important; /* darker purple text */
+            font-weight: 600;
+            border-left: 4px solid #7C3AED; /* purple border */
+            padding-left: 0.8rem; /* account for left border */
+            transform: none;
+        }
+
+    /* Also style any bootstrap .nav-link that may receive 'active' via helpers */
+    .manage-nav-card .nav-link.active {
+        background: #F3E8FF !important;
+        color: #5B21B6 !important;
+        font-weight: 600;
+        border-left: 4px solid #7C3AED !important;
+        padding-left: 0.8rem !important;
+    }
+
+    /* Title-as-link styling */
+    .manage-nav-title-link {
+        display: inline-block;
+        font-size: .98rem;
+        font-weight: 700;
+        color: #2b3b5a;
+        padding: 0.25rem 0.6rem;
+        margin-bottom: 0.35rem;
+        text-decoration: none;
+        border-radius: 6px;
+    }
+
+        .manage-nav-title-link:hover,
+        .manage-nav-title-link:focus {
+            background: #f3f6fb;
+            color: #1f2d4a;
+            text-decoration: none;
+        }
+        /* Title active state matching purple theme */
+        .manage-nav-title-link.active {
+            background: #F3E8FF;
+            color: #5B21B6;
+            border-left: 4px solid #7C3AED;
+            padding-left: 0.8rem;
+        }
+
+    /* Better spacing for longer lists on mobile: show them stacked */
+    @@media (max-width: 767.98px) {
+        .manage-nav-list {
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .manage-nav-link {
+            width: 100%;
+            padding: 0.75rem 1rem;
+        }
+
+        .manage-nav-card {
+            padding: 0.6rem;
+            margin-bottom: 1.15rem; /* ensures clear separation from the form below */
+        }
+
+        .manage-nav-title-link {
+            display: block;
+            width: 100%;
+            padding: 0.6rem 0.9rem;
+            margin-bottom: .5rem;
+        }
+    }
+
+    /* Desktop: left column navigation (sticky) and content to the right */
+    @@media (min-width: 768px) {
+        .manage-nav-wrapper {
+            display: flex;
+            gap: 1.25rem;
+            align-items: flex-start;
+        }
+
+        .manage-nav-card {
+            flex: 0 0 240px;
+            width: 240px;
+            position: sticky;
+            top: 20px;
+            height: fit-content;
+            margin-bottom: 0;
+        }
+        /* Make the list vertical on desktop */
+        .manage-nav-list {
+            flex-direction: column;
+            gap: 0.35rem;
+            padding: 0.6rem;
+        }
+
+        .manage-nav-link {
+            display: flex;
+            justify-content: flex-start;
+            padding: 0.6rem 0.9rem;
+            width: 100%;
+        }
+
+        .manage-nav-title-link {
+            margin-bottom: .6rem;
+            padding-left: .6rem;
+            padding-right: .6rem;
+        }
+    }
+
+    /* Ensure the content area that sits next to the nav has a class to use in page markup */
+    .manage-nav-content {
+        flex: 1 1 auto;
+    }
+
+        /*
+          Header (h2) styling for pages that use this manage nav layout
+          - Targets headings inside the manage content area so they get consistent spacing/visuals
+          - Adds margin-top so the heading is not glued to the top menu (or to the nav on mobile)
+        */
+        .manage-nav-content h2,
+        .manage-page-header h2 {
+            font-size: 2.1rem;
+            font-weight: 250;
+            letter-spacing: -0.06em;
+            color: #172849;
+            padding-bottom: 20px;
+            margin-top: 1.5rem; /* space from top/nav */
+            margin-bottom: 0.6rem; /* small breathing room before following content */
+            line-height: 1.05;
+        }
+
+    /* Slightly reduce margin-top on very small screens to preserve space */
+    @@media (max-width: 575.98px) {
+        .manage-nav-content h2,
+        .manage-page-header h2 {
+            margin-top: 1rem;
+            font-size: 1.9rem;
+        }
+    }
+</style>
+
+<div class="manage-nav-wrapper">
+    <nav class="manage-nav-card" aria-label="Manage navigation">
+       
+        <ul class="manage-nav-list" role="list">
+            <li class="manage-nav-item" role="listitem">
+                <a class="manage-nav-link @(IsPage("/Account/Manage/UsuarioPerfil") ? "active" : "")"
+                   asp-area="Identity" asp-page="/Account/Manage/UsuarioPerfil">
+                    Perfil
+                </a>
+            </li>
+               <a asp-area="Identity" asp-page="/Account/Manage/Index"
+               class="manage-nav-title-link @(IsPage("/Account/Manage/Index") ? "active" : "")"
+               aria-current="@(IsPage("/Account/Manage/Index") ? "page" : null)">
+                Datos de Inicio de Sesión
+            </a>
+            <li class="manage-nav-item" role="listitem">
+                <a class="manage-nav-link @(IsPage("/Account/Manage/ChangePassword") ? "active" : "")"
+                   asp-area="Identity" asp-page="/Account/Manage/ChangePassword">
+                    Contraseña
+                </a>
+            </li>
+            <li class="manage-nav-item" role="listitem">
+                <a class="manage-nav-link @(IsPage("/Account/Manage/Email") ? "active" : "")"
+                   asp-area="Identity" asp-page="/Account/Manage/Email">
+                    Correo
+                </a>
+            </li>
+            <li class="manage-nav-item" role="listitem">
+                <a class="manage-nav-link @(IsPage("/Account/Manage/PersonalData") ? "active" : "")"
+                   asp-area="Identity" asp-page="/Account/Manage/PersonalData">
+                    Datos de Registro
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    @* The page that includes this partial should wrap its main content in an element with class "manage-nav-content".
+       Example (in the parent view):
+       <div class="manage-nav-wrapper">
+         @await Html.PartialAsync("_ManageNav")
+         <div class="manage-nav-content"> ... form / content ... </div>
+       </div>
+
+       To ensure headings get the new spacing, either wrap the page content with
+         <div class="manage-nav-content"> ... </div>
+       or add the class "manage-page-header" to the container that has the h2.
+    *@
+    <div class="manage-nav-content" aria-hidden="true"><!-- placeholder for layout alignment when partial is used standalone --></div>
+</div>

@@ -3,12 +3,21 @@
 @using System.Collections.Generic
 @using System.Linq
 @{
-    // Muestra top 2 respuestas del usuario (según VM.Respuestas.Votes)
-    var top2 = Model?.Respuestas?.OrderByDescending(r => r.Votes).ThenByDescending(r => r.Id).Take(2).ToList()
-               ?? new List<eiibd26.Models.AnswerItem>();
+    // Lista completa de respuestas ordenada (se hará paginación en cliente)
+    var answers = Model?.Respuestas?.OrderByDescending(r => r.Votes).ThenByDescending(r => r.Id).ToList()
+                  ?? new List<eiibd26.Models.AnswerItem>();
+
+    // Identificador único para este componente (evita colisiones si se incluye múltiples veces)
+    var containerId = "top-answers-" + Guid.NewGuid().ToString("N");
+
+    // Page size por defecto (cambiar si deseas otro tamaño)
+    var pageSize = 8;
+    var totalCount = answers.Count;
+    var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 }
 
 <style>
+    /* Card base */
     .top-answers-card {
         padding: .75rem;
         background: #fff;
@@ -22,25 +31,39 @@
             margin-bottom: .5rem;
         }
 
+        /* Item */
         .top-answers-card .a-item {
             padding: 8px 0;
             border-bottom: 1px solid #f1f3f6;
             display: flex;
             align-items: flex-start;
             gap: 12px;
+            justify-content: space-between;
         }
 
             .top-answers-card .a-item:last-child {
                 border-bottom: none;
             }
 
+            /* Hacer que el área principal pueda reducirse dentro de flex (evita overflow) */
+            .top-answers-card .a-item > .a-main {
+                flex: 1;
+                min-width: 0; /* importante para truncado dentro de flex */
+            }
+
+        /* Cuerpo de la respuesta: multiline clamp */
         .top-answers-card .a-body {
             color: #374151;
             font-size: .95rem;
-            max-width: 420px;
+            max-width: 100%;
             overflow: hidden;
             text-overflow: ellipsis;
-            white-space: nowrap;
+            display: -webkit-box;
+            -webkit-line-clamp: 2; /* mostrar hasta 2 líneas por defecto */
+            -webkit-box-orient: vertical;
+            line-height: 1.2em;
+            height: calc(1.2em * 2);
+            word-break: break-word;
         }
 
         .top-answers-card .a-meta {
@@ -49,6 +72,8 @@
             display: flex;
             gap: 8px;
             align-items: center;
+            margin-top: 6px;
+            flex-wrap: wrap;
         }
 
         .top-answers-card .badge-votes {
@@ -57,40 +82,159 @@
             padding: 4px 8px;
             border-radius: 999px;
             font-weight: 600;
+            white-space: nowrap;
         }
 
-    .link-view {
-        color: #2563eb;
-        text-decoration: none;
+        .top-answers-card .link-view {
+            color: #2563eb;
+            text-decoration: none;
+            word-break: break-word;
+            white-space: nowrap;
+        }
+
+        /* Pagination controls */
+        .top-answers-card .pagination-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            justify-content: flex-end;
+            margin-top: .5rem;
+        }
+
+            .top-answers-card .pagination-controls .page-info {
+                font-size: .85rem;
+                color: #6b7280;
+                margin-right: auto;
+            }
+
+    /* Responsive: en pantallas pequeñas pasamos cada item a columna */
+    @@media (max-width: 768px) {
+        .top-answers-card .a-item {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .top-answers-card .link-view {
+            margin-top: 8px;
+            display: inline-block;
+            white-space: normal;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .top-answers-card .a-body {
+            -webkit-line-clamp: 3; /* permitir 3 líneas en pantallas pequeñas */
+            height: calc(1.2em * 3);
+            font-size: .95rem;
+        }
+
+        .top-answers-card .a-meta {
+            font-size: .8rem;
+        }
+
+        .top-answers-card .pagination-controls {
+            justify-content: center;
+        }
     }
 </style>
 
-<div class="top-answers-card">
+<div id="@containerId" class="top-answers-card">
     <div class="title">Top respuestas</div>
 
-    @if (!top2.Any())
+    @if (!answers.Any())
     {
         <div class="text-muted small">No hay respuestas para mostrar.</div>
     }
     else
     {
-        foreach (var a in top2)
-        {
-            var aId = (a.Id != Guid.Empty) ? a.Id.ToString() : "";
-            <div class="a-item">
-                <div style="flex:1;min-width:0;">
-                    <div class="a-body">@a.Cuerpo</div>
-                    <div class="a-meta">
-                        <div class="badge-votes">@a.Votes</div>
-                        <div class="text-muted small">Respuesta</div>
-                        <div class="text-muted">·</div>
-                        <div class="text-muted small">Id: @aId</div>
+        <!-- renderizar todas las respuestas en DOM (se mostrarán/ocultarán por JS) -->
+        <div class="answers-list">
+            @for (int i = 0; i < answers.Count; i++)
+            {
+                var a = answers[i];
+                var aId = (a.Id != Guid.Empty) ? a.Id.ToString() : "";
+                <div class="a-item answer-entry" data-index="@i" style="display:none;">
+                    <div class="a-main">
+                        <div class="a-body">@a.Cuerpo</div>
+                        <div class="a-meta">
+                            <div class="badge-votes">@a.Votes</div>
+                            <div class="text-muted small">Respuesta</div>
+                            <div class="text-muted">·</div>
+                            <div class="text-muted small">Id: @aId</div>
+                        </div>
+                    </div>
+                    <div class="a-actions">
+                        <a href="@Url.Page("/Foro/Pregunta", new { id = a.PreguntaId })" class="link-view">Ver pregunta</a>
                     </div>
                 </div>
-                <div>
-                    <a href="@Url.Page("/Foro/Pregunta", new { id = a.PreguntaId })" class="link-view">Ver pregunta</a>
-                </div>
-            </div>
-        }
+            }
+        </div>
+
+        <!-- Pagination: solo Prev / Next, sin campo "ir" -->
+        <div class="pagination-controls" aria-label="Paginación">
+            <div class="page-info">Página <span class="current-page">1</span> de <span class="total-pages">@totalPages</span></div>
+            <button type="button" class="btn btn-sm btn-outline-primary prev-btn" aria-label="Anterior" style="display:none;">Anterior</button>
+            <button type="button" class="btn btn-sm btn-outline-primary next-btn" aria-label="Siguiente" style="display:none;">Siguiente</button>
+        </div>
     }
 </div>
+
+<script>
+    (function () {
+        // Scope al contenedor único
+        var container = document.getElementById('@containerId');
+        if (!container) return;
+
+        var entries = container.querySelectorAll('.answer-entry');
+        var pageSize = @pageSize;
+        var totalCount = entries.length;
+        var totalPages = Math.ceil(totalCount / pageSize) || 1;
+        var currentPage = 1;
+
+        var prevBtn = container.querySelector('.prev-btn');
+        var nextBtn = container.querySelector('.next-btn');
+        var currentPageSpan = container.querySelector('.current-page');
+        var totalPagesSpan = container.querySelector('.total-pages');
+
+        // Inicializar display de totalPages
+        if (totalPagesSpan) totalPagesSpan.textContent = totalPages;
+
+        function renderPage(page) {
+            currentPage = Math.max(1, Math.min(page, totalPages));
+            var start = (currentPage - 1) * pageSize;
+            var end = start + pageSize;
+
+            entries.forEach(function (el, idx) {
+                if (idx >= start && idx < end) {
+                    el.style.display = '';
+                } else {
+                    el.style.display = 'none';
+                }
+            });
+
+            // Actualizar botones
+            if (prevBtn) prevBtn.style.display = (currentPage > 1) ? '' : 'none';
+            if (nextBtn) nextBtn.style.display = (currentPage < totalPages) ? '' : 'none';
+            if (currentPageSpan) currentPageSpan.textContent = currentPage;
+        }
+
+        // Event listeners
+        if (prevBtn) prevBtn.addEventListener('click', function () {
+            renderPage(currentPage - 1);
+        });
+        if (nextBtn) nextBtn.addEventListener('click', function () {
+            renderPage(currentPage + 1);
+        });
+
+        // Mostrar u ocultar el bloque de paginación si no aplica
+        var paginationControls = container.querySelector('.pagination-controls');
+        if (totalPages <= 1) {
+            if (paginationControls) paginationControls.style.display = 'none';
+        } else {
+            if (paginationControls) paginationControls.style.display = 'flex';
+        }
+
+        // Inicial render
+        renderPage(1);
+    })();
+</script>

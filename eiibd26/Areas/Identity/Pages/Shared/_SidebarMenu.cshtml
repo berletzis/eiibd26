@@ -20,7 +20,88 @@
     var contenidosOpen = IsStartingWith(contenidosRoot);
 }
 
-<div class="d-flex flex-column flex-shrink-0 p-3 bg-light sidebar-menu" style="width: 230px; min-height: 100vh; border-right: 1px solid #ececec; position:relative;">
+<style>
+    /* Sidebar sizing (desktop) - more width so items don't wrap and reduce white area */
+    .sidebar-menu {
+        width: 260px;
+        min-width: 260px;
+        max-width: 320px;
+        box-sizing: border-box;
+    }
+
+        /* Tighter nav item spacing */
+        .sidebar-menu .nav-link {
+            padding: .45rem .6rem;
+        }
+
+            /* Ensure icons keep consistent space */
+            .sidebar-menu .nav-link .me-2 {
+                min-width: 30px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+    /* Offcanvas (mobile) width: make it wider and remove big blank margins */
+    #sidebarOffcanvas.offcanvas {
+        --bs-offcanvas-width: 320px; /* bootstrap 5 variable */
+        max-width: 92%;
+    }
+
+    /* Slightly reduce padding inside offcanvas body so content fills space */
+    #sidebarOffcanvas .offcanvas-body {
+        padding-top: .75rem;
+        padding-bottom: .75rem;
+        padding-left: .6rem;
+        padding-right: .6rem;
+    }
+
+    /* When sidebar-menu is rendered inside the offcanvas, make it use the full offcanvas width */
+    #sidebarOffcanvas .sidebar-menu {
+        width: 100%;
+        min-height: calc(100vh - 56px);
+        border-right: none;
+        box-shadow: none;
+    }
+
+    /* Remove duplicate inline toggler from inside the offcanvas (visual safety) -
+       script already attempts to remove duplicates, esto evita ver un botón encima */
+    #sidebarOffcanvas .sidebar-toggle-inline {
+        display: none !important;
+    }
+
+    /* Reduce the large blank vertical spacing between items inside offcanvas */
+    #sidebarOffcanvas .nav {
+        gap: .25rem;
+    }
+
+    /* Position close button visually consistent */
+    #sidebarOffcanvas .btn-close {
+        position: absolute;
+        top: .5rem;
+        right: .5rem;
+    }
+
+    /* Responsive tweaks: on narrow devices, let offcanvas take a bit more width */
+    @@media (max-width: 768px) {
+        .sidebar-menu {
+            width: auto;
+            min-width: 0;
+        }
+
+        #sidebarOffcanvas.offcanvas {
+            --bs-offcanvas-width: 85%;
+            max-width: 420px;
+        }
+    }
+
+    /* Accessibility & small styling */
+    .sidebar-menu .nav-link .visually-hidden {
+        margin-left: .25rem;
+    }
+</style>
+
+<div class="d-flex flex-column flex-shrink-0 p-3 bg-light sidebar-menu" style="min-height: 100vh; border-right: 1px solid #ececec; position:relative;">
     @* Mobile inline toggler: visible only on small screens, positioned at top-right of the sidebar box *@
     <button class="btn sidebar-toggle-inline d-md-none"
             type="button"
@@ -187,7 +268,7 @@
                     }
 
                     // if the button is inside a topbar/header-like area -> remove it
-                    if (btn.closest && (btn.closest('.topbar') || btn.closest('.navbar') || btn.closest('header') || btn.closest('.site-header') || btn.closest('.topbar-desktop') || btn.closest('.topbar-mobile'))) {
+                    if (btn.closest && (btn.closest('.topbar') || btn.closest('.navbar') || btn.closest('header') || btn.closest('.site-header') || btn.closest('.topbar-desktop') || btn.closest('.topb'))) {
                         btn.remove();
                         return;
                     }

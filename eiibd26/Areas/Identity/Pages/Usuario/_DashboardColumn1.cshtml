@@ -106,6 +106,19 @@
             height: 24px;
         }
     }
+
+    /* Ensure modal content is scrollable and modal is centered on small screens */
+    .modal-dialog-centered {
+        display: flex;
+        align-items: center;
+        min-height: calc(100% - 1rem);
+    }
+
+    .modal-content {
+        max-height: calc(100vh - 3.5rem);
+        overflow: auto;
+    }
+
 </style>
 
 <div class="dashboard-col1-card">
@@ -132,11 +145,13 @@
 
 <!-- Modal -->
 <div class="modal fade" id="col1MoodModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
+        <!-- centered -->
         <div class="modal-content">
             <form id="col1MoodForm">
+                @Html.AntiForgeryToken()
                 <div class="modal-header">
-                    <h5 class="modal-title">Agregar estado de ánimo</h5>
+                    <h5 id="tituloTrackingPartial" class="modal-title">Agregar estado de ánimo</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body">
@@ -496,7 +511,7 @@
             try { window.dispatchEvent(new CustomEvent('mood:added', { detail: { created } })); } catch(e) {}
           } catch (e) {
             console.error(e);
-            const alertEl = document.getElementById("col1MoodAlert"); alertEl.className="alert alert-danger"; alertEl.textContent="Error de red al guardar."; alertEl.style.display="block";
+            const alertEl = document.getElementById("col1MoodAlert"); alertEl.className = "alert alert-danger"; alertEl.textContent = "Error de red al guardar."; alertEl.style.display = "block";
           }
         });
       })();

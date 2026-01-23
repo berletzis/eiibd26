@@ -3,9 +3,17 @@
 @using System.Collections.Generic
 @using System.Linq
 @{
-    // Muestra top 2 preguntas del usuario (según VM.Preguntas)
-    var top2 = Model?.Preguntas?.OrderByDescending(p => p.Votes).ThenByDescending(p => p.AnswersCount).Take(2).ToList()
-               ?? new List<eiibd26.Models.QuestionItem>();
+    // Lista completa de preguntas ordenada (se hará paginación en cliente)
+    var questions = Model?.Preguntas?.OrderByDescending(p => p.Votes).ThenByDescending(p => p.AnswersCount).ToList()
+                    ?? new List<eiibd26.Models.QuestionItem>();
+
+    // Identificador único para este componente (evita colisiones si se incluye múltiples veces)
+    var containerId = "top-questions-" + Guid.NewGuid().ToString("N");
+
+    // Page size por defecto (cambiar si deseas otro tamaño)
+    var pageSize = 8;
+    var totalCount = questions.Count;
+    var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 }
 
 <style>
@@ -35,13 +43,25 @@
                 border-bottom: none;
             }
 
+            /* Contenedor principal dentro de cada item para permitir truncado dentro de flex */
+            .top-questions-card .q-item > .q-main {
+                flex: 1;
+                min-width: 0; /* crítico para que el contenido se reduzca dentro de flex */
+            }
+
+        /* Título: permitir multilinea hasta 2 líneas con truncado */
         .top-questions-card .q-title {
             font-weight: 600;
             color: #1f2937;
             overflow: hidden;
             text-overflow: ellipsis;
-            white-space: nowrap;
-            max-width: 320px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2; /* mostrar hasta 2 líneas */
+            -webkit-box-orient: vertical;
+            max-width: 100%;
+            line-height: 1.2em;
+            height: calc(1.2em * 2);
+            word-break: break-word;
         }
 
         .top-questions-card .q-meta {
@@ -50,6 +70,8 @@
             display: flex;
             gap: 8px;
             align-items: center;
+            margin-top: 4px;
+            flex-wrap: wrap;
         }
 
         .top-questions-card .badge-votes {
@@ -58,37 +80,157 @@
             padding: 4px 8px;
             border-radius: 999px;
             font-weight: 600;
+            white-space: nowrap;
         }
 
         .top-questions-card .link-view {
             color: #2563eb;
             text-decoration: none;
+            word-break: break-word;
+            white-space: nowrap;
         }
+
+        /* Pagination controls */
+        .top-questions-card .pagination-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            justify-content: flex-end;
+            margin-top: .5rem;
+        }
+
+            .top-questions-card .pagination-controls .page-info {
+                font-size: .85rem;
+                color: #6b7280;
+                margin-right: auto;
+            }
+
+    /* Responsive: en pantallas pequeñas pasamos cada item a columna */
+    @@media (max-width: 768px) {
+        .top-questions-card .q-item {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .top-questions-card .link-view {
+            margin-top: 8px;
+            display: inline-block;
+            white-space: normal;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .top-questions-card .q-title {
+            -webkit-line-clamp: 3;
+            height: calc(1.2em * 3);
+            font-size: .95rem;
+        }
+
+        .top-questions-card .q-meta {
+            font-size: .8rem;
+        }
+
+        .top-questions-card .pagination-controls {
+            justify-content: center;
+        }
+    }
 </style>
 
-<div class="top-questions-card">
+<div id="@containerId" class="top-questions-card">
     <div class="title">Top preguntas</div>
 
-    @if (!top2.Any())
+    @if (!questions.Any())
     {
         <div class="text-muted small">No hay preguntas para mostrar.</div>
     }
     else
     {
-        @foreach (var q in top2)
-        {
-            var qId = (q.Id != Guid.Empty) ? q.Id.ToString() : "";
-            <div class="q-item">
-                <div style="flex:1;min-width:0;">
-                    <div class="q-title">
-                        <a class="link-view" href="@Url.Page("/Foro/Pregunta", new { id = q.Id })" title="@q.Titulo">@q.Titulo</a>
+        <!-- renderizar todas las preguntas en DOM (se mostrarán/ocultarán por JS) -->
+        <div class="questions-list">
+            @for (int i = 0; i < questions.Count; i++)
+            {
+                var q = questions[i];
+                var qId = (q.Id != Guid.Empty) ? q.Id.ToString() : "";
+                <div class="q-item question-entry" data-index="@i" style="display:none;">
+                    <div class="q-main">
+                        <div class="q-title">
+                            <a class="link-view" href="@Url.Page("/Foro/Pregunta", new { id = q.Id })" title="@q.Titulo">@q.Titulo</a>
+                        </div>
+                        <div class="q-meta">
+                            <div class="badge-votes">@q.Votes</div>
+                            <div>@(q.AnswersCount) respuestas</div>
+                        </div>
                     </div>
-                    <div class="q-meta">
-                        <div class="badge-votes">@q.Votes</div>
-                        <div>@(q.AnswersCount) respuestas</div>
-                    </div>
+                    <!-- Si se desea, aquí podría añadirse una acción extra -->
                 </div>
-            </div>
-        }
+            }
+        </div>
+
+        <!-- Pagination: solo Prev / Next, sin campo "ir" -->
+        <div class="pagination-controls" aria-label="Paginación">
+            <div class="page-info">Página <span class="current-page">1</span> de <span class="total-pages">@totalPages</span></div>
+            <button type="button" class="btn btn-sm btn-outline-primary prev-btn" aria-label="Anterior" style="display:none;">Anterior</button>
+            <button type="button" class="btn btn-sm btn-outline-primary next-btn" aria-label="Siguiente" style="display:none;">Siguiente</button>
+        </div>
     }
 </div>
+
+<script>
+    (function () {
+        // Scope al contenedor único
+        var container = document.getElementById('@containerId');
+        if (!container) return;
+
+        var entries = container.querySelectorAll('.question-entry');
+        var pageSize = @pageSize;
+        var totalCount = entries.length;
+        var totalPages = Math.ceil(totalCount / pageSize) || 1;
+        var currentPage = 1;
+
+        var prevBtn = container.querySelector('.prev-btn');
+        var nextBtn = container.querySelector('.next-btn');
+        var currentPageSpan = container.querySelector('.current-page');
+        var totalPagesSpan = container.querySelector('.total-pages');
+
+        // Inicializar display de totalPages
+        if (totalPagesSpan) totalPagesSpan.textContent = totalPages;
+
+        function renderPage(page) {
+            currentPage = Math.max(1, Math.min(page, totalPages));
+            var start = (currentPage - 1) * pageSize;
+            var end = start + pageSize;
+
+            entries.forEach(function (el, idx) {
+                if (idx >= start && idx < end) {
+                    el.style.display = '';
+                } else {
+                    el.style.display = 'none';
+                }
+            });
+
+            // Actualizar botones
+            if (prevBtn) prevBtn.style.display = (currentPage > 1) ? '' : 'none';
+            if (nextBtn) nextBtn.style.display = (currentPage < totalPages) ? '' : 'none';
+            if (currentPageSpan) currentPageSpan.textContent = currentPage;
+        }
+
+        // Event listeners
+        if (prevBtn) prevBtn.addEventListener('click', function () {
+            renderPage(currentPage - 1);
+        });
+        if (nextBtn) nextBtn.addEventListener('click', function () {
+            renderPage(currentPage + 1);
+        });
+
+        // Mostrar u ocultar el bloque de paginación si no aplica
+        var paginationControls = container.querySelector('.pagination-controls');
+        if (totalPages <= 1) {
+            if (paginationControls) paginationControls.style.display = 'none';
+        } else {
+            if (paginationControls) paginationControls.style.display = 'flex';
+        }
+
+        // Inicial render
+        renderPage(1);
+    })();
+</script>

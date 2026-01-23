@@ -39,6 +39,34 @@
             font-weight: 400; /* non-bold inside card */
             color: #0f172a;
         }
+
+        /*
+                 Responsive tweaks requested:
+                 1) Make the "Revisa que tu aporte sea claro y útil" reply card (.se-reply-box) use full width on mobile.
+                 2) Ensure the post layout stacks cleanly on small screens (force grid collapse and remove left margins that could squeeze the reply box).
+                */
+        @@media (max-width: 700px) {
+            /* Ensure the main post grid stacks (defensive: some themes might not include this) */
+            .se-post {
+                grid-template-columns: 1fr !important;
+            }
+            /* Make the reply card span full width on small screens */
+            .se-reply-box {
+                max-width: 100% !important;
+                width: 100% !important;
+                margin-left: 0 !important;
+                padding: 12px !important;
+                box-sizing: border-box !important;
+            }
+            /* Ensure answers float doesn't overlap the reply box on very small screens */
+            .se-answers-float {
+                position: relative !important;
+                right: auto !important;
+                bottom: auto !important;
+                margin-top: 10px !important;
+                align-self: flex-start !important;
+            }
+        }
     </style>
 }
 
@@ -173,7 +201,6 @@
                                         }
                                         @Model.Pregunta.FechaCreacion.ToLocalTime().ToString("g")
                                     </span>
-
                                 </div>
                             </div>
                         </div>
@@ -201,6 +228,7 @@
                         </div>
                     }
                 </div>
+
                 <div class="preguntas-paginacion" aria-label="Paginación">
                     @if (Model.TotalPages > 1)
                     {
@@ -233,7 +261,7 @@
 
                         // Usar answersPage (NO page) para evitar colisión con Razor Pages
                         Func<int, string> pageUrl = p => Url.Page(
-                                        "/Preguntas/Detalles",
+                                                                        "/Preguntas/Detalles",
                         new { id = Model.Pregunta.Id, answersPage = p, pageSize = Model.PageSize, search = Model.Search }
                         ) ?? "#";
 
@@ -407,7 +435,7 @@
 
                         // Usar answersPage (NO page) para evitar colisión con Razor Pages
                         Func<int, string> pageUrl = p => Url.Page(
-                                        "/Preguntas/Detalles",
+                                                                        "/Preguntas/Detalles",
                         new { id = Model.Pregunta.Id, answersPage = p, pageSize = Model.PageSize, search = Model.Search }
                         ) ?? "#";
 

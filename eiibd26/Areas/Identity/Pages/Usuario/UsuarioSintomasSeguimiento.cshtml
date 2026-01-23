@@ -21,7 +21,12 @@
         ("Severo", "Severo", "#FF8A65"),
         ("Extremo", "Extremo", "#D32F2F")
     };
+
+    // Strings for selector use in responsive CSS (server-rendered values)
+    var hoyAttr = hoy.ToString("yyyy-MM-dd");
+    var ayerAttr = ayer.ToString("yyyy-MM-dd");
 }
+
 <style>
 
     .crm-info-block {
@@ -138,44 +143,97 @@
     .wrap-condiciones {
         max-width: 220px;
     }
-    @@media (max-width: 900px) {
-        .crm-container
 
-    {
-        max-width: 98vw;
-        padding: 0;
-    }
-
-    .crm-table-block {
-        padding: 1.2rem 0.3rem 1.1rem 0.3rem;
-    }
-
-    .crm-title {
-        font-size: 1.24rem;
-    }
-
-    .crm-table-title {
-        font-size: 1.15rem;
-    }
-
-    .crm-info-block {
-        font-size: .97em;
-    }
-
-    }
+    /* ---------- Responsive adjustments (only affect small screens) ---------- */
+    /* For mobile we show only Ayer and Hoy columns, remove Conditions column, and remove bold from symptom names */
     @@media (max-width: 750px) {
-        .crm-table-seguimiento th, .crm-table-seguimiento td
 
-    {
-        padding: 9px 3px;
-        font-size: .97em;
+        .crm-container {
+            max-width: 98vw;
+            padding: 0;
+        }
+
+        .crm-table-block {
+            padding: 1.2rem 0.6rem 1.1rem 0.6rem;
+        }
+
+        .crm-title {
+            font-size: 1.24rem;
+        }
+
+        .crm-table-title {
+            font-size: 1.15rem;
+        }
+
+        .crm-info-block {
+            font-size: .97em;
+        }
+        /* Reduce padding and font sizes inside table for mobile */
+        .crm-table-seguimiento th, .crm-table-seguimiento td {
+            padding: 10px 8px;
+            font-size: .95rem;
+        }
+        /* Hide ALL day columns by default (those with data-dia), then show only ayer and hoy */
+        .crm-table-seguimiento thead th[data-dia],
+        .crm-table-seguimiento tbody td[data-dia] {
+            display: none !important;
+            visibility: collapse !important;
+            width: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        /* Show only ayer and hoy columns (server values injected) */
+        .crm-table-seguimiento thead th[data-dia="@ayerAttr"],
+        .crm-table-seguimiento thead th[data-dia="@hoyAttr"],
+        .crm-table-seguimiento tbody td[data-dia="@ayerAttr"],
+        .crm-table-seguimiento tbody td[data-dia="@hoyAttr"] {
+            display: table-cell !important;
+            visibility: visible !important;
+            width: auto !important;
+            padding: 10px 8px !important;
+        }
+        /* Hide the Condiciones column entirely on mobile */
+        .crm-table-seguimiento th.cond-col,
+        .crm-table-seguimiento td.cond-col {
+            display: none !important;
+        }
+        /* Symptoms column: remove bold and allow wrapping */
+        .crm-table-seguimiento tbody td:first-child,
+        .crm-table-seguimiento thead th:first-child {
+            white-space: normal !important;
+            overflow-wrap: anywhere;
+            font-weight: 400 !important;
+            max-width: 55%;
+        }
+        /* Ensure small icons/buttons center properly */
+        .crm-table-seguimiento td.text-center {
+            text-align: center !important;
+        }
+        /* Make buttons slightly smaller on mobile */
+        .btn.btn-outline-gray.btn-sm.btn-agregar-tracking-matriz {
+            font-size: .95rem !important;
+            padding: 3px 8px !important;
+        }
+        /* Prevent table from forcing horizontal scroll; allow smooth auto scroll if needed */
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
     }
 
-    .crm-table-seguimiento td.wrap-condiciones {
-        max-width: 98vw;
+    @@media (max-width: 900px) {
+        .crm-container {
+            max-width: 98vw;
+            padding: 0;
+        }
     }
 
+    @@media (max-width: 750px) {
+        .crm-table-seguimiento td.wrap-condiciones {
+            max-width: 98vw;
+        }
     }
+
 </style>
 <div class="container py-4">
     <h1 class="crm-title mb-4">Seguimiento semanal de síntomas</h1>
@@ -202,7 +260,7 @@
                             var esHoy = (dia.Date == hoy.Date);
                             var esAyer = (dia.Date == ayer.Date);
                             var bgClass = (esHoy || esAyer) ? "bg-warning bg-opacity-25" : "bg-light";
-                            <th class="@bgClass small" style="min-width:56px;">
+                            <th class="@bgClass small date-col" data-dia="@dia.ToString("yyyy-MM-dd")" style="min-width:56px;">
                                 @dia.ToString("dd/MM")<br /><span class="text-muted">@dia.ToString("ddd")</span>
                                 @if (esHoy)
                                 {
@@ -214,25 +272,25 @@
                                 }
                             </th>
                         }
-                        <th class="bg-light text-nowrap">Condiciones</th>
+                        <th class="bg-light text-nowrap cond-col">Condiciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var sint in Model.Sintomas)
                     {
                         <tr>
-                            <td class="text-nowrap fw-semibold">@sint.Nombre</td>
+                            <td class="text-start" style="vertical-align: middle;">@sint.Nombre</td>
                             @foreach (var dia in diasSemana)
                             {
                                 var key = dia.ToString("yyyy-MM-dd");
                                 var esHoy = (dia.Date == hoy.Date);
                                 var esAyer = (dia.Date == ayer.Date);
-                                var seguimiento = sint.SeguimientoPorDia[key];
+                                var seguimiento = sint.SeguimientoPorDia.ContainsKey(key) ? sint.SeguimientoPorDia[key] : "";
                                 var esFuturo = dia.Date > hoy;
                                 var cellClass = $"matrix-cell-{sint.Id}-{dia.ToString("yyyyMMdd")}";
-                                <td class="@cellClass @(esHoy || esAyer ? "bg-warning bg-opacity-25" : "")"
+                                <td class="@cellClass @(esHoy || esAyer ? "bg-warning bg-opacity-25" : "") text-center"
                                     data-nombre="@sint.Nombre"
-                                    data-dia="@dia.ToString("yyyy-MM-dd")"
+                                    data-dia="@key"
                                     data-sintid="@sint.Id">
                                     @if (!string.IsNullOrEmpty(seguimiento))
                                     {
@@ -264,7 +322,7 @@
                                     }
                                 </td>
                             }
-                            <td class="wrap-condiciones small text-muted">@string.Join(", ", sint.Condiciones)</td>
+                            <td class="wrap-condiciones small text-muted cond-col">@string.Join(", ", sint.Condiciones)</td>
                         </tr>
                     }
                 </tbody>

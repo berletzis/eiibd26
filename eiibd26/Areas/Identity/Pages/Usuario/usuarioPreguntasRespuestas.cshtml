@@ -21,6 +21,169 @@
 
 @section Styles {
     <link rel="stylesheet" href="~/css/preguntas.css" />
+    <style>
+        /* Page-specific structural tweaks — keep colors inherited from existing site styles */
+        .crm-card {
+            padding: 1rem !important;
+            box-sizing: border-box;
+        }
+
+        .se-item {
+            padding: 0.85rem 0.9rem;
+            margin-bottom: 0.6rem;
+            border-radius: 10px;
+            background: #ffffff;
+            box-shadow: 0 2px 8px rgba(18,34,60,0.04);
+            box-sizing: border-box;
+        }
+
+        .se-summary {
+            padding-left: 0.6rem;
+            min-width: 0;
+        }
+
+        .se-title a {
+            word-break: break-word;
+        }
+
+        /* Actions row: put Edit / Delete into its own line below the metadata.
+                   Keep colors neutral by not forcing color values here (inherit from site theme). */
+        .se-actions-row {
+            margin-top: .5rem;
+            display: flex;
+            gap: .6rem;
+            align-items: center;
+            padding-left: 0.6rem; /* align with summary content */
+        }
+
+            .se-actions-row .se-action-link {
+                font-weight: 600;
+                text-decoration: none;
+                padding: .25rem .45rem;
+                border-radius: 6px;
+                background: transparent;
+                transition: background .12s;
+            }
+
+                .se-actions-row .se-action-link:hover {
+                    background: #f3f4f6;
+                    color: inherit;
+                }
+
+        /* Small-screen adjustments to avoid layout collisions */
+        @@media (max-width: 767.98px) {
+            .se-stats {
+                flex: 0 0 auto;
+                margin-right: 0.5rem;
+            }
+
+            .se-summary {
+                padding-left: 0;
+            }
+
+            .se-item {
+                padding: .6rem;
+            }
+
+            .se-actions-row {
+                padding-left: 0;
+                justify-content: flex-start;
+            }
+        }
+
+        /* Pagination: center controls, keep colors as defined by global styles */
+        .pag-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+            align-items: center;
+            padding: .65rem 0;
+        }
+
+        .pag-btn, .pag-num {
+            display: inline-block;
+            padding: .45rem .65rem;
+            border-radius: 6px;
+            background: #fff;
+            border: 1px solid #e6e9ef;
+            color: #2b3440;
+            text-decoration: none;
+        }
+
+            .pag-btn.disabled, .pag-num.disabled {
+                opacity: .45;
+                pointer-events: none;
+            }
+
+        .pag-ellipsis {
+            padding: .45rem .25rem;
+            color: #6b7280;
+        }
+
+        .pag-info {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-left: 0.5rem;
+        }
+
+            .pag-info span {
+                color: #6b7280;
+                font-size: .95rem;
+            }
+
+        .pag-size-inline {
+            display: inline-flex;
+            gap: .35rem;
+            align-items: center;
+        }
+
+            .pag-size-inline label {
+                font-size: .9rem;
+                color: #6b7280;
+            }
+
+        @@media (max-width: 767.98px) {
+            .pag-bar {
+                gap: .5rem;
+            }
+
+            .pag-info {
+                flex-direction: column;
+                align-items: center;
+                width: 100%;
+                margin-left: 0;
+            }
+
+            .pag-size-inline {
+                justify-content: center;
+            }
+        }
+
+        .preguntas-paginacion {
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Keep modals vertically centered and scrollable on small screens */
+        .modal-dialog-centered {
+            display: flex;
+            align-items: center;
+            min-height: calc(100% - 1rem);
+        }
+
+        .modal-content {
+            max-height: calc(100vh - 3.5rem);
+            overflow: auto;
+        }
+        @@media (max-width: 576px) {
+            .modal-dialog.modal-lg {
+                max-width: 92%;
+                margin: 0 auto;
+            }
+        }
+    </style>
 }
 
 <form id="__afForm" style="display:none;">@Html.AntiForgeryToken()</form>
@@ -31,14 +194,12 @@
         <div class="crm-card">
             <div class="d-flex flex-wrap justify-content-between align-items-center">
                 <div>
-
                     <div class="text-muted mb-2">Lista de tus preguntas y aquellas en las que has participado..</div>
-
                 </div>
                 <div class="d-inline-flex align-items-center">
                     <a class="se-btn se-btn-primary me-0" style="font-size:28px;"
                        href="~/Identity/Usuario/UusuarioPreguntaDetalle">
-                        <i class="bi bi-question "></i>
+                        <i class="bi bi-question"></i>
                     </a>
                     <button id="btnModalPregunta" type="button"
                             class="se-btn se-btn-primary ms-1"
@@ -46,13 +207,11 @@
                         <i class="btn-icon alert-light bi bi-lightning"></i>
                     </button>
                 </div>
-
-
             </div>
         </div>
     </div>
-    <div class="preguntas-paginacion" aria-label="Paginación">
 
+    <div class="preguntas-paginacion" aria-label="Paginación">
         @if (Model.TotalPages > 1)
         {
             int current = Model.PageNumber;
@@ -83,10 +242,9 @@
             }
 
             string baseSearch = Model.Search ?? "";
-            // Importante: enlazar a ESTA MISMA página, no a /Preguntas
             Func<int, string> pageUrl = p => Url.Page(
-            null, // misma página
-            null, // handler
+            null,
+            null,
             new { search = baseSearch, pageSize = Model.PageSize, pageNumber = p },
             null
             ) ?? "#";
@@ -139,11 +297,11 @@
                             }
                         </select>
                     </form>
-
                 </div>
             </div>
         }
     </div>
+
     <div class="qp-wrapper-flex">
         @if (!Model.Preguntas.Any())
         {
@@ -259,9 +417,12 @@
                                     <a class="se-user-name" href="#">@q.AutorNombre</a>
                                 </div>
                                 <span class="se-time">@q.FechaCreacion.ToLocalTime().ToString("g")</span>
-                                @if (q.EsMia)
-                                {
-                                    @* Si la pregunta ya tiene respuestas, renderizamos un link "bloqueado" que mostrará una alerta al hacer click. *@
+                            </div>
+
+                            @* Actions row: show Edit / Delete in a separate line beneath meta when item belongs to the user *@
+                            @if (q.EsMia)
+                            {
+                                <div class="se-actions-row">
                                     @if (q.RespuestasCount > 0)
                                     {
                                         <a href="#" class="se-action-link se-action-delete-blocked"
@@ -287,9 +448,8 @@
                                            href="~/Identity/Usuario/UusuarioPreguntaDetalle?id=@q.Id"
                                            title="Editar pregunta">Editar</a>
                                     }
-                                }
-                            </div>
-
+                                </div>
+                            }
 
                             <div class="se-answers-float @(q.RespuestasCount > 0 ? "answered" : "unanswered")">
                                 <span class="se-answers-float-count">@q.RespuestasCount</span>
@@ -329,7 +489,6 @@
     </div>
 
     <div class="preguntas-paginacion" aria-label="Paginación">
-
         @if (Model.TotalPages > 1)
         {
             int current = Model.PageNumber;
@@ -360,10 +519,9 @@
             }
 
             string baseSearch = Model.Search ?? "";
-            // Importante: enlazar a ESTA MISMA página, no a /Preguntas
             Func<int, string> pageUrl = p => Url.Page(
-            null, // misma página
-            null, // handler
+            null,
+            null,
             new { search = baseSearch, pageSize = Model.PageSize, pageNumber = p },
             null
             ) ?? "#";
@@ -416,7 +574,6 @@
                             }
                         </select>
                     </form>
-
                 </div>
             </div>
         }
@@ -425,7 +582,7 @@
 
 <!-- Modal nueva pregunta rápida -->
 <div class="modal fade" id="preguntaModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <form id="preguntaForm" method="post" asp-page-handler="CrearPregunta">
                 @Html.AntiForgeryToken()
@@ -460,14 +617,12 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Confirmar eliminación</h5>
-                <!-- X para cerrar en la esquina superior derecha -->
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body p-4">
                 <p id="confirmDeleteMessage" class="mb-0 text-muted">¿Deseas eliminar este elemento? Esta acción es irreversible.</p>
             </div>
             <div class="modal-footer">
-                <!-- Cancelamos el botón "Cancelar" según lo pedido y dejamos solo confirmar -->
                 <button type="button" id="confirmDeleteBtn" class="se-btn se-btn-primary"><i class="bi bi-trash3"></i></button>
             </div>
         </div>
@@ -475,7 +630,6 @@
 </div>
 
 @section Scripts {
-    <!-- Fallback: si bootstrap no está disponible localmente, cargar CDN -->
     <script>
         (function(){
             if (typeof bootstrap === 'undefined') {
@@ -490,7 +644,6 @@
 
     <script>
         (function () {
-            // pendingDelete debe estar en scope superior para que lo usen varias funciones
             let pendingDelete = null;
 
             function initLazyAvatars() {
@@ -518,7 +671,6 @@
             }
 
             document.addEventListener('click', async e => {
-                // Votación: buscar botones de voto primero
                 const voteBtn = e.target.closest('.se-vote-btn');
                 if (voteBtn) {
                     const item = voteBtn.closest('.se-item');
@@ -588,12 +740,10 @@
                     return;
                 }
 
-                // manejar clicks de eliminar (normales o bloqueados)
                 const delBtn = e.target.closest('.se-action-delete, .se-action-delete-blocked');
                 if (!delBtn) return;
                 e.preventDefault();
 
-                // Si está bloqueado por tener respuestas, mostramos alerta informativa y no abrimos el modal
                 if (delBtn.classList.contains('se-action-delete-blocked')) {
                     const responses = parseInt(delBtn.getAttribute('data-responses') || '0', 10);
                     const msg = responses > 0

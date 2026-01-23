@@ -19,7 +19,7 @@
     var condicionesUsuario = Model.CondicionesUsuario ?? new List<eiibd26.Areas.Identity.Pages.Usuario.CondicionUsuarioViewModel>();
 }
 <style>
-    /* (mantengo tus estilos tal cual) */
+    /* (mantengo tus estilos tal cual con pequeños ajustes para responsive layout of filters and cards) */
     .mood-leyenda-row {
         display: flex;
         flex-direction: row;
@@ -74,6 +74,8 @@
         gap: 13px;
         height: 100%;
         position: relative;
+        box-sizing: border-box;
+        width: 100%;
     }
 
     .mood-card-img {
@@ -155,6 +157,27 @@
             text-decoration: underline;
         }
 
+    /* FILTER + COUNT layout tweaks:
+           On small screens show buttons in a single horizontal row (scrollable if needed)
+           and the count on its own line beneath.
+        */
+    .mood-filters-row {
+        display: flex;
+        gap: .5rem;
+        align-items: center;
+        overflow: hidden;
+    }
+
+        .mood-filters-row .mood-filter-btn {
+            flex: 0 0 auto;
+        }
+
+    #moodCountLegend {
+        margin-top: .6rem;
+        color: #6b7280;
+        font-size: .95rem;
+    }
+
     @@media (max-width: 900px) {
         .crm-container {
             max-width: 98vw;
@@ -165,8 +188,8 @@
         }
 
         .mood-card-item {
-            min-width: 180px;
-            max-width: 98vw;
+            min-width: 0;
+            max-width: 100%;
         }
 
         .crm-title {
@@ -185,10 +208,59 @@
         }
 
         .mood-card-item {
-            min-width: 95vw;
+            width: 100%;
+            min-width: 0;
             max-width: 98vw;
         }
+        /* Place filters buttons in a single horizontal line, allow scrolling if overflow */
+        #moodFilterBlock {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: .4rem;
+            width: 100%;
+        }
+
+            #moodFilterBlock > div {
+                display: block;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                white-space: nowrap;
+            }
+
+                #moodFilterBlock > div .mood-filter-btn {
+                    display: inline-block;
+                    white-space: nowrap;
+                    margin-right: .4rem;
+                }
+
+        #moodCountLegend {
+            margin-top: 0;
+            margin-left: 0.15rem;
+        }
+        /* Make the "Ultimo Seguimiento" legend display the date below it */
+        .mood-main-legend {
+            line-height: 1.1;
+        }
+        /* HIDE two filter buttons on small screens: 6 months and Todo el Año */
+        .mood-filter-btn[data-filter="6m"],
+        .mood-filter-btn[data-filter="12m"] {
+            display: none !important;
+        }
     }
+
+    /* Center small modals vertically and ensure they scroll if content is tall */
+    .modal-dialog-centered {
+        display: flex;
+        align-items: center;
+        min-height: calc(100% - 1rem);
+    }
+
+    .modal-content {
+        max-height: calc(100vh - 3.5rem);
+        overflow: auto;
+    }
+
 </style>
 
 <div class="container py-4">
@@ -226,7 +298,7 @@
     </div>
 
     <div class="d-flex justify-content-center align-items-center mb-3" id="moodFilterBlock">
-        <div>
+        <div class="mood-filters-row">
             <button type="button" class="btn btn-outline-secondary mx-1 mood-filter-btn active" data-filter="1m">Último Mes</button>
             <button type="button" class="btn btn-outline-secondary mx-1 mood-filter-btn" data-filter="3m">3 Meses</button>
             <button type="button" class="btn btn-outline-secondary mx-1 mood-filter-btn" data-filter="6m">6 Meses</button>
@@ -238,7 +310,8 @@
 
     <!-- Modal: Registrar Mood (igual que antes) -->
     <div class="modal fade" tabindex="-1" id="moodModal">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered">
+            <!-- centered -->
             <div class="modal-content">
                 <form id="moodForm">
                     <div class="modal-header">
@@ -288,6 +361,8 @@
             { val: "MuyMal", label: "Muy mal", color: "#9B5DE5", img: "/img/muymal.svg" }
         ];
 
+        const DAY_MS = 24 * 60 * 60 * 1000;
+
         function moodNumFromStr(str){
             return {"MuyBien":5,"Bien":4,"Neutral":3,"Mal":2,"MuyMal":1}[str.trim()]??null;
         }
@@ -324,13 +399,14 @@
             let relacionHtml = relacionNombre ? `<span class="mood-relacion">Condición: <strong>${relacionNombre}</strong></span>` : "";
             // incluir botón eliminar (usa id)
             let deleteBtn = id ? `<button class="mood-delete-btn" onclick="eliminarMood(${id})" title="Eliminar este estado de ánimo"><i class="bi bi-trash"></i></button>` : "";
+            // Nota: quitar repetición del label entre paréntesis, y colocar fecha en una línea debajo de "Ultimo Seguimiento"
             return `<div class="mood-card-item" data-id="${id}">
                 ${deleteBtn}
                 <img class="mood-card-img" src="${img}" alt="${label}" />
                 <div class="mood-card-content">
                     <span class="mood-label">${label}</span>
                     <div class="mood-reflexion">${reflexion}</div>
-                    <span class="mood-main-legend">Ultimo Seguimiento ${fecha} (${label})</span>
+                    <div class="mood-main-legend">Ultimo Seguimiento<br/><span style="color:#7e7e9d;font-weight:400">${fecha}</span></div>
                     ${relacionHtml}
                 </div>
             </div>`;
@@ -348,6 +424,32 @@
                 const d = new Date(s);
                 return isNaN(d.getTime()) ? null : d;
             } catch (e) { return null; }
+        }
+
+        // Get last-3-days window (anteayer, ayer, hoy) local dates
+        function getLast3Window() {
+            const today = new Date();
+            const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 2);
+            const startMs = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
+            const endMs = startMs + 3 * DAY_MS - 1;
+            return { startMs, endMs };
+        }
+
+        // Collapse multiple entries per same local day -> keep the one with latest fechaTs
+        function collapseToLastPerDay(items) {
+            const byDay = {};
+            items.forEach(it => {
+                const ts = it.fechaTs || null;
+                if (!ts) return;
+                const d = new Date(ts);
+                // local date key yyyy-mm-dd to respect user's local day
+                const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+                if (!byDay[key] || (byDay[key] && (it.fechaTs > byDay[key].fechaTs))) {
+                    byDay[key] = it;
+                }
+            });
+            // return array of kept entries
+            return Object.keys(byDay).map(k => byDay[k]);
         }
 
         document.addEventListener("DOMContentLoaded", async function(){
@@ -515,13 +617,40 @@
         }
 
         function renderMoodChart(data){
-            let oldCanvas = document.getElementById("moodChart");
-            let ctx = oldCanvas.getContext('2d');
-            if(windowChart) windowChart.destroy();
-            const sortedDesc = data.slice().sort((a, b) => a.fechaTs - b.fechaTs); // asc for chart timeline
-            const labels = sortedDesc.map(x => new Date(x.fechaTs).toLocaleDateString('es-ES'));
-            const dataNum = sortedDesc.map(x => moodNumFromStr(x.estadoMood));
-            const colors  = sortedDesc.map(x => moodPointColorFromStr(x.estadoMood));
+            // data: array of entries already filtered by selected range
+            const isMobile = (Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0) <= 750);
+            let toPlot = Array.isArray(data) ? data.slice() : [];
+
+            if (isMobile) {
+                // Limit to last 3 days (anteayer + ayer + hoy) and collapse multiple per day to last entry
+                const w3 = getLast3Window();
+                const last3 = toPlot.filter(n => n.fechaTs >= w3.startMs && n.fechaTs <= w3.endMs);
+                const collapsed = collapseToLastPerDay(last3);
+                // ensure order by timestamp ascending
+                toPlot = collapsed.sort((a,b) => a.fechaTs - b.fechaTs);
+            } else {
+                // Desktop: keep entries as-is, ordered by timestamp ascending for timeline
+                toPlot = toPlot.sort((a,b) => a.fechaTs - b.fechaTs);
+            }
+
+            const canvas = document.getElementById("moodChart");
+            if (!canvas) return;
+            const ctx = canvas.getContext("2d");
+            if (windowChart) try { windowChart.destroy(); } catch(e){}
+
+            // Prepare labels/data
+            const labels = toPlot.map(x => {
+                const d = new Date(x.fechaTs);
+                return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+            });
+            const dataNum = toPlot.map(x => moodNumFromStr(x.estadoMood));
+            const colors  = toPlot.map(x => moodPointColorFromStr(x.estadoMood));
+
+            const isMobileChart = isMobile;
+            const pointRadius = isMobileChart ? 10 : 13;
+            const pointHoverRadius = isMobileChart ? 14 : 19;
+            const borderWidth = isMobileChart ? 1.5 : 2;
+
             windowChart = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -531,11 +660,11 @@
                         data: dataNum,
                         backgroundColor: colors,
                         borderColor: "#3498db",
-                        borderWidth: 2,
+                        borderWidth: borderWidth,
                         pointBackgroundColor: colors,
-                        pointRadius: 13,
+                        pointRadius: pointRadius,
                         pointBorderColor: colors,
-                        pointHoverRadius: 19,
+                        pointHoverRadius: pointHoverRadius,
                         pointStyle: 'circle',
                         fill: false,
                         tension: 0.3
@@ -551,18 +680,18 @@
                                 title: function(ctxArr) {
                                     if (!ctxArr || !ctxArr.length) return '';
                                     const idx = ctxArr[0].dataIndex;
-                                    return new Date(sortedDesc[idx].fechaTs).toLocaleString('es-ES', { weekday:'short', day:'2-digit', month:'short' });
+                                    return new Date(toPlot[idx].fechaTs).toLocaleString('es-ES', { weekday:'short', day:'2-digit', month:'short' });
                                 },
                                 label: function(ctx){
                                     const idx = ctx.dataIndex;
-                                    const entry = sortedDesc[idx];
+                                    const entry = toPlot[idx];
                                     const label = moodLabelFromNum(ctx.raw);
                                     const time = entry && entry.fechaTs ? new Date(entry.fechaTs).toLocaleTimeString('es-ES', {hour:'2-digit',minute:'2-digit'}) : '';
                                     return (label ? label + (time ? ' — ' + time : '') : ctx.raw);
                                 },
                                 afterBody: function(ctxArr) {
                                     const idx = ctxArr && ctxArr[0] && ctxArr[0].dataIndex;
-                                    const entry = sortedDesc[idx];
+                                    const entry = toPlot[idx];
                                     if (entry && entry.texto) return ['"' + entry.texto + '"'];
                                     if (entry && entry.relacionNombre) return ['Relacionado: ' + entry.relacionNombre];
                                     return [];
@@ -570,11 +699,15 @@
                             }
                         }
                     },
-                    layout: {
-                        padding: {top: 50, bottom: 10, left:10, right:10}
-                    },
                     scales: {
-                        x: { title: { display: false, text:"Fecha" } },
+                        x: {
+                            ticks: {
+                                autoSkip: true,
+                                maxTicksLimit: isMobileChart ? 3 : 7,
+                                font: { size: isMobileChart ? 10 : 12 }
+                            },
+                            grid: { display: false }
+                        },
                         y: {
                             min: 1, max: 5.43,
                             suggestedMin: 0.8,
@@ -589,9 +722,13 @@
                                     if (v === 2) return "Mal";
                                     if (v === 1) return "Muy mal";
                                     return "";
-                                }
+                                },
+                                font: { size: isMobileChart ? 10 : 12 }
                             }
                         }
+                    },
+                    layout: {
+                        padding: {top: isMobileChart ? 20 : 50, bottom: 10, left:10, right:10}
                     }
                 }
             });
