@@ -20,19 +20,59 @@
             padding-bottom: 20px;
         }
 
-        /* TAGS / CAPSULAS - aligned with Contenidos/Index styles */
-        .tags-blocks {
-            display: grid;
-            grid-template-rows: 1fr 1fr 1fr;
-            gap: 12px;
-            align-items: start;
-            margin-bottom: 16px;
-            text-align: left;
+        /* Card header for filters */
+        .se-header {
+            background: #fff;
+            border: 1px solid #eef2f7;
+            border-radius: 8px;
+            padding: 18px;
+            box-sizing: border-box;
+            margin-bottom: 12px;
         }
 
-        @@media (min-width: 992px) {
+        /* Toggle header for filters */
+        .filters-toggle-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0 8px 0;
+            cursor: pointer;
+            user-select: none;
+        }
+
+            .filters-toggle-header h3 {
+                margin: 0;
+                font-size: 1rem;
+                font-weight: 500;
+                color: #0f172a;
+            }
+
+            .filters-toggle-header .toggle-icon {
+                font-size: 1.1rem;
+                color: #6b7280;
+                transition: transform .2s ease, color .2s ease;
+            }
+
+            .filters-toggle-header:hover .toggle-icon {
+                color: #6a4e7a;
+            }
+
+            .filters-toggle-header[aria-expanded="true"] .toggle-icon {
+                transform: rotate(180deg);
+            }
+
+        /* 3 columnas horizontales en desktop */
+        .tags-blocks {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            padding-top: 12px;
+        }
+
+        /* Responsive: móvil mantiene 1 columna apilada */
+        @@media (max-width: 991.98px) {
             .tags-blocks {
-                grid-template-rows: 1fr 1fr 1fr;
+                grid-template-columns: 1fr;
             }
         }
 
@@ -50,7 +90,7 @@
                 padding: 6px 10px;
                 color: #0f172a;
                 font-size: 1rem;
-                font-weight: 600;
+                font-weight: 500;
             }
 
         .group-tags {
@@ -59,7 +99,6 @@
             flex-wrap: wrap;
             align-items: flex-start;
             justify-content: flex-start;
-            padding: 6px 10px 10px 10px;
         }
 
         .tag {
@@ -96,6 +135,17 @@
             margin-left: 4px;
             font-size: .9rem;
         }
+
+        .vote-login-hint {
+            padding: 10px 0;
+            color: #6b7280;
+            font-size: .9rem;
+        }
+
+            .vote-login-hint a {
+                color: #6a4e7a;
+                text-decoration: underline;
+            }
 
         /* Grid / cards */
         .items-container {
@@ -231,6 +281,7 @@
             display: none;
             padding: 12px 0;
             color: #6b7280;
+            text-align: center;
         }
 
         .no-results {
@@ -239,15 +290,17 @@
             border-radius: 8px;
             padding: 18px;
             color: #6b7280;
-            margin-top: 12px;
+            text-align: center;
         }
 
         .load-more-wrap {
-            text-align: center;
-            margin-top: 18px;
+            display: flex;
+            justify-content: center;
+            margin-top: 28px;
+            padding-top: 8px;
+            width: 100%;
         }
 
-        /* NEW: plain text toggle for + Más / - Menos (not a capsule) */
         .more-toggle {
             background: none;
             border: none;
@@ -265,7 +318,7 @@
                 outline-offset: 3px;
             }
 
-        /* Breadcrumbs: horizontal, compact and accessible */
+        /* Breadcrumbs */
         nav[aria-label="breadcrumb"] ol {
             list-style: none;
             padding: 0;
@@ -280,23 +333,21 @@
             nav[aria-label="breadcrumb"] ol li {
                 display: inline-flex;
                 align-items: center;
-                color: #6b7280; /* muted color for items by default */
+                color: #6b7280;
                 margin: 0;
             }
 
-                /* separator between items */
                 nav[aria-label="breadcrumb"] ol li + li::before {
-                    content: "›"; /* chevron separator */
+                    content: "›";
                     display: inline-block;
                     margin: 0 10px;
-                    color: #cbd5e1; /* light separator color */
+                    color: #cbd5e1;
                     font-size: 0.95rem;
                     line-height: 1;
                 }
 
-                /* links */
                 nav[aria-label="breadcrumb"] ol li a {
-                    color: #2563eb; /* blue link color */
+                    color: #2563eb;
                     text-decoration: none;
                     transition: color .15s ease;
                 }
@@ -308,20 +359,17 @@
                         outline: none;
                     }
 
-                /* current (active) crumb */
                 nav[aria-label="breadcrumb"] ol li[aria-current="page"] {
-                    color: #0f172a; /* darker for current */
+                    color: #0f172a;
                     font-weight: 600;
                 }
 
-                    /* prevent the current item from looking like a link */
                     nav[aria-label="breadcrumb"] ol li[aria-current="page"] a {
                         color: inherit;
                         text-decoration: none;
                         pointer-events: none;
                     }
 
-        /* small-screen adjustments - keep them readable */
         @@media (max-width: 575.98px) {
             nav[aria-label="breadcrumb"] ol {
                 font-size: 0.9rem;
@@ -355,54 +403,64 @@
             </ol>
         </nav>
 
-        <div class="se-header" role="region" aria-label="Filtros de categoría" style="margin-bottom:12px;">
+        <div class="se-header" role="region" aria-label="Filtros de categoría">
             @if (User?.Identity?.IsAuthenticated ?? false)
             {
-                <div class="tags-blocks" aria-label="Filtros por etiquetas">
-                    @if (Model.AvailableConditions != null && Model.AvailableConditions.Any())
-                    {
-                        <div class="tag-group" aria-label="Condiciones">
-                            <div class="group-title">Condiciones</div>
-                            <div class="group-tags" data-group="conditions">
-                                @foreach (var tc in Model.AvailableConditions)
-                                {
-                                    var active = Model.FilterConditionIds?.Contains(tc.Id) ?? false;
-                                    <button type="button" class="tag @(active ? "active" : "")" data-filter-type="condition" data-id="@tc.Id">@tc.Name</button>
-                                }
+                <div class="filters-toggle-header" id="filtersToggle" role="button" tabindex="0" aria-expanded="false" aria-controls="tagsBlocksCollapse">
+                    <h3>Filtro por tus datos agregados</h3>
+                    <i class="bi bi-chevron-down toggle-icon"></i>
+                </div>
+
+                <div class="collapse" id="tagsBlocksCollapse">
+                    <div class="tags-blocks" aria-label="Filtros por etiquetas">
+                        @if (Model.AvailableConditions != null && Model.AvailableConditions.Any())
+                        {
+                            <div class="tag-group" aria-label="Condiciones">
+                                <div class="group-title">Condiciones</div>
+                                <div class="group-tags" data-group="conditions">
+                                    @foreach (var tc in Model.AvailableConditions)
+                                    {
+                                        var active = Model.FilterConditionIds?.Contains(tc.Id) ?? false;
+                                        <button type="button" class="tag @(active ? "active" : "")" data-filter-type="condition" data-id="@tc.Id">@tc.Name</button>
+                                    }
+                                </div>
                             </div>
-                        </div>
-                    }
-                    @if (Model.AvailableSintomas != null && Model.AvailableSintomas.Any())
-                    {
-                        <div class="tag-group" aria-label="Síntomas">
-                            <div class="group-title">Síntomas</div>
-                            <div class="group-tags" data-group="sintomas">
-                                @foreach (var s in Model.AvailableSintomas)
-                                {
-                                    var active = Model.FilterSintomaIds?.Contains(s.Id) ?? false;
-                                    <button type="button" class="tag @(active ? "active" : "")" data-filter-type="sintoma" data-id="@s.Id">@s.Name</button>
-                                }
+                        }
+                        @if (Model.AvailableSintomas != null && Model.AvailableSintomas.Any())
+                        {
+                            <div class="tag-group" aria-label="Síntomas">
+                                <div class="group-title">Síntomas</div>
+                                <div class="group-tags" data-group="sintomas">
+                                    @foreach (var s in Model.AvailableSintomas)
+                                    {
+                                        var active = Model.FilterSintomaIds?.Contains(s.Id) ?? false;
+                                        <button type="button" class="tag @(active ? "active" : "")" data-filter-type="sintoma" data-id="@s.Id">@s.Name</button>
+                                    }
+                                </div>
                             </div>
-                        </div>
-                    }
-                    @if (Model.AvailableTratamientos != null && Model.AvailableTratamientos.Any())
-                    {
-                        <div class="tag-group" aria-label="Tratamientos">
-                            <div class="group-title">Tratamientos</div>
-                            <div class="group-tags" data-group="tratamientos">
-                                @foreach (var t in Model.AvailableTratamientos)
-                                {
-                                    var active = Model.FilterTratamientoIds?.Contains(t.Id) ?? false;
-                                    <button type="button" class="tag @(active ? "active" : "")" data-filter-type="tratamiento" data-id="@t.Id">@t.Name</button>
-                                }
+                        }
+                        @if (Model.AvailableTratamientos != null && Model.AvailableTratamientos.Any())
+                        {
+                            <div class="tag-group" aria-label="Tratamientos">
+                                <div class="group-title">Tratamientos</div>
+                                <div class="group-tags" data-group="tratamientos">
+                                    @foreach (var t in Model.AvailableTratamientos)
+                                    {
+                                        var active = Model.FilterTratamientoIds?.Contains(t.Id) ?? false;
+                                        <button type="button" class="tag @(active ? "active" : "")" data-filter-type="tratamiento" data-id="@t.Id">@t.Name</button>
+                                    }
+                                </div>
                             </div>
-                        </div>
-                    }
+                        }
+                    </div>
                 </div>
             }
             else
             {
-                <div class="vote-login-hint">Inicia sesión para filtrar por tus condiciones, síntomas y tratamientos. <a href="/Account/Login">Iniciar sesión</a></div>
+                <div class="vote-login-hint">
+                    Inicia sesión para filtrar por tus condiciones, síntomas y tratamientos.
+                    <a href="/Account/Login">Iniciar sesión</a>
+                </div>
             }
         </div>
 
@@ -431,7 +489,6 @@
                             </div>
 
                             <div class="content">
-                                @* Category pill *@
                                 @if (!string.IsNullOrWhiteSpace(item.Category))
                                 {
                                     <div class="category-pill">@Html.Raw(item.Category)</div>
@@ -455,7 +512,6 @@
                                     <div class="pubdate">@item.CreatedAt.ToString("yyyy-MM-dd")</div>
                                 </div>
 
-                                @* +Más button as plain text (not a capsule) *@
                                 <div style="margin-top:8px;">
                                     <button type="button" class="more-toggle"
                                             data-content-id="@item.Id"
@@ -492,11 +548,26 @@
             const noResultsEl = document.getElementById('noResults');
             const loadMoreWrap = document.getElementById('loadMoreWrap');
 
-            // endpoint that returns the items fragment
             const blogMoreUrl = '@Url.Page("/Home/BlogMore")';
             const categorySlugForAjax = encodeURIComponent('@(Model.CategorySegment ?? "")');
 
-            // initialize selected from server-rendered active tags (if any)
+            // Initialize Bootstrap collapse
+            const collapseEl = document.getElementById('tagsBlocksCollapse');
+            const toggleBtn = document.getElementById('filtersToggle');
+            if (collapseEl && toggleBtn) {
+                const bsCollapse = new bootstrap.Collapse(collapseEl, { toggle: false });
+                toggleBtn.addEventListener('click', function() {
+                    const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+                    if (isExpanded) {
+                        bsCollapse.hide();
+                        toggleBtn.setAttribute('aria-expanded', 'false');
+                    } else {
+                        bsCollapse.show();
+                        toggleBtn.setAttribute('aria-expanded', 'true');
+                    }
+                });
+            }
+
             document.querySelectorAll('.tag.active').forEach(btn => {
                 const type = btn.getAttribute('data-filter-type');
                 const id = btn.getAttribute('data-id');
@@ -544,13 +615,11 @@
                     params.set('pageNumber', String(pageNumber));
                     params.set('pageSize', String(pageSize));
 
-                    // Request the fragment endpoint (BlogMore) and pass current category slug
                     const url = blogMoreUrl + '?CategorySlug=' + categorySlugForAjax + '&' + params.toString();
                     const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                     if (!res.ok) throw new Error('Error cargando items: ' + res.status);
                     const html = await res.text();
 
-                    // X-Total-Count header to know totals (BlogMore sets it)
                     const totalHeader = res.headers.get('X-Total-Count');
                     const total = totalHeader ? parseInt(totalHeader, 10) : null;
 
@@ -559,12 +628,10 @@
                     const itemsFound = temp.querySelectorAll('.blog-card').length;
 
                     if (!append) {
-                        // replace list
                         itemsContainer.innerHTML = html;
                         updateNoResultsAndContainer(itemsFound > 0);
                         resetLoadMoreUI();
                     } else {
-                        // append nodes (load-more): if no nodes returned, do not clear/hide current list
                         if (itemsFound === 0) {
                             markLoadMoreEnded();
                         } else {
@@ -572,23 +639,18 @@
                         }
                     }
 
-                    // update load-more button / wrapper using header
                     if (total !== null && loadMoreWrap) {
                         const loadMoreBtn = document.getElementById('loadMoreBtn');
-                        // compute currently loaded count
                         const loadedCount = document.querySelectorAll('.blog-card').length;
                         if (loadMoreBtn) {
                             loadMoreBtn.setAttribute('data-total', String(total));
-                            // next page attribute management
                             loadMoreBtn.setAttribute('data-nextpage', String(pageNumber + 1));
                             if (loadedCount >= total) loadMoreWrap.style.display = 'none'; else resetLoadMoreUI();
                         }
                     } else {
-                        // no total: infer from returned count
                         if (append) {
                             if (itemsFound > 0 && itemsFound < pageSize) markLoadMoreEnded();
                         } else {
-                            // initial load: if fewer than pageSize, hide wrapper
                             if (itemsFound > 0 && itemsFound < pageSize && loadMoreWrap) loadMoreWrap.style.display = 'none';
                         }
                     }
@@ -609,7 +671,6 @@
                 } finally { showSpinner(false); }
             }
 
-            // Handle tag clicks and + Más / - Menos toggle (plain text)
             document.addEventListener('click', function (e) {
                 const tag = e.target.closest('.tag');
                 if (tag) {
@@ -622,7 +683,6 @@
                     return;
                 }
 
-                // + Más / - Menos toggle as plain text
                 const moreBtn = e.target.closest('.more-toggle');
                 if (moreBtn) {
                     const contentId = moreBtn.getAttribute('data-content-id');
@@ -637,7 +697,6 @@
                         return;
                     }
 
-                    // lazy-load fragment
                     fetch('@Url.Page("/Contenidos/ContentMeta")' + '?id=' + encodeURIComponent(contentId), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                         .then(r => {
                             if (!r.ok) throw new Error('Error cargando fragmento: ' + r.status);
@@ -662,7 +721,6 @@
                 }
             });
 
-            // Load more button
             const loadMoreBtn = document.getElementById('loadMoreBtn');
             if (loadMoreBtn) {
                 loadMoreBtn.addEventListener('click', async function () {
@@ -671,11 +729,9 @@
                 });
             }
 
-            // Initial no-results handling
             (function initNoResults() {
                 const initialHasItems = document.querySelectorAll('.blog-card').length > 0;
                 updateNoResultsAndContainer(initialHasItems);
-                // hide load more if initial items fewer than pageSize
                 const initialCount = document.querySelectorAll('.blog-card').length;
                 if (initialCount > 0 && initialCount < pageSize && loadMoreWrap) loadMoreWrap.style.display = 'none';
             })();

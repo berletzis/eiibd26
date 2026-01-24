@@ -96,18 +96,51 @@
                     color: #6a4e7a;
                 }
 
-        .tags-blocks {
-            display: grid;
-            grid-template-rows: 1fr 1fr 1fr;
-            gap: 12px;
-            align-items: start;
-            margin-bottom: 16px;
-            text-align: left;
+        /* Toggle header for filters */
+        .filters-toggle-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0 8px 0;
+            margin-top: 8px;
+            border-top: 1px solid #eef2f7;
+            cursor: pointer;
+            user-select: none;
         }
 
-        @@media (min-width: 992px) {
+            .filters-toggle-header h3 {
+                margin: 0;
+                font-size: 1rem;
+                font-weight: 500;
+                color: #0f172a;
+            }
+
+            .filters-toggle-header .toggle-icon {
+                font-size: 1.1rem;
+                color: #6b7280;
+                transition: transform .2s ease, color .2s ease;
+            }
+
+            .filters-toggle-header:hover .toggle-icon {
+                color: #6a4e7a;
+            }
+
+            .filters-toggle-header[aria-expanded="true"] .toggle-icon {
+                transform: rotate(180deg);
+            }
+
+        /* 3 columnas horizontales en desktop */
+        .tags-blocks {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            padding-top: 12px;
+        }
+
+        /* Responsive: móvil mantiene 1 columna apilada */
+        @@media (max-width: 991.98px) {
             .tags-blocks {
-                grid-template-rows: 1fr 1fr 1fr;
+                grid-template-columns: 1fr;
             }
         }
 
@@ -169,12 +202,23 @@
             font-size: .9rem;
         }
 
+        .vote-login-hint {
+            padding: 10px 0;
+            color: #6b7280;
+            font-size: .9rem;
+        }
+
+            .vote-login-hint a {
+                color: #6a4e7a;
+                text-decoration: underline;
+            }
+
         .items-container {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 20px;
             align-items: start;
-            margin-bottom: 24px; /* add breathing room before load-more */
+            margin-bottom: 24px;
         }
 
         @@media (max-width: 991.98px) {
@@ -299,7 +343,6 @@
             font-size: .85rem;
         }
 
-        /* Spinner: hide by default (prevents persistent "Cargando..." on load) */
         .results-spinner {
             display: none;
             padding: 12px 0;
@@ -307,7 +350,6 @@
             text-align: center;
         }
 
-        /* Load more wrapper: center the button and add spacing from the grid */
         .load-more-wrap {
             display: flex;
             justify-content: center;
@@ -316,7 +358,6 @@
             width: 100%;
         }
 
-        /* NEW: plain text toggle for + Más / - Menos (not a capsule) */
         .more-toggle {
             background: none;
             border: none;
@@ -333,6 +374,15 @@
                 outline: 2px dashed rgba(37,99,235,0.25);
                 outline-offset: 3px;
             }
+
+        .no-results {
+            background: #fff;
+            border: 1px solid #eef2f7;
+            border-radius: 8px;
+            padding: 18px;
+            color: #6b7280;
+            text-align: center;
+        }
     </style>
 }
 
@@ -352,84 +402,92 @@
                     </button>
                 </div>
             </form>
-        </div>
 
-        <!-- TAG GROUPS -->
-        <div class="tags-blocks" role="region" aria-label="Filtros por etiquetas">
+            @* Toggle header for filters *@
             @if (User?.Identity?.IsAuthenticated ?? false)
             {
-                <div class="tag-group" aria-label="Condiciones">
-                    <div class="group-tags" data-group="conditions">
-                        <label class="group-title">Condiciones</label>
-                        @if (Model.AvailableConditions != null && Model.AvailableConditions.Any())
-                        {
-                            var idx = 0;
-                            foreach (var tc in Model.AvailableConditions)
-                            {
-                                var active = Model.FilterConditionIds?.Contains(tc.Id) ?? false;
-                                var hiddenAttr = idx >= TAG_PREVIEW ? "data-hidden='true'" : "";
-                                <button type="button" class="tag @(active ? "active" : "")" data-filter-type="condition" data-id="@tc.Id" tabindex="0" @Html.Raw(hiddenAttr)>@tc.Name</button>
-                                idx++;
-                            }
-                            if (Model.AvailableConditions.Count > TAG_PREVIEW)
-                            {
-                                <button type="button" class="more-tags-toggle" data-toggle-group="conditions" aria-expanded="false">Ver más</button>
-                            }
-                        }
-                        else
-                        {
-                            <span class="tag" aria-hidden="true">No hay condiciones</span>
-                        }
-                    </div>
+                <div class="filters-toggle-header" id="filtersToggle" role="button" tabindex="0" aria-expanded="false" aria-controls="tagsBlocksCollapse">
+                    <h3>Filtro por tus datos agregados</h3>
+                    <i class="bi bi-chevron-down toggle-icon"></i>
                 </div>
 
-                <div class="tag-group" aria-label="Síntomas">
-                    <div class="group-tags" data-group="sintomas">
-                        <label class="group-title">Síntomas</label>
-                        @if (Model.AvailableSintomas != null && Model.AvailableSintomas.Any())
-                        {
-                            var idx = 0;
-                            foreach (var s in Model.AvailableSintomas)
-                            {
-                                var active = Model.FilterSintomaIds?.Contains(s.Id) ?? false;
-                                var hiddenAttr = idx >= TAG_PREVIEW ? "data-hidden='true'" : "";
-                                <button type="button" class="tag @(active ? "active" : "")" data-filter-type="sintoma" data-id="@s.Id" tabindex="0" @Html.Raw(hiddenAttr)>@s.Name</button>
-                                idx++;
-                            }
-                            if (Model.AvailableSintomas.Count > TAG_PREVIEW)
-                            {
-                                <button type="button" class="more-tags-toggle" data-toggle-group="sintomas" aria-expanded="false">Ver más</button>
-                            }
-                        }
-                        else
-                        {
-                            <span class="tag" aria-hidden="true">No hay síntomas</span>
-                        }
-                    </div>
-                </div>
+                <!-- TAG GROUPS (collapsible) -->
+                <div class="collapse" id="tagsBlocksCollapse">
+                    <div class="tags-blocks" role="region" aria-label="Filtros por etiquetas">
+                        <div class="tag-group" aria-label="Condiciones">
+                            <div class="group-tags" data-group="conditions">
+                                <label class="group-title">Condiciones</label>
+                                @if (Model.AvailableConditions != null && Model.AvailableConditions.Any())
+                                {
+                                    var idx = 0;
+                                    foreach (var tc in Model.AvailableConditions)
+                                    {
+                                        var active = Model.FilterConditionIds?.Contains(tc.Id) ?? false;
+                                        var hiddenAttr = idx >= TAG_PREVIEW ? "data-hidden='true'" : "";
+                                        <button type="button" class="tag @(active ? "active" : "")" data-filter-type="condition" data-id="@tc.Id" tabindex="0" @Html.Raw(hiddenAttr)>@tc.Name</button>
+                                        idx++;
+                                    }
+                                    if (Model.AvailableConditions.Count > TAG_PREVIEW)
+                                    {
+                                        <button type="button" class="more-tags-toggle" data-toggle-group="conditions" aria-expanded="false">Ver más</button>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="tag" aria-hidden="true">No hay condiciones</span>
+                                }
+                            </div>
+                        </div>
 
-                <div class="tag-group" aria-label="Tratamientos">
-                    <div class="group-tags" data-group="tratamientos">
-                        <label class="group-title">Tratamientos</label>
-                        @if (Model.AvailableTratamientos != null && Model.AvailableTratamientos.Any())
-                        {
-                            var idx = 0;
-                            foreach (var t in Model.AvailableTratamientos)
-                            {
-                                var active = Model.FilterTratamientoIds?.Contains(t.Id) ?? false;
-                                var hiddenAttr = idx >= TAG_PREVIEW ? "data-hidden='true'" : "";
-                                <button type="button" class="tag @(active ? "active" : "")" data-filter-type="tratamiento" data-id="@t.Id" tabindex="0" @Html.Raw(hiddenAttr)>@t.Name</button>
-                                idx++;
-                            }
-                            if (Model.AvailableTratamientos.Count > TAG_PREVIEW)
-                            {
-                                <button type="button" class="more-tags-toggle" data-toggle-group="tratamientos" aria-expanded="false">Ver más</button>
-                            }
-                        }
-                        else
-                        {
-                            <span class="tag" aria-hidden="true">No hay tratamientos</span>
-                        }
+                        <div class="tag-group" aria-label="Síntomas">
+                            <div class="group-tags" data-group="sintomas">
+                                <label class="group-title">Síntomas</label>
+                                @if (Model.AvailableSintomas != null && Model.AvailableSintomas.Any())
+                                {
+                                    var idx = 0;
+                                    foreach (var s in Model.AvailableSintomas)
+                                    {
+                                        var active = Model.FilterSintomaIds?.Contains(s.Id) ?? false;
+                                        var hiddenAttr = idx >= TAG_PREVIEW ? "data-hidden='true'" : "";
+                                        <button type="button" class="tag @(active ? "active" : "")" data-filter-type="sintoma" data-id="@s.Id" tabindex="0" @Html.Raw(hiddenAttr)>@s.Name</button>
+                                        idx++;
+                                    }
+                                    if (Model.AvailableSintomas.Count > TAG_PREVIEW)
+                                    {
+                                        <button type="button" class="more-tags-toggle" data-toggle-group="sintomas" aria-expanded="false">Ver más</button>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="tag" aria-hidden="true">No hay síntomas</span>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="tag-group" aria-label="Tratamientos">
+                            <div class="group-tags" data-group="tratamientos">
+                                <label class="group-title">Tratamientos</label>
+                                @if (Model.AvailableTratamientos != null && Model.AvailableTratamientos.Any())
+                                {
+                                    var idx = 0;
+                                    foreach (var t in Model.AvailableTratamientos)
+                                    {
+                                        var active = Model.FilterTratamientoIds?.Contains(t.Id) ?? false;
+                                        var hiddenAttr = idx >= TAG_PREVIEW ? "data-hidden='true'" : "";
+                                        <button type="button" class="tag @(active ? "active" : "")" data-filter-type="tratamiento" data-id="@t.Id" tabindex="0" @Html.Raw(hiddenAttr)>@t.Name</button>
+                                        idx++;
+                                    }
+                                    if (Model.AvailableTratamientos.Count > TAG_PREVIEW)
+                                    {
+                                        <button type="button" class="more-tags-toggle" data-toggle-group="tratamientos" aria-expanded="false">Ver más</button>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="tag" aria-hidden="true">No hay tratamientos</span>
+                                }
+                            </div>
+                        </div>
                     </div>
                 </div>
             }
@@ -450,7 +508,6 @@
             </div>
 
             <div class="items-container" id="itemsContainer" style="display:@((Model.Items == null || !Model.Items.Any()) ? "none" : "grid")">
-                @* Render cards matching the BlogMore/_BlogItems style: category above title, then excerpt, then footer *@
                 @if (Model.Items != null && Model.Items.Any())
                 {
                     foreach (var item in Model.Items)
@@ -469,7 +526,6 @@
 
                             <div class="content">
                                 <div>
-                                    @* category as small blue pill/link, inside the .category-pill div *@
                                     @if (!string.IsNullOrWhiteSpace(item.Category))
                                     {
                                         <div class="category-pill">@Html.Raw(item.Category)</div>
@@ -539,6 +595,23 @@
             const itemsContainer = document.getElementById('itemsContainer');
             const loadMoreWrap = document.getElementById('loadMoreWrap');
 
+            // Initialize Bootstrap collapse
+            const collapseEl = document.getElementById('tagsBlocksCollapse');
+            const toggleBtn = document.getElementById('filtersToggle');
+            if (collapseEl && toggleBtn) {
+                const bsCollapse = new bootstrap.Collapse(collapseEl, { toggle: false });
+                toggleBtn.addEventListener('click', function() {
+                    const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+                    if (isExpanded) {
+                        bsCollapse.hide();
+                        toggleBtn.setAttribute('aria-expanded', 'false');
+                    } else {
+                        bsCollapse.show();
+                        toggleBtn.setAttribute('aria-expanded', 'true');
+                    }
+                });
+            }
+
             // Initialize selected from server-rendered active tags
             document.querySelectorAll('.tag.active').forEach(btn => {
                 const type = btn.getAttribute('data-filter-type');
@@ -579,7 +652,6 @@
                 loadMoreBtn.disabled = true;
                 loadMoreBtn.textContent = 'No hay más registros que mostrar';
                 loadMoreBtn.setAttribute('aria-disabled', 'true');
-                // keep the wrapper visible so the message is shown - alternative: hide wrapper if you prefer disappearance
                 loadMoreWrap.style.display = 'block';
             }
 
@@ -607,16 +679,11 @@
                     const itemsFound = temp.querySelectorAll('.blog-card').length;
 
                     if (!append) {
-                        // replace list (normal search / refresh behavior)
                         if (itemsContainer) itemsContainer.innerHTML = html;
-                        // update visibility according to whether new list has items
                         updateNoResultsAndContainer(itemsFound > 0);
-                        // reset load-more UI; we'll adjust below according to totals
                         resetLoadMoreUI();
                     } else {
-                        // append nodes (load-more)
                         if (itemsFound === 0) {
-                            // no new items returned -> mark as ended
                             markLoadMoreEnded();
                         } else {
                             if (itemsContainer) {
@@ -625,32 +692,24 @@
                         }
                     }
 
-                    // update load-more button / wrapper using header (preferred)
                     if (total !== null) {
                         const loadedCount = document.querySelectorAll('.blog-card').length;
                         const loadMoreBtn = document.getElementById('loadMoreBtn');
                         if (loadMoreBtn) {
                             loadMoreBtn.setAttribute('data-total', String(total));
-                            // update next page
                             loadMoreBtn.setAttribute('data-nextpage', String(pageNumber + 1));
                             if (loadedCount >= total) {
-                                // all loaded -> hide wrapper
                                 if (loadMoreWrap) loadMoreWrap.style.display = 'none';
                             } else {
-                                // still items available -> ensure normal state
                                 resetLoadMoreUI();
                             }
                         }
                     } else {
-                        // no total header: infer end by returned count
                         if (append) {
-                            // if last append returned fewer than pageSize -> ended
                             if (itemsFound > 0 && itemsFound < pageSize) {
                                 markLoadMoreEnded();
                             }
-                            // if itemsFound === 0 we already marked ended above
                         } else {
-                            // replace case: if first page returned fewer than pageSize, likely no more pages
                             if (itemsFound > 0 && itemsFound < pageSize) {
                                 if (loadMoreWrap) loadMoreWrap.style.display = 'none';
                             }
@@ -705,7 +764,6 @@
                     const loaded = panel.getAttribute('data-loaded') === 'true';
                     if (loaded) { panel.style.display = panel.style.display === 'none' ? 'block' : 'none'; moreBtn.setAttribute('aria-expanded', panel.style.display === 'block'); return; }
 
-                    // load content meta fragment via fetch
                     fetch('@Url.Page("/Contenidos/ContentMeta")' + '?id=' + encodeURIComponent(contentId), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                         .then(r => r.text())
                         .then(html => {
@@ -735,7 +793,6 @@
                         await loadItemsAjax(next, true, true);
                         loadMoreBtn.setAttribute('data-nextpage', String(next + 1));
                     } finally {
-                        // If button was not ended by server logic, restore text (ended state will keep it disabled and changed)
                         const btn = document.getElementById('loadMoreBtn');
                         if (btn && !btn.disabled) btn.textContent = 'Cargar más';
                         if (btn && !btn.disabled) btn.disabled = false;
@@ -745,15 +802,12 @@
 
             window.addEventListener('popstate', function (e) {
                 const state = e.state || {};
-                // keep the UI consistent when navigating history
                 loadItemsAjax(1, false, false);
             });
 
-            // initial UI state
             (function initNoResults() {
                 const initialHasItems = document.querySelectorAll('.blog-card').length > 0;
                 updateNoResultsAndContainer(initialHasItems);
-                // If initial items are fewer than pageSize, hide load more
                 const initialCount = document.querySelectorAll('.blog-card').length;
                 if (initialCount > 0 && initialCount < pageSize && loadMoreWrap) loadMoreWrap.style.display = 'none';
             })();
