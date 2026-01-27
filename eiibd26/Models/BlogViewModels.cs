@@ -19,8 +19,9 @@ namespace eiibd26.Models
         public string ImageUrl { get; set; }
         public string Author { get; set; } = "";
         public DateTime CreatedAt { get; set; }
-        public string Category { get; set; } = "Business";
-
+        public string Slug { get; set; } = "";  // ← Asegurar que existe
+        public string CategorySlug { get; set; } = "";  // ← AGREGAR
+        public string Category { get; set; }
         // Related metadata (lazy-loaded via ContentMeta endpoint or prefilled)
         public List<string> Conditions { get; set; } = new List<string>();
         public List<string> Symptoms { get; set; } = new List<string>();

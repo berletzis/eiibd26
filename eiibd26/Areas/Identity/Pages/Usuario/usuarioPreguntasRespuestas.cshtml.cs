@@ -1,16 +1,18 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Security.Claims;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using eiibd26.Data;
+Ôªøusing eiibd26.Data;
 using eiibd26.Models;
+using eiibd26.Helpers;  // ‚Üê AGREGAR ESTA L√çNEA
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Security.Claims;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace eiibd26.Areas.Identity.Pages.Usuario
 {
@@ -31,6 +33,10 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             public Guid Id { get; set; }
             public string Titulo { get; set; } = "";
             public string TituloPreview { get; set; } = "";
+
+            [MaxLength(255)]
+            public string? Slug { get; set; }  // ‚Üê YA EST√Å BIEN
+
             public string CuerpoPreview { get; set; } = "";
             public Guid UsuarioId { get; set; }
             public string AutorNombre { get; set; } = "Usuario";
@@ -54,8 +60,6 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
         public int TotalItems { get; set; }
         public int TotalPages => (int)Math.Ceiling(TotalItems / (double)PageSize);
-
-        // Propiedad Total no se usa en la vista; mantenida por compatibilidad si la referencian en otro lugar
         public int Total { get; set; }
 
         private Guid? GetUserIdGuid()
@@ -90,11 +94,9 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                              _db.Respuestas.Any(r => r.PreguntaId == p.Id && !r.Eliminado && r.UsuarioId == userId.Value) ||
                              _db.Votos.Any(v => v.EntidadTipo == "pregunta" && v.EntidadId == p.Id && v.UsuarioId == userId.Value && !v.Eliminado)));
 
-            // CORREGIDO: asignar TotalItems (usado por la vista y TotalPages)
             TotalItems = await baseQ.CountAsync();
-            Total = TotalItems; // mantener Total por si lo usan en otra parte
+            Total = TotalItems;
 
-            // Ajustar PageNumber si excede TotalPages
             if (TotalPages > 0 && PageNumber > TotalPages) PageNumber = TotalPages;
 
             var pageQ = baseQ
@@ -103,6 +105,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     p.Id,
                     p.Titulo,
                     p.Cuerpo,
+                    Slug = p.Slug ?? "",  // ‚Üê CAMBIAR ESTA L√çNEA (agregar ?? "")
                     p.UsuarioId,
                     p.FechaCreacion,
                     RespuestasCount = _db.Respuestas.Count(r => r.PreguntaId == p.Id && !r.Eliminado),
@@ -136,7 +139,6 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                             ? (pf.Nombre ?? "Usuario")
                             : $"{(pf.Nombre ?? "Usuario")} {pf.Apellidos}";
 
-                        // SI Avatar est· vacÌo usamos la ruta uploads/avatars/{GUID}/avatar-64.png
                         var avatar = string.IsNullOrWhiteSpace(pf.Avatar)
                             ? $"uploads/avatars/{pf.idUser}/avatar-64.png"
                             : pf.Avatar.Replace("\\", "/").Trim();
@@ -204,7 +206,6 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                             ? (pf.Nombre ?? "Usuario")
                             : $"{(pf.Nombre ?? "Usuario")} {pf.Apellidos}";
 
-                        // SI Avatar est· vacÌo usamos la ruta uploads/avatars/{GUID}/avatar-64.png
                         var avatar = string.IsNullOrWhiteSpace(pf.Avatar)
                             ? $"uploads/avatars/{pf.idUser}/avatar-64.png"
                             : pf.Avatar.Replace("\\", "/").Trim();
@@ -259,7 +260,6 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 }
             }
 
-            // Relaciones clÌnicas
             var condicionesMap = new Dictionary<Guid, List<string>>();
             var sintomasMap = new Dictionary<Guid, List<string>>();
             var tratamientosMap = new Dictionary<Guid, List<string>>();
@@ -297,7 +297,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Error cargando sÌntomas preguntas.");
+                    _logger.LogWarning(ex, "Error cargando s√≠ntomas preguntas.");
                 }
 
                 try
@@ -327,11 +327,11 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 var rawBody = StripHtml(i.Cuerpo ?? "");
 
                 var tituloPreview = rawTitle.Length > titleLimit
-                    ? rawTitle.Substring(0, titleLimit).TrimEnd() + "Ö"
+                    ? rawTitle.Substring(0, titleLimit).TrimEnd() + "‚Ä¶"
                     : rawTitle;
 
                 var cuerpoPreview = rawBody.Length > bodyLimit
-                    ? rawBody.Substring(0, bodyLimit).TrimEnd() + "Ö"
+                    ? rawBody.Substring(0, bodyLimit).TrimEnd() + "‚Ä¶"
                     : rawBody;
 
                 var vm = new PreguntaCardVm
@@ -340,6 +340,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     Titulo = rawTitle,
                     TituloPreview = tituloPreview,
                     CuerpoPreview = cuerpoPreview,
+                    Slug = i.Slug ?? SlugHelper.GenerateSlug(rawTitle),  // ‚Üê AGREGAR ESTA L√çNEA
                     UsuarioId = i.UsuarioId,
                     AutorNombre = authors.TryGetValue(i.UsuarioId, out var info) ? info.name : "Usuario",
                     AutorAvatarUrl = authors.TryGetValue(i.UsuarioId, out var info2) ? info2.avatar : $"uploads/avatars/{i.UsuarioId}/avatar-64.png",
@@ -375,6 +376,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             return Page();
         }
 
+        // ===== M√âTODO CORREGIDO: Genera slug √∫nico al crear =====
         public async Task<IActionResult> OnPostCrearPreguntaAsync()
         {
             var userId = GetUserIdGuid();
@@ -385,28 +387,35 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             var cuerpo = (Request.Form["cuerpo"].FirstOrDefault() ?? "").Trim();
 
             if (string.IsNullOrWhiteSpace(titulo))
-                return new JsonResult(new { ok = false, error = "El tÌtulo es obligatorio" }) { StatusCode = 400 };
+                return new JsonResult(new { ok = false, error = "El t√≠tulo es obligatorio" }) { StatusCode = 400 };
             if (string.IsNullOrWhiteSpace(cuerpo))
                 return new JsonResult(new { ok = false, error = "El cuerpo es obligatorio" }) { StatusCode = 400 };
 
             try
             {
+                // ===== GENERAR SLUG √öNICO =====
+                var slug = await SlugHelper.GenerateUniqueSlugForPregunta(_db, titulo);
+                // ==============================
+
                 var p = new Pregunta
                 {
                     Id = Guid.NewGuid(),
                     UsuarioId = userId.Value,
                     Titulo = titulo,
                     Cuerpo = cuerpo,
-                    FechaCreacion = DateTime.UtcNow,
+                    Slug = slug,  // ‚Üê AGREGAR ESTA L√çNEA
+                    FechaCreacion = DateTimeOffset.UtcNow,
                     Eliminado = false
                 };
+
                 _db.Preguntas.Add(p);
                 await _db.SaveChangesAsync();
-                return new JsonResult(new { ok = true, id = p.Id });
+
+                return new JsonResult(new { ok = true, id = p.Id, slug = p.Slug });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creando pregunta r·pida.");
+                _logger.LogError(ex, "Error creando pregunta r√°pida.");
                 return StatusCode(500, new { ok = false, error = "Error interno" });
             }
         }

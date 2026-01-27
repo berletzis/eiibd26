@@ -1,5 +1,6 @@
 using eiibd26.Data;
 using eiibd26.Models;
+using eiibd26.Helpers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -32,6 +33,7 @@ namespace eiibd26.Pages.Preguntas
             public Guid Id { get; set; }
             public string Titulo { get; set; } = "";
             public string Cuerpo { get; set; } = "";
+            public string Slug { get; set; } = "";
             public Guid UsuarioId { get; set; }
             public string AutorNombre { get; set; } = "Usuario";
             public string AutorAvatarUrl { get; set; } = "/img/avatar-placeholder.png";
@@ -58,9 +60,8 @@ namespace eiibd26.Pages.Preguntas
         }
 
         [BindProperty(SupportsGet = true)]
-        public Guid Id { get; set; }
+        public string Slug { get; set; } = "";
 
-        // Página de respuestas (renombrada para evitar colisión con 'page')
         [BindProperty(SupportsGet = true)]
         public int AnswersPage { get; set; } = 1;
 
@@ -83,9 +84,12 @@ namespace eiibd26.Pages.Preguntas
             return Guid.TryParse(v, out var g) ? g : null;
         }
 
-        public async Task<IActionResult> OnGetAsync(Guid id, int? answersPage, int? pageSize, string search)
+        public async Task<IActionResult> OnGetAsync(string slug, int? answersPage, int? pageSize, string search)
         {
-            Id = id;
+            if (string.IsNullOrWhiteSpace(slug))
+                return NotFound();
+
+            Slug = slug.Trim().ToLowerInvariant();
             if (answersPage.HasValue) AnswersPage = Math.Max(1, answersPage.Value);
             if (pageSize.HasValue) PageSize = Math.Max(1, pageSize.Value);
             if (search != null) Search = search.Trim();
@@ -94,12 +98,13 @@ namespace eiibd26.Pages.Preguntas
 
             var preguntaRow = await _db.Preguntas
                 .AsNoTracking()
-                .Where(p => p.Id == id && !p.Eliminado)
+                .Where(p => p.Slug == Slug && !p.Eliminado)
                 .Select(p => new
                 {
                     p.Id,
                     p.Titulo,
                     p.Cuerpo,
+                    p.Slug,
                     p.UsuarioId,
                     p.FechaCreacion,
                     Score = _db.Votos
@@ -124,7 +129,6 @@ namespace eiibd26.Pages.Preguntas
                     var nombre = string.IsNullOrWhiteSpace(perfilAutor.Apellidos)
                         ? (perfilAutor.Nombre ?? "Usuario")
                         : $"{(perfilAutor.Nombre ?? "Usuario")} {perfilAutor.Apellidos}";
-                    // Si no hay Avatar almacenado, apuntamos a uploads/avatars/{userId}/avatar-64.png
                     var avatar = string.IsNullOrWhiteSpace(perfilAutor.Avatar)
                         ? $"uploads/avatars/{preguntaRow.UsuarioId}/avatar-64.png"
                         : perfilAutor.Avatar.Replace("\\", "/");
@@ -143,7 +147,7 @@ namespace eiibd26.Pages.Preguntas
             try
             {
                 condiciones = await _db.PreguntaCondiciones.AsNoTracking()
-                    .Where(pc => pc.PreguntaId == id)
+                    .Where(pc => pc.PreguntaId == preguntaRow.Id)
                     .Join(_db.condiciones, pc => pc.CondicionId, c => c.id, (pc, c) => c.nombre)
                     .Where(n => n != null && n != "")
                     .Distinct()
@@ -155,7 +159,7 @@ namespace eiibd26.Pages.Preguntas
             try
             {
                 sintomas = await _db.PreguntaSintomas.AsNoTracking()
-                    .Where(ps => ps.PreguntaId == id)
+                    .Where(ps => ps.PreguntaId == preguntaRow.Id)
                     .Join(_db.sintomas, ps => ps.SintomaId, s => s.id, (ps, s) => s.nombre)
                     .Where(n => n != null && n != "")
                     .Distinct()
@@ -167,7 +171,7 @@ namespace eiibd26.Pages.Preguntas
             try
             {
                 tratamientos = await _db.PreguntaTratamientos.AsNoTracking()
-                    .Where(pt => pt.PreguntaId == id)
+                    .Where(pt => pt.PreguntaId == preguntaRow.Id)
                     .Join(_db.tratamientos, pt => pt.TratamientoId, t => t.id, (pt, t) => t.nombre)
                     .Where(n => n != null && n != "")
                     .Distinct()
@@ -181,6 +185,7 @@ namespace eiibd26.Pages.Preguntas
                 Id = preguntaRow.Id,
                 Titulo = preguntaRow.Titulo,
                 Cuerpo = preguntaRow.Cuerpo,
+                Slug = preguntaRow.Slug,
                 UsuarioId = preguntaRow.UsuarioId,
                 AutorNombre = preguntaAutor.Name,
                 AutorAvatarUrl = preguntaAutor.Avatar,
@@ -198,7 +203,7 @@ namespace eiibd26.Pages.Preguntas
                 try
                 {
                     var votoQ = await _db.Votos.AsNoTracking()
-                        .Where(v => v.EntidadTipo == "pregunta" && v.EntidadId == id && v.UsuarioId == currentUserId.Value && !v.Eliminado)
+                        .Where(v => v.EntidadTipo == "pregunta" && v.EntidadId == preguntaRow.Id && v.UsuarioId == currentUserId.Value && !v.Eliminado)
                         .OrderByDescending(v => v.FechaCreacion)
                         .FirstOrDefaultAsync();
                     if (votoQ != null)
@@ -206,12 +211,12 @@ namespace eiibd26.Pages.Preguntas
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Error obteniendo voto usuario para pregunta {PreguntaId}", id);
+                    _logger.LogWarning(ex, "Error obteniendo voto usuario para pregunta {PreguntaId}", preguntaRow.Id);
                 }
             }
 
             var baseAnsQ = _db.Respuestas.AsNoTracking()
-                .Where(r => r.PreguntaId == id && !r.Eliminado);
+                .Where(r => r.PreguntaId == preguntaRow.Id && !r.Eliminado);
 
             if (!string.IsNullOrWhiteSpace(Search))
             {
@@ -220,7 +225,7 @@ namespace eiibd26.Pages.Preguntas
             }
 
             TotalItems = await baseAnsQ.CountAsync();
-            if (PageSize <= 0) PageSize = 6;
+            if (PageSize <= 0) PageSize = 12;
             if (AnswersPage < 1) AnswersPage = 1;
             if (TotalPages > 0 && AnswersPage > TotalPages) AnswersPage = TotalPages;
 
@@ -257,7 +262,6 @@ namespace eiibd26.Pages.Preguntas
                         var full = string.IsNullOrWhiteSpace(pf.Apellidos)
                             ? (pf.Nombre ?? "Usuario")
                             : $"{(pf.Nombre ?? "Usuario")} {pf.Apellidos}";
-                        // Si no hay Avatar almacenado, apuntamos a uploads/avatars/{userId}/avatar-64.png
                         var avatar = string.IsNullOrWhiteSpace(pf.Avatar)
                             ? $"uploads/avatars/{pf.idUser}/avatar-64.png"
                             : pf.Avatar.Replace("\\", "/");

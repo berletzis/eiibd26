@@ -5,11 +5,21 @@
     ViewData["Title"] = "Contenidos";
     var nextPage = (Model.PageNumber < 1) ? 2 : (Model.PageNumber + 1);
     const int TAG_PREVIEW = 12;
+
+    string GetContentSeoUrl(string categorySlug, string contentSlug)
+    {
+        if (string.IsNullOrWhiteSpace(contentSlug))
+            return "/Contenidos";
+
+        if (!string.IsNullOrWhiteSpace(categorySlug))
+            return $"/{categorySlug}/{contentSlug}";
+
+        return $"/c/{contentSlug}";
+    }
 }
 
 @section Styles {
     <style>
-        /* Make layout match BlogMore/_BlogItems: image + content card with category above title */
         .conte-page {
             padding-top: 16px;
             padding-bottom: 24px;
@@ -96,7 +106,6 @@
                     color: #6a4e7a;
                 }
 
-        /* Toggle header for filters */
         .filters-toggle-header {
             display: flex;
             align-items: center;
@@ -129,7 +138,6 @@
                 transform: rotate(180deg);
             }
 
-        /* 3 columnas horizontales en desktop */
         .tags-blocks {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -137,7 +145,6 @@
             padding-top: 12px;
         }
 
-        /* Responsive: móvil mantiene 1 columna apilada */
         @@media (max-width: 991.98px) {
             .tags-blocks {
                 grid-template-columns: 1fr;
@@ -403,7 +410,6 @@
                 </div>
             </form>
 
-            @* Toggle header for filters *@
             @if (User?.Identity?.IsAuthenticated ?? false)
             {
                 <div class="filters-toggle-header" id="filtersToggle" role="button" tabindex="0" aria-expanded="false" aria-controls="tagsBlocksCollapse">
@@ -411,7 +417,6 @@
                     <i class="bi bi-chevron-down toggle-icon"></i>
                 </div>
 
-                <!-- TAG GROUPS (collapsible) -->
                 <div class="collapse" id="tagsBlocksCollapse">
                     <div class="tags-blocks" role="region" aria-label="Filtros por etiquetas">
                         <div class="tag-group" aria-label="Condiciones">
@@ -539,7 +544,7 @@
                                     }
 
                                     <h3 id="title-@item.Id" class="blog-title">
-                                        <a href="@Url.Page("/Contenidos/Detalle", new { id = item.Id })">@item.Title</a>
+                                        <a href="@GetContentSeoUrl(item.CategorySlug, item.Slug)">@item.Title</a>
                                     </h3>
 
                                     <div class="blog-excerpt">@item.Excerpt</div>
@@ -595,10 +600,9 @@
             const itemsContainer = document.getElementById('itemsContainer');
             const loadMoreWrap = document.getElementById('loadMoreWrap');
 
-            // Initialize Bootstrap collapse
             const collapseEl = document.getElementById('tagsBlocksCollapse');
             const toggleBtn = document.getElementById('filtersToggle');
-            if (collapseEl && toggleBtn) {
+            if (collapseEl && toggleBtn && typeof bootstrap !== 'undefined') {
                 const bsCollapse = new bootstrap.Collapse(collapseEl, { toggle: false });
                 toggleBtn.addEventListener('click', function() {
                     const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
@@ -612,7 +616,6 @@
                 });
             }
 
-            // Initialize selected from server-rendered active tags
             document.querySelectorAll('.tag.active').forEach(btn => {
                 const type = btn.getAttribute('data-filter-type');
                 const id = btn.getAttribute('data-id');
@@ -718,7 +721,10 @@
 
                     if (pushToHistory) {
                         const stateUrl = new URL(window.location.href);
-                        stateUrl.searchParams.delete('q'); stateUrl.searchParams.delete('conditionIds'); stateUrl.searchParams.delete('sintomaIds'); stateUrl.searchParams.delete('tratamientoIds');
+                        stateUrl.searchParams.delete('q');
+                        stateUrl.searchParams.delete('conditionIds');
+                        stateUrl.searchParams.delete('sintomaIds');
+                        stateUrl.searchParams.delete('tratamientoIds');
                         if (q) stateUrl.searchParams.set('q', q);
                         if (selectedIds.condition.size) stateUrl.searchParams.set('conditionIds', Array.from(selectedIds.condition).join(','));
                         if (selectedIds.sintoma.size) stateUrl.searchParams.set('sintomaIds', Array.from(selectedIds.sintoma).join(','));
@@ -739,8 +745,13 @@
                     const type = tag.getAttribute('data-filter-type');
                     const id = tag.getAttribute('data-id');
                     if (!type || !id) return;
-                    if (tag.classList.contains('active')) { tag.classList.remove('active'); selectedIds[type].delete(id); }
-                    else { tag.classList.add('active'); selectedIds[type].add(id); }
+                    if (tag.classList.contains('active')) {
+                        tag.classList.remove('active');
+                        selectedIds[type].delete(id);
+                    } else {
+                        tag.classList.add('active');
+                        selectedIds[type].add(id);
+                    }
                     loadItemsAjax(1, false, true);
                 }
 
@@ -751,8 +762,15 @@
                     if (container) {
                         const hiddenBtns = container.querySelectorAll('[data-hidden="true"]');
                         const expanded = mt.getAttribute('aria-expanded') === 'true';
-                        if (!expanded) { hiddenBtns.forEach(b => b.removeAttribute('data-hidden')); mt.setAttribute('aria-expanded', 'true'); mt.textContent = 'Ver menos'; }
-                        else { hiddenBtns.forEach(b => b.setAttribute('data-hidden', 'true')); mt.setAttribute('aria-expanded', 'false'); mt.textContent = 'Ver más'; }
+                        if (!expanded) {
+                            hiddenBtns.forEach(b => b.removeAttribute('data-hidden'));
+                            mt.setAttribute('aria-expanded', 'true');
+                            mt.textContent = 'Ver menos';
+                        } else {
+                            hiddenBtns.forEach(b => b.setAttribute('data-hidden', 'true'));
+                            mt.setAttribute('aria-expanded', 'false');
+                            mt.textContent = 'Ver más';
+                        }
                     }
                 }
 
@@ -762,7 +780,11 @@
                     const panel = document.getElementById('more-' + contentId);
                     if (!panel) return;
                     const loaded = panel.getAttribute('data-loaded') === 'true';
-                    if (loaded) { panel.style.display = panel.style.display === 'none' ? 'block' : 'none'; moreBtn.setAttribute('aria-expanded', panel.style.display === 'block'); return; }
+                    if (loaded) {
+                        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+                        moreBtn.setAttribute('aria-expanded', panel.style.display === 'block');
+                        return;
+                    }
 
                     fetch('@Url.Page("/Contenidos/ContentMeta")' + '?id=' + encodeURIComponent(contentId), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                         .then(r => r.text())
@@ -780,7 +802,15 @@
                 }
             });
 
-            if (searchInput) { searchInput.addEventListener('input', debouncedLoad); searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); loadItemsAjax(1, false, true); } }); }
+            if (searchInput) {
+                searchInput.addEventListener('input', debouncedLoad);
+                searchInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        loadItemsAjax(1, false, true);
+                    }
+                });
+            }
             if (btnSearch) btnSearch.addEventListener('click', () => loadItemsAjax(1, false, true));
 
             const loadMoreBtn = document.getElementById('loadMoreBtn');
@@ -801,7 +831,6 @@
             }
 
             window.addEventListener('popstate', function (e) {
-                const state = e.state || {};
                 loadItemsAjax(1, false, false);
             });
 

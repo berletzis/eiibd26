@@ -16,6 +16,9 @@ namespace eiibd26.Models
         [Required]
         public string Cuerpo { get; set; }
 
+        [Required, MaxLength(255)]
+        public string Slug { get; set; } = "";  // ← AGREGAR ESTA LÍNEA
+
         public bool Resuelta { get; set; } = false;
 
         public bool Eliminado { get; set; } = false; // soft-delete

@@ -1,5 +1,7 @@
-﻿@page "{id:guid}"
+﻿@page "/Preguntas/{slug}"
 @model eiibd26.Pages.Preguntas.DetallesModel
+@using System.Text.Encodings.Web
+@using System.Text.Json
 @{
     ViewData["Title"] = Model.Pregunta?.Titulo ?? "Pregunta";
     Layout = "_Layout";
@@ -7,50 +9,146 @@
     string ResolveAvatar(string avatar)
     {
         if (string.IsNullOrWhiteSpace(avatar)) return Url.Content("~/img/avatar-placeholder.png");
-        // Normaliza barras invertidas y espacios
         avatar = avatar.Replace("\\", "/").Trim();
-
         if (avatar.StartsWith("http", System.StringComparison.OrdinalIgnoreCase)) return avatar;
-        // Quita prefijos ~/ o / para construir Url.Content de forma consistente
         if (avatar.StartsWith("~/")) avatar = avatar.TrimStart('~', '/');
         if (avatar.StartsWith("/")) avatar = avatar.TrimStart('/');
         return Url.Content("~/" + avatar);
     }
+
+    string StripHtml(string html)
+    {
+        if (string.IsNullOrWhiteSpace(html)) return "";
+        return System.Text.RegularExpressions.Regex.Replace(html, "<.*?>", " ").Trim();
+    }
+
+    string JsonEncode(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return "";
+        return JsonEncodedText.Encode(text, JavaScriptEncoder.UnsafeRelaxedJsonEscaping).ToString();
+    }
+}
+
+@section Head {
+    @if (Model.Pregunta != null)
+    {
+        var acceptedAnswer = Model.Respuestas.OrderByDescending(r => r.Score).FirstOrDefault();
+        var answerCount = Model.TotalItems;
+        var cleanBody = StripHtml(Model.Pregunta.Cuerpo);
+        var description = cleanBody.Length > 160 ? cleanBody.Substring(0, 157) + "..." : cleanBody;
+        var canonicalUrl = $"{Request.Scheme}://{Request.Host}/Preguntas/{Model.Pregunta.Slug}";
+
+        @* Schema.org JSON-LD para Google *@
+        <script type="application/ld+json">
+            {
+              "@@context": "https://schema.org",
+              "@@type": "QAPage",
+              "mainEntity": {
+                "@@type": "Question",
+                "name": "@JsonEncode(Model.Pregunta.Titulo)",
+                "text": "@JsonEncode(cleanBody)",
+                "answerCount": @answerCount,
+                "dateCreated": "@Model.Pregunta.FechaCreacion.ToString("o")",
+                "author": {
+                  "@@type": "Person",
+                  "name": "@JsonEncode(Model.Pregunta.AutorNombre)"
+                },
+                "upvoteCount": @Model.Pregunta.Score@if (acceptedAnswer != null || Model.Respuestas.Any()){
+                <text>,</text>
+            }
+            @if (acceptedAnswer != null)
+            {
+                    var cleanAnswer = StripHtml(acceptedAnswer.Cuerpo);
+                    <text>
+                "acceptedAnswer": {
+                  "@@type": "Answer",
+                  "text": "@JsonEncode(cleanAnswer)",
+                  "dateCreated": "@acceptedAnswer.FechaCreacion.ToString("o")",
+                  "upvoteCount": @acceptedAnswer.Score,
+                  "author": {
+                    "@@type": "Person",
+                    "name": "@JsonEncode(acceptedAnswer.AutorNombre)"
+                  }
+                }</text>
+                    if (Model.Respuestas.Count > 1)
+                    {
+
+                    <text>,</text>
+                }
+            }
+            @if (Model.Respuestas.Any())
+            {
+                    var otherAnswers = Model.Respuestas.Where(a => a.Id != acceptedAnswer?.Id).Take(5).ToList();
+                    if (otherAnswers.Any())
+                    {
+                            <text>
+                    "suggestedAnswer": [</text>
+                            for (int i = 0; i < otherAnswers.Count; i++)
+                            {
+                                    var ans = otherAnswers[i];
+                                    var cleanAns = StripHtml(ans.Cuerpo);
+                                    <text>
+                          {
+                            "@@type": "Answer",
+                            "text": "@JsonEncode(cleanAns)",
+                            "dateCreated": "@ans.FechaCreacion.ToString("o")",
+                            "upvoteCount": @ans.Score,
+                            "author": {
+                              "@@type": "Person",
+                              "name": "@JsonEncode(ans.AutorNombre)"
+                            }
+                          }@(i < otherAnswers.Count - 1 ? "," : "")</text>
+                            }
+                            <text>
+                    ]</text>
+                    }
+            }
+          }
+        }
+    </script>
+
+    @* Meta tags para SEO *@
+    <meta name="description" content="@description">
+    <link rel="canonical" href="@canonicalUrl">
+
+    @* Open Graph *@
+    <meta property="og:title" content="@Model.Pregunta.Titulo">
+    <meta property="og:description" content="@description">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="@canonicalUrl">
+
+    @* Twitter Card *@
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="@Model.Pregunta.Titulo">
+    <meta name="twitter:description" content="@description">
+}
 }
 
 @section Styles {
     <link rel="stylesheet" href="~/css/preguntas.css" />
     <style>
-        /* Subtitle style for details page (now below the title, not bold) */
         .se-subtitle {
             color: #6b7280;
             font-size: 0.95rem;
-            font-weight: 400; /* not bold */
+            font-weight: 400;
             text-transform: uppercase;
             letter-spacing: 0.04em;
             margin-top: 6px;
             margin-bottom: 12px;
         }
 
-        /* Title duplicated inside card: match size but not bold */
         .se-card-title {
             margin: 0 0 8px 0;
             font-size: 1.05rem;
-            font-weight: 400; /* non-bold inside card */
+            font-weight: 400;
             color: #0f172a;
         }
 
-        /*
-                 Responsive tweaks requested:
-                 1) Make the "Revisa que tu aporte sea claro y útil" reply card (.se-reply-box) use full width on mobile.
-                 2) Ensure the post layout stacks cleanly on small screens (force grid collapse and remove left margins that could squeeze the reply box).
-                */
         @@media (max-width: 700px) {
-            /* Ensure the main post grid stacks (defensive: some themes might not include this) */
             .se-post {
                 grid-template-columns: 1fr !important;
             }
-            /* Make the reply card span full width on small screens */
+
             .se-reply-box {
                 max-width: 100% !important;
                 width: 100% !important;
@@ -58,7 +156,7 @@
                 padding: 12px !important;
                 box-sizing: border-box !important;
             }
-            /* Ensure answers float doesn't overlap the reply box on very small screens */
+
             .se-answers-float {
                 position: relative !important;
                 right: auto !important;
@@ -75,10 +173,9 @@
 <div class="container py-4">
     @if (Model.Pregunta != null)
     {
-        <!-- Main title (as on Preguntas list) -->
         <div class="mb-3">
             <h1 class="se-page-title">@Model.Pregunta.Titulo</h1>
-            <div class="se-subtitle">Pregunta</div> @* subtitle below the title and not bold *@
+            <div class="se-subtitle">Pregunta</div>
         </div>
     }
 
@@ -105,7 +202,7 @@
                         {
                             <button class="se-vote-btn se-vote-up" disabled title="@(Model.Pregunta.EsMia ? "No puedes votar tu propia pregunta" : "Inicia sesión para votar")">▲</button>
                             <div class="se-vote-count" id="qscore-@Model.Pregunta.Id">@Model.Pregunta.Score</div>
-                            <button class="se-vote-btn se-vote-down" disabled title="@(Model.Pregunta.EsMia ? "No puedes votar tu propia pregunta" : "Inicia sesión para votar")"> ▼</button>
+                            <button class="se-vote-btn se-vote-down" disabled title="@(Model.Pregunta.EsMia ? "No puedes votar tu propia pregunta" : "Inicia sesión para votar")">▼</button>
                         }
                         else
                         {
@@ -132,7 +229,6 @@
                     </div>
 
                     <div class="se-summary">
-                        @* Re-introduce the title inside the card but not bold *@
                         <h2 class="se-card-title">@Model.Pregunta.Titulo</h2>
 
                         <div class="se-excerpt">@Html.Raw(Model.Pregunta.Cuerpo)</div>
@@ -259,10 +355,9 @@
                             }
                         }
 
-                        // Usar answersPage (NO page) para evitar colisión con Razor Pages
                         Func<int, string> pageUrl = p => Url.Page(
-                                                                        "/Preguntas/Detalles",
-                        new { id = Model.Pregunta.Id, answersPage = p, pageSize = Model.PageSize, search = Model.Search }
+                                                "/Preguntas/Detalles",
+                        new { slug = Model.Pregunta.Slug, answersPage = p, pageSize = Model.PageSize, search = Model.Search }
                         ) ?? "#";
 
                         <div class="pag-bar">
@@ -300,7 +395,7 @@
                                 <span>Total: @Model.TotalItems registros</span>
                                 <span>Página @Model.AnswersPage de @Model.TotalPages</span>
                                 <form method="get" class="pag-size-inline" id="inlineSizeForm">
-                                    <input type="hidden" name="id" value="@Model.Pregunta.Id" />
+                                    <input type="hidden" name="slug" value="@Model.Pregunta.Slug" />
                                     <input type="hidden" name="answersPage" value="1" />
                                     <label for="inlinePageSize">Tamaño</label>
                                     <select id="inlinePageSize" name="pageSize" onchange="document.getElementById('inlineSizeForm').submit();">
@@ -317,6 +412,7 @@
                         </div>
                     }
                 </div>
+
                 @if (!User.Identity.IsAuthenticated)
                 {
                     <div class="se-reply-box">
@@ -433,10 +529,9 @@
                             }
                         }
 
-                        // Usar answersPage (NO page) para evitar colisión con Razor Pages
                         Func<int, string> pageUrl = p => Url.Page(
-                                                                        "/Preguntas/Detalles",
-                        new { id = Model.Pregunta.Id, answersPage = p, pageSize = Model.PageSize, search = Model.Search }
+                                                "/Preguntas/Detalles",
+                        new { slug = Model.Pregunta.Slug, answersPage = p, pageSize = Model.PageSize, search = Model.Search }
                         ) ?? "#";
 
                         <div class="pag-bar">
@@ -473,15 +568,15 @@
                             <div class="pag-info">
                                 <span>Total: @Model.TotalItems registros</span>
                                 <span>Página @Model.AnswersPage de @Model.TotalPages</span>
-                                <form method="get" class="pag-size-inline" id="inlineSizeForm">
-                                    <input type="hidden" name="id" value="@Model.Pregunta.Id" />
+                                <form method="get" class="pag-size-inline" id="inlineSizeForm2">
+                                    <input type="hidden" name="slug" value="@Model.Pregunta.Slug" />
                                     <input type="hidden" name="answersPage" value="1" />
-                                    <label for="inlinePageSize">Tamaño</label>
-                                    <select id="inlinePageSize" name="pageSize" onchange="document.getElementById('inlineSizeForm').submit();">
+                                    <label for="inlinePageSize2">Tamaño</label>
+                                    <select id="inlinePageSize2" name="pageSize" onchange="document.getElementById('inlineSizeForm2').submit();">
                                         @{
-                                            var sizes2 = new[] { 10, 12, 30, 60, 100 };
+                                            var sizes3 = new[] { 10, 12, 30, 60, 100 };
                                         }
-                                        @foreach (var s in sizes2)
+                                        @foreach (var s in sizes3)
                                         {
                                             <option value="@s" selected="@(Model.PageSize == s)">@s</option>
                                         }
@@ -496,195 +591,161 @@
         </div>
     </div>
 </div>
+
 @section Scripts {
     <script>
         (function () {
-
+            // Lazy load avatars
             function initLazyAvatars() {
                 const imgs = Array.from(document.querySelectorAll('img.lazy-avatar[data-src]'));
                 if (!imgs.length) return;
-                const onLoad = img => img.classList.add('loaded');
-                const onError = img => { img.classList.add('loaded'); img.src = '@Url.Content("~/img/avatar-placeholder.png")'; };
                 const loadImg = img => {
                     const src = img.getAttribute('data-src');
-                    if (!src) { onError(img); return; }
+                    if (!src) { img.src = '@Url.Content("~/img/avatar-placeholder.png")'; return; }
                     const tmp = new Image();
                     tmp.decoding = 'async';
-                    tmp.onload = function () { try { img.src = src; } catch{} onLoad(img); };
-                    tmp.onerror = function () { onError(img); };
+                    tmp.onload = () => { img.src = src; img.classList.add('loaded'); };
+                    tmp.onerror = () => { img.src = '@Url.Content("~/img/avatar-placeholder.png")'; img.classList.add('loaded'); };
                     tmp.src = src;
                 };
                 if ('IntersectionObserver' in window) {
-                    const io = new IntersectionObserver((entries, observer) => {
-                        entries.forEach(entry => {
-                            if (entry.isIntersecting) {
-                                const img = entry.target;
-                                observer.unobserve(img);
-                                loadImg(img);
+                    const io = new IntersectionObserver(entries => {
+                        entries.forEach(e => {
+                            if (e.isIntersecting) {
+                                io.unobserve(e.target);
+                                loadImg(e.target);
                             }
                         });
                     }, { rootMargin: '200px 0px' });
-                    imgs.forEach(i => {
-                        if (i.getAttribute('data-src') && i.src.indexOf('avatar-placeholder.png') >= 0) io.observe(i);
-                        else if (i.getAttribute('data-src')) i.classList.add('loaded');
-                    });
-                } else imgs.forEach(i => loadImg(i));
+                    imgs.forEach(i => io.observe(i));
+                } else {
+                    imgs.forEach(loadImg);
+                }
             }
+            initLazyAvatars();
 
-            async function sendReply(preguntaId, cuerpo){
-                const res = await fetch('/api/respuestas', {
-                    method:'POST',
-                    headers:{'Content-Type':'application/json','X-Pregunta-Id':preguntaId},
-                    body:JSON.stringify({ cuerpo })
-                });
-                return res;
-            }
+            // Vote handler for question
+            document.addEventListener('click', async function (e) {
+                const btn = e.target.closest('.se-vote-btn');
+                if (!btn) return;
+                const article = btn.closest('.se-item') || btn.closest('.se-answer');
+                if (!article) return;
 
-            const replyBtn = document.getElementById('btnSendReply');
-            if (replyBtn){
-                replyBtn.addEventListener('click', async ()=>{
-                    const ta = document.getElementById('replyCuerpo');
-                    const txt = (ta.value||'').trim();
-                    if(!txt){ alert('Escribe tu respuesta.'); return; }
-                    replyBtn.disabled = true;
-                    try{
-                        const res = await sendReply('@Model.Id', txt);
-                        if(!res.ok){
-                            const t = await res.text();
-                            alert('Error al publicar: ' + t);
-                        } else {
-                            location.reload();
-                        }
-                    }catch(e){
-                        console.error(e);
-                        alert('Error de red');
-                    }finally{
-                        replyBtn.disabled = false;
-                    }
-                });
-            }
+                const isAuth = article.getAttribute('data-authenticated') === 'true';
+                const isMine = article.getAttribute('data-is-mine') === 'true';
+                const id = article.getAttribute('data-id');
+                if (!id) return;
 
-            document.addEventListener('click', async function(e){
-                const voteBtn = e.target.closest('.se-vote-btn');
-                if(!voteBtn) return;
+                if (!isAuth) { alert('Inicia sesión para votar.'); return; }
+                if (isMine) { alert('No puedes votar tu propio contenido.'); return; }
 
-                const parent = voteBtn.closest('.se-post, .se-answer, .se-item');
-                if(!parent) return;
-
-                const isQuestion = parent.classList.contains('se-post') || parent.classList.contains('se-item');
-                const id = parent.getAttribute('data-id');
-                const dir = voteBtn.getAttribute('data-dir');
-                if(!id || !dir) return;
-
-                const currentScore = parseInt(parent.getAttribute('data-score')||'0',10);
-                const currentUserVote = parseInt(parent.getAttribute('data-user-vote')||'0',10);
+                const dir = btn.getAttribute('data-dir');
+                const currentScore = parseInt(article.getAttribute('data-score') || '0', 10);
+                const currentUserVote = parseInt(article.getAttribute('data-user-vote') || '0', 10);
 
                 if (dir === 'up' && currentUserVote !== 0) return;
                 if (dir === 'down' && currentScore <= 0) return;
 
-                const upBtn = parent.querySelector('.se-vote-up');
-                const downBtn = parent.querySelector('.se-vote-down');
-                if(upBtn) upBtn.disabled = true;
-                if(downBtn) downBtn.disabled = true;
+                const upBtn = article.querySelector('.se-vote-up');
+                const downBtn = article.querySelector('.se-vote-down');
+                if (upBtn) upBtn.disabled = true;
+                if (downBtn) downBtn.disabled = true;
 
                 const valor = dir === 'up' ? 1 : -1;
+                const isQuestion = article.classList.contains('se-item');
                 const endpoint = isQuestion ? '/api/preguntas/' + id + '/votar' : '/api/respuestas/' + id + '/votar';
 
-                try{
+                try {
                     const res = await fetch(endpoint, {
-                        method:'POST',
-                        headers:{'Content-Type':'application/json'},
-                        body:JSON.stringify({ valor })
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ valor })
                     });
-                    if(!res.ok){
-                        const txt = await res.text();
-                        alert('Error al votar: ' + (txt || res.status));
+                    if (!res.ok) {
+                        alert('Error al votar');
                         return;
                     }
                     const j = await res.json();
-                    const newScore = (j.score !== undefined) ? parseInt(j.score,10) : currentScore + (valor);
-                    const newUserVote = (j.userVote !== undefined) ? parseInt(j.userVote,10) : (valor === 1 ? 1 : -1);
+                    const newScore = (j.score !== undefined) ? parseInt(j.score, 10) : (currentScore + (dir === 'up' ? 1 : -1));
+                    const newUserVote = (j.userVote !== undefined) ? parseInt(j.userVote, 10) : (dir === 'up' ? 1 : -1);
 
-                    parent.setAttribute('data-score', String(newScore));
-                    parent.setAttribute('data-user-vote', String(newUserVote));
+                    const scoreEl = isQuestion ? document.getElementById('qscore-' + id) : document.getElementById('ascore-' + id);
+                    if (scoreEl) scoreEl.textContent = String(newScore);
 
-                    const scoreElId = (isQuestion ? 'qscore-' : 'ascore-') + id;
-                    const scoreEl = document.getElementById(scoreElId);
-                    if(scoreEl){
-                        scoreEl.textContent = newScore;
-                    }
-                    if(!isQuestion){
-                        const inlineScore = document.getElementById('ascore-inline-' + id);
-                        if(inlineScore) inlineScore.textContent = newScore;
-                    }
+                    const inlineScoreEl = document.getElementById('ascore-inline-' + id);
+                    if (inlineScoreEl) inlineScoreEl.textContent = String(newScore);
 
-                    if(upBtn){
-                        if(newUserVote === 1) upBtn.classList.add('active'); else upBtn.classList.remove('active');
-                        upBtn.disabled = (newUserVote !== 0);
-                    }
-                    if(downBtn){
-                        if(newUserVote === -1) downBtn.classList.add('active'); else downBtn.classList.remove('active');
-                        downBtn.disabled = (newScore <= 0);
-                    }
+                    article.setAttribute('data-score', String(newScore));
+                    article.setAttribute('data-user-vote', String(newUserVote));
 
-                    if(!isQuestion){
-                        reorderAnswers();
+                    if (upBtn) {
+                        if (newUserVote === 1) upBtn.classList.add('active'); else upBtn.classList.remove('active');
+                        upBtn.disabled = newUserVote !== 0;
                     }
-                }catch(err){
-                    console.error('Error votando', err);
-                    alert('Error de red al votar');
-                }finally{
-                    if(upBtn && !upBtn.disabled) upBtn.disabled = (parseInt(parent.getAttribute('data-user-vote')||'0',10) != 0);
-                    if(downBtn && !downBtn.disabled) downBtn.disabled = (parseInt(parent.getAttribute('data-score')||'0',10) <= 0);
-                }
-            });
-
-            document.addEventListener('click', async function(e){
-                const del = e.target.closest('.se-delete-btn');
-                if(!del) return;
-                const card = del.closest('.se-answer');
-                if(!card) return;
-                const id = card.getAttribute('data-id');
-                if(!id) return;
-                if(!confirm('¿Eliminar esta respuesta?')) return;
-                del.disabled = true;
-                try{
-                    const res = await fetch('/api/respuestas/' + id + '/eliminar', { method: 'POST', headers: {'Content-Type':'application/json'}});
-                    if(!res.ok){
-                        const txt = await res.text();
-                        alert('Error al eliminar: ' + (txt || res.status));
-                        return;
+                    if (downBtn) {
+                        if (newUserVote === -1) downBtn.classList.add('active'); else downBtn.classList.remove('active');
+                        downBtn.disabled = newScore <= 0;
                     }
-                    const j = await res.json();
-                    if(j.ok){
-                        card.remove();
-                    } else {
-                        alert('No se pudo eliminar.');
-                    }
-                }catch(err){
+                } catch (err) {
                     console.error(err);
-                    alert('Error de red');
-                }finally{
-                    del.disabled = false;
+                    alert('Error de red al votar');
+                } finally {
+                    if (upBtn && !upBtn.disabled) upBtn.disabled = parseInt(article.getAttribute('data-user-vote') || '0', 10) !== 0;
+                    if (downBtn && !downBtn.disabled) downBtn.disabled = parseInt(article.getAttribute('data-score') || '0', 10) <= 0;
                 }
             });
 
-            function reorderAnswers(){
-                const container = document.querySelectorAll('.se-answer');
-                if(!container.length) return;
-                const parent = container[0].parentElement;
-                if(!parent) return;
-                const answers = Array.from(container);
-                answers.sort((a,b)=>{
-                    const sa = parseInt(a.getAttribute('data-score')||'0',10);
-                    const sb = parseInt(b.getAttribute('data-score')||'0',10);
-                    if(sb === sa) return 0;
-                    return sb - sa;
+            // Reply submission
+            const btnSendReply = document.getElementById('btnSendReply');
+            if (btnSendReply) {
+                btnSendReply.addEventListener('click', async () => {
+                    const textarea = document.getElementById('replyCuerpo');
+                    const cuerpo = textarea ? textarea.value.trim() : '';
+                    if (!cuerpo) { alert('Escribe una respuesta.'); return; }
+
+                    const preguntaId = '@Model.Pregunta.Id';
+                    try {
+                        const res = await fetch('/api/respuestas', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ preguntaId, cuerpo })
+                        });
+                        if (!res.ok) {
+                            alert('Error al publicar respuesta');
+                            return;
+                        }
+                        location.reload();
+                    } catch (err) {
+                        console.error(err);
+                        alert('Error de red al publicar respuesta');
+                    }
                 });
-                answers.forEach(a=>parent.appendChild(a));
             }
 
-            initLazyAvatars();
+            // Delete answer
+            document.addEventListener('click', async function (e) {
+                const btn = e.target.closest('.se-delete-btn');
+                if (!btn) return;
+
+                const ansId = btn.getAttribute('data-id');
+                if (!ansId) return;
+
+                if (!confirm('¿Eliminar esta respuesta?')) return;
+
+                try {
+                    const res = await fetch('/api/respuestas/' + ansId, {
+                        method: 'DELETE'
+                    });
+                    if (!res.ok) {
+                        alert('Error al eliminar respuesta');
+                        return;
+                    }
+                    location.reload();
+                } catch (err) {
+                    console.error(err);
+                    alert('Error de red al eliminar respuesta');
+                }
+            });
         })();
     </script>
 }

@@ -19,6 +19,7 @@ namespace eiibd26.Pages.Contenidos
         // Paging and filters
         [BindProperty(SupportsGet = true)]
         public int PageNumber { get; set; } = 1;
+
         [BindProperty(SupportsGet = true)]
         public int PageSize { get; set; } = 9;
 
@@ -28,8 +29,10 @@ namespace eiibd26.Pages.Contenidos
         // Raw comma-separated inputs from query string
         [BindProperty(SupportsGet = true)]
         public string ConditionIds { get; set; }
+
         [BindProperty(SupportsGet = true)]
         public string SintomaIds { get; set; }
+
         [BindProperty(SupportsGet = true)]
         public string TratamientoIds { get; set; }
 
@@ -47,7 +50,11 @@ namespace eiibd26.Pages.Contenidos
         public List<TagVm> AvailableSintomas { get; set; } = new List<TagVm>();
         public List<TagVm> AvailableTratamientos { get; set; } = new List<TagVm>();
 
-        public class TagVm { public int Id { get; set; } public string Name { get; set; } = ""; }
+        public class TagVm
+        {
+            public int Id { get; set; }
+            public string Name { get; set; } = "";
+        }
 
         private static List<int> ParseIds(string csv)
         {
@@ -63,10 +70,10 @@ namespace eiibd26.Pages.Contenidos
         public async Task<IActionResult> OnGetAsync()
         {
             if (PageNumber < 1) PageNumber = 1;
-            if (PageSize < 1) PageSize = 7;
+            if (PageSize < 1) PageSize = 9;
             var skip = (PageNumber - 1) * PageSize;
 
-            // parse incoming comma-separated lists (if any) and expose them to the view
+            // Parse incoming comma-separated lists (if any) and expose them to the view
             FilterConditionIds = ParseIds(ConditionIds);
             FilterSintomaIds = ParseIds(SintomaIds);
             FilterTratamientoIds = ParseIds(TratamientoIds);
@@ -140,7 +147,6 @@ namespace eiibd26.Pages.Contenidos
             }
 
             // --- Build baseQuery for contents (apply search if any) ---
-            // Contenidos/Index should show estados 1,2,3 (Publicado + published variants)
             var allowedStatuses = new[] { 1, 2, 3 };
 
             var baseQuery = _db.Contenidos
@@ -150,7 +156,10 @@ namespace eiibd26.Pages.Contenidos
             if (!string.IsNullOrWhiteSpace(SearchQuery))
             {
                 var q = SearchQuery.Trim();
-                baseQuery = baseQuery.Where(c => (c.ContenidoTitulo ?? "").Contains(q) || (c.ContenidoTextoC ?? "").Contains(q) || (c.ContenidoTextoL ?? "").Contains(q));
+                baseQuery = baseQuery.Where(c =>
+                    (c.ContenidoTitulo ?? "").Contains(q) ||
+                    (c.ContenidoTextoC ?? "").Contains(q) ||
+                    (c.ContenidoTextoL ?? "").Contains(q));
             }
 
             // --- Build IDs subquery and apply filters (AND across types) ---
@@ -201,8 +210,11 @@ namespace eiibd26.Pages.Contenidos
                 {
                     Id = c.Id,
                     Title = c.ContenidoTitulo ?? "",
+                    Slug = c.ContenidoTituloSlug ?? "",  // ← YA ESTÁ
                     Excerpt = c.ContenidoTextoC ?? "",
-                    ImageUrl = string.IsNullOrEmpty(c.URLImagenPrincipal) ? null : ("/uploads/contenidos/" + c.URLImagenPrincipal),
+                    ImageUrl = string.IsNullOrEmpty(c.URLImagenPrincipal)
+                        ? null
+                        : ("/uploads/contenidos/" + c.URLImagenPrincipal),
                     Author = string.IsNullOrEmpty(c.Autor) ? "Autor" : c.Autor,
                     CreatedAt = c.FechaCreado,
                     Conditions = new List<string>(),
@@ -218,30 +230,49 @@ namespace eiibd26.Pages.Contenidos
             var contentIds = Items.Select(i => i.Id).ToList();
             if (contentIds.Any())
             {
+                // Load conditions
                 var conds = await _db.ContenidoCondiciones
                     .AsNoTracking()
                     .Where(r => contentIds.Contains(r.ContenidoId) && !r.Borrado)
-                    .Join(_db.condiciones.AsNoTracking(), rel => rel.CondicionId, c => c.id, (rel, c) => new { rel.ContenidoId, Name = c.nombre })
+                    .Join(_db.condiciones.AsNoTracking(),
+                          rel => rel.CondicionId,
+                          c => c.id,
+                          (rel, c) => new { rel.ContenidoId, Name = c.nombre })
                     .ToListAsync();
 
-                var condsByContent = conds.GroupBy(x => x.ContenidoId).ToDictionary(g => g.Key, g => g.Select(x => x.Name).Distinct().ToList());
+                var condsByContent = conds
+                    .GroupBy(x => x.ContenidoId)
+                    .ToDictionary(g => g.Key, g => g.Select(x => x.Name).Distinct().ToList());
 
+                // Load symptoms
                 var snts = await _db.ContenidoSintomas
                     .AsNoTracking()
                     .Where(r => contentIds.Contains(r.ContenidoId) && !r.Borrado)
-                    .Join(_db.sintomas.AsNoTracking(), rel => rel.SintomaId, s => s.id, (rel, s) => new { rel.ContenidoId, Name = s.nombre })
+                    .Join(_db.sintomas.AsNoTracking(),
+                          rel => rel.SintomaId,
+                          s => s.id,
+                          (rel, s) => new { rel.ContenidoId, Name = s.nombre })
                     .ToListAsync();
 
-                var sntsByContent = snts.GroupBy(x => x.ContenidoId).ToDictionary(g => g.Key, g => g.Select(x => x.Name).Distinct().ToList());
+                var sntsByContent = snts
+                    .GroupBy(x => x.ContenidoId)
+                    .ToDictionary(g => g.Key, g => g.Select(x => x.Name).Distinct().ToList());
 
+                // Load treatments
                 var trts = await _db.ContenidoTratamientos
                     .AsNoTracking()
                     .Where(r => contentIds.Contains(r.ContenidoId) && !r.Borrado)
-                    .Join(_db.tratamientos.AsNoTracking(), rel => rel.TratamientoId, t => t.id, (rel, t) => new { rel.ContenidoId, Name = t.nombre })
+                    .Join(_db.tratamientos.AsNoTracking(),
+                          rel => rel.TratamientoId,
+                          t => t.id,
+                          (rel, t) => new { rel.ContenidoId, Name = t.nombre })
                     .ToListAsync();
 
-                var trtsByContent = trts.GroupBy(x => x.ContenidoId).ToDictionary(g => g.Key, g => g.Select(x => x.Name).Distinct().ToList());
+                var trtsByContent = trts
+                    .GroupBy(x => x.ContenidoId)
+                    .ToDictionary(g => g.Key, g => g.Select(x => x.Name).Distinct().ToList());
 
+                // Load related questions count
                 var qCounts = await _db.ContenidosPreguntasRelacion
                     .AsNoTracking()
                     .Where(r => contentIds.Contains(r.ContenidoId) && !r.Borrado)
@@ -251,6 +282,7 @@ namespace eiibd26.Pages.Contenidos
 
                 var qCountsDict = qCounts.ToDictionary(x => x.ContentId, x => x.Count);
 
+                // Attach metadata to items
                 foreach (var it in Items)
                 {
                     if (condsByContent.TryGetValue(it.Id, out var lc)) it.Conditions = lc;
@@ -259,7 +291,7 @@ namespace eiibd26.Pages.Contenidos
                     if (qCountsDict.TryGetValue(it.Id, out var qc)) it.RelatedQuestionsCount = qc;
                 }
 
-                // --- Load per-content assigned category name+slug and attach link ---
+                // --- Load per-content category and build SEO URLs ---
                 var catRels = await _db.ContenidosCategoriasRelacion
                     .AsNoTracking()
                     .Where(r => contentIds.Contains(r.IdContenido) && !r.Borrado && r.IdCategoria != null)
@@ -269,24 +301,43 @@ namespace eiibd26.Pages.Contenidos
                           (rel, cat) => new { rel.IdContenido, cat.Sequence, cat.CategoriaSlug, cat.Nombre, cat.CategoriaPadre })
                     .ToListAsync();
 
-                var map = catRels
+                // Map content ID -> (CategoryName, CategorySlug, CategoryLink)
+                var categoryMap = catRels
                     .GroupBy(x => x.IdContenido)
                     .ToDictionary(g => g.Key, g =>
                     {
-                        // Prefer child category (CategoriaPadre != null) if present
-                        var chosen = g.OrderBy(x => x.CategoriaPadre.HasValue ? 0 : 1).ThenBy(x => x.Sequence).FirstOrDefault();
-                        if (chosen == null) return (Name: (string)null, Link: (string)null);
-                        var segment = !string.IsNullOrWhiteSpace(chosen.CategoriaSlug) ? chosen.CategoriaSlug : chosen.Sequence.ToString();
-                        var link = "/Contenidos/categoria/" + segment;
-                        return (Name: chosen.Nombre, Link: link);
+                        // Prefer child category (has parent) over parent category
+                        var chosen = g
+                            .OrderBy(x => x.CategoriaPadre.HasValue ? 0 : 1)
+                            .ThenBy(x => x.Sequence)
+                            .FirstOrDefault();
+
+                        if (chosen == null)
+                            return (Name: (string)null, Slug: (string)null, Link: (string)null);
+
+                        var segment = !string.IsNullOrWhiteSpace(chosen.CategoriaSlug)
+                            ? chosen.CategoriaSlug
+                            : chosen.Sequence.ToString();
+
+                        // SEO-friendly link: /{categorySlug}
+                        var link = $"/{segment}";
+
+                        return (Name: chosen.Nombre, Slug: segment, Link: link);
                     });
 
+                // Attach category data to each item
                 foreach (var it in Items)
                 {
-                    if (map.TryGetValue(it.Id, out var v) && !string.IsNullOrWhiteSpace(v.Name) && !string.IsNullOrWhiteSpace(v.Link))
+                    if (categoryMap.TryGetValue(it.Id, out var catInfo))
                     {
-                        // store an HTML anchor in Category so the view can render it
-                        it.Category = $"<a href=\"{v.Link}\" class=\"blog-category\">{v.Name}</a>";
+                        if (!string.IsNullOrWhiteSpace(catInfo.Name) && !string.IsNullOrWhiteSpace(catInfo.Link))
+                        {
+                            // Store HTML anchor for rendering in view
+                            it.Category = $"<a href=\"{catInfo.Link}\" class=\"blog-category\">{catInfo.Name}</a>";
+
+                            // Store slug for building content URLs
+                            it.CategorySlug = catInfo.Slug;
+                        }
                     }
                 }
             }

@@ -1,61 +1,45 @@
-using eiibd26.Models;
 using eiibd26.Data;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Identity.UI.Services;
+using eiibd26.Helpers;
+using eiibd26.Models;
 using eiibd26.Services;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
-// Registrar ApplicationDbContext con SQL Server
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 
-// Registrar Identity con ApplicationUser y ApplicationRole personalizados
 builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
 {
     options.SignIn.RequireConfirmedAccount = false;
     options.User.RequireUniqueEmail = true;
-    // Aquí puedes ajustar opciones de password, lockout, etc.
-    // options.Password.RequiredLength = 8;
-
 })
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
 
-// Configure cookie paths so that challenges redirect to Identity login page
 builder.Services.ConfigureApplicationCookie(options =>
 {
-    // Path to the Identity login page
     options.LoginPath = "/Identity/Account/Login";
     options.AccessDeniedPath = "/Identity/Account/AccessDenied";
     options.ReturnUrlParameter = "ReturnUrl";
-    // Optional cookie settings
     options.Cookie.HttpOnly = true;
     options.ExpireTimeSpan = TimeSpan.FromHours(8);
     options.SlidingExpiration = true;
 });
 
-// Filtro de excepción para desarrollo
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
-
-// Servicio de EmailSender (SendGrid)
 builder.Services.AddTransient<IEmailSender, SendGridEmailSender>();
 builder.Services.AddTransient<ISmsSender, TwilioSmsSender>();
-
-// Razor Pages
 builder.Services.AddRazorPages();
-
-// API Controllers
 builder.Services.AddControllers();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseMigrationsEndPoint();
@@ -69,40 +53,179 @@ else
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
-app.UseRouting();
+// ===== MIDDLEWARE SEO (ANTES DE UseRouting) =====
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path.Value ?? "";
 
+    // Ignorar si ya es una petición interna
+    if (path.StartsWith("/Contenidos/", StringComparison.OrdinalIgnoreCase) ||
+        path.StartsWith("/Preguntas/", StringComparison.OrdinalIgnoreCase))
+    {
+        await next();
+        return;
+    }
+
+    path = path.TrimStart('/');
+    if (string.IsNullOrWhiteSpace(path))
+    {
+        await next();
+        return;
+    }
+
+    var pathLower = path.ToLowerInvariant();
+
+    // Ignorar rutas conocidas
+    var knownPrefixes = new[]
+    {
+        "identity/", "api/", "account/", "_framework/", "css/", "js/",
+        "img/", "uploads/", "lib/", "swagger/", "favicon.ico", "robots.txt",
+        "sitemap.xml", "error", "notfound"
+    };
+
+    if (knownPrefixes.Any(p => pathLower.StartsWith(p)))
+    {
+        await next();
+        return;
+    }
+
+    var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+    if (segments.Length == 0)
+    {
+        await next();
+        return;
+    }
+
+    // ===== CASO 1: /c/{contentSlug} =====
+    if (segments.Length == 2 && segments[0].Equals("c", StringComparison.OrdinalIgnoreCase))
+    {
+        var contentSlug = segments[1];
+
+        using var scope = context.RequestServices.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var exists = await db.Contenidos
+            .AsNoTracking()
+            .AnyAsync(c => c.ContenidoTituloSlug == contentSlug && !c.Eliminado);
+
+        if (exists)
+        {
+            context.Request.Path = "/Contenidos/Detalle";
+            context.Request.QueryString = new QueryString($"?slug={Uri.EscapeDataString(contentSlug)}");
+            // NO llamar await next() aquí, dejar que el routing lo maneje
+        }
+    }
+
+    // ===== CASO 2: /{categorySlug}/{contentSlug} =====
+    else if (segments.Length == 2)
+    {
+        var categorySlug = segments[0];
+        var contentSlug = segments[1];
+
+        using var scope = context.RequestServices.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+        logger.LogInformation("=== SEO MIDDLEWARE ===");
+        logger.LogInformation("categorySlug: '{CategorySlug}'", categorySlug);
+        logger.LogInformation("contentSlug: '{ContentSlug}'", contentSlug);
+
+        var category = await db.ContenidosCategorias
+            .AsNoTracking()
+            .Where(c => c.CategoriaSlug == categorySlug && !c.Borrado)
+            .Select(c => new { c.Sequence, c.Nombre })
+            .FirstOrDefaultAsync();
+
+        if (category != null)
+        {
+            logger.LogInformation("✅ Categoría encontrada: {Nombre}", category.Nombre);
+
+            var contentId = await db.Contenidos
+                .AsNoTracking()
+                .Where(c => c.ContenidoTituloSlug == contentSlug && !c.Eliminado)
+                .Join(db.ContenidosCategoriasRelacion,
+                      content => content.Id,
+                      rel => rel.IdContenido,
+                      (content, rel) => new { content.Id, rel.IdCategoria, rel.Borrado })
+                .Where(x => !x.Borrado && x.IdCategoria == category.Sequence)
+                .Select(x => x.Id)
+                .FirstOrDefaultAsync();
+
+            if (contentId != 0)
+            {
+                logger.LogInformation("✅ Reescribiendo URL internamente");
+                context.Request.Path = "/Contenidos/Detalle";
+                context.Request.QueryString = new QueryString($"?categorySlug={Uri.EscapeDataString(categorySlug)}&slug={Uri.EscapeDataString(contentSlug)}");
+                // NO llamar await next() aquí
+            }
+            else
+            {
+                // Buscar categoría real y redirigir 301
+                var content = await db.Contenidos
+                    .AsNoTracking()
+                    .Where(c => c.ContenidoTituloSlug == contentSlug && !c.Eliminado)
+                    .Select(c => c.Id)
+                    .FirstOrDefaultAsync();
+
+                if (content != 0)
+                {
+                    var realCat = await db.ContenidosCategoriasRelacion
+                        .AsNoTracking()
+                        .Where(r => r.IdContenido == content && !r.Borrado && r.IdCategoria != null)
+                        .Join(db.ContenidosCategorias,
+                              rel => rel.IdCategoria,
+                              cat => cat.Sequence,
+                              (rel, cat) => new { cat.CategoriaSlug, cat.CategoriaPadre })
+                        .OrderBy(x => x.CategoriaPadre.HasValue ? 0 : 1)
+                        .FirstOrDefaultAsync();
+
+                    if (realCat != null && !string.IsNullOrWhiteSpace(realCat.CategoriaSlug))
+                    {
+                        logger.LogInformation("🔄 Redirigiendo 301 a categoría real");
+                        context.Response.Redirect($"/{realCat.CategoriaSlug}/{contentSlug}", permanent: true);
+                        return;
+                    }
+
+                    context.Response.Redirect($"/c/{contentSlug}", permanent: true);
+                    return;
+                }
+            }
+        }
+    }
+
+    // ===== CASO 3: /{categorySlug} =====
+    else if (segments.Length == 1)
+    {
+        var categorySlug = segments[0];
+
+        using var scope = context.RequestServices.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var exists = await db.ContenidosCategorias
+            .AsNoTracking()
+            .AnyAsync(c => c.CategoriaSlug == categorySlug && !c.Borrado);
+
+        if (exists)
+        {
+            context.Request.Path = "/Contenidos/porCategoria";
+            context.Request.QueryString = new QueryString($"?categorySegment={Uri.EscapeDataString(categorySlug)}");
+        }
+    }
+
+    await next();
+});
+
+// UseRouting DESPUÉS del middleware de reescritura
+app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
-
-// If a request results in a status code like 404, re-execute pipeline to show a friendly NotFound page.
-// This will handle cases where endpoints exist but return 404. For APIs you may prefer default behavior;
-// this approach will still execute the NotFound page — if you want JSON for API 404s, you can refine this later.
 app.UseStatusCodePagesWithReExecute("/NotFound");
 
-// Map redirects for common "login" routes to the Identity login page.
-// This makes /login and similar direct to the canonical Identity login.
-app.MapGet("/login", ctx =>
-{
-    ctx.Response.Redirect("/Identity/Account/Login");
-    return Task.CompletedTask;
-});
-app.MapGet("/signin", ctx =>
-{
-    ctx.Response.Redirect("/Identity/Account/Login");
-    return Task.CompletedTask;
-});
-app.MapGet("/account/login", ctx =>
-{
-    ctx.Response.Redirect("/Identity/Account/Login");
-    return Task.CompletedTask;
-});
+app.MapGet("/login", ctx => { ctx.Response.Redirect("/Identity/Account/Login"); return Task.CompletedTask; });
+app.MapGet("/signin", ctx => { ctx.Response.Redirect("/Identity/Account/Login"); return Task.CompletedTask; });
 
-// Aquí se mapean tus páginas Razor y tus controladores API.
+app.MapControllers();
 app.MapRazorPages();
-app.MapControllers(); // <<--- ESTA LÍNEA ASEGURA QUE FUNCIONAN LOS ENDPOINTS /api/...
-
-// Catch-all for routes that didn't match any endpoint: show the NotFound page (friendly 404).
-// MapFallbackToPage only applies when no other endpoint matches.
-app.MapFallbackToPage("/NotFound");
 
 app.Run();

@@ -1,6 +1,7 @@
 ﻿using eiibd26.Data;
 using eiibd26.DTOs;
 using eiibd26.Models;
+using eiibd26.Helpers;  
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -35,7 +36,6 @@ namespace eiibd26.Controllers
             _userManager = userManager;
         }
 
-
         private Guid? GetUserIdGuid()
         {
             var v = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -44,9 +44,94 @@ namespace eiibd26.Controllers
             return null;
         }
 
+        // ===== NUEVO: POST api/preguntas (crear pregunta) =====
+        [HttpPost]
+        [Authorize]
+        public async Task<IActionResult> CrearPregunta([FromBody] CrearPreguntaDto dto)
+        {
+            var userId = GetUserIdGuid();
+            if (!userId.HasValue)
+                return Unauthorized(new { ok = false, error = "Usuario no autenticado" });
+
+            if (string.IsNullOrWhiteSpace(dto.Titulo) || string.IsNullOrWhiteSpace(dto.Cuerpo))
+                return BadRequest(new { ok = false, error = "Título y cuerpo son requeridos" });
+
+            if (dto.Titulo.Length > 300)
+                return BadRequest(new { ok = false, error = "Título muy largo (máx. 300 caracteres)" });
+
+            try
+            {
+                // ===== GENERAR SLUG ÚNICO =====
+                var slug = await SlugHelper.GenerateUniqueSlugForPregunta(_db, dto.Titulo);
+                // ==============================
+
+                var pregunta = new Pregunta
+                {
+                    Id = Guid.NewGuid(),
+                    Titulo = dto.Titulo.Trim(),
+                    Cuerpo = dto.Cuerpo.Trim(),
+                    Slug = slug,  // ← ASIGNAR SLUG ÚNICO
+                    UsuarioId = userId.Value,
+                    FechaCreacion = DateTimeOffset.UtcNow,
+                    Eliminado = false,
+                    Resuelta = false
+                };
+
+                _db.Preguntas.Add(pregunta);
+                await _db.SaveChangesAsync();
+
+                return Ok(new { ok = true, id = pregunta.Id, slug = pregunta.Slug });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al crear pregunta");
+                return StatusCode(500, new { ok = false, error = "Error al crear la pregunta" });
+            }
+        }
+
+        // ===== NUEVO: PUT api/preguntas/{id} (actualizar pregunta) =====
+        [HttpPut("{id:guid}")]
+        [Authorize]
+        public async Task<IActionResult> ActualizarPregunta(Guid id, [FromBody] CrearPreguntaDto dto)
+        {
+            var userId = GetUserIdGuid();
+            if (!userId.HasValue)
+                return Unauthorized(new { ok = false, error = "Usuario no autenticado" });
+
+            if (string.IsNullOrWhiteSpace(dto.Titulo) || string.IsNullOrWhiteSpace(dto.Cuerpo))
+                return BadRequest(new { ok = false, error = "Título y cuerpo son requeridos" });
+
+            var pregunta = await _db.Preguntas.FirstOrDefaultAsync(p => p.Id == id && !p.Eliminado);
+            if (pregunta == null)
+                return NotFound(new { ok = false, error = "Pregunta no encontrada" });
+
+            if (pregunta.UsuarioId != userId.Value)
+                return Forbid();
+
+            try
+            {
+                pregunta.Titulo = dto.Titulo.Trim();
+                pregunta.Cuerpo = dto.Cuerpo.Trim();
+                pregunta.FechaModificacion = DateTimeOffset.UtcNow;
+
+                // IMPORTANTE: NO regenerar slug al editar (mantener URLs estables)
+                // El slug se genera solo al crear, no al editar
+                // Si REALMENTE quieres actualizar el slug cuando cambia el título:
+                // pregunta.Slug = await SlugHelper.GenerateUniqueSlugForPregunta(_db, dto.Titulo, id);
+
+                _db.Preguntas.Update(pregunta);
+                await _db.SaveChangesAsync();
+
+                return Ok(new { ok = true, id = pregunta.Id, slug = pregunta.Slug });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al actualizar pregunta {Id}", id);
+                return StatusCode(500, new { ok = false, error = "Error al actualizar la pregunta" });
+            }
+        }
 
         // POST api/preguntas/{id}/eliminar
-        // Marks the pregunta as Eliminado = true if the authenticated user is the owner.
         [HttpPost("{id:guid}/eliminar")]
         [Authorize]
         public async Task<IActionResult> Eliminar(Guid id)
@@ -65,7 +150,7 @@ namespace eiibd26.Controllers
             try
             {
                 p.Eliminado = true;
-                // Optionally set FechaModificado or UsuarioModificacion if your model has it
+                p.FechaModificacion = DateTimeOffset.UtcNow;
                 _db.Preguntas.Update(p);
                 await _db.SaveChangesAsync();
                 return Ok(new { ok = true });
@@ -76,7 +161,6 @@ namespace eiibd26.Controllers
                 return StatusCode(500, new { ok = false, error = "Error al eliminar la pregunta" });
             }
         }
-
 
         // POST api/preguntas/{id}/votar
         [HttpPost("{id:guid}/votar")]
@@ -108,7 +192,6 @@ namespace eiibd26.Controllers
                 if (pregunta.UsuarioId == userIdGuid)
                     return BadRequest("No puedes votar tu propia pregunta.");
 
-                // Look for any existing vote (including soft-deleted)
                 var existing = await _db.Votos.FirstOrDefaultAsync(v =>
                     v.EntidadTipo == "pregunta" && v.EntidadId == id && v.UsuarioId == userIdGuid);
 
@@ -118,7 +201,6 @@ namespace eiibd26.Controllers
 
                 if (existing == null)
                 {
-                    // No previous row at all -> safe to insert
                     var voto = new Voto
                     {
                         Id = Guid.NewGuid(),
@@ -133,27 +215,20 @@ namespace eiibd26.Controllers
                 }
                 else
                 {
-                    // There is a row (might be soft-deleted). New behavior:
-                    // - Same value => toggle active/soft-delete (unchanged)
-                    // - Opposite value => interpret as "remove my vote" (soft-delete) instead of switching sign
                     if (existing.Valor == votoDto.Valor)
                     {
-                        // toggle active/soft-delete
                         existing.Eliminado = !existing.Eliminado;
                         if (hasFechaModificacion) existing.FechaModificacion = DateTimeOffset.UtcNow;
                         _db.Votos.Update(existing);
                     }
                     else
                     {
-                        // Opposite clicked -> remove the existing vote (soft-delete)
                         existing.Eliminado = true;
                         if (hasFechaModificacion) existing.FechaModificacion = DateTimeOffset.UtcNow;
                         _db.Votos.Update(existing);
                     }
                 }
 
-                // Guardar cambios: si hay condición de carrera que provoque UNIQUE violation, la capturamos y
-                // continuamos leyendo el estado actual para devolver score and userVote (evita 500 en cliente).
                 try
                 {
                     await _db.SaveChangesAsync();
@@ -166,7 +241,6 @@ namespace eiibd26.Controllers
                         || inner.IndexOf("Cannot insert duplicate key", StringComparison.OrdinalIgnoreCase) >= 0)
                     {
                         _logger.LogWarning(dbEx, "Unique constraint violation while saving vote for pregunta {Id}; will re-read score/userVote.", id);
-                        // swallow and continue to re-read current state
                     }
                     else
                     {
@@ -174,7 +248,6 @@ namespace eiibd26.Controllers
                     }
                 }
 
-                // Compute score (sum of active votes) and the user's current vote (1, -1 or 0)
                 var score = await _db.Votos
                     .Where(v => v.EntidadTipo == "pregunta" && v.EntidadId == id && !v.Eliminado)
                     .Select(v => (int?)v.Valor).SumAsync() ?? 0;

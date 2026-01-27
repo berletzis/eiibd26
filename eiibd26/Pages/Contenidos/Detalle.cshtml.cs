@@ -1,6 +1,8 @@
+// eiibd26/Pages/Contenidos/Detalle.cshtml.cs
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -14,20 +16,27 @@ namespace eiibd26.Pages.Contenidos
     public class DetalleModel : PageModel
     {
         private readonly ApplicationDbContext _db;
+        private readonly ILogger<DetalleModel> _logger;
         private const int WordsPerMinute = 200;
 
-        public DetalleModel(ApplicationDbContext db) { _db = db; }
+        public DetalleModel(ApplicationDbContext db, ILogger<DetalleModel> logger)
+        {
+            _db = db;
+            _logger = logger;
+        }
 
         [BindProperty(SupportsGet = true)]
         public string slug { get; set; }
 
         [BindProperty(SupportsGet = true)]
+        public string categorySlug { get; set; }
+
+        [BindProperty(SupportsGet = true)]
         public int? id { get; set; }
 
         public ContenidoDetailViewModel Item { get; set; }
-
-        // New: breadcrumb items (category chain) exposed to view
         public List<BreadcrumbItem> CategoryCrumbs { get; set; } = new List<BreadcrumbItem>();
+        public string CanonicalUrl { get; set; }
 
         public class BreadcrumbItem
         {
@@ -54,7 +63,10 @@ namespace eiibd26.Pages.Contenidos
                     .FirstOrDefaultAsync();
             }
 
-            if (entity == null) return NotFound();
+            if (entity == null)
+            {
+                return NotFound();
+            }
 
             var vm = new ContenidoDetailViewModel
             {
@@ -62,7 +74,9 @@ namespace eiibd26.Pages.Contenidos
                 Title = entity.ContenidoTitulo ?? "",
                 Excerpt = entity.ContenidoTextoC ?? "",
                 ContentHtml = entity.ContenidoTextoL ?? "",
-                ImageUrl = string.IsNullOrWhiteSpace(entity.URLImagenPrincipal) ? null : "/uploads/contenidos/" + entity.URLImagenPrincipal,
+                ImageUrl = string.IsNullOrWhiteSpace(entity.URLImagenPrincipal)
+                    ? null
+                    : "/uploads/contenidos/" + entity.URLImagenPrincipal,
                 Author = string.IsNullOrWhiteSpace(entity.Autor) ? "Autor" : entity.Autor,
                 CreatedAt = entity.FechaCreado,
                 Slug = entity.ContenidoTituloSlug ?? ""
@@ -73,13 +87,15 @@ namespace eiibd26.Pages.Contenidos
             var words = CountWords(plain);
             vm.ReadMinutes = Math.Max(1, (int)Math.Ceiling(words / (double)WordsPerMinute));
 
-            // 3) Categories for the current content
+            // 3) Obtener categorías del contenido
             var catIds = await _db.ContenidosCategoriasRelacion
                 .AsNoTracking()
                 .Where(r => r.IdContenido == entity.Id && !r.Borrado && r.IdCategoria != null)
                 .Select(r => r.IdCategoria.Value)
                 .Distinct()
                 .ToListAsync();
+
+            string primaryCategorySlug = null;
 
             if (catIds.Any())
             {
@@ -90,53 +106,71 @@ namespace eiibd26.Pages.Contenidos
                     .ToListAsync();
 
                 vm.Categories = catNames.Where(n => !string.IsNullOrWhiteSpace(n)).ToList();
+
+                // Determinar categoría primaria (preferir hijo sobre padre)
+                var primaryCat = await _db.ContenidosCategorias
+                    .AsNoTracking()
+                    .Where(c => catIds.Contains(c.Sequence) && !c.Borrado)
+                    .OrderBy(c => c.CategoriaPadre.HasValue ? 0 : 1)
+                    .ThenBy(c => c.Sequence)
+                    .FirstOrDefaultAsync();
+
+                if (primaryCat != null)
+                {
+                    primaryCategorySlug = !string.IsNullOrWhiteSpace(primaryCat.CategoriaSlug)
+                        ? primaryCat.CategoriaSlug
+                        : primaryCat.Sequence.ToString();
+
+                    // Build breadcrumbs
+                    var crumbsReversed = new List<BreadcrumbItem>();
+                    int? current = primaryCat.Sequence;
+
+                    while (current.HasValue && current.Value > 0)
+                    {
+                        var cat = await _db.ContenidosCategorias.AsNoTracking()
+                            .FirstOrDefaultAsync(c => c.Sequence == current.Value && !c.Borrado);
+
+                        if (cat == null) break;
+
+                        var segment = !string.IsNullOrWhiteSpace(cat.CategoriaSlug)
+                            ? cat.CategoriaSlug
+                            : cat.Sequence.ToString();
+
+                        crumbsReversed.Add(new BreadcrumbItem
+                        {
+                            Title = cat.Nombre ?? $"Categoría {cat.Sequence}",
+                            Url = $"/{segment}"
+                        });
+
+                        current = cat.CategoriaPadre;
+                    }
+
+                    crumbsReversed.Reverse();
+                    CategoryCrumbs = crumbsReversed;
+                }
             }
 
-            // Build category breadcrumb chain (choose primary category = first cat id if available)
-            if (catIds.Any())
+            // 4) Determinar URL canónica SEO
+            if (!string.IsNullOrWhiteSpace(primaryCategorySlug))
             {
-                // pick first category id as primary
-                int primaryCatId = catIds.First();
-
-                // walk up parents collecting (name, segment)
-                var crumbsReversed = new List<BreadcrumbItem>();
-                int? current = primaryCatId;
-                while (current.HasValue && current.Value > 0)
-                {
-                    var cat = await _db.ContenidosCategorias.AsNoTracking()
-                        .FirstOrDefaultAsync(c => c.Sequence == current.Value && !c.Borrado);
-                    if (cat == null) break;
-
-                    var segment = !string.IsNullOrWhiteSpace(cat.CategoriaSlug) ? cat.CategoriaSlug : cat.Sequence.ToString();
-                    var url = Url.Content($"/Contenidos/categoria/{segment}");
-                    crumbsReversed.Add(new BreadcrumbItem { Title = cat.Nombre ?? $"Categoría {cat.Sequence}", Url = url });
-
-                    current = cat.CategoriaPadre;
-                }
-
-                // reverse so top-most parent first
-                crumbsReversed.Reverse();
-                CategoryCrumbs = crumbsReversed;
+                CanonicalUrl = $"/{primaryCategorySlug}/{vm.Slug}";
             }
             else
             {
-                CategoryCrumbs = new List<BreadcrumbItem>();
+                CanonicalUrl = $"/c/{vm.Slug}";
             }
 
-            // 4) Manual relations (both directions) — only consider Tipo == 1 (Contenido) for manual "articles"
+            // 5) Manual relations
             var manualFrom = await _db.ContenidosRelacionados.AsNoTracking()
                 .Where(r => r.IdContenido == entity.Id && !r.Borrado)
                 .ToListAsync();
 
-            // incoming relations (others linking to this content)
             var manualTo = await _db.ContenidosRelacionados.AsNoTracking()
                 .Where(r => r.IdContenidoRelacionado == entity.Id && !r.Borrado)
                 .ToListAsync();
 
-            // Combine preserving order: first relations originating from this content, then incoming
             var allManualRelations = manualFrom.Concat(manualTo).ToList();
 
-            // Collect related content ids (Tipo == 1) preserving order and uniqueness
             var orderedManualContentIds = new List<int>();
             foreach (var r in allManualRelations)
             {
@@ -150,7 +184,6 @@ namespace eiibd26.Pages.Contenidos
                 }
             }
 
-            // Fetch manual content items (preserve order, then limit to 5)
             var manualContents = new List<RelatedContenidoVm>();
             if (orderedManualContentIds.Any())
             {
@@ -168,7 +201,6 @@ namespace eiibd26.Pages.Contenidos
                     })
                     .ToListAsync();
 
-                // Order according to orderedManualContentIds and limit to 5
                 foreach (var idVal in orderedManualContentIds)
                 {
                     var m = contents.FirstOrDefault(x => x.Id == idVal);
@@ -176,12 +208,12 @@ namespace eiibd26.Pages.Contenidos
                     if (manualContents.Count >= 5) break;
                 }
 
-                // Attach notes from relation rows (first matching relation)
                 foreach (var m in manualContents)
                 {
                     var rel = allManualRelations.FirstOrDefault(r =>
                         (r.Tipo == 1) &&
-                        ((r.IdContenido == entity.Id && r.IdContenidoRelacionado == m.Id) || (r.IdContenidoRelacionado == entity.Id && r.IdContenido == m.Id))
+                        ((r.IdContenido == entity.Id && r.IdContenidoRelacionado == m.Id) ||
+                         (r.IdContenidoRelacionado == entity.Id && r.IdContenido == m.Id))
                     );
                     if (rel != null) m.Note = rel.Descripcion ?? "";
                 }
@@ -189,7 +221,7 @@ namespace eiibd26.Pages.Contenidos
 
             vm.ManualRelated = manualContents;
 
-            // 5) Automatic related by categories (limit up to 5, excluding manual ids)
+            // 6) Automatic related by categories
             var automaticItems = new List<RelatedContenidoVm>();
             if (catIds.Any())
             {
@@ -200,7 +232,6 @@ namespace eiibd26.Pages.Contenidos
                     .Distinct()
                     .ToListAsync();
 
-                // remove current and manual ids
                 relatedIds.Remove(entity.Id);
                 foreach (var mid in orderedManualContentIds) relatedIds.Remove(mid);
 
@@ -226,7 +257,7 @@ namespace eiibd26.Pages.Contenidos
 
             vm.RelatedByCategories = automaticItems;
 
-            // 6) Combine AllRelated: manual (up to 5 already) + automatic (up to 5) without duplicates
+            // 7) Combine AllRelated
             var combined = new List<RelatedContenidoVm>();
             var seen = new HashSet<int>();
 
@@ -250,7 +281,7 @@ namespace eiibd26.Pages.Contenidos
 
             vm.AllRelated = combined;
 
-            // 7) Manual domain relations: Condiciones / Sintomas / Tratamientos (show the ones already selected)
+            // 8) Manual domain relations
             var condNames = await _db.ContenidoCondiciones.AsNoTracking()
                 .Where(r => r.ContenidoId == entity.Id && !r.Borrado)
                 .Join(_db.condiciones.AsNoTracking(), rel => rel.CondicionId, c => c.id, (rel, c) => c.nombre)
@@ -275,7 +306,7 @@ namespace eiibd26.Pages.Contenidos
                 .ToListAsync();
             vm.ManualTratamientos = tratNames;
 
-            // 8) Manual related QUESTIONS (ContenidoPreguntaRelacion -> Preguntas)
+            // 9) Manual related QUESTIONS
             try
             {
                 var preguntaRels = await _db.ContenidosPreguntasRelacion.AsNoTracking()
@@ -291,7 +322,12 @@ namespace eiibd26.Pages.Contenidos
                     var preguntas = await _db.Preguntas.AsNoTracking()
                         .Where(p => preguntaIds.Contains(p.Id) && !p.Eliminado)
                         .OrderByDescending(p => p.FechaCreacion)
-                        .Select(p => new { p.Id, Title = p.Titulo, CreatedAt = p.FechaCreacion })
+                        .Select(p => new {
+                            p.Id,
+                            Title = p.Titulo,
+                            Slug = p.Slug ?? "",
+                            CreatedAt = p.FechaCreacion
+                        })
                         .ToListAsync();
 
                     foreach (var p in preguntas)
@@ -300,6 +336,7 @@ namespace eiibd26.Pages.Contenidos
                         {
                             Id = p.Id,
                             Title = p.Title ?? "",
+                            Slug = p.Slug,
                             CreatedAt = p.CreatedAt.UtcDateTime,
                             Note = ""
                         });
@@ -312,12 +349,6 @@ namespace eiibd26.Pages.Contenidos
             }
 
             Item = vm;
-
-            // 9) Redirect to SEO URL if needed
-            if (string.IsNullOrWhiteSpace(slug) && !string.IsNullOrWhiteSpace(vm.Slug))
-            {
-                return RedirectToPage("/Contenidos/Detalle", new { slug = vm.Slug });
-            }
 
             return Page();
         }

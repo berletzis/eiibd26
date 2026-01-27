@@ -1,4 +1,5 @@
-using eiibd26.Data;
+Ôªøusing eiibd26.Data;
+using eiibd26.Helpers;
 using eiibd26.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -31,6 +32,7 @@ namespace eiibd26.Pages
             public Guid Id { get; set; }
             public string Titulo { get; set; } = "";
             public string CuerpoPreview { get; set; } = "";
+            public string Slug { get; set; } = ""; // ‚Üê NUEVO
             public Guid UsuarioId { get; set; }
             public string AutorNombre { get; set; } = "Usuario";
             public string AutorAvatarUrl { get; set; } = "/img/avatar-placeholder.png";
@@ -61,7 +63,7 @@ namespace eiibd26.Pages
             return Guid.TryParse(v, out var g) ? g : null;
         }
 
-        // Mantenemos los par·metros opcionales antiguos por compatibilidad, pero ya no usamos "page" en los enlaces
+        // Mantenemos los par√°metros opcionales antiguos por compatibilidad, pero ya no usamos "page" en los enlaces
         public async Task OnGetAsync(int? pageNumber, int? pageSize, string search)
         {
             if (pageNumber.HasValue) PageNumber = Math.Max(1, pageNumber.Value);
@@ -145,7 +147,7 @@ namespace eiibd26.Pages
                         foreach (var u in users)
                         {
                             if (!authors.ContainsKey(u.Id))
-                                // Intentamos usar la ruta por GUID aunque no exista; el <img> tendr· onerror que volver· al placeholder
+                                // Intentamos usar la ruta por GUID aunque no exista; el <img> tendr√° onerror que volver√° al placeholder
                                 authors[u.Id] = (string.IsNullOrWhiteSpace(u.UserName) ? "Usuario" : u.UserName, $"uploads/avatars/{u.Id}/avatar-64.png");
                         }
                     }
@@ -279,7 +281,7 @@ namespace eiibd26.Pages
                                         .Distinct()
                                         .OrderBy(n => n).ToList());
                 }
-                catch (Exception ex) { _logger.LogWarning(ex, "Error sÌntomas"); }
+                catch (Exception ex) { _logger.LogWarning(ex, "Error s√≠ntomas"); }
 
                 try
                 {
@@ -307,6 +309,7 @@ namespace eiibd26.Pages
                     Id = i.Id,
                     Titulo = i.Titulo ?? "",
                     CuerpoPreview = BuildPreview(i.Cuerpo, 400),
+                    Slug = SlugHelper.GenerateSlug(i.Titulo ?? "pregunta"), // ‚Üê NUEVO
                     UsuarioId = i.UsuarioId,
                     AutorNombre = authors.TryGetValue(i.UsuarioId, out var info) ? info.name : "Usuario",
                     AutorAvatarUrl = authors.TryGetValue(i.UsuarioId, out var info2) ? info2.avatar : "/img/avatar-placeholder.png",
@@ -342,7 +345,9 @@ namespace eiibd26.Pages
             if (string.IsNullOrEmpty(htmlOrText)) return "";
             var plain = Regex.Replace(htmlOrText, "<.*?>", " ");
             plain = Regex.Replace(plain, @"\s+", " ").Trim();
-            return plain.Length > max ? plain.Substring(0, max).TrimEnd() + "Ö" : plain;
+            return plain.Length > max ? plain.Substring(0, max).TrimEnd() + "‚Ä¶" : plain;
         }
+
+
     }
 }
