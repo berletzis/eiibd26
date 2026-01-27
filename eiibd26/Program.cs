@@ -58,9 +58,10 @@ app.Use(async (context, next) =>
 {
     var path = context.Request.Path.Value ?? "";
 
-    // Ignorar si ya es una petición interna
+    // Ignorar si ya es una petición interna a páginas Razor
     if (path.StartsWith("/Contenidos/", StringComparison.OrdinalIgnoreCase) ||
-        path.StartsWith("/Preguntas/", StringComparison.OrdinalIgnoreCase))
+        path.StartsWith("/Preguntas/", StringComparison.OrdinalIgnoreCase) ||
+        path.StartsWith("/Home/", StringComparison.OrdinalIgnoreCase))
     {
         await next();
         return;
@@ -75,12 +76,12 @@ app.Use(async (context, next) =>
 
     var pathLower = path.ToLowerInvariant();
 
-    // Ignorar rutas conocidas
+    // Ignorar rutas conocidas (framework, assets, APIs)
     var knownPrefixes = new[]
     {
         "identity/", "api/", "account/", "_framework/", "css/", "js/",
         "img/", "uploads/", "lib/", "swagger/", "favicon.ico", "robots.txt",
-        "sitemap.xml", "error", "notfound"
+        "sitemap.xml", "error", "notfound", ".well-known/"
     };
 
     if (knownPrefixes.Any(p => pathLower.StartsWith(p)))
@@ -97,13 +98,16 @@ app.Use(async (context, next) =>
         return;
     }
 
-    // ===== CASO 1: /c/{contentSlug} =====
+    using var scope = context.RequestServices.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+    // ===== CASO 1: /c/{contentSlug} → Contenido sin categoría =====
     if (segments.Length == 2 && segments[0].Equals("c", StringComparison.OrdinalIgnoreCase))
     {
         var contentSlug = segments[1];
 
-        using var scope = context.RequestServices.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        logger.LogInformation("=== CASO 1: Contenido sin categoría /c/{ContentSlug} ===", contentSlug);
 
         var exists = await db.Contenidos
             .AsNoTracking()
@@ -111,25 +115,23 @@ app.Use(async (context, next) =>
 
         if (exists)
         {
+            logger.LogInformation("✅ Contenido existe, reescribiendo a /Contenidos/Detalle");
             context.Request.Path = "/Contenidos/Detalle";
             context.Request.QueryString = new QueryString($"?slug={Uri.EscapeDataString(contentSlug)}");
-            // NO llamar await next() aquí, dejar que el routing lo maneje
+        }
+        else
+        {
+            logger.LogWarning("❌ Contenido /c/{ContentSlug} no existe", contentSlug);
         }
     }
 
-    // ===== CASO 2: /{categorySlug}/{contentSlug} =====
+    // ===== CASO 2: /{categorySlug}/{contentSlug} → Contenido con categoría =====
     else if (segments.Length == 2)
     {
         var categorySlug = segments[0];
         var contentSlug = segments[1];
 
-        using var scope = context.RequestServices.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-
-        logger.LogInformation("=== SEO MIDDLEWARE ===");
-        logger.LogInformation("categorySlug: '{CategorySlug}'", categorySlug);
-        logger.LogInformation("contentSlug: '{ContentSlug}'", contentSlug);
+        logger.LogInformation("=== CASO 2: Contenido con categoría /{CategorySlug}/{ContentSlug} ===", categorySlug, contentSlug);
 
         var category = await db.ContenidosCategorias
             .AsNoTracking()
@@ -139,7 +141,7 @@ app.Use(async (context, next) =>
 
         if (category != null)
         {
-            logger.LogInformation("✅ Categoría encontrada: {Nombre}", category.Nombre);
+            logger.LogInformation("✅ Categoría '{Nombre}' encontrada (ID={Sequence})", category.Nombre, category.Sequence);
 
             var contentId = await db.Contenidos
                 .AsNoTracking()
@@ -154,14 +156,14 @@ app.Use(async (context, next) =>
 
             if (contentId != 0)
             {
-                logger.LogInformation("✅ Reescribiendo URL internamente");
+                logger.LogInformation("✅ Contenido pertenece a la categoría, reescribiendo URL");
                 context.Request.Path = "/Contenidos/Detalle";
                 context.Request.QueryString = new QueryString($"?categorySlug={Uri.EscapeDataString(categorySlug)}&slug={Uri.EscapeDataString(contentSlug)}");
-                // NO llamar await next() aquí
             }
             else
             {
-                // Buscar categoría real y redirigir 301
+                logger.LogWarning("⚠️ Contenido NO pertenece a esta categoría, buscando categoría real...");
+
                 var content = await db.Contenidos
                     .AsNoTracking()
                     .Where(c => c.ContenidoTituloSlug == contentSlug && !c.Eliminado)
@@ -176,31 +178,41 @@ app.Use(async (context, next) =>
                         .Join(db.ContenidosCategorias,
                               rel => rel.IdCategoria,
                               cat => cat.Sequence,
-                              (rel, cat) => new { cat.CategoriaSlug, cat.CategoriaPadre })
+                              (rel, cat) => new { cat.CategoriaSlug, cat.CategoriaPadre, cat.Nombre })
                         .OrderBy(x => x.CategoriaPadre.HasValue ? 0 : 1)
                         .FirstOrDefaultAsync();
 
                     if (realCat != null && !string.IsNullOrWhiteSpace(realCat.CategoriaSlug))
                     {
-                        logger.LogInformation("🔄 Redirigiendo 301 a categoría real");
+                        logger.LogInformation("🔄 Redirigiendo 301 a categoría real: /{RealCat}/{ContentSlug}", realCat.CategoriaSlug, contentSlug);
                         context.Response.Redirect($"/{realCat.CategoriaSlug}/{contentSlug}", permanent: true);
                         return;
                     }
-
-                    context.Response.Redirect($"/c/{contentSlug}", permanent: true);
-                    return;
+                    else
+                    {
+                        logger.LogInformation("🔄 Contenido sin categoría, redirigiendo a /c/{ContentSlug}", contentSlug);
+                        context.Response.Redirect($"/c/{contentSlug}", permanent: true);
+                        return;
+                    }
+                }
+                else
+                {
+                    logger.LogWarning("❌ Contenido '{ContentSlug}' no existe", contentSlug);
                 }
             }
         }
+        else
+        {
+            logger.LogWarning("❌ Categoría '{CategorySlug}' no existe", categorySlug);
+        }
     }
 
-    // ===== CASO 3: /{categorySlug} =====
+    // ===== CASO 3: /{categorySlug} → Listado de categoría =====
     else if (segments.Length == 1)
     {
         var categorySlug = segments[0];
 
-        using var scope = context.RequestServices.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        logger.LogInformation("=== CASO 3: Listado de categoría /{CategorySlug} ===", categorySlug);
 
         var exists = await db.ContenidosCategorias
             .AsNoTracking()
@@ -208,8 +220,15 @@ app.Use(async (context, next) =>
 
         if (exists)
         {
-            context.Request.Path = "/Contenidos/porCategoria";
-            context.Request.QueryString = new QueryString($"?categorySegment={Uri.EscapeDataString(categorySlug)}");
+            logger.LogInformation("✅ Categoría existe, reescribiendo a /Contenidos/categoria/{CategorySlug}", categorySlug);
+
+            // CORREGIDO: Usar la ruta correcta de la página Razor
+            context.Request.Path = $"/Contenidos/categoria/{categorySlug}";
+            context.Request.QueryString = QueryString.Empty;
+        }
+        else
+        {
+            logger.LogWarning("❌ Categoría '{CategorySlug}' no existe", categorySlug);
         }
     }
 
@@ -222,8 +241,24 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseStatusCodePagesWithReExecute("/NotFound");
 
-app.MapGet("/login", ctx => { ctx.Response.Redirect("/Identity/Account/Login"); return Task.CompletedTask; });
-app.MapGet("/signin", ctx => { ctx.Response.Redirect("/Identity/Account/Login"); return Task.CompletedTask; });
+// Atajos de login
+app.MapGet("/login", ctx =>
+{
+    ctx.Response.Redirect("/Identity/Account/Login");
+    return Task.CompletedTask;
+});
+
+app.MapGet("/signin", ctx =>
+{
+    ctx.Response.Redirect("/Identity/Account/Login");
+    return Task.CompletedTask;
+});
+
+app.MapGet("/account/login", ctx =>
+{
+    ctx.Response.Redirect("/Identity/Account/Login");
+    return Task.CompletedTask;
+});
 
 app.MapControllers();
 app.MapRazorPages();

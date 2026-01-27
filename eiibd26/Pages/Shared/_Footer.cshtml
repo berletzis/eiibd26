@@ -1,4 +1,42 @@
-﻿<footer class="site-footer bg-white border-top" role="contentinfo" aria-label="Pie de página">
+﻿@using eiibd26.Models
+@using eiibd26.Data
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext _db
+
+@{
+    // Cargar categorías directamente desde la vista
+    var categorias12 = await _db.ContenidosCategorias
+        .AsNoTracking()
+        .Where(c => !c.Borrado && c.Relevante == true && (c.Sequence == 12 || c.CategoriaPadre == 12))
+        .OrderBy(c => c.Orden)
+        .ThenBy(c => c.Nombre)
+        .ToListAsync();
+
+    var categorias47 = await _db.ContenidosCategorias
+        .AsNoTracking()
+        .Where(c => !c.Borrado && c.Relevante == true && (c.Sequence == 47 || c.CategoriaPadre == 47))
+        .OrderBy(c => c.Orden)
+        .ThenBy(c => c.Nombre)
+        .ToListAsync();
+
+    // Procesar categorías 12
+    var cat12Parent = categorias12?.FirstOrDefault(c => c.Sequence == 12);
+    var cat12Children = categorias12?.Where(c => c.CategoriaPadre == 12).ToList();
+    var cat12Slug = !string.IsNullOrWhiteSpace(cat12Parent?.CategoriaSlug)
+        ? cat12Parent.CategoriaSlug
+        : "12";
+    var cat12Name = cat12Parent?.Nombre ?? "Soporte Técnico";
+
+    // Procesar categorías 47
+    var cat47Parent = categorias47?.FirstOrDefault(c => c.Sequence == 47);
+    var cat47Children = categorias47?.Where(c => c.CategoriaPadre == 47).ToList();
+    var cat47Slug = !string.IsNullOrWhiteSpace(cat47Parent?.CategoriaSlug)
+        ? cat47Parent.CategoriaSlug
+        : "47";
+    var cat47Name = cat47Parent?.Nombre ?? "Recursos";
+}
+
+<footer class="site-footer bg-white border-top" role="contentinfo" aria-label="Pie de página">
     <div class="container">
         <div class="footer-inner py-4">
 
@@ -18,39 +56,53 @@
             <!-- Main columns: parents shown as full-width on mobile (col-12), lists visible on md+ -->
             <div class="row footer-main align-items-start g-3 mb-4">
 
-                <!-- Column 1: Nosotros (now full width on mobile) -->
+                <!-- Column 1: Nosotros (static links) -->
                 <div class="col-12 col-md-3">
                     <h6 class="footer-heading mb-2">
-                        <a href="/Home" class="footer-heading-link">Nosotros</a>
+                        <a href="/@cat47Slug" class="footer-heading-link">@cat47Name</a>
                     </h6>
 
                     <!-- list hidden on mobile -->
-                    <ul class="list-unstyled footer-list d-none d-md-block">
-                        <li><a href="/#HazViralLoQueImporta" class="footer-link">#HazViralLoQueImporta</a></li>
-                        <li><a href="/Home/Acerca" class="footer-link">Acerca de Nosotros</a></li>
-                        <li><a href="/Campanas" class="footer-link">Campañas</a></li>
-                        <li><a href="/Medios" class="footer-link">En los Medios</a></li>
-                        <li><a href="/EnTuArea" class="footer-link">En tu Área</a></li>
-                    </ul>
+                    @if (cat47Children != null && cat47Children.Any())
+                    {
+                        <ul class="list-unstyled footer-list">
+                            @foreach (var c in cat47Children)
+                            {
+                                var childSlug = !string.IsNullOrWhiteSpace(c.CategoriaSlug)
+                                ? c.CategoriaSlug
+                                : c.Sequence.ToString();
+                                <li><a href="/@childSlug" class="footer-link">@c.Nombre</a></li>
+                            }
+                        </ul>
+                    }
+  
+
                 </div>
 
-                <!-- Column 2: Soporte Técnico (now full width on mobile) -->
+                <!-- Column 2: Categorías 12 (dynamic from DB) -->
                 <div class="col-12 col-md-3">
                     <h6 class="footer-heading mb-2">
-                        <a href="/Soporte" class="footer-heading-link">Soporte Técnico</a>
+                        <a href="/@cat12Slug" class="footer-heading-link">@cat12Name</a>
                     </h6>
 
                     <!-- list hidden on mobile -->
-                    <ul class="list-unstyled footer-list d-none d-md-block">
-                        <li><a href="/Help/ComoUsar" class="footer-link">¿Cómo utilizar este sitio web?</a></li>
-                        <li><a href="/Identity/Account/Manage" class="footer-link">Administración de Tu Cuenta</a></li>
-                        <li><a href="/Identity/Account/Manage/UsuarioPerfil" class="footer-link">Administración de Tu Perfil</a></li>
-                        <li><a href="/Soporte" class="footer-link">Soporte Técnico</a></li>
-                    </ul>
+                    @if (cat12Children != null && cat12Children.Any())
+                    {
+                        <ul class="list-unstyled footer-list d-none d-md-block">
+                            @foreach (var c in cat12Children)
+                            {
+                                var childSlug = !string.IsNullOrWhiteSpace(c.CategoriaSlug)
+                                ? c.CategoriaSlug
+                                : c.Sequence.ToString();
+                                <li><a href="/@childSlug" class="footer-link">@c.Nombre</a></li>
+                            }
+                        </ul>
+                    }
                 </div>
 
                 <!-- Column 3: Desktop social icons & desktop action buttons (centered in column) -->
                 <div class="col-12 col-md-3 d-none d-md-flex flex-column align-items-center justify-content-center footer-desktop-actions">
+
                     <nav aria-label="Redes sociales (escritorio)" class="footer-social-desktop d-flex gap-2 mb-3">
                         <a class="social-link" href="#" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
                         <a class="social-link" href="#" aria-label="Twitter"><i class="bi bi-twitter"></i></a>
@@ -73,9 +125,10 @@
                     </div>
                 </div>
 
-                <!-- Column 4: Mobile-only social icons and action buttons -->
-                <div class="col-12 col-md-3 d-flex flex-column align-items-start align-items-md-end justify-content-center">
-                    <!-- Mobile social icons (visible only on mobile) -->
+                <!-- Column 4: Categorías 47 (desktop) / Mobile social icons -->
+                <div class="col-12 col-md-3">
+
+                    <!-- Mobile: Social icons (visible only on mobile) -->
                     <div class="mobile-icons-row d-flex gap-2 mb-3 d-md-none">
                         <nav aria-label="Redes sociales (móvil)" class="d-flex gap-2">
                             <a class="social-link" href="#" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
@@ -85,7 +138,7 @@
                         </nav>
                     </div>
 
-                    <!-- Mobile action buttons (visible only on mobile) -->
+                    <!-- Mobile: Action buttons (visible only on mobile) -->
                     <div class="d-flex gap-2 mb-0 d-md-none footer-action-buttons">
                         <a href="https://wa.me/1234567890" class="btn square-btn btn-success" aria-label="WhatsApp" title="WhatsApp" target="_blank" rel="noopener">
                             <i class="bi bi-whatsapp" aria-hidden="true"></i>

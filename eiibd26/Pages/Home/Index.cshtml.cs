@@ -35,7 +35,6 @@ namespace eiibd26.Pages.Home
                 .AsNoTracking()
                 .Where(c => !c.Eliminado && (c.EstadoPublicacion ?? 0) == 1)
                 .CountAsync();
-
             var items = await _db.Contenidos
                 .AsNoTracking()
                 .Where(c => !c.Eliminado && (c.EstadoPublicacion ?? 0) == 1)
@@ -45,6 +44,7 @@ namespace eiibd26.Pages.Home
                 {
                     Id = c.Id,
                     Title = c.ContenidoTitulo ?? "",
+                    Slug = c.ContenidoTituloSlug ?? "", // ← AGREGAR ESTA LÍNEA
                     Excerpt = c.ContenidoTextoC ?? "",
                     ImageUrl = string.IsNullOrEmpty(c.URLImagenPrincipal) ? null : ("/uploads/contenidos/" + c.URLImagenPrincipal),
                     Author = string.IsNullOrEmpty(c.Autor) ? "Autor" : c.Autor,
@@ -116,6 +116,7 @@ namespace eiibd26.Pages.Home
                     {
                         Id = c.Id,
                         Title = c.ContenidoTitulo ?? "",
+                        Slug = c.ContenidoTituloSlug ?? "", // ← AGREGAR ESTA LÍNEA
                         Excerpt = c.ContenidoTextoC ?? "",
                         ImageUrl = string.IsNullOrEmpty(c.URLImagenPrincipal) ? null : ("/uploads/contenidos/" + c.URLImagenPrincipal),
                         Author = string.IsNullOrEmpty(c.Autor) ? "Autor" : c.Autor,
@@ -129,25 +130,60 @@ namespace eiibd26.Pages.Home
             Featured1042 = await GetTopForEstadoAsync(2);
             Featured1043 = await GetTopForEstadoAsync(3);
 
-            // Attach categories for featured (optional)
             async Task AttachCatsAsync(List<BlogItemVm> list)
             {
                 if (list == null || !list.Any()) return;
-                var ids = list.Select(x => x.Id).ToList();
-                var catRels = await _db.ContenidosCategoriasRelacion.AsNoTracking().Where(r => ids.Contains(r.IdContenido) && !r.Borrado && r.IdCategoria != null)
-                    .Join(_db.ContenidosCategorias.AsNoTracking(), rel => rel.IdCategoria, cat => cat.Sequence, (rel, cat) => new { rel.IdContenido, cat.Sequence, cat.CategoriaSlug, cat.Nombre, cat.CategoriaPadre }).ToListAsync();
 
-                var map = catRels.GroupBy(x => x.IdContenido).ToDictionary(g => g.Key, g => {
-                    var chosen = g.OrderBy(x => x.CategoriaPadre.HasValue ? 0 : 1).ThenBy(x => x.Sequence).FirstOrDefault();
-                    if (chosen == null) return (Name: (string)null, Link: (string)null);
-                    var segment = !string.IsNullOrWhiteSpace(chosen.CategoriaSlug) ? chosen.CategoriaSlug : chosen.Sequence.ToString();
-                    return (chosen.Nombre, "/Contenidos/categoria/" + segment);
-                });
+                var ids = list.Select(x => x.Id).ToList();
+
+                var catRels = await _db.ContenidosCategoriasRelacion
+                    .AsNoTracking()
+                    .Where(r => ids.Contains(r.IdContenido) && !r.Borrado && r.IdCategoria != null)
+                    .Join(_db.ContenidosCategorias.AsNoTracking(),
+                          rel => rel.IdCategoria,
+                          cat => cat.Sequence,
+                          (rel, cat) => new {
+                              rel.IdContenido,
+                              cat.Sequence,
+                              cat.CategoriaSlug,
+                              cat.Nombre,
+                              cat.CategoriaPadre
+                          })
+                    .ToListAsync();
+
+                var map = catRels
+                    .GroupBy(x => x.IdContenido)
+                    .ToDictionary(
+                        g => g.Key,
+                        g =>
+                        {
+                            var chosen = g
+                                .OrderBy(x => x.CategoriaPadre.HasValue ? 0 : 1)
+                                .ThenBy(x => x.Sequence)
+                                .FirstOrDefault();
+
+                            if (chosen == null)
+                                return (Name: (string)null, Slug: (string)null, Id: (int?)null);
+
+                            var segment = !string.IsNullOrWhiteSpace(chosen.CategoriaSlug)
+                                ? chosen.CategoriaSlug
+                                : chosen.Sequence.ToString();
+
+                            // IMPORTANTE: Devolver 3 elementos (Name, Slug, Id)
+                            return (Name: chosen.Nombre, Slug: segment, Id: (int?)chosen.Sequence);
+                        }
+                    );
 
                 foreach (var it in list)
                 {
-                    if (map.TryGetValue(it.Id, out var v) && !string.IsNullOrWhiteSpace(v.Item1) && !string.IsNullOrWhiteSpace(v.Item2))
-                        it.Category = $"<a href=\"{v.Item2}\" class=\"blog-category\">{v.Item1}</a>";
+                    if (map.TryGetValue(it.Id, out var v) &&
+                        !string.IsNullOrWhiteSpace(v.Name) &&
+                        !string.IsNullOrWhiteSpace(v.Slug))
+                    {
+                        it.Category = $"<a href=\"/{v.Slug}\" class=\"blog-category\">{v.Name}</a>";
+                        it.PrimaryCategorySlug = v.Slug;
+                        it.PrimaryCategoryId = v.Id;
+                    }
                 }
             }
 

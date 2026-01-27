@@ -23,6 +23,10 @@ namespace eiibd26.Models
         public string CategorySlug { get; set; } = "";  // ← AGREGAR
         public string Category { get; set; }
         // Related metadata (lazy-loaded via ContentMeta endpoint or prefilled)
+
+        // NUEVAS PROPIEDADES PARA URLs SEO
+        public int? PrimaryCategoryId { get; set; }
+        public string PrimaryCategorySlug { get; set; }
         public List<string> Conditions { get; set; } = new List<string>();
         public List<string> Symptoms { get; set; } = new List<string>();
         public List<string> Treatments { get; set; } = new List<string>();
