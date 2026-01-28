@@ -231,6 +231,27 @@ app.Use(async (context, next) =>
             logger.LogWarning("❌ Categoría '{CategorySlug}' no existe", categorySlug);
         }
     }
+    // ===== CASO 4: /u/{slug} → Perfil público de usuario =====
+    else if (segments.Length == 2 && segments[0].Equals("u", StringComparison.OrdinalIgnoreCase))
+    {
+        var userSlug = segments[1];
+
+        logger.LogInformation("=== CASO 4: Perfil público /u/{UserSlug} ===", userSlug);
+
+        var exists = await db.Perfil
+            .AsNoTracking()
+            .AnyAsync(p => p.slug == userSlug);
+
+        if (exists)
+        {
+            logger.LogInformation("✅ Perfil público existe, procesando /u/{UserSlug}", userSlug);
+            // NO reescribir: ASP.NET Routing manejará /u/{slug} directamente
+        }
+        else
+        {
+            logger.LogWarning("❌ Perfil público /u/{UserSlug} no existe", userSlug);
+        }
+    }
 
     await next();
 });

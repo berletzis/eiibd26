@@ -1,0 +1,539 @@
+﻿@page "/u/{slug}"
+@model eiibd26.Pages.u.IndexModel
+@{
+    ViewData["Title"] = Model.PerfilPublico?.NombreCompleto ?? "Perfil de usuario";
+    var descripcionMeta = Model.PerfilPublico?.AcercaDe ?? "Perfil público en eiibd26";
+    ViewData["Description"] = descripcionMeta;
+}
+
+@section Styles {
+    <style>
+        .perfil-publico-container {
+            max-width: 1000px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        /* Header minimalista */
+        .perfil-header {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            margin-bottom: 1.5rem;
+        }
+
+        .perfil-header-content {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .perfil-avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 12px;
+            object-fit: cover;
+            flex-shrink: 0;
+            border: 2px solid #e5e7eb;
+        }
+
+        .perfil-info-principal {
+            flex: 1;
+        }
+
+        .perfil-nombre {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 0.25rem;
+        }
+
+        .perfil-slug {
+            color: #6b7280;
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+        }
+
+        .perfil-badge {
+            display: inline-block;
+            padding: 0.4rem 0.9rem;
+            background: #f3f4f6;
+            color: #4b5563;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        /* Frase inspiradora */
+        .perfil-acerca {
+            font-size: 1rem;
+            color: #6b7280;
+            line-height: 1.6;
+            font-style: italic;
+            padding: 1.25rem;
+            background: #f9fafb;
+            border-radius: 8px;
+            border-left: 3px solid #667eea;
+            margin-bottom: 2rem;
+        }
+
+        /* Ficha técnica minimalista */
+        .perfil-ficha {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .perfil-ficha-item {
+            padding: 1rem;
+            background: #f9fafb;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .perfil-ficha-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .perfil-ficha-value {
+            font-size: 1rem;
+            color: #1f2937;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Sección clínica minimalista */
+        .perfil-clinica-section {
+            margin-top: 2rem;
+        }
+
+        .perfil-clinica-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .perfil-clinica-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .perfil-clinica-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+
+        .perfil-clinica-card-title {
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .perfil-clinica-item {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #f3f4f6;
+            display: flex;
+            align-items: start;
+            gap: 0.75rem;
+        }
+
+            .perfil-clinica-item:last-child {
+                border-bottom: none;
+                padding-bottom: 0;
+            }
+
+        .perfil-clinica-icono {
+            width: 28px;
+            height: 28px;
+            background: #f3f4f6;
+            color: #667eea;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 1rem;
+        }
+
+        .perfil-clinica-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .perfil-clinica-nombre {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 0.25rem;
+            font-size: 0.95rem;
+        }
+
+        .perfil-clinica-fecha {
+            font-size: 0.8rem;
+            color: #9ca3af;
+        }
+
+        /* Estado de ánimo minimalista */
+        .perfil-estado-animo-item {
+            padding: 0.875rem;
+            background: #f9fafb;
+            border-radius: 8px;
+            margin-bottom: 0.75rem;
+            border-left: 3px solid;
+        }
+
+            .perfil-estado-animo-item:last-child {
+                margin-bottom: 0;
+            }
+
+        .perfil-estado-animo-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .perfil-estado-animo-texto {
+            font-size: 0.875rem;
+            color: #4b5563;
+            font-style: italic;
+            line-height: 1.5;
+        }
+
+        .perfil-estado-animo-fecha {
+            font-size: 0.75rem;
+            color: #9ca3af;
+            margin-top: 0.5rem;
+        }
+
+        .perfil-no-data {
+            text-align: center;
+            padding: 2rem 1rem;
+            color: #9ca3af;
+            font-size: 0.875rem;
+        }
+
+        .perfil-fecha-registro {
+            text-align: center;
+            color: #9ca3af;
+            font-size: 0.85rem;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .perfil-no-encontrado {
+            max-width: 500px;
+            margin: 4rem auto;
+            padding: 3rem 2rem;
+            text-align: center;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+            .perfil-no-encontrado h2 {
+                font-size: 1.5rem;
+                color: #1f2937;
+                margin-bottom: 1rem;
+            }
+
+            .perfil-no-encontrado p {
+                color: #6b7280;
+                margin-bottom: 1.5rem;
+            }
+
+        @@media (max-width: 768px) {
+            .perfil-header-content {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .perfil-avatar {
+                width: 100px;
+                height: 100px;
+            }
+
+            .perfil-nombre {
+                font-size: 1.5rem;
+            }
+
+            .perfil-ficha {
+                grid-template-columns: 1fr;
+            }
+
+            .perfil-clinica-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+}
+
+<div class="perfil-publico-container">
+    @if (Model.PerfilPublico != null)
+    {
+        <!-- HEADER MINIMALISTA -->
+        <div class="perfil-header">
+            <div class="perfil-header-content">
+                <img src="@Model.PerfilPublico.Avatar"
+                     alt="Avatar de @Model.PerfilPublico.NombreCompleto"
+                     class="perfil-avatar" />
+
+                <div class="perfil-info-principal">
+                    <h1 class="perfil-nombre">@Model.PerfilPublico.NombreCompleto</h1>
+                    <div class="perfil-slug">
+                        <i class="bi bi-at"></i> @Model.PerfilPublico.Slug
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(Model.PerfilPublico.EstoyAquiTexto))
+                    {
+                        <span class="perfil-badge">
+                            <i class="bi bi-heart-fill"></i> @Model.PerfilPublico.EstoyAquiTexto
+                        </span>
+                    }
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(Model.PerfilPublico.AcercaDe))
+            {
+                <div class="perfil-acerca">
+                    "@Model.PerfilPublico.AcercaDe"
+                </div>
+            }
+
+            <!-- FICHA TÉCNICA -->
+            <div class="perfil-ficha">
+                @if (!string.IsNullOrWhiteSpace(Model.PerfilPublico.GeneroTexto))
+                {
+                    <div class="perfil-ficha-item">
+                        <div class="perfil-ficha-label">Género</div>
+                        <div class="perfil-ficha-value">
+                            <i class="bi bi-gender-ambiguous"></i>
+                            @Model.PerfilPublico.GeneroTexto
+                        </div>
+                    </div>
+                }
+
+                @if (Model.PerfilPublico.EdadAproximada.HasValue)
+                {
+                    <div class="perfil-ficha-item">
+                        <div class="perfil-ficha-label">Edad aproximada</div>
+                        <div class="perfil-ficha-value">
+                            <i class="bi bi-calendar-event"></i>
+                            @Model.PerfilPublico.EdadAproximada años
+                        </div>
+                    </div>
+                }
+
+                @if (Model.PerfilPublico.MostrarUbicacion && !string.IsNullOrWhiteSpace(Model.PerfilPublico.UbicacionTexto))
+                {
+                    <div class="perfil-ficha-item">
+                        <div class="perfil-ficha-label">Ubicación</div>
+                        <div class="perfil-ficha-value">
+                            <i class="bi bi-geo-alt-fill"></i>
+                            @Model.PerfilPublico.UbicacionTexto
+                        </div>
+                    </div>
+                }
+
+                <div class="perfil-ficha-item">
+                    <div class="perfil-ficha-label">Miembro desde</div>
+                    <div class="perfil-ficha-value">
+                        <i class="bi bi-calendar-check"></i>
+                        @Model.PerfilPublico.FechaRegistro.ToString("MMM yyyy", new System.Globalization.CultureInfo("es-ES"))
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- INFORMACIÓN CLÍNICA -->
+        @if (Model.PerfilPublico.Condiciones.Any() ||
+            Model.PerfilPublico.Sintomas.Any() ||
+            Model.PerfilPublico.Tratamientos.Any() ||
+            Model.PerfilPublico.EstadosAnimo.Any())
+        {
+            <div class="perfil-clinica-section">
+                <h2 class="perfil-clinica-title">
+                    <i class="bi bi-clipboard2-pulse"></i> Mi Viaje de Salud
+                </h2>
+
+                <div class="perfil-clinica-grid">
+                    <!-- Condiciones -->
+                    <div class="perfil-clinica-card">
+                        <div class="perfil-clinica-card-title">
+                            <i class="bi bi-heart-pulse"></i> Condiciones
+                        </div>
+                        @if (Model.PerfilPublico.Condiciones.Any())
+                        {
+                            foreach (var condicion in Model.PerfilPublico.Condiciones)
+                            {
+                                <div class="perfil-clinica-item">
+                                    <div class="perfil-clinica-icono">
+                                        @if (!string.IsNullOrWhiteSpace(condicion.Icono))
+                                        {
+                                            <i class="@condicion.Icono"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-heart"></i>
+                                        }
+                                    </div>
+                                    <div class="perfil-clinica-info">
+                                        <div class="perfil-clinica-nombre">@condicion.Nombre</div>
+                                        @if (condicion.FechaInicio.HasValue)
+                                        {
+                                            <div class="perfil-clinica-fecha">
+                                                Desde @condicion.FechaInicio.Value.ToString("MMM yyyy", new System.Globalization.CultureInfo("es-ES"))
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="perfil-no-data">Sin condiciones registradas</div>
+                        }
+                    </div>
+
+                    <!-- Síntomas -->
+                    <div class="perfil-clinica-card">
+                        <div class="perfil-clinica-card-title">
+                            <i class="bi bi-thermometer"></i> Síntomas
+                        </div>
+                        @if (Model.PerfilPublico.Sintomas.Any())
+                        {
+                            foreach (var sintoma in Model.PerfilPublico.Sintomas)
+                            {
+                                <div class="perfil-clinica-item">
+                                    <div class="perfil-clinica-icono">
+                                        @if (!string.IsNullOrWhiteSpace(sintoma.Icono))
+                                        {
+                                            <i class="@sintoma.Icono"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-bandaid"></i>
+                                        }
+                                    </div>
+                                    <div class="perfil-clinica-info">
+                                        <div class="perfil-clinica-nombre">@sintoma.Nombre</div>
+                                        @if (sintoma.FechaInicio.HasValue)
+                                        {
+                                            <div class="perfil-clinica-fecha">
+                                                Desde @sintoma.FechaInicio.Value.ToString("MMM yyyy", new System.Globalization.CultureInfo("es-ES"))
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="perfil-no-data">Sin síntomas registrados</div>
+                        }
+                    </div>
+
+                    <!-- Tratamientos -->
+                    <div class="perfil-clinica-card">
+                        <div class="perfil-clinica-card-title">
+                            <i class="bi bi-capsule"></i> Tratamientos
+                        </div>
+                        @if (Model.PerfilPublico.Tratamientos.Any())
+                        {
+                            foreach (var tratamiento in Model.PerfilPublico.Tratamientos)
+                            {
+                                <div class="perfil-clinica-item">
+                                    <div class="perfil-clinica-icono">
+                                        @if (!string.IsNullOrWhiteSpace(tratamiento.Icono))
+                                        {
+                                            <i class="@tratamiento.Icono"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-prescription2"></i>
+                                        }
+                                    </div>
+                                    <div class="perfil-clinica-info">
+                                        <div class="perfil-clinica-nombre">@tratamiento.Nombre</div>
+                                        @if (tratamiento.FechaInicio.HasValue)
+                                        {
+                                            <div class="perfil-clinica-fecha">
+                                                Desde @tratamiento.FechaInicio.Value.ToString("MMM yyyy", new System.Globalization.CultureInfo("es-ES"))
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="perfil-no-data">Sin tratamientos registrados</div>
+                        }
+                    </div>
+
+                    <!-- Estados de Ánimo -->
+                    <div class="perfil-clinica-card">
+                        <div class="perfil-clinica-card-title">
+                            <i class="bi bi-emoji-smile"></i> Estado de Ánimo
+                        </div>
+                        @if (Model.PerfilPublico.EstadosAnimo.Any())
+                        {
+                            foreach (var estado in Model.PerfilPublico.EstadosAnimo)
+                            {
+                                <div class="perfil-estado-animo-item" style="border-left-color: @estado.ColorEstado">
+                                    <div class="perfil-estado-animo-header">
+                                        <i class="@estado.IconoEstado" style="color: @estado.ColorEstado; font-size: 1.3rem;"></i>
+                                        <strong style="color: @estado.ColorEstado; font-size: 0.875rem;">@estado.TextoEstado</strong>
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(estado.Texto))
+                                    {
+                                        <div class="perfil-estado-animo-texto">
+                                            "@estado.Texto"
+                                        </div>
+                                    }
+                                    <div class="perfil-estado-animo-fecha">
+                                        @estado.FechaRegistro.ToString("dd MMM yyyy, HH:mm", new System.Globalization.CultureInfo("es-ES"))
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="perfil-no-data">Sin estados de ánimo registrados</div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="perfil-no-encontrado">
+            <i class="bi bi-person-x" style="font-size: 3.5rem; color: #d1d5db; margin-bottom: 1rem;"></i>
+            <h2>Perfil no encontrado</h2>
+            <p>No pudimos encontrar el perfil que buscas. Verifica la URL o intenta más tarde.</p>
+            <a href="/" class="btn btn-primary">Volver al inicio</a>
+        </div>
+    }
+</div>

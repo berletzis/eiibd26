@@ -1,16 +1,14 @@
-using eiibd26.Models;
+Ôªøusing eiibd26.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.Data.SqlClient; // para capturar SqlNullValueException
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
-// ImageSharp ñ instala si a˙n no lo hiciste:
-// dotnet add package SixLabors.ImageSharp
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Processing;
@@ -57,31 +55,24 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
         [TempData]
         public string ErrorMessage { get; set; }
 
-        /// <summary>
-        /// OnGetAsync: carga/crea el perfil. Envuelve en try/catch y detecta campos NULL/empty para revisar quÈ falta.
-        /// </summary>
         public async Task<IActionResult> OnGetAsync(Guid? id = null)
         {
             var missingFields = new List<string>();
             ViewData["ActivePage"] = ManageNavPages.UsuarioPerfil;
             try
             {
-                // Cargar lista de paÌses para los select antes de cualquier return
                 await PopulatePaisesAsync();
 
-                // Si no se pasÛ id en la URL, intentar usar el usuario autenticado
                 if (!id.HasValue)
                 {
                     var current = GetUserIdGuid();
                     if (current == null)
                     {
-                        // No hay usuario autenticado: redirigir a login (o ajustar seg˙n tu UX)
                         return RedirectToPage("/Account/Login", new { area = "Identity" });
                     }
                     id = current.Value;
                 }
 
-                // Intento normal de materializar Perfil vÌa EF
                 try
                 {
                     Perfil = await _db.Perfil
@@ -90,7 +81,6 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                 }
                 catch (SqlNullValueException sqlEx)
                 {
-                    // OcurriÛ al materializar: leer de forma segura proyectando columnas (evita SqlNullValueException)
                     _logger.LogWarning(sqlEx, "SqlNullValueException al leer Perfil para id={Id}. Haciendo lectura segura.", id);
 
                     var perfilRow = await _db.Perfil
@@ -99,7 +89,6 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                         {
                             p.idUser,
                             Avatar = p.Avatar,
-                            //Titulo = p.Titulo,
                             Nombre = p.Nombre,
                             Apellidos = p.Apellidos,
                             EstoyAqui = p.EstoyAqui,
@@ -107,6 +96,7 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                             Longitud = p.Longitud,
                             p.NombreCiudad,
                             p.NombrePais,
+                            p.AceptoPP,
                             FechaCreado = (DateTime?)p.FechaCreado,
                             FechaCreacion = (DateTime?)p.FechaCreacion,
                             UltimaActividad = (DateTime?)p.UltimaActividad,
@@ -121,12 +111,10 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                     }
                     else
                     {
-                        // Mapear rellenando valores por defecto si es null y recopilar campos faltantes
                         Perfil = new Perfil
                         {
                             idUser = perfilRow.idUser,
                             Avatar = perfilRow.Avatar ?? $"https://ui-avatars.com/api/?name=Usuario+{perfilRow.idUser.ToString().Substring(0, 6)}&size=110",
-                            //Titulo = perfilRow.Titulo ?? string.Empty,
                             Nombre = perfilRow.Nombre ?? string.Empty,
                             Apellidos = perfilRow.Apellidos,
                             EstoyAqui = perfilRow.EstoyAqui,
@@ -134,72 +122,61 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                             Longitud = perfilRow.Longitud ?? string.Empty,
                             NombreCiudad = perfilRow.NombreCiudad,
                             NombrePais = perfilRow.NombrePais,
+                            AceptoPP = perfilRow.AceptoPP,
                             FechaCreado = perfilRow.FechaCreado ?? DateTime.UtcNow,
                             FechaCreacion = perfilRow.FechaCreacion ?? DateTime.UtcNow,
                             UltimaActividad = perfilRow.UltimaActividad ?? DateTime.UtcNow,
                             slug = perfilRow.slug
                         };
 
-                        // Detectar columnas NULL originales para revisiÛn (las que proyectamos)
                         if (perfilRow.Avatar == null) missingFields.Add(nameof(Perfil.Avatar));
-                        //if (perfilRow.Titulo == null) missingFields.Add(nameof(Perfil.Titulo));
                         if (perfilRow.Nombre == null) missingFields.Add(nameof(Perfil.Nombre));
                         if (perfilRow.Latitud == null) missingFields.Add(nameof(Perfil.Latitud));
                         if (perfilRow.Longitud == null) missingFields.Add(nameof(Perfil.Longitud));
                     }
                 }
 
-                // Si la lectura normal no devolviÛ perfil -> crear por defecto (y marcar campos vacÌos)
                 if (Perfil == null)
                 {
                     Perfil = new Perfil
                     {
                         idUser = id.Value,
                         Avatar = $"https://ui-avatars.com/api/?name=Usuario+{id.Value.ToString().Substring(0, 6)}&size=110",
-                        //Titulo = string.Empty,
                         Nombre = string.Empty,
                         Apellidos = string.Empty,
                         EstoyAqui = 0,
                         Latitud = string.Empty,
                         Longitud = string.Empty,
+                        AceptoPP = false,
                         FechaCreacion = DateTime.UtcNow,
                         FechaCreado = DateTime.UtcNow
                     };
 
-                    // Todos los campos 'requeridos' estar·n vacÌos en este caso
                     missingFields.AddRange(new[]
                     {
-                        //nameof(Perfil.Titulo),
                         nameof(Perfil.Nombre),
-
                         nameof(Perfil.Latitud),
                         nameof(Perfil.Longitud)
                     });
                 }
                 else
                 {
-                    // ValidaciÛn adicional: comprobar quÈ campos est·n vacÌos o whitespace
                     if (string.IsNullOrWhiteSpace(Perfil.Avatar)) missingFields.Add(nameof(Perfil.Avatar));
-                    //if (string.IsNullOrWhiteSpace(Perfil.Titulo)) missingFields.Add(nameof(Perfil.Titulo));
                     if (string.IsNullOrWhiteSpace(Perfil.Nombre)) missingFields.Add(nameof(Perfil.Nombre));
                     if (string.IsNullOrWhiteSpace(Perfil.Latitud)) missingFields.Add(nameof(Perfil.Latitud));
                     if (string.IsNullOrWhiteSpace(Perfil.Longitud)) missingFields.Add(nameof(Perfil.Longitud));
                 }
 
-                // Crear select lists y retornar la p·gina
                 CreateSelectLists();
 
-                // Si hay campos faltantes, pasar info a la vista para revisiÛn
                 if (missingFields.Any())
                 {
-                    // Guardamos en TempData y Log para que puedas revisarlo desde UI/logs
                     ErrorMessage = "Faltan campos requeridos en el perfil. Revisa la lista de campos faltantes.";
                     TempData["MissingFields"] = string.Join(",", missingFields);
                     _logger.LogInformation("Campos faltantes para perfil {Id}: {Missing}", id, string.Join(", ", missingFields));
                 }
                 else
                 {
-                    // Limpiamos cualquier mensaje previo
                     TempData.Remove("MissingFields");
                 }
 
@@ -208,21 +185,18 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error en OnGetAsync al cargar perfil id={Id}", id);
-                // Devolver un error controlado; puedes redirigir a una p·gina de error si lo prefieres
-                ErrorMessage = "OcurriÛ un error al cargar el perfil. Revisa los logs.";
+                ErrorMessage = "Ocurri√≥ un error al cargar el perfil. Revisa los logs.";
                 CreateSelectLists();
                 return Page();
             }
         }
 
-        // Upload avatar: server centers/crops and saves 256/110/64 PNGs
         public async Task<JsonResult> OnPostUploadAvatarAsync(IFormFile avatar)
         {
             if (avatar == null)
                 return new JsonResult(new { error = "No file received" }) { StatusCode = 400 };
 
-            // Opcional: restringir tipos; si quieres admitir webp aÒade soporte seg˙n tu ImageSharp version
-            var allowed = new[] { "image/jpeg", "image/png" /*, "image/webp"*/ };
+            var allowed = new[] { "image/jpeg", "image/png" };
             if (!allowed.Contains(avatar.ContentType))
                 return new JsonResult(new { error = "Tipo de archivo no permitido" }) { StatusCode = 400 };
 
@@ -236,12 +210,10 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             var uploadsRoot = Path.Combine(webRoot, "uploads", "avatars", userId.Value.ToString());
             Directory.CreateDirectory(uploadsRoot);
 
-            // Obtener el sem·foro para este usuario (serializa uploads para evitar colisiÛn)
             var sem = _avatarUploadLocks.GetOrAdd(userId.Value, _ => new SemaphoreSlim(1, 1));
             await sem.WaitAsync();
             try
             {
-                // Guardar el upload en archivo temporal
                 var tempFile = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}{Path.GetExtension(avatar.FileName)}");
                 using (var fs = System.IO.File.Create(tempFile))
                 {
@@ -250,15 +222,12 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
 
                 try
                 {
-                    // Cargar la imagen desde archivo temporal (evita problemas con streams)
                     using (var image = await SixLabors.ImageSharp.Image.LoadAsync(tempFile))
                     {
-                        // Generar en temporales dentro del mismo folder de uploads (pero con nombres ˙nicos)
                         var tmp256 = Path.Combine(uploadsRoot, $"tmp-{Guid.NewGuid()}-avatar-256.png");
                         var tmp110 = Path.Combine(uploadsRoot, $"tmp-{Guid.NewGuid()}-avatar-110.png");
                         var tmp64 = Path.Combine(uploadsRoot, $"tmp-{Guid.NewGuid()}-avatar-64.png");
 
-                        // Resize + Save (PNG)
                         using (var clone = image.Clone(ctx => ctx.Resize(new SixLabors.ImageSharp.Processing.ResizeOptions { Size = new SixLabors.ImageSharp.Size(256, 256), Mode = SixLabors.ImageSharp.Processing.ResizeMode.Crop })))
                         {
                             await clone.SaveAsync(tmp256, new PngEncoder());
@@ -272,22 +241,18 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                             await clone.SaveAsync(tmp64, new PngEncoder());
                         }
 
-                        // Rutas finales
                         var final256 = Path.Combine(uploadsRoot, "avatar-256.png");
                         var final110 = Path.Combine(uploadsRoot, "avatar-110.png");
                         var final64 = Path.Combine(uploadsRoot, "avatar-64.png");
 
-                        // Reemplazo atÛmico: eliminar los finales si existen y mover los temporales
-                        try { if (System.IO.File.Exists(final256)) System.IO.File.Delete(final256); } catch { /*ignore*/ }
-                        try { if (System.IO.File.Exists(final110)) System.IO.File.Delete(final110); } catch { /*ignore*/ }
-                        try { if (System.IO.File.Exists(final64)) System.IO.File.Delete(final64); } catch { /*ignore*/ }
+                        try { if (System.IO.File.Exists(final256)) System.IO.File.Delete(final256); } catch { }
+                        try { if (System.IO.File.Exists(final110)) System.IO.File.Delete(final110); } catch { }
+                        try { if (System.IO.File.Exists(final64)) System.IO.File.Delete(final64); } catch { }
 
-                        // Mover temporales a finales
                         System.IO.File.Move(tmp256, final256);
                         System.IO.File.Move(tmp110, final110);
                         System.IO.File.Move(tmp64, final64);
 
-                        // Construir ruta relativa a retornar/guardar en DB
                         var relativeUrl = $"/uploads/avatars/{userId.Value}/avatar-110.png";
 
                         var perfil = await _db.Perfil.FirstOrDefaultAsync(p => p.idUser == userId.Value);
@@ -305,8 +270,7 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                 }
                 finally
                 {
-                    // borrar temporal de upload (si existe)
-                    try { if (System.IO.File.Exists(tempFile)) System.IO.File.Delete(tempFile); } catch { /*ignore*/ }
+                    try { if (System.IO.File.Exists(tempFile)) System.IO.File.Delete(tempFile); } catch { }
                 }
             }
             catch (Exception ex)
@@ -322,11 +286,9 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             finally
             {
                 sem.Release();
-                // opcional: limpiar sem·foros inactivos (no obligatorio)
             }
         }
 
-        // Remove avatar
         public async Task<IActionResult> OnPostRemoveAvatarAsync()
         {
             var userId = GetUserIdGuid();
@@ -343,13 +305,12 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                     {
                         try
                         {
-                            // seguridad adicional: eliminar solo archivos dentro del folder
                             var fileName = Path.GetFileName(f);
                             var fullPath = Path.Combine(uploadsRoot, fileName);
                             if (System.IO.File.Exists(fullPath))
                                 System.IO.File.Delete(fullPath);
                         }
-                        catch { /*ignore*/ }
+                        catch { }
                     }
                 }
 
@@ -374,7 +335,6 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             }
         }
 
-        // GenerateSlug ó ahora acepta userId opcional para excluir al propio usuario
         public async Task<JsonResult> OnGetGenerateSlugAsync(string baseText, Guid? userId = null)
         {
             if (string.IsNullOrWhiteSpace(baseText))
@@ -387,7 +347,6 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             string candidate = baseSlug;
             int suffix = 0;
 
-            // Excluir el userId si se pasa (evita colisiones con el mismo perfil al generar sugerencias)
             while (await _db.Perfil.AsNoTracking().AnyAsync(p => p.slug == candidate && (!userId.HasValue || p.idUser != userId.Value)))
             {
                 suffix++;
@@ -398,7 +357,6 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             return new JsonResult(new { slug = candidate });
         }
 
-        // CheckSlug
         public async Task<JsonResult> OnGetCheckSlugAsync(string slug, Guid? userId = null)
         {
             var s = Slugify(slug ?? "");
@@ -460,29 +418,13 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
 
             if (Perfil == null)
             {
-                ErrorMessage = "Datos de perfil inv·lidos.";
+                ErrorMessage = "Datos de perfil inv√°lidos.";
                 ModelState.AddModelError(string.Empty, ErrorMessage);
                 CreateSelectLists();
                 return Page();
             }
 
-            if (string.IsNullOrWhiteSpace(Perfil.Avatar))
-            {
-                Perfil.Avatar = $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(Perfil.Nombre ?? "Usuario")}&size=110";
-                ModelState.Remove(nameof(Perfil.Avatar));
-                ModelState.Remove("Perfil.Avatar");
-            }
-
-            ModelState.Remove(nameof(Perfil.Usuario));
-            ModelState.Remove("Perfil.Usuario");
-
-            Perfil.PermitirTelefonoReal = FormBool("Perfil.PermitirTelefonoReal");
-            Perfil.PermitirCorreoNoticias = FormBool("Perfil.PermitirCorreoNoticias");
-            Perfil.PermitirMostrarPais = FormBool("Perfil.PermitirMostrarPais");
-
-            Perfil.AceptoPP = FormBool("Perfil.AceptoPP");
-
-            // ***** MOVER la asignaciÛn de Perfil.idUser AQUI, ANTES de chequear slug *****
+            // ASIGNAR idUser PRIMERO
             if (Perfil.idUser == Guid.Empty)
             {
                 var current = GetUserIdGuid();
@@ -495,12 +437,30 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                 }
                 Perfil.idUser = current.Value;
             }
-            // **********************************************************************
 
+            // PROCESAR CHECKBOXES
+            Perfil.PermitirTelefonoReal = FormBool("Perfil.PermitirTelefonoReal");
+            Perfil.PermitirCorreoNoticias = FormBool("Perfil.PermitirCorreoNoticias");
+            Perfil.PermitirMostrarPais = FormBool("Perfil.PermitirMostrarPais");
+            Perfil.AceptoPP = FormBool("Perfil.AceptoPP");
+
+            // LOG DEBUG
+            _logger.LogDebug("AceptoPP despu√©s de FormBool: {AceptoPP}", Perfil.AceptoPP);
+
+            if (string.IsNullOrWhiteSpace(Perfil.Avatar))
+            {
+                Perfil.Avatar = $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(Perfil.Nombre ?? "Usuario")}&size=110";
+                ModelState.Remove(nameof(Perfil.Avatar));
+                ModelState.Remove("Perfil.Avatar");
+            }
+
+            ModelState.Remove(nameof(Perfil.Usuario));
+            ModelState.Remove("Perfil.Usuario");
+
+            // VALIDAR SLUG
             if (!string.IsNullOrWhiteSpace(Perfil.slug))
             {
                 var sanitized = Slugify(Perfil.slug);
-                // Ahora la comprobaciÛn excluye correctamente el id del perfil (Perfil.idUser ya asignado)
                 var conflict = await _db.Perfil
                     .AsNoTracking()
                     .Where(p => p.slug == sanitized && p.idUser != Perfil.idUser)
@@ -519,7 +479,7 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             if (!string.IsNullOrWhiteSpace(Perfil.NombreCiudad) &&
                 (string.IsNullOrWhiteSpace(Perfil.Latitud) || string.IsNullOrWhiteSpace(Perfil.Longitud)))
             {
-                ModelState.AddModelError(nameof(Perfil.NombreCiudad), "Debes seleccionar una ciudad v·lida para obtener latitud/longitud.");
+                ModelState.AddModelError(nameof(Perfil.NombreCiudad), "Debes seleccionar una ciudad v√°lida para obtener latitud/longitud.");
             }
 
             CreateSelectLists();
@@ -538,6 +498,7 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
 
                 if (existing == null)
                 {
+                    // CREAR NUEVO
                     Perfil.FechaCreado = DateTime.UtcNow;
                     Perfil.FechaCreacion = DateTime.UtcNow;
                     Perfil.UltimaActividad = DateTime.UtcNow;
@@ -546,19 +507,19 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                     _db.Perfil.Add(Perfil);
                     await _db.SaveChangesAsync();
 
-                    SuccessMessage = "Actualizacion de datos Correcta";
+                    _logger.LogInformation("Perfil creado para {UserId}. AceptoPP={AceptoPP}", Perfil.idUser, Perfil.AceptoPP);
+
+                    SuccessMessage = "Perfil creado correctamente.";
                     return RedirectToPage(new { id = Perfil.idUser });
                 }
                 else
                 {
+                    // ACTUALIZAR EXISTENTE
                     existing.Avatar = string.IsNullOrWhiteSpace(Perfil.Avatar) ? existing.Avatar : Perfil.Avatar;
                     existing.imagenFondo = Perfil.imagenFondo;
-                    //existing.Titulo = Perfil.Titulo;
-
                     existing.Nombre = Perfil.Nombre;
                     existing.Apellidos = Perfil.Apellidos;
                     existing.FechaDeNacimiento = Perfil.FechaDeNacimiento;
-
                     existing.EstoyAqui = Perfil.EstoyAqui;
                     existing.idZone = Perfil.idZone;
                     existing.slug = Perfil.slug;
@@ -567,30 +528,27 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                     existing.Longitud = Perfil.Longitud;
                     existing.NombreCiudad = Perfil.NombreCiudad;
                     existing.NombrePais = Perfil.NombrePais;
-                    existing.AceptoPP = Perfil.AceptoPP;
-
                     existing.AcercaDe = Perfil.AcercaDe;
-
-                    existing.FechaModificado = DateTime.UtcNow;
-                    existing.UsuarioModificacion = GetUserIdGuid();
-
                     existing.PermitirTelefonoReal = Perfil.PermitirTelefonoReal;
                     existing.PermitirCorreoNoticias = Perfil.PermitirCorreoNoticias;
                     existing.PermitirMostrarPais = Perfil.PermitirMostrarPais;
-
-                    existing.AceptoPP = Perfil.AceptoPP;
+                    existing.AceptoPP = Perfil.AceptoPP; // ‚Üê CR√çTICO
+                    existing.FechaModificado = DateTime.UtcNow;
+                    existing.UsuarioModificacion = GetUserIdGuid();
 
                     _db.Perfil.Update(existing);
                     await _db.SaveChangesAsync();
 
-                    SuccessMessage = "Actualizacion de datos Correcta";
+                    _logger.LogInformation("Perfil actualizado para {UserId}. AceptoPP={AceptoPP}", existing.idUser, existing.AceptoPP);
+
+                    SuccessMessage = "Perfil actualizado correctamente.";
                     return RedirectToPage(new { id = existing.idUser });
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error guardando perfil para {User}", Perfil?.idUser);
-                ErrorMessage = "OcurriÛ un error al guardar. Intenta m·s tarde.";
+                ErrorMessage = "Ocurri√≥ un error al guardar. Intenta m√°s tarde.";
                 ModelState.AddModelError(string.Empty, ErrorMessage);
                 return Page();
             }
@@ -607,7 +565,7 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error cargando lista de paÌses");
+                _logger.LogError(ex, "Error cargando lista de pa√≠ses");
                 PaisesLista = new List<Paises>();
             }
         }
