@@ -75,16 +75,54 @@
 }
 <header>
     <style>
-        /* local styles; prefer moving to site-responsive.css later */
         .topbar {
             background: #f8fafc;
             border-bottom: 1px solid #e9ecef;
             z-index: 1100;
+            width: 100%;
+            position: relative;
+        }
+
+            /* Contenedor principal alineado con footer */
+            .topbar .container {
+                display: flex;
+                align-items: center;
+                position: relative;
+            }
+
+        /* Logo */
+        .topbar-brand {
+            flex-shrink: 0;
+            margin-right: 2rem;
         }
 
         .brand-img {
             height: 38px;
             object-fit: contain;
+        }
+
+        /* Menú principal centrado */
+        .topbar-nav-center {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Menú de usuario FUERA del container, pegado a la derecha absoluta */
+        .topbar-nav-right {
+            position: fixed;
+            right: 15px;
+            top: 0;
+            display: flex;
+            align-items: center;
+            height: 58px;
+            z-index: 1101;
+        }
+
+        /* Dropdowns se muestran encima sin desplazar contenido */
+        .topbar .dropdown-menu {
+            position: absolute;
+            z-index: 1050;
         }
 
         .mobile-avatar {
@@ -116,6 +154,12 @@
             padding: 6px 0;
             display: block;
             color: #0f172a;
+            font-size: .9rem;
+        }
+
+        /* Desktop menu links */
+        .topbar .navbar-nav .nav-link {
+            font-size: .9rem;
         }
 
         .topbar .nav-link.active {
@@ -123,7 +167,12 @@
             font-weight: 600;
         }
 
-        /* Tree / submenu styling for offcanvas: no bullets, indented open lists */
+        /* Dropdown items */
+        .dropdown-menu .dropdown-item {
+            font-size: .9rem;
+        }
+
+        /* Tree / submenu styling for offcanvas */
         .offcanvas-nav ul {
             list-style: none;
             padding-left: 0;
@@ -149,93 +198,90 @@
         .offcanvas-nav .collapse-sub {
             display: block;
         }
-        /* default expanded */
+
         .offcanvas-nav a {
             text-decoration: none;
             color: inherit;
         }
 
-        /* visual improvements */
         .offcanvas {
             width: 320px;
             max-width: 86%;
         }
     </style>
 
-    @* Desktop topbar: visible only on lg+ (mobile partial renders the mobile toggler/offcanvas) *@
-    <nav class="navbar navbar-expand-lg topbar d-none d-lg-flex">
-        <div class="container-fluid">
-            <a class="navbar-brand d-flex align-items-center" href="/"><img src="~/img/logo.png" class="brand-img" alt="eiibd26 logo" /></a>
+    @* Desktop topbar: visible only on lg+ *@
+    <nav class="navbar topbar d-none d-lg-flex">
+        <div class="container">
+            <a class="topbar-brand" href="/">
+                <img src="~/img/logo.png" class="brand-img" alt="eiibd26 logo" />
+            </a>
 
-            @* Desktop toggler (only visible on lg+ if you want an offcanvas/collapse on large screens) *@
-            @* Hide it on small screens via the nav wrapper; add d-none d-lg-block to be explicit and avoid duplicates. *@
-            @* <button class="navbar-toggler d-none d-lg-block" type="button" data-bs-toggle="offcanvas" data-bs-target="#topbarOffcanvas" aria-controls="topbarOffcanvas" aria-label="Abrir menú">
-                <span class="navbar-toggler-icon" aria-hidden="true"></span>
-            </button> *@
-
-            @* Desktop inline menu (visible lg+) *@
-            <div class="collapse navbar-collapse d-none d-lg-flex" id="topbarCenterCollapse">
-                <ul class="navbar-nav me-auto align-items-center">
+            <div class="topbar-nav-center">
+                <ul class="navbar-nav d-flex flex-row align-items-center mb-0">
                     <li class="nav-item"><a class="nav-link@(ActiveClass("/"))" href="/"><i class="bi bi-house-door-fill"></i>&nbsp;Inicio</a></li>
                     <li class="nav-item"><a class="nav-link d-flex align-items-center@(ActiveClass("/Contenidos"))" href="/Contenidos"><i class="bi bi-search"></i><span>&nbsp;Buscador+</span></a></li>
                     <li class="nav-item"><a class="nav-link d-flex align-items-center@(ActiveClass("/Preguntas"))" href="/Preguntas"><i class="bi bi-view-stacked"></i><span>&nbsp;Preguntas y Respuestas</span></a></li>
 
-                    @* Existing partial menus (kept) *@
+                    @* Existing partial menus *@
                     <partial name="~/Pages/Shared/_CategoryMenuPartial.cshtml" />
                     <partial name="~/Pages/Shared/_menuContenidoPartial.cshtml" />
-                    <li class="nav-item"><a class="nav-link d-flex align-items-center@(ActiveClass("/Preguntas"))" href="/Mapa"><i class="bi bi-globe"></i><span>&nbsp;Comunidad</span></a></li>
-                    
-                </ul>
-
-                @* Desktop right side user area *@
-                <ul class="navbar-nav ms-auto align-items-center">
-                    @if (!isAuth)
+                    <li class="nav-item"><a class="nav-link d-flex align-items-center@(ActiveClass("/Mapa"))" href="/Mapa"><i class="bi bi-globe"></i><span>&nbsp;Comunidad</span></a></li>
+                    @if (isAuth)
                     {
-                        <li class="nav-item"><a class="nav-link@(ActiveClass("/Identity/Account/Login"))" href="/Identity/Account/Login"><i class="bi bi-box-arrow-in-right me-1"></i> Iniciar sesión</a></li>
-                        <li class="nav-item"><a class="nav-link@(ActiveClass("/Identity/Account/Register"))" href="/Identity/Account/Register"><i class="bi bi-person-plus me-1"></i> Registro</a></li>
-                    }
-                    else
-                    {
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle d-flex align-items-center@(ActiveClass("/Identity/Account/Manage"))" href="#" id="perfilDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <img src="@avatarSrc" alt="Mi avatar" class="rounded-circle me-2" style="height:28px;width:28px;object-fit:cover;border:1px solid rgba(0,0,0,0.06);" />
-                                <span class="me-1">@displayName</span>
-                            </a>
-                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="perfilDropdown">
-                                <li class="px-3 py-2">
-                                    <div class="d-flex align-items-start">
-                                        <img src="@avatarSrc" alt="Avatar" class="rounded-circle me-2" style="height:36px;width:36px;object-fit:cover;border:1px solid rgba(0,0,0,0.06);" />
-                                        <div>
-                                            <div class="fw-semibold">@displayName</div>
-                                            @if (!string.IsNullOrEmpty(userName))
-                                            {
-                                                <div class="small text-muted">Usuario: @userName</div>
-                                            }
-                                            else if (!string.IsNullOrEmpty(userId))
-                                            {
-                                                <div class="small text-muted">Usuario: @userId</div>
-                                            }
-                                        </div>
-                                    </div>
-                                </li>
-                                <li><hr class="dropdown-divider" /></li>
-                                <li><a class="dropdown-item" href="/Identity/Account/Manage/UsuarioPerfil">Perfil público</a></li>
-                                <li><a class="dropdown-item" href="/Identity/Account/Manage">Usuario/Registro</a></li>
-                                <li><a class="dropdown-item" href="/Identity/Account/Manage/Email">Cambiar email</a></li>
-                                <li><a class="dropdown-item" href="/Identity/Account/Manage/ChangePassword">Cambiar contraseña</a></li>
-                                <li><hr class="dropdown-divider" /></li>
-                                <li>
-                                    <form method="post" asp-area="Identity" asp-page="/Account/Logout" class="d-inline">
-                                        <button type="submit" class="dropdown-item d-flex align-items-center"><i class="bi bi-box-arrow-right me-1"></i> Cerrar sesión</button>
-                                    </form>
-                                </li>
-                            </ul>
-                        </li>
+                        <li><a class="nav-link" href="@Url.Page("/Usuario/Dashboard", new { area = "Identity" })">Dashboard</a></li>
                     }
                 </ul>
             </div>
+        </div>
 
-            @* Offcanvas for mobile is rendered in the mobile partial. Keep desktop partial free of mobile-only markup. *@
+        @* Menú de usuario FUERA del container *@
+        <div class="topbar-nav-right">
+            <ul class="navbar-nav d-flex flex-row align-items-center mb-0">
+                @if (!isAuth)
+                {
+                    <li class="nav-item"><a class="nav-link@(ActiveClass("/Identity/Account/Login"))" href="/Identity/Account/Login"><i class="bi bi-box-arrow-in-right me-1"></i> Iniciar sesión</a></li>
+                    <li class="nav-item"><a class="nav-link@(ActiveClass("/Identity/Account/Register"))" href="/Identity/Account/Register"><i class="bi bi-person-plus me-1"></i> Registro</a></li>
+                }
+                else
+                {
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center@(ActiveClass("/Identity/Account/Manage"))" href="#" id="perfilDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <img src="@avatarSrc" alt="Mi avatar" class="rounded-circle me-2" style="height:28px;width:28px;object-fit:cover;border:1px solid rgba(0,0,0,0.06);" />
+                            <span class="me-1">@displayName</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="perfilDropdown">
+                            <li class="px-3 py-2">
+                                <div class="d-flex align-items-start">
+                                    <img src="@avatarSrc" alt="Avatar" class="rounded-circle me-2" style="height:36px;width:36px;object-fit:cover;border:1px solid rgba(0,0,0,0.06);" />
+                                    <div>
+                                        <div class="fw-semibold">@displayName</div>
+                                        @if (!string.IsNullOrEmpty(userName))
+                                        {
+                                            <div class="small text-muted">Usuario: @userName</div>
+                                        }
+                                        else if (!string.IsNullOrEmpty(userId))
+                                        {
+                                            <div class="small text-muted">Usuario: @userId</div>
+                                        }
+                                    </div>
+                                </div>
+                            </li>
+                            <li><hr class="dropdown-divider" /></li>
+                            <li><a class="dropdown-item" href="/Identity/Account/Manage/UsuarioPerfil">Perfil público</a></li>
+                            <li><a class="dropdown-item" href="/Identity/Account/Manage">Usuario/Registro</a></li>
+                            <li><a class="dropdown-item" href="/Identity/Account/Manage/Email">Cambiar email</a></li>
+                            <li><a class="dropdown-item" href="/Identity/Account/Manage/ChangePassword">Cambiar contraseña</a></li>
+                            <li><hr class="dropdown-divider" /></li>
+                            <li>
+                                <form method="post" asp-area="Identity" asp-page="/Account/Logout" class="d-inline">
+                                    <button type="submit" class="dropdown-item d-flex align-items-center"><i class="bi bi-box-arrow-right me-1"></i> Cerrar sesión</button>
+                                </form>
+                            </li>
+                        </ul>
+                    </li>
+                }
+            </ul>
         </div>
     </nav>
 </header>
@@ -243,14 +289,12 @@
 @section Scripts {
     <script>
         (function () {
-            // Auto-expand or collapse children in offcanvas: toggle on header click.
             document.addEventListener('click', function (e) {
                 var h = e.target.closest('.has-children > .nav-link');
                 if (!h) return;
                 var li = h.parentElement;
                 var submenu = li.querySelector('.submenu');
                 if (!submenu) return;
-                // toggle class to collapse (we show by default)
                 if (submenu.classList.contains('collapse-sub')) {
                     submenu.classList.remove('collapse-sub');
                 } else {
@@ -258,8 +302,6 @@
                 }
                 e.preventDefault();
             });
-
-            // No-op placeholder: kept for possible future toggler enhancements.
         })();
     </script>
 }

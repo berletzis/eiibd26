@@ -40,68 +40,68 @@
 
         @* Schema.org JSON-LD para Google *@
         <script type="application/ld+json">
-            {
-              "@@context": "https://schema.org",
-              "@@type": "QAPage",
-              "mainEntity": {
-                "@@type": "Question",
-                "name": "@JsonEncode(Model.Pregunta.Titulo)",
-                "text": "@JsonEncode(cleanBody)",
-                "answerCount": @answerCount,
-                "dateCreated": "@Model.Pregunta.FechaCreacion.ToString("o")",
-                "author": {
-                  "@@type": "Person",
-                  "name": "@JsonEncode(Model.Pregunta.AutorNombre)"
-                },
-                "upvoteCount": @Model.Pregunta.Score@if (acceptedAnswer != null || Model.Respuestas.Any()){
-                <text>,</text>
+                {
+                  "@@context": "https://schema.org",
+                  "@@type": "QAPage",
+                  "mainEntity": {
+                    "@@type": "Question",
+                    "name": "@JsonEncode(Model.Pregunta.Titulo)",
+                    "text": "@JsonEncode(cleanBody)",
+                    "answerCount": @answerCount,
+                    "dateCreated": "@Model.Pregunta.FechaCreacion.ToString("o")",
+                    "author": {
+                      "@@type": "Person",
+                      "name": "@JsonEncode(Model.Pregunta.AutorNombre)"
+                    },
+                    "upvoteCount": @Model.Pregunta.Score@if (acceptedAnswer != null || Model.Respuestas.Any()){
+                    <text>,</text>
             }
             @if (acceptedAnswer != null)
             {
-                    var cleanAnswer = StripHtml(acceptedAnswer.Cuerpo);
-                    <text>
-                "acceptedAnswer": {
-                  "@@type": "Answer",
-                  "text": "@JsonEncode(cleanAnswer)",
-                  "dateCreated": "@acceptedAnswer.FechaCreacion.ToString("o")",
-                  "upvoteCount": @acceptedAnswer.Score,
-                  "author": {
-                    "@@type": "Person",
-                    "name": "@JsonEncode(acceptedAnswer.AutorNombre)"
-                  }
-                }</text>
-                    if (Model.Respuestas.Count > 1)
-                    {
+                        var cleanAnswer = StripHtml(acceptedAnswer.Cuerpo);
+                        <text>
+                    "acceptedAnswer": {
+                      "@@type": "Answer",
+                      "text": "@JsonEncode(cleanAnswer)",
+                      "dateCreated": "@acceptedAnswer.FechaCreacion.ToString("o")",
+                      "upvoteCount": @acceptedAnswer.Score,
+                      "author": {
+                        "@@type": "Person",
+                        "name": "@JsonEncode(acceptedAnswer.AutorNombre)"
+                      }
+                    }</text>
+                        if (Model.Respuestas.Count > 1)
+                        {
 
-                    <text>,</text>
-                }
+                            <text>,</text>
+                    }
             }
             @if (Model.Respuestas.Any())
             {
-                    var otherAnswers = Model.Respuestas.Where(a => a.Id != acceptedAnswer?.Id).Take(5).ToList();
-                    if (otherAnswers.Any())
-                    {
-                            <text>
-                    "suggestedAnswer": [</text>
-                            for (int i = 0; i < otherAnswers.Count; i++)
-                            {
-                                    var ans = otherAnswers[i];
-                                    var cleanAns = StripHtml(ans.Cuerpo);
+                        var otherAnswers = Model.Respuestas.Where(a => a.Id != acceptedAnswer?.Id).Take(5).ToList();
+                        if (otherAnswers.Any())
+                        {
                                     <text>
-                          {
-                            "@@type": "Answer",
-                            "text": "@JsonEncode(cleanAns)",
-                            "dateCreated": "@ans.FechaCreacion.ToString("o")",
-                            "upvoteCount": @ans.Score,
-                            "author": {
-                              "@@type": "Person",
-                              "name": "@JsonEncode(ans.AutorNombre)"
-                            }
-                          }@(i < otherAnswers.Count - 1 ? "," : "")</text>
-                            }
-                            <text>
-                    ]</text>
-                    }
+                            "suggestedAnswer": [</text>
+                                    for (int i = 0; i < otherAnswers.Count; i++)
+                                    {
+                                                var ans = otherAnswers[i];
+                                                var cleanAns = StripHtml(ans.Cuerpo);
+                                                <text>
+                                      {
+                                        "@@type": "Answer",
+                                        "text": "@JsonEncode(cleanAns)",
+                                        "dateCreated": "@ans.FechaCreacion.ToString("o")",
+                                        "upvoteCount": @ans.Score,
+                                        "author": {
+                                          "@@type": "Person",
+                                          "name": "@JsonEncode(ans.AutorNombre)"
+                                        }
+                                      }@(i < otherAnswers.Count - 1 ? "," : "")</text>
+                                    }
+                                    <text>
+                            ]</text>
+                        }
             }
           }
         }
@@ -129,12 +129,20 @@
     <style>
         .se-subtitle {
             color: #6b7280;
-            font-size: 0.95rem;
+            font-size: 0.85rem;
             font-weight: 400;
             text-transform: uppercase;
             letter-spacing: 0.04em;
-            margin-top: 6px;
-            margin-bottom: 12px;
+            margin-top: 0px;
+            margin-bottom: 6px;
+        }
+
+        .se-page-title {
+            margin-bottom: 0px;
+        }
+
+        .mb-3 {
+            margin-bottom: 6px !important;
         }
 
         .se-card-title {
@@ -142,6 +150,114 @@
             font-size: 1.05rem;
             font-weight: 400;
             color: #0f172a;
+        }
+
+        .se-item {
+            margin-bottom: 1rem;
+        }
+
+        /* Estilo mejorado para login hints - IDÉNTICO a contenidos */
+        .login-hint-box {
+            padding: 0.875rem 1rem;
+            margin-top: 1rem;
+            margin-bottom: 1rem;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .login-hint-header {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+        }
+
+        .login-hint-icon {
+            font-size: 1.5rem;
+            color: #764ba2;
+            flex-shrink: 0;
+        }
+
+        .login-hint-text {
+            color: #4b5563;
+            font-size: 0.9rem;
+            font-weight: 400;
+            line-height: 1.4;
+        }
+
+        .login-hint-actions {
+            display: flex;
+            gap: 0.65rem;
+        }
+
+        .btn-login-hint {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 400;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+        }
+
+        .btn-login-hint-primary {
+            background: #764ba2;
+            color: white;
+            border-color: #764ba2;
+        }
+
+            .btn-login-hint-primary:hover {
+                background: #5a2d7a;
+                border-color: #5a2d7a;
+                color: white;
+            }
+
+        .btn-login-hint-secondary {
+            background: white;
+            color: #764ba2;
+            border-color: #764ba2;
+        }
+
+            .btn-login-hint-secondary:hover {
+                background: #f9fafb;
+                color: #5a2d7a;
+                border-color: #5a2d7a;
+            }
+
+        @@media (max-width: 640px) {
+            .login-hint-box {
+                padding: 0.75rem;
+            }
+
+            .login-hint-header {
+                gap: 0.5rem;
+            }
+
+            .login-hint-icon {
+                font-size: 1.3rem;
+            }
+
+            .login-hint-text {
+                font-size: 0.85rem;
+            }
+
+            .login-hint-actions {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .btn-login-hint {
+                width: 100%;
+                font-size: 0.85rem;
+                padding: 0.45rem 0.875rem;
+            }
         }
 
         @@media (max-width: 700px) {
@@ -167,7 +283,6 @@
         }
     </style>
 }
-
 <form id="__antiForgeryForm" style="display:none;">@Html.AntiForgeryToken()</form>
 
 <div class="container py-4">
@@ -303,16 +418,28 @@
                     </div>
                 </article>
 
-                <div class="se-reply-box">
-                    @if (!User.Identity.IsAuthenticated)
-                    {
-                        <div class="vote-login-hint">
-                            Inicia sesión para responder.
-                            <a href="/Account/Login">Iniciar sesión</a>
+                @if (!User.Identity.IsAuthenticated)
+                {
+                    <div class="login-hint-box">
+                        <div class="login-hint-header">
+                            <i class="bi bi-unlock login-hint-icon"></i>
+                            <div class="login-hint-text">
+                                Inicia sesión para responder esta pregunta.
+                            </div>
                         </div>
-                    }
-                    else
-                    {
+                        <div class="login-hint-actions">
+                            <a href="/Identity/Account/Register" class="btn-login-hint btn-login-hint-primary">
+                                <i class="bi bi-person-plus"></i> Crear cuenta gratis
+                            </a>
+                            <a href="/Identity/Account/Login" class="btn-login-hint btn-login-hint-secondary">
+                                <i class="bi bi-box-arrow-in-right"></i> Iniciar sesión
+                            </a>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="se-reply-box">
                         <div style="position: relative;">
                             <label for="respuestaBuscar" class="se-answers-label">
                                 Revisa que tu aporte sea claro y útil.
@@ -322,8 +449,8 @@
                                 <button id="btnSendReply" class="responder-boton" type="button">Publicar respuesta</button>
                             </div>
                         </div>
-                    }
-                </div>
+                    </div>
+                }
 
                 <div class="preguntas-paginacion" aria-label="Paginación">
                     @if (Model.TotalPages > 1)
@@ -356,7 +483,7 @@
                         }
 
                         Func<int, string> pageUrl = p => Url.Page(
-                                                "/Preguntas/Detalles",
+                                                                                        "/Preguntas/Detalles",
                         new { slug = Model.Pregunta.Slug, answersPage = p, pageSize = Model.PageSize, search = Model.Search }
                         ) ?? "#";
 
@@ -415,10 +542,20 @@
 
                 @if (!User.Identity.IsAuthenticated)
                 {
-                    <div class="se-reply-box">
-                        <div class="vote-login-hint">
-                            Inicia sesión para ver las respuestas.
-                            <a href="/Account/Login">Iniciar sesión</a>
+                    <div class="login-hint-box">
+                        <div class="login-hint-header">
+                            <i class="bi bi-unlock login-hint-icon"></i>
+                            <div class="login-hint-text">
+                                Inicia sesión para ver las respuestas de la comunidad.
+                            </div>
+                        </div>
+                        <div class="login-hint-actions">
+                            <a href="/Identity/Account/Register" class="btn-login-hint btn-login-hint-primary">
+                                <i class="bi bi-person-plus"></i> Crear cuenta gratis
+                            </a>
+                            <a href="/Identity/Account/Login" class="btn-login-hint btn-login-hint-secondary">
+                                <i class="bi bi-box-arrow-in-right"></i> Iniciar sesión
+                            </a>
                         </div>
                     </div>
                 }
@@ -530,7 +667,7 @@
                         }
 
                         Func<int, string> pageUrl = p => Url.Page(
-                                                "/Preguntas/Detalles",
+                                                                                        "/Preguntas/Detalles",
                         new { slug = Model.Pregunta.Slug, answersPage = p, pageSize = Model.PageSize, search = Model.Search }
                         ) ?? "#";
 

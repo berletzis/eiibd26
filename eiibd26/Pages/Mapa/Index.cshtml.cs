@@ -107,7 +107,6 @@ namespace eiibd26.Pages.Mapa
             }
         }
 
-        // Score-based ordering adjusted to favor avatar, condition, country+location, diagnosis date and mood.
         public async Task<IActionResult> OnGetProfilesAsync(string country = "", int? conditionId = null, string yearsRange = "", int skip = 0, int take = 48)
         {
             int version = 0;
@@ -133,7 +132,6 @@ namespace eiibd26.Pages.Mapa
                     basePerfil = basePerfil.Where(p => (p.NombrePais ?? "").ToUpper().Contains(cUp));
                 }
 
-                // build accepted condition ids if conditionId provided (include descendants)
                 List<int> acceptedConditionIds = null;
                 if (conditionId.HasValue)
                 {
@@ -161,7 +159,6 @@ namespace eiibd26.Pages.Mapa
                     acceptedConditionIds = set.ToList();
                 }
 
-                // projected query
                 var projectedQuery = basePerfil.Select(p => new
                 {
                     idUser = p.idUser,
@@ -170,6 +167,7 @@ namespace eiibd26.Pages.Mapa
                     lat = p.Latitud,
                     lng = p.Longitud,
                     avatar = p.Avatar,
+                    slug = p.slug,
                     fechaCreacion = (DateTime?)p.FechaCreacion,
                     acercaDe = p.AcercaDe,
                     nombreCiudad = p.NombreCiudad,
@@ -199,7 +197,6 @@ namespace eiibd26.Pages.Mapa
                     projectedQuery = projectedQuery.Where(x => x.condId.HasValue && acc.Contains(x.condId.Value));
                 }
 
-                // yearsRange filtering (unchanged)
                 if (!string.IsNullOrWhiteSpace(yearsRange))
                 {
                     if (yearsRange == "0-1")
@@ -232,14 +229,6 @@ namespace eiibd26.Pages.Mapa
                     }
                 }
 
-                // compute flags and score with chosen weights
-                // Weights chosen:
-                // hasDiagnosisDate = 80
-                // avatarReal = 40
-                // hasLastMood = 30
-                // hasCondition = 30
-                // hasCountry = 20
-                // hasLocation = 10
                 var scoredQuery = projectedQuery.Select(x => new
                 {
                     x.idUser,
@@ -248,6 +237,7 @@ namespace eiibd26.Pages.Mapa
                     x.lat,
                     x.lng,
                     x.avatar,
+                    x.slug,
                     x.fechaCreacion,
                     x.condFechaInicio,
                     x.condId,
@@ -268,6 +258,7 @@ namespace eiibd26.Pages.Mapa
                     x.lat,
                     x.lng,
                     x.avatar,
+                    x.slug,
                     x.fechaCreacion,
                     x.condFechaInicio,
                     x.condId,
@@ -291,7 +282,6 @@ namespace eiibd26.Pages.Mapa
 
                 var userIds = page.Select(x => x.idUser).Distinct().ToList();
 
-                // get last mood details for display
                 var latestMoods = new List<EstadoAnimoUsuario>();
                 if (userIds.Any())
                 {
@@ -323,7 +313,6 @@ namespace eiibd26.Pages.Mapa
                     string lastMoodText = lm != null ? (lm.Texto ?? "") : "";
                     string condNombre = o.condId.HasValue && condLookup.ContainsKey(o.condId.Value) ? condLookup[o.condId.Value] : "";
 
-                    // compute display text for diagnosis age
                     string diagnosisAgeText = null;
                     int? yearsSinceDiagnosis = null;
                     if (o.condFechaInicio.HasValue && o.condFechaInicio.Value > minValidDate && o.condFechaInicio.Value <= now)
@@ -356,6 +345,7 @@ namespace eiibd26.Pages.Mapa
                         lat = o.lat,
                         lng = o.lng,
                         avatar = o.avatar ?? "",
+                        slug = o.slug ?? "",
                         condicionId = o.condId,
                         condicionNombre = condNombre,
                         condFechaInicio = o.condFechaInicio.HasValue ? o.condFechaInicio.Value.ToString("o") : null,

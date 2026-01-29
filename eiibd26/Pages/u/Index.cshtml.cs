@@ -227,23 +227,23 @@ namespace eiibd26.Pages.u
         public string Texto { get; set; }
         public DateTime FechaRegistro { get; set; }
 
-        public string IconoEstado => Estado switch
+        public string ImagenEstado => Estado switch
         {
-            "MuyBien" => "bi-emoji-smile-fill",
-            "Bien" => "bi-emoji-smile",
-            "Neutral" => "bi-emoji-neutral",
-            "Mal" => "bi-emoji-frown",
-            "MuyMal" => "bi-emoji-frown-fill",
-            _ => "bi-emoji-neutral"
+            "MuyBien" => "/img/muybien.svg",
+            "Bien" => "/img/bien.svg",
+            "Neutral" => "/img/neutral.svg",
+            "Mal" => "/img/mal.svg",
+            "MuyMal" => "/img/muymal.svg",
+            _ => "/img/neutral.svg"
         };
 
         public string ColorEstado => Estado switch
         {
-            "MuyBien" => "#10b981",
-            "Bien" => "#84cc16",
-            "Neutral" => "#f59e0b",
-            "Mal" => "#f97316",
-            "MuyMal" => "#ef4444",
+            "MuyBien" => "#38D6C1",    // Color del SVG muybien.svg
+            "Bien" => "#B3F1E9",       // Color del SVG bien.svg
+            "Neutral" => "#FEE019",    // Color del SVG neutral.svg
+            "Mal" => "#D8B4F8",        // Color del SVG mal.svg
+            "MuyMal" => "#9B5DE5",     // Color del SVG muymal.svg
             _ => "#9ca3af"
         };
 

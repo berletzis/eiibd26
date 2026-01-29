@@ -4,6 +4,7 @@
     ViewData["HideSidebar"] = true;
     Layout = "_Layout";
     ViewData["Title"] = "Mapa - Comunidad";
+    var estaAutenticado = User?.Identity?.IsAuthenticated ?? false;
 }
 
 @section Styles {
@@ -19,6 +20,7 @@
             padding: 12px 18px;
             box-sizing: border-box;
             background: #f8fafc;
+            position: relative;
         }
 
         .mapa-controls {
@@ -50,6 +52,7 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            position: relative;
         }
 
         .cards-scroll {
@@ -68,7 +71,7 @@
             min-height: 70vh;
             position: relative;
         }
-        /* Ensure map canvas fills container */
+
         #mapCanvas {
             width: 100%;
             height: 100%;
@@ -93,14 +96,33 @@
             background: #fff;
             border: 1px solid #eef2f7;
             border-radius: 8px;
-            cursor: pointer;
-            min-height: 140px;
+            min-height: 160px;
             display: flex;
             flex-direction: column;
             gap: 8px;
+            transition: all 0.2s ease;
         }
 
-        .user-card-top {
+            .user-card:hover {
+                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                border-color: #764ba2;
+            }
+
+        .user-card-slug {
+            text-align: right;
+            font-size: 0.85rem;
+            color: #764ba2;
+            font-weight: 400;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+            .user-card-slug:hover {
+                color: #5a2d7a;
+                text-decoration: underline;
+            }
+
+        .user-card-main {
             display: flex;
             gap: 10px;
             align-items: flex-start;
@@ -127,22 +149,52 @@
         }
 
         .user-name {
-            font-weight: 700;
+            font-weight: 400;
             color: #0f172a;
-            margin-bottom: 6px;
+            margin-bottom: 2px;
+            font-size: 0.95rem;
+            line-height: 1.2;
         }
 
         .user-meta {
             color: #6b7280;
-            font-size: .9rem;
+            font-size: 0.85rem;
+            font-weight: 400;
+            line-height: 1.2;
+        }
+
+        .user-card-mood-text {
+            font-size: 0.85rem;
+            color: #4b5563;
+            font-weight: 400;
+            font-style: italic;
         }
 
         .user-card-bottom {
-            margin-top: auto;
             display: flex;
             justify-content: space-between;
+            align-items: center;
+            margin-top: auto;
+        }
+
+        .user-card-mood-icon {
+            width: 24px;
+            height: 24px;
+        }
+
+        .user-card-country {
+            text-align: right;
             color: #6b7280;
-            font-size: .85rem;
+            font-size: 0.85rem;
+            font-weight: 400;
+        }
+
+        .user-card-clickable {
+            cursor: pointer;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
 
         @@media (max-width:1400px) {
@@ -196,6 +248,255 @@
             background: rgba(255,255,255,0.65);
             z-index: 2000;
         }
+
+        /* ============================================ */
+        /* PREVIEW PARA USUARIOS NO AUTENTICADOS */
+        /* ============================================ */
+        .mapa-preview-blur {
+            filter: blur(4px);
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .mapa-content-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(1px);
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .mapa-map-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(2px);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        .mapa-map-overlay-text {
+            color: #764ba2;
+            font-weight: 500;
+            font-size: 1.1rem;
+            background: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .mapa-auth-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            animation: fadeIn 0.5s ease;
+            pointer-events: none;
+        }
+
+        @@keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .mapa-auth-modal {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(118, 75, 162, 0.25);
+            max-width: 420px;
+            width: 100%;
+            padding: 2rem 1.75rem;
+            text-align: center;
+            border: 1px solid rgba(118, 75, 162, 0.1);
+            animation: slideUp 0.6s ease;
+            position: relative;
+            pointer-events: all;
+        }
+
+        @@keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .mapa-auth-icon {
+            margin-bottom: 1rem;
+        }
+
+        .mapa-auth-title {
+            font-size: 1.5rem;
+            font-weight: 400;
+            color: #1f2937;
+            margin-bottom: 0.75rem;
+            line-height: 1.3;
+        }
+
+        .mapa-auth-description {
+            font-size: 0.95rem;
+            font-weight: 400;
+            color: #6b7280;
+            line-height: 1.5;
+            margin-bottom: 1.5rem;
+        }
+
+        .mapa-auth-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .btn-auth-primary,
+        .btn-auth-secondary,
+        .btn-auth-back {
+            width: 100%;
+            padding: 0.875rem 1.25rem;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+        }
+
+        .btn-auth-primary {
+            background: #764ba2;
+            color: white;
+            border-color: #764ba2;
+        }
+
+            .btn-auth-primary:hover {
+                background: #5a2d7a;
+                border-color: #5a2d7a;
+                color: white;
+            }
+
+        .btn-auth-secondary {
+            background: white;
+            color: #764ba2;
+            border-color: #764ba2;
+        }
+
+            .btn-auth-secondary:hover {
+                background: #f9fafb;
+                color: #5a2d7a;
+                border-color: #5a2d7a;
+            }
+
+        .btn-auth-back {
+            background: #f3f4f6;
+            color: #6b7280;
+            border-color: #e5e7eb;
+        }
+
+            .btn-auth-back:hover {
+                background: #e5e7eb;
+                color: #4b5563;
+            }
+
+        .mapa-auth-benefits {
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+            text-align: left;
+            padding-top: 1.25rem;
+            border-top: 1px solid #e5e7eb;
+            margin-bottom: 1.25rem;
+        }
+
+        .mapa-auth-benefit {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            font-size: 0.9rem;
+            font-weight: 400;
+            color: #4b5563;
+            line-height: 1.4;
+        }
+
+            .mapa-auth-benefit i {
+                color: #10b981;
+                font-size: 1.1rem;
+                flex-shrink: 0;
+            }
+
+        @@media (max-width: 640px) {
+            .mapa-auth-modal {
+                padding: 1.5rem 1.25rem;
+                max-width: 95%;
+            }
+
+            .mapa-auth-title {
+                font-size: 1.25rem;
+                margin-bottom: 0.5rem;
+            }
+
+            .mapa-auth-description {
+                font-size: 0.875rem;
+                margin-bottom: 1.25rem;
+                line-height: 1.4;
+            }
+
+            .mapa-auth-benefits {
+                gap: 0.5rem;
+                padding-top: 1rem;
+                margin-bottom: 1rem;
+            }
+
+            .mapa-auth-benefit {
+                font-size: 0.85rem;
+                gap: 0.5rem;
+                line-height: 1.3;
+            }
+
+                .mapa-auth-benefit i {
+                    font-size: 1rem;
+                }
+
+            .btn-auth-primary,
+            .btn-auth-secondary,
+            .btn-auth-back {
+                padding: 0.75rem 1rem;
+                font-size: 0.9rem;
+            }
+
+            .mapa-auth-actions {
+                gap: 0.65rem;
+                margin-bottom: 1rem;
+            }
+        }
     </style>
 }
 
@@ -205,7 +506,7 @@
     <div class="mapa-controls" role="region" aria-label="Controles del mapa">
         <div>
             <label class="form-label mb-0">País</label>
-            <select id="filter_country" class="form-select form-select-sm" style="min-width:200px;">
+            <select id="filter_country" class="form-select form-select-sm" style="min-width:200px;" @(!estaAutenticado ? "disabled" : "")>
                 <option value="">(Todos)</option>
                 @foreach (var c in Model.Countries)
                 {
@@ -216,7 +517,7 @@
 
         <div>
             <label class="form-label mb-0">Condición</label>
-            <select id="filter_condition" class="form-select form-select-sm" style="min-width:220px;">
+            <select id="filter_condition" class="form-select form-select-sm" style="min-width:220px;" @(!estaAutenticado ? "disabled" : "")>
                 <option value="">(Todas)</option>
                 @foreach (var cond in Model.Conditions)
                 {
@@ -227,7 +528,7 @@
 
         <div>
             <label class="form-label mb-0">Años desde diagnóstico</label>
-            <select id="filter_years" class="form-select form-select-sm" style="min-width:160px;">
+            <select id="filter_years" class="form-select form-select-sm" style="min-width:160px;" @(!estaAutenticado ? "disabled" : "")>
                 <option value="">(Cualquiera)</option>
                 <option value="0-1">0–1 años (incluye sin fecha)</option>
                 <option value="1-3">1–3 años</option>
@@ -237,22 +538,81 @@
             </select>
         </div>
 
-        <div><button id="btnReload" class="btn btn-primary btn-sm" style="margin-top:20px;">Aplicar filtros</button></div>
+        <div><button id="btnReload" class="btn btn-primary btn-sm" style="margin-top:20px;" @(!estaAutenticado ? "disabled" : "")>Aplicar filtros</button></div>
     </div>
 
     <div id="resultsCount" class="results-count">Cargando…</div>
 
     <div class="mapa-split" role="main">
         <aside class="mapa-left" aria-label="Listado de usuarios filtrados">
-            <div class="cards-scroll" id="cardsScroll">
+            @if (!estaAutenticado)
+            {
+                <div class="mapa-content-overlay"></div>
+            }
+            <div class="cards-scroll @(!estaAutenticado ? "mapa-preview-blur" : "")" id="cardsScroll">
                 <div id="cardsContainer"></div>
                 <div id="loader" class="loading-indicator" style="display:none;">Cargando más…</div>
             </div>
         </aside>
 
-        <div class="mapa-right"><div id="mapCanvas" role="application" aria-label="Mapa de usuarios"></div></div>
+        <div class="mapa-right">
+            @if (!estaAutenticado)
+            {
+                <div class="mapa-map-overlay">
+                    <div class="mapa-map-overlay-text">
+                        <i class="bi bi-lock-fill"></i> Mapa bloqueado
+                    </div>
+                </div>
+            }
+            <div id="mapCanvas" role="application" aria-label="Mapa de usuarios"></div>
+        </div>
     </div>
 </main>
+
+@if (!estaAutenticado)
+{
+    <div class="mapa-auth-overlay">
+        <div class="mapa-auth-modal">
+            <div class="mapa-auth-icon">
+                <i class="bi bi-globe-americas" style="font-size: 3rem; color: #764ba2;"></i>
+            </div>
+
+            <h2 class="mapa-auth-title">Desbloquea el mapa completo</h2>
+            <p class="mapa-auth-description">
+                Conecta con personas que comparten tu condición en todo el mundo.
+                Crea tu perfil para acceder a búsquedas avanzadas y contactar con otros miembros.
+            </p>
+
+            <div class="mapa-auth-actions">
+                <a href="/Identity/Account/Register" class="btn-auth-primary">
+                    <i class="bi bi-person-plus"></i> Crear cuenta gratis
+                </a>
+                <a href="/Identity/Account/Login" class="btn-auth-secondary">
+                    <i class="bi bi-box-arrow-in-right"></i> Iniciar sesión
+                </a>
+            </div>
+
+            <div class="mapa-auth-benefits">
+                <div class="mapa-auth-benefit">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span>Encuentra personas cerca de ti con tu misma condición</span>
+                </div>
+                <div class="mapa-auth-benefit">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span>Filtra por años de diagnóstico y ubicación</span>
+                </div>
+                <div class="mapa-auth-benefit">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span>Comparte tu experiencia de manera segura</span>
+                </div>
+            </div>
+
+            <button onclick="window.history.length > 1 ? window.history.back() : window.location.href = '/'" class="btn-auth-back">
+                <i class="bi bi-arrow-left"></i> Regresar
+            </button>
+        </div>
+    </div>
+}
 
 <div id="initialOverlay" class="initial-overlay" style="display:none;">
     <div style="text-align:center;">
@@ -262,14 +622,13 @@
 </div>
 
 @section Scripts {
-    <!-- Replace key and keep async+defer with callback -->
     <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBUUBxDv3VvzMmdR_pf9aFOd7frbTeUWXk&callback=initMap"></script>
-    @* <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBUUBxDv3VvzMmdR_pf9aFOd7frbTeUWXk"></script> *@
     @Html.Raw("<script src=\"https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js\"></script>")
 
     <script>
         (function () {
-            const PAGE_SIZE = 48;
+            const IS_AUTHENTICATED = @Html.Raw(estaAutenticado ? "true" : "false");
+            const PAGE_SIZE = IS_AUTHENTICATED ? 48 : 8;
             const SCROLL_THRESHOLD_PX = 300;
             const DEBOUNCE_MS = 350;
 
@@ -282,30 +641,29 @@
 
             const USER_COUNTRY = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.UserCountry ?? ""));
 
-            const MIN_ZOOM = 2, MAX_ZOOM = 8, MAX_ZOOM_CLUSTER_CLICK = 7, JITTER_MAX_DEG = 0.02;
+            const MIN_ZOOM = 2, MAX_ZOOM = 18, MAX_ZOOM_CLUSTER_CLICK = 10, JITTER_MAX_DEG = 0.02;
             let map, clusterer, markers = [];
             let totalCount = 0, loadedCount = 0, isLoading = false;
             let loadedProfiles = [];
             let firstLoadDone = false;
             let geocoder = null;
+            let mapInitialized = false;
 
-            // Ensure there is a global clustererRenderer (fallback safe renderer)
             window.clustererRenderer = window.clustererRenderer || {
                 render({ count, position }) {
                     const size = Math.max(30, Math.min(76, 30 + Math.round(Math.log10(count || 1) * 10)));
-                    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${size/2}" cy="${size/2}" r="${(size-4)/2}" fill="#7c3aed" stroke="#fff" stroke-width="2"/><text x="50%" y="50%" font-size="${Math.max(10, Math.round(size*0.34))}" fill="#fff" text-anchor="middle" dominant-baseline="central">${count}</text></svg>`;
-                    // If google.maps not ready, return minimal marker-like object
+                    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '"><circle cx="' + (size/2) + '" cy="' + (size/2) + '" r="' + ((size-4)/2) + '" fill="#764ba2" stroke="#fff" stroke-width="2"/><text x="' + (size/2) + '" y="' + (size/2) + '" text-anchor="middle" dominant-baseline="central" fill="#fff" font-family="Arial,sans-serif" font-size="' + Math.max(12,size*0.4) + '" font-weight="bold">' + count + '</text></svg>';
                     if (window.google && google.maps && google.maps.Marker) {
                         return new google.maps.Marker({
-                            position,
-                            icon: { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg), scaledSize: new google.maps.Size(size, size) }
+                            position: position,
+                            icon: { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg), scaledSize: new google.maps.Size(size, size) },
+                            label: null
                         });
                     }
-                    return { position, icon: svg };
+                    return { position: position, icon: svg };
                 }
             };
 
-            // Avatar helper functions (kept as before)
             const knownPlaceholderPatterns = [/default[-_]?avatar/i, /default\.jpg/i, /ui-avatars\.com/i, /placeholder/i];
             function looksLikePlaceholder(raw) { if (!raw) return true; const s = String(raw).trim(); if (!s) return true; for (const rx of knownPlaceholderPatterns) if (rx.test(s)) return true; return false; }
             function isAbsoluteUrl(u) { return /^https?:\/\//i.test(u); }
@@ -334,7 +692,7 @@
 
             const ioOptions = { root: null, rootMargin: '200px', threshold: 0.01 };
             let avatarObserver = null;
-            try { if ('IntersectionObserver' in window) avatarObserver = new IntersectionObserver(entries => { entries.forEach(entry => { if (entry.isIntersecting) { const img = entry.target; if (img && img.dataset) { avatarObserver.unobserve(img); resolveAvatarForElement(img); } } }); }, ioOptions); } catch(e){ avatarObserver = null; }
+            try { if ('IntersectionObserver' in window) avatarObserver = new IntersectionObserver(entries => { entries.forEach(entry => { if (entry.isIntersecting) { const img = entry.target; if (img.dataset.resolved !== '1') { avatarObserver.unobserve(img); resolveAvatarForElement(img); } } }); }, ioOptions); } catch (e) {}
 
             function observeAvatar(img) {
                 if (!img) return;
@@ -345,68 +703,130 @@
                 resolveAvatarForElement(img);
             }
 
-            // clustererRenderer local reference (use global)
-            const clustererRendererLocal = window.clustererRenderer;
+            function escapeHtml(s) {
+                if (!s) return '';
+                return String(s).replace(/[&<>"'`=\/]/g, function(c) {
+                    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#47;','`':'&#96;','=':'&#61;'}[c];
+                });
+            }
 
-            function escapeHtml(s) { if (!s) return ''; return String(s).replace(/[&<>"'`=\/]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#47;','`':'&#96;','=':'&#61;'}[c])); }
             function jitterCoord(lat, lng) { const f = JITTER_MAX_DEG; return { lat: lat + (Math.random() - 0.5) * f, lng: lng + (Math.random() - 0.5) * f }; }
-            function smallMarkerSvgDataUrl(size = 14) { const stroke = 1; const cx = size/2, cy = size/2, r = Math.max(4, Math.round((size - stroke*2)/2)); const fill = '#7c3aed', strokeColor = '#ffffff'; const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${strokeColor}" stroke-width="${stroke}" /></svg>`; return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg); }
+
+            function smallMarkerSvgDataUrl(size) {
+                size = size || 14;
+                const stroke = 1;
+                const cx = size/2, cy = size/2, r = Math.max(4, Math.round((size - stroke*2)/2));
+                const fill = '#764ba2', strokeColor = '#ffffff';
+                const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '"><circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + fill + '" stroke="' + strokeColor + '" stroke-width="' + stroke + '"/></svg>';
+                return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+            }
 
             function buildAvatarPlaceholder(profile) {
                 const avatar = profile.avatar || '';
                 const id = profile.id || profile.idUser || '';
                 const src = '/img/default-avatar.png';
-                return `<img src="${src}" data-avatar="${escapeHtml(avatar)}" data-userid="${escapeHtml(String(id))}" class="ums-avatar" alt="${escapeHtml(profile.name || 'Usuario')}" loading="lazy" />`;
+                return '<img src="' + src + '" data-avatar="' + escapeHtml(avatar) + '" data-userid="' + escapeHtml(String(id)) + '" class="ums-avatar" alt="' + escapeHtml(profile.name || 'Usuario') + '" loading="lazy" />';
+            }
+
+            function getMoodImage(moodState) {
+                const moodMap = {
+                    'MuyBien': '/img/muybien.svg',
+                    'Bien': '/img/bien.svg',
+                    'Neutral': '/img/neutral.svg',
+                    'Mal': '/img/mal.svg',
+                    'MuyMal': '/img/muymal.svg'
+                };
+                return moodMap[moodState] || '/img/neutral.svg';
             }
 
             function buildCardHtml(p) {
-                const yearsText = p.diagnosisAgeText ? p.diagnosisAgeText : (p.yearsSinceDiagnosis != null ? (p.yearsSinceDiagnosis === 1 ? '1 año' : (p.yearsSinceDiagnosis + ' años')) : 'Sin Fecha');
-                const condName = p.condicionNombre || '';
-                const mood = p.lastMood ? (p.lastMood + (p.lastMoodText ? ` — ${p.lastMoodText}` : '')) : 'Sin estado';
                 const displayName = p.name || 'Usuario';
+                const condName = p.condicionNombre || '';
+                const userSlug = p.slug || '';
+                const profileUrl = userSlug ? '/u/' + encodeURIComponent(userSlug) : '#';
                 const avatarImgHtml = buildAvatarPlaceholder(p);
-                return `
-                    <div class="user-card" data-id="${p.id}">
-                        <div class="user-card-top">
-                            <div class="user-avatar">${avatarImgHtml}</div>
-                            <div class="user-info">
-                                <div class="user-name">${escapeHtml(displayName)}</div>
-                                <div class="user-meta">${escapeHtml(condName)} · ${escapeHtml(yearsText)}</div>
-                            </div>
-                        </div>
-                        <div class="user-card-bottom"><span>${escapeHtml(p.country || '')}</span><span>${escapeHtml(mood)}</span></div>
-                    </div>
-                `;
+                const country = p.country || '';
+                const moodState = p.lastMood || '';
+                const moodText = p.lastMoodText || '';
+                const moodImage = moodState ? getMoodImage(moodState) : '';
+
+                let html = '<div class="user-card" data-id="' + p.id + '">';
+                html += '<a href="' + profileUrl + '" target="_blank" class="user-card-slug" onclick="event.stopPropagation();">&#64;' + escapeHtml(userSlug) + '</a>';
+                html += '<div class="user-card-clickable" data-clickable="true">';
+                html += '<div class="user-card-main">';
+                html += '<div class="user-avatar">' + avatarImgHtml + '</div>';
+                html += '<div class="user-info">';
+                html += '<div class="user-name">' + escapeHtml(displayName) + '</div>';
+                html += '<div class="user-meta">' + escapeHtml(condName) + '</div>';
+                html += '</div></div>';
+
+                if (moodText) {
+                    html += '<div class="user-card-mood-text">' + escapeHtml(moodText) + '</div>';
+                }
+
+                html += '<div class="user-card-bottom">';
+                if (moodState) {
+                    html += '<img src="' + moodImage + '" alt="' + moodState + '" class="user-card-mood-icon" />';
+                } else {
+                    html += '<span></span>';
+                }
+                html += '<div class="user-card-country">' + escapeHtml(country) + '</div>';
+                html += '</div></div></div>';
+
+                return html;
             }
 
             function appendCards(profiles) {
                 let grid = cardsContainer.querySelector('.cards-grid');
                 if (!grid) { grid = document.createElement('div'); grid.className = 'cards-grid'; cardsContainer.appendChild(grid); }
                 const fragment = document.createDocumentFragment();
-                profiles.forEach(p => { const wrapper = document.createElement('div'); wrapper.innerHTML = buildCardHtml(p); fragment.appendChild(wrapper.firstElementChild); });
+                profiles.forEach(function(p) {
+                    const wrapper = document.createElement('div');
+                    wrapper.innerHTML = buildCardHtml(p);
+                    fragment.appendChild(wrapper.firstElementChild);
+                });
                 grid.appendChild(fragment);
-                Array.from(cardsContainer.querySelectorAll('.user-card')).forEach(el => {
-                    if (el.dataset.bound) return;
-                    el.dataset.bound = '1';
-                    el.addEventListener('click', function () {
-                        const id = this.getAttribute('data-id');
-                        const m = markers.find(x => String(x._profile.id) === String(id));
-                        if (m) {
-                            if (map && m.getPosition) { map.setCenter(m.getPosition()); map.setZoom(MAX_ZOOM_CLUSTER_CLICK); }
-                            const content = `<div style="min-width:200px"><strong>${escapeHtml(m._profile.name || '')}</strong><div>${escapeHtml(m._profile.condicionNombre||'')}</div><div style="color:#6b7280;font-size:.9rem;margin-top:6px;">${escapeHtml(m._profile.lastMood||'')}${m._profile.lastMoodText ? ' — ' + escapeHtml(m._profile.lastMoodText) : ''}</div></div>`;
-                            try { if (window.google && google.maps && google.maps.InfoWindow) new google.maps.InfoWindow({ content }).open(map, m); } catch(e) { /* ignore */ }
+
+                if (IS_AUTHENTICATED) {
+                    Array.from(cardsContainer.querySelectorAll('.user-card')).forEach(function(el) {
+                        if (el.dataset.bound) return;
+                        el.dataset.bound = '1';
+
+                        const clickableArea = el.querySelector('[data-clickable="true"]');
+                        if (clickableArea) {
+                            clickableArea.addEventListener('click', function () {
+                                const id = el.getAttribute('data-id');
+                                const m = markers.find(function(x) { return String(x._profile.id) === String(id); });
+                                if (m && map && mapInitialized) {
+                                    if (m.getPosition) {
+                                        map.setCenter(m.getPosition());
+                                        map.setZoom(MAX_ZOOM_CLUSTER_CLICK);
+                                    }
+                                }
+                            });
                         }
                     });
-                });
-                const imgs = cardsContainer.querySelectorAll('img[data-avatar]:not([data-resolved="1"])'); imgs.forEach(img => observeAvatar(img));
+                }
+
+                const imgs = cardsContainer.querySelectorAll('img[data-avatar]:not([data-resolved="1"])');
+                imgs.forEach(function(img) { observeAvatar(img); });
             }
 
             function clearCards() { cardsContainer.innerHTML = ''; }
-            function clearMarkers() { if (clusterer && typeof clusterer.clearMarkers === 'function') clusterer.clearMarkers(); markers.forEach(m => m.setMap && m.setMap(null)); markers = []; }
+            function clearMarkers() {
+                if (clusterer && typeof clusterer.clearMarkers === 'function') clusterer.clearMarkers();
+                markers.forEach(function(m) { if (m.setMap) m.setMap(null); });
+                markers = [];
+            }
 
             function addMarkersFromLoaded() {
+                if (!map || !mapInitialized) {
+                    console.warn('Map not initialized yet, skipping marker addition');
+                    return;
+                }
+
                 clearMarkers();
-                markers = loadedProfiles.map(p => {
+                markers = loadedProfiles.map(function(p) {
                     const lat = Number(p.lat), lng = Number(p.lng);
                     const jittered = jitterCoord(isFinite(lat) ? lat : 0, isFinite(lng) ? lng : 0);
                     const pos = { lat: jittered.lat, lng: jittered.lng };
@@ -414,43 +834,63 @@
                     const iconUrl = smallMarkerSvgDataUrl(size);
                     let m;
                     try {
-                        m = new google.maps.Marker({ position: pos, title: (p.name || 'Usuario'), icon: { url: iconUrl, scaledSize: new google.maps.Size(size, size) } });
+                        m = new google.maps.Marker({
+                            position: pos,
+                            title: (p.name || 'Usuario'),
+                            icon: { url: iconUrl, scaledSize: new google.maps.Size(size, size) },
+                            label: null,
+                            map: map
+                        });
                     } catch (e) {
-                        m = { _position: pos, _profile: p, getPosition: () => pos };
-                        m._profile = p;
+                        console.error('Error creating marker', e);
+                        m = { _position: pos, _profile: p, getPosition: function() { return pos; } };
                     }
                     m._profile = p;
                     return m;
                 });
+
                 try {
                     if (markers.length && typeof markerClusterer !== 'undefined' && markerClusterer && markerClusterer.MarkerClusterer) {
-                        // prefer library clusterer if available
-                        clusterer = new markerClusterer.MarkerClusterer({ map, renderer: window.clustererRenderer });
-                        clusterer.addMarkers(markers);
-                    } else if (markers.length && typeof markerClusterer === 'undefined' && window.clustererRenderer && window.google && google.maps) {
-                        // use low-level clusterer if lib exists
-                        clusterer = new markerClusterer.MarkerClusterer({ map, renderer: window.clustererRenderer });
-                        clusterer.addMarkers(markers);
-                    } else {
-                        markers.forEach(m => m.setMap && m.setMap(map));
+                        if (clusterer && typeof clusterer.clearMarkers === 'function') {
+                            clusterer.clearMarkers();
+                        }
+                        clusterer = new markerClusterer.MarkerClusterer({
+                            map: map,
+                            renderer: window.clustererRenderer,
+                            markers: markers
+                        });
                     }
+
                     if (markers.length && map && markers[0] && markers[0].getPosition) {
                         const bounds = new google.maps.LatLngBounds();
-                        markers.forEach(m => bounds.extend(m.getPosition()));
-                        try { map.fitBounds(bounds); } catch (e) {}
+                        markers.forEach(function(m) {
+                            if (m.getPosition) bounds.extend(m.getPosition());
+                        });
+                        try {
+                            map.fitBounds(bounds);
+                            google.maps.event.addListenerOnce(map, 'bounds_changed', function() {
+                                if (map.getZoom() > MAX_ZOOM_CLUSTER_CLICK) {
+                                    map.setZoom(MAX_ZOOM_CLUSTER_CLICK);
+                                }
+                            });
+                        } catch (e) {
+                            console.error('Error fitting bounds', e);
+                        }
                     } else {
                         if (USER_COUNTRY) centerMapOnCountry(USER_COUNTRY);
                         else { map.setCenter({ lat: 20, lng: 0 }); map.setZoom(MIN_ZOOM); }
                     }
                 } catch (ex) {
                     console.error('addMarkersFromLoaded error', ex);
-                    markers.forEach(m => m.setMap && m.setMap(map));
                 }
             }
 
-            // Expose loadNextBatch globally so we can call it for debugging if needed
             window.loadNextBatch = async function loadNextBatch() {
                 if (isLoading) return;
+                if (!IS_AUTHENTICATED && loadedCount >= PAGE_SIZE) {
+                    resultsCountEl.textContent = 'Regístrate para ver todos los resultados';
+                    return;
+                }
                 if (loadedCount >= totalCount && totalCount !== 0) return;
                 isLoading = true;
                 loaderEl.style.display = 'block';
@@ -478,12 +918,18 @@
                     appendCards(items);
                     loadedProfiles = loadedProfiles.concat(items);
                     loadedCount += items.length;
-                    resultsCountEl.textContent = (totalCount || 0) + ' encontrados / Mostrando ' + loadedCount;
 
-                    addMarkersFromLoaded();
+                    if (!IS_AUTHENTICATED) {
+                        resultsCountEl.textContent = totalCount + ' usuarios encontrados - Mostrando preview de ' + loadedCount;
+                    } else {
+                        resultsCountEl.textContent = (totalCount || 0) + ' encontrados / Mostrando ' + loadedCount;
+                    }
+
+                    if (mapInitialized) {
+                        addMarkersFromLoaded();
+                    }
                 } catch (e) {
                     console.error('Error loading batch', e);
-                    // show minimal error and still hide overlay
                 } finally {
                     isLoading = false;
                     loaderEl.style.display = 'none';
@@ -492,21 +938,35 @@
             };
 
             function centerMapOnCountry(countryText) {
-                if (!geocoder || !countryText) return;
+                if (!geocoder || !countryText || !map || !mapInitialized) return;
                 geocoder.geocode({ address: countryText }, function(results, status) {
                     if (status === 'OK' && results && results[0]) {
                         const r = results[0];
                         const bounds = r.geometry && (r.geometry.bounds || r.geometry.viewport) ? (r.geometry.bounds || r.geometry.viewport) : null;
-                        if (bounds) { map.fitBounds(bounds); google.maps.event.addListenerOnce(map, 'idle', function() { if (map.getZoom() > MAX_ZOOM_CLUSTER_CLICK) map.setZoom(MAX_ZOOM_CLUSTER_CLICK); }); }
-                        else if (r.geometry && r.geometry.location) { map.setCenter(r.geometry.location); map.setZoom(MAX_ZOOM_CLUSTER_CLICK); }
-                    } else { map.setCenter({ lat: 20, lng: 0 }); map.setZoom(MIN_ZOOM); }
+                        if (bounds) {
+                            map.fitBounds(bounds);
+                            google.maps.event.addListenerOnce(map, 'idle', function() {
+                                if (map.getZoom() > MAX_ZOOM_CLUSTER_CLICK) map.setZoom(MAX_ZOOM_CLUSTER_CLICK);
+                            });
+                        } else if (r.geometry && r.geometry.location) {
+                            map.setCenter(r.geometry.location);
+                            map.setZoom(MAX_ZOOM_CLUSTER_CLICK);
+                        }
+                    } else {
+                        map.setCenter({ lat: 20, lng: 0 });
+                        map.setZoom(MIN_ZOOM);
+                    }
                 });
             }
 
-            // Global initMap for Google callback – make robust vs missing renderer/markerClusterer
             window.initMap = function initMap() {
                 try {
-                    if (!window.google || !google.maps) { console.warn('Google Maps not available at initMap time.'); return; }
+                    if (!window.google || !google.maps) {
+                        console.error('Google Maps API not loaded');
+                        setTimeout(function() { window.loadNextBatch(); }, 1000);
+                        return;
+                    }
+
                     geocoder = new google.maps.Geocoder();
                     map = new google.maps.Map(mapEl, {
                         center: { lat: 20, lng: 0 },
@@ -517,40 +977,69 @@
                         streetViewControl: false,
                         fullscreenControl: true,
                         clickableIcons: false,
-                        gestureHandling: 'greedy'
+                        gestureHandling: IS_AUTHENTICATED ? 'greedy' : 'none'
                     });
-                    // Use the global renderer (we ensured window.clustererRenderer above)
-                    try {
-                        if (window.markerClusterer && typeof markerClusterer.MarkerClusterer === 'function') {
-                            // will create clusterer when adding markers
-                        } else {
-                            // markerClusterer library may not be present; that's okay
+
+                    google.maps.event.addListenerOnce(map, 'tilesloaded', function() {
+                        mapInitialized = true;
+                        console.log('Map initialized successfully');
+                        if (loadedProfiles.length > 0) {
+                            addMarkersFromLoaded();
                         }
-                    } catch (e) {
-                        console.debug('clusterer availability check failed', e);
-                    }
+                    });
                 } catch (ex) {
                     console.error('initMap error', ex);
                 }
             };
 
-            function debounce(fn, wait) { let t; return function (...args) { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), wait); }; }
-            function onScroll() { if (isLoading) return; const el = cardsScroll; if (!el) return; const remaining = el.scrollHeight - el.scrollTop - el.clientHeight; if (remaining <= SCROLL_THRESHOLD_PX) window.loadNextBatch(); }
+            function debounce(fn, wait) {
+                let t;
+                return function () {
+                    const args = arguments;
+                    clearTimeout(t);
+                    t = setTimeout(function() { fn.apply(this, args); }, wait);
+                };
+            }
 
-            const debouncedReset = debounce(() => { loadedCount = 0; totalCount = 0; loadedProfiles = []; clearCards(); clearMarkers(); window.loadNextBatch(); }, DEBOUNCE_MS);
+            function onScroll() {
+                if (!IS_AUTHENTICATED) return;
+                if (isLoading) return;
+                const el = cardsScroll;
+                if (!el) return;
+                const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
+                if (remaining <= SCROLL_THRESHOLD_PX) window.loadNextBatch();
+            }
 
-            document.getElementById('btnReload').addEventListener('click', function () {
-                const countryText = document.getElementById('filter_country').selectedOptions[0]?.text || '';
-                if (countryText && countryText !== '(Todos)') centerMapOnCountry(countryText);
-                loadedCount = 0; totalCount = 0; loadedProfiles = []; clearCards(); clearMarkers(); window.loadNextBatch();
-            });
+            const debouncedReset = debounce(function() {
+                if (!IS_AUTHENTICATED) return;
+                loadedCount = 0;
+                totalCount = 0;
+                loadedProfiles = [];
+                clearCards();
+                clearMarkers();
+                window.loadNextBatch();
+            }, DEBOUNCE_MS);
 
-            ['filter_country','filter_condition','filter_years'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('change', debouncedReset); });
+            if (IS_AUTHENTICATED) {
+                document.getElementById('btnReload').addEventListener('click', function () {
+                    const countryText = document.getElementById('filter_country').selectedOptions[0] ? document.getElementById('filter_country').selectedOptions[0].text : '';
+                    if (countryText && countryText !== '(Todos)') centerMapOnCountry(countryText);
+                    loadedCount = 0;
+                    totalCount = 0;
+                    loadedProfiles = [];
+                    clearCards();
+                    clearMarkers();
+                    window.loadNextBatch();
+                });
+
+                ['filter_country','filter_condition','filter_years'].forEach(function(id) {
+                    const el = document.getElementById(id);
+                    if (el) el.addEventListener('change', debouncedReset);
+                });
+            }
+
             cardsScroll.addEventListener('scroll', onScroll);
 
-            // Start: if Google already loaded, initMap will be called via callback; ensure we still fetch profiles
-            try { if (USER_COUNTRY) { /* center attempt will occur when map ready */ } } catch {}
-            // Always load first batch of profiles (so left column shows even if map fails)
             window.loadNextBatch();
         })();
     </script>
