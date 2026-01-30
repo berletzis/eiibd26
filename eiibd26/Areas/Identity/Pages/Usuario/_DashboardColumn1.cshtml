@@ -13,6 +13,7 @@
         box-shadow: 0 2px 14px rgba(0,0,0,0.06);
         margin-bottom: 1rem;
         box-sizing: border-box;
+        font-weight: 400;
     }
 
     .dashboard-col1-header {
@@ -23,9 +24,14 @@
     }
 
     .dashboard-col1-title {
-        font-size: 1.15rem;
-        font-weight: 600;
+        font-size: 1.1rem;
+        font-weight: 400;
         margin: 0;
+        color: #172849;
+    }
+
+    .small-muted {
+        font-weight: 400;
     }
 
     .chart-wrapper {
@@ -57,7 +63,7 @@
         display: flex;
         align-items: center;
         gap: 8px;
-        font-weight: 500;
+        font-weight: 400;
         color: #333;
     }
 
@@ -71,20 +77,22 @@
         padding: 3px;
     }
 
+    /* Solo cambio de color y peso, sin tocar el comportamiento del botón */
     .btn-add-mood {
-        background: #2563eb;
+        background: #764ba2;
         color: #fff;
         border: none;
         padding: 8px 12px;
         border-radius: 8px;
         cursor: pointer;
+        font-weight: 400;
     }
 
     .no-chart-msg {
         padding: 30px 10px;
         text-align: center;
         color: #6b7280;
-        font-weight: 500;
+        font-weight: 400;
     }
 
     .mood-toast {
@@ -127,7 +135,8 @@
             <div class="dashboard-col1-title">Mi Estado de Ánimo (Últimos 7 días)</div>
             <div class="small-muted" style="font-size:.9rem;">Se muestran registros reales (varios por día permitidos).</div>
         </div>
-        <button id="col1OpenMoodBtn" class="btn-add-mood" type="button">Agregar</button>
+        <button id="col1OpenMoodBtn" class="crm-btn crm-btn-primary btn-lg"  type="button">+<i class="bi bi-emoji-wink"></i></button>
+        
     </div>
 
     <div class="chart-wrapper" id="col1ChartWrapper">
@@ -190,8 +199,9 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button id="col1MoodSubmit" type="submit" class="btn btn-primary">Guardar</button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    @* <button id="col1MoodSubmit" type="submit" class="btn btn-primary">Guardar</button> *@
+                    <button id="col1MoodSubmit" type="submit" class="se-btn se-btn-primary" style="font-size:28px; border-radius:50%;"><i class="bi bi-check"></i></button>
+                    @* <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button> *@
                 </div>
             </form>
         </div>
@@ -242,10 +252,9 @@
         return { startMs, endMs };
       }
 
-      // New: get window for 'anteayer + ayer + hoy' (3 days)
       function getLast3Window() {
         const today = new Date();
-        const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 2); // anteayer 00:00
+        const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 2);
         const startMs = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
         const endMs = startMs + 3 * DAY_MS - 1;
         return { startMs, endMs };
@@ -280,7 +289,6 @@
         return { labels, data, bg, raws: normalizedList };
       }
 
-      // Filter normalized list for mobile: keep only last 3 days
       function filterForMobile(normalizedList) {
         const w3 = getLast3Window();
         return normalizedList.filter(n => n.ts >= w3.startMs && n.ts <= w3.endMs);
@@ -360,7 +368,6 @@
         const ctx = canvas.getContext('2d');
         if (chartInstance) try { chartInstance.destroy(); } catch(e) {}
 
-        // dataset visual tweaks for mobile
         const pointRadius = isMobile ? 8 : 12;
         const pointHoverRadius = isMobile ? 12 : 16;
         const borderWidth = isMobile ? 1.5 : 2;
@@ -393,23 +400,18 @@
           options: options
         });
 
-        // Ensure canvas uses CSS width and Chart recalculates - solves cases where canvas
-        // had fixed width attribute or was initialised inside layout with transforms
         try {
-          // remove width attribute so CSS width applies
           if (canvas.hasAttribute('width')) canvas.removeAttribute('width');
           canvas.style.width = '100%';
           canvas.style.height = '100%';
-        } catch (e) { /* ignore */ }
+        } catch (e) {}
 
-        // Force a resize after a tick to ensure Chart reads container size
         setTimeout(function () {
-          try { chartInstance.resize(); } catch (e) { /* ignore */ }
+          try { chartInstance.resize(); } catch (e) {}
         }, 50);
 
-        // Extra safety: another tick later
         setTimeout(function () {
-          try { chartInstance.resize(); } catch (e) { /* ignore */ }
+          try { chartInstance.resize(); } catch (e) {}
         }, 300);
       }
 
@@ -420,10 +422,8 @@
           const json = await res.json();
           const normalized = normalize(json);
 
-          // Decide mobile or not
           const isMobile = (Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0) <= 767.98);
 
-          // If mobile, show only last 3 days
           const toUse = isMobile ? filterForMobile(normalized) : normalized;
 
           const arr = buildLabelsAndData(toUse);
@@ -431,10 +431,8 @@
         } catch (e) { console.error("loadAndRenderHistorico error", e); }
       }
 
-      // initial render
       loadAndRenderHistorico();
 
-      // Re-render on resize (debounced) so chart adapts when rotating or resizing viewport
       (function setupResize() {
         let timer = null;
         window.addEventListener('resize', function () {
@@ -445,7 +443,6 @@
         });
       })();
 
-      // Open modal button
       (function attachOpenButton(){
         const btn = document.getElementById('col1OpenMoodBtn');
         if (!btn) return;
@@ -456,7 +453,6 @@
         });
       })();
 
-      // mood option buttons
       (function attachMoodOptionBtns(){
         const container = document.getElementById('col1MoodOptions');
         if (!container) return;
@@ -469,12 +465,10 @@
         });
       })();
 
-      // listen for mood added globally to refresh
       window.addEventListener('mood:added', function(e){
         loadAndRenderHistorico();
       });
 
-      // form submit (create new mood)
       (function attachFormSubmit(){
         const form = document.getElementById("col1MoodForm");
         if (!form) return;
@@ -516,5 +510,5 @@
         });
       })();
 
-    }); // end ensureChart
+    });
 </script>

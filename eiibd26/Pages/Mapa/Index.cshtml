@@ -14,6 +14,71 @@
             overflow-x: hidden;
         }
 
+        /* ====== ESTILOS DEL HEADER (TÍTULO + CARD BUSCADOR) ====== */
+        .conte-page {
+            padding-top: 16px;
+            padding-bottom: 24px;
+        }
+
+        .se-page-title {
+            font-size: 2.1rem;
+            font-weight: 250;
+            letter-spacing: -0.06em;
+            color: #172849;
+            padding-bottom: 20px;
+        }
+
+        .se-header {
+            background: #fff;
+            border: 1px solid #eef2f7;
+            border-radius: 8px;
+            padding: 18px;
+            box-sizing: border-box;
+            margin-bottom: 12px;
+        }
+
+        .se-search-label {
+            margin: 4px 0 0px 0;
+            font-weight: 100;
+            font-size: .9rem;
+            padding-bottom: 15px;
+        }
+
+        .se-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 12px;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            color: inherit;
+        }
+
+            .se-btn.se-btn-primary {
+                background: #fff;
+                color: #6a4e7a;
+                border: 2px solid #e3e6e8;
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                padding: 0;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: none;
+                transition: background .12s ease, border-color .12s ease, color .12s ease;
+                line-height: 0;
+            }
+
+                .se-btn.se-btn-primary:hover {
+                    background: #ecd9f7;
+                    border-color: #6a4e7a;
+                    color: #6a4e7a;
+                }
+
+        /* ========================================================= */
+
         .mapa-root {
             width: 100%;
             margin: 0;
@@ -32,9 +97,19 @@
         }
 
         .results-count {
-            margin: 6px 0 12px;
+            margin: 6px 0 0;
             color: #374151;
             font-size: .95rem;
+        }
+
+        .mapa-results-row {
+            margin-top: 4px;
+        }
+
+        /* Mantener mapa a ancho completo, solo el header va centrado */
+        .mapa-main-wrap {
+            margin-left: -18px;
+            margin-right: -18px;
         }
 
         .mapa-split {
@@ -43,6 +118,7 @@
             align-items: stretch;
             height: calc(100vh - 160px);
             box-sizing: border-box;
+            padding: 0 18px 12px 18px;
         }
 
         .mapa-left {
@@ -76,13 +152,6 @@
             width: 100%;
             height: 100%;
             min-height: 70vh;
-        }
-
-        .section-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #172849;
         }
 
         .cards-grid {
@@ -249,9 +318,7 @@
             z-index: 2000;
         }
 
-        /* ============================================ */
         /* PREVIEW PARA USUARIOS NO AUTENTICADOS */
-        /* ============================================ */
         .mapa-preview-blur {
             filter: blur(4px);
             pointer-events: none;
@@ -451,120 +518,93 @@
                 font-size: 1.1rem;
                 flex-shrink: 0;
             }
-
-        @@media (max-width: 640px) {
-            .mapa-auth-modal {
-                padding: 1.5rem 1.25rem;
-                max-width: 95%;
-            }
-
-            .mapa-auth-title {
-                font-size: 1.25rem;
-                margin-bottom: 0.5rem;
-            }
-
-            .mapa-auth-description {
-                font-size: 0.875rem;
-                margin-bottom: 1.25rem;
-                line-height: 1.4;
-            }
-
-            .mapa-auth-benefits {
-                gap: 0.5rem;
-                padding-top: 1rem;
-                margin-bottom: 1rem;
-            }
-
-            .mapa-auth-benefit {
-                font-size: 0.85rem;
-                gap: 0.5rem;
-                line-height: 1.3;
-            }
-
-                .mapa-auth-benefit i {
-                    font-size: 1rem;
-                }
-
-            .btn-auth-primary,
-            .btn-auth-secondary,
-            .btn-auth-back {
-                padding: 0.75rem 1rem;
-                font-size: 0.9rem;
-            }
-
-            .mapa-auth-actions {
-                gap: 0.65rem;
-                margin-bottom: 1rem;
-            }
-        }
     </style>
 }
 
-<main class="mapa-root">
-    <div class="section-title">Mapa — Comunidad avanzada</div>
+<main class="mapa-root conte-page">
+    <div class="container py-4">
+                <h1 class="se-page-title">Buscador</h1>
 
-    <div class="mapa-controls" role="region" aria-label="Controles del mapa">
-        <div>
-            <label class="form-label mb-0">País</label>
-            <select id="filter_country" class="form-select form-select-sm" style="min-width:200px;" @(!estaAutenticado ? "disabled" : "")>
-                <option value="">(Todos)</option>
-                @foreach (var c in Model.Countries)
-                {
-                    <option value="@c.Code" data-name="@c.Name">@c.Name (@c.Code)</option>
-                }
-            </select>
+        <div class="se-header" role="region" aria-label="Buscador del mapa">
+            <label for="cpMapaBuscar" class="se-search-label">
+                Utiliza los filtros para encontrar Usuarios/Pacientes con tu misma condición en la ubicación 
+            </label>
+            <div class="mapa-controls" role="region" aria-label="Controles del mapa">
+                <div>
+                    <label class="form-label mb-0">País</label>
+                    <select id="filter_country" class="form-select form-select-sm" style="min-width:200px;" @(!estaAutenticado ? "disabled" : "")>
+                        <option value="">(Todos)</option>
+                        @foreach (var c in Model.Countries)
+                        {
+                            <option value="@c.Code" data-name="@c.Name">@c.Name (@c.Code)</option>
+                        }
+                    </select>
+                </div>
+
+                <div>
+                    <label class="form-label mb-0">Condición</label>
+                    <select id="filter_condition" class="form-select form-select-sm" style="min-width:220px;" @(!estaAutenticado ? "disabled" : "")>
+                        <option value="">(Todas)</option>
+                        @foreach (var cond in Model.Conditions)
+                        {
+                            <option value="@cond.id">@cond.nombre</option>
+                        }
+                    </select>
+                </div>
+
+                <div>
+                    <label class="form-label mb-0">Años desde diagnóstico</label>
+                    <select id="filter_years" class="form-select form-select-sm" style="min-width:160px;" @(!estaAutenticado ? "disabled" : "")>
+                        <option value="">(Cualquiera)</option>
+                        <option value="0-1">0–1 años (incluye sin fecha)</option>
+                        <option value="1-3">1–3 años</option>
+                        <option value="3-5">3–5 años</option>
+                        <option value="5-10">5–10 años</option>
+                        <option value="10+">10+ años</option>
+                    </select>
+                </div>
+
+                <div>
+                    
+                    <button id="btnReload" class="se-btn se-btn-primary"
+                            style="margin-top:20px;" @(!estaAutenticado ? "disabled" : "")>
+                        <i class="bi bi-search" style="font-size:1.05rem;"></i>
+                    </button>
+
+
+                </div>
+            </div>
+
+            <div class="mapa-results-row">
+                <div id="resultsCount" class="results-count">Cargando…</div>
+            </div>
         </div>
-
-        <div>
-            <label class="form-label mb-0">Condición</label>
-            <select id="filter_condition" class="form-select form-select-sm" style="min-width:220px;" @(!estaAutenticado ? "disabled" : "")>
-                <option value="">(Todas)</option>
-                @foreach (var cond in Model.Conditions)
-                {
-                    <option value="@cond.id">@cond.nombre</option>
-                }
-            </select>
-        </div>
-
-        <div>
-            <label class="form-label mb-0">Años desde diagnóstico</label>
-            <select id="filter_years" class="form-select form-select-sm" style="min-width:160px;" @(!estaAutenticado ? "disabled" : "")>
-                <option value="">(Cualquiera)</option>
-                <option value="0-1">0–1 años (incluye sin fecha)</option>
-                <option value="1-3">1–3 años</option>
-                <option value="3-5">3–5 años</option>
-                <option value="5-10">5–10 años</option>
-                <option value="10+">10+ años</option>
-            </select>
-        </div>
-
-        <div><button id="btnReload" class="btn btn-primary btn-sm" style="margin-top:20px;" @(!estaAutenticado ? "disabled" : "")>Aplicar filtros</button></div>
     </div>
 
-    <div id="resultsCount" class="results-count">Cargando…</div>
-
-    <div class="mapa-split" role="main">
-        <aside class="mapa-left" aria-label="Listado de usuarios filtrados">
-            @if (!estaAutenticado)
-            {
-                <div class="mapa-content-overlay"></div>
-            }
-            <div class="cards-scroll @(!estaAutenticado ? "mapa-preview-blur" : "")" id="cardsScroll">
-                <div id="cardsContainer"></div>
-                <div id="loader" class="loading-indicator" style="display:none;">Cargando más…</div>
-            </div>
-        </aside>
-
-        <div class="mapa-right">
-            @if (!estaAutenticado)
-            {
-                <div class="mapa-map-overlay">
-                    <div class="mapa-map-overlay-text">
-                        <i class="bi bi-lock-fill"></i> Mapa bloqueado
-                    </div>
+    <div class="mapa-main-wrap">
+        <div class="mapa-split" role="main">
+            <aside class="mapa-left" aria-label="Listado de usuarios filtrados">
+                @if (!estaAutenticado)
+                {
+                    <div class="mapa-content-overlay"></div>
+                }
+                <div class="cards-scroll @(!estaAutenticado ? "mapa-preview-blur" : "")" id="cardsScroll">
+                    <div id="cardsContainer"></div>
+                    <div id="loader" class="loading-indicator" style="display:none;">Cargando más…</div>
                 </div>
-            }
-            <div id="mapCanvas" role="application" aria-label="Mapa de usuarios"></div>
+            </aside>
+
+            <div class="mapa-right">
+                @if (!estaAutenticado)
+                {
+                    <div class="mapa-map-overlay">
+                        <div class="mapa-map-overlay-text">
+                            <i class="bi bi-lock-fill"></i> Mapa bloqueado
+                        </div>
+                    </div>
+                }
+                <div id="mapCanvas" role="application" aria-label="Mapa de usuarios"></div>
+            </div>
         </div>
     </div>
 </main>
@@ -622,10 +662,39 @@
 </div>
 
 @section Scripts {
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBUUBxDv3VvzMmdR_pf9aFOd7frbTeUWXk&callback=initMap"></script>
     @Html.Raw("<script src=\"https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js\"></script>")
 
     <script>
+        // NO usamos callback=initMap en la URL.
+        // Cargamos Google Maps dinámicamente y llamamos initMap desde onload.
+        function loadGoogleMaps() {
+            if (window.google && window.google.maps) {
+                // Ya cargado (por hot reload, navegación, etc.)
+                if (typeof window.initMap === 'function') {
+                    window.initMap();
+                }
+                return;
+            }
+
+            const existing = document.querySelector('script[data-gmaps=\"1\"]');
+            if (existing) return; // ya en proceso de carga
+
+            const script = document.createElement('script');
+            script.src = "https://maps.googleapis.com/maps/api/js?key=AIzaSyBUUBxDv3VvzMmdR_pf9aFOd7frbTeUWXk";
+            script.async = true;
+            script.defer = true;
+            script.dataset.gmaps = "1";
+            script.onload = function () {
+                if (typeof window.initMap === 'function') {
+                    window.initMap();
+                }
+            };
+            script.onerror = function () {
+                console.error('No se pudo cargar Google Maps JS API.');
+            };
+            document.head.appendChild(script);
+        }
+
         (function () {
             const IS_AUTHENTICATED = @Html.Raw(estaAutenticado ? "true" : "false");
             const PAGE_SIZE = IS_AUTHENTICATED ? 48 : 8;
@@ -927,6 +996,7 @@
 
                     if (mapInitialized) {
                         addMarkersFromLoaded();
+                        try { google.maps.event.trigger(map, 'resize'); } catch {}
                     }
                 } catch (e) {
                     console.error('Error loading batch', e);
@@ -959,11 +1029,11 @@
                 });
             }
 
+            // initMap real, llamado desde loadGoogleMaps().onload
             window.initMap = function initMap() {
                 try {
                     if (!window.google || !google.maps) {
                         console.error('Google Maps API not loaded');
-                        setTimeout(function() { window.loadNextBatch(); }, 1000);
                         return;
                     }
 
@@ -982,7 +1052,7 @@
 
                     google.maps.event.addListenerOnce(map, 'tilesloaded', function() {
                         mapInitialized = true;
-                        console.log('Map initialized successfully');
+                        try { google.maps.event.trigger(map, 'resize'); } catch {}
                         if (loadedProfiles.length > 0) {
                             addMarkersFromLoaded();
                         }
@@ -1022,7 +1092,9 @@
 
             if (IS_AUTHENTICATED) {
                 document.getElementById('btnReload').addEventListener('click', function () {
-                    const countryText = document.getElementById('filter_country').selectedOptions[0] ? document.getElementById('filter_country').selectedOptions[0].text : '';
+                    const select = document.getElementById('filter_country');
+                    const selectedOption = select && select.selectedOptions && select.selectedOptions.length ? select.selectedOptions[0] : null;
+                    const countryText = selectedOption ? selectedOption.text : '';
                     if (countryText && countryText !== '(Todos)') centerMapOnCountry(countryText);
                     loadedCount = 0;
                     totalCount = 0;
@@ -1040,7 +1112,9 @@
 
             cardsScroll.addEventListener('scroll', onScroll);
 
+            // cargar datos y luego Google Maps
             window.loadNextBatch();
+            loadGoogleMaps();
         })();
     </script>
 }

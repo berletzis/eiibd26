@@ -19,6 +19,13 @@
         .ThenBy(c => c.Nombre)
         .ToListAsync();
 
+    var categorias3 = await _db.ContenidosCategorias
+            .AsNoTracking()
+            .Where(c => !c.Borrado && c.Relevante == true && (c.Sequence == 3 || c.CategoriaPadre == 3))
+            .OrderBy(c => c.Orden)
+            .ThenBy(c => c.Nombre)
+            .ToListAsync();
+
     // Procesar categorías 12
     var cat12Parent = categorias12?.FirstOrDefault(c => c.Sequence == 12);
     var cat12Children = categorias12?.Where(c => c.CategoriaPadre == 12).ToList();
@@ -34,6 +41,14 @@
         ? cat47Parent.CategoriaSlug
         : "47";
     var cat47Name = cat47Parent?.Nombre ?? "Recursos";
+
+    // Procesar categorías 3
+    var cat3Parent = categorias3?.FirstOrDefault(c => c.Sequence == 3);
+    var cat3Children = categorias3?.Where(c => c.CategoriaPadre == 3).ToList();
+    var cat3Slug = !string.IsNullOrWhiteSpace(cat3Parent?.CategoriaSlug)
+        ? cat3Parent.CategoriaSlug
+        : "3";
+    var cat3Name = cat3Parent?.Nombre ?? "Legales";
 }
 
 <footer class="site-footer bg-white border-top" role="contentinfo" aria-label="Pie de página">
@@ -90,6 +105,27 @@
                     {
                         <ul class="list-unstyled footer-list d-none d-md-block">
                             @foreach (var c in cat12Children)
+                            {
+                                var childSlug = !string.IsNullOrWhiteSpace(c.CategoriaSlug)
+                                ? c.CategoriaSlug
+                                : c.Sequence.ToString();
+                                <li><a href="/@childSlug" class="footer-link">@c.Nombre</a></li>
+                            }
+                        </ul>
+                    }
+                </div>
+
+                <!-- Column 3: Categorías 3 (dynamic from DB) -->
+                <div class="col-12 col-md-3">
+                    <h6 class="footer-heading mb-2">
+                        <a href="/@cat3Slug" class="footer-heading-link">@cat3Name</a>
+                    </h6>
+
+                    <!-- list hidden on mobile -->
+                    @if (cat3Children != null && cat3Children.Any())
+                    {
+                        <ul class="list-unstyled footer-list d-none d-md-block">
+                            @foreach (var c in cat3Children)
                             {
                                 var childSlug = !string.IsNullOrWhiteSpace(c.CategoriaSlug)
                                 ? c.CategoriaSlug

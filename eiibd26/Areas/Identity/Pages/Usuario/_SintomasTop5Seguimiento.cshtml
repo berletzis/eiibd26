@@ -25,15 +25,15 @@
 }
 
 <style>
-    /* ---------- Base ---------- */
     .sintomas-top5 {
         padding: 0.6rem;
+        font-weight: 400;
     }
 
         .sintomas-top5 .crm-table-title,
         .sintomas-top5 .dashboard-col1-title {
-            font-weight: 600;
-            color: #315686;
+            font-weight: 400;
+            color: #172849;
             margin-bottom: .4rem;
         }
 
@@ -41,9 +41,9 @@
             font-size: .9rem;
             color: #6b7280;
             margin-bottom: .5rem;
+            font-weight: 400;
         }
 
-        /* Circle indicator */
         .sintomas-top5 .crm-circle {
             display: inline-block;
             border-radius: 50%;
@@ -55,11 +55,11 @@
             cursor: pointer;
         }
 
-        /* Buttons */
         .sintomas-top5 .btn-agregar {
             border-radius: 9px;
             padding: 4px 8px;
             font-size: .95rem;
+            font-weight: 400;
         }
 
             .sintomas-top5 .btn-agregar i {
@@ -67,17 +67,18 @@
                 line-height: 1;
             }
 
-        /* Condiciones wrap (desktop) */
+        /* Condición más pequeña, texto un poco más chico */
         .sintomas-top5 .wrap-condiciones {
-            max-width: 220px;
+            max-width: 160px;
             white-space: normal;
             word-break: break-word;
             color: #6b7280;
+            font-size: .85rem;
         }
 
-    /* Table base */
     .table-sm td, .table-sm th {
         vertical-align: middle;
+        font-weight: 400;
     }
 
     .table-sm th, .table-sm td {
@@ -88,49 +89,57 @@
         border: none;
     }
 
-    /* IMPORTANT: use auto layout so columns size based on content in desktop */
     .sintomas-top5 .table {
         width: 100%;
-        table-layout: auto; /* allow natural sizing on desktop */
+        table-layout: auto;
     }
 
-    /* Date column - provide sensible min widths so they don't collapse */
-    .sintomas-top5 th.date-col,
-    .sintomas-top5 td.date-col {
-        min-width: 120px;
-        width: 120px;
-        white-space: normal;
-        text-align: center;
-        font-size: .9rem;
-    }
-
-    /* Condición column width on desktop */
-    .sintomas-top5 th.cond-col,
-    .sintomas-top5 td.cond-col {
+    /* Síntoma: más ancho, fuente como la leyenda */
+    .sintomas-top5 th.sintoma-col,
+    .sintomas-top5 td.sintoma-col {
         min-width: 220px;
         max-width: 360px;
+        font-size: .9rem; /* igual que la leyenda "Ordenados..." */
+        color: #111827;
         white-space: normal;
+        word-break: break-word;
     }
 
-    /* Small modal tweak */
+    /* Ayer / Hoy algo más angostas */
+    .sintomas-top5 th.date-col,
+    .sintomas-top5 td.date-col {
+        min-width: 80px;
+        width: 90px;
+        white-space: nowrap;
+        text-align: center;
+        font-size: .85rem;
+    }
+
+    .sintomas-top5 th.cond-col,
+    .sintomas-top5 td.cond-col {
+        min-width: 120px;
+        max-width: 160px;
+        white-space: normal;
+        font-size: .85rem;
+    }
+
     .crm-modal-content {
         overflow: visible;
     }
 
-    /* ---------- MOBILE: hide "Ayer" and "Condición(s)" columns, keep only HOY ---------- */
     @@media (max-width: 576px) {
         .sintomas-top5 {
             padding-left: .4rem;
             padding-right: .4rem;
         }
-            /* Hide Ayer (2) and Condición(s) (4) */
+            /* En móvil ocultamos Ayer y Condición; sólo se ve Síntoma + Hoy */
             .sintomas-top5 thead th:nth-child(2),
             .sintomas-top5 tbody td:nth-child(2),
             .sintomas-top5 thead th:nth-child(4),
             .sintomas-top5 tbody td:nth-child(4) {
                 display: none !important;
             }
-            /* Allow table to reflow better on small screens */
+
             .sintomas-top5 .table {
                 table-layout: auto;
             }
@@ -139,14 +148,14 @@
                 padding: .45rem .35rem;
                 font-size: .95rem;
             }
-                /* Make today's column slightly narrower and readable */
+
                 .sintomas-top5 th.date-col,
                 .sintomas-top5 td.date-col {
                     min-width: 70px;
                     width: 70px;
                     font-size: .92rem;
                 }
-            /* Slightly smaller circles and buttons */
+
             .sintomas-top5 .crm-circle {
                 width: 14px;
                 height: 14px;
@@ -157,21 +166,19 @@
                 padding: 3px 6px;
                 font-size: .88rem;
             }
-            /* Ensure the "Síntoma" column text wraps in mobile */
-            .sintomas-top5 td:first-child,
-            .sintomas-top5 th:first-child {
+
+            .sintomas-top5 td.sintoma-col,
+            .sintomas-top5 th.sintoma-col {
                 white-space: normal;
                 overflow-wrap: anywhere;
             }
-            /* Avoid forcing horizontal scroll; allow smooth touch scroll if needed */
+
             .sintomas-top5 .table-responsive {
                 overflow-x: auto;
                 -webkit-overflow-scrolling: touch;
             }
     }
 
-    /* ---------- Accessibility & header tweaks ---------- */
-    /* keep small/weekday text on its own line */
     .sintomas-top5 th .small {
         display: block;
         margin-top: 2px;
@@ -188,18 +195,18 @@
         <table class="table table-sm table-borderless align-middle">
             <thead>
                 <tr>
-                    <th class="text-start">Síntoma</th>
+                    <th class="text-start sintoma-col">Síntoma</th>
                     <th class="text-center date-col">
                         @ayer.ToString("dd/MM")
                         <small class="text-muted">@ayer.ToString("ddd")</small>
-                        <div class="small fw-bold text-warning">AYER</div>
+                        <div class="small text-warning">AYER</div>
                     </th>
                     <th class="text-center date-col">
                         @hoy.ToString("dd/MM")
                         <small class="text-muted">@hoy.ToString("ddd")</small>
-                        <div class="small fw-bold text-warning">HOY</div>
+                        <div class="small text-warning">HOY</div>
                     </th>
-                    <th class="text-start cond-col">Condición(s)</th>
+                    <th class="text-start cond-col">Condición</th>
                 </tr>
             </thead>
             <tbody>
@@ -222,7 +229,7 @@
                         var condiciones = s.Condiciones ?? new List<string>();
 
                         <tr>
-                            <td class="fw-semibold text-start">@s.Nombre</td>
+                            <td class="text-start sintoma-col">@s.Nombre</td>
 
                             <td class="text-center date-col" data-sintid="@sintId" data-dia="@keyAyer" data-nombre="@s.Nombre">
                                 @if (!string.IsNullOrEmpty(seguimientoAyer))
@@ -271,7 +278,7 @@
                                 }
                                 else
                                 {
-                                    <span class="text-muted small">Sin condición relacionada</span>
+                                    <span class="text-muted small">Sin Condición</span>
                                 }
                             </td>
                         </tr>
@@ -282,7 +289,7 @@
     </div>
 </div>
 
-<!-- Modal -->
+<!-- Modal necesario para el JS existente -->
 <div class="modal fade" id="modalTrackingPartial" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content crm-modal-content">
@@ -372,7 +379,9 @@
                 handleOptionSelected(estado);
             };
 
-            var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTrackingPartial'));
+            var modalEl = document.getElementById('modalTrackingPartial');
+            if (!modalEl || typeof bootstrap === 'undefined') return;
+            var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
             modal.show();
         }
 
@@ -386,7 +395,6 @@
             const fechaTrack = document.getElementById('fechaTrackingPartial').value;
             const nombreSintoma = document.getElementById('nombreSintomaTrackingPartial').value;
 
-            // Optimistic update
             const cells = findCellsFor(sintomaUsuarioId, fechaTrack);
             const prevHTML = cells.map(c => c.innerHTML);
             const badgeHtml = `<span class="crm-circle" style="background:${colorFor(estado)}" alt="${estado}" title="${estado}"></span>`;
@@ -396,7 +404,10 @@
                 c.onclick = function () { openModal(sintomaUsuarioId, fechaTrack, nombreSintoma, estado); };
             });
 
-            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTrackingPartial')).hide();
+            var modalEl = document.getElementById('modalTrackingPartial');
+            if (modalEl && typeof bootstrap !== 'undefined') {
+                bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+            }
 
             const fd = new FormData();
             fd.append('sintomaUsuarioId', sintomaUsuarioId);
@@ -415,7 +426,6 @@
                 });
 
                 if (!resp.ok) {
-                    // revert
                     cells.forEach((c,i) => c.innerHTML = prevHTML[i] || '');
                     const errorEl = document.getElementById('errorTrackingPartial');
                     let text = '';
@@ -426,7 +436,6 @@
                     return;
                 }
 
-                // If server returns JSON with estado, use it to ensure consistency
                 let json = null;
                 try { json = await resp.json().catch(()=>null); } catch(e) { json = null; }
                 if (json && json.estado) {
@@ -438,7 +447,6 @@
                     });
                 }
             } catch (err) {
-                // revert and show error
                 cells.forEach((c,i) => c.innerHTML = prevHTML[i] || '');
                 console.error('Network error saving seguimiento', err);
                 const errorEl = document.getElementById('errorTrackingPartial');
@@ -448,7 +456,6 @@
             }
         }
 
-        // Delegated click handling
         if (root) {
             root.addEventListener('click', function (ev) {
                 const target = ev.target;

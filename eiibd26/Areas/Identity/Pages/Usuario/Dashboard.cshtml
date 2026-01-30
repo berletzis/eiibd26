@@ -6,8 +6,31 @@
     Layout = "_Layout";
 }
 
-
 <style>
+    /* Estilos tomados y ajustados (sin negritas) para título y card principal */
+    .conte-page {
+        padding-top: 16px;
+        padding-bottom: 24px;
+    }
+
+    .se-page-title {
+        font-size: 2.1rem;
+        font-weight: 300;
+        letter-spacing: -0.06em;
+        color: #172849;
+        padding-bottom: 20px;
+    }
+
+    .se-header {
+        /* background: #fff;
+        border: 1px solid #eef2f7; */
+        /* border-radius: 8px;
+        padding: 18px;
+        box-sizing: border-box;
+        margin-bottom: 12px;
+        font-weight: 400; */
+    }
+
     .dashboard-grid {
         display: grid;
         grid-template-columns: 1fr;
@@ -21,35 +44,35 @@
     }
 </style>
 
-<h1>Mi Dashboard</h1>
+<main class="conte-page">
+    <div class="container py-4">
+        <!-- Título centrado -->
+        <h1 class="se-page-title">Mi Panel de Control</h1>
 
-@* Notifications card (full-width row) *@
-@await Html.PartialAsync("_DashboardNotifications", Model.VM)
+        <!-- Card de notificaciones centrado -->
+        <div class="se-header">
+            @await Html.PartialAsync("_DashboardNotifications", Model.VM)
+        </div>
 
-<div class="dashboard-grid">
-    <div>
-        @* Columna 1: partial con la gráfica estilo solicitado. Pasa el VM cargado en el PageModel *@
-         @await Html.PartialAsync("_DashboardColumn1", Model.VM) 
-    </div>
+        <div class="dashboard-grid">
+            <div>
+                @await Html.PartialAsync("_DashboardColumn1", Model.VM)
+            </div>
 
-    <div>
-        @* Columna 2: placeholder para Mis Síntomas / Mis Preguntas / Mis Respuestas (implementa tus cards aquí) *@
-        <div class="card p-3">
-            @* Incluir aquí el partial que muestra Top 5 síntomas (ayer + hoy) *@
-              @await Html.PartialAsync("_SintomasTop5Seguimiento", Model.VM)  
+            <div>
+                <div class="card p-3">
+                    @await Html.PartialAsync("_SintomasTop5Seguimiento", Model.VM)
+                </div>
+            </div>
+
+            <div>
+                <div class="card p-3">
+                    <div class="dashboard-col1-title">Preguntas y Respuestas</div>
+                    <div class="small-muted" style="font-size:.9rem;">Se muestran registros  en orden con Mayor Votación.</div>
+                    @await Html.PartialAsync("_TopPreguntasUsuario", Model.VM)
+                    @await Html.PartialAsync("_TopRespuestasUsuario", Model.VM)
+                </div>
+            </div>
         </div>
     </div>
-
-    <div>
-        @* Columna 3: Preguntas y respuestas *@
-        <div class="card p-3">
-            <div class="dashboard-col1-title">Preguntas y Respuestas</div>
-            <div class="small-muted" style="font-size:.9rem;">Se muestran registros  en orden con Mayor Votación.</div>
-            @* Top preguntas partial *@
-               @await Html.PartialAsync("_TopPreguntasUsuario", Model.VM)  
-
-            @* Top respuestas partial *@
-              @await Html.PartialAsync("_TopRespuestasUsuario", Model.VM)  
-        </div>
-    </div>
-</div>
+</main>

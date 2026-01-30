@@ -20,6 +20,7 @@ namespace eiibd26.Pages.Shared
         // Lists exposed to the view
         public List<ContenidoCategoria> Categorias12 { get; set; } = new List<ContenidoCategoria>();
         public List<ContenidoCategoria> Categorias47 { get; set; } = new List<ContenidoCategoria>();
+        public List<ContenidoCategoria> Categorias3 { get; set; } = new List<ContenidoCategoria>();
 
         public async Task OnGetAsync()
         {
@@ -39,6 +40,16 @@ namespace eiibd26.Pages.Shared
                 .Where(c => !c.Borrado
                             && c.Relevante == true
                             && (c.Sequence == 47 || c.CategoriaPadre == 47))
+                .OrderBy(c => c.Orden)
+                .ThenBy(c => c.Nombre)
+                .ToListAsync();
+
+
+            Categorias3 = await _db.ContenidosCategorias
+                .AsNoTracking()
+                .Where(c => !c.Borrado
+                            && c.Relevante == true
+                            && (c.Sequence == 3 || c.CategoriaPadre == 3))
                 .OrderBy(c => c.Orden)
                 .ThenBy(c => c.Nombre)
                 .ToListAsync();

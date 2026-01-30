@@ -1,50 +1,94 @@
 ﻿@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Profile";
+    ViewData["Title"] = "Perfil";
     ViewData["ActivePage"] = ManageNavPages.Index;
 }
 
+<style>
+    .manage-page-root {
+        padding-top: 16px;
+        padding-bottom: 24px;
+    }
 
-<div class="crm-container-admin">
-    <div class="profile-wrapper">
-        <div class="profile-card">
-            <div class="card-body">
-                <h2>@ViewData["Title"]</h2>
+        .manage-page-root .manage-title {
+            font-size: 2.1rem;
+            font-weight: 300;
+            letter-spacing: -0.06em;
+            color: #172849;
+            padding-bottom: 20px;
+            margin: 0;
+        }
 
-                <partial name="_StatusMessage" for="StatusMessage" />
-                <div class="card-block-modern">
-                <div class="row">
-                    <div class="col-md-4 manage-nav-col">
-                        <partial name="_ManageNav" />
-                    </div>
+    .manage-card {
+        background: #fff;
+        border-radius: 12px;
+        border: 1px solid #eef2f7;
+        padding: 1.25rem 1.25rem 1.5rem 1.25rem;
+        box-shadow: 0 2px 10px rgba(15,23,42,0.04);
+        font-weight: 400;
+        font-size: .9rem;
+    }
 
-                    <div class="col-md-8">
-                        <form id="profile-form" method="post" novalidate>
-                            <div asp-validation-summary="ModelOnly" class="text-danger mb-3" role="alert"></div>
+    .manage-nav-col {
+        border-right: 1px solid #eef2f7;
+        margin-bottom: 1rem;
+    }
 
-                            <div class="form-floating mb-3">
-                                <input asp-for="Username" class="form-control" placeholder="Please choose your username." disabled />
-                                <label asp-for="Username" class="form-label">Usuario</label>
-                            </div>
+    @@media (max-width: 768px) {
+        .manage-nav-col {
+            border-right: none;
+            border-bottom: 1px solid #eef2f7;
+            margin-bottom: 1rem;
+            padding-bottom: .75rem;
+        }
+    }
 
-                            <div class="form-floating mb-3">
-                                <input asp-for="Input.PhoneNumber" class="form-control" placeholder="Please enter your phone number." />
-                                <label asp-for="Input.PhoneNumber" class="form-label">Teléfono</label>
-                                <span asp-validation-for="Input.PhoneNumber" class="text-danger"></span>
-                            </div>
+    .manage-actions .btn {
+        font-weight: 400;
+        font-size: .9rem;
+    }
+</style>
 
-                                <div class="form-floating mb-3">
-                                    <button id="update-profile-button" type="submit" class="w-100 btn btn-lg btn-primary">Guardar</button>
-                            </div>
-                        </form>
-                    </div>
+<div class="manage-page-root">
+    <div class="container py-4">
+        <h1 class="manage-title">@ViewData["Title"]</h1>
+
+        <div class="manage-card">
+            <partial name="_StatusMessage" for="StatusMessage" />
+
+            <div class="row mt-2">
+                <div class="col-md-4 manage-nav-col">
+                    <partial name="_ManageNav" />
                 </div>
+
+                <div class="col-md-8">
+                    <form id="profile-form" method="post" novalidate class="manage-actions">
+                        <div asp-validation-summary="ModelOnly" class="text-danger mb-3" role="alert"></div>
+
+                        <div class="form-floating mb-3">
+                            <input asp-for="Username" class="form-control" placeholder="Usuario" disabled />
+                            <label asp-for="Username" class="form-label">Usuario</label>
+                        </div>
+
+                        <div class="form-floating mb-3">
+                            <input asp-for="Input.PhoneNumber" class="form-control" placeholder="Teléfono" />
+                            <label asp-for="Input.PhoneNumber" class="form-label">Teléfono</label>
+                            <span asp-validation-for="Input.PhoneNumber" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-2">
+                            <button id="update-profile-button" type="submit" class="btn btn-primary w-100">
+                                Guardar
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
 }

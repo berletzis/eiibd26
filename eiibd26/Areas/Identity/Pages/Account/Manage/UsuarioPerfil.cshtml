@@ -10,180 +10,326 @@
     <link rel="stylesheet" href="~/css/perfil.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.min.css">
     <style>
-        /* Pequeño ajuste para textarea con floating label para que se vea mejor */
+        .manage-page-root {
+            padding-top: 16px;
+            padding-bottom: 24px;
+        }
+
+            .manage-page-root .manage-title {
+                font-size: 2.1rem;
+                font-weight: 300;
+                letter-spacing: -0.06em;
+                color: #172849;
+                padding-bottom: 20px;
+                margin: 0;
+            }
+
+        .manage-card {
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #eef2f7;
+            padding: 1.25rem 1.25rem 1.5rem 1.25rem;
+            box-shadow: 0 2px 10px rgba(15,23,42,0.04);
+            font-weight: 400;
+            font-size: .9rem;
+        }
+
+        .manage-nav-col {
+            border-right: 1px solid #eef2f7;
+            margin-bottom: 1rem;
+        }
+
+        @@media (max-width: 768px) {
+            .manage-nav-col {
+                border-right: none;
+                border-bottom: 1px solid #eef2f7;
+                margin-bottom: 1rem;
+                padding-bottom: .75rem;
+            }
+        }
+
+        .perfil-label {
+            font-weight: 400;
+            font-size: .9rem;
+            margin-bottom: .15rem;
+        }
+
+        .card-section-title {
+            font-size: 1.05rem;
+            font-weight: 400;
+            color: #172849;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+        }
+
+            .card-section-title i {
+                font-size: 1.1rem;
+            }
+
+        .perfil-alert {
+            font-weight: 400;
+            font-size: .9rem;
+        }
+
+        .btn, .form-check-label, .form-text, .form-text-error {
+            font-weight: 400;
+            font-size: .9rem;
+        }
+
         .form-floating textarea.form-control {
             height: auto;
             min-height: 60px;
             padding-top: 1rem;
         }
+
+        /* Espaciado interno uniforme entre controles (líneas verdes) */
+        .perfil-field-row {
+            row-gap: .4rem; /* reduce la separación vertical entre filas de campos */
+        }
+
+        .form-group-spaced {
+            margin-bottom: .55rem; /* antes .85: menos espacio entre label/campo y siguiente grupo */
+        }
+
+        /* Separación consistente entre bloques grandes (líneas rojas) */
+        .perfil-section-block {
+            margin-bottom: 1.2rem; /* entre Avatar, ID, Datos estadísticos, Estado/Privacidad */
+        }
+
+            .perfil-section-block:last-of-type {
+                margin-bottom: 0;
+            }
+
+        /* Ajustes de altura y alineación avatar + bloque derecho */
+        .perfil-top-row {
+            align-items: stretch;
+        }
+
+        .perfil-avatar-col {
+            margin-top: -20px; /* lo subimos un poco pero menos agresivo */
+        }
+
+        .perfil-main-col .card-body {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .perfil-bloque-superior {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            gap: .6rem; /* reduce huecos internos */
+        }
+
+        .perfil-bloque-nombre {
+            margin-bottom: .1rem;
+        }
+
+        .perfil-bloque-frase {
+            margin-bottom: 0;
+        }
+
+        .perfil-bloque-slug {
+            margin-top: .35rem;
+        }
+
+        .perfil-acercade-alto {
+            min-height: 200px;
+            height: 285px;
+        }
+
+        /* Links morados, sin subrayado, font-size .9rem */
+        .manage-card a {
+            color: #764ba2;
+            text-decoration: none;
+            font-size: .9rem;
+        }
+
+            .manage-card a:hover,
+            .manage-card a:focus {
+                color: #5a2d7a;
+                text-decoration: underline;
+            }
+
+        @@media (max-width: 768px) {
+            .perfil-main-col .card-body {
+                height: auto;
+            }
+
+            .perfil-section-block {
+                margin-bottom: 1rem;
+            }
+        }
     </style>
 }
 
-<div class="crm-container-admin">
-    <h2>@ViewData["Title"]</h2>
+<div class="manage-page-root">
+    <div class="container py-4">
+        <h1 class="manage-title">@ViewData["Title"]</h1>
 
-    <div class="card-block-modern">
-        <div class="row">
-            <div class="col-md-4 manage-nav-col">
-                <partial name="_ManageNav" />
-            </div>
+        <div class="manage-card">
+            <div class="row">
+                <div class="col-md-4 manage-nav-col">
+                    <partial name="_ManageNav" />
+                </div>
 
-            <div class="col-md-8">
+                <div class="col-md-8">
+                    @{
+                        var tieneErroresModelo = !ViewData.ModelState.IsValid;
+                        var hayErrorTexto = !string.IsNullOrEmpty(Model.ErrorMessage);
+                    }
 
-                @{
-                    var tieneErroresModelo = !ViewData.ModelState.IsValid;
-                    var hayErrorTexto = !string.IsNullOrEmpty(Model.ErrorMessage);
-                }
+                    @if (!string.IsNullOrEmpty(Model.SuccessMessage) && !tieneErroresModelo && !hayErrorTexto)
+                    {
+                        <div class="alert alert-success text-center perfil-alert" role="alert" id="perfil-success-alert">
+                            @Model.SuccessMessage
+                        </div>
+                    }
 
-                @* Éxito: solo se muestra si NO hay errores ni ErrorMessage *@
-                @if (!string.IsNullOrEmpty(Model.SuccessMessage) && !tieneErroresModelo && !hayErrorTexto)
-                {
-                    <div class="alert alert-success text-center perfil-alert" role="alert" id="perfil-success-alert">
-                        @Model.SuccessMessage
-                    </div>
-                }
+                    @if (hayErrorTexto || tieneErroresModelo)
+                    {
+                        <div class="alert alert-danger text-center perfil-alert" role="alert">
+                            @if (hayErrorTexto)
+                            {
+                                @Model.ErrorMessage
+                            }
+                            else
+                            {
+                                <span>Faltan campos requeridos en el perfil. Revisa la lista de campos faltantes.</span>
+                            }
+                        </div>
+                    }
 
-                @* Error general: se muestra si hay ErrorMessage o errores de modelo *@
-                @if (hayErrorTexto || tieneErroresModelo)
-                {
-                    <div class="alert alert-danger text-center perfil-alert" role="alert">
-                        @if (hayErrorTexto)
-                        {
-                            @Model.ErrorMessage
-                        }
-                        else
-                        {
-                            <span>Faltan campos requeridos en el perfil. Revisa la lista de campos faltantes.</span>
-                        }
-                    </div>
-                }
+                    @if (Model.Perfil != null)
+                    {
+                        <form method="post" autocomplete="off" id="perfilForm">
+                            @Html.AntiForgeryToken()
+                            <input asp-for="Perfil.idUser" type="hidden" id="Perfil_idUser" />
+                            <input asp-for="Perfil.Avatar" type="hidden" id="Perfil_AvatarHidden" />
 
-                @if (Model.Perfil != null)
-                {
-                    <form method="post" autocomplete="off" id="perfilForm">
-                        @Html.AntiForgeryToken()
-                        <input asp-for="Perfil.idUser" type="hidden" id="Perfil_idUser" />
-                        <input asp-for="Perfil.Avatar" type="hidden" id="Perfil_AvatarHidden" />
+                            <!-- Fila superior: avatar + datos básicos -->
+                            <div class="row mb-3 perfil-top-row perfil-section-block perfil-field-row">
+                                <div class="col-lg-4 perfil-avatar-col">
+                                    @await Html.PartialAsync("_AvatarCard", Model)
+                                </div>
 
-                        <div class="row mb-3">
-                            <div class="col-lg-4">
-                                @await Html.PartialAsync("_AvatarCard", Model)
-                            </div>
-                            <div class="col-lg-8">
-                                
+                                <div class="col-lg-8 perfil-main-col">
                                     <div class="card-body">
-                                        <div class="row">
-                                            <div class="col-sm-6 mb-3">
-                                                @* Floating label para Nombre *@
-                                                <div class="form-floating">
-                                                    <input asp-for="Perfil.Nombre"
-                                                           class="form-control"
-                                                           autocomplete="current-password"
-                                                           placeholder="Nombre"
-                                                           id="Perfil_Nombre" />
-                                                    <label asp-for="Perfil.Nombre">Nombre</label>
+                                        <div class="perfil-bloque-superior">
+                                            <!-- Nombre y Apellidos -->
+                                            <div class="perfil-bloque-nombre">
+                                                <div class="row perfil-field-row">
+                                                    <div class="col-sm-6 form-group-spaced">
+                                                        <div class="form-floating">
+                                                            <input asp-for="Perfil.Nombre"
+                                                                   class="form-control"
+                                                                   autocomplete="off"
+                                                                   placeholder="Nombre"
+                                                                   id="Perfil_Nombre" />
+                                                            <label asp-for="Perfil.Nombre">Nombre</label>
+                                                        </div>
+                                                        <span asp-validation-for="Perfil.Nombre" class="text-danger"></span>
+                                                    </div>
+
+                                                    <div class="col-sm-6 form-group-spaced">
+                                                        <div class="form-floating">
+                                                            <input asp-for="Perfil.Apellidos"
+                                                                   class="form-control"
+                                                                   placeholder="Apellidos (NO obligatorio)"
+                                                                   id="Perfil_Apellidos" />
+                                                            <label asp-for="Perfil.Apellidos">Apellidos (NO obligatorio)</label>
+                                                        </div>
+                                                        <span asp-validation-for="Perfil.Apellidos" class="text-danger"></span>
+                                                    </div>
                                                 </div>
-                                                <span asp-validation-for="Perfil.Nombre" class="text-danger"></span>
                                             </div>
 
-                                            <div class="col-sm-6 mb-3">
-                                                @* Floating label para Apellidos *@
-                                                <div class="form-floating">
-                                                    <input asp-for="Perfil.Apellidos"
-                                                           class="form-control"
-                                                           placeholder="Apellidos (NO obligatorio)"
-                                                           id="Perfil_Apellidos" />
-                                                    <label asp-for="Perfil.Apellidos">Apellidos (NO obligatorio)</label>
-                                                </div>
-                                                <span asp-validation-for="Perfil.Apellidos" class="text-danger"></span>
-                                            </div>
-                                        </div>
-
-                                        <div class="row">
-                                            <div class="mb-12  mb-3">
-                                                @* Floating textarea para AcercaDe *@
+                                            <!-- Frase inspiradora -->
+                                            <div class="perfil-bloque-frase form-group-spaced">
                                                 <div class="form-floating">
                                                     <textarea asp-for="Perfil.AcercaDe"
-                                                              class="form-control"
+                                                              class="form-control perfil-acercade-alto"
                                                               placeholder="Frase inspiradora / Tu moto"
-                                                              rows="2"></textarea>
+                                                              rows="3"></textarea>
                                                     <label asp-for="Perfil.AcercaDe">Frase Inspiradora / Tu Moto</label>
                                                 </div>
                                                 <span asp-validation-for="Perfil.AcercaDe" class="text-danger"></span>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Tu ID / Slug -->
+                            <div class="row g-4 mt-2 perfil-section-block perfil-field-row">
+                                <div class="col-12">
+                                    <div class="card-body">
+                                        <h2 class="card-section-title mb-2">
+                                            <i class="bi bi-person-badge"></i>
+                                            Tu ID en la plataforma / Tu URL pública
+                                        </h2>
 
-                                        <div class="row">
-                                            <div class="col-sm-12">
-                                                <div class="mb-3">
-                                                    <label class="perfil-label" for="Perfil_slug">
-                                                        Usuario / Slug público –
-                                                        <a id="slug-preview"
-                                                           href="@(Model.Perfil?.slug != null ? $"{Request.Scheme}://{Request.Host}/u/{Model.Perfil.slug}" : "#")"
-                                                           target="_blank">
-                                                            @(Model.Perfil?.slug != null ? $"{Request.Scheme}://{Request.Host}/u/{Model.Perfil.slug}" : "—")
-                                                        </a>
-                                                    </label>
-
-                                                    <div class="position-relative" style="min-width:220px;">
-                                                        @* Mantengo la estructura position-relative; dentro uso form-floating para el input del slug *@
-                                                        <div class="form-floating">
-                                                            <input asp-for="Perfil.slug"
-                                                                   class="form-control pe-5"
-                                                                   id="Perfil_slug"
-                                                                   placeholder="mi-slug-personal"
-                                                                   autocomplete="off"
-                                                                   data-check-url="@Url.Page(null, null, new { handler = "CheckSlug" }, Request.Scheme)"
-                                                                   data-suggestions-url="@Url.Page(null, null, new { handler = "GenerateSlug" }, Request.Scheme)" />
-                                                            <label asp-for="Perfil.slug">mi-slug-personal</label>
-                                                        </div>
-
-                                                        <span id="slug-status-icon"
-                                                              class="position-absolute top-50 end-0 translate-middle-y me-2"
-                                                              style="display:none;">
-                                                            <span id="slug-status-badge" class="slug-status-badge"></span>
-                                                        </span>
-                                                    </div>
-
-                                                    <small class="form-text text-muted d-block mt-1">
-                                                        El slug será parte de la URL pública. Puedes escribir el tuyo o elegir alguna de las opciones sugeridas.
-                                                    </small>
-
-                                                    <span asp-validation-for="Perfil.slug" class="text-danger"></span>
-
-                                                    <div class="form-text-error mt-1" id="slug-error" style="display:none;"></div>
-                                                    <div class="form-text text-success mt-1" id="slug-ok" style="display:none;"></div>
-
-                                                    <div class="mt-2">
-                                                        <span class="text-muted d-block mb-1">Algunas opciones disponibles:</span>
-                                                        <ul class="slug-suggestions" id="slug-suggestions-list" style="display:none;"></ul>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                        <div class="mb-1">
+                                            <label class="perfil-label" for="Perfil_slug">
+                                                Usuario / Slug público –
+                                                <a id="slug-preview"
+                                                   href="@(Model.Perfil?.slug != null ? $"{Request.Scheme}://{Request.Host}/u/{Model.Perfil.slug}" : "#")"
+                                                   target="_blank">
+                                                    @(Model.Perfil?.slug != null ? $"{Request.Scheme}://{Request.Host}/u/{Model.Perfil.slug}" : "—")
+                                                </a>
+                                            </label>
                                         </div>
 
+                                        <div class="position-relative mb-1" style="min-width:220px;">
+                                            <div class="form-floating">
+                                                <input asp-for="Perfil.slug"
+                                                       class="form-control pe-5"
+                                                       id="Perfil_slug"
+                                                       placeholder="mi-slug-personal"
+                                                       autocomplete="off"
+                                                       data-check-url="@Url.Page(null, null, new { handler = "CheckSlug" }, Request.Scheme)"
+                                                       data-suggestions-url="@Url.Page(null, null, new { handler = "GenerateSlug" }, Request.Scheme)" />
+                                                <label asp-for="Perfil.slug">mi-slug-personal</label>
+                                            </div>
+
+                                            <span id="slug-status-icon"
+                                                  class="position-absolute top-50 end-0 translate-middle-y me-2"
+                                                  style="display:none;">
+                                                <span id="slug-status-badge" class="slug-status-badge"></span>
+                                            </span>
+                                        </div>
+
+                                        <small class="form-text d-block mt-1">
+                                            El slug será parte de la URL pública. Puedes escribir el tuyo o elegir alguna de las opciones sugeridas.
+                                        </small>
+
+                                        <span asp-validation-for="Perfil.slug" class="text-danger"></span>
+
+                                        <div class="form-text-error mt-1" id="slug-error" style="display:none;"></div>
+                                        <div class="form-text text-success mt-1" id="slug-ok" style="display:none;"></div>
+
+                                        <div class="mt-1">
+                                            <span class="text-muted d-block mb-1">Algunas opciones disponibles:</span>
+                                            <ul class="slug-suggestions" id="slug-suggestions-list" style="display:none;"></ul>
+                                        </div>
                                     </div>
-                                
+                                </div>
                             </div>
-                        </div>
 
-                        <!-- ROW: ID en línea + About -->
-
-
-                        <div class="row mb-3">
-
-
-                            <!-- Columna derecha: Datos estadísticos para la plataforma -->
-                            <div class="col-lg-12">
-                                
+                            <!-- Datos estadísticos -->
+                            <div class="row g-4 mt-2 perfil-section-block perfil-field-row">
+                                <div class="col-lg-12">
                                     <div class="card-body">
-                                        <h2 class="card-section-title mb-3">
+                                        <h2 class="card-section-title mb-2">
+                                            <i class="bi bi-graph-up"></i>
                                             Datos estadísticos para la plataforma
                                         </h2>
 
-                                        <div class="row mb-3">
-                                            <div class="col-md-7 mb-3 mb-md-0">
-                                                <label class="perfil-label" asp-for="Perfil.EstoyAqui"></label>
+                                        <div class="row mb-2 perfil-field-row">
+                                            <div class="col-md-7 form-group-spaced">
+                                                <label class="perfil-label" asp-for="Perfil.EstoyAqui">Estoy Aquí</label>
                                                 <select asp-for="Perfil.EstoyAqui"
                                                         class="form-select"
                                                         id="Perfil_EstoyAqui">
@@ -200,20 +346,17 @@
                                                 </select>
                                                 <span asp-validation-for="Perfil.EstoyAqui" class="text-danger"></span>
                                             </div>
-
                                         </div>
 
-                                        <div class="row mb-3">
-                                            <div class="col-md-6 mb-3 mb-md-0">
-                                                @* Fecha: dejar sin floating para evitar comportamiento extraño con date picker *@
-                                                <label class="perfil-label" asp-for="Perfil.FechaDeNacimiento"></label>
+                                        <div class="row mb-2 perfil-field-row">
+                                            <div class="col-md-6 form-group-spaced">
+                                                <label class="perfil-label" asp-for="Perfil.FechaDeNacimiento">Fecha de nacimiento</label>
                                                 <input asp-for="Perfil.FechaDeNacimiento" class="form-control" type="date" />
                                                 <span class="form-text-error d-none" id="fnac-error">La fecha no puede ser futura.</span>
                                                 <span asp-validation-for="Perfil.FechaDeNacimiento" class="text-danger"></span>
                                             </div>
-                                            <div class="col-md-6">
-                                                @* Floating label para Genero no necesario porque es select con opciones; mantener como está *@
-                                                <label class="perfil-label" asp-for="Perfil.Genero"></label>
+                                            <div class="col-md-6 form-group-spaced">
+                                                <label class="perfil-label" asp-for="Perfil.Genero">Género</label>
                                                 <select asp-for="Perfil.Genero" asp-items="Model.GenerosList" class="form-select" id="genero-select">
                                                     <option value="">Selecciona...</option>
                                                 </select>
@@ -221,9 +364,9 @@
                                             </div>
                                         </div>
 
-                                        <div class="row mb-3">
-                                            <div class="col-md-6 mb-3 mb-md-0">
-                                                <label class="perfil-label" asp-for="Perfil.NombrePais"></label>
+                                        <div class="row mb-1 perfil-field-row">
+                                            <div class="col-md-6 form-group-spaced">
+                                                <label class="perfil-label" asp-for="Perfil.NombrePais">País</label>
                                                 <select asp-for="Perfil.NombrePais"
                                                         asp-items="Model.PaisesSelectList"
                                                         class="form-select"
@@ -232,144 +375,141 @@
                                                 </select>
                                                 <span asp-validation-for="Perfil.NombrePais" class="text-danger"></span>
                                             </div>
-                                            <div class="col-md-6">
-                                                @* Floating label para Ciudad *@
-                                                <div class="form-floating">
-                                                    <input asp-for="Perfil.NombreCiudad"
-                                                           class="form-control"
-                                                           id="ciudad-input"
-                                                           autocomplete="off"
-                                                           placeholder="Ciudad" />
-                                                    <label asp-for="Perfil.NombreCiudad">Ciudad</label>
-                                                </div>
+                                            <div class="col-md-6 form-group-spaced">
+                                                <label class="perfil-label" asp-for="Perfil.NombreCiudad">Ciudad</label>
+                                                <input asp-for="Perfil.NombreCiudad"
+                                                       class="form-control"
+                                                       id="ciudad-input"
+                                                       autocomplete="off"
+                                                       placeholder="Ciudad" />
                                                 <span class="form-text-error d-none" id="ciudad-error">Debes elegir una ciudad válida.</span>
                                                 <span asp-validation-for="Perfil.NombreCiudad" class="text-danger"></span>
                                             </div>
                                         </div>
-
-                                        <div class="mb-3">
-                                            <div class="form-check">
-                                                <input type="hidden" name="Perfil.PermitirMostrarPais" value="false" />
-                                                <input class="form-check-input"
-                                                       type="checkbox"
-                                                       id="Perfil_PermitirMostrarPais"
-                                                       name="Perfil.PermitirMostrarPais"
-                                                       value="true"
-                                                       @(Model.Perfil?.PermitirMostrarPais == true ? "checked" : "") />
-                                                <label class="form-check-label" for="Perfil_PermitirMostrarPais">
-                                                    Permitir que otros usuarios vean de qué país soy
-                                                </label>
-                                            </div>
-                                            <span asp-validation-for="Perfil.PermitirMostrarPais" class="text-danger"></span>
-                                        </div>
-
                                         <input asp-for="Perfil.Latitud" type="hidden" id="latitud-input" />
                                         <input asp-for="Perfil.Longitud" type="hidden" id="longitud-input" />
                                     </div>
-                                
+                                </div>
                             </div>
-                        </div>
 
-                        <!-- ROW 3: Estado y Privacidad -->
-                        <!-- ROW 3: Estado y Privacidad -->
-                        <div class="row g-4 mt-3">
-                            <div class="col-12">
-                                <div class="card-body">
-                                    <h2 class="card-section-title mb-3">
-                                        Estado y Privacidad
-                                    </h2>
-
-                                    <div class="row">
-                                        <div class="col-sm-6 mb-3">
-                                            <div class="mb-1">
-                                                <input type="hidden" name="Perfil.PermitirTelefonoReal" value="false" />
-                                                <div class="form-check">
-                                                    <input class="form-check-input"
-                                                           type="checkbox"
-                                                           id="Perfil_PermitirTelefonoReal"
-                                                           name="Perfil.PermitirTelefonoReal"
-                                                           value="true"
-                                                           @(Model.Perfil?.PermitirTelefonoReal == true ? "checked" : "") />
-                                                    <label class="form-check-label" for="Perfil_PermitirTelefonoReal">
-                                                        Permitir utilizar teléfono para saber si soy real
-                                                    </label>
+                            <!-- Estado y Privacidad -->
+                            <div class="row g-4 mt-2 perfil-section-block perfil-field-row">
+                                <div class="col-12">
+                                    <div class="card-body">
+                                        <h2 class="card-section-title mb-2">
+                                            Estado y Privacidad
+                                        </h2>
+                                        <div class="row perfil-field-row">
+                                            <div class="col-sm-6 mb-3">
+                                                <div class="mb-1">
+                                                    <input type="hidden" name="Perfil.PermitirTelefonoReal" value="false" />
+                                                    <div class="form-check">
+                                                        <input class="form-check-input"
+                                                               type="checkbox"
+                                                               id="Perfil_PermitirTelefonoReal"
+                                                               name="Perfil.PermitirTelefonoReal"
+                                                               value="true"
+                                                               @(Model.Perfil?.PermitirTelefonoReal == true ? "checked" : "") />
+                                                        <label class="form-check-label" for="Perfil_PermitirTelefonoReal">
+                                                            Permitir utilizar teléfono para saber si soy real
+                                                        </label>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <label class="form-check-label" for="Perfil_saberSiSoyReal">
-                                                <a href="#">Leer más del método "Saber si soy real".</a>
-                                            </label>
-                                        </div>
-
-                                        <div class="col-sm-6 mb-3">
-                                            <div class="mb-1">
-                                                <input type="hidden" name="Perfil.PermitirCorreoNoticias" value="false" />
-                                                <div class="form-check">
-                                                    <input class="form-check-input"
-                                                           type="checkbox"
-                                                           id="Perfil_PermitirCorreoNoticias"
-                                                           name="Perfil.PermitirCorreoNoticias"
-                                                           value="true"
-                                                           @(Model.Perfil?.PermitirCorreoNoticias == true ? "checked" : "") />
-                                                    <label class="form-check-label" for="Perfil_PermitirCorreoNoticias">
-                                                        Permitir enviarme notificaciones o noticias
-                                                    </label>
-                                                </div>
-                                            </div>
-                                            <label class="form-check-label" for="Perfil_leerMasTipoCorreos">
-                                                <a href="#">Leer más del tipo de correos.</a>
-                                            </label>
-                                        </div>
-                                    </div>
-
-                                    <div class="row mt-3">
-                                        <div class="col-md-12">
-                                            <input type="hidden" name="Perfil.AceptoPP" value="false" />
-                                            <div class="form-check">
-                                                <input class="form-check-input"
-                                                       type="checkbox"
-                                                       id="Perfil_AceptoPP"
-                                                       name="Perfil.AceptoPP"
-                                                       value="true"
-                                                       @(Model.Perfil?.AceptoPP == true ? "checked" : "") />
-                                                <label class="form-check-label perfil-label" for="Perfil_AceptoPP">
-                                                    Aceptó Política Privacidad
+                                                <label class="form-check-label" for="Perfil_saberSiSoyReal">
+                                                    <a href="/Legales/metodo-saber-si-soy-real" target="_blank">Leer más del método "Saber si soy real".</a>
                                                 </label>
                                             </div>
-                                            <span asp-validation-for="Perfil.AceptoPP" class="text-danger"></span>
-                                            <div class="form-text mt-1">
-                                                <a href="/politica-privacidad" target="_blank">Leer Términos, Condiciones y Política de Privacidad.</a>
+
+                                            <div class="col-sm-6 mb-3">
+                                                <div class="mb-1">
+                                                    <input type="hidden" name="Perfil.PermitirCorreoNoticias" value="false" />
+                                                    <div class="form-check">
+                                                        <input class="form-check-input"
+                                                               type="checkbox"
+                                                               id="Perfil_PermitirCorreoNoticias"
+                                                               name="Perfil.PermitirCorreoNoticias"
+                                                               value="true"
+                                                               @(Model.Perfil?.PermitirCorreoNoticias == true ? "checked" : "") />
+                                                        <label class="form-check-label" for="Perfil_PermitirCorreoNoticias">
+                                                            Permitir enviarme notificaciones o noticias
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <label class="form-check-label" for="Perfil_leerMasTipoCorreos">
+                                                    <a href="/Legales/enviarme-notificaciones-yo-noticias" target="_blank">Leer más del tipo de correos.</a>
+                                                </label>
                                             </div>
                                         </div>
+
+                                        <div class="row mt-2 perfil-field-row">
+                                            <div class="col-sm-6 mb-3">
+                                                <input type="hidden" name="Perfil.AceptoPP" value="false" />
+                                                <div class="form-check">
+                                                    <input class="form-check-input"
+                                                           type="checkbox"
+                                                           id="Perfil_AceptoPP"
+                                                           name="Perfil.AceptoPP"
+                                                           value="true"
+                                                           @(Model.Perfil?.AceptoPP == true ? "checked" : "") />
+                                                    <label class="form-check-label perfil-label" for="Perfil_AceptoPP">
+                                                        Aceptó Política Privacidad
+                                                    </label>
+                                                </div>
+                                                <span asp-validation-for="Perfil.AceptoPP" class="text-danger"></span>
+                                                <div class="form-text mt-1">
+                                                    <a href="/Legales/politica-de-privacidad" target="_blank">Leer Términos, Condiciones y Política de Privacidad.</a>
+                                                </div>
+                                            </div>
+
+                                            <div class="col-sm-6 mb-3">
+                                                <div class="form-check">
+                                                    <input type="hidden" name="Perfil.PermitirMostrarPais" value="false" />
+                                                    <input class="form-check-input"
+                                                           type="checkbox"
+                                                           id="Perfil_PermitirMostrarPais"
+                                                           name="Perfil.PermitirMostrarPais"
+                                                           value="true"
+                                                           @(Model.Perfil?.PermitirMostrarPais == true ? "checked" : "") />
+                                                    <label class="form-check-label" for="Perfil_PermitirMostrarPais">
+                                                        Permitir que otros usuarios vean de qué país soy
+                                                    </label>
+                                                </div>
+                                                <span asp-validation-for="Perfil.PermitirMostrarPais" class="text-danger"></span>
+                                                <div class="form-text mt-1">
+                                                    <a href="/Legales/permitir-que-otros-usuarios-vean-de-que-pais-soy" target="_blank">¿Cómo se comparte mi Ubicación?</a>
+                                                </div>
+                                            </div>
+
+                                        </div>
+
+
+
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Botones -->
-                        <div class="text-center mt-4 mb-5">
-                            <button class="btn btn-primary me-2" type="submit">
-                                Guardar cambios
-                            </button>
-                            <a class="btn btn-outline-secondary" href="/">Volver</a>
-                        </div>
-                    </form>
-                }
-                else
-                {
-                    <div class="alert alert-danger text-center">No se encontró usuario/perfil.</div>
-                }
-
+                            <!-- Botones -->
+                            <div class="text-center mt-4 mb-5">
+                                <button class="btn btn-primary me-2" type="submit">
+                                    Guardar cambios
+                                </button>
+                                <a class="btn btn-outline-secondary" href="/">Volver</a>
+                            </div>
+                        </form>
+                    }
+                    else
+                    {
+                        <div class="alert alert-danger text-center">No se encontró usuario/perfil.</div>
+                    }
+                </div>
             </div>
-
         </div>
     </div>
 </div>
 
 @section Scripts {
-
     <script src="~/js/avatar-card.js" asp-append-version="true"></script>
 
-    <!-- Google maps wrapper (unchanged) -->
     <script>
         window.initAutocomplete = function() {
             if (typeof window.initAutocompleteImpl === 'function') {
@@ -393,14 +533,13 @@
     <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBUUBxDv3VvzMmdR_pf9aFOd7frbTeUWXk&libraries=places&callback=initAutocomplete"></script>
 
     <script>
-        // Implementation of autocomplete placed as initAutocompleteImpl (so the wrapper above can call it)
         window.initAutocompleteImpl = function() {
             try {
                 var input = document.getElementById('ciudad-input');
                 var paisSel = document.getElementById('pais-select');
                 var latEl = document.getElementById('latitud-input');
                 var lngEl = document.getElementById('longitud-input');
-                if (!input || !window.google || !google.maps || !google.maps.places) {
+                if (!input || !window.google || !google.maps.places) {
                     console.warn('Google places not available');
                     return;
                 }
@@ -448,7 +587,6 @@
     </script>
 
     <script>
-        // slug live-check + 3 sugerencias únicas + badge de estado
         (function(){
             function el(id){return document.getElementById(id);}
             var slugInput = el('Perfil_slug');
@@ -637,7 +775,6 @@
     </script>
 
     <script>
-        // Auto-hide success alert (3s)
         (function(){
             try {
                 var success = document.getElementById('perfil-success-alert');
@@ -653,7 +790,6 @@
             } catch(e){ console.error(e); }
         })();
 
-        // Validación cliente de Teléfono (solo números + longitud) y Email (formato)
         (function(){
             var tel = document.getElementById('telefono-input');
             var telError = document.getElementById('telefono-error');

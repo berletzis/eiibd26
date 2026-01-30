@@ -3,14 +3,10 @@
 @using System.Collections.Generic
 @using System.Linq
 @{
-    // Lista completa de preguntas ordenada (se hará paginación en cliente)
     var questions = Model?.Preguntas?.OrderByDescending(p => p.Votes).ThenByDescending(p => p.AnswersCount).ToList()
                     ?? new List<eiibd26.Models.QuestionItem>();
 
-    // Identificador único para este componente (evita colisiones si se incluye múltiples veces)
     var containerId = "top-questions-" + Guid.NewGuid().ToString("N");
-
-    // Page size por defecto (cambiar si deseas otro tamaño)
     var pageSize = 8;
     var totalCount = questions.Count;
     var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
@@ -22,11 +18,12 @@
         background: #fff;
         border-radius: 12px;
         margin-top: 8px;
+        font-weight: 400;
     }
 
         .top-questions-card .title {
-            font-weight: 600;
-            color: #203e6b;
+            font-weight: 400;
+            color: #172849;
             margin-bottom: .5rem;
         }
 
@@ -43,20 +40,18 @@
                 border-bottom: none;
             }
 
-            /* Contenedor principal dentro de cada item para permitir truncado dentro de flex */
             .top-questions-card .q-item > .q-main {
                 flex: 1;
-                min-width: 0; /* crítico para que el contenido se reduzca dentro de flex */
+                min-width: 0;
             }
 
-        /* Título: permitir multilinea hasta 2 líneas con truncado */
         .top-questions-card .q-title {
-            font-weight: 600;
+            font-weight: 400;
             color: #1f2937;
             overflow: hidden;
             text-overflow: ellipsis;
             display: -webkit-box;
-            -webkit-line-clamp: 2; /* mostrar hasta 2 líneas */
+            -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             max-width: 100%;
             line-height: 1.2em;
@@ -72,25 +67,31 @@
             align-items: center;
             margin-top: 4px;
             flex-wrap: wrap;
+            font-weight: 400;
         }
 
         .top-questions-card .badge-votes {
-            background: #EEF2FF;
-            color: #1e40af;
+            background: #f4edfc;
+            color: #764ba2;
             padding: 4px 8px;
             border-radius: 999px;
-            font-weight: 600;
+            font-weight: 400;
             white-space: nowrap;
         }
 
         .top-questions-card .link-view {
-            color: #2563eb;
+            color: #764ba2;
             text-decoration: none;
             word-break: break-word;
             white-space: nowrap;
+            font-weight: 400;
         }
 
-        /* Pagination controls */
+            .top-questions-card .link-view:hover {
+                color: #5a2d7a;
+                text-decoration: underline;
+            }
+
         .top-questions-card .pagination-controls {
             display: flex;
             gap: 8px;
@@ -103,9 +104,9 @@
                 font-size: .85rem;
                 color: #6b7280;
                 margin-right: auto;
+                font-weight: 400;
             }
 
-    /* Responsive: en pantallas pequeñas pasamos cada item a columna */
     @@media (max-width: 768px) {
         .top-questions-card .q-item {
             flex-direction: column;
@@ -141,16 +142,14 @@
 
     @if (!questions.Any())
     {
-        <div class="text-muted small">No hay preguntas para mostrar.</div>
+        <div class="text-muted small" style="font-weight:400;">No hay preguntas para mostrar.</div>
     }
     else
     {
-        <!-- renderizar todas las preguntas en DOM (se mostrarán/ocultarán por JS) -->
         <div class="questions-list">
             @for (int i = 0; i < questions.Count; i++)
             {
                 var q = questions[i];
-                var qId = (q.Id != Guid.Empty) ? q.Id.ToString() : "";
                 <div class="q-item question-entry" data-index="@i" style="display:none;">
                     <div class="q-main">
                         <div class="q-title">
@@ -161,23 +160,20 @@
                             <div>@(q.AnswersCount) respuestas</div>
                         </div>
                     </div>
-                    <!-- Si se desea, aquí podría añadirse una acción extra -->
                 </div>
             }
         </div>
 
-        <!-- Pagination: solo Prev / Next, sin campo "ir" -->
         <div class="pagination-controls" aria-label="Paginación">
             <div class="page-info">Página <span class="current-page">1</span> de <span class="total-pages">@totalPages</span></div>
-            <button type="button" class="btn btn-sm btn-outline-primary prev-btn" aria-label="Anterior" style="display:none;">Anterior</button>
-            <button type="button" class="btn btn-sm btn-outline-primary next-btn" aria-label="Siguiente" style="display:none;">Siguiente</button>
+            <button type="button" class="btn btn-sm btn-outline-primary prev-btn" aria-label="Anterior" style="display:none;font-weight:400;">Anterior</button>
+            <button type="button" class="btn btn-sm btn-outline-primary next-btn" aria-label="Siguiente" style="display:none;font-weight:400;">Siguiente</button>
         </div>
     }
 </div>
 
 <script>
     (function () {
-        // Scope al contenedor único
         var container = document.getElementById('@containerId');
         if (!container) return;
 
@@ -192,7 +188,6 @@
         var currentPageSpan = container.querySelector('.current-page');
         var totalPagesSpan = container.querySelector('.total-pages');
 
-        // Inicializar display de totalPages
         if (totalPagesSpan) totalPagesSpan.textContent = totalPages;
 
         function renderPage(page) {
@@ -201,20 +196,14 @@
             var end = start + pageSize;
 
             entries.forEach(function (el, idx) {
-                if (idx >= start && idx < end) {
-                    el.style.display = '';
-                } else {
-                    el.style.display = 'none';
-                }
+                el.style.display = (idx >= start && idx < end) ? '' : 'none';
             });
 
-            // Actualizar botones
             if (prevBtn) prevBtn.style.display = (currentPage > 1) ? '' : 'none';
             if (nextBtn) nextBtn.style.display = (currentPage < totalPages) ? '' : 'none';
             if (currentPageSpan) currentPageSpan.textContent = currentPage;
         }
 
-        // Event listeners
         if (prevBtn) prevBtn.addEventListener('click', function () {
             renderPage(currentPage - 1);
         });
@@ -222,7 +211,6 @@
             renderPage(currentPage + 1);
         });
 
-        // Mostrar u ocultar el bloque de paginación si no aplica
         var paginationControls = container.querySelector('.pagination-controls');
         if (totalPages <= 1) {
             if (paginationControls) paginationControls.style.display = 'none';
@@ -230,7 +218,6 @@
             if (paginationControls) paginationControls.style.display = 'flex';
         }
 
-        // Inicial render
         renderPage(1);
     })();
 </script>

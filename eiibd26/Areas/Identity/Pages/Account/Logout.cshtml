@@ -1,21 +1,102 @@
 ﻿@page
 @model LogoutModel
 @{
-    ViewData["Title"] = "Log out";
+    ViewData["Title"] = "Cerrar sesión";
 }
 
-<header>
-    <h1>@ViewData["Title"]</h1>
-    @{
-        if (User.Identity?.IsAuthenticated ?? false)
+@section Styles {
+    <style>
+        .account-page-root {
+            min-height: calc(100vh - 120px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 16px;
+            background: #f3f4f6;
+        }
+
+        .account-card {
+            width: 100%;
+            max-width: 420px;
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 24px 24px 28px 24px;
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
+            border: 1px solid #e5e7eb;
+            box-sizing: border-box;
+        }
+
+            .account-card h2 {
+                font-size: 1.7rem;
+                font-weight: 300;
+                letter-spacing: -0.03em;
+                color: #111827;
+                margin: 0 0 8px 0;
+            }
+
+            .account-card p {
+                font-size: .95rem;
+                color: #4b5563;
+                margin-bottom: 0;
+            }
+
+            .account-card hr {
+                margin: 12px 0 18px 0;
+            }
+
+            .account-card .btn {
+                font-size: .95rem;
+                font-weight: 500;
+            }
+
+            .account-card .text-muted {
+                font-size: .9rem;
+            }
+    </style>
+}
+
+<div class="account-page-root">
+    <div class="account-card">
+        @if (User.Identity?.IsAuthenticated ?? false)
         {
-            <form class="form-inline" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Page("/", new { area = "" })" method="post">
-                <button type="submit" class="nav-link btn btn-link text-dark">Click here to Logout</button>
+            <form class="w-100" asp-area="Identity"
+                  asp-page="/Account/Logout"
+                  asp-route-returnUrl="@Url.Page("/", new { area = "" })"
+                  method="post">
+                <h2>Cerrar sesión</h2>
+                <hr />
+                <p>¿Seguro que deseas cerrar tu sesión en la plataforma?</p>
+
+                <div class="mt-4 d-grid">
+                    <button type="submit" class="btn btn-primary w-100">
+                        Cerrar sesión
+                    </button>
+                </div>
+
+                <div class="mt-3 text-center text-muted">
+                    <span>Seguir en la aplicación </span>
+                    <a href="/">Volver al inicio</a>
+                </div>
             </form>
         }
         else
         {
-            <p>You have successfully logged out of the application.</p>
+            <div>
+                <h2>Sesión cerrada</h2>
+                <hr />
+                <p>Has cerrado sesión correctamente.</p>
+
+                <div class="mt-4 d-grid">
+                    <a href="/" class="btn btn-primary w-100">
+                        Volver al inicio
+                    </a>
+                </div>
+
+                <div class="mt-3 text-center text-muted">
+                    <span>¿Quieres volver a entrar? </span>
+                    <a asp-area="Identity" asp-page="/Account/Login">Ir a iniciar sesión</a>
+                </div>
+            </div>
         }
-    }
-</header>
+    </div>
+</div>

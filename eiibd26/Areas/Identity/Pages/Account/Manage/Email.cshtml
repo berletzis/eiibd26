@@ -5,42 +5,109 @@
     ViewData["ActivePage"] = ManageNavPages.Email;
 }
 
+<style>
+    .manage-page-root {
+        padding-top: 16px;
+        padding-bottom: 24px;
+    }
 
-<div class="crm-container-admin">
-    <h2>@ViewData["Title"]</h2>
+        .manage-page-root .manage-title {
+            font-size: 2.1rem;
+            font-weight: 300;
+            letter-spacing: -0.06em;
+            color: #172849;
+            padding-bottom: 20px;
+            margin: 0;
+        }
 
-    <div class="card-block-modern">
+    .manage-card {
+        background: #fff;
+        border-radius: 12px;
+        border: 1px solid #eef2f7;
+        padding: 1.25rem 1.25rem 1.5rem 1.25rem;
+        box-shadow: 0 2px 10px rgba(15,23,42,0.04);
+    }
 
-        <div class="row">
-            <div class="col-md-4 manage-nav-col">
-                <partial name="_ManageNav" />
-            </div>
+    .manage-nav-col {
+        border-right: 1px solid #eef2f7;
+        margin-bottom: 1rem;
+    }
 
-            <div class="col-md-8">
-                <div class="mb-1">
-                    Correo actual: <span style="font-weight:200;">@Model.CurrentEmail</span>
-                    <small class="form-text text-muted d-block mt-1">
-                        Importante. Tu Correo tambien es tu nombre de usuario, Al cambiar el correo, cambiaras tambien tu Usuario con el que inicias sesión.
-                    </small>
+    @@media (max-width: 768px) {
+        .manage-nav-col {
+            border-right: none;
+            border-bottom: 1px solid #eef2f7;
+            margin-bottom: 1rem;
+            padding-bottom: .75rem;
+        }
+    }
+
+    .manage-current-email-label {
+        font-size: .9rem;
+        color: #4b5563;
+        font-weight: 400;
+        margin-bottom: .15rem;
+    }
+
+    .manage-current-email-value {
+        font-size: .9rem;
+        color: #111827;
+        font-weight: 300;
+    }
+
+    .manage-info-text {
+        font-size: .85rem;
+        color: #6b7280;
+        font-weight: 400;
+    }
+
+    .manage-actions .btn {
+        font-weight: 400;
+        font-size: .9rem;
+    }
+</style>
+
+<div class="manage-page-root">
+    <div class="container py-4">
+        <h1 class="manage-title">@ViewData["Title"]</h1>
+
+        <div class="manage-card">
+            <div class="row">
+                <div class="col-md-4 manage-nav-col">
+                    <partial name="_ManageNav" />
                 </div>
-                <form method="post">
-                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
-                    @* Floating label para el input de correo, igual que en el perfil *@
-                    <div class="form-floating mb-3">
-                        <input asp-for="Input.NewEmail" class="form-control" placeholder="Correo electrónico Nuevo" />
-                        <label asp-for="Input.NewEmail">Correo electrónico Nuevo</label>
-                        <span asp-validation-for="Input.NewEmail" class="text-danger"></span>
+                <div class="col-md-8">
+                    <div class="mb-3">
+                        <div class="manage-current-email-label">Correo actual</div>
+                        <div class="manage-current-email-value">@Model.CurrentEmail</div>
+                        <small class="form-text manage-info-text d-block mt-1">
+                            Importante: tu correo también es tu nombre de usuario. Al cambiarlo, cambiarás también el usuario con el que inicias sesión.
+                        </small>
                     </div>
 
-                    <button type="submit" asp-page-handler="ChangeEmail" class="btn btn-primary">Enviar enlace de confirmación</button>
-                    <a asp-page="./Index" class="btn btn-link">Volver</a>
-                </form>
+                    <form method="post" class="manage-actions">
+                        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
-                @if (!string.IsNullOrEmpty(Model.StatusMessage))
-                {
-                    <div class="alert alert-info mt-3">@Model.StatusMessage</div>
-                }
+                        <div class="form-floating mb-3">
+                            <input asp-for="Input.NewEmail" class="form-control" placeholder="Correo electrónico nuevo" />
+                            <label asp-for="Input.NewEmail">Correo electrónico nuevo</label>
+                            <span asp-validation-for="Input.NewEmail" class="text-danger"></span>
+                        </div>
+
+                        <button type="submit" asp-page-handler="ChangeEmail" class="btn btn-primary me-2">
+                            Enviar enlace de confirmación
+                        </button>
+                        <a asp-page="./Index" class="btn btn-link">Volver</a>
+                    </form>
+
+                    @if (!string.IsNullOrEmpty(Model.StatusMessage))
+                    {
+                        <div class="alert alert-info mt-3" style="font-weight:400; font-size:.9rem;">
+                            @Model.StatusMessage
+                        </div>
+                    }
+                </div>
             </div>
         </div>
     </div>

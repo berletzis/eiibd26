@@ -44,35 +44,66 @@ namespace eiibd26.Pages.Home
             // default allowed statuses for content lists: 1,2,3
             var allowedStatuses = new[] { 1, 2, 3 };
 
-            var baseQuery = _db.Contenidos.AsNoTracking().Where(c => !c.Eliminado && allowedStatuses.Contains((c.EstadoPublicacion ?? 0)));
+            var baseQuery = _db.Contenidos
+                .AsNoTracking()
+                .Where(c => !c.Eliminado && allowedStatuses.Contains((c.EstadoPublicacion ?? 0)));
 
+            // Filtro por categoría (secuencia o slug)
             if (CategorySeq.HasValue)
             {
-                var ids = await _db.ContenidosCategoriasRelacion.AsNoTracking()
+                var ids = await _db.ContenidosCategoriasRelacion
+                    .AsNoTracking()
                     .Where(r => !r.Borrado && r.IdCategoria == CategorySeq.Value)
-                    .Select(r => r.IdContenido).Distinct().ToListAsync();
-                if (!ids.Any()) { Items = new List<BlogItemVm>(); Response.Headers["X-Total-Count"] = "0"; return Page(); }
+                    .Select(r => r.IdContenido)
+                    .Distinct()
+                    .ToListAsync();
+
+                if (!ids.Any())
+                {
+                    Items = new List<BlogItemVm>();
+                    Response.Headers["X-Total-Count"] = "0";
+                    return Page();
+                }
+
                 baseQuery = baseQuery.Where(c => ids.Contains(c.Id));
             }
             else if (!string.IsNullOrWhiteSpace(CategorySlug))
             {
-                var cat = await _db.ContenidosCategorias.AsNoTracking().FirstOrDefaultAsync(c => c.CategoriaSlug == CategorySlug && !c.Borrado);
+                var cat = await _db.ContenidosCategorias
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.CategoriaSlug == CategorySlug && !c.Borrado);
+
                 if (cat != null)
                 {
-                    var ids = await _db.ContenidosCategoriasRelacion.AsNoTracking()
+                    var ids = await _db.ContenidosCategoriasRelacion
+                        .AsNoTracking()
                         .Where(r => !r.Borrado && r.IdCategoria == cat.Sequence)
-                        .Select(r => r.IdContenido).Distinct().ToListAsync();
-                    if (!ids.Any()) { Items = new List<BlogItemVm>(); Response.Headers["X-Total-Count"] = "0"; return Page(); }
+                        .Select(r => r.IdContenido)
+                        .Distinct()
+                        .ToListAsync();
+
+                    if (!ids.Any())
+                    {
+                        Items = new List<BlogItemVm>();
+                        Response.Headers["X-Total-Count"] = "0";
+                        return Page();
+                    }
+
                     baseQuery = baseQuery.Where(c => ids.Contains(c.Id));
                 }
             }
 
+            // Búsqueda por texto
             if (!string.IsNullOrWhiteSpace(Q))
             {
                 var q = Q.Trim();
-                baseQuery = baseQuery.Where(c => (c.ContenidoTitulo ?? "").Contains(q) || (c.ContenidoTextoC ?? "").Contains(q) || (c.ContenidoTextoL ?? "").Contains(q));
+                baseQuery = baseQuery.Where(c =>
+                    (c.ContenidoTitulo ?? "").Contains(q) ||
+                    (c.ContenidoTextoC ?? "").Contains(q) ||
+                    (c.ContenidoTextoL ?? "").Contains(q));
             }
 
+            // Filtros por tags
             var condIds = ParseIds(ConditionIds);
             var sintIds = ParseIds(SintomaIds);
             var tratIds = ParseIds(TratamientoIds);
@@ -81,37 +112,63 @@ namespace eiibd26.Pages.Home
 
             if (condIds.Any())
             {
-                var condContentIds = _db.ContenidoCondiciones.AsNoTracking().Where(rel => !rel.Borrado && condIds.Contains(rel.CondicionId)).Select(rel => rel.ContenidoId).Distinct();
+                var condContentIds = _db.ContenidoCondiciones
+                    .AsNoTracking()
+                    .Where(rel => !rel.Borrado && condIds.Contains(rel.CondicionId))
+                    .Select(rel => rel.ContenidoId)
+                    .Distinct();
+
                 idsQuery = idsQuery.Where(id => condContentIds.Contains(id));
             }
+
             if (sintIds.Any())
             {
-                var sintContentIds = _db.ContenidoSintomas.AsNoTracking().Where(rel => !rel.Borrado && sintIds.Contains(rel.SintomaId)).Select(rel => rel.ContenidoId).Distinct();
+                var sintContentIds = _db.ContenidoSintomas
+                    .AsNoTracking()
+                    .Where(rel => !rel.Borrado && sintIds.Contains(rel.SintomaId))
+                    .Select(rel => rel.ContenidoId)
+                    .Distinct();
+
                 idsQuery = idsQuery.Where(id => sintContentIds.Contains(id));
             }
+
             if (tratIds.Any())
             {
-                var tratContentIds = _db.ContenidoTratamientos.AsNoTracking().Where(rel => !rel.Borrado && tratIds.Contains(rel.TratamientoId)).Select(rel => rel.ContenidoId).Distinct();
+                var tratContentIds = _db.ContenidoTratamientos
+                    .AsNoTracking()
+                    .Where(rel => !rel.Borrado && tratIds.Contains(rel.TratamientoId))
+                    .Select(rel => rel.ContenidoId)
+                    .Distinct();
+
                 idsQuery = idsQuery.Where(id => tratContentIds.Contains(id));
             }
 
             var total = await idsQuery.Distinct().CountAsync();
             Response.Headers["X-Total-Count"] = total.ToString();
 
-            var contentsQuery = _db.Contenidos.AsNoTracking().Where(c => idsQuery.Contains(c.Id)).OrderByDescending(c => c.FechaCreado);
+            var contentsQuery = _db.Contenidos
+                .AsNoTracking()
+                .Where(c => idsQuery.Contains(c.Id))
+                .OrderByDescending(c => c.FechaCreado);
 
-            var items = await contentsQuery.Skip(skip).Take(PageSize)
+            var items = await contentsQuery
+                .Skip(skip)
+                .Take(PageSize)
                 .Select(c => new BlogItemVm
                 {
                     Id = c.Id,
                     Title = c.ContenidoTitulo ?? "",
+                    Slug = c.ContenidoTituloSlug ?? "", // importante para URLs SEO
                     Excerpt = c.ContenidoTextoC ?? "",
-                    ImageUrl = string.IsNullOrEmpty(c.URLImagenPrincipal) ? null : ("/uploads/contenidos/" + c.URLImagenPrincipal),
+                    ImageUrl = string.IsNullOrEmpty(c.URLImagenPrincipal)
+                        ? null
+                        : ("/uploads/contenidos/" + c.URLImagenPrincipal),
                     Author = string.IsNullOrEmpty(c.Autor) ? "Autor" : c.Autor,
                     CreatedAt = c.FechaCreado
-                }).ToListAsync();
+                })
+                .ToListAsync();
 
-            // Attach category links as before
+            // Adjuntar categoría con el mismo patrón SEO que Index: /{segment}
             var contentIds = items.Select(i => i.Id).ToList();
             if (contentIds.Any())
             {
@@ -121,25 +178,47 @@ namespace eiibd26.Pages.Home
                     .Join(_db.ContenidosCategorias.AsNoTracking(),
                           rel => rel.IdCategoria,
                           cat => cat.Sequence,
-                          (rel, cat) => new { rel.IdContenido, cat.Sequence, cat.CategoriaSlug, cat.Nombre, cat.CategoriaPadre })
+                          (rel, cat) => new
+                          {
+                              rel.IdContenido,
+                              cat.Sequence,
+                              cat.CategoriaSlug,
+                              cat.Nombre,
+                              cat.CategoriaPadre
+                          })
                     .ToListAsync();
 
                 var map = catRels
                     .GroupBy(x => x.IdContenido)
-                    .ToDictionary(g => g.Key, g =>
-                    {
-                        var chosen = g.OrderBy(x => x.CategoriaPadre.HasValue ? 0 : 1).ThenBy(x => x.Sequence).FirstOrDefault();
-                        if (chosen == null) return (Name: (string)null, Link: (string)null);
-                        var segment = !string.IsNullOrWhiteSpace(chosen.CategoriaSlug) ? chosen.CategoriaSlug : chosen.Sequence.ToString();
-                        var link = "/Contenidos/categoria/" + segment;
-                        return (Name: chosen.Nombre, Link: link);
-                    });
+                    .ToDictionary(
+                        g => g.Key,
+                        g =>
+                        {
+                            var chosen = g
+                                .OrderBy(x => x.CategoriaPadre.HasValue ? 0 : 1)
+                                .ThenBy(x => x.Sequence)
+                                .FirstOrDefault();
+
+                            if (chosen == null)
+                                return (Name: (string)null, Slug: (string)null, Id: (int?)null);
+
+                            var segment = !string.IsNullOrWhiteSpace(chosen.CategoriaSlug)
+                                ? chosen.CategoriaSlug
+                                : chosen.Sequence.ToString();
+
+                            return (Name: chosen.Nombre, Slug: segment, Id: (int?)chosen.Sequence);
+                        });
 
                 foreach (var it in items)
                 {
-                    if (map.TryGetValue(it.Id, out var v) && !string.IsNullOrWhiteSpace(v.Name) && !string.IsNullOrWhiteSpace(v.Link))
+                    if (map.TryGetValue(it.Id, out var v) &&
+                        !string.IsNullOrWhiteSpace(v.Name) &&
+                        !string.IsNullOrWhiteSpace(v.Slug))
                     {
-                        it.Category = $"<a href=\"{v.Link}\" class=\"blog-category\">{v.Name}</a>";
+                        // link SEO de categoría: /{segment}
+                        it.Category = $"<a href=\"/{v.Slug}\" class=\"blog-category\">{v.Name}</a>";
+                        it.PrimaryCategorySlug = v.Slug;
+                        it.PrimaryCategoryId = v.Id;
                     }
                 }
             }
