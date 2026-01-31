@@ -42,13 +42,12 @@
             align-items: start;
         }
 
-            /* Featured specific containers (visual separation if needed) */
             .items-container.featured-1042,
             .items-container.featured-1043 {
                 margin-bottom: 8px;
             }
 
-        /* Card vertical (imagen arriba, contenido abajo) */
+        /* Card vertical */
         .blog-card {
             display: flex;
             flex-direction: column;
@@ -92,13 +91,23 @@
             font-weight: 600;
         }
 
+
         .blog-title {
             font-size: .9rem;
             margin: 6px 0;
-            font-weight: 700;
+            font-weight: 400;
             color: #0f172a;
-            line-height: 1.2;
+            line-height: 1.5;
         }
+
+            .blog-title a {
+                color: inherit; /* hereda el color de .blog-title */
+                text-decoration: none;
+            }
+
+                .blog-title a:hover {
+                    color: inherit; /* o un color diferente para hover si quieres */
+                }
 
         .blog-excerpt {
             color: #6b7280;
@@ -139,7 +148,6 @@
                     display: block;
                 }
 
-        /* Responsive: 2 columns en tablet, 1 en móvil */
         @@media (max-width: 991.98px) {
             .items-container {
                 grid-template-columns: repeat(2, 1fr);
@@ -164,30 +172,56 @@
             padding-bottom: 20px;
         }
 
-        /* Map root */
         #usersMapRoot {
-            /* background: #fff;
-            border: 1px solid #eef2f7; */
             border-radius: 8px;
             padding: 12px;
             min-height: 220px;
         }
+
+        /* Load more section */
+        .load-more-wrap {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            padding-top: 4px;
+            width: 100%;
+        }
+
+        .more-toggle {
+            background: none;
+            border: none;
+            padding: 0;
+            margin: 0;
+            color: #2563eb;
+            font-size: .95rem;
+            cursor: pointer;
+            text-decoration: underline;
+            display: inline-block;
+        }
+
+            .more-toggle:disabled {
+                opacity: .7;
+                cursor: default;
+            }
+
+            .more-toggle:focus {
+                outline: 2px dashed rgba(37,99,235,0.25);
+                outline-offset: 3px;
+            }
     </style>
 }
 
 <main>
     <section class="home-hero">
-        @* Hero partial *@
-         <partial name="~/Pages/Shared/HeroPartial.cshtml" model="Model.Hero" /> 
+        <partial name="~/Pages/Shared/HeroPartial.cshtml" model="Model.Hero" />
     </section>
 
     <!-- MAP PARTIAL INSERTION -->
-     <section class="row-small" aria-label="Mapa de usuarios">
+    <section class="row-small" aria-label="Mapa de usuarios">
         <div id="usersMapRoot">Cargando mapa…</div>
 
         <script>
             (function () {
-                // Fetch the partial (this executes UsersMapPartialModel.OnGetAsync)
                 fetch('@Url.Page("/Home/UsersMapPartial")', { credentials: 'same-origin' })
                     .then(function (r) {
                         if (!r.ok) throw new Error('Error fetching UsersMapPartial: ' + r.status);
@@ -214,7 +248,7 @@
                                         var s = document.createElement('script');
                                         s.src = scriptTag.src;
                                         s.async = false;
-                                        s.onload = function () { resolve(); };
+                                        s.onload = resolve;
                                         s.onerror = function () {
                                             console.error('Failed to load script: ' + scriptTag.src);
                                             resolve();
@@ -246,29 +280,162 @@
                     });
             })();
         </script>
-    </section> 
-    <!-- END MAP PARTIAL INSERTION -->
-    <!-- Featured for category 1042 (Top 3) -->
+    </section>
+
+    <!-- Destacados -->
     <section class="row-small" aria-label="Destacados">
         <div class="section-title">Destacados</div>
         <div class="items-container featured-1042">
-            @* Force at most 3 in the view as defense-in-depth *@
-            <partial name="~/Pages/Shared/_BlogItems.cshtml" model="Model.Featured1042?.Take(3)" /> 
+            <partial name="~/Pages/Shared/_BlogItems.cshtml" model="Model.Featured1042?.Take(3)" />
         </div>
     </section>
 
-    <!-- Featured for category 1043 (Top 3) -->
+    <!-- Populares -->
     <section class="row-small" aria-label="Populares">
         <div class="section-title">Populares</div>
         <div class="items-container featured-1043">
-            @* Force at most 3 in the view as defense-in-depth *@
-             <partial name="~/Pages/Shared/_BlogItems.cshtml" model="Model.Featured1043?.Take(3)" /> 
+            <partial name="~/Pages/Shared/_BlogItems.cshtml" model="Model.Featured1043?.Take(3)" />
+        </div>
+    </section>
+
+    <!-- Más contenidos con BlogMore -->
+    <section class="row-small" aria-label="Más contenidos">
+        <div class="section-title">Más contenidos</div>
+
+        <div id="moreItemsContainer" class="items-container">
+            @* se llenará por AJAX desde /Home/BlogMore *@
+        </div>
+
+        <div class="load-more-wrap">
+            <button id="loadMoreBtn" class="more-toggle" type="button">
+                Ver más contenidos
+            </button>
         </div>
     </section>
 </main>
 
 @section Scripts {
+    <!-- Load more de BlogMore -->
     <script>
-        // No load-more script here anymore (we only show the two featured rows + map)
+        (function () {
+            var page = 0;
+            var pageSize = 3;
+            var btn = document.getElementById('loadMoreBtn');
+            var container = document.getElementById('moreItemsContainer');
+            if (!btn || !container) return;
+
+            function loadMore() {
+                page++;
+
+                var url = '@Url.Page("/Home/BlogMore")' +
+                          '?PageNumber=' + encodeURIComponent(page) +
+                          '&PageSize=' + encodeURIComponent(pageSize);
+
+                btn.disabled = true;
+                btn.textContent = 'Cargando…';
+
+                fetch(url, { credentials: 'same-origin' })
+                    .then(function (r) {
+                        if (!r.ok) throw new Error('HTTP ' + r.status);
+
+                        var totalCountHeader = r.headers.get('X-Total-Count');
+                        var totalCount = totalCountHeader ? parseInt(totalCountHeader, 10) : NaN;
+
+                        return r.text().then(function (html) {
+                            return { html: html, totalCount: totalCount };
+                        });
+                    })
+                    .then(function (result) {
+                        if (!result.html) {
+                            btn.style.display = 'none';
+                            return;
+                        }
+
+                        var temp = document.createElement('div');
+                        temp.innerHTML = result.html;
+
+                        Array.prototype.forEach.call(temp.children, function (child) {
+                            container.appendChild(child);
+                        });
+
+                        if (!isNaN(result.totalCount)) {
+                            if ((page * pageSize) >= result.totalCount) {
+                                btn.style.display = 'none';
+                            }
+                        }
+                    })
+                    .catch(function (err) {
+                        console.error('Error cargando más contenidos:', err);
+                    })
+                    .finally(function () {
+                        if (btn.style.display !== 'none') {
+                            btn.disabled = false;
+                            btn.textContent = 'Ver más contenidos';
+                        }
+                    });
+            }
+
+            // primera tanda automática
+            loadMore();
+            btn.addEventListener('click', loadMore);
+        })();
+    </script>
+
+    <!-- Comportamiento del botón "+ Más" en cada card (ContentMeta) -->
+    <script>
+        (function () {
+            document.addEventListener('click', function (e) {
+                var btn = e.target.closest('.btn-blog-more');
+                if (!btn) return;
+
+                e.preventDefault();
+
+                var card = btn.closest('.blog-card');
+                if (!card) return;
+
+                var panel = card.querySelector('.more-panel');
+                if (!panel) return;
+
+                var metaUrl = btn.getAttribute('data-meta-url') || panel.getAttribute('data-meta-url');
+                if (!metaUrl) return;
+
+                if (panel.style.display === 'block') {
+                    panel.style.display = 'none';
+                    panel.setAttribute('aria-hidden', 'true');
+                    btn.textContent = '+ Más';
+                    return;
+                }
+
+                if (panel.getAttribute('data-loaded') === 'true') {
+                    panel.style.display = 'block';
+                    panel.setAttribute('aria-hidden', 'false');
+                    btn.textContent = '− Menos';
+                    return;
+                }
+
+                btn.disabled = true;
+                btn.textContent = 'Cargando…';
+
+                fetch(metaUrl, { credentials: 'same-origin' })
+                    .then(function (r) {
+                        if (!r.ok) throw new Error('HTTP ' + r.status);
+                        return r.text();
+                    })
+                    .then(function (html) {
+                        panel.innerHTML = html;
+                        panel.style.display = 'block';
+                        panel.setAttribute('aria-hidden', 'false');
+                        panel.setAttribute('data-loaded', 'true');
+                        btn.textContent = '− Menos';
+                    })
+                    .catch(function (err) {
+                        console.error('Error cargando ContentMeta:', err);
+                        btn.textContent = '+ Más';
+                    })
+                    .finally(function () {
+                        btn.disabled = false;
+                    });
+            });
+        })();
     </script>
 }

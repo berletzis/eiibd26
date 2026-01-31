@@ -93,7 +93,7 @@ namespace eiibd26.Pages.Home
                 }
             }
 
-            // Búsqueda por texto
+            // Búsqueda de texto
             if (!string.IsNullOrWhiteSpace(Q))
             {
                 var q = Q.Trim();
@@ -158,17 +158,21 @@ namespace eiibd26.Pages.Home
                 {
                     Id = c.Id,
                     Title = c.ContenidoTitulo ?? "",
-                    Slug = c.ContenidoTituloSlug ?? "", // importante para URLs SEO
+                    Slug = c.ContenidoTituloSlug ?? "",
                     Excerpt = c.ContenidoTextoC ?? "",
                     ImageUrl = string.IsNullOrEmpty(c.URLImagenPrincipal)
                         ? null
                         : ("/uploads/contenidos/" + c.URLImagenPrincipal),
                     Author = string.IsNullOrEmpty(c.Autor) ? "Autor" : c.Autor,
-                    CreatedAt = c.FechaCreado
+                    CreatedAt = c.FechaCreado,
+                    Conditions = new List<string>(),
+                    Symptoms = new List<string>(),
+                    Treatments = new List<string>(),
+                    RelatedQuestionsCount = 0
                 })
                 .ToListAsync();
 
-            // Adjuntar categoría con el mismo patrón SEO que Index: /{segment}
+            // Adjuntar categorías y slugs igual que en Index/porCategoria
             var contentIds = items.Select(i => i.Id).ToList();
             if (contentIds.Any())
             {
@@ -215,7 +219,6 @@ namespace eiibd26.Pages.Home
                         !string.IsNullOrWhiteSpace(v.Name) &&
                         !string.IsNullOrWhiteSpace(v.Slug))
                     {
-                        // link SEO de categoría: /{segment}
                         it.Category = $"<a href=\"/{v.Slug}\" class=\"blog-category\">{v.Name}</a>";
                         it.PrimaryCategorySlug = v.Slug;
                         it.PrimaryCategoryId = v.Id;

@@ -20,6 +20,14 @@
 
 @section Styles {
     <style>
+        .h1, .h2, .h3, .h4, .h5, .h6, h1, h2, h3, h4, h5, h6 {
+            margin-top: 0;
+            margin-bottom: .5rem;
+            font-weight: 500;
+            line-height: 0;
+            color: var(--bs-heading-color);
+        }
+
         .conte-page {
             padding-top: 16px;
             padding-bottom: 24px;
@@ -211,7 +219,6 @@
             font-size: .9rem;
         }
 
-        /* Sección de login mejorada y compacta */
         .login-hint-box {
             padding: 0.875rem 1rem;
             margin-top: 0.75rem;
@@ -387,17 +394,22 @@
                     text-decoration: underline;
                 }
 
-        .blog-title {
+        /* Sobrescribir color del título para esta página específicamente */
+        .blog-card .blog-title {
             margin: 0;
             font-size: .9rem;
             font-weight: 400;
             color: #0f172a;
         }
 
-            .blog-title a {
-                color: inherit;
+            .blog-card .blog-title a {
+                color: #0f172a !important;
                 text-decoration: none;
             }
+
+                .blog-card .blog-title a:hover {
+                    color: #0f172a !important;
+                }
 
         .blog-excerpt {
             color: #6b7280;
@@ -624,70 +636,7 @@
             </div>
 
             <div class="items-container" id="itemsContainer" style="display:@((Model.Items == null || !Model.Items.Any()) ? "none" : "grid")">
-                @if (Model.Items != null && Model.Items.Any())
-                {
-                    foreach (var item in Model.Items)
-                    {
-                        <article class="blog-card" role="article" aria-labelledby="title-@item.Id" data-id="@item.Id">
-                            <div class="thumb" aria-hidden="true">
-                                @if (!string.IsNullOrEmpty(item.ImageUrl))
-                                {
-                                    <img src="@item.ImageUrl" alt="@item.Title" loading="lazy" />
-                                }
-                                else
-                                {
-                                    <svg width="80" height="40" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                                }
-                            </div>
-
-                            <div class="content">
-                                <div>
-                                    @if (!string.IsNullOrWhiteSpace(item.Category))
-                                    {
-                                        <div class="category-pill">@Html.Raw(item.Category)</div>
-                                    }
-                                    else if (item.Conditions != null && item.Conditions.Any())
-                                    {
-                                        var fallback = item.Conditions.First();
-                                        <div class="category-pill">
-                                            <a href="@Url.Page("/Contenidos/porCategoria", new { categorySegment = fallback })">@fallback</a>
-                                        </div>
-                                    }
-
-                                    <h3 id="title-@item.Id" class="blog-title">
-                                        <a href="@GetContentSeoUrl(item.CategorySlug, item.Slug)">@item.Title</a>
-                                    </h3>
-
-                                    <div class="blog-excerpt">@item.Excerpt</div>
-                                </div>
-
-                                <div class="blog-footer" aria-hidden="false">
-                                    <div class="author">
-                                        <span class="avatar">
-                                            <img src="~/img/avatar-placeholder.png" alt="@item.Author" />
-                                        </span>
-                                        <span>@item.Author</span>
-                                    </div>
-                                    <div class="pubdate">@item.CreatedAt.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</div>
-                                </div>
-
-                                <div style="margin-top:8px;">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary btn-more"
-                                            data-content-id="@item.Id"
-                                            aria-expanded="false"
-                                            aria-controls="more-@item.Id"
-                                            aria-label="Mostrar más información relacionada">
-                                        + Más
-                                    </button>
-                                </div>
-
-                                <div id="more-@item.Id" class="more-panel" data-loaded="false" aria-hidden="true">
-                                    <div class="more-placeholder">Contenido relacionado no cargado. Haz clic en "+ Más" para ver más.</div>
-                                </div>
-                            </div>
-                        </article>
-                    }
-                }
+                <partial name="~/Pages/Shared/_BlogItems.cshtml" model="Model.Items" />
             </div>
 
             <div class="load-more-wrap" id="loadMoreWrap" style="display:@(Model.TotalCount > (Model.Items?.Count ?? 0) ? "block" : "none")">
@@ -711,7 +660,6 @@
             const itemsContainer = document.getElementById('itemsContainer');
             const loadMoreWrap = document.getElementById('loadMoreWrap');
 
-            // Funciones para manejar cookies
             function setCookie(name, value, days) {
                 const d = new Date();
                 d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
@@ -729,13 +677,11 @@
                 return null;
             }
 
-            // Inicializar acordeón con estado guardado
             const collapseEl = document.getElementById('tagsBlocksCollapse');
             const toggleBtn = document.getElementById('filtersToggle');
             if (collapseEl && toggleBtn && typeof bootstrap !== 'undefined') {
                 const bsCollapse = new bootstrap.Collapse(collapseEl, { toggle: false });
 
-                // Restaurar estado del acordeón desde cookie
                 const savedState = getCookie('contenidos_filters_expanded');
                 if (savedState === 'true') {
                     bsCollapse.show();
@@ -745,7 +691,6 @@
                     toggleBtn.setAttribute('aria-expanded', 'false');
                 }
 
-                // Guardar estado cuando cambie
                 toggleBtn.addEventListener('click', function() {
                     const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
                     if (isExpanded) {
@@ -759,7 +704,6 @@
                     }
                 });
 
-                // También guardar cuando el collapse cambia por Bootstrap
                 collapseEl.addEventListener('shown.bs.collapse', function() {
                     toggleBtn.setAttribute('aria-expanded', 'true');
                     setCookie('contenidos_filters_expanded', 'true', 30);
@@ -928,33 +872,6 @@
                         }
                     }
                 }
-
-                const moreBtn = e.target.closest('.btn-more');
-                if (moreBtn) {
-                    const contentId = moreBtn.getAttribute('data-content-id');
-                    const panel = document.getElementById('more-' + contentId);
-                    if (!panel) return;
-                    const loaded = panel.getAttribute('data-loaded') === 'true';
-                    if (loaded) {
-                        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-                        moreBtn.setAttribute('aria-expanded', panel.style.display === 'block');
-                        return;
-                    }
-
-                    fetch('@Url.Page("/Contenidos/ContentMeta")' + '?id=' + encodeURIComponent(contentId), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                        .then(r => r.text())
-                        .then(html => {
-                            panel.innerHTML = html;
-                            panel.setAttribute('data-loaded', 'true');
-                            panel.style.display = 'block';
-                            moreBtn.setAttribute('aria-expanded', 'true');
-                        }).catch(err => {
-                            console.error(err);
-                            panel.innerHTML = '<div style="color:#6b7280">Error cargando información relacionada.</div>';
-                            panel.style.display = 'block';
-                            panel.setAttribute('data-loaded', 'true');
-                        });
-                }
             });
 
             if (searchInput) {
@@ -997,4 +914,6 @@
             })();
         })();
     </script>
+
+    <script src="~/js/content-meta-loader.js" asp-append-version="true"></script>
 }

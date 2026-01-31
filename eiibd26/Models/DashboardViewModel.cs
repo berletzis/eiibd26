@@ -52,6 +52,7 @@ namespace eiibd26.Models
         public string Titulo { get; set; }
         public int AnswersCount { get; set; }
         public int Votes { get; set; }
+        public string? Slug { get; set; }
     }
 
     public class AnswerItem
@@ -60,5 +61,6 @@ namespace eiibd26.Models
         public string Cuerpo { get; set; }
         public int Votes { get; set; }
         public Guid? PreguntaId { get; set; }
+        public string? Slug { get; set; }
     }
 }

@@ -4,7 +4,7 @@
 @inject ApplicationDbContext _db
 
 @{
-    // Cargar categorías directamente desde la vista
+    // Cargar categorías 12 y 47 (como antes)
     var categorias12 = await _db.ContenidosCategorias
         .AsNoTracking()
         .Where(c => !c.Borrado && c.Relevante == true && (c.Sequence == 12 || c.CategoriaPadre == 12))
@@ -18,13 +18,6 @@
         .OrderBy(c => c.Orden)
         .ThenBy(c => c.Nombre)
         .ToListAsync();
-
-    var categorias3 = await _db.ContenidosCategorias
-            .AsNoTracking()
-            .Where(c => !c.Borrado && c.Relevante == true && (c.Sequence == 3 || c.CategoriaPadre == 3))
-            .OrderBy(c => c.Orden)
-            .ThenBy(c => c.Nombre)
-            .ToListAsync();
 
     // Procesar categorías 12
     var cat12Parent = categorias12?.FirstOrDefault(c => c.Sequence == 12);
@@ -42,45 +35,172 @@
         : "47";
     var cat47Name = cat47Parent?.Nombre ?? "Recursos";
 
-    // Procesar categorías 3
-    var cat3Parent = categorias3?.FirstOrDefault(c => c.Sequence == 3);
-    var cat3Children = categorias3?.Where(c => c.CategoriaPadre == 3).ToList();
+    // Cargar CONTENIDOS relacionados con la categoría 3
+    var cat3Parent = await _db.ContenidosCategorias
+        .AsNoTracking()
+        .FirstOrDefaultAsync(c => c.Sequence == 3 && !c.Borrado);
+
     var cat3Slug = !string.IsNullOrWhiteSpace(cat3Parent?.CategoriaSlug)
         ? cat3Parent.CategoriaSlug
         : "3";
     var cat3Name = cat3Parent?.Nombre ?? "Legales";
+
+    // Obtener IDs de contenidos relacionados con categoría 3
+    var contenidosIds = await _db.ContenidosCategoriasRelacion
+        .AsNoTracking()
+        .Where(r => !r.Borrado && r.IdCategoria == 3)
+        .Select(r => r.IdContenido)
+        .Distinct()
+        .ToListAsync();
+
+    // Cargar los contenidos
+    var contenidosLegales = await _db.Contenidos
+        .AsNoTracking()
+        .Where(c => contenidosIds.Contains(c.Id) && !c.Eliminado)
+        .OrderBy(c => c.ContenidoTitulo)
+        .Select(c => new
+        {
+            c.Id,
+            c.ContenidoTitulo,
+            c.ContenidoTituloSlug
+        })
+        .ToListAsync();
 }
+
+<style>
+    /* Footer base */
+    .site-footer {
+        font-size: .9rem;
+    }
+
+    .footer-inner {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .footer-logo {
+        height: 36px;
+        object-fit: contain;
+    }
+
+    /* Heading (títulos de columna) */
+    .footer-heading {
+        font-size: .9rem !important;
+        font-weight: 600;
+        margin-bottom: .5rem !important;
+    }
+
+    .footer-heading-link {
+        color: #0f172a !important;
+        text-decoration: none !important;
+    }
+
+        .footer-heading-link:hover {
+            color: #6a4e7a !important;
+            text-decoration: none !important;
+        }
+
+    /* Links de lista */
+    .footer-list {
+        font-size: .9rem !important;
+        line-height: 1.6;
+        padding-left: 0;
+        margin-bottom: 0;
+    }
+
+        .footer-list li {
+            margin-bottom: 6px;
+        }
+
+    .footer-link {
+        color: #6b7280 !important;
+        text-decoration: none !important;
+        transition: color .2s ease;
+    }
+
+        .footer-link:hover {
+            color: #6a4e7a !important;
+            text-decoration: none !important;
+        }
+
+    /* Social icons */
+    .footer-social-desktop .social-link,
+    .mobile-icons-row .social-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: #f3f4f6;
+        color: #6b7280;
+        text-decoration: none !important;
+        transition: all .2s ease;
+    }
+
+        .footer-social-desktop .social-link:hover,
+        .mobile-icons-row .social-link:hover {
+            background: #6a4e7a;
+            color: #fff;
+            text-decoration: none !important;
+        }
+
+    /* Square buttons */
+    .square-btn {
+        width: 44px;
+        height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none !important;
+        transition: all .2s ease;
+    }
+
+        .square-btn:hover {
+            text-decoration: none !important;
+        }
+
+    /* Grid de footer: 3 columnas estrechas + 1 ancha para redes */
+    .footer-main {
+        display: grid;
+        grid-template-columns: 18% 18% 18% 46%;
+        gap: 1rem;
+        align-items: start;
+    }
+
+    @@media (max-width: 767.98px) {
+        .footer-main {
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+    }
+</style>
 
 <footer class="site-footer bg-white border-top" role="contentinfo" aria-label="Pie de página">
     <div class="container">
         <div class="footer-inner py-4">
 
-            <!-- Top row: logo left, center spacer (no social icons here for desktop) -->
+            <!-- Top row: logo -->
             <div class="row align-items-start footer-top mb-4">
                 <div class="col-12 col-md-3 mb-3 mb-md-0">
                     <a href="/" class="d-inline-flex align-items-center" aria-label="Ir al inicio">
                         <img src="~/img/logo.png" alt="eiibd" class="footer-logo" />
                     </a>
                 </div>
-
-                <div class="col-12 col-md-6 d-none d-md-block"></div>
-
-                <div class="col-12 col-md-3"></div>
             </div>
 
-            <!-- Main columns: parents shown as full-width on mobile (col-12), lists visible on md+ -->
-            <div class="row footer-main align-items-start g-3 mb-4">
+            <!-- Main columns usando CSS Grid -->
+            <div class="footer-main mb-4">
 
-                <!-- Column 1: Nosotros (static links) -->
-                <div class="col-12 col-md-3">
-                    <h6 class="footer-heading mb-2">
+                <!-- Column 1: Categorías 47 -->
+                <div>
+                    <h6 class="footer-heading">
                         <a href="/@cat47Slug" class="footer-heading-link">@cat47Name</a>
                     </h6>
 
-                    <!-- list hidden on mobile -->
                     @if (cat47Children != null && cat47Children.Any())
                     {
-                        <ul class="list-unstyled footer-list">
+                        <ul class="list-unstyled footer-list d-none d-md-block">
                             @foreach (var c in cat47Children)
                             {
                                 var childSlug = !string.IsNullOrWhiteSpace(c.CategoriaSlug)
@@ -90,17 +210,14 @@
                             }
                         </ul>
                     }
-  
-
                 </div>
 
-                <!-- Column 2: Categorías 12 (dynamic from DB) -->
-                <div class="col-12 col-md-3">
-                    <h6 class="footer-heading mb-2">
+                <!-- Column 2: Categorías 12 -->
+                <div>
+                    <h6 class="footer-heading">
                         <a href="/@cat12Slug" class="footer-heading-link">@cat12Name</a>
                     </h6>
 
-                    <!-- list hidden on mobile -->
                     @if (cat12Children != null && cat12Children.Any())
                     {
                         <ul class="list-unstyled footer-list d-none d-md-block">
@@ -115,29 +232,28 @@
                     }
                 </div>
 
-                <!-- Column 3: Categorías 3 (dynamic from DB) -->
-                <div class="col-12 col-md-3">
-                    <h6 class="footer-heading mb-2">
+                <!-- Column 3: CONTENIDOS relacionados con categoría 3 -->
+                <div>
+                    <h6 class="footer-heading">
                         <a href="/@cat3Slug" class="footer-heading-link">@cat3Name</a>
                     </h6>
 
-                    <!-- list hidden on mobile -->
-                    @if (cat3Children != null && cat3Children.Any())
+                    @if (contenidosLegales != null && contenidosLegales.Any())
                     {
                         <ul class="list-unstyled footer-list d-none d-md-block">
-                            @foreach (var c in cat3Children)
+                            @foreach (var contenido in contenidosLegales)
                             {
-                                var childSlug = !string.IsNullOrWhiteSpace(c.CategoriaSlug)
-                                ? c.CategoriaSlug
-                                : c.Sequence.ToString();
-                                <li><a href="/@childSlug" class="footer-link">@c.Nombre</a></li>
+                                var slug = !string.IsNullOrWhiteSpace(contenido.ContenidoTituloSlug)
+                                ? contenido.ContenidoTituloSlug
+                                : contenido.Id.ToString();
+                                <li><a href="/c/@slug" class="footer-link">@contenido.ContenidoTitulo</a></li>
                             }
                         </ul>
                     }
                 </div>
 
-                <!-- Column 3: Desktop social icons & desktop action buttons (centered in column) -->
-                <div class="col-12 col-md-3 d-none d-md-flex flex-column align-items-center justify-content-center footer-desktop-actions">
+                <!-- Column 4: Desktop social icons & action buttons (más ancha) -->
+                <div class="d-none d-md-flex flex-column align-items-center justify-content-center footer-desktop-actions">
 
                     <nav aria-label="Redes sociales (escritorio)" class="footer-social-desktop d-flex gap-2 mb-3">
                         <a class="social-link" href="#" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
@@ -161,11 +277,12 @@
                     </div>
                 </div>
 
-                <!-- Column 4: Categorías 47 (desktop) / Mobile social icons -->
-                <div class="col-12 col-md-3">
+            </div>
 
-                    <!-- Mobile: Social icons (visible only on mobile) -->
-                    <div class="mobile-icons-row d-flex gap-2 mb-3 d-md-none">
+            <!-- Mobile: Social icons & action buttons (fuera del grid en móvil) -->
+            <div class="row d-md-none mb-3">
+                <div class="col-12">
+                    <div class="mobile-icons-row d-flex gap-2 mb-3 justify-content-center">
                         <nav aria-label="Redes sociales (móvil)" class="d-flex gap-2">
                             <a class="social-link" href="#" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
                             <a class="social-link" href="#" aria-label="Twitter"><i class="bi bi-twitter"></i></a>
@@ -174,8 +291,7 @@
                         </nav>
                     </div>
 
-                    <!-- Mobile: Action buttons (visible only on mobile) -->
-                    <div class="d-flex gap-2 mb-0 d-md-none footer-action-buttons">
+                    <div class="d-flex gap-2 justify-content-center footer-action-buttons">
                         <a href="https://wa.me/1234567890" class="btn square-btn btn-success" aria-label="WhatsApp" title="WhatsApp" target="_blank" rel="noopener">
                             <i class="bi bi-whatsapp" aria-hidden="true"></i>
                         </a>
@@ -189,13 +305,12 @@
                         </a>
                     </div>
                 </div>
-
             </div>
 
             <!-- Copyright / disclaimer -->
             <div class="row">
                 <div class="col-12">
-                    <small class="text-muted d-block" style="line-height:1.35;">
+                    <small class="text-muted d-block" style="line-height:1.35; font-size: .85rem;">
                         © @DateTime.UtcNow.Year eiibd. Todos los derechos reservados.
                         eiibd es un sitio de referencia y no recomienda ni respalda a ningún proveedor o tratamiento médico en particular. Ninguna información en eiibd debe interpretarse como consejo médico y/o de salud.
                     </small>
