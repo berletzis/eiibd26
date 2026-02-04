@@ -44,10 +44,13 @@
             border-radius: 6px;
             background: #f8fafc;
             transition: background .2s ease;
+            text-decoration: none;
+            color: inherit;
         }
 
             .top-answers-card .a-item:hover {
                 background: #f1f5f9;
+                text-decoration: none;
             }
 
         .top-answers-card .a-body {
@@ -103,32 +106,21 @@
             border-top: 1px solid #e9ecef;
         }
 
-            .top-answers-card .pagination-controls .page-info {
-                font-size: .85rem;
-                color: #6b7280;
-            }
+        .top-answers-card .page-info {
+            font-size: .85rem;
+            color: #6b7280;
+        }
 
-            .top-answers-card .pagination-controls .btn-pagination {
-                padding: 6px 14px;
-                font-size: .85rem;
-                border-radius: 6px;
-                border: 1px solid #e9ecef;
-                background: #fff;
-                color: #0f172a;
-                cursor: pointer;
-                transition: all .2s ease;
-            }
-
-                .top-answers-card .pagination-controls .btn-pagination:hover:not(:disabled) {
-                    background: #f8fafc;
-                    border-color: #6a4e7a;
-                    color: #6a4e7a;
-                }
-
-                .top-answers-card .pagination-controls .btn-pagination:disabled {
-                    opacity: 0.5;
-                    cursor: not-allowed;
-                }
+        .top-answers-card .btn-pagination {
+            padding: 6px 14px;
+            font-size: .85rem;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+            background: #fff;
+            color: #0f172a;
+            cursor: pointer;
+            transition: all .2s ease;
+        }
 
         .top-answers-card .no-data {
             text-align: center;
@@ -137,7 +129,7 @@
             padding: 2rem 0;
         }
 
-    @@media (max-width: 768px) {
+    @@media (max-width:768px) {
         .top-answers-card .a-item {
             flex-direction: column;
             align-items: stretch;
@@ -149,9 +141,9 @@
             gap: 10px;
         }
 
-            .top-answers-card .pagination-controls .page-info {
-                order: -1;
-            }
+        .top-answers-card .page-info {
+            order: -1;
+        }
     }
 </style>
 
@@ -168,16 +160,94 @@
             @for (int i = 0; i < answers.Count; i++)
             {
                 var a = answers[i];
-                <div class="a-item answer-entry" data-index="@i" style="display:none;">
+
+                // 1) Try to read server-provided slug properties (common names)
+                string preguntaSlug = null;
+                if (a != null)
+                {
+                    var slugCandidates = new[] { "PreguntaSlug", "QuestionSlug", "Slug" };
+                    foreach (var propName in slugCandidates)
+                    {
+                        var p = a.GetType().GetProperty(propName, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.IgnoreCase);
+                        if (p != null && p.PropertyType == typeof(string))
+                        {
+                            preguntaSlug = p.GetValue(a) as string;
+                            if (!string.IsNullOrWhiteSpace(preguntaSlug)) break;
+                            preguntaSlug = null;
+                        }
+                    }
+
+                    // If no slug found, check nested Pregunta?.Slug
+                    if (string.IsNullOrWhiteSpace(preguntaSlug))
+                    {
+                        var preguntaProp = a.GetType().GetProperty("Pregunta", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.IgnoreCase);
+                        if (preguntaProp != null)
+                        {
+                            var preguntaObj = preguntaProp.GetValue(a);
+                            if (preguntaObj != null)
+                            {
+                                var slugProp = preguntaObj.GetType().GetProperty("Slug", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.IgnoreCase);
+                                if (slugProp != null && slugProp.PropertyType == typeof(string))
+                                {
+                                    preguntaSlug = slugProp.GetValue(preguntaObj) as string;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 2) Resolve preguntaId string for fallback (look only for PreguntaId or nested Pregunta.Id)
+                string preguntaIdStr = null;
+                if (a != null)
+                {
+                    var pidProp = a.GetType().GetProperty("PreguntaId", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.IgnoreCase);
+                    if (pidProp != null)
+                    {
+                        var val = pidProp.GetValue(a);
+                        if (val != null) preguntaIdStr = val.ToString();
+                    }
+                    else
+                    {
+                        // try nested Pregunta.Id
+                        var preguntaProp = a.GetType().GetProperty("Pregunta", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.IgnoreCase);
+                        if (preguntaProp != null)
+                        {
+                            var preguntaObj = preguntaProp.GetValue(a);
+                            if (preguntaObj != null)
+                            {
+                                var idProp = preguntaObj.GetType().GetProperty("Id", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.IgnoreCase);
+                                if (idProp != null)
+                                {
+                                    var idVal = idProp.GetValue(preguntaObj);
+                                    if (idVal != null) preguntaIdStr = idVal.ToString();
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 3) Build href: prefer SEO-friendly slug; otherwise fallback to details?id=GUID
+                string href = !string.IsNullOrWhiteSpace(preguntaSlug)
+                ? "/Preguntas/" + Uri.EscapeDataString(preguntaSlug)
+                : "/Preguntas/Detalles?id=" + Uri.EscapeDataString(preguntaIdStr ?? "");
+
+                // Use preguntaIdStr and preguntaSlug in data-attributes (so client-side resolver can use them if needed)
+                <a href="@href"
+                   class="a-item answer-entry link-to-question"
+                   data-index="@i"
+                   data-pregunta-id="@(preguntaIdStr ?? "")"
+                   data-has-slug="@(string.IsNullOrWhiteSpace(preguntaSlug) ? "false" : "true")"
+                   data-slug="@(preguntaSlug ?? "")"
+                   style="display:none;">
                     <div class="a-body">@Html.Raw(a.Cuerpo)</div>
 
                     <div class="a-badges" aria-hidden="false">
                         <span class="badge-pill badge-votes" title="Votos">
                             <i class="bi bi-arrow-up-circle me-1" aria-hidden="true"></i>@a.Votes
                         </span>
-                      
+                        <span class="badge-label" title="Tipo">Respuesta</span>
                     </div>
-                </div>
+                </a>
             }
         </div>
 
@@ -196,10 +266,10 @@
         var container = document.getElementById('@containerId');
         if (!container) return;
 
-        var entries = container.querySelectorAll('.answer-entry');
+        var entries = Array.from(container.querySelectorAll('.answer-entry'));
         var pageSize = @pageSize;
         var totalCount = entries.length;
-        var totalPages = Math.ceil(totalCount / pageSize) || 1;
+        var totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
         var currentPage = 1;
 
         var prevBtn = container.querySelector('.prev-btn');
@@ -221,22 +291,57 @@
             if (prevBtn) prevBtn.style.display = (currentPage > 1) ? '' : 'none';
             if (nextBtn) nextBtn.style.display = (currentPage < totalPages) ? '' : 'none';
             if (currentPageSpan) currentPageSpan.textContent = currentPage;
+
+            // Improve links for visible entries: if they lack slug, try to fetch slugs in batch.
+            resolveSlugsForVisible();
         }
 
-        if (prevBtn) prevBtn.addEventListener('click', function () {
-            renderPage(currentPage - 1);
-        });
-        if (nextBtn) nextBtn.addEventListener('click', function () {
-            renderPage(currentPage + 1);
-        });
+        async function resolveSlugsForVisible() {
+            var visible = entries.filter(el => el.style.display !== 'none');
+            var idsToFetch = visible
+                .filter(el => el.getAttribute('data-has-slug') === 'false')
+                .map(el => el.getAttribute('data-pregunta-id'))
+                .filter((v, i, arr) => v && arr.indexOf(v) === i);
 
-        var paginationControls = container.querySelector('.pagination-controls');
-        if (totalPages <= 1) {
-            if (paginationControls) paginationControls.style.display = 'none';
-        } else {
-            if (paginationControls) paginationControls.style.display = 'flex';
+            if (!idsToFetch.length) return;
+
+            try {
+                const res = await fetch('/api/preguntas/slugs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids: idsToFetch })
+                });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const data = await res.json(); // expect { "<id>": "<slug>", ... }
+
+                visible.forEach(function (el) {
+                    var qid = el.getAttribute('data-pregunta-id');
+                    if (!qid) return;
+                    if (el.getAttribute('data-has-slug') === 'true') return;
+                    var slug = data && data[qid];
+                    if (slug) {
+                        el.setAttribute('href', '/Preguntas/' + encodeURIComponent(slug));
+                        el.setAttribute('data-has-slug', 'true');
+                        el.setAttribute('data-slug', slug);
+                    }
+                });
+            } catch (err) {
+                console.warn('No se pudieron resolver slugs para respuestas:', err);
+            }
         }
 
+        if (prevBtn) {
+            prevBtn.addEventListener('click', function () {
+                renderPage(currentPage - 1);
+            });
+        }
+        if (nextBtn) {
+            nextBtn.addEventListener('click', function () {
+                renderPage(currentPage + 1);
+            });
+        }
+
+        // Initial render
         renderPage(1);
     })();
 </script>

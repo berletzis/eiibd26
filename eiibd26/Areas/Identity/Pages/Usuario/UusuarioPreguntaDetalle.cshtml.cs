@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+ï»¿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Security.Claims;
 using eiibd26.Data;
 using eiibd26.Models;
+using eiibd26.Helpers; // <-- added for SlugHelper
 
 namespace eiibd26.Areas.Identity.Pages.Usuario
 {
@@ -103,7 +104,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             return Page();
         }
 
-        // FIX: usar PRG: después de crear/editar redirigimos a la GET con id para evitar re-POST y así el siguiente Guardar será actualización.
+        // FIX: usar PRG: despuï¿½s de crear/editar redirigimos a la GET con id para evitar re-POST y asï¿½ el siguiente Guardar serï¿½ actualizaciï¿½n.
         public async Task<IActionResult> OnPostSaveAsync()
         {
             var userId = GetUserId();
@@ -113,7 +114,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
             if (string.IsNullOrWhiteSpace(Titulo))
             {
-                ErrorMessage = "El título es obligatorio.";
+                ErrorMessage = "El tÃ­tulo es obligatorio.";
                 return Page();
             }
             if (string.IsNullOrWhiteSpace(Cuerpo))
@@ -133,7 +134,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
                 if (pregunta == null)
                 {
-                    ErrorMessage = "No se encontró la pregunta para editar.";
+                    ErrorMessage = "No se encontrï¿½ la pregunta para editar.";
                     return Page();
                 }
 
@@ -150,9 +151,33 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     return Page();
                 }
 
+                // Capture original title to decide whether to regenerate slug
+                var originalTitle = pregunta.Titulo ?? string.Empty;
+                // Update fields
                 pregunta.Titulo = Titulo;
                 pregunta.Cuerpo = Cuerpo;
                 pregunta.FechaModificacion = DateTimeOffset.UtcNow;
+
+                // Regenerate slug if missing OR title changed (case-insensitive)
+                try
+                {
+                    var shouldRegen = string.IsNullOrWhiteSpace(pregunta.Slug)
+                        || !string.Equals(originalTitle?.Trim(), Titulo?.Trim(), StringComparison.OrdinalIgnoreCase);
+
+                    if (shouldRegen)
+                    {
+                        // Use the same helper as other handlers to guarantee uniqueness
+                        var newSlug = await SlugHelper.GenerateUniqueSlugForPregunta(_db, Titulo);
+                        if (!string.IsNullOrWhiteSpace(newSlug))
+                        {
+                            pregunta.Slug = newSlug;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "No se pudo generar slug Ãºnico para la pregunta (update). Se conservarÃ¡ el slug actual si existe.");
+                }
 
                 await ReplaceRelationsAsync(pregunta.Id);
                 await _db.SaveChangesAsync();
@@ -174,6 +199,18 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     FechaCreacion = DateTimeOffset.UtcNow
                 };
 
+                // Generate unique slug before saving
+                try
+                {
+                    var slug = await SlugHelper.GenerateUniqueSlugForPregunta(_db, Titulo);
+                    if (!string.IsNullOrWhiteSpace(slug))
+                        nueva.Slug = slug;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "No se pudo generar slug Ãºnico para la nueva pregunta. Se guardarÃ¡ sin slug.");
+                }
+
                 _db.Preguntas.Add(nueva);
                 await _db.SaveChangesAsync();
 
@@ -192,7 +229,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             if (userId == Guid.Empty) return Challenge();
             if (!id.HasValue)
             {
-                ErrorMessage = "Identificador inválido.";
+                ErrorMessage = "Identificador invï¿½lido.";
                 return Page();
             }
 
@@ -226,7 +263,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             await DeletePreguntaRelationsAsync(pregunta.Id);
             await _db.SaveChangesAsync();
 
-            // Página de listado (evita error de RedirectToPage)
+            // Pï¿½gina de listado (evita error de RedirectToPage)
             return Redirect("~/Identity/Usuario/usuarioPreguntasRespuestas");
         }
 
@@ -264,7 +301,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
         private async Task LoadUserListsAsync(Guid userId)
         {
-            // PROYECCIÓN SEGURA: primero anónimo, luego tuplas en memoria.
+            // PROYECCIï¿½N SEGURA: primero anï¿½nimo, luego tuplas en memoria.
             try
             {
                 var rawCond = await _db.condicionUsuario
@@ -305,7 +342,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Error cargando síntomas");
+                _logger.LogWarning(ex, "Error cargando sï¿½ntomas");
                 SintomasLista = new();
             }
 

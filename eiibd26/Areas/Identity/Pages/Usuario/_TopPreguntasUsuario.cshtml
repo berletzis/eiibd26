@@ -172,8 +172,20 @@
             {
                 var q = questions[i];
 
+                // Build href explicitly: prefer SEO-friendly /Preguntas/{slug} when slug exists.
+                string href;
+                if (!string.IsNullOrWhiteSpace(q?.Slug))
+                {
+                    href = "/Preguntas/" + Uri.EscapeDataString(q.Slug);
+                }
+                else
+                {
+                    var idStr = (q?.Id != null) ? q.Id.ToString() : "";
+                    href = "/Preguntas/Detalles?id=" + Uri.EscapeDataString(idStr);
+                }
+
                 <div class="q-item question-entry" data-index="@i" style="display:none;">
-                    <a href="@Url.Page("/Preguntas/Detalles", new { id = q.Id })"
+                    <a href="@href"
                        class="q-link"
                        title="@q.Titulo">
                         @q.Titulo

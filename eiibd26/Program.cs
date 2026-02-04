@@ -35,7 +35,13 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 builder.Services.AddTransient<IEmailSender, SendGridEmailSender>();
 builder.Services.AddTransient<ISmsSender, TwilioSmsSender>();
-builder.Services.AddRazorPages();
+// Register Razor Pages and add route convention so SEO URL /Preguntas/{slug} maps to the Detalles page
+builder.Services.AddRazorPages()
+    .AddRazorPagesOptions(options =>
+    {
+        // Map the SEO-friendly route /Preguntas/{slug} to the page at /Preguntas/Detalles
+        options.Conventions.AddPageRoute("/Preguntas/Detalles", "/Preguntas/{slug}");
+    });
 builder.Services.AddControllers();
 
 var app = builder.Build();

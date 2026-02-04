@@ -1,4 +1,4 @@
-﻿@page "/Preguntas/{slug}"
+﻿@page "/Preguntas/Detalles/{slug?}"
 @model eiibd26.Pages.Preguntas.DetallesModel
 @using System.Text.Encodings.Web
 @using System.Text.Json
@@ -36,72 +36,75 @@
         var answerCount = Model.TotalItems;
         var cleanBody = StripHtml(Model.Pregunta.Cuerpo);
         var description = cleanBody.Length > 160 ? cleanBody.Substring(0, 157) + "..." : cleanBody;
-        var canonicalUrl = $"{Request.Scheme}://{Request.Host}/Preguntas/{Model.Pregunta.Slug}";
+        // Prefer SEO-friendly /Preguntas/{slug} when slug exists, otherwise use /Preguntas/Detalles?id=GUID
+        var canonicalUrl = !string.IsNullOrWhiteSpace(Model.Pregunta.Slug)
+            ? $"{Request.Scheme}://{Request.Host}/Preguntas/{Model.Pregunta.Slug}"
+            : $"{Request.Scheme}://{Request.Host}/Preguntas/Detalles?id={Model.Pregunta.Id}";
 
         @* Schema.org JSON-LD para Google *@
         <script type="application/ld+json">
-                {
-                  "@@context": "https://schema.org",
-                  "@@type": "QAPage",
-                  "mainEntity": {
-                    "@@type": "Question",
-                    "name": "@JsonEncode(Model.Pregunta.Titulo)",
-                    "text": "@JsonEncode(cleanBody)",
-                    "answerCount": @answerCount,
-                    "dateCreated": "@Model.Pregunta.FechaCreacion.ToString("o")",
-                    "author": {
-                      "@@type": "Person",
-                      "name": "@JsonEncode(Model.Pregunta.AutorNombre)"
-                    },
-                    "upvoteCount": @Model.Pregunta.Score@if (acceptedAnswer != null || Model.Respuestas.Any()){
-                    <text>,</text>
+                    {
+                      "@@context": "https://schema.org",
+                      "@@type": "QAPage",
+                      "mainEntity": {
+                        "@@type": "Question",
+                        "name": "@JsonEncode(Model.Pregunta.Titulo)",
+                        "text": "@JsonEncode(cleanBody)",
+                        "answerCount": @answerCount,
+                        "dateCreated": "@Model.Pregunta.FechaCreacion.ToString("o")",
+                        "author": {
+                          "@@type": "Person",
+                          "name": "@JsonEncode(Model.Pregunta.AutorNombre)"
+                        },
+                        "upvoteCount": @Model.Pregunta.Score@if (acceptedAnswer != null || Model.Respuestas.Any()){
+                        <text>,</text>
             }
             @if (acceptedAnswer != null)
             {
-                        var cleanAnswer = StripHtml(acceptedAnswer.Cuerpo);
-                        <text>
-                    "acceptedAnswer": {
-                      "@@type": "Answer",
-                      "text": "@JsonEncode(cleanAnswer)",
-                      "dateCreated": "@acceptedAnswer.FechaCreacion.ToString("o")",
-                      "upvoteCount": @acceptedAnswer.Score,
-                      "author": {
-                        "@@type": "Person",
-                        "name": "@JsonEncode(acceptedAnswer.AutorNombre)"
-                      }
-                    }</text>
-                        if (Model.Respuestas.Count > 1)
-                        {
+                            var cleanAnswer = StripHtml(acceptedAnswer.Cuerpo);
+                            <text>
+                        "acceptedAnswer": {
+                          "@@type": "Answer",
+                          "text": "@JsonEncode(cleanAnswer)",
+                          "dateCreated": "@acceptedAnswer.FechaCreacion.ToString("o")",
+                          "upvoteCount": @acceptedAnswer.Score,
+                          "author": {
+                            "@@type": "Person",
+                            "name": "@JsonEncode(acceptedAnswer.AutorNombre)"
+                          }
+                        }</text>
+                            if (Model.Respuestas.Count > 1)
+                            {
 
-                            <text>,</text>
-                    }
+                                    <text>,</text>
+                        }
             }
             @if (Model.Respuestas.Any())
             {
-                        var otherAnswers = Model.Respuestas.Where(a => a.Id != acceptedAnswer?.Id).Take(5).ToList();
-                        if (otherAnswers.Any())
-                        {
-                                    <text>
-                            "suggestedAnswer": [</text>
-                                    for (int i = 0; i < otherAnswers.Count; i++)
-                                    {
-                                                var ans = otherAnswers[i];
-                                                var cleanAns = StripHtml(ans.Cuerpo);
-                                                <text>
-                                      {
-                                        "@@type": "Answer",
-                                        "text": "@JsonEncode(cleanAns)",
-                                        "dateCreated": "@ans.FechaCreacion.ToString("o")",
-                                        "upvoteCount": @ans.Score,
-                                        "author": {
-                                          "@@type": "Person",
-                                          "name": "@JsonEncode(ans.AutorNombre)"
-                                        }
-                                      }@(i < otherAnswers.Count - 1 ? "," : "")</text>
-                                    }
-                                    <text>
-                            ]</text>
-                        }
+                            var otherAnswers = Model.Respuestas.Where(a => a.Id != acceptedAnswer?.Id).Take(5).ToList();
+                            if (otherAnswers.Any())
+                            {
+                                            <text>
+                                    "suggestedAnswer": [</text>
+                                            for (int i = 0; i < otherAnswers.Count; i++)
+                                            {
+                                                            var ans = otherAnswers[i];
+                                                            var cleanAns = StripHtml(ans.Cuerpo);
+                                                            <text>
+                                                  {
+                                                    "@@type": "Answer",
+                                                    "text": "@JsonEncode(cleanAns)",
+                                                    "dateCreated": "@ans.FechaCreacion.ToString("o")",
+                                                    "upvoteCount": @ans.Score,
+                                                    "author": {
+                                                      "@@type": "Person",
+                                                      "name": "@JsonEncode(ans.AutorNombre)"
+                                                    }
+                                                  }@(i < otherAnswers.Count - 1 ? "," : "")</text>
+                                            }
+                                            <text>
+                                    ]</text>
+                            }
             }
           }
         }
@@ -483,7 +486,7 @@
                         }
 
                         Func<int, string> pageUrl = p => Url.Page(
-                                                                                        "/Preguntas/Detalles",
+                                                                                                                                                                        "/Preguntas/Detalles",
                         new { slug = Model.Pregunta.Slug, answersPage = p, pageSize = Model.PageSize, search = Model.Search }
                         ) ?? "#";
 
@@ -667,7 +670,7 @@
                         }
 
                         Func<int, string> pageUrl = p => Url.Page(
-                                                                                        "/Preguntas/Detalles",
+                                                                                                                                                                        "/Preguntas/Detalles",
                         new { slug = Model.Pregunta.Slug, answersPage = p, pageSize = Model.PageSize, search = Model.Search }
                         ) ?? "#";
 
@@ -699,7 +702,7 @@
                                aria-label="Página siguiente"
                                href="@(current == total ? "#" : pageUrl(current + 1))">›</a>
                             <a class="pag-btn @(current == total ? "disabled" : "")"
-                               aria-label="Última página"
+                               aria-label="Última p��gina"
                                href="@(current == total ? "#" : pageUrl(total))">»</a>
 
                             <div class="pag-info">
@@ -761,7 +764,7 @@
             }
             initLazyAvatars();
 
-            // Vote handler for question
+            // Vote handler for question and answers
             document.addEventListener('click', async function (e) {
                 const btn = e.target.closest('.se-vote-btn');
                 if (!btn) return;

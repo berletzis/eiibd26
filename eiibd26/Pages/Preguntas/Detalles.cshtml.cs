@@ -63,6 +63,9 @@ namespace eiibd26.Pages.Preguntas
         public string Slug { get; set; } = "";
 
         [BindProperty(SupportsGet = true)]
+        public Guid? Id { get; set; }
+
+        [BindProperty(SupportsGet = true)]
         public int AnswersPage { get; set; } = 1;
 
         [BindProperty(SupportsGet = true)]
@@ -84,43 +87,112 @@ namespace eiibd26.Pages.Preguntas
             return Guid.TryParse(v, out var g) ? g : null;
         }
 
-        public async Task<IActionResult> OnGetAsync(string slug, int? answersPage, int? pageSize, string search)
+        public async Task<IActionResult> OnGetAsync(string slug, Guid? id, int? answersPage, int? pageSize, string search)
         {
-            if (string.IsNullOrWhiteSpace(slug))
-                return NotFound();
-
-            Slug = slug.Trim().ToLowerInvariant();
+            // Normalize incoming params
             if (answersPage.HasValue) AnswersPage = Math.Max(1, answersPage.Value);
             if (pageSize.HasValue) PageSize = Math.Max(1, pageSize.Value);
             if (search != null) Search = search.Trim();
 
             var currentUserId = GetUserIdGuid();
 
-            var preguntaRow = await _db.Preguntas
-                .AsNoTracking()
-                .Where(p => p.Slug == Slug && !p.Eliminado)
-                .Select(p => new
-                {
-                    p.Id,
-                    p.Titulo,
-                    p.Cuerpo,
-                    p.Slug,
-                    p.UsuarioId,
-                    p.FechaCreacion,
-                    Score = _db.Votos
-                        .Where(v => v.EntidadTipo == "pregunta" && v.EntidadId == p.Id && !v.Eliminado)
-                        .Select(v => (int?)v.Valor).Sum() ?? 0
-                })
-                .FirstOrDefaultAsync();
+            // Resolve the question by slug (preferred) or by id
+            object preguntaQuery = null;
 
-            if (preguntaRow == null)
+            if (!string.IsNullOrWhiteSpace(slug))
+            {
+                Slug = slug.Trim();
+                preguntaQuery = await _db.Preguntas
+                    .AsNoTracking()
+                    .Where(p => p.Slug == Slug && !p.Eliminado)
+                    .Select(p => new
+                    {
+                        p.Id,
+                        p.Titulo,
+                        p.Cuerpo,
+                        p.Slug,
+                        p.UsuarioId,
+                        p.FechaCreacion,
+                        Score = _db.Votos
+                            .Where(v => v.EntidadTipo == "pregunta" && v.EntidadId == p.Id && !v.Eliminado)
+                            .Select(v => (int?)v.Valor).Sum() ?? 0
+                    })
+                    .FirstOrDefaultAsync();
+            }
+            else if (id.HasValue)
+            {
+                // lookup by Id
+                preguntaQuery = await _db.Preguntas
+                    .AsNoTracking()
+                    .Where(p => p.Id == id.Value && !p.Eliminado)
+                    .Select(p => new
+                    {
+                        p.Id,
+                        p.Titulo,
+                        p.Cuerpo,
+                        p.Slug,
+                        p.UsuarioId,
+                        p.FechaCreacion,
+                        Score = _db.Votos
+                            .Where(v => v.EntidadTipo == "pregunta" && v.EntidadId == p.Id && !v.Eliminado)
+                            .Select(v => (int?)v.Valor).Sum() ?? 0
+                    })
+                    .FirstOrDefaultAsync();
+
+                if (preguntaQuery != null)
+                {
+                    // populate Slug for downstream usage if available
+                    Slug = ((dynamic)preguntaQuery).Slug ?? "";
+                }
+            }
+            else
+            {
+                return NotFound();
+            }
+
+            if (preguntaQuery == null)
                 return NotFound();
 
+            // Map anonymous projection into strongly typed locals (avoid dynamic inside EF expressions)
+            var proj = (dynamic)preguntaQuery;
+            Guid preguntaId = (Guid)proj.Id;
+            string preguntaTitulo = proj.Titulo ?? "";
+            string preguntaCuerpo = proj.Cuerpo ?? "";
+            string preguntaSlug = proj.Slug ?? "";
+            Guid preguntaUsuarioId = (Guid)proj.UsuarioId;
+            DateTimeOffset preguntaFechaCreacion = proj.FechaCreacion;
+            int preguntaScore = (int)proj.Score;
+
+            // If the request was made using an id and we have an SEO slug, redirect permanently to the SEO URL.
+            // Preserve answersPage/pageSize/search only when present (non-default) to avoid losing pagination filters.
+            if (id.HasValue && !string.IsNullOrWhiteSpace(preguntaSlug))
+            {
+                // Build the SEO path
+                var seoPath = $"/Preguntas/{preguntaSlug}";
+
+                // Avoid redirect loop: if the incoming request path already equals the seoPath, don't redirect.
+                var currentPath = Request.Path.Value ?? "";
+                if (!currentPath.Equals(seoPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    var queryParts = new List<string>();
+                    if (AnswersPage > 1) queryParts.Add($"answersPage={AnswersPage}");
+                    if (PageSize > 0 && PageSize != 12) queryParts.Add($"pageSize={PageSize}");
+                    if (!string.IsNullOrWhiteSpace(Search)) queryParts.Add($"search={Uri.EscapeDataString(Search)}");
+
+                    var qs = queryParts.Count > 0 ? "?" + string.Join("&", queryParts) : string.Empty;
+                    var redirectUrl = seoPath + qs;
+
+                    // Permanent redirect (301) to the canonical SEO URL
+                    return RedirectPermanent(redirectUrl);
+                }
+            }
+
+            // Load author profile
             var preguntaAutor = new AuthorInfo("Usuario", "/img/avatar-placeholder.png");
             try
             {
                 var perfilAutor = await _db.Set<Perfil>().AsNoTracking()
-                    .Where(p => p.idUser == preguntaRow.UsuarioId)
+                    .Where(p => p.idUser == preguntaUsuarioId)
                     .Select(p => new { p.Nombre, p.Apellidos, p.Avatar })
                     .FirstOrDefaultAsync();
 
@@ -130,7 +202,7 @@ namespace eiibd26.Pages.Preguntas
                         ? (perfilAutor.Nombre ?? "Usuario")
                         : $"{(perfilAutor.Nombre ?? "Usuario")} {perfilAutor.Apellidos}";
                     var avatar = string.IsNullOrWhiteSpace(perfilAutor.Avatar)
-                        ? $"uploads/avatars/{preguntaRow.UsuarioId}/avatar-64.png"
+                        ? $"uploads/avatars/{preguntaUsuarioId}/avatar-64.png"
                         : perfilAutor.Avatar.Replace("\\", "/");
                     preguntaAutor = new AuthorInfo(nombre, avatar);
                 }
@@ -140,6 +212,7 @@ namespace eiibd26.Pages.Preguntas
                 _logger.LogWarning(ex, "Error obteniendo perfil del autor de la pregunta.");
             }
 
+            // Load relations
             var condiciones = new List<string>();
             var sintomas = new List<string>();
             var tratamientos = new List<string>();
@@ -147,9 +220,9 @@ namespace eiibd26.Pages.Preguntas
             try
             {
                 condiciones = await _db.PreguntaCondiciones.AsNoTracking()
-                    .Where(pc => pc.PreguntaId == preguntaRow.Id)
+                    .Where(pc => pc.PreguntaId == preguntaId)
                     .Join(_db.condiciones, pc => pc.CondicionId, c => c.id, (pc, c) => c.nombre)
-                    .Where(n => n != null && n != "")
+                    .Where(n => !string.IsNullOrWhiteSpace(n))
                     .Distinct()
                     .OrderBy(n => n)
                     .ToListAsync();
@@ -159,9 +232,9 @@ namespace eiibd26.Pages.Preguntas
             try
             {
                 sintomas = await _db.PreguntaSintomas.AsNoTracking()
-                    .Where(ps => ps.PreguntaId == preguntaRow.Id)
+                    .Where(ps => ps.PreguntaId == preguntaId)
                     .Join(_db.sintomas, ps => ps.SintomaId, s => s.id, (ps, s) => s.nombre)
-                    .Where(n => n != null && n != "")
+                    .Where(n => !string.IsNullOrWhiteSpace(n))
                     .Distinct()
                     .OrderBy(n => n)
                     .ToListAsync();
@@ -171,9 +244,9 @@ namespace eiibd26.Pages.Preguntas
             try
             {
                 tratamientos = await _db.PreguntaTratamientos.AsNoTracking()
-                    .Where(pt => pt.PreguntaId == preguntaRow.Id)
+                    .Where(pt => pt.PreguntaId == preguntaId)
                     .Join(_db.tratamientos, pt => pt.TratamientoId, t => t.id, (pt, t) => t.nombre)
-                    .Where(n => n != null && n != "")
+                    .Where(n => !string.IsNullOrWhiteSpace(n))
                     .Distinct()
                     .OrderBy(n => n)
                     .ToListAsync();
@@ -182,28 +255,29 @@ namespace eiibd26.Pages.Preguntas
 
             Pregunta = new PreguntaVm
             {
-                Id = preguntaRow.Id,
-                Titulo = preguntaRow.Titulo,
-                Cuerpo = preguntaRow.Cuerpo,
-                Slug = preguntaRow.Slug,
-                UsuarioId = preguntaRow.UsuarioId,
+                Id = preguntaId,
+                Titulo = preguntaTitulo,
+                Cuerpo = preguntaCuerpo,
+                Slug = preguntaSlug,
+                UsuarioId = preguntaUsuarioId,
                 AutorNombre = preguntaAutor.Name,
                 AutorAvatarUrl = preguntaAutor.Avatar,
-                FechaCreacion = preguntaRow.FechaCreacion,
-                Score = preguntaRow.Score,
+                FechaCreacion = preguntaFechaCreacion,
+                Score = preguntaScore,
                 UsuarioVoto = 0,
-                EsMia = currentUserId.HasValue && preguntaRow.UsuarioId == currentUserId.Value,
+                EsMia = currentUserId.HasValue && preguntaUsuarioId == currentUserId.Value,
                 Condiciones = condiciones,
                 Sintomas = sintomas,
                 Tratamientos = tratamientos
             };
 
+            // User vote for question
             if (currentUserId.HasValue)
             {
                 try
                 {
                     var votoQ = await _db.Votos.AsNoTracking()
-                        .Where(v => v.EntidadTipo == "pregunta" && v.EntidadId == preguntaRow.Id && v.UsuarioId == currentUserId.Value && !v.Eliminado)
+                        .Where(v => v.EntidadTipo == "pregunta" && v.EntidadId == preguntaId && v.UsuarioId == currentUserId.Value && !v.Eliminado)
                         .OrderByDescending(v => v.FechaCreacion)
                         .FirstOrDefaultAsync();
                     if (votoQ != null)
@@ -211,12 +285,13 @@ namespace eiibd26.Pages.Preguntas
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Error obteniendo voto usuario para pregunta {PreguntaId}", preguntaRow.Id);
+                    _logger.LogWarning(ex, "Error obteniendo voto usuario para pregunta {PreguntaId}", preguntaId);
                 }
             }
 
+            // Answers
             var baseAnsQ = _db.Respuestas.AsNoTracking()
-                .Where(r => r.PreguntaId == preguntaRow.Id && !r.Eliminado);
+                .Where(r => r.PreguntaId == preguntaId && !r.Eliminado);
 
             if (!string.IsNullOrWhiteSpace(Search))
             {
