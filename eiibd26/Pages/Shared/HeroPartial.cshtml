@@ -1,100 +1,551 @@
-﻿@model eiibd26.Models.HeroViewModel
+﻿@using System.Linq
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext _db
+
+@{
+    Layout = null;
+
+    bool isAuth = User?.Identity?.IsAuthenticated == true;
+
+    var slidesQuery = _db.BannersInicio
+        .AsNoTracking()
+        .Where(b => b.IsActive && !b.Borrado &&
+                   (isAuth ? b.VisibleToAuthenticated : b.VisibleToAnonymous))
+        .OrderBy(b => b.SortOrder)
+        .ThenBy(b => b.Id)
+        .Take(4)
+        .Select(b => new
+        {
+            b.Id,
+            b.Title,
+            b.Subtitle,
+            b.ImagePath,
+            b.ImagePathDesktop,
+            b.ImagePathMobile,
+            b.IsImage,
+            b.TargetUrl
+        });
+
+    var slides = await slidesQuery.ToListAsync();
+
+    var defaultTitle = "#HazViralLoQueImporta";
+    var defaultSubtitle = "Analizamos datos relacionados la Enfermedad Inflamatoria Intestinal";
+
+    while (slides.Count < 4)
+    {
+        var idx = slides.Count;
+        slides.Add(new
+        {
+            Id = -1 * (idx + 1),
+            Title = idx == 0 ? defaultTitle : (idx == 1 ? "Únete y comparte" : "Comunidad y datos"),
+            Subtitle = idx == 0 ? defaultSubtitle : (idx == 1 ? "Regístrate para participar en la comunidad" : "Comparte experiencias y soluciones"),
+            ImagePath = (string?)null,
+            ImagePathDesktop = (string?)null,
+            ImagePathMobile = (string?)null,
+            IsImage = false,
+            TargetUrl = (string?)null
+        });
+    }
+
+    if (slides.Count > 4) slides = slides.Take(4).ToList();
+
+    // tiny transparent placeholder to show before actual image loads
+    var placeholder = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+}
+
+<section class="home-hero" role="region" aria-label="Hero">
+    <div class="hero-inner">
+        <div class="hero-carousel" id="heroCarousel" aria-roledescription="carousel">
+            <div class="hero-slides" aria-live="polite">
+                @for (int i = 0; i < slides.Count; i++)
+                {
+                    var s = slides[i];
+
+                    var hasDesktop = !string.IsNullOrWhiteSpace(s.ImagePathDesktop);
+                    var hasMobile = !string.IsNullOrWhiteSpace(s.ImagePathMobile);
+                    var hasLegacy = !string.IsNullOrWhiteSpace(s.ImagePath);
+
+                    var desktopSrc = hasDesktop ? s.ImagePathDesktop : (hasLegacy ? s.ImagePath : null);
+                    var onlyMobile = hasMobile && !hasDesktop && !hasLegacy;
+
+                    <article class="hero-slide @(i == 0 ? "active" : "")" data-index="@i"
+                             data-desktop-src="@(desktopSrc ?? "")"
+                             data-mobile-src="@(s.ImagePathMobile ?? "")"
+                             data-legacy-src="@(s.ImagePath ?? "")"
+                             data-only-mobile="@(onlyMobile ? "1" : "0")"
+                             data-loaded="false"
+                             role="group"
+                             aria-roledescription="slide"
+                             aria-label="Slide @(i + 1) of @slides.Count">
+                        <div class="hero-slide-inner" tabindex="0">
+                            @if (!string.IsNullOrWhiteSpace(s.TargetUrl))
+                            {
+                                <a class="hero-link" href="@s.TargetUrl" target="_blank" rel="noopener noreferrer" aria-label="Abrir enlace del banner">
+                                    <div class="hero-picture" aria-hidden="false">
+                                        <img class="banner-img" src="@placeholder" alt="@(!string.IsNullOrEmpty(s.Title) ? s.Title : "Banner")" data-loaded="false" />
+                                        <div class="loading-overlay" aria-hidden="true">
+                                            <div class="spinner" role="status" aria-label="Cargando imagen"></div>
+                                        </div>
+                                    </div>
+                                    <div class="hero-caption" aria-hidden="false">
+                                        @if (!string.IsNullOrEmpty(s.Title))
+                                        {
+                                            <div class="hero-title">@Html.Raw(s.Title)</div>
+                                        }
+                                        @if (!string.IsNullOrEmpty(s.Subtitle))
+                                        {
+                                            <div class="hero-sub">@Html.Raw(s.Subtitle)</div>
+                                        }
+                                    </div>
+                                </a>
+                            }
+                            else
+                            {
+                                <div class="hero-picture" aria-hidden="false">
+                                    <img class="banner-img" src="@placeholder" alt="@(!string.IsNullOrEmpty(s.Title) ? s.Title : "Banner")" data-loaded="false" />
+                                    <div class="loading-overlay" aria-hidden="true">
+                                        <div class="spinner" role="status" aria-label="Cargando imagen"></div>
+                                    </div>
+                                </div>
+                                <div class="hero-caption" aria-hidden="false">
+                                    @if (!string.IsNullOrEmpty(s.Title))
+                                    {
+                                        <div class="hero-title">@Html.Raw(s.Title)</div>
+                                    }
+                                    @if (!string.IsNullOrEmpty(s.Subtitle))
+                                    {
+                                        <div class="hero-sub">@Html.Raw(s.Subtitle)</div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </article>
+                }
+            </div>
+
+            <div class="hero-controls" role="toolbar" aria-label="Controles del slider">
+                <button class="hero-prev" type="button" aria-label="Anterior" title="Anterior">‹</button>
+
+                <div class="hero-indicators" role="tablist" aria-label="Slide indicators">
+                    @for (int i = 0; i < slides.Count; i++)
+                    {
+                        <button class="hero-indicator @(i == 0 ? "active" : "")" data-slide-to="@i" aria-label="Ir a slide @(i + 1)"></button>
+                    }
+                </div>
+
+                <button id="heroTogglePlay" class="hero-play" type="button" aria-pressed="false" aria-label="Pausar autoplay">⏸</button>
+
+                <button class="hero-next" type="button" aria-label="Siguiente" title="Siguiente">›</button>
+            </div>
+        </div>
+    </div>
+</section>
 
 <style>
-    /* Hero partial: responsive, avoids layout shifts between mobile/desktop.
-       Use clamp() for fluid typography and limit container width so nothing overflows.
-       These rules are intentionally local to the partial to be safe; you can move them
-       to site-responsive.css later if preferred.
-    */
+    /* Basic layout */
     .home-hero {
         box-sizing: border-box;
         padding: 40px 0 24px;
         text-align: center;
-        overflow-x: hidden; /* prevent accidental horizontal overflow from long words */
+        overflow-x: hidden;
     }
 
-        /* inner constraint so hero never forces page wider than viewport */
-        .home-hero .hero-inner {
-            max-width: 920px; /* desktop comfortable reading width */
-            margin: 0 auto;
-            padding: 0 12px;
-            box-sizing: border-box;
-        }
-
-        /* Fluid, clamped H1 that scales with viewport but stays reasonable */
-        .home-hero h1 {
-            margin: 0 0 .6rem 0;
-            line-height: 1.05;
-            font-weight: 700;
-            /* min 1.6rem, ideal based on viewport, max 3.8rem */
-            font-size: clamp(1.6rem, 6.5vw, 3.8rem);
-            word-break: break-word;
-            hyphens: auto;
-        }
-
-        /* Lead paragraph width and spacing */
-        .home-hero p.lead {
-            margin: 0 auto 1rem;
-            color: #6b7280;
-            max-width: 760px;
-            font-size: 1rem;
-            line-height: 1.5;
-            box-sizing: border-box;
-        }
-
-        /* CTA spacing */
-        .home-hero .hero-cta {
-            margin-top: .75rem;
-        }
-
-    /* Desktop tweaks */
-    @@media (min-width: 768px) {
-        .home-hero {
-            padding: 64px 0 48px;
-        }
-
-            .home-hero .hero-inner {
-                padding: 0 16px;
-            }
-            /* slightly larger step for tablets/desktop but clamp keeps it bounded */
-            .home-hero p.lead {
-                font-size: 1.05rem;
-            }
+    .hero-inner {
+        max-width: 1140px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 0 12px;
+        box-sizing: border-box;
     }
 
-    /* Large desktop */
-    @@media (min-width: 1200px) {
-        .home-hero {
-            padding: 80px 0 56px;
-        }
-
-            .home-hero .hero-inner {
-                padding: 0 24px;
-            }
-
-            .home-hero p.lead {
-                font-size: 1.05rem;
-            }
+    .hero-carousel {
+        position: relative;
     }
 
-    /* Defensive: ensure images inside hero (if any) never overflow */
-    .home-hero img {
-        max-width: 100%;
-        height: auto;
+    .hero-slides {
+        position: relative;
+        min-height: 180px;
+        touch-action: pan-y;
+    }
+    /* allow horizontal touch handling */
+    .hero-slide {
+        display: none;
+        padding: 6px;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+
+        .hero-slide.active {
+            display: block;
+        }
+
+    .hero-slide-inner {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        box-sizing: border-box;
+        gap: 12px;
+        outline: none;
+    }
+
+    .hero-picture {
+        position: relative;
         display: block;
+        width: 100%;
+        max-width: 1140px;
+        margin: 0 auto;
+    }
+
+    .banner-img {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 1140/400;
+        object-fit: cover;
+        border-radius: 12px;
+        box-shadow: 0 6px 20px rgba(16,24,40,.06);
+        display: block;
+    }
+
+    .loading-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255,255,255,0.5);
+        opacity: 1;
+        transition: opacity .25s ease;
+    }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+    /* spinner */
+    .spinner {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: 4px solid rgba(0,0,0,0.08);
+        border-top-color: #2b6cb0;
+        animation: spin .9s linear infinite;
+    }
+
+    @@keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .hero-caption {
+        width: 100%;
+        max-width: 1140px;
+        margin: 12px auto 0;
+        text-align: right;
+    }
+    /* added margin between image and title */
+    .hero-link {
+        text-decoration: none;
+        color: inherit;
+    }
+        /* remove link decoration and preserve color */
+        .hero-link:hover, .hero-link:focus {
+            text-decoration: none;
+            color: inherit;
+        }
+    /* no underline on hover/focus */
+
+    .hero-title {
+        color: #000;
+        font-weight: 500;
+        font-size: 1rem;
+        margin-top: 0;
+        margin-bottom: 6px;
+        line-height: 1.05;
+    }
+    /* requested sizes/colors */
+    .hero-sub {
+        color: #333;
+        font-size: .9rem;
+        font-weight: 400;
+        line-height: 1.4;
+    }
+    /* requested sizes/colors */
+
+    .hero-controls {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        margin-top: .75rem;
+    }
+
+    .hero-prev, .hero-next {
+        border: none;
+        background: #ffffffcc;
+        color: #000;
+        font-size: 1.6rem;
+        padding: 10px 14px;
+        border-radius: 8px;
+        cursor: pointer;
+        min-width: 44px;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+        touch-action: manipulation;
+    }
+
+    .hero-indicators {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .hero-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #E6EEF8;
+        border: none;
+        cursor: pointer;
+    }
+
+        .hero-indicator.active {
+            background: #2b6cb0;
+        }
+
+    /* play/pause button larger hit target */
+    #heroTogglePlay {
+        border: none;
+        background: #ffffffcc;
+        color: #000;
+        font-size: 1rem;
+        cursor: pointer;
+        padding: 8px 10px;
+        border-radius: 8px;
+        min-width: 44px;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+
+    /* responsive */
+    @@media (max-width:575.98px) {
+        .banner-img {
+            aspect-ratio: auto;
+            border-radius: 8px;
+        }
+
+        .hero-caption {
+            display: none;
+        }
+        /* keep caption hidden on small screens (as requested earlier) */
+        .hero-slide-inner {
+            gap: 8px;
+        }
+
+        .hero-prev, .hero-next, #heroTogglePlay {
+            font-size: 1.25rem;
+            padding: 10px;
+        }
+
+        .hero-indicator {
+            width: 10px;
+            height: 10px;
+        }
     }
 </style>
 
-<section class="home-hero" role="region" aria-label="Hero">
-    <div class="hero-inner">
-        <h1>@Model.Title</h1>
-        <p class="lead">@Model.Subtitle</p>
+<script>
+    (function () {
+        const autoplayInterval = 5000;
+        const preloadOffset = 1;
 
-        @if (!string.IsNullOrEmpty(Model.CallToAction))
-        {
-            <p class="hero-cta">
-                <a href="~/Identity/Account/Manage" class="btn btn-primary" role="button">@Model.CallToAction</a>
-            </p>
+        const root = document.getElementById('heroCarousel');
+        if (!root) return;
+
+        const slides = Array.from(root.querySelectorAll('.hero-slide'));
+        const indicators = Array.from(root.querySelectorAll('.hero-indicator'));
+        const prevBtn = root.querySelector('.hero-prev');
+        const nextBtn = root.querySelector('.hero-next');
+        const playBtn = root.querySelector('#heroTogglePlay');
+        const slidesContainer = root.querySelector('.hero-slides');
+
+        let current = slides.findIndex(s => s.classList.contains('active'));
+        if (current < 0) current = 0;
+
+        let playing = true;
+        let timer = null;
+
+        function chooseSourceForSlide(slide) {
+            const desktopSrc = slide.getAttribute('data-desktop-src') || "";
+            const mobileSrc = slide.getAttribute('data-mobile-src') || "";
+            const legacySrc = slide.getAttribute('data-legacy-src') || "";
+            const onlyMobile = slide.getAttribute('data-only-mobile') === '1';
+
+            const isMobile = window.innerWidth <= 575.98;
+            if (isMobile) {
+                if (mobileSrc) return mobileSrc;
+                if (desktopSrc) return desktopSrc;
+                return legacySrc || null;
+            } else {
+                if (desktopSrc) return desktopSrc;
+                if (onlyMobile && mobileSrc) return null;
+                if (legacySrc) return legacySrc;
+                return null;
+            }
         }
-    </div>
-</section>
+
+        async function loadImageForSlide(slide) {
+            if (!slide) return;
+            if (slide.getAttribute('data-loaded') === 'true') return;
+
+            const img = slide.querySelector('.banner-img');
+            const overlay = slide.querySelector('.loading-overlay');
+            const src = chooseSourceForSlide(slide);
+
+            if (!src) {
+                if (overlay) overlay.classList.add('hidden');
+                slide.setAttribute('data-loaded', 'true');
+                return;
+            }
+
+            if (overlay) overlay.classList.remove('hidden');
+
+            try {
+                const resp = await fetch(src, { cache: 'force-cache' });
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const blob = await resp.blob();
+                const objectUrl = URL.createObjectURL(blob);
+                img.src = objectUrl;
+                await img.decode().catch(() => {});
+                slide.setAttribute('data-loaded', 'true');
+                if (overlay) overlay.classList.add('hidden');
+                if (!slide._objectUrls) slide._objectUrls = [];
+                slide._objectUrls.push(objectUrl);
+            } catch (err) {
+                console.error('Error loading slide image', err, src);
+                if (overlay) overlay.classList.add('hidden');
+                slide.setAttribute('data-loaded', 'true');
+            }
+        }
+
+        function preloadAround(index) {
+            for (let i = Math.max(0, index - preloadOffset); i <= Math.min(slides.length - 1, index + preloadOffset); i++) {
+                loadImageForSlide(slides[i]);
+            }
+        }
+
+        function setActive(index) {
+            if (index < 0) index = slides.length - 1;
+            if (index >= slides.length) index = 0;
+            slides.forEach((s, i) => s.classList.toggle('active', i === index));
+            indicators.forEach((b, i) => b.classList.toggle('active', i === index));
+            current = index;
+            preloadAround(current);
+        }
+
+        function startAutoplay() {
+            if (timer) clearInterval(timer);
+            timer = setInterval(() => setActive((current + 1) % slides.length), autoplayInterval);
+            playing = true;
+            if (playBtn) { playBtn.setAttribute('aria-pressed', 'false'); playBtn.textContent = '⏸'; playBtn.title = 'Pausar autoplay'; }
+        }
+        function stopAutoplay() {
+            if (timer) { clearInterval(timer); timer = null; }
+            playing = false;
+            if (playBtn) { playBtn.setAttribute('aria-pressed', 'true'); playBtn.textContent = '▶'; playBtn.title = 'Reanudar autoplay'; }
+        }
+        function toggleAutoplay() { if (playing) stopAutoplay(); else startAutoplay(); }
+
+        preloadAround(current);
+        startAutoplay();
+
+        indicators.forEach((btn) => {
+            btn.addEventListener('click', () => { const idx = parseInt(btn.getAttribute('data-slide-to')) || 0; setActive(idx); resetTimer(); });
+        });
+        prevBtn && prevBtn.addEventListener('click', () => { setActive((current - 1 + slides.length) % slides.length); resetTimer(); });
+        nextBtn && nextBtn.addEventListener('click', () => { setActive((current + 1) % slides.length); resetTimer(); });
+        playBtn && playBtn.addEventListener('click', () => toggleAutoplay());
+
+        function resetTimer() { if (playing) startAutoplay(); }
+
+        // Pointer/touch swipe handling (works for touch and mouse)
+        let pointerStartX = 0;
+        let pointerStartY = 0;
+        let pointerId = null;
+        let dragging = false;
+
+        function onPointerDown(e) {
+            if (pointerId !== null) return;
+            pointerId = e.pointerId;
+            dragging = true;
+            pointerStartX = e.clientX;
+            pointerStartY = e.clientY;
+            if (playing) stopAutoplay();
+            e.target.setPointerCapture && e.target.setPointerCapture(pointerId);
+        }
+
+        function onPointerMove(e) {
+            if (!dragging || e.pointerId !== pointerId) return;
+            // optional: visual feedback
+        }
+
+        function onPointerUp(e) {
+            if (!dragging || e.pointerId !== pointerId) return;
+            const dx = e.clientX - pointerStartX;
+            const dy = e.clientY - pointerStartY;
+            const absDx = Math.abs(dx);
+            const absDy = Math.abs(dy);
+            const threshold = 50; // px
+            if (absDx > threshold && absDx > absDy) {
+                if (dx > 0) {
+                    setActive((current - 1 + slides.length) % slides.length);
+                } else {
+                    setActive((current + 1) % slides.length);
+                }
+            }
+            dragging = false;
+            pointerId = null;
+            try { e.target.releasePointerCapture && e.target.releasePointerCapture(e.pointerId); } catch {}
+            if (!playing) startAutoplay();
+        }
+
+        slidesContainer.addEventListener('pointerdown', onPointerDown, { passive: true });
+        slidesContainer.addEventListener('pointermove', onPointerMove, { passive: true });
+        slidesContainer.addEventListener('pointerup', onPointerUp, { passive: true });
+        slidesContainer.addEventListener('pointercancel', onPointerUp, { passive: true });
+        slidesContainer.addEventListener('pointerleave', onPointerUp, { passive: true });
+
+        // keyboard navigation for accessibility
+        slides.forEach(s => {
+            s.addEventListener('keydown', (ev) => {
+                if (ev.key === 'ArrowLeft') { setActive((current - 1 + slides.length) % slides.length); resetTimer(); }
+                if (ev.key === 'ArrowRight') { setActive((current + 1) % slides.length); resetTimer(); }
+                if (ev.key === ' ' || ev.key === 'Spacebar') { toggleAutoplay(); ev.preventDefault(); }
+            });
+        });
+
+        // On window resize, re-attempt loads appropriate to breakpoint
+        let resizeTimeout = null;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => preloadAround(current), 250);
+        });
+
+        // Revoke object URLs on unload
+        window.addEventListener('beforeunload', () => {
+            slides.forEach(s => {
+                if (s._objectUrls && Array.isArray(s._objectUrls)) {
+                    s._objectUrls.forEach(u => { try { URL.revokeObjectURL(u); } catch {} });
+                }
+            });
+        });
+    })();
+</script>

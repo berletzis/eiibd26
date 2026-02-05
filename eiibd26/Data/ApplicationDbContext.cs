@@ -51,6 +51,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<PreguntaSintoma> PreguntaSintomas { get; set; }
     public DbSet<PreguntaTratamiento> PreguntaTratamientos { get; set; }
 
+    public DbSet<BannerInicio> BannersInicio { get; set; }
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

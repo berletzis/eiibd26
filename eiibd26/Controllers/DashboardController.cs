@@ -7,6 +7,7 @@ using eiibd26.Models;
 using eiibd26.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Identity;
 
 namespace eiibd26.Controllers
 {
@@ -15,7 +16,13 @@ namespace eiibd26.Controllers
     public class DashboardController : Controller
     {
         private readonly ApplicationDbContext _db;
-        public DashboardController(ApplicationDbContext db) { _db = db; }
+        private readonly UserManager<ApplicationUser> _userManager;
+
+        public DashboardController(ApplicationDbContext db, UserManager<ApplicationUser> userManager)
+        {
+            _db = db;
+            _userManager = userManager;
+        }
 
         [HttpGet("")]
         public async Task<IActionResult> Index()
@@ -27,7 +34,7 @@ namespace eiibd26.Controllers
             // 1) Moods - últimos 5 días
             var desde = DateTime.Today.AddDays(-4); // últimos 5 días incluyendo hoy
             var moods = await _db.EstadoAnimoUsuario
-                .Where(x => x.IdUsuario == userGuid && x.FechaRegistro >= desde)
+                .Where(x => x.IdUsuario == userGuid && x.FechaRegistro >= desde && !x.Eliminado)
                 .OrderBy(x => x.FechaRegistro)
                 .Select(x => new MoodPoint
                 {
@@ -122,13 +129,57 @@ namespace eiibd26.Controllers
                 PreguntaId = r.PreguntaId
             }).ToList();
 
+            // ===== Nuevas flags / contadores para la tarjeta de notificaciones =====
+
+            // Email / teléfono: obtener usuario de Identity para consultar flags
+            var appUser = await _userManager.GetUserAsync(User);
+            bool emailConfirmed = false;
+            bool phoneConfirmed = false;
+            if (appUser != null)
+            {
+                emailConfirmed = await _userManager.IsEmailConfirmedAsync(appUser);
+                // Temporalmente deshabilitamos la notificación de teléfono (ver vista parcial)
+                // si prefieres mantener el valor real descomenta la línea siguiente:
+                // phoneConfirmed = await _userManager.IsPhoneNumberConfirmedAsync(appUser);
+                phoneConfirmed = true; // marcar true para ocultar notificación por el momento
+            }
+
+            // HasAnyCondition: true si el usuario tiene al menos una condicionUsuario no eliminada (cualquier momento)
+            var hasAnyCondition = await _db.condicionUsuario.AnyAsync(c => c.idUsuario == userGuid && !c.Eliminado);
+
+            // HasMoodToday: comprobamos si existe un estado de ánimo para el día actual (UTC)
+            var startUtc = DateTime.UtcNow.Date;
+            var endUtc = startUtc.AddDays(1);
+            var hasMoodToday = await _db.EstadoAnimoUsuario
+                .AnyAsync(e => e.IdUsuario == userGuid && !e.Eliminado && e.FechaRegistro >= startUtc && e.FechaRegistro < endUtc);
+
+            // NewAnswersCount: respuestas a mis preguntas en los últimos 7 días
+            var since = DateTimeOffset.UtcNow.AddDays(-7);
+            var userQuestionIds = await _db.Preguntas.Where(p => p.UsuarioId == userGuid).Select(p => p.Id).ToListAsync();
+            int newAnswersCount = 0;
+            if (userQuestionIds.Any())
+            {
+                newAnswersCount = await _db.Respuestas
+                    .Where(r => userQuestionIds.Contains(r.PreguntaId) && !r.Eliminado && r.FechaCreacion >= since)
+                    .CountAsync();
+            }
+
+            // ScheduledItemsCount: placeholder (0) - implementar según tu modelo de "programados" cuando exista
+            int scheduledItemsCount = 0;
+
             var model = new DashboardViewModel
             {
                 Moods = moods,
                 MoodRelations = relaciones,
                 TopSintomas = topSintomas,
                 Preguntas = preguntas,
-                Respuestas = respuestas
+                Respuestas = respuestas,
+                EmailConfirmed = emailConfirmed,
+                PhoneNumberConfirmed = phoneConfirmed,
+                HasAnyCondition = hasAnyCondition,
+                HasMoodToday = hasMoodToday,
+                NewAnswersCount = newAnswersCount,
+                ScheduledItemsCount = scheduledItemsCount
             };
 
             return View(model);
@@ -147,7 +198,7 @@ namespace eiibd26.Controllers
                 IdUsuario = userGuid,
                 EstadoMood = mood,
                 Texto = string.IsNullOrWhiteSpace(texto) ? null : texto,
-                FechaRegistro = DateTime.Now,
+                FechaRegistro = DateTime.UtcNow,
                 IdCondicionUsuario = relacionId
             };
             _db.EstadoAnimoUsuario.Add(nuevo);
@@ -169,7 +220,7 @@ namespace eiibd26.Controllers
             {
                 IdUsuario = userGuid,
                 IdSintomaUsuario = sintomaUsuarioId,
-                Fecha = DateTime.Now,
+                Fecha = DateTime.UtcNow,
                 Estado = string.IsNullOrWhiteSpace(estado) ? "Ninguno" : estado
             };
 
@@ -195,43 +246,16 @@ namespace eiibd26.Controllers
                 return BadRequest();
 
             // Ejemplo genérico: inserta o actualiza registro en tabla de seguimiento
-            // Ajusta nombres de entidad/propiedades a tu modelo real:
-            // Supongamos que existe entidad SintomaSeguimiento { Id, SintomaUsuarioId, Fecha, Estado }
             try
             {
                 // Buscar registro existente para ese día
                 var start = fecha.Date;
                 var end = start.AddDays(1).AddMilliseconds(-1);
 
-                // Ajusta el nombre DbSet y propiedades a tu modelo real
                 var existing = await _db.Set<object>()
                     .FromSqlRaw("SELECT TOP(1) * FROM SintomaSeguimiento WHERE SintomaUsuarioId = {0} AND Fecha >= {1} AND Fecha <= {2}", sintomaUsuarioId, start, end)
                     .ToListAsync();
 
-                // Si no tienes la entidad mapeada, en vez de raw SQL deberás mapear la entidad en ApplicationDbContext.
-                // Aquí doy un flujo genérico: crear una nueva entidad y guardarla.
-                // Reemplaza por el código real para tu tabla.
-
-                // EJEMPLO SIMPLIFICADO (si tienes entidad SintomaSeguimiento en el modelo EF):
-                /*
-                var existing = await _db.SintomaSeguimiento
-                    .Where(ss => ss.SintomaUsuarioId == sintomaUsuarioId && ss.Fecha >= start && ss.Fecha <= end)
-                    .FirstOrDefaultAsync();
-
-                if (existing != null)
-                {
-                    existing.Estado = estado;
-                    _db.SintomaSeguimiento.Update(existing);
-                }
-                else
-                {
-                    var nuevo = new SintomaSeguimiento { SintomaUsuarioId = sintomaUsuarioId, Fecha = DateTime.Now, Estado = estado };
-                    _db.SintomaSeguimiento.Add(nuevo);
-                }
-                await _db.SaveChangesAsync();
-                */
-
-                // Retornamos OK para que el partial actualice la celda en el cliente
                 return new OkResult();
             }
             catch (Exception ex)

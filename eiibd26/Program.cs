@@ -5,6 +5,7 @@ using eiibd26.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +23,7 @@ builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
 
+// Cookie configuration (ya existente, se preserva)
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/Identity/Account/Login";
@@ -30,19 +32,45 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.Cookie.HttpOnly = true;
     options.ExpireTimeSpan = TimeSpan.FromHours(8);
     options.SlidingExpiration = true;
+    // opcional: asegurar cookie solo vía HTTPS en producción
+    // options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
 });
 
-builder.Services.AddDatabaseDeveloperPageExceptionFilter();
-builder.Services.AddTransient<IEmailSender, SendGridEmailSender>();
-builder.Services.AddTransient<ISmsSender, TwilioSmsSender>();
+// Authorization: pol��ticas y convenciones
+builder.Services.AddAuthorization(options =>
+{
+    // Política para administradores (ajusta el nombre del rol si tu DB usa otro)
+    options.AddPolicy("AdminOnly", policy =>
+    {
+        policy.RequireRole("Administrador");
+    });
+
+    // Nota: no configuramos una FallbackPolicy global para no forzar autenticación
+    // en todas las páginas públicas. En su lugar usamos convenciones específicas.
+});
+
 // Register Razor Pages and add route convention so SEO URL /Preguntas/{slug} maps to the Detalles page
 builder.Services.AddRazorPages()
     .AddRazorPagesOptions(options =>
     {
         // Map the SEO-friendly route /Preguntas/{slug} to the page at /Preguntas/Detalles
         options.Conventions.AddPageRoute("/Preguntas/Detalles", "/Preguntas/{slug}");
+
+        // Protecciones por convención:
+        // Requiere autenticación para todas las páginas en /Identity/Usuario
+        options.Conventions.AuthorizeAreaFolder("Identity", "/Usuario");
+
+        // Requiere rol Administrador para todo lo bajo /Identity/Admin
+        options.Conventions.AuthorizeAreaFolder("Identity", "/Admin", "AdminOnly");
+
+        // Si necesitas exponer explícitamente la página de login como anónima (no necesario si solo proteges carpetas),
+        // puedes usar: options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/Login");
     });
+
 builder.Services.AddControllers();
+builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+builder.Services.AddTransient<IEmailSender, SendGridEmailSender>();
+builder.Services.AddTransient<ISmsSender, TwilioSmsSender>();
 
 var app = builder.Build();
 

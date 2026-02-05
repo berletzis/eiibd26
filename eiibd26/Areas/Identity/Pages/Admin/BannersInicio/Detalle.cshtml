@@ -1,0 +1,271 @@
+﻿@page "{id?}"
+@model eiibd26.Areas.Identity.Pages.Admin.BannersInicio.DetalleModel
+@using System.IO
+@{
+    ViewData["Title"] = Model.Input?.Id > 0 ? "Editar Banner" : "Nuevo Banner";
+    Layout = "_Layout";
+
+    string FormatBytes(long? bytes)
+    {
+        if (!bytes.HasValue) return "";
+        var b = bytes.Value;
+        if (b >= 1024 * 1024) return $"{(b / (1024.0 * 1024.0)):F2} MB";
+        if (b >= 1024) return $"{(b / 1024.0):F1} KB";
+        return $"{b} B";
+    }
+}
+
+<h2>@ViewData["Title"]</h2>
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger">@TempData["Error"]</div>
+}
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success">@TempData["Success"]</div>
+}
+
+<form method="post" asp-page-handler="Save" enctype="multipart/form-data" class="row g-3">
+    @Html.AntiForgeryToken()
+    <input asp-for="Input.Id" type="hidden" />
+
+    <div class="col-12">
+        <label class="form-label">Título (HTML permitido)</label>
+        <input class="form-control" asp-for="Input.Title" />
+    </div>
+
+    <div class="col-12">
+        <label class="form-label">Subtítulo</label>
+        <textarea class="form-control" asp-for="Input.Subtitle" rows="2"></textarea>
+    </div>
+
+    <div class="col-md-6">
+        <label class="form-label">Imagen Desktop (versión para escritorio)</label>
+        <input class="form-control" type="file" asp-for="UploadedImageDesktop" id="uploadedImageDesktop" accept="image/*" />
+        <small class="form-text text-muted">Tipos: .jpg .jpeg .png .gif .webp — Máx 5 MB</small>
+
+        <input type="hidden" asp-for="RemoveImageDesktop" id="RemoveImageDesktop" />
+
+        <div class="mt-2" id="previewDesktop">
+            @if (!string.IsNullOrWhiteSpace(Model.Input?.ImagePathDesktop))
+            {
+                <div class="d-flex align-items-start">
+                    <div>
+                        <div class="mb-1 small text-muted">Imagen desktop actual:</div>
+                        <img id="currentPreviewDesktop" src="@Model.Input.ImagePathDesktop" style="max-width:400px; max-height:220px; border-radius:6px; border:1px solid #e6eef6" />
+                        <div id="metadataDesktop" class="small text-muted mt-1">
+                            @if (!string.IsNullOrWhiteSpace(Model.Input.ImageFileNameDesktop))
+                            {
+                                var ext = System.IO.Path.GetExtension(Model.Input.ImageFileNameDesktop)?.ToLowerInvariant() ?? "";
+                                <text>Archivo: @Model.Input.ImageFileNameDesktop · Ext: @ext · Tamaño: @FormatBytes(Model.Input.ImageSizeDesktop)</text>
+                            }
+                            else
+                            {
+                                <text>Tamaño: @FormatBytes(Model.Input.ImageSizeDesktop) · Tipo: @Model.Input.ImageContentTypeDesktop</text>
+                            }
+                        </div>
+                    </div>
+                    <div class="ms-2">
+                        <button type="button" id="btnRemoveDesktop" class="btn btn-sm btn-outline-danger mt-2">Quitar imagen</button>
+                    </div>
+                </div>
+            }
+            else if (!string.IsNullOrWhiteSpace(Model.Input?.ImagePath))
+            {
+                <div class="d-flex align-items-start">
+                    <div>
+                        <div class="mb-1 small text-muted">Imagen (legacy):</div>
+                        <img id="currentPreviewDesktop" src="@Model.Input.ImagePath" style="max-width:400px; max-height:220px; border-radius:6px; border:1px solid #e6eef6" />
+                        <div id="metadataDesktop" class="small text-muted mt-1">
+                            <text>Legacy image</text>
+                        </div>
+                    </div>
+                    <div class="ms-2">
+                        <button type="button" id="btnRemoveDesktop" class="btn btn-sm btn-outline-danger mt-2">Quitar imagen</button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div id="noPreviewDesktop" class="text-muted small">No hay imagen asignada.</div>
+                <div id="metadataDesktop" class="small text-muted mt-1"></div>
+            }
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <label class="form-label">Imagen Mobile (versión para teléfonos)</label>
+        <input class="form-control" type="file" asp-for="UploadedImageMobile" id="uploadedImageMobile" accept="image/*" />
+        <small class="form-text text-muted">Tipos: .jpg .jpeg .png .gif .webp — Máx 5 MB</small>
+
+        <input type="hidden" asp-for="RemoveImageMobile" id="RemoveImageMobile" />
+
+        <div class="mt-2" id="previewMobile">
+            @if (!string.IsNullOrWhiteSpace(Model.Input?.ImagePathMobile))
+            {
+                <div class="d-flex align-items-start">
+                    <div>
+                        <div class="mb-1 small text-muted">Imagen mobile actual:</div>
+                        <img id="currentPreviewMobile" src="@Model.Input.ImagePathMobile" style="max-width:240px; max-height:140px; border-radius:6px; border:1px solid #e6eef6" />
+                        <div id="metadataMobile" class="small text-muted mt-1">
+                            @if (!string.IsNullOrWhiteSpace(Model.Input.ImageFileNameMobile))
+                            {
+                                var ext = System.IO.Path.GetExtension(Model.Input.ImageFileNameMobile)?.ToLowerInvariant() ?? "";
+                                <text>Archivo: @Model.Input.ImageFileNameMobile · Ext: @ext · Tamaño: @FormatBytes(Model.Input.ImageSizeMobile)</text>
+                            }
+                            else
+                            {
+                                <text>Tamaño: @FormatBytes(Model.Input.ImageSizeMobile) · Tipo: @Model.Input.ImageContentTypeMobile</text>
+                            }
+                        </div>
+                    </div>
+                    <div class="ms-2">
+                        <button type="button" id="btnRemoveMobile" class="btn btn-sm btn-outline-danger mt-2">Quitar imagen</button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div id="noPreviewMobile" class="text-muted small">No hay imagen asignada.</div>
+                <div id="metadataMobile" class="small text-muted mt-1"></div>
+            }
+        </div>
+    </div>
+
+    <div class="col-12">
+        <label class="form-label">URL de destino (opcional)</label>
+        <input class="form-control" asp-for="Input.TargetUrl" placeholder="https://..." />
+        <small class="form-text text-muted">Si se especifica, el banner será un enlace a esta URL.</small>
+    </div>
+
+    <div class="col-md-2 form-check">
+        <input class="form-check-input" asp-for="Input.IsImage" />
+        <label class="form-check-label">Es imagen</label>
+    </div>
+
+    <div class="col-md-2 form-check">
+        <input class="form-check-input" asp-for="Input.IsActive" />
+        <label class="form-check-label">Activo</label>
+    </div>
+
+    <div class="col-md-2">
+        <label class="form-label">Orden</label>
+        <input class="form-control" asp-for="Input.SortOrder" type="number" />
+    </div>
+
+    <div class="col-md-4 form-check">
+        <input class="form-check-input" asp-for="Input.VisibleToAuthenticated" />
+        <label class="form-check-label">Visible para autenticados</label>
+    </div>
+
+    <div class="col-md-4 form-check">
+        <input class="form-check-input" asp-for="Input.VisibleToAnonymous" />
+        <label class="form-check-label">Visible para anónimos</label>
+    </div>
+
+    <div class="col-12">
+        <button class="btn btn-primary" type="submit">Guardar</button>
+        <a asp-page="./Index" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+
+@section Scripts {
+    <script>
+        (function () {
+            // Helpers to clear preview and set remove flags
+            function setupRemove(buttonId, fileInputId, previewContainerId, removeHiddenId, metadataId) {
+                const btn = document.getElementById(buttonId);
+                const input = document.getElementById(fileInputId);
+                const preview = document.getElementById(previewContainerId);
+                const removeHidden = document.getElementById(removeHiddenId);
+                const metadata = document.getElementById(metadataId);
+
+                if (!btn) return;
+                btn.addEventListener('click', function () {
+                    if (!confirm('¿Quitar la imagen actual? Esta acción eliminará la imagen asociada a este banner.')) return;
+                    if (removeHidden) removeHidden.value = 'true';
+                    if (input) input.value = '';
+                    if (preview) {
+                        preview.innerHTML = '<div class="text-muted small">No hay imagen asignada.</div>';
+                    }
+                    if (metadata) metadata.textContent = '';
+                });
+            }
+
+            setupRemove('btnRemoveDesktop', 'uploadedImageDesktop', 'previewDesktop', 'RemoveImageDesktop', 'metadataDesktop');
+            setupRemove('btnRemoveMobile', 'uploadedImageMobile', 'previewMobile', 'RemoveImageMobile', 'metadataMobile');
+
+            // Previews for newly selected files and show metadata
+            function attachPreviewWithMeta(inputId, previewContainerId, noPreviewId, imgId, metadataId) {
+                const input = document.getElementById(inputId);
+                const previewContainer = document.getElementById(previewContainerId);
+                const noPreview = document.getElementById(noPreviewId);
+                const currentPreview = document.getElementById(imgId);
+                const metadataEl = document.getElementById(metadataId);
+
+                if (!input) return;
+                input.addEventListener('change', function () {
+                    const f = input.files && input.files[0];
+                    if (!f) return;
+                    const allowed = ['image/jpeg','image/png','image/gif','image/webp'];
+                    if (allowed.indexOf(f.type) === -1) {
+                        alert('Tipo de imagen no soportado. Usa JPG/PNG/GIF/WEBP.');
+                        input.value = '';
+                        return;
+                    }
+                    const maxBytes = 5 * 1024 * 1024;
+                    if (f.size > maxBytes) {
+                        alert('El archivo excede el tamaño máximo permitido (5 MB).');
+                        input.value = '';
+                        return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        // Update image preview
+                        if (currentPreview) {
+                            currentPreview.src = e.target.result;
+                        } else {
+                            if (noPreview) noPreview.remove();
+                            const img = document.createElement('img');
+                            img.id = imgId;
+                            img.src = e.target.result;
+                            img.style.maxWidth = '100%';
+                            img.style.maxHeight = '220px';
+                            img.style.borderRadius = '6px';
+                            img.style.border = '1px solid #e6eef6';
+                            previewContainer.appendChild(img);
+                        }
+                        // Update metadata (name, ext, size)
+                        if (metadataEl) {
+                            const ext = (f.name && f.name.split('.').length > 1) ? '.' + f.name.split('.').pop().toLowerCase() : '';
+                            const sizeText = humanFileSize(f.size);
+                            metadataEl.textContent = `Archivo: ${f.name} · Ext: ${ext} · Tamaño: ${sizeText}`;
+                        }
+
+                        // When user selects a new file, clear the remove flag
+                        const hidden = document.getElementById(removeHiddenIdFor(inputId));
+                        if (hidden) hidden.value = 'false';
+                    };
+                    reader.readAsDataURL(f);
+                });
+            }
+
+            function removeHiddenIdFor(fileInputId) {
+                if (fileInputId === 'uploadedImageDesktop') return 'RemoveImageDesktop';
+                if (fileInputId === 'uploadedImageMobile') return 'RemoveImageMobile';
+                return null;
+            }
+
+            function humanFileSize(bytes) {
+                if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+                if (bytes >= 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                return bytes + ' B';
+            }
+
+            attachPreviewWithMeta('uploadedImageDesktop', 'previewDesktop', 'noPreviewDesktop', 'currentPreviewDesktop', 'metadataDesktop');
+            attachPreviewWithMeta('uploadedImageMobile', 'previewMobile', 'noPreviewMobile', 'currentPreviewMobile', 'metadataMobile');
+        })();
+    </script>
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,245 @@
+﻿@page
+@model eiibd26.Areas.Identity.Pages.Admin.BannersInicio.IndexModel
+@{
+    ViewData["Title"] = "Administrar Banners Inicio";
+    Layout = "_Layout";
+}
+
+@section Styles {
+    <style>
+        .admin-list-wrap {
+            max-width: 1180px;
+            margin: 20px auto;
+        }
+
+        .thumb-small {
+            width: 160px;
+            height: 90px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid #e6eef6;
+        }
+
+        .thumb-mobile {
+            width: 90px;
+            height: 54px;
+            object-fit: cover;
+            border-radius: 4px;
+            border: 1px solid #e6eef6;
+        }
+
+        .actions .btn {
+            margin-right: 6px;
+        }
+
+        .drag-handle {
+            cursor: grab;
+            color: #6c757d;
+            font-size: 1.05rem;
+        }
+
+            .drag-handle:active {
+                cursor: grabbing;
+            }
+
+        .debug-panel {
+            background: #fffbe6;
+            border: 1px solid #ffe58f;
+            padding: 12px;
+            margin-bottom: 12px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+
+        tbody tr.dragging {
+            opacity: .6;
+        }
+    </style>
+}
+
+<div class="admin-list-wrap">
+    <h2>@ViewData["Title"]</h2>
+
+    <div class="mb-3 d-flex justify-content-between align-items-center">
+        <div>
+            <a class="btn btn-sm btn-primary" asp-page="./Detalle">Nuevo banner</a>
+        </div>
+        <div class="d-flex align-items-center">
+            <label class="form-check form-switch mb-0 me-3">
+                <input id="toggleShowDeleted" class="form-check-input" type="checkbox" />
+                <span class="form-check-label">Mostrar eliminados</span>
+            </label>
+            <small class="text-muted ms-2">Arrastra para reordenar</small>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">@TempData["Success"]</div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">@TempData["Error"]</div>
+    }
+
+    @* Anti-forgery token present on page so AJAX can read it *@
+    <div style="display:none">
+        @Html.AntiForgeryToken()
+    </div>
+
+    <table class="table table-hover table-bordered">
+        <thead class="table-light">
+            <tr>
+                <th style="width:40px"></th>
+                <th style="width:160px">Imagen (Desktop)</th>
+                <th style="width:100px">Imagen (Mobile)</th>
+                <th>Título</th>
+                <th>Subtítulo</th>
+                <th>Agregado Por</th>
+                <th>Activo</th>
+                <th>Visible Auth</th>
+                <th>Visible Anónimo</th>
+                <th style="width:80px">Orden</th>
+                <th style="width:80px">Borrado</th>
+                <th style="width:140px">Enlace</th>
+                <th style="width:190px">Acciones</th>
+            </tr>
+        </thead>
+        <tbody id="bannersTableBody">
+            @foreach (var b in Model.Banners)
+            {
+                <tr data-id="@b.Id" data-borrado="@(b.Borrado ? "1" : "0")" class="@(b.Borrado ? "table-secondary" : "")">
+                    <td class="text-center align-middle">
+                        <i class="bi bi-grip-vertical drag-handle" title="Arrastrar"></i>
+                    </td>
+
+                    <td class="align-middle">
+                        @if (!string.IsNullOrEmpty(b.ImagePathDesktop) || !string.IsNullOrEmpty(b.ImagePath))
+                        {
+                            <img src="@(b.ImagePathDesktop ?? b.ImagePath)" class="thumb-small" alt="Banner desktop" />
+                        }
+                        else
+                        {
+                            <div class="text-muted small">sin imagen</div>
+                        }
+                    </td>
+
+                    <td class="align-middle">
+                        @if (!string.IsNullOrEmpty(b.ImagePathMobile))
+                        {
+                            <img src="@b.ImagePathMobile" class="thumb-mobile" alt="Banner mobile" />
+                        }
+                        else
+                        {
+                            <div class="text-muted small">-</div>
+                        }
+                    </td>
+
+                    <td class="align-middle">@Html.Raw(b.Title ?? "")</td>
+                    <td class="align-middle">@Html.Raw(b.Subtitle ?? "")</td>
+                    <td class="align-middle">@(!string.IsNullOrWhiteSpace(b.AgregadoPorDisplay) ? b.AgregadoPorDisplay : "-")</td>
+                    <td class="align-middle text-center">@((b.IsActive) ? "Sí" : "No")</td>
+                    <td class="align-middle text-center">@((b.VisibleToAuthenticated) ? "Sí" : "No")</td>
+                    <td class="align-middle text-center">@((b.VisibleToAnonymous) ? "Sí" : "No")</td>
+                    <td class="align-middle text-center">@b.SortOrder</td>
+                    <td class="align-middle text-center">@((b.Borrado) ? "Sí" : "No")</td>
+
+                    <td class="align-middle">
+                        @if (!string.IsNullOrWhiteSpace(b.TargetUrl))
+                        {
+                            <a href="@b.TargetUrl" target="_blank" rel="noopener noreferrer">Abrir enlace</a>
+                        }
+                        else
+                        {
+                            <span class="text-muted">-</span>
+                        }
+                    </td>
+
+                    <td class="actions align-middle">
+                        <a class="btn btn-sm btn-outline-primary" asp-page="./Detalle" asp-route-id="@b.Id">Editar</a>
+
+                        @if (!b.Borrado)
+                        {
+                            <form method="post" asp-page-handler="Eliminar" asp-route-id="@b.Id" style="display:inline">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Marcar este banner como eliminado?');">Eliminar</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <form method="post" asp-page-handler="Restaurar" asp-route-id="@b.Id" style="display:inline">
+                                <button type="submit" class="btn btn-sm btn-outline-success" onclick="return confirm('¿Restaurar este banner?');">Restaurar</button>
+                            </form>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+    <script>
+        (function () {
+            // Toggle show deleted rows
+            const toggle = document.getElementById('toggleShowDeleted');
+            const tbody = document.getElementById('bannersTableBody');
+            if (toggle && tbody) {
+                toggle.addEventListener('change', function () {
+                    const show = toggle.checked;
+                    Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
+                        const borrado = tr.getAttribute('data-borrado') === '1';
+                        if (borrado && !show) tr.style.display = 'none';
+                        else tr.style.display = '';
+                    });
+                });
+                // hide deleted by default
+                toggle.checked = false;
+                toggle.dispatchEvent(new Event('change'));
+            }
+
+            // Initialize Sortable for drag & drop reordering
+            if (tbody) {
+                const sortable = Sortable.create(tbody, {
+                    handle: '.drag-handle',
+                    animation: 150,
+                    onEnd: function () {
+                        // gather ordered ids
+                        const ids = Array.from(tbody.querySelectorAll('tr')).map(tr => parseInt(tr.getAttribute('data-id')));
+                        // get antiforgery token
+                        const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
+                        const token = tokenEl ? tokenEl.value : '';
+                        fetch(location.pathname + '?handler=Reorder', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'RequestVerificationToken': token
+                            },
+                            body: JSON.stringify(ids)
+                        })
+                        .then(response => {
+                            if (!response.ok) throw new Error('Error en petición');
+                            return response.json();
+                        })
+                        .then(data => {
+                            if (!data || !data.success) {
+                                alert('No se pudo guardar el nuevo orden.');
+                            }
+                        })
+                        .catch(err => {
+                            console.error(err);
+                            alert('Error reordenando banners.');
+                        });
+                    },
+                    onStart: function (evt) {
+                        evt.item.classList.add('dragging');
+                    },
+                    onEnd: function (evt) {
+                        evt.item.classList.remove('dragging');
+                    }
+                });
+            }
+        })();
+    </script>
+}
