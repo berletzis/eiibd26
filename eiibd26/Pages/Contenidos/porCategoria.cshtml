@@ -278,7 +278,7 @@
             flex-direction: column;
         }
 
-               .thumb {
+        .thumb {
             width: 100%;
             height: 160px;
             background: #f3f6fb;
@@ -520,6 +520,7 @@
 
                 <div class="collapse" id="tagsBlocksCollapse">
                     <div class="tags-blocks" aria-label="Filtros por etiquetas">
+                        @* ... filtros (sin cambios) *@
                         @if (Model.AvailableConditions != null && Model.AvailableConditions.Any())
                         {
                             <div class="tag-group" aria-label="Condiciones">
@@ -596,7 +597,12 @@
                     foreach (var item in Model.Items)
                     {
                         <article class="blog-card" role="article" aria-labelledby="title-@item.Id" data-id="@item.Id">
-                            <div class="thumb" aria-hidden="true">
+                            <a href="@( string.IsNullOrWhiteSpace(item.Slug)
+                                                                      ? Url.Page("/Contenidos/Detalle", new { id = item.Id })
+                                                                      : (!string.IsNullOrWhiteSpace(item.PrimaryCategorySlug)
+                                                                          ? "/" + item.PrimaryCategorySlug + "/" + item.Slug
+                                                                          : "/c/" + item.Slug) )"
+                               class="thumb" aria-label="@item.Title">
                                 @if (!string.IsNullOrEmpty(item.ImageUrl))
                                 {
                                     <img src="@item.ImageUrl" alt="@item.Title" loading="lazy" />
@@ -605,7 +611,7 @@
                                 {
                                     <div style="width:100%; height:160px; background:#f3f6fb;"></div>
                                 }
-                            </div>
+                            </a>
 
                             <div class="content">
                                 @if (!string.IsNullOrWhiteSpace(item.Category))
@@ -618,7 +624,15 @@
                                     <div class="category-pill"><a href="@Url.Page("/Contenidos/porCategoria", new { categorySegment = fallback })">@fallback</a></div>
                                 }
 
-                                <h3 id="title-@item.Id" class="blog-title"><a href="@Url.Page("/Contenidos/Detalle", new { id = item.Id })">@item.Title</a></h3>
+                                <h3 id="title-@item.Id" class="blog-title">
+                                    <a href="@( string.IsNullOrWhiteSpace(item.Slug)
+                                                                                      ? Url.Page("/Contenidos/Detalle", new { id = item.Id })
+                                                                                      : (!string.IsNullOrWhiteSpace(item.PrimaryCategorySlug)
+                                                                                          ? "/" + item.PrimaryCategorySlug + "/" + item.Slug
+                                                                                          : "/c/" + item.Slug) )">
+                                        @item.Title
+                                    </a>
+                                </h3>
                                 <div class="blog-excerpt">@item.Excerpt</div>
 
                                 <div class="blog-footer">

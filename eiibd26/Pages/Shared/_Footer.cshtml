@@ -232,7 +232,7 @@
                     }
                 </div>
 
-                <!-- Column 3: CONTENIDOS relacionados con categoría 3 -->
+                <!-- Column 3: CONTENIDOS relacionados con categoría 3 (Legales) -->
                 <div>
                     <h6 class="footer-heading">
                         <a href="/@cat3Slug" class="footer-heading-link">@cat3Name</a>
@@ -243,10 +243,24 @@
                         <ul class="list-unstyled footer-list d-none d-md-block">
                             @foreach (var contenido in contenidosLegales)
                             {
-                                var slug = !string.IsNullOrWhiteSpace(contenido.ContenidoTituloSlug)
-                                ? contenido.ContenidoTituloSlug
-                                : contenido.Id.ToString();
-                                <li><a href="/c/@slug" class="footer-link">@contenido.ContenidoTitulo</a></li>
+                                if (!string.IsNullOrWhiteSpace(contenido.ContenidoTituloSlug))
+                                {
+                                    // Friendly URL using the parent category slug + content slug
+                                    <li>
+                                        <a href="/@cat3Slug/@contenido.ContenidoTituloSlug" class="footer-link">
+                                            @contenido.ContenidoTitulo
+                                        </a>
+                                    </li>
+                                }
+                                else
+                                {
+                                    // Fallback to the detail page with id if we don't have a content slug
+                                    <li>
+                                        <a href="@Url.Page("/Contenidos/Detalle", new { id = contenido.Id })" class="footer-link">
+                                            @contenido.ContenidoTitulo
+                                        </a>
+                                    </li>
+                                }
                             }
                         </ul>
                     }
@@ -286,7 +300,7 @@
                         <nav aria-label="Redes sociales (móvil)" class="d-flex gap-2">
                             <a class="social-link" href="https://facebook.com/eiiibd" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
                             <a class="social-link" href="https://x.com/eiibd" aria-label="Twitter"><i class="bi bi-twitter"></i></a>
-                            <a class="social-link" href="https://instagram.com/eiiibd" aria-label="Instagram"><i class="bi bi-instagram"></i></a>
+                            <a class="social-link" href="https://instagram.com/eiibd" aria-label="Instagram"><i class="bi bi-instagram"></i></a>
                             <a class="social-link" href="http://linkedin.com/company/eiibd" aria-label="LinkedIn"><i class="bi bi-linkedin"></i></a>
                         </nav>
                     </div>
@@ -312,7 +326,7 @@
                 <div class="col-12">
                     <small class="text-muted d-block" style="line-height:1.35; font-size: .85rem;">
                         © @DateTime.UtcNow.Year eiibd. Todos los derechos reservados.
-                        eiibd es un sitio de referencia y no recomienda ni respalda a ningún proveedor o tratamiento médico en particular. Ninguna información en eiibd debe interpretarse como consejo médico y/o de salud.
+                        eiibd es un sitio de referencia y no recomienda ni respalda a ningún proveedor o tratamiento médico en particular. Ninguna información en eiibd debe interpretarse como conse[...]
                     </small>
                 </div>
             </div>

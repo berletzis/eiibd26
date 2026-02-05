@@ -1,9 +1,10 @@
-﻿@* eiibd26/Pages/Shared/_BlogItems.cshtml *@
+﻿@* eiibd26/Pages/Shared/_BlogItems.cshtml (mejorado: admite varios nombres de propiedad para slugs/categoría) *@
 @model IEnumerable<eiibd26.Models.BlogItemVm>
 @using System.Globalization
 
 @functions {
-    string GetContentSeoUrl(int contentId, string contentSlug, int? categoryId = null, string categorySlugOverride = null)
+    // Generador de URL SEO-friendly (si tenemos contentSlug usamos /{categorySlug}/{contentSlug} o /c/{contentSlug})
+    string GetContentSeoUrl(int contentId, string contentSlug, string? categorySlugOverride = null)
     {
         if (string.IsNullOrWhiteSpace(contentSlug))
             return $"/Contenidos/Detalle?id={contentId}";
@@ -17,6 +18,16 @@
     string GetContentMetaUrl(int contentId)
     {
         return $"/Contenidos/ContentMeta?id={contentId}";
+    }
+
+    // Extraer propiedad por nombre (safe): devuelve null si no existe o es null
+    string? GetPropString(object obj, string propName)
+    {
+        if (obj == null) return null;
+        var p = obj.GetType().GetProperty(propName);
+        if (p == null) return null;
+        var v = p.GetValue(obj);
+        return v as string;
     }
 }
 
@@ -66,7 +77,15 @@
 {
     foreach (var item in Model)
     {
-        var contentUrl = GetContentSeoUrl(item.Id, item.Slug, item.PrimaryCategoryId, item.PrimaryCategorySlug);
+        // fallback robusto para contentSlug y categorySlug:
+        var contentSlug = GetPropString(item, "Slug") ?? GetPropString(item, "ContenidoTituloSlug") ?? "";
+        // intentamos diversas propiedades posibles que los distintos handlers rellenan
+        var categorySlug = GetPropString(item, "PrimaryCategorySlug")
+                           ?? GetPropString(item, "CategorySlug")
+                           ?? GetPropString(item, "PrimaryCategory")   // improbable, solo por seguridad
+                           ?? "";
+
+        var contentUrl = GetContentSeoUrl(item.Id, contentSlug, string.IsNullOrWhiteSpace(categorySlug) ? null : categorySlug);
         var metaUrl = GetContentMetaUrl(item.Id);
 
         <article class="blog-card" data-content-id="@item.Id">
