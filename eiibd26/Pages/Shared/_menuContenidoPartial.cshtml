@@ -20,11 +20,12 @@
             || currentPath.StartsWith(normSeg + "/", StringComparison.OrdinalIgnoreCase);
     };
 
-    // Load parent + children (materialize before using dynamic)
+    // Load parent (do NOT require parent.Relevante here; we may show parent when it has relevant children)
     var parent = await Db.ContenidosCategorias
         .AsNoTracking()
-        .FirstOrDefaultAsync(c => c.Sequence == parentSequence && !c.Borrado && c.Relevante == true);
+        .FirstOrDefaultAsync(c => c.Sequence == parentSequence && !c.Borrado);
 
+    // Children: only those with Relevante == true and not borrado
     List<dynamic> children = new();
     var childrenPaths = new List<string>();
     if (parent != null)
@@ -42,7 +43,7 @@
         foreach (var ch in children)
         {
             var slugChild = !string.IsNullOrWhiteSpace((string)ch.CategoriaSlug) ? (string)ch.CategoriaSlug : ch.Sequence.ToString();
-            var childPath = "/" + slugChild; // ← CORREGIDO: URL SEO
+            var childPath = "/" + slugChild;
             childrenPaths.Add(childPath);
         }
     }
@@ -50,17 +51,21 @@
     // Determine parent path and whether parent should be considered active:
     string parentPath = null;
     bool parentIsActive = false;
+    bool shouldRenderParent = false;
     if (parent != null)
     {
         var slugParent = !string.IsNullOrWhiteSpace((string)parent.CategoriaSlug) ? (string)parent.CategoriaSlug : parent.Sequence.ToString();
-        parentPath = "/" + slugParent; // ← CORREGIDO: URL SEO
+        parentPath = "/" + slugParent;
 
-        // Active if parent path matches OR any child path matches currentPath
+        // Parent is active if its own path is active OR any relevant child path is active
         parentIsActive = IsActivePath(parentPath) || childrenPaths.Any(p => IsActivePath(p));
+
+        // Only render parent if parent.Relevante == true OR there are children marked Relevante
+        shouldRenderParent = (parent.Relevante == true) || (children != null && children.Any());
     }
 }
 
-@if (parent != null)
+@if (parent != null && shouldRenderParent)
 {
     <style>
         /* Ensure fw-bold dropdown items don't get Bootstrap's active background */
@@ -91,7 +96,7 @@
                 foreach (var ch in children)
                 {
                     var slug = string.IsNullOrWhiteSpace((string)ch.CategoriaSlug) ? ch.Sequence.ToString() : (string)ch.CategoriaSlug;
-                    var url = "/" + slug; // ← CORREGIDO: URL SEO
+                    var url = "/" + slug;
                     var childIsActive = IsActivePath(url);
                     <li>
                         @* No 'active' class: only fw-bold + purple text when active, no background *@

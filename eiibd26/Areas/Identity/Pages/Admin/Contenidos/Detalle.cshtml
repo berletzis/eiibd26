@@ -4,8 +4,18 @@
 @{
     ViewData["Title"] = Model.Id.HasValue ? "Editar Contenido" : "Nuevo Contenido";
     Layout = "_Layout";
-}
 
+    // Prepare grouped condition lists here so they are available in the template
+    var parentsList = Model.AllCondiciones?.Where(x => x.padre == null).OrderBy(x => x.nombre).ToList() ?? new List<(int id, string nombre, int? padre)>();
+    var childrenList = Model.AllCondiciones?.Where(x => x.padre != null).OrderBy(x => x.nombre).ToList() ?? new List<(int id, string nombre, int? padre)>();
+    var childrenByParentMap = childrenList
+        .Where(ch => ch.padre.HasValue && parentsList.Any(p => p.id == ch.padre.Value))
+        .GroupBy(ch => ch.padre.Value)
+        .ToDictionary(g => g.Key, g => g.ToList());
+    var orphanChildrenList = childrenList
+        .Where(ch => !ch.padre.HasValue || !parentsList.Any(p => p.id == ch.padre.Value))
+        .ToList();
+}
 @section Styles {
     <style>
         .form-wrapper-flex {
@@ -56,7 +66,7 @@
             margin-bottom: 6px;
         }
 
-            .rel-search-row input {
+            .rel-search-row input, .rel-search-row select {
                 width: 100%;
                 padding: 6px 8px;
                 border: 1px solid #c9d6e6;
@@ -127,44 +137,68 @@
             padding: 4px;
         }
 
-        pre.debug {
-            background: #f8f9fb;
-            border: 1px solid #e1e7ef;
-            padding: 12px;
-            font-size: 12px;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-
-        .slug-wrapper {
+        /* Conditions grouping */
+        .cond-parent {
+            font-weight: 700;
+            padding: 6px 4px;
+            margin-top: 6px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
 
-        .slug-status {
-            font-size: .7rem;
-            font-weight: 600;
-            padding: 4px 8px;
-            border-radius: 999px;
-            display: inline-flex;
-            align-items: center;
+            .cond-parent .parent-title {
+                flex: 1;
+            }
+
+        .cond-children {
+            padding-left: 12px;
+            display: flex;
+            flex-direction: column;
             gap: 4px;
-            min-width: 80px;
-            justify-content: center;
+        }
+
+        .cond-group {
+            margin-bottom: 6px;
+            border-bottom: 1px dashed rgba(0,0,0,0.03);
+            padding-bottom: 6px;
+        }
+
+        .cond-parent-checkbox {
+            width: 18px;
+            height: 18px;
+            display: inline-block;
+        }
+
+        .seo-block {
+            background: #f8f9fb;
+            border: 1px solid #e1e7ef;
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-bottom: 12px;
+            font-size: .9rem;
+        }
+
+        .toggle-debug-btn {
+            margin-bottom: 8px;
+        }
+
+        /* small inline slug status styles (span next to input) */
+        .slug-status {
+            margin-left: 10px;
+            font-weight: 600;
+            font-size: .85rem;
+            vertical-align: middle;
         }
 
             .slug-status.ok {
-                background: #e3f1e8;
-                color: #2f6f44;
-                border: 1px solid #2f6f44;
+                color: #198754;
             }
-
+            /* bootstrap success */
             .slug-status.fail {
-                background: #fde8e8;
-                color: #b3212d;
-                border: 1px solid #b3212d;
+                color: #dc3545;
             }
+        /* bootstrap danger */
 
         @@media (max-width:1200px) {
             .form-wrapper-flex {
@@ -184,15 +218,31 @@
         @Html.AntiForgeryToken()
         <input type="hidden" asp-for="Id" id="contenidoIdHidden" />
 
+        @* SEO URL block at the top *@
+        <div class="seo-block">
+            <strong>URL SEO pública:</strong>
+            @if (!string.IsNullOrWhiteSpace(Model.SeoUrl))
+            {
+                <a href="@Model.SeoUrl" target="_blank" rel="noopener noreferrer">@Model.SeoUrl</a>
+            }
+            else
+            {
+                <span class="text-muted">(Aún no disponible: slug vacío o contenido no relacionado)</span>
+            }
+        </div>
+
         <div class="form-wrapper-flex">
             <div class="form-section">
                 <h3>@ViewData["Title"]</h3>
 
                 @if (!string.IsNullOrWhiteSpace(Model.DebugInfoHtml))
                 {
-                    <div class="mb-3">
-                        <label class="form-label">DEBUG</label>
-                        <pre class="debug">@Html.Raw(Model.DebugInfoHtml)</pre>
+                    <div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary toggle-debug-btn" id="btnToggleDebug">Mostrar debug</button>
+                        <div id="debugBlock" style="display:none" class="mb-3">
+                            <label class="form-label">DEBUG</label>
+                            <pre class="debug">@Html.Raw(Model.DebugInfoHtml)</pre>
+                        </div>
                     </div>
                 }
 
@@ -210,14 +260,16 @@
                     <input class="form-control" asp-for="ContenidoTitulo" id="titulo" autocomplete="off" />
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label">Slug</label>
-                    <div class="slug-wrapper">
+                <div class="mb-3 d-flex align-items-center">
+                    <div style="flex:1">
+                        <label class="form-label">Slug</label>
                         <input class="form-control" asp-for="ContenidoTituloSlug" id="slug" autocomplete="off" />
+                    </div>
+                    <div style="margin-left:12px;">
                         <span id="slugStatus" class="slug-status" aria-live="polite"></span>
                     </div>
-                    <small class="text-muted">Se genera y valida en tiempo real. Puedes editarlo manualmente.</small>
                 </div>
+                <small class="text-muted d-block mb-2">Se genera y valida en tiempo real. Puedes editarlo manualmente.</small>
 
                 <div class="mb-3">
                     <label class="form-label">Resumen</label>
@@ -312,18 +364,38 @@
             </div>
 
             <aside class="right-rel-panel">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <a class="btn btn-sm btn-outline-secondary mb-2" href="@Url.Page("./Index")">Regresar a Ver todos</a>
+                    </div>
+                    <div>
+                        <a class="btn btn-sm btn-primary mb-2" href="@Url.Page("./Detalle")">Agregar nuevo</a>
+                    </div>
+                </div>
+
                 <div class="rel-box">
                     <h5>Contenidos generales <span class="badge bg-light text-dark">@Model.AllGeneralContenidos.Count</span></h5>
+
                     <div class="rel-search-row">
-                        <input type="text" id="searchGeneralCont" placeholder="Filtrar..." autocomplete="off" />
-                        <div id="generalContSelectedBadges" class="rel-selected-badges">
-                            @foreach (var c in Model.AllGeneralContenidos.Where(x => Model.SelectedManualContenidoIds.Contains(x.id)))
+                        <label class="form-label small mb-0">Filtrar por padre</label>
+                        <select id="filterByParent" class="form-select">
+                            <option value="">— Todos —</option>
+                            @foreach (var p in Model.ParentCategories)
                             {
-                                <span class="rel-badge-sel" data-id="@c.id">@c.title <button type="button" class="badge-remove" data-target-name="SelectedManualContenidoIds" data-id="@c.id" aria-label="Quitar">✕</button></span>
+                                <option value="@p.Sequence">@p.Nombre</option>
+                            }
+                        </select>
+
+                        <input type="text" id="searchGeneralCont" placeholder="Filtrar por título..." autocomplete="off" />
+                        <div id="generalContSelectedBadges" class="rel-selected-badges">
+                            @foreach (var c in Model.AllGeneralContenidos.Where(x => Model.SelectedManualContenidoIds.Contains(x.Id)))
+                            {
+                                <span class="rel-badge-sel" data-id="@c.Id">@c.Title <button type="button" class="badge-remove btn-close" data-target-name="SelectedManualContenidoIds" data-id="@c.Id" aria-label="Eliminar"></button></span>
                             }
                         </div>
                     </div>
-                    <div class="rel-scroll" id="listGeneralCont">
+
+                    <div class="rel-scroll" id="listGeneralCont" role="list">
                         @if (!Model.AllGeneralContenidos.Any())
                         {
                             <div class="rel-empty">Sin registros</div>
@@ -332,27 +404,23 @@
                         {
                             foreach (var c in Model.AllGeneralContenidos)
                             {
-                                var checkedAttr = Model.SelectedManualContenidoIds.Contains(c.id) ? "checked" : "";
-                                <label class="rel-item" data-filter="@((c.title ?? "").ToLowerInvariant())">
-                                    <input type="checkbox" name="SelectedManualContenidoIds" value="@c.id" class="rel-check-generalcont" @checkedAttr />
-                                    <span>@c.title</span>
+                                var checkedAttr = Model.SelectedManualContenidoIds.Contains(c.Id) ? "checked" : "";
+                                var parentSeqAttr = c.ParentCategorySeq.HasValue ? c.ParentCategorySeq.Value.ToString() : "";
+                                <label class="rel-item" data-filter="@((c.Title ?? "").ToLowerInvariant())" data-parent="@parentSeqAttr" role="listitem">
+                                    <input type="checkbox" name="SelectedManualContenidoIds" value="@c.Id" class="rel-check-generalcont" @checkedAttr />
+                                    <span>@c.Title</span>
+                                    @if (!string.IsNullOrEmpty(c.ParentCategoryName))
+                                    {
+                                        <small class="text-muted ms-2">· @c.ParentCategoryName</small>
+                                    }
                                 </label>
                             }
                         }
                     </div>
                 </div>
 
-                <!-- DIAGNOSTIC BLOCK FOR PREGUNTAS -->
                 <div class="rel-box">
                     <h5>Preguntas (con respuestas o votos) <span class="badge bg-light text-dark">@Model.AllPreguntasCandidate.Count</span></h5>
-
-                    <div style="font-size:.82rem;color:#374151;margin-bottom:6px;">
-                        <strong>DEBUG (AllPreguntasCandidate):</strong> @Html.Raw(JsonSerializer.Serialize(Model.AllPreguntasCandidate))
-                    </div>
-                    <div style="font-size:.82rem;color:#374151;margin-bottom:6px;">
-                        <strong>DEBUG (SelectedManualPreguntasIds):</strong> @Html.Raw(JsonSerializer.Serialize(Model.SelectedManualPreguntasIds))
-                    </div>
-
                     <div class="rel-search-row">
                         <input type="text" id="searchPreguntas" placeholder="Filtrar..." autocomplete="off" />
                         <div id="pregSelectedBadges" class="rel-selected-badges">
@@ -380,7 +448,6 @@
                         }
                     </div>
                 </div>
-                <!-- END DIAGNOSTIC BLOCK -->
 
                 <div class="rel-box" id="panelCondiciones">
                     <h5>Condiciones <span class="badge bg-light text-dark">@Model.AllCondiciones.Count</span></h5>
@@ -393,20 +460,63 @@
                             }
                         </div>
                     </div>
-                    <div class="rel-scroll" id="listCondiciones">
+
+                    <div class="rel-scroll" id="listCondiciones" role="list">
                         @if (!Model.AllCondiciones.Any())
                         {
                             <div class="rel-empty">Sin registros</div>
                         }
                         else
                         {
-                            foreach (var c in Model.AllCondiciones)
+                            @* parents with their children *@
+                            @foreach (var parent in parentsList)
                             {
-                                var checkedAttr = Model.SelectedCondicionesIds.Contains(c.id) ? "checked" : "";
-                                <label class="rel-item" data-filter="@c.nombre?.ToLowerInvariant()">
-                                    <input type="checkbox" name="SelectedCondicionesIds" value="@c.id" class="rel-check-condicion" @checkedAttr />
-                                    <span>@c.nombre</span>
-                                </label>
+                                <div class="cond-group" data-parent="@parent.id">
+                                    <div class="cond-parent">
+                                        <input type="checkbox" class="cond-parent-checkbox" data-parent-id="@parent.id" id="parentchk_@parent.id" />
+                                        <div class="parent-title">@parent.nombre</div>
+                                    </div>
+                                    <div class="cond-children">
+                                        @{
+                                            if (childrenByParentMap.TryGetValue(parent.id, out var chs) && chs.Any())
+                                            {
+                                                foreach (var ch in chs)
+                                                {
+                                                    var checkedAttr = Model.SelectedCondicionesIds.Contains(ch.id) ? "checked" : "";
+                                                    <label class="rel-item" data-filter="@ch.nombre.ToLowerInvariant()">
+                                                        <input type="checkbox" name="SelectedCondicionesIds" value="@ch.id" class="rel-check-condicion" @checkedAttr />
+                                                        <span>@ch.nombre</span>
+                                                    </label>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <div class="rel-item rel-empty">No hay subcondiciones</div>
+                                            }
+                                        }
+                                    </div>
+                                </div>
+                            }
+
+                            @* orphan children under "Otros" *@
+                            @if (orphanChildrenList.Any())
+                            {
+                                <div class="cond-group" data-parent="0">
+                                    <div class="cond-parent">
+                                        <input type="checkbox" class="cond-parent-checkbox" data-parent-id="0" id="parentchk_0" />
+                                        <div class="parent-title">Otros</div>
+                                    </div>
+                                    <div class="cond-children">
+                                        @foreach (var ch in orphanChildrenList)
+                                        {
+                                            var checkedAttr = Model.SelectedCondicionesIds.Contains(ch.id) ? "checked" : "";
+                                            <label class="rel-item" data-filter="@ch.nombre.ToLowerInvariant()">
+                                                <input type="checkbox" name="SelectedCondicionesIds" value="@ch.id" class="rel-check-condicion" @checkedAttr />
+                                                <span>@ch.nombre</span>
+                                            </label>
+                                        }
+                                    </div>
+                                </div>
                             }
                         }
                     </div>
@@ -473,217 +583,344 @@
                 </div>
             </aside>
         </div>
+
+        @* SEO URL block at the bottom *@
+        <div class="seo-block mt-3">
+            <strong>URL SEO pública:</strong>
+            @if (!string.IsNullOrWhiteSpace(Model.SeoUrl))
+            {
+                <a href="@Model.SeoUrl" target="_blank" rel="noopener noreferrer">@Model.SeoUrl</a>
+            }
+            else
+            {
+                <span class="text-muted">(Aún no disponible: slug vacío o contenido no relacionado)</span>
+            }
+        </div>
     </form>
 </div>
 
 @section Scripts {
     <script src="https://cdn.tiny.cloud/1/c1xlulcw2ayqu8bq58edh8qjshj6yruj6g2linjofz9rw369/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
     <script>
-            // ---------- TinyMCE ----------
-            tinymce.init({
-                selector:'#contenidoHtml',
-                height:520,
-                menubar:'file edit view insert format tools table help',
-                plugins:'anchor autolink charmap codesample emoticons image link lists media searchreplace table visualblocks wordcount fullscreen preview code advlist autoresize autosave',
-                toolbar:'undo redo | blocks | bold italic underline strikethrough forecolor backcolor removeformat | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image media table | charmap emoticons | blockquote codesample | fullscreen preview code',
-                toolbar_mode:'wrap',
-                branding:false,
-                promotion:false,
-                statusbar:true,
-                autosave_interval:'30s',
-                autosave_retention:'10m',
-                image_caption:true,
-                convert_urls:false,
-                default_link_target:'_blank',
-                content_style:'body { font-family: system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial,sans-serif; font-size:14px; }',
-                images_upload_handler:(blobInfo)=>new Promise((resolve,reject)=>{
-                    try{resolve("data:"+blobInfo.blob().type+";base64,"+blobInfo.base64());}catch(e){reject('Error imagen: '+e);}
-                }),
-                setup:(ed)=>ed.on('change keyup undo redo',()=>ed.save())
-            });
+        // ---------- TinyMCE (WYSIWYG) ----------
+        tinymce.init({
+            selector:'#contenidoHtml',
+            height:520,
+            menubar:'file edit view insert format tools table help',
+            plugins:'anchor autolink charmap codesample emoticons image link lists media searchreplace table visualblocks wordcount fullscreen preview code advlist autoresize autosave',
+            toolbar:'undo redo | blocks | bold italic underline strikethrough forecolor backcolor removeformat | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image media table | charmap emoticons | blockquote codesample | fullscreen preview code',
+            toolbar_mode:'wrap',
+            branding:false,
+            promotion:false,
+            statusbar:true,
+            autosave_interval:'30s',
+            autosave_retention:'10m',
+            image_caption:true,
+            convert_urls:false,
+            default_link_target:'_blank',
+            content_style:'body { font-family: system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial,sans-serif; font-size:14px; }',
+            images_upload_handler:(blobInfo)=>new Promise((resolve,reject)=>{
+                try{resolve("data:"+blobInfo.blob().type+";base64,"+blobInfo.base64());}catch(e){reject('Error imagen: '+e);}
+            }),
+            setup:(ed)=>ed.on('change keyup undo redo',()=>ed.save())
+        });
 
-            // ---------- Slug (auto + validación) ----------
-            const tituloInput=document.getElementById('titulo');
-            const slugInput=document.getElementById('slug');
-            const slugStatus=document.getElementById('slugStatus');
-            const contenidoId=document.getElementById('contenidoIdHidden')?.value;
-            let slugDirty=false, slugTimer=null, lastValidated='';
+        // ---------- Slug logic with visual feedback on the input ----------
+        const tituloInput=document.getElementById('titulo');
+        const slugInput=document.getElementById('slug');
+        const slugStatus=document.getElementById('slugStatus');
+        const contenidoId=document.getElementById('contenidoIdHidden')?.value;
+        let slugDirty=false, slugTimer=null, lastValidated='';
 
-            function slugify(text){
-                if(!text) return '';
-                return text.toLowerCase()
-                    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-                    .replace(/[^a-z0-9\s-]/g,'')
-                    .trim().replace(/\s+/g,'-')
-                    .replace(/-+/g,'-');
+        function slugify(text){
+            if(!text) return '';
+            return text.toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+                .replace(/[^a-z0-9\s-]/g,'')
+                .trim().replace(/\s+/g,'-')
+                .replace(/-+/g,'-');
+        }
+        function applySlugAuto(){
+            if(!slugDirty){
+                slugInput.value=slugify(tituloInput.value);
             }
-            function applySlugAuto(){
-                if(!slugDirty){
-                    slugInput.value=slugify(tituloInput.value);
+        }
+        function setSlugStatus(state){
+            // clear previous classes
+            slugStatus.className = 'slug-status';
+            if(slugInput){
+                slugInput.classList.remove('is-valid','is-invalid');
+                slugInput.removeAttribute('aria-invalid');
+            }
+
+            if(state === 'ok'){
+                slugStatus.textContent = 'aprobado';
+                slugStatus.classList.add('ok');
+                if(slugInput) slugInput.classList.add('is-valid');
+            } else if(state === 'fail'){
+                slugStatus.textContent = 'rechazado';
+                slugStatus.classList.add('fail');
+                if(slugInput){
+                    slugInput.classList.add('is-invalid');
+                    slugInput.setAttribute('aria-invalid','true');
                 }
-            }
-            function setSlugStatus(state){
-                if(state==='ok'){
-                    slugStatus.textContent='aprobado';
-                    slugStatus.className='slug-status ok';
-                }else if(state==='fail'){
-                    slugStatus.textContent='rechazado';
-                    slugStatus.className='slug-status fail';
-                }else if(state==='error'){
-                    slugStatus.textContent='error';
-                    slugStatus.className='slug-status fail';
-                }else{
-                    slugStatus.textContent='';
-                    slugStatus.className='slug-status';
+            } else if(state === 'error'){
+                slugStatus.textContent = 'error';
+                slugStatus.classList.add('fail');
+                if(slugInput){
+                    slugInput.classList.add('is-invalid');
+                    slugInput.setAttribute('aria-invalid','true');
                 }
+            } else {
+                slugStatus.textContent = '';
             }
-            function validateSlug(){
-                const val=(slugInput.value||'').trim();
-                if(val.length===0){setSlugStatus('');return;}
-                if(val===lastValidated) return;
-                lastValidated=val;
-                const url=`${location.pathname}?handler=CheckSlug&slug=${encodeURIComponent(val)}${contenidoId? '&id='+contenidoId:''}`;
-                fetch(url,{headers:{'Accept':'application/json'}})
-                    .then(r=>r.json())
-                    .then(j=>{
-                        if(!j.ok){setSlugStatus('error');return;}
-                        setSlugStatus(j.exists? 'fail':'ok');
-                    })
-                    .catch(()=>setSlugStatus('error'));
-            }
-            tituloInput?.addEventListener('input',()=>{
-                applySlugAuto();
-                clearTimeout(slugTimer);
-                slugTimer=setTimeout(validateSlug,300);
-            });
-            slugInput?.addEventListener('input',()=>{
-                slugDirty=true;
-                clearTimeout(slugTimer);
-                slugTimer=setTimeout(validateSlug,250);
-            });
-            // inicial
-            if(tituloInput){applySlugAuto();validateSlug();}
+        }
+        function validateSlug(){
+            const val=(slugInput.value||'').trim();
+            if(val.length===0){ setSlugStatus(''); return; }
+            if(val===lastValidated) return;
+            lastValidated=val;
+            const url=`${location.pathname}?handler=CheckSlug&slug=${encodeURIComponent(val)}${contenidoId? '&id='+contenidoId:''}`;
+            fetch(url,{headers:{'Accept':'application/json'}})
+                .then(r=>r.json())
+                .then(j=>{
+                    if(!j || typeof j.ok === 'undefined'){ setSlugStatus('error'); return; }
+                    setSlugStatus(j.exists ? 'fail' : 'ok');
+                })
+                .catch(()=>setSlugStatus('error'));
+        }
+        tituloInput?.addEventListener('input',()=>{
+            applySlugAuto();
+            clearTimeout(slugTimer);
+            slugTimer=setTimeout(validateSlug,300);
+        });
+        slugInput?.addEventListener('input',()=>{
+            slugDirty=true;
+            clearTimeout(slugTimer);
+            slugTimer=setTimeout(validateSlug,250);
+        });
+        if(tituloInput){ applySlugAuto(); validateSlug(); }
 
-            // ---------- Categorías dinámicas ----------
-            const categories=@Html.Raw(JsonSerializer.Serialize(
-                                            Model.CategoryItems.Select(c => new { seq = c.Sequence, parent = c.CategoriaPadre, name = c.Nombre })
-                            ));
-    const parentSel=document.getElementById('categoriaPadre');
-    const subSel=document.getElementById('subcategoria');
+        // ---------- Categories dynamic ----------
+        const categories=@Html.Raw(JsonSerializer.Serialize(Model.CategoryItems.Select(c => new { seq = c.Sequence, parent = c.CategoriaPadre, name = c.Nombre })));
+        const parentSel=document.getElementById('categoriaPadre');
+        const subSel=document.getElementById('subcategoria');
 
-            function populateSub(parentId, selectedValue){
-                if(!subSel){return;}
-                subSel.innerHTML='<option value="">(Seleccionar subcategoría)</option>';
-                if(!parentId){return;}
-                categories.filter(c => c.parent !== null && String(c.parent) === String(parentId))
-                    .forEach(c=>{
-                        const opt=document.createElement('option');
-                        opt.value=c.seq;
-                        opt.textContent=c.name;
-                        if(selectedValue && String(selectedValue)===String(c.seq)) opt.selected=true;
-                        subSel.appendChild(opt);
+        function populateSub(parentId, selectedValue){
+            if(!subSel){return;}
+            subSel.innerHTML='<option value="">(Seleccionar subcategoría)</option>';
+            if(!parentId){return;}
+            categories.filter(c => c.parent !== null && String(c.parent) === String(parentId))
+                .forEach(c=>{
+                    const opt=document.createElement('option');
+                    opt.value=c.seq;
+                    opt.textContent=c.name;
+                    if(selectedValue && String(selectedValue)===String(c.seq)) opt.selected=true;
+                    subSel.appendChild(opt);
+                });
+        }
+        parentSel?.addEventListener('change',()=>{
+            subSel.value='';
+            populateSub(parentSel.value,null);
+        });
+        populateSub(parentSel?.value,'@(Model.IdCategoria?.ToString() ?? "")');
+
+        // ---------- Filters & badges ----------
+        const searchInput = document.getElementById('searchGeneralCont');
+        const parentSelect = document.getElementById('filterByParent');
+        const list = document.getElementById('listGeneralCont');
+
+        function applyGeneralFilter() {
+            const q = (searchInput && searchInput.value || '').trim().toLowerCase();
+            const parent = (parentSelect && parentSelect.value) || '';
+
+            if (!list) return;
+            const items = list.querySelectorAll('.rel-item');
+            items.forEach(item => {
+                const text = (item.getAttribute('data-filter') || '').toLowerCase();
+                const itemParent = (item.getAttribute('data-parent') || '');
+                const matchText = !q || text.indexOf(q) !== -1;
+                const matchParent = !parent || itemParent === parent;
+                item.style.display = (matchText && matchParent) ? '' : 'none';
+            });
+        }
+
+        if (searchInput) searchInput.addEventListener('input', applyGeneralFilter);
+        if (parentSelect) parentSelect.addEventListener('change', applyGeneralFilter);
+
+        function initFilter(inputId,listId){
+            const input=document.getElementById(inputId);
+            const list=document.getElementById(listId);
+            if(!input||!list)return;
+            input.addEventListener('input',()=>{
+                const term=input.value.trim().toLowerCase();
+
+                if(listId === 'listCondiciones') {
+                    const groups = list.querySelectorAll('.cond-group');
+                    groups.forEach(g=>{
+                        let anyVisible = false;
+                        const children = g.querySelectorAll('.rel-item');
+                        children.forEach(item=>{
+                            const txt = (item.getAttribute('data-filter')||'').toLowerCase();
+                            const visible = term==='' || txt.includes(term);
+                            item.style.display = visible ? '' : 'none';
+                            if(visible) anyVisible = true;
+                        });
+                        const header = g.querySelector('.cond-parent');
+                        if(header) header.style.display = anyVisible ? '' : 'none';
                     });
-            }
-            parentSel?.addEventListener('change',()=>{
-                // al cambiar padre, limpiar subcategoria previa
-                subSel.value='';
-                populateSub(parentSel.value,null);
-            });
-            // inicial (mantener selección)
-            populateSub(parentSel?.value,'@(Model.IdCategoria?.ToString() ?? "")');
-
-            // ---------- Filtros ----------
-            function initFilter(inputId,listId){
-                const input=document.getElementById(inputId);
-                const list=document.getElementById(listId);
-                if(!input||!list)return;
-                input.addEventListener('input',()=>{
-                    const term=input.value.trim().toLowerCase();
+                    updateAllParentCheckboxStates();
+                } else {
                     list.querySelectorAll('.rel-item').forEach(item=>{
                         const txt=item.getAttribute('data-filter')||'';
                         item.style.display=term===''||txt.includes(term)?'':'none';
                     });
-                });
-            }
-            initFilter('searchGeneralCont','listGeneralCont');
-            initFilter('searchPreguntas','listPreguntas');
-            initFilter('searchCondiciones','listCondiciones');
-            initFilter('searchSintomas','listSintomas');
-            initFilter('searchTratamientos','listTratamientos');
-
-            // ---------- Badges dinámicos ----------
-            function refreshBadges(containerId, checkboxSelector){
-                const container=document.getElementById(containerId);
-                if(!container)return;
-                const checks=document.querySelectorAll(checkboxSelector);
-                const fr=document.createDocumentFragment();
-                checks.forEach(ch=>{
-                    if(ch.checked){
-                        const span=document.createElement('span');
-                        span.className='rel-badge-sel';
-                        span.dataset.id=ch.value;
-                        const labelText = ch.nextElementSibling?.textContent?.trim() || ch.value;
-                        span.innerHTML=`${labelText} <button type="button" class="badge-remove" data-target="${checkboxSelector}" data-id="${ch.value}">✕</button>`;
-                        fr.appendChild(span);
-                    }
-                });
-                container.innerHTML='';
-                container.appendChild(fr);
-            }
-            function attachBadgeEvents(){
-                document.addEventListener('change',e=>{
-                    if(e.target.matches('.rel-check-generalcont')){
-                        refreshBadges('generalContSelectedBadges','.rel-check-generalcont');
-                    }else if(e.target.matches('.rel-check-pregunta')){
-                        refreshBadges('pregSelectedBadges','.rel-check-pregunta');
-                    }else if(e.target.matches('.rel-check-condicion')){
-                        refreshBadges('condSelectedBadges','.rel-check-condicion');
-                    }else if(e.target.matches('.rel-check-sintoma')){
-                        refreshBadges('sintSelectedBadges','.rel-check-sintoma');
-                    }else if(e.target.matches('.rel-check-tratamiento')){
-                        refreshBadges('tratSelectedBadges','.rel-check-tratamiento');
-                    }
-                });
-                document.addEventListener('click',e=>{
-                    const btn=e.target.closest('.badge-remove');
-                    if(!btn)return;
-                    const id=btn.getAttribute('data-id');
-                    const selector=btn.getAttribute('data-target') || btn.getAttribute('data-target-name');
-                    if(selector){
-                        const ck=document.querySelector(`${selector}[value="${CSS.escape(id)}"]`);
-                        if(ck){ck.checked=false;ck.dispatchEvent(new Event('change'));}
-                    } else {
-                        const listAttr = btn.getAttribute('data-target-list');
-                        if(listAttr){
-                            const ck = document.querySelector(`[name="${listAttr}"][value="${CSS.escape(id)}"]`);
-                            if(ck){ck.checked=false;ck.dispatchEvent(new Event('change'));}
-                        }
-                    }
-                });
-            }
-            attachBadgeEvents();
-            // inicial
-            refreshBadges('generalContSelectedBadges','.rel-check-generalcont');
-            refreshBadges('pregSelectedBadges','.rel-check-pregunta');
-            refreshBadges('condSelectedBadges','.rel-check-condicion');
-            refreshBadges('sintSelectedBadges','.rel-check-sintoma');
-            refreshBadges('tratSelectedBadges','.rel-check-tratamiento');
-
-            // ---------- Submit ----------
-            document.getElementById('detalleForm')?.addEventListener('submit',()=>{
-                if(typeof tinymce!=='undefined'){tinymce.triggerSave();}
-            });
-
-            // ---------- Fade éxito ----------
-            document.addEventListener('DOMContentLoaded',()=>{
-                const success=document.getElementById('successBanner');
-                if(success){
-                    setTimeout(()=>{
-                        success.style.transition='opacity .6s';
-                        success.style.opacity='0';
-                        setTimeout(()=>success.remove(),800);
-                    },4000);
                 }
             });
+        }
+
+        initFilter('searchPreguntas','listPreguntas');
+        initFilter('searchCondiciones','listCondiciones');
+        initFilter('searchSintomas','listSintomas');
+        initFilter('searchTratamientos','listTratamientos');
+
+        function refreshBadges(containerId, checkboxSelector){
+            const container=document.getElementById(containerId);
+            if(!container)return;
+            const checks=document.querySelectorAll(checkboxSelector);
+            const fr=document.createDocumentFragment();
+            checks.forEach(ch=>{
+                if(ch.checked){
+                    const span=document.createElement('span');
+                    span.className='rel-badge-sel';
+                    span.dataset.id=ch.value;
+                    const labelText = (ch.nextElementSibling && ch.nextElementSibling.textContent) ? ch.nextElementSibling.textContent.trim() : ch.value;
+                    span.textContent = labelText + ' ';
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'badge-remove';
+                    btn.dataset.id = ch.value;
+                    btn.setAttribute('data-target-list', ch.name);
+                    btn.innerHTML = '✕';
+                    span.appendChild(btn);
+                    fr.appendChild(span);
+                }
+            });
+            container.innerHTML='';
+            container.appendChild(fr);
+        }
+
+        function attachBadgeEvents(){
+            document.addEventListener('change',e=>{
+                if(e.target.matches('.rel-check-generalcont')){
+                    refreshBadges('generalContSelectedBadges','.rel-check-generalcont');
+                }else if(e.target.matches('.rel-check-pregunta')){
+                    refreshBadges('pregSelectedBadges','.rel-check-pregunta');
+                }else if(e.target.matches('.rel-check-condicion')){
+                    refreshBadges('condSelectedBadges','.rel-check-condicion');
+                    const parentGroup = e.target.closest('.cond-group');
+                    if(parentGroup) updateParentCheckboxState(parentGroup);
+                }else if(e.target.matches('.rel-check-sintoma')){
+                    refreshBadges('sintSelectedBadges','.rel-check-sintoma');
+                }else if(e.target.matches('.rel-check-tratamiento')){
+                    refreshBadges('tratSelectedBadges','.rel-check-tratamiento');
+                }
+            });
+            document.addEventListener('click',e=>{
+                const btn=e.target.closest('.badge-remove');
+                if(!btn)return;
+                const id=btn.getAttribute('data-id');
+                const name = btn.getAttribute('data-target-list');
+                if(name){
+                    const ck = document.querySelector(`input[name="${name}"][value="${CSS.escape(id)}"]`);
+                    if(ck){ ck.checked=false; ck.dispatchEvent(new Event('change')); return; }
+                }
+                const ck2 = document.querySelector(`input[value="${CSS.escape(id)}"]`);
+                if(ck2){ ck2.checked=false; ck2.dispatchEvent(new Event('change')); }
+            });
+        }
+        attachBadgeEvents();
+        refreshBadges('generalContSelectedBadges','.rel-check-generalcont');
+        refreshBadges('pregSelectedBadges','.rel-check-pregunta');
+        refreshBadges('condSelectedBadges','.rel-check-condicion');
+        refreshBadges('sintSelectedBadges','.rel-check-sintoma');
+        refreshBadges('tratSelectedBadges','.rel-check-tratamiento');
+
+        // Parent checkbox behaviour
+        function updateParentCheckboxState(parentGroup){
+            if(!parentGroup) return;
+            const parentCheckbox = parentGroup.querySelector('.cond-parent-checkbox');
+            const childChecks = Array.from(parentGroup.querySelectorAll('.rel-check-condicion'));
+            if(!parentCheckbox || !childChecks.length) {
+                if(parentCheckbox) { parentCheckbox.checked = false; parentCheckbox.indeterminate = false; }
+                return;
+            }
+            const allChecked = childChecks.every(ch => ch.checked);
+            const noneChecked = childChecks.every(ch => !ch.checked);
+            parentCheckbox.checked = allChecked;
+            parentCheckbox.indeterminate = (!allChecked && !noneChecked);
+        }
+
+        function updateAllParentCheckboxStates(){
+            document.querySelectorAll('.cond-group').forEach(g => updateParentCheckboxState(g));
+        }
+
+        function wireUpParentCheckboxes(){
+            document.querySelectorAll('.cond-parent-checkbox').forEach(cb => {
+                const parentId = cb.getAttribute('data-parent-id');
+                const parentGroup = cb.closest(`.cond-group[data-parent="${parentId}"]`);
+                updateParentCheckboxState(parentGroup);
+
+                cb.addEventListener('change', function(e){
+                    const checked = !!this.checked;
+                    const parentId = this.getAttribute('data-parent-id');
+                    const group = this.closest(`.cond-group[data-parent="${parentId}"]`);
+                    if(!group) return;
+                    const childChecks = Array.from(group.querySelectorAll('.rel-check-condicion'));
+                    childChecks.forEach(ch => {
+                        ch.checked = checked;
+                        ch.dispatchEvent(new Event('change'));
+                    });
+                    updateParentCheckboxState(group);
+                });
+            });
+        }
+
+        // Debug toggle
+        document.addEventListener('DOMContentLoaded', function(){
+            const btnDbg = document.getElementById('btnToggleDebug');
+            const dbgBlock = document.getElementById('debugBlock');
+            if(btnDbg && dbgBlock){
+                btnDbg.addEventListener('click', function(){
+                    if(dbgBlock.style.display === 'none' || dbgBlock.style.display === ''){
+                        dbgBlock.style.display = 'block';
+                        btnDbg.textContent = 'Ocultar debug';
+                    } else {
+                        dbgBlock.style.display = 'none';
+                        btnDbg.textContent = 'Mostrar debug';
+                    }
+                });
+            }
+
+            wireUpParentCheckboxes();
+            updateAllParentCheckboxStates();
+
+            // fade success
+            const success=document.getElementById('successBanner');
+            if(success){
+                setTimeout(()=>{
+                    success.style.transition='opacity .6s';
+                    success.style.opacity='0';
+                    setTimeout(()=>success.remove(),800);
+                },4000);
+            }
+        });
+
+        // Submit handler (TinyMCE save)
+        document.getElementById('detalleForm')?.addEventListener('submit',()=>{
+            if(typeof tinymce!=='undefined'){tinymce.triggerSave();}
+        });
     </script>
+
+    <partial name="_ValidationScriptsPartial" />
 }

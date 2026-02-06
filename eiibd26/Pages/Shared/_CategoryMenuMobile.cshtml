@@ -25,17 +25,33 @@
         .AsNoTracking()
         .FirstOrDefaultAsync(c => c.Sequence == parentSequence && !c.Borrado);
 
+    // Load only relevant children
+    List<dynamic> children = new();
+    if (parent != null)
+    {
+        var childEntities = await Db.ContenidosCategorias
+            .AsNoTracking()
+            .Where(c => c.CategoriaPadre == (int?)parentSequence && !c.Borrado && (c.Relevante ?? false) == true)
+            .OrderBy(c => c.Orden)
+            .ThenBy(c => c.Nombre)
+            .ToListAsync();
+
+        children = childEntities.Cast<dynamic>().ToList();
+    }
+
     string parentPath = null;
     bool parentIsActive = false;
+    bool shouldRenderParent = false;
     if (parent != null)
     {
         var slugParent = !string.IsNullOrWhiteSpace(parent.CategoriaSlug) ? parent.CategoriaSlug : parent.Sequence.ToString();
-        parentPath = "/" + slugParent; // ← CORREGIDO: URL SEO
-        parentIsActive = IsActivePath(parentPath);
+        parentPath = "/" + slugParent; // SEO-friendly
+        parentIsActive = IsActivePath(parentPath) || (children.Any() && children.Any(ch => IsActivePath("/" + (string.IsNullOrWhiteSpace((string)ch.CategoriaSlug) ? ch.Sequence.ToString() : (string)ch.CategoriaSlug))));
+        shouldRenderParent = (parent.Relevante == true) || (children != null && children.Any());
     }
 }
 
-@if (parent != null)
+@if (parent != null && shouldRenderParent)
 {
     <li class="nav-item">
         <a class="nav-link@(parentIsActive ? " active fw-bold text-purple" : "")" href="@Url.Content(parentPath)">

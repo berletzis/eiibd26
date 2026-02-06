@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Security.Claims;
 
 namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 {
@@ -198,67 +199,69 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                         id = c.Id,
                         contenidoTitulo = c.ContenidoTitulo,
                         descripcion = c.ContenidoTextoC,
+                        tipo = c.IdTipo,
+                        relevante = c.EstadoPublicacion,
+                        categoria = "", // filled below
                         autor = c.Autor,
-                        estadoPublicacion = c.EstadoPublicacion,
+                        publicado = c.EstadoPublicacion,
                         fechaCreado = c.FechaCreado,
                         eliminado = c.Eliminado,
-                        uRLImagenPrincipal = c.URLImagenPrincipal,
-                        hasImage = (c.URLImagenPrincipal != null && c.URLImagenPrincipal != ""),
-                        tipo = c.IdTipo
+                        imagenUrl = string.IsNullOrEmpty(c.URLImagenPrincipal) ? null : ("/uploads/contenidos/" + c.URLImagenPrincipal)
                     })
                     .ToListAsync();
 
-                var contentIds = pageItems.Select(i => i.id).Distinct().ToList();
-
-                // Fetch latest category relation per content (in-memory grouping)
-                var rels = await _db.ContenidosCategoriasRelacion
+                // Resolve primary category for display (like other pages)
+                var contentIds = pageItems.Select(p => p.id).ToList();
+                var catRels = await _db.ContenidosCategoriasRelacion
                     .AsNoTracking()
                     .Where(r => contentIds.Contains(r.IdContenido) && !r.Borrado && r.IdCategoria != null)
-                    .Select(r => new { r.IdContenido, r.IdCategoria, r.FechaCreacion })
+                    .Join(_db.ContenidosCategorias.AsNoTracking(),
+                          rel => rel.IdCategoria,
+                          cat => cat.Sequence,
+                          (rel, cat) => new { rel.IdContenido, cat.Sequence, cat.Nombre, cat.CategoriaSlug, cat.CategoriaPadre })
                     .ToListAsync();
 
-                var catIds = rels.Select(r => r.IdCategoria.Value).Distinct().ToList();
-                var categories = new Dictionary<int, string>();
-                if (catIds.Any())
-                {
-                    var cats = await _db.ContenidosCategorias
-                        .AsNoTracking()
-                        .Where(c => catIds.Contains(c.Sequence))
-                        .Select(c => new { c.Sequence, Nombre = c.Nombre ?? "" })
-                        .ToListAsync();
-                    categories = cats.ToDictionary(c => c.Sequence, c => c.Nombre);
-                }
-
-                var latestRelByContent = rels
-                    .GroupBy(r => r.IdContenido)
-                    .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.FechaCreacion).FirstOrDefault());
-
-                // Build final projection including category name
-                var data = pageItems.Select(pi =>
-                {
-                    string categoriaNombre = null;
-                    if (latestRelByContent.TryGetValue(pi.id, out var rel) && rel != null && rel.IdCategoria.HasValue)
+                var catMap = catRels.GroupBy(x => x.IdContenido).ToDictionary(
+                    g => g.Key,
+                    g =>
                     {
-                        categories.TryGetValue(rel.IdCategoria.Value, out categoriaNombre);
-                    }
+                        var chosen = g.OrderBy(x => x.CategoriaPadre.HasValue ? 0 : 1).ThenBy(x => x.Sequence).FirstOrDefault();
+                        return chosen != null ? (Name: chosen.Nombre, Slug: chosen.CategoriaSlug) : (Name: (string)null, Slug: (string)null);
+                    });
+
+                // Build actions HTML (Edit + Delete (soft) + Clone form)
+                var data = pageItems.Select(p =>
+                {
+                    var catName = catMap.TryGetValue(p.id, out var v) && !string.IsNullOrWhiteSpace(v.Name) ? v.Name : "";
+                    var editUrl = Url.Page("./Detalle", new { id = p.id });
+
+                    var deleteForm = $"<form method='post' action='{Url.Page("./Index")}?handler=Eliminar' style='display:inline;margin-left:6px' onsubmit=\"return confirm('Marcar este contenido como eliminado?');\">" +
+                                     $"<input type='hidden' name='id' value='{p.id}' />" +
+                                     $"<button type='submit' class='btn btn-sm btn-outline-danger'>Eliminar</button>" +
+                                     $"</form>";
+
+                    var cloneForm = $"<form method='post' action='{Url.Page("./Index")}?handler=Clone' style='display:inline;margin-left:6px' onsubmit=\"return confirm('Clonar este contenido?')\">" +
+                                    $"<input type='hidden' name='id' value='{p.id}' />" +
+                                    $"<button type='submit' class='btn btn-sm btn-outline-secondary'>Clonar</button>" +
+                                    $"</form>";
+                    var editBtn = $"<a class='btn btn-sm btn-outline-primary' href='{editUrl}'>Editar</a>";
+
                     return new
                     {
-                        pi.id,
-                        pi.contenidoTitulo,
-                        descripcion = pi.descripcion ?? "",
-                        pi.autor,
-                        pi.estadoPublicacion,
-                        pi.fechaCreado,
-                        pi.eliminado,
-                        pi.uRLImagenPrincipal,
-                        pi.hasImage,
-                        tipo = pi.tipo,
-                        categoriaNombre = categoriaNombre ?? ""
+                        id = p.id,
+                        titulo = p.contenidoTitulo,
+                        descripcion = p.descripcion,
+                        tipo = p.tipo,
+                        relevante = p.relevante,
+                        categoria = catName,
+                        autor = p.autor,
+                        publicado = p.publicado,
+                        fechaCreado = p.fechaCreado,
+                        eliminado = p.eliminado,
+                        imagenUrl = p.imagenUrl,
+                        actions = editBtn + deleteForm + cloneForm
                     };
                 }).ToList();
-
-                _logger.LogDebug("GridData (elim={Mostrar}, padre={Padre}, sub={Sub}, drafts={Drafts}) total={Total} filtered={Filtered} returned={Returned} search='{Search}'",
-                    mostrarElimFlag, idCategoriaPadre, idSubcategoria, mostrarDraftsFlag, recordsTotal, recordsFiltered, data.Count, searchValue);
 
                 return new JsonResult(new
                 {
@@ -270,185 +273,207 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error en OnGetGridDataAsync");
-                return StatusCode(500, new { success = false, message = "Error interno al obtener datos." });
+                _logger.LogError(ex, "Error generando grid data");
+                return new JsonResult(new { draw = 0, recordsTotal = 0, recordsFiltered = 0, data = new object[0] });
             }
         }
 
-        // New handler: change status from modal (AJAX)
-        public async Task<IActionResult> OnPostChangeStatusAsync()
+        // POST handler: clonar contenido con todas sus relaciones
+        public async Task<IActionResult> OnPostCloneAsync(int id)
         {
             try
             {
-                if (!Request.HasFormContentType || string.IsNullOrWhiteSpace(Request.Form["id"]) || string.IsNullOrWhiteSpace(Request.Form["status"]))
-                    return BadRequest(new { success = false, message = "ID o status inválido" });
+                // Load original content
+                var orig = await _db.Contenidos.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id && !c.Eliminado);
+                if (orig == null) return NotFound();
 
-                if (!int.TryParse(Request.Form["id"], out var id))
-                    return BadRequest(new { success = false, message = "ID inválido" });
+                var now = DateTime.UtcNow;
+                var rawUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                Guid userGuid = Guid.TryParse(rawUserId, out var g) ? g : Guid.Empty;
 
-                if (!int.TryParse(Request.Form["status"], out var status))
-                    return BadRequest(new { success = false, message = "Status inválido" });
+                // Create clone
+                var clone = new Models.Contenido
+                {
+                    ContenidoTitulo = "Clonado / " + (orig.ContenidoTitulo ?? ""),
+                    ContenidoTituloSlug = null, // leave slug for manual edit / regenerate
+                    ContenidoTextoC = orig.ContenidoTextoC,
+                    ContenidoTextoL = orig.ContenidoTextoL,
+                    IdTipo = orig.IdTipo,
+                    URLImagenPrincipal = orig.URLImagenPrincipal,
+                    EstadoPublicacion = 0, // Draft
+                    ContenidoFechaInicio = orig.ContenidoFechaInicio,
+                    ContenidoFechaFin = orig.ContenidoFechaFin,
+                    IdAutor = orig.IdAutor,
+                    Autor = orig.Autor,
+                    PaisClave = orig.PaisClave,
+                    UsuarioCreacion = userGuid,
+                    UsuarioModificacion = userGuid,
+                    FechaCreado = now,
+                    FechaModificado = now,
+                    Eliminado = false
+                };
 
-                var entity = await _db.Contenidos.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.Id == id);
-                if (entity == null) return NotFound(new { success = false, message = "Contenido no encontrado" });
-
-                entity.EstadoPublicacion = status;
-                entity.FechaModificado = DateTime.UtcNow;
-
+                _db.Contenidos.Add(clone);
                 await _db.SaveChangesAsync();
 
-                return new JsonResult(new { success = true, status });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error en OnPostChangeStatusAsync");
-                return StatusCode(500, new { success = false, message = "Error interno al cambiar estatus." });
-            }
-        }
+                var newId = clone.Id;
 
-        public async Task<IActionResult> OnGetGetContenidoAsync(int id)
-        {
-            try
-            {
-                if (id <= 0) return BadRequest(new { success = false, message = "ID inválido" });
-
-                var dto = await _db.Contenidos
-                    .IgnoreQueryFilters()
+                // Copy category relations
+                var origCatRels = await _db.ContenidosCategoriasRelacion
                     .AsNoTracking()
-                    .Where(x => x.Id == id)
-                    .Select(x => new
-                    {
-                        x.Id,
-                        x.ContenidoTitulo,
-                        x.ContenidoTextoC,
-                        x.ContenidoTextoL,
-                        x.ContenidoTituloSlug,
-                        x.URLImagenPrincipal,
-                        x.EstadoPublicacion,
-                        x.ContenidoFechaInicio,
-                        x.ContenidoFechaFin,
-                        x.IdAutor,
-                        x.Autor,
-                        x.IdEmpresa,
-                        x.PaisClave,
-                        x.IdUser,
-                        eliminado = x.Eliminado
-                    })
-                    .FirstOrDefaultAsync();
+                    .Where(r => r.IdContenido == id && !r.Borrado && r.IdCategoria != null)
+                    .Select(r => r.IdCategoria.Value)
+                    .Distinct()
+                    .ToListAsync();
 
-                if (dto == null) return NotFound(new { success = false, message = "Contenido no encontrado" });
-
-                var rel = await _db.ContenidosCategoriasRelacion
-                    .IgnoreQueryFilters()
-                    .AsNoTracking()
-                    .Where(r => r.IdContenido == id && r.Borrado == false)
-                    .OrderByDescending(r => r.FechaCreacion)
-                    .FirstOrDefaultAsync();
-
-                int? categoria = null;
-                int? categoriaPadre = null;
-                string categoriaNombre = "";
-
-                if (rel?.IdCategoria != null)
+                foreach (var catId in origCatRels)
                 {
-                    categoria = rel.IdCategoria.Value;
-                    var cat = await _db.ContenidosCategorias
-                        .IgnoreQueryFilters()
-                        .AsNoTracking()
-                        .Where(c => c.Sequence == rel.IdCategoria.Value)
-                        .Select(c => new { c.Sequence, Nombre = c.Nombre ?? "", c.CategoriaPadre })
-                        .FirstOrDefaultAsync();
-                    if (cat != null)
+                    _db.ContenidosCategoriasRelacion.Add(new Models.ContenidoCategoriaRelacion
                     {
-                        categoriaPadre = cat.CategoriaPadre;
-                        categoriaNombre = cat.Nombre;
-                    }
+                        IdContenido = newId,
+                        IdCategoria = catId,
+                        FechaCreacion = now,
+                        FechaModificacion = now,
+                        UsuarioCreacion = userGuid,
+                        UsuarioModificacion = userGuid,
+                        Borrado = false
+                    });
                 }
 
-                return new JsonResult(new
+                // Copy contenidos relacionados
+                var origContRels = await _db.ContenidosRelacionados
+                    .AsNoTracking()
+                    .Where(r => r.IdContenido == id && !r.Borrado)
+                    .ToListAsync();
+                foreach (var r in origContRels)
                 {
-                    id = dto.Id,
-                    contenidoTitulo = dto.ContenidoTitulo,
-                    contenidoTextoC = dto.ContenidoTextoC,
-                    contenidoTextoL = dto.ContenidoTextoL,
-                    contenidoTituloSlug = dto.ContenidoTituloSlug,
-                    uRLImagenPrincipal = dto.URLImagenPrincipal,
-                    estadoPublicacion = dto.EstadoPublicacion,
-                    contenidoFechaInicio = dto.ContenidoFechaInicio,
-                    contenidoFechaFin = dto.ContenidoFechaFin,
-                    idAutor = dto.IdAutor,
-                    autor = dto.Autor,
-                    idEmpresa = dto.IdEmpresa,
-                    paisClave = dto.PaisClave,
-                    idUser = dto.IdUser,
-                    eliminado = dto.eliminado,
-                    categoria,
-                    categoriaPadre,
-                    categoriaNombre
-                });
+                    _db.ContenidosRelacionados.Add(new Models.ContenidoRelacionado
+                    {
+                        IdContenido = newId,
+                        IdContenidoRelacionado = r.IdContenidoRelacionado,
+                        Tipo = r.Tipo,
+                        Descripcion = r.Descripcion,
+                        FechaCreacion = now,
+                        FechaModificacion = now,
+                        UsuarioCreacion = userGuid,
+                        UsuarioModificacion = userGuid,
+                        Borrado = false
+                    });
+                }
+
+                // Copy preguntas relacionadas
+                var origPregRels = await _db.ContenidosPreguntasRelacion
+                    .AsNoTracking()
+                    .Where(r => r.ContenidoId == id && !r.Borrado)
+                    .ToListAsync();
+                foreach (var r in origPregRels)
+                {
+                    _db.ContenidosPreguntasRelacion.Add(new Models.ContenidoPreguntaRelacion
+                    {
+                        ContenidoId = newId,
+                        PreguntaId = r.PreguntaId,
+                        UsuarioCreacion = userGuid,
+                        UsuarioModificacion = userGuid,
+                        FechaCreacion = now,
+                        FechaModificacion = now,
+                        Borrado = false
+                    });
+                }
+
+                // Copy domain relations: condiciones
+                var origCond = await _db.ContenidoCondiciones.AsNoTracking()
+                    .Where(x => x.ContenidoId == id && !x.Borrado)
+                    .ToListAsync();
+                foreach (var r in origCond)
+                {
+                    _db.ContenidoCondiciones.Add(new Models.ContenidoCondicion
+                    {
+                        ContenidoId = newId,
+                        CondicionId = r.CondicionId,
+                        FechaCreacion = now,
+                        FechaModificacion = now,
+                        UsuarioCreacion = userGuid,
+                        UsuarioModificacion = userGuid,
+                        Borrado = false
+                    });
+                }
+
+                // Síntomas
+                var origSint = await _db.ContenidoSintomas.AsNoTracking()
+                    .Where(x => x.ContenidoId == id && !x.Borrado)
+                    .ToListAsync();
+                foreach (var r in origSint)
+                {
+                    _db.ContenidoSintomas.Add(new Models.ContenidoSintoma
+                    {
+                        ContenidoId = newId,
+                        SintomaId = r.SintomaId,
+                        FechaCreacion = now,
+                        FechaModificacion = now,
+                        UsuarioCreacion = userGuid,
+                        UsuarioModificacion = userGuid,
+                        Borrado = false
+                    });
+                }
+
+                // Tratamientos
+                var origTrat = await _db.ContenidoTratamientos.AsNoTracking()
+                    .Where(x => x.ContenidoId == id && !x.Borrado)
+                    .ToListAsync();
+                foreach (var r in origTrat)
+                {
+                    _db.ContenidoTratamientos.Add(new Models.ContenidoTratamiento
+                    {
+                        ContenidoId = newId,
+                        TratamientoId = r.TratamientoId,
+                        FechaCreacion = now,
+                        FechaModificacion = now,
+                        UsuarioCreacion = userGuid,
+                        UsuarioModificacion = userGuid,
+                        Borrado = false
+                    });
+                }
+
+                await _db.SaveChangesAsync();
+
+                // Redirect to editor of the cloned content
+                return RedirectToPage("./Detalle", new { id = newId });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error en OnGetGetContenidoAsync id={Id}", id);
-                return StatusCode(500, new { success = false, message = "Error interno al obtener el contenido." });
+                _logger.LogError(ex, "Error clonando contenido {Id}", id);
+                TempData["Error"] = "Error al clonar el contenido.";
+                return RedirectToPage();
             }
         }
 
-        public async Task<IActionResult> OnPostEliminarContenidoAsync()
+        // POST handler: soft delete content
+        public async Task<IActionResult> OnPostEliminarAsync(int id)
         {
             try
             {
-                if (!Request.HasFormContentType || string.IsNullOrWhiteSpace(Request.Form["id"]))
-                    return BadRequest(new { success = false, message = "ID inválido" });
+                var ent = await _db.Contenidos.FirstOrDefaultAsync(c => c.Id == id && !c.Eliminado);
+                if (ent == null)
+                {
+                    TempData["Error"] = "Contenido no encontrado o ya eliminado.";
+                    return RedirectToPage();
+                }
 
-                if (!int.TryParse(Request.Form["id"], out var id))
-                    return BadRequest(new { success = false, message = "ID inválido" });
+                ent.Eliminado = true;
+                ent.FechaModificado = DateTime.UtcNow;
+                ent.UsuarioModificacion = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var g) ? g : (Guid?)null;
 
-                var entity = await _db.Contenidos
-                    .IgnoreQueryFilters()
-                    .FirstOrDefaultAsync(x => x.Id == id);
-
-                if (entity == null) return new JsonResult(new { success = false, message = "Contenido no encontrado." });
-
-                entity.Eliminado = true;
-                entity.FechaModificado = DateTime.UtcNow;
-
+                _db.Contenidos.Update(ent);
                 await _db.SaveChangesAsync();
-                return new JsonResult(new { success = true });
+
+                TempData["Success"] = "Contenido marcado como eliminado (soft-delete).";
+                return RedirectToPage();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error en OnPostEliminarContenidoAsync");
-                return StatusCode(500, new { success = false, message = "Error interno al eliminar contenido." });
-            }
-        }
-
-        public async Task<IActionResult> OnPostRestaurarContenidoAsync()
-        {
-            try
-            {
-                if (!Request.HasFormContentType || string.IsNullOrWhiteSpace(Request.Form["id"]))
-                    return BadRequest(new { success = false, message = "ID inválido" });
-
-                if (!int.TryParse(Request.Form["id"], out var id))
-                    return BadRequest(new { success = false, message = "ID inválido" });
-
-                var entity = await _db.Contenidos
-                    .IgnoreQueryFilters()
-                    .FirstOrDefaultAsync(x => x.Id == id);
-
-                if (entity == null) return new JsonResult(new { success = false, message = "Contenido no encontrado." });
-
-                entity.Eliminado = false;
-                entity.FechaModificado = DateTime.UtcNow;
-
-                await _db.SaveChangesAsync();
-                return new JsonResult(new { success = true });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error en OnPostRestaurarContenidoAsync");
-                return StatusCode(500, new { success = false, message = "Error interno al restaurar contenido." });
+                _logger.LogError(ex, "Error eliminando contenido {Id}", id);
+                TempData["Error"] = "Error al eliminar el contenido.";
+                return RedirectToPage();
             }
         }
     }

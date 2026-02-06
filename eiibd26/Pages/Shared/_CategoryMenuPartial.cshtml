@@ -29,9 +29,10 @@
     var childrenPaths = new List<string>();
     if (parent != null)
     {
+        // Only include children with Relevante == true
         var childEntities = await Db.ContenidosCategorias
             .AsNoTracking()
-            .Where(c => c.CategoriaPadre == (int?)parentSequence && !c.Borrado)
+            .Where(c => c.CategoriaPadre == (int?)parentSequence && !c.Borrado && (c.Relevante ?? false) == true)
             .OrderBy(c => c.Orden)
             .ThenBy(c => c.Nombre)
             .ToListAsync();
@@ -42,7 +43,7 @@
         foreach (var ch in children)
         {
             var slugChild = !string.IsNullOrWhiteSpace((string)ch.CategoriaSlug) ? (string)ch.CategoriaSlug : ch.Sequence.ToString();
-            var childPath = "/" + slugChild; // ← CORREGIDO: URL SEO
+            var childPath = "/" + slugChild; // SEO-friendly
             childrenPaths.Add(childPath);
         }
     }
@@ -50,19 +51,23 @@
     // Determine parent path and whether parent should be considered active:
     string parentPath = null;
     bool parentIsActive = false;
+    bool shouldRenderParent = false;
     if (parent != null)
     {
         var slugParent = !string.IsNullOrWhiteSpace((string)parent.CategoriaSlug) ? (string)parent.CategoriaSlug : parent.Sequence.ToString();
-        parentPath = "/" + slugParent; // ← CORREGIDO: URL SEO
+        parentPath = "/" + slugParent; // SEO-friendly
 
         // Active if parent path matches OR any child path matches currentPath
         parentIsActive = IsActivePath(parentPath) || childrenPaths.Any(p => IsActivePath(p));
+
+        // Only render parent if parent.Relevante == true OR there are children marked Relevante
+        shouldRenderParent = (parent.Relevante == true) || (children != null && children.Any());
     }
 
     Func<bool, string> BoldClassIf = isBold => isBold ? " fw-bold" : "";
 }
 
-@if (parent != null)
+@if (parent != null && shouldRenderParent)
 {
     <style>
         /* Make dropdown-item with fw-bold remain transparent (no background) and purple text */
@@ -93,7 +98,7 @@
                 foreach (var ch in children)
                 {
                     var slug = string.IsNullOrWhiteSpace((string)ch.CategoriaSlug) ? ch.Sequence.ToString() : (string)ch.CategoriaSlug;
-                    var url = "/" + slug; // ← CORREGIDO: URL SEO
+                    var url = "/" + slug; // SEO-friendly
                     var childIsActive = IsActivePath(url);
                     <li>
                         @* No 'active' class: only fw-bold + purple text when active, no background *@

@@ -1,5 +1,6 @@
 ﻿@page
 @model eiibd26.Areas.Identity.Pages.Admin.Contenidos.IndexModel
+@using System.Text.Json
 
 @section Styles {
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" />
@@ -62,11 +63,6 @@
                 min-width: 220px;
             }
 
-        /* map container spacing */
-        #usersMapRoot {
-            margin-top: 20px;
-        }
-
         /* Small image thumbnail inside grid */
         .grid-thumb {
             width: 80px;
@@ -83,6 +79,11 @@
             overflow: hidden;
             word-break: break-word;
         }
+
+        /* Actions column buttons spacing */
+        .grid-actions .btn {
+            margin-right: 6px;
+        }
     </style>
 }
 
@@ -97,9 +98,9 @@
             <div class="text-muted">Administra artículos y contenidos del sistema.</div>
         </div>
         <div>
-            <button id="btnNuevoContenido" class="btn btn-primary">
+            <a asp-page="./Detalle" class="btn btn-primary">
                 <i class="bi bi-plus-lg"></i> Nuevo contenido
-            </button>
+            </a>
         </div>
     </div>
 
@@ -164,9 +165,7 @@
         </table>
     </div>
 
-    <!-- PLACE TO INSERT MAP PARTIAL -->
-    <div id="usersMapRoot">Cargando mapa…</div>
-    <!-- end map container -->
+    <!-- map removed on purpose: nothing should be rendered here -->
 </div>
 
 <!-- Modal Detalle: agregamos select para cambiar estatus y hidden id -->
@@ -199,375 +198,116 @@
                     <dt class="col-sm-3">Contenido</dt>
                     <dd class="col-sm-9" id="view_TextoL"></dd>
                 </dl>
-
-                <div class="mt-3">
-                    <label for="modalStatusSelect" class="form-label">Cambiar estatus</label>
-                    <div class="d-flex gap-2 align-items-center">
-                        <select id="modalStatusSelect" class="form-select" style="max-width:360px;">
-                            <option value="0">Borrador</option>
-                            <option value="1">Publicado</option>
-                            <option value="2">Publicado y Pagina de Inicio</option>
-                            <option value="3">Publicado y Popular</option>
-                        </select>
-                        <button id="btnChangeStatus" class="btn btn-primary">Guardar estatus</button>
-                        <div id="statusChangeResult" style="margin-left:12px;"></div>
-                    </div>
-                </div>
-
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
 </div>
 
-<form id="__antiForgeryForm" style="display:none;">@Html.AntiForgeryToken()</form>
-
-@{
-    var detalleUrl = Url.Page("./Detalle");
-    var gridUrl = Url.Page(null, "GridData");
-    var getUrl = Url.Page(null, "GetContenido");
-    var eliminarUrl = Url.Page(null, "EliminarContenido");
-    var restaurarUrl = Url.Page(null, "RestaurarContenido");
-    var changeStatusUrl = Url.Page(null, "ChangeStatus");
-}
-<script>
-    const detallePageUrl = '@detalleUrl';
-    const gridDataUrl = '@gridUrl';
-    const getContenidoUrl = '@getUrl';
-    const postEliminarUrl = '@eliminarUrl';
-    const postRestaurarUrl = '@restaurarUrl';
-    const postChangeStatusUrl = '@changeStatusUrl';
-    // Lista completa de categorías para poblar subcategorías dinámicamente
-    const categoriasFlat = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
-                                                                Model.CategoriesFlat.Select(c => new { seq = c.seq, parent = c.parent, name = c.name })
-                                ));
-</script>
-
 @section Scripts {
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
         (function () {
-            let grid;
+            // Categories flat data for populating subcategory selector
+            const categoriesFlat = @Html.Raw(JsonSerializer.Serialize(Model.CategoriesFlat));
 
-            function populateSubcategories(parentId) {
-                const subSel = $('#filterSubcategoria');
-                subSel.empty().append('<option value="">(Todas)</option>');
-                if (!parentId) {
-                    subSel.prop('disabled', true);
+            const $parentSel = $('#filterCategoriaPadre');
+            const $subSel = $('#filterSubcategoria');
+
+            function populateSubcategories(parentSeq) {
+                $subSel.empty().append($('<option>', { value: '', text: '(Todas)' }));
+                if (!parentSeq) {
+                    $subSel.prop('disabled', true);
                     return;
                 }
-                const subs = categoriasFlat.filter(c => c.parent !== null && Number(c.parent) === Number(parentId));
-                if (subs.length === 0) {
-                    subSel.prop('disabled', true);
-                    return;
-                }
+                const subs = categoriesFlat.filter(c => c.parent === parentSeq);
                 subs.forEach(s => {
-                    subSel.append(`<option value="${s.seq}">${s.name}</option>`);
+                    $subSel.append($('<option>', { value: s.seq, text: s.name }));
                 });
-                subSel.prop('disabled', false);
+                $subSel.prop('disabled', subs.length === 0);
             }
 
-            function initGrid() {
-                grid = $('#contenidosGrid').DataTable({
-                    processing: true,
-                    serverSide: true,
-                    dom: 'lfrtip',
-                    ajax: {
-                        url: gridDataUrl,
-                        type: 'GET',
-                        cache: false,
-                        dataType: 'json',
-                        data: function (d) {
-                            d.mostrarEliminados = $('#switchEliminados').is(':checked') ? '1' : '0';
-                            d.mostrarBorradores = $('#switchShowDrafts').is(':checked') ? '1' : '0';
-                            d.showImages = $('#switchShowImages').is(':checked') ? '1' : '0';
-                            d.idCategoriaPadre = $('#filterCategoriaPadre').val() || '';
-                            d.idSubcategoria = $('#filterSubcategoria').val() || '';
-                            d._ts = Date.now();
-                        },
-                        dataSrc: function (json) {
-                            if (!json || !Array.isArray(json.data)) return [];
-                            return json.data;
-                        },
-                        error: function (xhr, status, err) {
-                            console.error('DataTable AJAX error', xhr, status, err);
-                            alert('Error cargando datos del grid.');
+            $parentSel.on('change', function () {
+                populateSubcategories(parseInt($(this).val() || 0));
+                table.ajax.reload();
+            });
+
+            $subSel.on('change', function () {
+                table.ajax.reload();
+            });
+
+            $('#switchEliminados, #switchShowDrafts, #switchShowImages').on('change', function () {
+                table.ajax.reload();
+            });
+
+            // Init DataTable
+            const table = $('#contenidosGrid').DataTable({
+                processing: true,
+                serverSide: true,
+                ajax: {
+                    url: '@Url.Page("./Index", new { handler = "GridData" })',
+                    type: 'GET',
+                    data: function (d) {
+                        d.idCategoriaPadre = $parentSel.val() || '';
+                        d.idSubcategoria = $subSel.val() || '';
+                        d.mostrarEliminados = $('#switchEliminados').prop('checked') ? '1' : '';
+                        d.mostrarBorradores = $('#switchShowDrafts').prop('checked') ? '1' : '';
+                    }
+                },
+                order: [[8, 'desc']],
+                columns: [
+                    {
+                        data: 'imagenUrl',
+                        orderable: false,
+                        searchable: false,
+                        render: function (data, type, row) {
+                            if (data) {
+                                return `<img src="${data}" class="grid-thumb" alt="">`;
+                            }
+                            return `<div class="text-muted small">Sin IMG</div>`;
                         }
                     },
-                    columns: [
-                        // Image column (index 0)
-                        {
-                            data: 'uRLImagenPrincipal',
-                            orderable: false,
-                            render: function (data, type, row) {
-                                var hasImage = (data && data.length) || row.hasImage;
-                                if ($('#switchShowImages').is(':checked')) {
-                                    if (hasImage) {
-                                        var src = data && data.length ? (data.startsWith('http') ? data : ('/uploads/contenidos/' + data)) : '/img/avatar-placeholder.png';
-                                        return '<img src="' + src + '" alt="Imagen" class="grid-thumb" />';
-                                    } else {
-                                        return '<span class="badge bg-light text-dark">No</span>';
-                                    }
-                                } else {
-                                    return hasImage ? '<span class="badge bg-success">Sí</span>' : '<span class="badge bg-light text-dark">No</span>';
-                                }
-                            }
-                        },
-                        // Title (index 1)
-                        { data: 'contenidoTitulo', orderable: false },
-                        // Description (index 2) — full descripcion
-                        {
-                            data: 'descripcion',
-                            orderable: false,
-                            render: function (d) {
-                                if (!d) return '';
-                                return '<div class="td-desc">' + $('<div>').text(d).html() + '</div>';
-                            }
-                        },
-                        // Tipo (index 3)
-                        {
-                            data: 'tipo',
-                            orderable: false,
-                            render: function (d) {
-                                return d != null ? String(d) : '';
-                            }
-                        },
-                        // Categoria nombre (index 4)
-                        {
-                            data: 'categoriaNombre',
-                            orderable: false,
-                            render: function (d) {
-                                return d ? d : '';
-                            }
-                        },
-                        // Author (index 5) => only first word
-                        {
-                            data: 'autor',
-                            orderable: false,
-                            render: function (d) {
-                                if (!d) return '';
-                                var first = (d + '').trim().split(/\s+/)[0];
-                                return first;
-                            }
-                        },
-                        // Published (index 6)
-                        {
-                            data: 'estadoPublicacion',
-                            orderable: false,
-                            render: function (d) { return d != 0 ? '<span class="badge bg-success">Publicado</span>' : '<span class="badge bg-secondary">Borrador</span>'; }
-                        },
-                        // Created date (index 7) - only date
-                        {
-                            data: 'fechaCreado',
-                            orderable: true,
-                            render: function (d) {
-                                if (!d) return '';
-                                var dt = new Date(d);
-                                try {
-                                    return dt.toLocaleDateString();
-                                } catch (e) {
-                                    return dt.toISOString().slice(0, 10);
-                                }
-                            }
-                        },
-                        // Eliminado (index 8)
-                        {
-                            data: 'eliminado',
-                            orderable: false,
-                            render: function (d) { return d ? '<span class="badge bg-danger">Sí</span>' : '<span class="badge bg-light text-dark">No</span>'; }
-                        },
-                        // Actions (index 9)
-                        {
-                            data: null, orderable: false, render: function (data, type, row) {
-                                const id = row.id;
-                                const editBtn = '<a href="' + detallePageUrl + '?id=' + id + '" class="btn btn-sm btn-action-grid me-1" title="Editar"><i class="bi bi-pencil-square"></i></a>';
-                                const viewBtn = '<button class="btn btn-sm btn-action-grid btn-view me-1" data-id="' + id + '" title="Ver"><i class="bi bi-eye"></i></button>';
-                                const delBtn = '<button class="btn btn-sm btn-action-grid btn-delete me-1" data-id="' + id + '" title="Eliminar"><i class="bi bi-trash"></i></button>';
-                                const restoreBtn = '<button class="btn btn-sm btn-action-grid btn-restore me-1" data-id="' + id + '" title="Restaurar"><i class="bi bi-arrow-counterclockwise"></i></button>';
-                                return row.eliminado ? editBtn + restoreBtn + viewBtn : editBtn + delBtn + viewBtn;
-                            }
-                        }
-                    ],
-                    order: [[7, 'desc']], // fechaCreado column index
-                    lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
-                    initComplete: function () {
-                        if ($('#contenidosGrid_length').length) {
-                            $("#gridLengthWrapper").empty().append($('#contenidosGrid_length').children());
-                        }
-                        if ($('#contenidosGrid_filter').length) {
-                            $("#gridSearchWrapper").empty().append($('#contenidosGrid_filter').children());
+                    { data: 'titulo' },
+                    { data: 'descripcion', className: 'td-desc' },
+                    { data: 'tipo' },
+                    { data: 'relevante' },
+                    { data: 'categoria' },
+                    { data: 'autor' },
+                    { data: 'publicado' },
+                    { data: 'fechaCreado' },
+                    { data: 'eliminado' },
+                    {
+                        data: 'actions',
+                        orderable: false,
+                        searchable: false,
+                        className: 'grid-actions',
+                        render: function (data, type, row) {
+                            return data || '';
                         }
                     }
-                });
-            }
-
-            $('#btnNuevoContenido').on('click', () => window.location.href = detallePageUrl);
-
-            // View button: load dto and populate modal, including setting modalContentId and status select
-            $('#contenidosGrid').on('click', '.btn-view', function () {
-                const id = $(this).data('id');
-                if (!id) return;
-                const url = new URL(getContenidoUrl, window.location.origin);
-                url.searchParams.set('id', id);
-                $.getJSON(url.toString())
-                    .done(dto => {
-                        $('#modalContentId').val(dto.id);
-                        $('#view_Titulo').text(dto.contenidoTitulo || '');
-                        $('#view_Slug').text(dto.contenidoTituloSlug || '');
-                        $('#view_Autor').text(dto.autor || '');
-                        $('#view_Publicado').html(dto.estadoPublicacion != 0 ? '<span class="badge bg-success">Publicado</span>' : '<span class="badge bg-secondary">Borrador</span>');
-                        let fechas = '';
-                        if (dto.contenidoFechaInicio) fechas += new Date(dto.contenidoFechaInicio).toLocaleString();
-                        fechas += ' — ';
-                        if (dto.contenidoFechaFin) fechas += new Date(dto.contenidoFechaFin).toLocaleString();
-                        $('#view_Fechas').text(fechas);
-                        $('#view_Pais').text(dto.paisClave || '');
-                        $('#view_Categoria').text(dto.categoriaNombre || '');
-                        $('#view_TextoC').text(dto.contenidoTextoC || '');
-                        $('#view_TextoL').html(dto.contenidoTextoL || '');
-                        // set status select
-                        $('#modalStatusSelect').val(dto.estadoPublicacion ?? 0);
-                        // clear result message
-                        $('#statusChangeResult').html('');
-                        // show modal
-                        new bootstrap.Modal(document.getElementById('modalVerDetalle')).show();
-                    })
-                    .fail(xhr => {
-                        console.error('Error obteniendo contenido', xhr);
-                        alert('Error obteniendo detalle.');
-                    });
+                ],
+                lengthMenu: [10, 25, 50, 100],
+                pageLength: 10,
+                drawCallback: function () {
+                    // no-op
+                }
             });
 
-            // Change status button in modal
-            $('#btnChangeStatus').on('click', function (e) {
-                e.preventDefault();
-                const id = $('#modalContentId').val();
-                const status = $('#modalStatusSelect').val();
-                if (!id) return alert('ID inválido');
-                // get anti-forgery token if present
-                const tokenInput = document.querySelector('#__antiForgeryForm input[name="__RequestVerificationToken"]');
-                const headers = tokenInput ? { 'RequestVerificationToken': tokenInput.value } : {};
-                // Use fetch to POST form data
-                const fd = new FormData();
-                fd.append('id', id);
-                fd.append('status', status);
-                fetch(postChangeStatusUrl, {
-                    method: 'POST',
-                    body: fd,
-                    headers: headers
-                }).then(r => r.json())
-                    .then(j => {
-                        if (j && j.success) {
-                            $('#statusChangeResult').html('<span class="text-success">Estatus actualizado</span>');
-                            // update modal badge and select (already selected)
-                            $('#view_Publicado').html(status != 0 ? '<span class="badge bg-success">Publicado</span>' : '<span class="badge bg-secondary">Borrador</span>');
-                            // refresh grid row(s) without full page reload
-                            if (grid) grid.ajax.reload(null, false);
-                        } else {
-                            $('#statusChangeResult').html('<span class="text-danger">Error: ' + (j.message || 'no se pudo actualizar') + '</span>');
-                        }
-                    })
-                    .catch(err => {
-                        console.error('Error change status', err);
-                        $('#statusChangeResult').html('<span class="text-danger">Error de red</span>');
-                    });
+            // global search wrapper (optional)
+            const $searchWrapper = $('#gridSearchWrapper');
+            const $inputSearch = $('<input type="search" class="form-control form-control-sm" placeholder="Buscar..." style="width:220px">');
+            $inputSearch.on('input', function () {
+                table.search(this.value).draw();
             });
+            $searchWrapper.append($inputSearch);
 
-            $(document).on('click', '.btn-delete', function () {
-                const id = $(this).data('id');
-                if (!id) return;
-                if (!confirm('¿Eliminar contenido?')) return;
-                const tokenInput = document.querySelector('#__antiForgeryForm input[name="__RequestVerificationToken"]');
-                const headers = tokenInput ? { 'RequestVerificationToken': tokenInput.value } : {};
-                $.post({
-                    url: postEliminarUrl,
-                    data: { id },
-                    headers
-                }).done(res => {
-                    if (res && res.success) grid.ajax.reload(null, false);
-                    else alert('No se pudo eliminar: ' + (res.message || 'error'));
-                }).fail(xhr => {
-                    console.error('Error eliminando', xhr); alert('Error eliminando.');
-                });
-            });
-
-            $(document).on('click', '.btn-restore', function () {
-                const id = $(this).data('id');
-                if (!id) return;
-                if (!confirm('¿Restaurar contenido?')) return;
-                const tokenInput = document.querySelector('#__antiForgeryForm input[name="__RequestVerificationToken"]');
-                const headers = tokenInput ? { 'RequestVerificationToken': tokenInput.value } : {};
-                $.post({
-                    url: postRestaurarUrl,
-                    data: { id },
-                    headers
-                }).done(res => {
-                    if (res && res.success) grid.ajax.reload(null, false);
-                    else alert('No se pudo restaurar: ' + (res.message || 'error'));
-                }).fail(xhr => {
-                    console.error('Error restaurando', xhr); alert('Error restaurando.');
-                });
-            });
-
-            $('#switchEliminados').change(() => { if (grid) grid.ajax.reload(null, false); });
-            $('#switchShowDrafts').change(() => { if (grid) grid.ajax.reload(null, false); });
-            $('#switchShowImages').change(() => { if (grid) grid.ajax.reload(null, false); });
-
-            $('#filterCategoriaPadre').change(function () {
-                const val = $(this).val();
-                populateSubcategories(val);
-                $('#filterSubcategoria').val('');
-                if (grid) grid.ajax.reload(null, false);
-            });
-
-            $('#filterSubcategoria').change(function () {
-                if (grid) grid.ajax.reload(null, false);
-            });
-
-            $(function () {
-                initGrid();
-            });
         })();
     </script>
 
-    <!-- FETCH & INSERT partial de mapa (UsersMapPartial). Asegúrate Pages/Home/UsersMapPartial.cshtml tiene Layout = null -->
-    <script>
-        (function () {
-            const usersMapUrl = '@Url.Page("/Home/UsersMapPartial")';
-            const root = document.getElementById('usersMapRoot');
-            if (!root) return;
-
-            fetch(usersMapUrl, { credentials: 'same-origin' })
-                .then(r => {
-                    if (!r.ok) throw new Error('Network response was not ok: ' + r.status);
-                    return r.text();
-                })
-                .then(html => {
-                    root.innerHTML = html;
-                    const scripts = root.querySelectorAll('script');
-                    scripts.forEach(oldScript => {
-                        const s = document.createElement('script');
-                        if (oldScript.src) {
-                            s.src = oldScript.src;
-                            s.defer = oldScript.defer || false;
-                            document.body.appendChild(s);
-                        } else {
-                            s.text = oldScript.textContent;
-                            document.body.appendChild(s);
-                            document.body.removeChild(s);
-                        }
-                    });
-                })
-                .catch(err => {
-                    console.error('Error cargando UsersMapPartial:', err);
-                    if (root) root.textContent = 'Error al cargar el mapa.';
-                });
-        })();
-    </script>
+    <partial name="_ValidationScriptsPartial" />
 }

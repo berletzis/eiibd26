@@ -29,7 +29,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             _logger = logger;
         }
 
-        // Campos principales
+        // Campos principales (binds)
         [BindProperty] public int? Id { get; set; }
         [BindProperty] public string ContenidoTitulo { get; set; }
         [BindProperty] public string ContenidoTituloSlug { get; set; }
@@ -53,7 +53,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
         // Relaciones manuales (para contenidos relacionados)
         [BindProperty] public List<int> SelectedManualContenidoIds { get; set; } = new();
-        // Ahora preguntas como GUIDs
+        // Preguntas como GUIDs
         [BindProperty] public List<Guid> SelectedManualPreguntasIds { get; set; } = new();
 
         // Lookups
@@ -62,24 +62,44 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         public List<(string code, string name)> PaisesLista { get; set; } = new();
         public List<(string id, string name)> AdminAuthors { get; set; } = new();
 
-        // Panel derecho
-        public List<(int id, string nombre)> AllCondiciones { get; set; } = new();
+        // Panel derecho lists
+        // Note: condiciones include padre info now
+        public List<(int id, string nombre, int? padre)> AllCondiciones { get; set; } = new();
         public List<(int id, string nombre)> AllSintomas { get; set; } = new();
         public List<(int id, string nombre)> AllTratamientos { get; set; } = new();
 
-        // New lookups
-        public List<(int id, string title)> AllGeneralContenidos { get; set; } = new();
+        // Preguntas candidate
         public List<(Guid id, string title)> AllPreguntasCandidate { get; set; } = new();
 
+        // General contents
+        public List<GeneralContentItem> AllGeneralContenidos { get; set; } = new();
+        public List<(int Sequence, string Nombre)> ParentCategories { get; set; } = new();
+
+        // Messages / debug used by view
         public string ErrorMessage { get; set; }
         public string SuccessMessage { get; set; }
         public string DebugInfoHtml { get; set; }
 
+        // SEO full URL for the content (computed)
+        public string SeoUrl { get; set; }
+
+        // CategoryItem (already used in view)
         public class CategoryItem
         {
             public int Sequence { get; set; }
             public int? CategoriaPadre { get; set; }
             public string Nombre { get; set; }
+            public string CategoriaSlug { get; set; }
+        }
+
+        // General content helper
+        public class GeneralContentItem
+        {
+            public int Id { get; set; }
+            public string Title { get; set; }
+            public int? ParentCategorySeq { get; set; }
+            public string ParentCategoryName { get; set; }
+            public string ParentCategorySlug { get; set; }
         }
 
         // GET
@@ -94,6 +114,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 EstadoPublicacion = 0;
                 BuildSubcategories();
                 BuildDebug();
+                await BuildSeoUrlAsync();
                 return Page();
             }
 
@@ -105,6 +126,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             {
                 ErrorMessage = "Contenido no encontrado.";
                 BuildDebug();
+                await BuildSeoUrlAsync();
                 return Page();
             }
 
@@ -114,6 +136,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             ResolveCategorySelectionFromRelation();
             BuildSubcategories();
             BuildDebug();
+            await BuildSeoUrlAsync();
 
             if (saved) SuccessMessage = "Guardado correctamente.";
             return Page();
@@ -133,7 +156,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             return new JsonResult(new { ok = true, exists });
         }
 
-        // POST
+        // POST Save
         public async Task<IActionResult> OnPostSaveAsync()
         {
             try
@@ -144,7 +167,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
                 CaptureRelationSelectionsFromForm();
 
-                // Capturar categor�a seleccionada expl�citamente (padre y sub)
+                // Capture category inputs explicitly from form (padre and sub)
                 if (Request.HasFormContentType)
                 {
                     var parentRaw = Request.Form["IdCategoriaPadre"].FirstOrDefault();
@@ -162,7 +185,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
                 if (string.IsNullOrWhiteSpace(ContenidoTitulo))
                 {
-                    ErrorMessage = "El t�tulo es obligatorio."; BuildDebug(); return Page();
+                    ErrorMessage = "El título es obligatorio."; BuildDebug(); return Page();
                 }
                 if (string.IsNullOrWhiteSpace(ContenidoTextoC))
                 {
@@ -276,7 +299,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     await SaveContenidoRelationsAsync(entity.Id, SelectedCondicionesIds, SelectedSintomasIds, SelectedTratamientosIds);
                 }
 
-                // Redirect (PRG) para recargar con selecci�n persistida
+                // Redirect (PRG) para recargar con selección persistida
                 return RedirectToPage(new { id = Id, saved = true });
             }
             catch (Exception ex)
@@ -289,16 +312,12 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         }
 
         // ------------------------------
-        // SaveCategoryRelationAsync: agrega la relaci�n de categor�a (exist�a en tu versi�n original)
-        // Ahora guarda relación para la categoría seleccionada y su padre (si aplica)
+        // SaveCategoryRelationAsync
         // ------------------------------
         private async Task SaveCategoryRelationAsync(int contenidoId, int? selectedCategory, Guid user, DateTime now)
         {
             if (!selectedCategory.HasValue) return;
 
-            // Determinar conjunto de categorías objetivo:
-            // - la categoría seleccionada
-            // - su padre (si existe)
             var desiredCategoryIds = new List<int> { selectedCategory.Value };
 
             var selectedCat = await _db.ContenidosCategorias
@@ -311,7 +330,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     desiredCategoryIds.Add(selectedCat.CategoriaPadre.Value);
             }
 
-            // Obtener relaciones activas actuales para este contenido (IdCategoria != null)
             var existingRels = await _db.ContenidosCategoriasRelacion
                 .Where(r => r.IdContenido == contenidoId && !r.Borrado && r.IdCategoria != null)
                 .ToListAsync();
@@ -321,7 +339,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 .Select(r => r.IdCategoria.Value)
                 .ToHashSet();
 
-            // Soft-delete: marcar como borrado aquellas relaciones que NO están en desiredCategoryIds
             var toSoftDelete = existingRels
                 .Where(r => !r.IdCategoria.HasValue || !desiredCategoryIds.Contains(r.IdCategoria.Value))
                 .ToList();
@@ -333,7 +350,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 rel.UsuarioModificacion = user;
             }
 
-            // Agregar relaciones faltantes para cada categoría deseada
             foreach (var catId in desiredCategoryIds.Where(id => !existingCategoryIds.Contains(id)))
             {
                 _db.ContenidosCategoriasRelacion.Add(new ContenidoCategoriaRelacion
@@ -353,22 +369,17 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
         private async Task SaveManualRelationsAsync(int contenidoId, List<int> contenidoRelacionadosIds, List<Guid> preguntasRelacionadasGuids, Guid user, DateTime now)
         {
-            // Manage manual related entries:
-            // - contenidos in ContenidosRelacionados (Tipo = 1)
-            // - preguntas in ContenidoPreguntaRelacion (PreguntaId is GUID)
             try
             {
                 contenidoRelacionadosIds = contenidoRelacionadosIds?.Where(i => i > 0).Distinct().ToList() ?? new List<int>();
                 preguntasRelacionadasGuids = preguntasRelacionadasGuids?.Where(g => g != Guid.Empty).Distinct().ToList() ?? new List<Guid>();
 
-                // ---- Contenidos (contenidosRelacionados, Tipo = 1) ----
                 var existingContentRels = await _db.ContenidosRelacionados
                     .Where(r => r.IdContenido == contenidoId && !r.Borrado && r.Tipo == 1)
                     .ToListAsync();
 
                 var existingContentIds = existingContentRels.Select(r => r.IdContenidoRelacionado).ToHashSet();
 
-                // Soft-delete removed content relations
                 foreach (var rel in existingContentRels.Where(r => !contenidoRelacionadosIds.Contains(r.IdContenidoRelacionado)))
                 {
                     rel.Borrado = true;
@@ -376,7 +387,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     rel.UsuarioModificacion = user;
                 }
 
-                // Add new content relations
                 foreach (var id in contenidoRelacionadosIds.Where(i => !existingContentIds.Contains(i)))
                 {
                     _db.ContenidosRelacionados.Add(new ContenidoRelacionado
@@ -395,7 +405,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
                 await _db.SaveChangesAsync();
 
-                // ---- Preguntas (ContenidoPreguntaRelacion table, PreguntaId is Guid) ----
                 var cprSet = _db.ContenidosPreguntasRelacion;
 
                 var existingPreguntaRels = await cprSet
@@ -404,7 +413,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
                 var existingPreguntaGuids = existingPreguntaRels.Select(r => r.PreguntaId).ToHashSet();
 
-                // Soft-delete preguntas removed
                 foreach (var rel in existingPreguntaRels.Where(r => !preguntasRelacionadasGuids.Contains(r.PreguntaId)))
                 {
                     rel.Borrado = true;
@@ -412,7 +420,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     rel.UsuarioModificacion = user;
                 }
 
-                // Add new pregunta relations
                 foreach (var guid in preguntasRelacionadasGuids.Where(g => !existingPreguntaGuids.Contains(g)))
                 {
                     cprSet.Add(new ContenidoPreguntaRelacion
@@ -434,30 +441,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 _logger.LogError(ex, "Error guardando relaciones manuales");
                 throw;
             }
-        }
-
-        private void CaptureRelationSelectionsFromForm()
-        {
-            if (!Request.HasFormContentType) return;
-
-            SelectedManualContenidoIds = Request.Form["SelectedManualContenidoIds"]
-                .Select(v => int.TryParse(v, out var i) ? i : 0).Where(i => i > 0).Distinct().ToList();
-
-            // Preguntas: parse GUIDs from form values
-            SelectedManualPreguntasIds = Request.Form["SelectedManualPreguntasIds"]
-                .Select(v => Guid.TryParse(v, out var g) ? g : Guid.Empty)
-                .Where(g => g != Guid.Empty)
-                .Distinct()
-                .ToList();
-
-            SelectedCondicionesIds = Request.Form["SelectedCondicionesIds"]
-                .Select(v => int.TryParse(v, out var i) ? i : 0).Where(i => i > 0).Distinct().ToList();
-
-            SelectedSintomasIds = Request.Form["SelectedSintomasIds"]
-                .Select(v => int.TryParse(v, out var i) ? i : 0).Where(i => i > 0).Distinct().ToList();
-
-            SelectedTratamientosIds = Request.Form["SelectedTratamientosIds"]
-                .Select(v => int.TryParse(v, out var i) ? i : 0).Where(i => i > 0).Distinct().ToList();
         }
 
         private async Task SaveContenidoRelationsAsync(int contenidoId, List<int> condicionIds, List<int> sintomaIds, List<int> tratamientoIds)
@@ -486,7 +469,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 });
             }
 
-            // S�ntomas
+            // Síntomas
             var existingSint = await _db.ContenidoSintomas.Where(x => x.ContenidoId == contenidoId && !x.Borrado).ToListAsync();
             var existingSintSet = existingSint.Select(x => x.SintomaId).ToHashSet();
             foreach (var rel in existingSint.Where(x => !sintomaIds.Contains(x.SintomaId)))
@@ -531,6 +514,29 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             await _db.SaveChangesAsync();
         }
 
+        private void CaptureRelationSelectionsFromForm()
+        {
+            if (!Request.HasFormContentType) return;
+
+            SelectedManualContenidoIds = Request.Form["SelectedManualContenidoIds"]
+                .Select(v => int.TryParse(v, out var i) ? i : 0).Where(i => i > 0).Distinct().ToList();
+
+            SelectedManualPreguntasIds = Request.Form["SelectedManualPreguntasIds"]
+                .Select(v => Guid.TryParse(v, out var g) ? g : Guid.Empty)
+                .Where(g => g != Guid.Empty)
+                .Distinct()
+                .ToList();
+
+            SelectedCondicionesIds = Request.Form["SelectedCondicionesIds"]
+                .Select(v => int.TryParse(v, out var i) ? i : 0).Where(i => i > 0).Distinct().ToList();
+
+            SelectedSintomasIds = Request.Form["SelectedSintomasIds"]
+                .Select(v => int.TryParse(v, out var i) ? i : 0).Where(i => i > 0).Distinct().ToList();
+
+            SelectedTratamientosIds = Request.Form["SelectedTratamientosIds"]
+                .Select(v => int.TryParse(v, out var i) ? i : 0).Where(i => i > 0).Distinct().ToList();
+        }
+
         private async Task LoadSelectedRelationsAsync(int contenidoId)
         {
             SelectedCondicionesIds = await _db.ContenidoCondiciones.AsNoTracking()
@@ -554,14 +560,12 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
         private async Task LoadSelectedManualRelationsAsync(int contenidoId)
         {
-            // Cargar relaciones manuales donde el contenido es origen (contenidos)
             var manual = await _db.ContenidosRelacionados.AsNoTracking()
                 .Where(r => r.IdContenido == contenidoId && !r.Borrado && r.Tipo == 1)
                 .ToListAsync();
 
             SelectedManualContenidoIds = manual.Select(r => r.IdContenidoRelacionado).Distinct().ToList();
 
-            // Preguntas: cargar desde ContenidoPreguntaRelacion (PreguntaId es Guid) using DbSet property
             SelectedManualPreguntasIds = await _db.ContenidosPreguntasRelacion.AsNoTracking()
                 .Where(r => r.ContenidoId == contenidoId && !r.Borrado)
                 .Select(r => r.PreguntaId)
@@ -571,7 +575,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
         private void ResolveCategorySelectionFromRelation()
         {
-            // Determinar categor�a y subcategor�a a partir de la relaci�n activa m�s reciente
             if (!Id.HasValue) return;
             var last = _db.ContenidosCategoriasRelacion
                 .AsNoTracking()
@@ -631,9 +634,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 var condRaw = await _db.condiciones.AsNoTracking()
                     .Where(c => !c.Eliminado)
                     .OrderBy(c => c.nombre)
-                    .Select(c => new { c.id, c.nombre })
+                    .Select(c => new { c.id, c.nombre, c.idPadre })
                     .ToListAsync();
-                AllCondiciones = condRaw.Select(c => (c.id, c.nombre ?? string.Empty)).ToList();
+                AllCondiciones = condRaw.Select(c => (c.id, c.nombre ?? string.Empty, c.idPadre)).ToList();
             }
             catch { AllCondiciones = new(); }
 
@@ -662,41 +665,144 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
         private async Task LoadManualListsAsync()
         {
-            // 1) Contenidos tipo 3 (contenidos generales)
             try
             {
-                var general = await _db.Contenidos.AsNoTracking()
-                    .Where(c => !c.Eliminado && c.IdTipo == 3)
+                var allowedStatuses = new[] { 1, 2, 3 };
+
+                var contents = await _db.Contenidos.AsNoTracking()
+                    .Where(c => !c.Eliminado && allowedStatuses.Contains((c.EstadoPublicacion ?? 0)))
                     .OrderByDescending(c => c.FechaCreado)
-                    .Select(c => new { c.Id, Title = c.ContenidoTitulo })
+                    .Select(c => new { c.Id, Title = c.ContenidoTitulo ?? "", Slug = c.ContenidoTituloSlug })
                     .ToListAsync();
 
-                AllGeneralContenidos = general.Select(g => (g.Id, g.Title ?? string.Empty)).ToList();
+                if (!contents.Any())
+                {
+                    AllGeneralContenidos = new();
+                    ParentCategories = new();
+                }
+                else
+                {
+                    var ids = contents.Select(x => x.Id).ToList();
+
+                    var catRels = await _db.ContenidosCategoriasRelacion
+                        .AsNoTracking()
+                        .Where(r => ids.Contains(r.IdContenido) && !r.Borrado && r.IdCategoria != null)
+                        .Join(_db.ContenidosCategorias.AsNoTracking(),
+                              rel => rel.IdCategoria,
+                              cat => cat.Sequence,
+                              (rel, cat) => new
+                              {
+                                  rel.IdContenido,
+                                  cat.Sequence,
+                                  cat.CategoriaSlug,
+                                  cat.Nombre,
+                                  cat.CategoriaPadre
+                              })
+                        .ToListAsync();
+
+                    var map = catRels
+                        .GroupBy(x => x.IdContenido)
+                        .ToDictionary(
+                            g => g.Key,
+                            g =>
+                            {
+                                var chosen = g
+                                    .OrderBy(x => x.CategoriaPadre.HasValue ? 0 : 1)
+                                    .ThenBy(x => x.Sequence)
+                                    .FirstOrDefault();
+
+                                if (chosen == null)
+                                    return (Name: (string)null, Slug: (string)null, Seq: (int?)null, ParentSeq: (int?)null);
+
+                                var seg = !string.IsNullOrWhiteSpace(chosen.CategoriaSlug) ? chosen.CategoriaSlug : chosen.Sequence.ToString();
+                                var parentSeq = chosen.CategoriaPadre.HasValue ? chosen.CategoriaPadre.Value : chosen.Sequence;
+                                return (Name: chosen.Nombre, Slug: seg, Seq: (int?)chosen.Sequence, ParentSeq: (int?)parentSeq);
+                            });
+
+                    var allCats = await _db.ContenidosCategorias
+                        .AsNoTracking()
+                        .Where(c => !c.Borrado)
+                        .Select(c => new { c.Sequence, c.Nombre, c.CategoriaPadre, c.CategoriaSlug })
+                        .ToListAsync();
+
+                    ParentCategories = allCats
+                        .Where(c => c.CategoriaPadre == null)
+                        .OrderBy(c => c.Nombre)
+                        .Select(c => (Sequence: c.Sequence, Nombre: c.Nombre))
+                        .ToList();
+
+                    var result = new List<GeneralContentItem>(contents.Count);
+                    foreach (var c in contents)
+                    {
+                        map.TryGetValue(c.Id, out var catInfo);
+
+                        int? parentSeq = null;
+                        string parentName = null;
+                        string parentSlug = null;
+
+                        if (catInfo.Seq.HasValue)
+                        {
+                            var chosenSeq = catInfo.Seq.Value;
+                            var chosenCat = allCats.FirstOrDefault(x => x.Sequence == chosenSeq);
+                            if (chosenCat != null)
+                            {
+                                if (chosenCat.CategoriaPadre.HasValue)
+                                {
+                                    parentSeq = chosenCat.CategoriaPadre.Value;
+                                    var pcat = allCats.FirstOrDefault(x => x.Sequence == parentSeq.Value);
+                                    if (pcat != null)
+                                    {
+                                        parentName = pcat.Nombre;
+                                        parentSlug = pcat.CategoriaSlug;
+                                    }
+                                }
+                                else
+                                {
+                                    parentSeq = chosenCat.Sequence;
+                                    parentName = chosenCat.Nombre;
+                                    parentSlug = chosenCat.CategoriaSlug;
+                                }
+                            }
+                        }
+
+                        result.Add(new GeneralContentItem
+                        {
+                            Id = c.Id,
+                            Title = c.Title,
+                            ParentCategorySeq = parentSeq,
+                            ParentCategoryName = parentName,
+                            ParentCategorySlug = parentSlug
+                        });
+                    }
+
+                    if (Id.HasValue)
+                        result = result.Where(x => x.Id != Id.Value).ToList();
+
+                    AllGeneralContenidos = result.OrderBy(x => x.Title).ToList();
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Error cargando contenidos tipo 3");
+                _logger.LogWarning(ex, "Error cargando contenidos generales");
                 AllGeneralContenidos = new();
+                ParentCategories = new();
             }
 
-            // 2) Preguntas candidatas: las que tienen respuestas o votos
+            // Preguntas (same as before)
             try
             {
-                // Obtener Ids de preguntas que tienen votos (Voto.EntidadTipo == "pregunta")
                 var preguntaIdsWithVotes = await _db.Votos.AsNoTracking()
                     .Where(v => v.EntidadTipo == "pregunta" && !v.Eliminado)
                     .Select(v => v.EntidadId)
                     .Distinct()
                     .ToListAsync();
 
-                // Traer preguntas que tengan respuestas OR est�n en la lista de ids con votos
                 var preguntasFiltered = await _db.Preguntas.AsNoTracking()
                     .Where(p => !p.Eliminado && (p.Respuestas.Any() || preguntaIdsWithVotes.Contains(p.Id)))
                     .OrderByDescending(p => p.FechaCreacion)
                     .Select(p => new { p.Id, Title = p.Titulo })
                     .ToListAsync();
 
-                // Fallback: si la lista resultante est� vac�a, traer preguntas recientes
                 if (preguntasFiltered == null || !preguntasFiltered.Any())
                 {
                     var fallback = await _db.Preguntas.AsNoTracking()
@@ -714,7 +820,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Error cargando preguntas candidatas; devolviendo lista vac�a.");
+                _logger.LogWarning(ex, "Error cargando preguntas candidatas; devolviendo lista vacía.");
                 AllPreguntasCandidate = new();
             }
         }
@@ -723,21 +829,25 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         {
             try
             {
-                CategoryItems = await _db.ContenidosCategorias
+                // include CategoriaSlug so view/model can use it if needed
+                var raw = await _db.ContenidosCategorias
                     .AsNoTracking()
                     .Where(c => !c.Borrado)
-                    .Select(c => new CategoryItem
-                    {
-                        Sequence = c.Sequence,
-                        CategoriaPadre = c.CategoriaPadre,
-                        Nombre = c.Nombre ?? ""
-                    })
+                    .Select(c => new { c.Sequence, c.CategoriaPadre, c.Nombre, c.CategoriaSlug })
                     .OrderBy(c => c.Nombre)
                     .ToListAsync();
+
+                CategoryItems = raw.Select(r => new CategoryItem
+                {
+                    Sequence = r.Sequence,
+                    CategoriaPadre = r.CategoriaPadre,
+                    Nombre = r.Nombre ?? "",
+                    CategoriaSlug = r.CategoriaSlug
+                }).ToList();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error categor�as");
+                _logger.LogError(ex, "Error categorías");
                 CategoryItems = new();
             }
         }
@@ -791,9 +901,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                         var display = perf != null && !string.IsNullOrWhiteSpace(perf.Nombre)
                             ? perf.Nombre
                             : (u.UserName ?? u.Email ?? u.Id.ToString());
-                        return (u.Id.ToString(), display);
+                        return (id: u.Id.ToString(), name: display);
                     })
-                    .OrderBy(x => x.display)
+                    .OrderBy(x => x.name)
                     .ToList();
             }
             catch { AdminAuthors = new(); }
@@ -848,6 +958,65 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"\s+", "-");
             cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"-+", "-");
             return cleaned;
+        }
+
+        // BuildSeoUrlAsync: compute SEO URL using the content's immediate category slug (do NOT prepend parent)
+        private async Task BuildSeoUrlAsync()
+        {
+            try
+            {
+                SeoUrl = null;
+                var slug = (ContenidoTituloSlug ?? "").Trim();
+                if (string.IsNullOrWhiteSpace(slug))
+                {
+                    SeoUrl = null;
+                    return;
+                }
+
+                if (!Id.HasValue)
+                {
+                    // Not saved yet - cannot resolve category relation reliably
+                    SeoUrl = "/" + Uri.EscapeUriString(slug);
+                    return;
+                }
+
+                var rel = await _db.ContenidosCategoriasRelacion
+                    .AsNoTracking()
+                    .Where(r => r.IdContenido == Id.Value && !r.Borrado && r.IdCategoria != null)
+                    .OrderByDescending(r => r.FechaCreacion)
+                    .FirstOrDefaultAsync();
+
+                if (rel == null || rel.IdCategoria == null)
+                {
+                    SeoUrl = "/" + Uri.EscapeUriString(slug);
+                    return;
+                }
+
+                var cat = await _db.ContenidosCategorias
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.Sequence == rel.IdCategoria.Value && !c.Borrado);
+
+                if (cat == null)
+                {
+                    SeoUrl = "/" + Uri.EscapeUriString(slug);
+                    return;
+                }
+
+                // Use only the category slug (no parent)
+                string catSeg;
+                if (!string.IsNullOrWhiteSpace(cat.CategoriaSlug))
+                    catSeg = cat.CategoriaSlug.Trim('/');
+                else
+                    catSeg = cat.Sequence.ToString();
+
+                var path = "/" + Uri.EscapeUriString(catSeg) + "/" + Uri.EscapeUriString(slug);
+                SeoUrl = path;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudo construir URL SEO; usando slug simple.");
+                SeoUrl = !string.IsNullOrWhiteSpace(ContenidoTituloSlug) ? "/" + Uri.EscapeUriString(ContenidoTituloSlug) : null;
+            }
         }
     }
 }

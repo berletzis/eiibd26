@@ -204,39 +204,53 @@
                 const sortable = Sortable.create(tbody, {
                     handle: '.drag-handle',
                     animation: 150,
-                    onEnd: function () {
-                        // gather ordered ids
-                        const ids = Array.from(tbody.querySelectorAll('tr')).map(tr => parseInt(tr.getAttribute('data-id')));
-                        // get antiforgery token
-                        const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
-                        const token = tokenEl ? tokenEl.value : '';
-                        fetch(location.pathname + '?handler=Reorder', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'RequestVerificationToken': token
-                            },
-                            body: JSON.stringify(ids)
-                        })
-                        .then(response => {
-                            if (!response.ok) throw new Error('Error en petición');
-                            return response.json();
-                        })
-                        .then(data => {
-                            if (!data || !data.success) {
-                                alert('No se pudo guardar el nuevo orden.');
-                            }
-                        })
-                        .catch(err => {
-                            console.error(err);
-                            alert('Error reordenando banners.');
-                        });
-                    },
                     onStart: function (evt) {
                         evt.item.classList.add('dragging');
                     },
                     onEnd: function (evt) {
+                        // always remove dragging class
                         evt.item.classList.remove('dragging');
+
+                        try {
+                            // gather ordered ids from current DOM order
+                            const ids = Array.from(tbody.querySelectorAll('tr'))
+                                .map(tr => parseInt(tr.getAttribute('data-id')))
+                                .filter(n => !isNaN(n));
+
+                            if (!ids.length) return;
+
+                            // get antiforgery token (if present)
+                            const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
+                            const token = tokenEl ? tokenEl.value : '';
+
+                            fetch(location.pathname + '?handler=Reorder', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'RequestVerificationToken': token
+                                },
+                                body: JSON.stringify(ids)
+                            })
+                            .then(response => {
+                                if (!response.ok) throw new Error('Error en petición');
+                                return response.json();
+                            })
+                            .then(data => {
+                                if (!data || !data.success) {
+                                    alert('No se pudo guardar el nuevo orden.');
+                                } else {
+                                    // Optionally, provide visual confirmation (e.g., flash)
+                                    // For correctness, reload to reflect server state (optional)
+                                    // location.reload();
+                                }
+                            })
+                            .catch(err => {
+                                console.error(err);
+                                alert('Error reordenando banners.');
+                            });
+                        } catch (err) {
+                            console.error('Error procesando reorder', err);
+                        }
                     }
                 });
             }
