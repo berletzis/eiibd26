@@ -129,13 +129,11 @@
                 <label class="form-check-label" for="switchEliminados">Mostrar eliminados</label>
             </div>
 
-            <!-- New switch: show drafts (borradores) -->
             <div class="form-check form-switch d-inline-block align-middle me-3">
                 <input class="form-check-input" type="checkbox" id="switchShowDrafts">
                 <label class="form-check-label" for="switchShowDrafts">Mostrar borradores</label>
             </div>
 
-            <!-- New switch: show images in grid -->
             <div class="form-check form-switch d-inline-block align-middle me-3">
                 <input class="form-check-input" type="checkbox" id="switchShowImages">
                 <label class="form-check-label" for="switchShowImages">Mostrar imágenes</label>
@@ -153,7 +151,6 @@
                     <th>Título</th>
                     <th>Descripción</th>
                     <th>Tipo</th>
-                    <th>Relevante</th>
                     <th>Categoría</th>
                     <th>Autor</th>
                     <th>Publicado</th>
@@ -164,148 +161,268 @@
             </thead>
         </table>
     </div>
-
-    <!-- map removed on purpose: nothing should be rendered here -->
 </div>
 
-<!-- Modal Detalle: agregamos select para cambiar estatus y hidden id -->
-<div class="modal fade" id="modalVerDetalle" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content crm-modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Detalle del Contenido</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="modalContentId" />
-                <dl class="row">
-                    <dt class="col-sm-3">Título</dt>
-                    <dd class="col-sm-9" id="view_Titulo"></dd>
-                    <dt class="col-sm-3">Slug</dt>
-                    <dd class="col-sm-9" id="view_Slug"></dd>
-                    <dt class="col-sm-3">Autor</dt>
-                    <dd class="col-sm-9" id="view_Autor"></dd>
-                    <dt class="col-sm-3">Publicado</dt>
-                    <dd class="col-sm-9" id="view_Publicado"></dd>
-                    <dt class="col-sm-3">Fecha inicio / fin</dt>
-                    <dd class="col-sm-9" id="view_Fechas"></dd>
-                    <dt class="col-sm-3">País</dt>
-                    <dd class="col-sm-9" id="view_Pais"></dd>
-                    <dt class="col-sm-3">Categoría</dt>
-                    <dd class="col-sm-9" id="view_Categoria"></dd>
-                    <dt class="col-sm-3">Resumen</dt>
-                    <dd class="col-sm-9" id="view_TextoC"></dd>
-                    <dt class="col-sm-3">Contenido</dt>
-                    <dd class="col-sm-9" id="view_TextoL"></dd>
-                </dl>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-            </div>
-        </div>
-    </div>
-</div>
+<form id="__antiForgeryForm" style="display:none;">@Html.AntiForgeryToken()</form>
 
 @section Scripts {
-    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
         (function () {
-            // Categories flat data for populating subcategory selector
-            const categoriesFlat = @Html.Raw(JsonSerializer.Serialize(Model.CategoriesFlat));
+            // URLs used by the grid and actions
+            const gridDataUrl = '@Url.Page("./Index", new { handler = "GridData" })';
+            const detallePageUrl = '@Url.Page("./Detalle")';
+            const eliminarUrl = '@Url.Page("./Index", new { handler = "Eliminar" })';
+            const cloneUrl = '@Url.Page("./Index", new { handler = "Clone" })';
 
-            const $parentSel = $('#filterCategoriaPadre');
-            const $subSel = $('#filterSubcategoria');
+            const categoriasFlat = @Html.Raw(JsonSerializer.Serialize(Model.CategoriesFlat));
 
-            function populateSubcategories(parentSeq) {
-                $subSel.empty().append($('<option>', { value: '', text: '(Todas)' }));
-                if (!parentSeq) {
-                    $subSel.prop('disabled', true);
-                    return;
-                }
-                const subs = categoriesFlat.filter(c => c.parent === parentSeq);
-                subs.forEach(s => {
-                    $subSel.append($('<option>', { value: s.seq, text: s.name }));
+            // Helpers to read/write query string
+            function getQueryParam(name) {
+                const params = new URLSearchParams(window.location.search);
+                return params.get(name);
+            }
+            function setQueryParams(obj) {
+                const params = new URLSearchParams(window.location.search);
+                Object.keys(obj).forEach(k => {
+                    const v = obj[k];
+                    if (v === null || v === undefined || v === '') params.delete(k);
+                    else params.set(k, String(v));
                 });
-                $subSel.prop('disabled', subs.length === 0);
+                const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+                history.replaceState(null, '', newUrl);
             }
 
-            $parentSel.on('change', function () {
-                populateSubcategories(parseInt($(this).val() || 0));
-                table.ajax.reload();
-            });
+            function populateSubcategories(parentSeq) {
+                const $sub = $('#filterSubcategoria');
+                $sub.empty().append($('<option>', { value: '', text: '(Todas)' }));
+                if (!parentSeq) {
+                    $sub.prop('disabled', true);
+                    return;
+                }
+                const subs = categoriasFlat.filter(c => c.parent === parentSeq);
+                subs.forEach(s => $sub.append($('<option>', { value: s.seq, text: s.name })));
+                $sub.prop('disabled', subs.length === 0);
+            }
 
-            $subSel.on('change', function () {
-                table.ajax.reload();
-            });
+            // Restore UI state from URL
+            const urlShowDeleted = getQueryParam('mostrarEliminados');
+            const urlShowDrafts = getQueryParam('mostrarBorradores');
+            const urlShowImages = getQueryParam('showImages');
+            const urlParentCat = getQueryParam('idCategoriaPadre');
+            const urlSubCat = getQueryParam('idSubcategoria');
+            const urlPage = parseInt(getQueryParam('page') || '1', 10) || 1;
+            const urlLength = parseInt(getQueryParam('length') || '10', 10) || 10;
+            const urlSearch = getQueryParam('search') || '';
 
-            $('#switchEliminados, #switchShowDrafts, #switchShowImages').on('change', function () {
-                table.ajax.reload();
-            });
+            $('#switchEliminados').prop('checked', urlShowDeleted === '1' || String(urlShowDeleted).toLowerCase() === 'true' || String(urlShowDeleted).toLowerCase() === 'on');
+            $('#switchShowDrafts').prop('checked', urlShowDrafts === '1' || String(urlShowDrafts).toLowerCase() === 'true' || String(urlShowDrafts).toLowerCase() === 'on');
+            $('#switchShowImages').prop('checked', urlShowImages === '1' || String(urlShowImages).toLowerCase() === 'true' || String(urlShowImages).toLowerCase() === 'on');
+            if (urlParentCat) {
+                $('#filterCategoriaPadre').val(urlParentCat);
+                populateSubcategories(Number(urlParentCat));
+                if (urlSubCat) $('#filterSubcategoria').val(urlSubCat);
+            }
 
-            // Init DataTable
+            // Create search input (placed into DataTables filter area later)
+            const $searchWrapper = $('#gridSearchWrapper');
+            const $searchInput = $('<input type="search" class="form-control form-control-sm" placeholder="Buscar..." style="width:220px">');
+            if (urlSearch) $searchInput.val(urlSearch);
+            $searchWrapper.append($searchInput);
+
+            // DataTable initialization
+            const displayStart = Math.max(0, (urlPage - 1) * urlLength);
+
             const table = $('#contenidosGrid').DataTable({
                 processing: true,
                 serverSide: true,
                 ajax: {
-                    url: '@Url.Page("./Index", new { handler = "GridData" })',
+                    url: gridDataUrl,
                     type: 'GET',
                     data: function (d) {
-                        d.idCategoriaPadre = $parentSel.val() || '';
-                        d.idSubcategoria = $subSel.val() || '';
-                        d.mostrarEliminados = $('#switchEliminados').prop('checked') ? '1' : '';
-                        d.mostrarBorradores = $('#switchShowDrafts').prop('checked') ? '1' : '';
+                        d.mostrarEliminados = $('#switchEliminados').is(':checked') ? '1' : '0';
+                        d.mostrarBorradores = $('#switchShowDrafts').is(':checked') ? '1' : '0';
+                        d.showImages = $('#switchShowImages').is(':checked') ? '1' : '0';
+                        d.idCategoriaPadre = $('#filterCategoriaPadre').val() || '';
+                        d.idSubcategoria = $('#filterSubcategoria').val() || '';
+                        // DataTables sends start/length; we will update URL based on table.page.info()
                     }
                 },
-                order: [[8, 'desc']],
+                pageLength: urlLength,
+                displayStart: displayStart,
+                order: [[7, 'desc']], // fechaCreado assumed at column index 7 after our column set
                 columns: [
                     {
                         data: 'imagenUrl',
                         orderable: false,
-                        searchable: false,
-                        render: function (data, type, row) {
-                            if (data) {
-                                return `<img src="${data}" class="grid-thumb" alt="">`;
-                            }
+                        render: function (data) {
+                            if (data) return `<img src="${data}" class="grid-thumb" alt="">`;
                             return `<div class="text-muted small">Sin IMG</div>`;
                         }
                     },
-                    { data: 'titulo' },
-                    { data: 'descripcion', className: 'td-desc' },
-                    { data: 'tipo' },
-                    { data: 'relevante' },
-                    { data: 'categoria' },
-                    { data: 'autor' },
-                    { data: 'publicado' },
-                    { data: 'fechaCreado' },
-                    { data: 'eliminado' },
+                    { data: 'titulo', orderable: false },
                     {
-                        data: 'actions',
+                        data: 'descripcion',
                         orderable: false,
-                        searchable: false,
+                        className: 'td-desc',
+                        render: function (d) { return d ? $('<div>').text(d).html() : ''; }
+                    },
+                    { data: 'tipo', orderable: false },
+                    { data: 'categoria', orderable: false },
+                    {
+                        data: 'autor',
+                        orderable: false,
+                        render: function (d) { if (!d) return ''; return (d + '').split(/\s+/)[0]; }
+                    },
+                    {
+                        data: 'publicado',
+                        orderable: false,
+                        render: function (d) { return (d && d !== 0) ? '<span class="badge bg-success">Publicado</span>' : '<span class="badge bg-secondary">Borrador</span>'; }
+                    },
+                    {
+                        data: 'fechaCreado',
+                        render: function (d) {
+                            if (!d) return '';
+                            const dt = new Date(d);
+                            try { return dt.toLocaleDateString(); } catch (e) { return dt.toISOString().slice(0, 10); }
+                        }
+                    },
+                    {
+                        data: 'eliminado',
+                        orderable: false,
+                        render: function (d) { return d ? '<span class="badge bg-danger">Sí</span>' : '<span class="badge bg-light text-dark">No</span>'; }
+                    },
+                    {
+                        data: null,
+                        orderable: false,
                         className: 'grid-actions',
                         render: function (data, type, row) {
-                            return data || '';
+                            const id = row.id;
+                            const edit = `<a class="btn btn-sm btn-action-grid me-1" href="${detallePageUrl}?id=${id}" title="Editar"><i class="bi bi-pencil-square"></i></a>`;
+                            const view = `<a class="btn btn-sm btn-action-grid me-1" href="${detallePageUrl}?id=${id}" title="Ver"><i class="bi bi-eye"></i></a>`;
+                            const del = `<button type="button" class="btn btn-sm btn-action-grid btn-delete me-1" data-id="${id}" title="Eliminar"><i class="bi bi-trash"></i></button>`;
+                            const clone = `<button type="button" class="btn btn-sm btn-action-grid btn-clone me-1" data-id="${id}" title="Clonar"><i class="bi bi-files"></i></button>`;
+                            if (row.eliminado) {
+                                // when deleted show edit + view (and maybe restore if you have that handler)
+                                return edit + view;
+                            } else {
+                                return edit + del + clone + view;
+                            }
                         }
                     }
                 ],
                 lengthMenu: [10, 25, 50, 100],
-                pageLength: 10,
                 drawCallback: function () {
-                    // no-op
+                    // after draw, update URL with current state (page, length, search, switches, filters)
+                    updateUrlFromTable();
+                },
+                initComplete: function () {
+                    // move length control to our wrapper
+                    $("#gridLengthWrapper").empty().append($('#contenidosGrid_length').children());
+                    // wire the search input to DataTables search API
+                    $searchInput.on('input', function () {
+                        table.search(this.value).draw();
+                    });
+                    // if URL had search, ensure it is applied
+                    if (urlSearch) {
+                        table.search(urlSearch).draw(false);
+                    }
                 }
             });
 
-            // global search wrapper (optional)
-            const $searchWrapper = $('#gridSearchWrapper');
-            const $inputSearch = $('<input type="search" class="form-control form-control-sm" placeholder="Buscar..." style="width:220px">');
-            $inputSearch.on('input', function () {
-                table.search(this.value).draw();
-            });
-            $searchWrapper.append($inputSearch);
+            // update URL to reflect current table state
+            function updateUrlFromTable() {
+                const info = table.page.info();
+                const currentPage = info ? (info.page + 1) : 1;
+                const currentLength = table.page.len();
+                const currentSearch = table.search() || '';
+                setQueryParams({
+                    page: currentPage,
+                    length: currentLength,
+                    search: currentSearch || '',
+                    mostrarEliminados: $('#switchEliminados').is(':checked') ? '1' : '0',
+                    mostrarBorradores: $('#switchShowDrafts').is(':checked') ? '1' : '0',
+                    showImages: $('#switchShowImages').is(':checked') ? '1' : '0',
+                    idCategoriaPadre: $('#filterCategoriaPadre').val() || '',
+                    idSubcategoria: $('#filterSubcategoria').val() || ''
+                });
+            }
 
+            // Filters & switches behavior: reload data (keeps paging) when changed
+            $('#filterCategoriaPadre').on('change', function () {
+                const val = $(this).val();
+                populateSubcategories(val ? Number(val) : null);
+                $('#filterSubcategoria').val('');
+                table.ajax.reload(null, false);
+            });
+            $('#filterSubcategoria').on('change', function () {
+                table.ajax.reload(null, false);
+            });
+            $('#switchEliminados, #switchShowDrafts, #switchShowImages').on('change', function () {
+                table.ajax.reload(null, false);
+            });
+
+            // Delete action: POST to handler; on success reload current page (no reset)
+            $(document).on('click', '.btn-delete', function () {
+                const id = $(this).data('id');
+                if (!id) return;
+                if (!confirm('¿Eliminar contenido?')) return;
+                const tokenInput = document.querySelector('#__antiForgeryForm input[name="__RequestVerificationToken"]');
+                const token = tokenInput ? tokenInput.value : '';
+                $.ajax({
+                    url: eliminarUrl,
+                    method: 'POST',
+                    data: { id: id },
+                    headers: token ? { 'RequestVerificationToken': token } : {},
+                    success: function (res) {
+                        // server may redirect; but we expect JSON or redirect. To be safe, reload grid
+                        table.ajax.reload(null, false);
+                    },
+                    error: function (xhr) {
+                        console.error('Error eliminando', xhr);
+                        alert('Error al eliminar.');
+                    }
+                });
+            });
+
+            // Clone action: POST clone and redirect to editor of cloned content if server returns redirect.
+            $(document).on('click', '.btn-clone', function () {
+                const id = $(this).data('id');
+                if (!id) return;
+                if (!confirm('¿Clonar este contenido?')) return;
+                const tokenInput = document.querySelector('#__antiForgeryForm input[name="__RequestVerificationToken"]');
+                const token = tokenInput ? tokenInput.value : '';
+                // We submit a form so PRG works server-side; but to keep on-page, use fetch and follow redirect
+                const fd = new FormData();
+                fd.append('id', id);
+                fetch(cloneUrl, {
+                    method: 'POST',
+                    body: fd,
+                    headers: token ? { 'RequestVerificationToken': token } : {}
+                }).then(resp => {
+                    // if server redirects, the fetch will follow and the final url may be the editor; we can navigate there:
+                    if (resp.redirected) {
+                        window.location.href = resp.url;
+                        return;
+                    }
+                    return resp.text().then(text => {
+                        // fallback: reload grid
+                        table.ajax.reload(null, false);
+                    });
+                }).catch(err => {
+                    console.error('Error clonando', err);
+                    alert('Error al clonar.');
+                });
+            });
+
+            // Keep URL updated when user manually navigates DataTables controls (page/length/search handled on draw)
+            // No extra wiring needed because drawCallback updates URL.
+
+            // Initialize done
         })();
     </script>
 
