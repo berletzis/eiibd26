@@ -5,6 +5,63 @@
 
 @{
     ViewData["Title"] = (Model.Item?.Title != null ? Model.Item.Title + " - #HazViralLoQueImporta" : "Contenido");
+
+    // Build share URL using the SEO path when available (Model.SeoUrl expected to be like "/categoria/slug")
+    // Fallback to the current request URL if SeoUrl is null/empty.
+    string seoPath = Model?.SeoUrl ?? string.Empty;
+    string shareUrl;
+    var seoRaw = (Model?.SeoUrl ?? "").Trim();
+
+    if (!string.IsNullOrEmpty(seoRaw))
+    {
+        // Si es absoluta (http:// o https://) la usamos tal cual
+        if (Uri.IsWellFormedUriString(seoRaw, UriKind.Absolute))
+        {
+            shareUrl = seoRaw;
+        }
+        else
+        {
+            // Si es relativa (ej. "/categoria/slug" o "categoria/slug") la normalizamos y la hacemos absoluta
+            var path = seoRaw.StartsWith("/") ? seoRaw : "/" + seoRaw;
+            shareUrl = $"{Request.Scheme}://{Request.Host}{path}";
+        }
+    }
+    else
+    {
+        // Fallback a la URL actual de la petición
+        shareUrl = HttpContext.Request.GetDisplayUrl();
+    }
+
+    var shareTitle = Model?.Item?.Title ?? (ViewData["Title"]?.ToString() ?? "Contenido");
+    var shareImage = !string.IsNullOrWhiteSpace(Model?.Item?.ImageUrl)
+        ? (Model.Item.ImageUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+            ? Model.Item.ImageUrl
+            : $"{Request.Scheme}://{Request.Host}{Model.Item.ImageUrl}")
+        : null;
+
+    // Serializamos para JS (si lo usas)
+    var shareUrlJson = System.Text.Json.JsonSerializer.Serialize(shareUrl);
+    var shareTitleJson = System.Text.Json.JsonSerializer.Serialize(shareTitle);
+}
+}
+
+<!-- Open Graph / Twitter meta tags for better sharing -->
+@if (!string.IsNullOrWhiteSpace(shareUrl))
+{
+    <link rel="canonical" href="@shareUrl" />
+    <meta property="og:url" content="@shareUrl" />
+    <meta property="og:title" content="@shareTitle" />
+    @if (!string.IsNullOrWhiteSpace(shareImage))
+    {
+        <meta property="og:image" content="@shareImage" />
+    }
+    <meta property="og:type" content="article" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="@shareTitle" />
+    @if (!string.IsNullOrWhiteSpace(shareImage))
+    {
+        <meta name="twitter:image" content="@shareImage" />
+    }
 }
 
 @section Styles {
@@ -130,10 +187,10 @@
             }
 
         .datosRelacionados-list {
-                        background: #fff;
-                    border-radius: 10px;
-                    border: 1px solid #eef2f7;
-          padding: 12px;
+            background: #fff;
+            border-radius: 10px;
+            border: 1px solid #eef2f7;
+            padding: 12px;
             margin-bottom: 12px;
         }
 
@@ -332,7 +389,7 @@
         <div class="author">
             <img src="~/img/avatar-placeholder.png" alt="@Model.Item?.Author" />
             <div>
-                <div style="font-weight:100;">por @Model.Item?.Author | <i class="bi bi-calendar"></i> @Model.Item?.CreatedAt.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture) | <i class="bi bi-clock"></i> @Model.Item?.ReadMinutes min read (aprox).</div>
+                <div style="font-weight:100;">por @Model.Item?.Author | <i class="bi bi-calendar"></i> @(Model.Item != null && Model.Item.CreatedAt != default(DateTime) ? Model.Item.CreatedAt.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture) : "") | <i class="bi bi-clock"></i> @Model.Item?.ReadMinutes min read (aprox).</div>
             </div>
         </div>
     </div>
@@ -354,15 +411,15 @@
                 {
                     foreach (var bc in Model.CategoryCrumbs)
                     {
-                <a href="@bc.Url">@bc.Title</a>
-                                
-                                }
+                        <a href="@bc.Url">@bc.Title</a>
+
+                    }
                 }
                 else
                 {
-                <a href="@Url.Content("~/Contenidos")">Contenidos</a>
-                                
-                                }
+                    <a href="@Url.Content("~/Contenidos")">Contenidos</a>
+
+                }
                 <span>@Model.Item?.Title</span>
             </nav>
 
@@ -452,7 +509,7 @@
 
                     <div id="tab-similar" class="tab-panel" role="tabpanel" aria-hidden="true">
                         <div class="similar-internet">
-                            <p style="margin-top:0;margin-bottom:8px;">Artículos similares encontrados en la web:</p>
+                            <p<style="margin-top:0;margin-bottom:8px;">Artículos similares encontrados en la web:</p>
                             <ul>
                                 <li>No hay resultados externos configurados. Aquí puedes mostrar resultados de búsqueda (Google, Bing, etc.) o un widget externo.</li>
                             </ul>
@@ -482,7 +539,7 @@
             <h4 id="social-heading" style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">#HazViralLoQueImporta</h4>
             <div class="social-list" aria-labelledby="social-heading">
                 <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
-                    <div class="a2a_kit a2a_kit_size_32 a2a_default_style" data-a2a-url="@HttpContext.Request.GetDisplayUrl();" data-a2a-title="@(Model.Item?.Title ?? ViewData["Title"])" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">
+                    <div class="a2a_kit a2a_kit_size_32 a2a_default_style" data-a2a-url="@shareUrl" data-a2a-title="@shareTitle" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">
                         <a class="a2a_button_whatsapp"></a>
                         <a class="a2a_button_facebook"></a>
                         <a class="a2a_button_x"></a>
@@ -492,6 +549,9 @@
                     <script>
                         var a2a_config = a2a_config || {};
                         a2a_config.locale = "es";
+                        // ensure AddToAny uses our URL/title when opened by script-based sharers
+                        a2a_config.linkurl = "@shareUrl";
+                        a2a_config.linkname = "@shareTitle";
                     </script>
                     <script defer src="https://static.addtoany.com/menu/page.js"></script>
                 </div>

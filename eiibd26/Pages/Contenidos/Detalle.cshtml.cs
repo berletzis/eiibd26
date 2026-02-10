@@ -1,4 +1,3 @@
-// eiibd26/Pages/Contenidos/Detalle.cshtml.cs
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +9,7 @@ using System.Threading.Tasks;
 using eiibd26.Data;
 using eiibd26.Models;
 using System.Collections.Generic;
+using Microsoft.AspNetCore.Http.Extensions;
 
 namespace eiibd26.Pages.Contenidos
 {
@@ -36,7 +36,12 @@ namespace eiibd26.Pages.Contenidos
 
         public ContenidoDetailViewModel Item { get; set; }
         public List<BreadcrumbItem> CategoryCrumbs { get; set; } = new List<BreadcrumbItem>();
+
+        // Relative canonical path (e.g. "/categoria/slug")
         public string CanonicalUrl { get; set; }
+
+        // Absolute SEO url exposed to the view (e.g. "https://www.eiibd.com/categoria/slug")
+        public string SeoUrl { get; set; }
 
         public class BreadcrumbItem
         {
@@ -76,7 +81,9 @@ namespace eiibd26.Pages.Contenidos
                 ContentHtml = entity.ContenidoTextoL ?? "",
                 ImageUrl = string.IsNullOrWhiteSpace(entity.URLImagenPrincipal)
                     ? null
-                    : "/uploads/contenidos/" + entity.URLImagenPrincipal,
+                    : (entity.URLImagenPrincipal.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+                        ? entity.URLImagenPrincipal
+                        : "/uploads/contenidos/" + entity.URLImagenPrincipal),
                 Author = string.IsNullOrWhiteSpace(entity.Autor) ? "Autor" : entity.Autor,
                 CreatedAt = entity.FechaCreado,
                 Slug = entity.ContenidoTituloSlug ?? ""
@@ -150,7 +157,7 @@ namespace eiibd26.Pages.Contenidos
                 }
             }
 
-            // 4) Determinar URL canónica SEO
+            // 4) Determinar URL canónica SEO (relative)
             if (!string.IsNullOrWhiteSpace(primaryCategorySlug))
             {
                 CanonicalUrl = $"/{primaryCategorySlug}/{vm.Slug}";
@@ -160,7 +167,31 @@ namespace eiibd26.Pages.Contenidos
                 CanonicalUrl = $"/c/{vm.Slug}";
             }
 
+            // Build absolute SeoUrl from CanonicalUrl (exposed to the view)
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(CanonicalUrl))
+                {
+                    var path = CanonicalUrl.StartsWith("/") ? CanonicalUrl : "/" + CanonicalUrl;
+                    SeoUrl = $"{Request.Scheme}://{Request.Host}{path}";
+                }
+                else if (!string.IsNullOrWhiteSpace(vm.Slug))
+                {
+                    SeoUrl = $"{Request.Scheme}://{Request.Host}/{vm.Slug.Trim('/')}";
+                }
+                else
+                {
+                    SeoUrl = HttpContext.Request.GetDisplayUrl();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudo construir SeoUrl; usando URL de la petición.");
+                SeoUrl = HttpContext.Request.GetDisplayUrl();
+            }
+
             // 5) Manual relations
+            // (rest of logic remains unchanged; omitted here for brevity — already in your file)
             var manualFrom = await _db.ContenidosRelacionados.AsNoTracking()
                 .Where(r => r.IdContenido == entity.Id && !r.Borrado)
                 .ToListAsync();
