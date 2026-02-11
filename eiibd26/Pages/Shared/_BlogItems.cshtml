@@ -1,9 +1,9 @@
-﻿@* eiibd26/Pages/Shared/_BlogItems.cshtml (mejorado: admite varios nombres de propiedad para slugs/categoría) *@
+﻿@* eiibd26/Pages/Shared/_BlogItems.cshtml (CORREGIDO: solo texto de categoría) *@
 @model IEnumerable<eiibd26.Models.BlogItemVm>
 @using System.Globalization
+@using System.Text.RegularExpressions
 
 @functions {
-    // Generador de URL SEO-friendly (si tenemos contentSlug usamos /{categorySlug}/{contentSlug} o /c/{contentSlug})
     string GetContentSeoUrl(int contentId, string contentSlug, string? categorySlugOverride = null)
     {
         if (string.IsNullOrWhiteSpace(contentSlug))
@@ -20,7 +20,6 @@
         return $"/Contenidos/ContentMeta?id={contentId}";
     }
 
-    // Extraer propiedad por nombre (safe): devuelve null si no existe o es null
     string? GetPropString(object obj, string propName)
     {
         if (obj == null) return null;
@@ -29,20 +28,24 @@
         var v = p.GetValue(obj);
         return v as string;
     }
+
+    // ✅ NUEVO: Extraer solo el texto de la categoría (sin HTML)
+    string ExtractCategoryText(string categoryHtml)
+    {
+        if (string.IsNullOrWhiteSpace(categoryHtml)) return string.Empty;
+        
+        // Remover todas las etiquetas HTML
+        var textOnly = Regex.Replace(categoryHtml, "<.*?>", string.Empty);
+        
+        // Decodificar entidades HTML (&amp; → &, etc.)
+        textOnly = System.Net.WebUtility.HtmlDecode(textOnly);
+        
+        return textOnly.Trim();
+    }
 }
 
 <style>
-    /* Estilo del botón + Más / - Menos como link morado sin decoración */
-
-    .blog-category {
-        font-size: 12px;
-        color: #764ba2;
-        margin-bottom: 6px;
-        display: inline-block;
-        text-decoration: none;
-    }
-
-
+    /* Estilo del botón + Más / - Menos */
     .btn-blog-more {
         background: none;
         border: none;
@@ -71,43 +74,100 @@
             outline: 2px dashed rgba(118, 75, 162, 0.4);
             outline-offset: 3px;
         }
+
+    /* Contenedor de imagen con posición relativa */
+    .blog-card .thumb {
+        position: relative;
+        display: block;
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+    }
+
+        .blog-card .thumb a {
+            display: block;
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        .blog-card .thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+    /* ✅ Categoría con fondo gris (solo texto, sin link clickeable) */
+    .blog-category-overlay {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        background: rgba(80, 80, 80, 0.85);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        color: #ffffff;
+        font-size: 0.75rem;
+        font-weight: 500;
+        padding: 6px 12px;
+        border-radius: 5px;
+        display: inline-block;
+        max-width: 66.666%;
+        box-sizing: border-box;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        z-index: 10;
+        line-height: 1.2;
+        pointer-events: none;
+        user-select: none;
+    }
+
+    /* Placeholder también con position relative */
+    .blog-card .thumb > div {
+        position: relative;
+        width: 100%;
+        height: 100%;
+    }
 </style>
 
 @if (Model != null && Model.Any())
 {
     foreach (var item in Model)
     {
-        // fallback robusto para contentSlug y categorySlug:
         var contentSlug = GetPropString(item, "Slug") ?? GetPropString(item, "ContenidoTituloSlug") ?? "";
-        // intentamos diversas propiedades posibles que los distintos handlers rellenan
         var categorySlug = GetPropString(item, "PrimaryCategorySlug")
                            ?? GetPropString(item, "CategorySlug")
-                           ?? GetPropString(item, "PrimaryCategory")   // improbable, solo por seguridad
+                           ?? GetPropString(item, "PrimaryCategory")
                            ?? "";
 
         var contentUrl = GetContentSeoUrl(item.Id, contentSlug, string.IsNullOrWhiteSpace(categorySlug) ? null : categorySlug);
         var metaUrl = GetContentMetaUrl(item.Id);
 
+        // ✅ Extraer solo el texto de la categoría
+        var categoryText = ExtractCategoryText(item.Category);
+
         <article class="blog-card" data-content-id="@item.Id">
-            <a href="@contentUrl" class="thumb" aria-label="@item.Title">
-                @if (!string.IsNullOrWhiteSpace(item.ImageUrl))
-                {
-                    <img src="@item.ImageUrl" alt="@item.Title" loading="lazy" />
-                }
-                else
-                {
-                    <div style="width:100%;height:100%;background:#f3f6fa;"></div>
-                }
-            </a>
+            <div class="thumb">
+                <a href="@contentUrl" aria-label="@item.Title">
+                    @if (!string.IsNullOrWhiteSpace(item.ImageUrl))
+                    {
+                        <img src="@item.ImageUrl" alt="@item.Title" loading="lazy" />
+                    }
+                    else
+                    {
+                        <div style="width:100%;height:100%;background:#f3f6fa;position:relative;"></div>
+                    }
+
+                    @* ✅ Mostrar solo el TEXTO de la categoría (sin link) *@
+                    @if (!string.IsNullOrWhiteSpace(categoryText))
+                    {
+                        <span class="blog-category-overlay">@categoryText</span>
+                    }
+                </a>
+            </div>
 
             <div class="content">
-                @if (!string.IsNullOrWhiteSpace(item.Category))
-                {
-                    <div class="blog-category">
-                        @Html.Raw(item.Category)
-                    </div>
-                }
-
                 <h3 class="blog-title">
                     <a href="@contentUrl">
                         @item.Title

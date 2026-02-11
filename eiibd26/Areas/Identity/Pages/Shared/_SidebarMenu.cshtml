@@ -6,6 +6,13 @@
 *@
 
 @using Microsoft.AspNetCore.Http
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using eiibd26.Models
+@using eiibd26.Data
+@inject UserManager<ApplicationUser> UserManager
+@inject ApplicationDbContext DbContext
+
 @{
     var path = ViewContext.HttpContext.Request.Path.ToString();
     // Mustard color for the icon
@@ -18,6 +25,21 @@
     // Content submenu open if any contenidos route is active
     var contenidosRoot = "/Identity/Admin/Contenidos";
     var contenidosOpen = IsStartingWith(contenidosRoot);
+
+    // ✅ NUEVO: Obtener el slug del usuario autenticado
+    string userSlug = null;
+    if (User.Identity?.IsAuthenticated == true)
+    {
+        var userId = UserManager.GetUserId(User);
+        if (Guid.TryParse(userId, out var userGuid))
+        {
+            userSlug = await DbContext.Perfil
+                .AsNoTracking()
+                .Where(p => p.idUser == userGuid)
+                .Select(p => p.slug)
+                .FirstOrDefaultAsync();
+        }
+    }
 }
 
 <style>
@@ -69,7 +91,7 @@
     }
 
     /* Remove duplicate inline toggler from inside the offcanvas (visual safety) -
-               script already attempts to remove duplicates, esto evita ver un botón encima */
+                   script already attempts to remove duplicates, esto evita ver un botón encima */
     #sidebarOffcanvas .sidebar-toggle-inline {
         display: none !important;
     }
@@ -119,13 +141,6 @@
     </button>
 
     <ul class="nav nav-pills flex-column mb-auto">
-        <!-- Inicio -->
-        @* <li class="nav-item mb-1">
-            <a href="/" class="nav-link text-dark @(IsActive("/") ? "active" : "")">
-                <i class="bi bi-house"></i> Inicio
-            </a>
-        </li> *@
-
         <!-- Admin encabezado (solo escudo rojo en cuadro, palabra normal) -->
         @if (User.Identity?.IsAuthenticated == true && User.IsInRole("Administrador"))
         {
@@ -141,12 +156,12 @@
             @* Contenidos parent with collapsible submenu *@
             <li class="nav-item">
                 <a class="nav-link admin d-flex ms-2 text-dark @(contenidosOpen ? "active" : "")"
-                   data-bs-toggle="collapse"
-                   href="#submenuContenidos"
-                   role="button"
-                   aria-expanded="@(contenidosOpen.ToString().ToLower())"
-                   aria-controls="submenuContenidos"
-                   style="gap:.5rem; font-size:.9rem; font-weight:400;">
+                       data-bs-toggle="collapse"
+                       href="#submenuContenidos"
+                       role="button"
+                       aria-expanded="@(contenidosOpen.ToString().ToLower())"
+                       aria-controls="submenuContenidos"
+                       style="gap:.5rem; font-size:.9rem; font-weight:400;">
                     <i class="bi bi-folder2-open me-2"></i>
                     <span>Contenidos</span>
                     <i class="bi bi-chevron-down ms-auto"></i>
@@ -156,23 +171,22 @@
                     <ul class="btn-toggle-nav list-unstyled fw-normal pb-1 small" style="font-size:.9rem; font-weight:400;">
                         <li>
                             <a href="/Identity/Admin/Contenidos/Index"
-                               class="nav-link ms-4 text-dark @(IsActive("/Identity/Admin/Contenidos/Index") ? "active" : "")"
-                               style="font-size:.9rem; font-weight:400;">
+                                   class="nav-link ms-4 text-dark @(IsActive("/Identity/Admin/Contenidos/Index") ? "active" : "")"
+                                   style="font-size:.9rem; font-weight:400;">
                                 <i class="bi bi-file-earmark-text"></i> Contenidos
                             </a>
                         </li>
                         <li>
                             <a href="/Identity/Admin/Contenidos/ContenidosCategorias"
-                               class="nav-link ms-4 text-dark @(IsActive("/Identity/Admin/Contenidos/ContenidosCategorias") ? "active" : "")"
-                               style="font-size:.9rem; font-weight:400;">
+                                   class="nav-link ms-4 text-dark @(IsActive("/Identity/Admin/Contenidos/ContenidosCategorias") ? "active" : "")"
+                                   style="font-size:.9rem; font-weight:400;">
                                 <i class="bi bi-tags"></i> Categorías de Contenido
                             </a>
                         </li>
-                        @* NUEVO: Banners Inicio *@
                         <li>
                             <a href="/Identity/Admin/BannersInicio/Index"
-                               class="nav-link ms-4 text-dark @(IsActive("/Identity/Admin/BannersInicio/Index") ? "active" : "")"
-                               style="font-size:.9rem; font-weight:400;">
+                                   class="nav-link ms-4 text-dark @(IsActive("/Identity/Admin/BannersInicio/Index") ? "active" : "")"
+                                   style="font-size:.9rem; font-weight:400;">
                                 <i class="bi bi-images"></i> Banners Inicio
                             </a>
                         </li>
@@ -201,13 +215,43 @@
                 </a>
             </li>
         }
-        @* Mi PyR: top-level, now uses same icon container/size as Admin *@
+
+        @* ✅ ACTUALIZADO: Mi Perfil / ID - ahora apunta al perfil público *@
         @if (User.Identity?.IsAuthenticated == true)
         {
             <li class="nav-item mb-1">
+                @if (!string.IsNullOrWhiteSpace(userSlug))
+                {
+                    <a href="/u/@userSlug"
+                           class="nav-link text-dark d-flex align-items-center @(path.StartsWith("/u/", StringComparison.OrdinalIgnoreCase) ? "active" : "")"
+                           style="gap:.5rem; font-size:.9rem; font-weight:400;"
+                           target="_blank"
+                           title="Ver mi perfil público">
+                        <span class="d-inline-flex align-items-center justify-content-center rounded border me-2" style="width:30px;height:30px; border-width:2px;">
+                            <i class="bi bi-person-badge" style="color:@mustard; font-size:1.3em"></i>
+                        </span>
+                        <span>Mi Perfil Público</span>
+                        <i class="bi bi-box-arrow-up-right ms-auto" style="font-size:0.8em; opacity:0.6;"></i>
+                    </a>
+                }
+                else
+                {
+                    <a href="/Identity/Account/Manage/Index"
+                           class="nav-link text-dark d-flex align-items-center @(IsActive("/Identity/Account/Manage/Index") ? "active" : "")"
+                           style="gap:.5rem; font-size:.9rem; font-weight:400;"
+                           title="Configurar mi perfil">
+                        <span class="d-inline-flex align-items-center justify-content-center rounded border me-2" style="width:30px;height:30px; border-width:2px;">
+                            <i class="bi bi-person-badge" style="color:@mustard; font-size:1.3em"></i>
+                        </span>
+                        <span>Configurar Perfil</span>
+                    </a>
+                }
+            </li>
+
+            <li class="nav-item mb-1">
                 <a href="/Identity/Usuario/Dashboard"
-                   class="nav-link text-dark d-flex align-items-center @(IsActive("/Identity/Usuario/Dashboard") ? "active" : "")"
-                   style="gap:.5rem; font-size:.9rem; font-weight:400;">
+                       class="nav-link text-dark d-flex align-items-center @(IsActive("/Identity/Usuario/Dashboard") ? "active" : "")"
+                       style="gap:.5rem; font-size:.9rem; font-weight:400;">
                     <span class="d-inline-flex align-items-center justify-content-center rounded border me-2" style="width:30px;height:30px; border-width:2px;">
                         <i class="bi bi-motherboard" style="color:@mustard; font-size:1.3em"></i>
                     </span>
@@ -217,8 +261,8 @@
 
             <li class="nav-item mb-1">
                 <a href="/Identity/Usuario/usuarioPreguntasRespuestas"
-                   class="nav-link text-dark d-flex align-items-center @(IsActive("/Identity/Usuario/usuarioPreguntasRespuestas") ? "active" : "")"
-                   style="gap:.5rem; font-size:.9rem; font-weight:400;">
+                       class="nav-link text-dark d-flex align-items-center @(IsActive("/Identity/Usuario/usuarioPreguntasRespuestas") ? "active" : "")"
+                       style="gap:.5rem; font-size:.9rem; font-weight:400;">
                     <span class="d-inline-flex align-items-center justify-content-center rounded border me-2" style="width:30px;height:30px; border-width:2px;">
                         <i class="bi bi-chat-left-dots" style="color:@mustard; font-size:1.3em"></i>
                     </span>
@@ -239,7 +283,7 @@
 
         <li>
             <a href="/Identity/Usuario/UsuarioEstadoAnimo" class="nav-link salud ms-4 text-dark @(IsActive("/Identity/Usuario/UsuarioEstadoAnimo") ? "active" : "")" style="font-size:.9rem; font-weight:400;">
-                <i class="bi bi-person-vcard"></i> Estado de Animo
+                <i class="bi bi-emoji-smile"></i> Estado de Ánimo
             </a>
         </li>
         <li>

@@ -25,7 +25,6 @@ namespace eiibd26.Controllers
             if (userId == null) return Unauthorized();
             if (!Guid.TryParse(userId, out var guid)) return Unauthorized();
 
-            // ✅ CAMBIO: Cargar datos primero SIN proyección
             var registros = await _db.EstadoAnimoUsuario
                 .Where(x => x.IdUsuario == guid && !x.Eliminado)
                 .OrderByDescending(x => x.FechaRegistro)
@@ -35,7 +34,6 @@ namespace eiibd26.Controllers
                 .AsNoTracking()
                 .ToListAsync();
 
-            // ✅ CAMBIO: Proyectar EN MEMORIA (no en SQL)
             var lista = registros.Select(x => new
             {
                 Id = x.Id,
@@ -43,13 +41,9 @@ namespace eiibd26.Controllers
                 EstadoMoodNombre = x.EstadoMood.ToString(),
                 Texto = x.Texto,
                 FechaRegistro = x.FechaRegistro.ToString("o"),
-                RelacionNombre = x.CondicionUsuario?.Condicion?.nombre
-                               ?? x.SintomaUsuario?.Sintoma?.nombre
-                               ?? x.TratamientoUsuario?.Tratamiento?.nombre,
-                TipoRelacion = x.CondicionUsuario != null ? "Condicion"
-                             : x.SintomaUsuario != null ? "Sintoma"
-                             : x.TratamientoUsuario != null ? "Tratamiento"
-                             : null
+                Condicion = x.CondicionUsuario != null ? new { Id = x.CondicionUsuario.id, Nombre = x.CondicionUsuario.Condicion?.nombre } : null,
+                Sintoma = x.SintomaUsuario != null ? new { Id = x.SintomaUsuario.id, Nombre = x.SintomaUsuario.Sintoma?.nombre } : null,
+                Tratamiento = x.TratamientoUsuario != null ? new { Id = x.TratamientoUsuario.id, Nombre = x.TratamientoUsuario.Tratamiento?.nombre } : null
             }).ToList();
 
             return Ok(lista);
@@ -71,8 +65,45 @@ namespace eiibd26.Controllers
             return Ok(condiciones);
         }
 
+        [HttpGet("sintomas-usuario")]
+        public async Task<ActionResult<List<object>>> SintomasUsuario()
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
+            if (!Guid.TryParse(userId, out var guid)) return Unauthorized();
+
+            var sintomas = await _db.sintomasUsuario
+                .Where(x => x.idUsuario == guid && !x.Eliminado)
+                .Include(x => x.Sintoma)
+                .Select(x => new { id = x.id, nombre = x.Sintoma.nombre })
+                .ToListAsync();
+
+            return Ok(sintomas);
+        }
+
+        [HttpGet("tratamientos-usuario")]
+        public async Task<ActionResult<List<object>>> TratamientosUsuario()
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
+            if (!Guid.TryParse(userId, out var guid)) return Unauthorized();
+
+            var tratamientos = await _db.tratamientoUsuario
+                .Where(x => x.idUsuario == guid && !x.Eliminado)
+                .Include(x => x.Tratamiento)
+                .Select(x => new { id = x.id, nombre = x.Tratamiento.nombre })
+                .ToListAsync();
+
+            return Ok(tratamientos);
+        }
+
         [HttpPost("nuevo")]
-        public async Task<ActionResult<object>> Nuevo([FromForm] string mood, [FromForm] string? texto, [FromForm] int? condicionUsuarioId)
+        public async Task<ActionResult<object>> Nuevo(
+            [FromForm] string mood,
+            [FromForm] string? texto,
+            [FromForm] int? condicionUsuarioId,
+            [FromForm] int? sintomaUsuarioId,
+            [FromForm] int? tratamientoUsuarioId)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (userId == null) return Unauthorized();
@@ -83,7 +114,6 @@ namespace eiibd26.Controllers
 
             EstadoAnimoEnum estadoEnum;
 
-            // Intentar parsear como número (1-5)
             if (int.TryParse(mood, out int moodNumero))
             {
                 if (moodNumero < 1 || moodNumero > 5)
@@ -91,10 +121,9 @@ namespace eiibd26.Controllers
 
                 estadoEnum = (EstadoAnimoEnum)moodNumero;
             }
-            // Si no es número, intentar parsear como nombre del enum (MuyBien, Bien, etc.)
             else if (Enum.TryParse<EstadoAnimoEnum>(mood, true, out estadoEnum))
             {
-                // Éxito: se parseó como nombre del enum
+                // Éxito
             }
             else
             {
@@ -109,7 +138,9 @@ namespace eiibd26.Controllers
                 EstadoMood = estadoEnum,
                 Texto = texto,
                 FechaRegistro = DateTime.UtcNow,
-                IdCondicionUsuario = condicionUsuarioId
+                IdCondicionUsuario = condicionUsuarioId,
+                IdSintomaUsuario = sintomaUsuarioId,
+                IdTratamientoUsuario = tratamientoUsuarioId
             };
 
             _db.EstadoAnimoUsuario.Add(nuevo);
@@ -123,15 +154,38 @@ namespace eiibd26.Controllers
                 return StatusCode(500, new { ok = false, error = "Error al guardar el estado de ánimo." });
             }
 
-            string nombre = null; string tipo = null;
+            object condicion = null;
+            object sintoma = null;
+            object tratamiento = null;
+
             if (condicionUsuarioId.HasValue)
             {
-                nombre = await _db.condicionUsuario
+                var condNombre = await _db.condicionUsuario
                     .Include(c => c.Condicion)
                     .Where(c => c.id == condicionUsuarioId)
                     .Select(c => c.Condicion.nombre)
                     .FirstOrDefaultAsync();
-                tipo = "Condicion";
+                condicion = new { Id = condicionUsuarioId.Value, Nombre = condNombre };
+            }
+
+            if (sintomaUsuarioId.HasValue)
+            {
+                var sintNombre = await _db.sintomasUsuario
+                    .Include(s => s.Sintoma)
+                    .Where(s => s.id == sintomaUsuarioId)
+                    .Select(s => s.Sintoma.nombre)
+                    .FirstOrDefaultAsync();
+                sintoma = new { Id = sintomaUsuarioId.Value, Nombre = sintNombre };
+            }
+
+            if (tratamientoUsuarioId.HasValue)
+            {
+                var tratNombre = await _db.tratamientoUsuario
+                    .Include(t => t.Tratamiento)
+                    .Where(t => t.id == tratamientoUsuarioId)
+                    .Select(t => t.Tratamiento.nombre)
+                    .FirstOrDefaultAsync();
+                tratamiento = new { Id = tratamientoUsuarioId.Value, Nombre = tratNombre };
             }
 
             return Ok(new
@@ -141,8 +195,9 @@ namespace eiibd26.Controllers
                 EstadoMoodNombre = nuevo.EstadoMood.ToString(),
                 Texto = nuevo.Texto,
                 FechaRegistro = nuevo.FechaRegistro.ToString("o"),
-                RelacionNombre = nombre,
-                TipoRelacion = tipo
+                Condicion = condicion,
+                Sintoma = sintoma,
+                Tratamiento = tratamiento
             });
         }
 
@@ -178,7 +233,6 @@ namespace eiibd26.Controllers
 
             var fechaDesde = DateTime.UtcNow.AddMonths(-meses.Value);
 
-            // ✅ CAMBIO: Cargar entidades primero, luego proyectar en memoria
             var entidades = await _db.EstadoAnimoUsuario
                 .Where(x => x.IdUsuario == guid && !x.Eliminado && x.FechaRegistro >= fechaDesde)
                 .AsNoTracking()

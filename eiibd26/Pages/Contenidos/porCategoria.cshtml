@@ -1,6 +1,7 @@
 ﻿@page "/Contenidos/categoria/{categorySegment?}"
 @model eiibd26.Pages.Contenidos.PorCategoriaModel
 @using System.Globalization
+@using System.Text.RegularExpressions
 @{
     ViewData["Title"] = "Contenidos por categoría";
 }
@@ -278,14 +279,14 @@
             flex-direction: column;
         }
 
+        /* ✅ ACTUALIZADO: Contenedor de imagen con posición relativa */
         .thumb {
             width: 100%;
             height: 160px;
             background: #f3f6fb;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #94a3b8;
+            display: block;
+            position: relative;
+            overflow: hidden;
         }
 
             .thumb img {
@@ -295,6 +296,32 @@
                 display: block;
             }
 
+        /* ✅ NUEVO: Categoría sobre la imagen con fondo gris */
+        .blog-category-overlay {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(80, 80, 80, 0.85);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            color: #ffffff;
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 6px 12px;
+            border-radius: 5px;
+            text-decoration: none;
+            display: inline-block;
+            max-width: 66.666%;
+            box-sizing: border-box;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            z-index: 10;
+            line-height: 1.2;
+            pointer-events: none;
+            user-select: none;
+        }
+
         .content {
             background: #fff;
             padding: 16px;
@@ -303,24 +330,6 @@
             flex-direction: column;
             gap: 12px;
         }
-
-        .category-pill {
-            font-size: 12px;
-            color: #764ba2;
-            margin-bottom: 6px;
-            display: inline-block;
-            text-decoration: none;
-        }
-
-            .category-pill a {
-                color: #764ba2;
-                text-decoration: none;
-            }
-
-                .category-pill a:hover {
-                    color: #5a2d7a;
-                    text-decoration: underline;
-                }
 
         .blog-title {
             margin: 0;
@@ -454,7 +463,7 @@
                 }
 
                 nav[aria-label="breadcrumb"] ol li a {
-                    color: #764ba2; /* Morado */
+                    color: #764ba2;
                     text-decoration: none;
                     transition: color .15s ease;
                 }
@@ -462,7 +471,7 @@
                     nav[aria-label="breadcrumb"] ol li a:hover,
                     nav[aria-label="breadcrumb"] ol li a:focus {
                         text-decoration: underline;
-                        color: #5a2d7a; /* Morado oscuro al hover */
+                        color: #5a2d7a;
                         outline: none;
                     }
 
@@ -520,7 +529,6 @@
 
                 <div class="collapse" id="tagsBlocksCollapse">
                     <div class="tags-blocks" aria-label="Filtros por etiquetas">
-                        @* ... filtros (sin cambios) *@
                         @if (Model.AvailableConditions != null && Model.AvailableConditions.Any())
                         {
                             <div class="tag-group" aria-label="Condiciones">
@@ -598,40 +606,46 @@
                 {
                     foreach (var item in Model.Items)
                     {
+                        // ✅ Extraer texto limpio de la categoría
+                        var categoryText = string.Empty;
+                        if (!string.IsNullOrWhiteSpace(item.Category))
+                        {
+                            // Remover HTML y obtener solo el texto
+                            categoryText = System.Text.RegularExpressions.Regex.Replace(item.Category, "<.*?>", string.Empty);
+                            categoryText = System.Net.WebUtility.HtmlDecode(categoryText).Trim();
+                        }
+                        else if (item.Conditions != null && item.Conditions.Any())
+                        {
+                            categoryText = item.Conditions.First();
+                        }
+
+                        var contentUrl = string.IsNullOrWhiteSpace(item.Slug)
+                            ? Url.Page("/Contenidos/Detalle", new { id = item.Id })
+                            : (!string.IsNullOrWhiteSpace(item.PrimaryCategorySlug)
+                                ? "/" + item.PrimaryCategorySlug + "/" + item.Slug
+                                : "/c/" + item.Slug);
+
                         <article class="blog-card" role="article" aria-labelledby="title-@item.Id" data-id="@item.Id">
-                            <a href="@( string.IsNullOrWhiteSpace(item.Slug)
-                                                                      ? Url.Page("/Contenidos/Detalle", new { id = item.Id })
-                                                                      : (!string.IsNullOrWhiteSpace(item.PrimaryCategorySlug)
-                                                                          ? "/" + item.PrimaryCategorySlug + "/" + item.Slug
-                                                                          : "/c/" + item.Slug) )"
-                               class="thumb" aria-label="@item.Title">
+                            <a href="@contentUrl" class="thumb" aria-label="@item.Title">
                                 @if (!string.IsNullOrEmpty(item.ImageUrl))
                                 {
                                     <img src="@item.ImageUrl" alt="@item.Title" loading="lazy" />
                                 }
                                 else
                                 {
-                                    <div style="width:100%; height:160px; background:#f3f6fb;"></div>
+                                    <div style="width:100%; height:160px; background:#f3f6fb; position:relative;"></div>
+                                }
+
+                                @* ✅ NUEVO: Categoría sobre la imagen *@
+                                @if (!string.IsNullOrWhiteSpace(categoryText))
+                                {
+                                    <span class="blog-category-overlay">@categoryText</span>
                                 }
                             </a>
 
                             <div class="content">
-                                @if (!string.IsNullOrWhiteSpace(item.Category))
-                                {
-                                    <div class="category-pill">@Html.Raw(item.Category)</div>
-                                }
-                                else if (item.Conditions != null && item.Conditions.Any())
-                                {
-                                    var fallback = item.Conditions.First();
-                                    <div class="category-pill"><a href="@Url.Page("/Contenidos/porCategoria", new { categorySegment = fallback })">@fallback</a></div>
-                                }
-
                                 <h3 id="title-@item.Id" class="blog-title">
-                                    <a href="@( string.IsNullOrWhiteSpace(item.Slug)
-                                                                                      ? Url.Page("/Contenidos/Detalle", new { id = item.Id })
-                                                                                      : (!string.IsNullOrWhiteSpace(item.PrimaryCategorySlug)
-                                                                                          ? "/" + item.PrimaryCategorySlug + "/" + item.Slug
-                                                                                          : "/c/" + item.Slug) )">
+                                    <a href="@contentUrl">
                                         @item.Title
                                     </a>
                                 </h3>

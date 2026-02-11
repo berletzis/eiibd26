@@ -279,7 +279,9 @@ namespace eiibd26.Areas.Identity.Pages.Account
             }
 
             // Redirigimos al usuario a su perfil para que complete los datos
-            return RedirectToPage("/Usuario/UsuarioPerfil", new { area = "Identity" });
+            //return RedirectToPage("/Usuario/UsuarioPerfil", new { area = "Identity" });
+            // Redirigir al dashboard después del registro exitoso
+            return RedirectToPage("/Usuario/Dashboard", new { area = "Identity" });
         }
 
         // Genera un slug "limpio" a partir de texto

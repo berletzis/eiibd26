@@ -74,7 +74,7 @@ namespace eiibd26.Pages.u
                     })
                     .ToListAsync();
 
-                // Cargar últimos 3 síntomas
+                // Cargar últimos 3 síntomas (ya no se mostrarán en grid, solo para badge principal)
                 var sintomas = await _db.sintomasUsuario
                     .AsNoTracking()
                     .Where(s => s.idUsuario == perfil.idUser && !s.Eliminado)
@@ -104,17 +104,38 @@ namespace eiibd26.Pages.u
                     })
                     .ToListAsync();
 
-                // Cargar últimos 3 estados de ánimo
+                // ✅ NUEVO: Cargar TOP 10 Tracking de Síntomas
+                var trackingSintomas = await _db.TrackingSintomaUsuario
+                    .AsNoTracking()
+                    .Where(t => t.IdUsuario == perfil.idUser)
+                    .Include(t => t.SintomaUsuario).ThenInclude(s => s.Sintoma)
+                    .OrderByDescending(t => t.Fecha)
+                    .Take(10)
+                    .Select(t => new TrackingSintomaVm
+                    {
+                        SintomaNombre = t.SintomaUsuario.Sintoma.nombre ?? "Sin nombre",
+                        Estado = t.Estado,
+                        Fecha = t.Fecha
+                    })
+                    .ToListAsync();
+
+                // Cargar TOP 10 estados de ánimo
                 var estadosAnimo = await _db.EstadoAnimoUsuario
                     .AsNoTracking()
                     .Where(e => e.IdUsuario == perfil.idUser && !e.Eliminado)
+                    .Include(e => e.CondicionUsuario).ThenInclude(c => c.Condicion)
+                    .Include(e => e.SintomaUsuario).ThenInclude(s => s.Sintoma)
+                    .Include(e => e.TratamientoUsuario).ThenInclude(t => t.Tratamiento)
                     .OrderByDescending(e => e.FechaRegistro)
-                    .Take(3)
+                    .Take(10)
                     .Select(e => new EstadoAnimoVm
                     {
-                        Estado = (int)e.EstadoMood,  // ✅ CAMBIO: Convertir enum a int
+                        Estado = (int)e.EstadoMood,
                         Texto = e.Texto,
-                        FechaRegistro = e.FechaRegistro
+                        FechaRegistro = e.FechaRegistro,
+                        CondicionNombre = e.CondicionUsuario != null ? e.CondicionUsuario.Condicion.nombre : null,
+                        SintomaNombre = e.SintomaUsuario != null ? e.SintomaUsuario.Sintoma.nombre : null,
+                        TratamientoNombre = e.TratamientoUsuario != null ? e.TratamientoUsuario.Tratamiento.nombre : null
                     })
                     .ToListAsync();
 
@@ -133,9 +154,10 @@ namespace eiibd26.Pages.u
                     MostrarUbicacion = perfil.PermitirMostrarPais ?? false,
                     FechaRegistro = fechaRegistro,
                     Condiciones = condiciones,
-                    Sintomas = sintomas,
+                    Sintomas = sintomas, // Ya no se usa en el grid
                     Tratamientos = tratamientos,
-                    EstadosAnimo = estadosAnimo
+                    EstadosAnimo = estadosAnimo,
+                    TrackingSintomas = trackingSintomas // ✅ NUEVO
                 };
 
                 return Page();
@@ -212,6 +234,7 @@ namespace eiibd26.Pages.u
         public List<InfoClinicaVm> Sintomas { get; set; } = new List<InfoClinicaVm>();
         public List<InfoClinicaVm> Tratamientos { get; set; } = new List<InfoClinicaVm>();
         public List<EstadoAnimoVm> EstadosAnimo { get; set; } = new List<EstadoAnimoVm>();
+        public List<TrackingSintomaVm> TrackingSintomas { get; set; } = new List<TrackingSintomaVm>(); // ✅ NUEVO
     }
 
     public class InfoClinicaVm
@@ -223,29 +246,30 @@ namespace eiibd26.Pages.u
 
     public class EstadoAnimoVm
     {
-        // ✅ CAMBIO: Estado ahora es int (1-5) en lugar de string
         public int Estado { get; set; }
         public string Texto { get; set; }
         public DateTime FechaRegistro { get; set; }
+        public string CondicionNombre { get; set; }
+        public string SintomaNombre { get; set; }
+        public string TratamientoNombre { get; set; }
 
-        // ✅ CAMBIO: Actualizar mapeos para trabajar con números
         public string ImagenEstado => Estado switch
         {
-            5 => "/img/muybien.svg",   // MuyBien
-            4 => "/img/bien.svg",      // Bien
-            3 => "/img/neutral.svg",   // Neutral
-            2 => "/img/mal.svg",       // Mal
-            1 => "/img/muymal.svg",    // MuyMal
+            5 => "/img/muybien.svg",
+            4 => "/img/bien.svg",
+            3 => "/img/neutral.svg",
+            2 => "/img/mal.svg",
+            1 => "/img/muymal.svg",
             _ => "/img/neutral.svg"
         };
 
         public string ColorEstado => Estado switch
         {
-            5 => "#38D6C1",    // MuyBien
-            4 => "#B3F1E9",    // Bien
-            3 => "#FEE019",    // Neutral
-            2 => "#D8B4F8",    // Mal
-            1 => "#9B5DE5",    // MuyMal
+            5 => "#38D6C1",
+            4 => "#B3F1E9",
+            3 => "#FEE019",
+            2 => "#D8B4F8",
+            1 => "#9B5DE5",
             _ => "#9ca3af"
         };
 
@@ -257,6 +281,32 @@ namespace eiibd26.Pages.u
             2 => "Mal",
             1 => "Muy mal",
             _ => "Desconocido"
+        };
+    }
+
+    // ✅ NUEVO: ViewModel para Tracking de Síntomas
+    public class TrackingSintomaVm
+    {
+        public string SintomaNombre { get; set; }
+        public string Estado { get; set; } // "Ninguno", "Leve", "Moderado", "Severo"
+        public DateTime Fecha { get; set; }
+
+        public string ColorEstado => Estado switch
+        {
+            "Severo" => "#dc2626",    // Rojo
+            "Moderado" => "#f59e0b",  // Naranja
+            "Leve" => "#fbbf24",      // Amarillo
+            "Ninguno" => "#10b981",   // Verde
+            _ => "#9ca3af"            // Gris
+        };
+
+        public string IconoEstado => Estado switch
+        {
+            "Severo" => "bi-exclamation-triangle-fill",
+            "Moderado" => "bi-exclamation-circle-fill",
+            "Leve" => "bi-info-circle-fill",
+            "Ninguno" => "bi-check-circle-fill",
+            _ => "bi-circle"
         };
     }
 }
