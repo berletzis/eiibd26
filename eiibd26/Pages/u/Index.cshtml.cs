@@ -112,7 +112,7 @@ namespace eiibd26.Pages.u
                     .Take(3)
                     .Select(e => new EstadoAnimoVm
                     {
-                        Estado = e.EstadoMood,
+                        Estado = (int)e.EstadoMood,  // ✅ CAMBIO: Convertir enum a int
                         Texto = e.Texto,
                         FechaRegistro = e.FechaRegistro
                     })
@@ -223,37 +223,39 @@ namespace eiibd26.Pages.u
 
     public class EstadoAnimoVm
     {
-        public string Estado { get; set; }
+        // ✅ CAMBIO: Estado ahora es int (1-5) en lugar de string
+        public int Estado { get; set; }
         public string Texto { get; set; }
         public DateTime FechaRegistro { get; set; }
 
+        // ✅ CAMBIO: Actualizar mapeos para trabajar con números
         public string ImagenEstado => Estado switch
         {
-            "MuyBien" => "/img/muybien.svg",
-            "Bien" => "/img/bien.svg",
-            "Neutral" => "/img/neutral.svg",
-            "Mal" => "/img/mal.svg",
-            "MuyMal" => "/img/muymal.svg",
+            5 => "/img/muybien.svg",   // MuyBien
+            4 => "/img/bien.svg",      // Bien
+            3 => "/img/neutral.svg",   // Neutral
+            2 => "/img/mal.svg",       // Mal
+            1 => "/img/muymal.svg",    // MuyMal
             _ => "/img/neutral.svg"
         };
 
         public string ColorEstado => Estado switch
         {
-            "MuyBien" => "#38D6C1",    // Color del SVG muybien.svg
-            "Bien" => "#B3F1E9",       // Color del SVG bien.svg
-            "Neutral" => "#FEE019",    // Color del SVG neutral.svg
-            "Mal" => "#D8B4F8",        // Color del SVG mal.svg
-            "MuyMal" => "#9B5DE5",     // Color del SVG muymal.svg
+            5 => "#38D6C1",    // MuyBien
+            4 => "#B3F1E9",    // Bien
+            3 => "#FEE019",    // Neutral
+            2 => "#D8B4F8",    // Mal
+            1 => "#9B5DE5",    // MuyMal
             _ => "#9ca3af"
         };
 
         public string TextoEstado => Estado switch
         {
-            "MuyBien" => "Muy bien",
-            "Bien" => "Bien",
-            "Neutral" => "Neutral",
-            "Mal" => "Mal",
-            "MuyMal" => "Muy mal",
+            5 => "Muy bien",
+            4 => "Bien",
+            3 => "Neutral",
+            2 => "Mal",
+            1 => "Muy mal",
             _ => "Desconocido"
         };
     }

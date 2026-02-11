@@ -77,6 +77,12 @@ namespace eiibd26.Pages.Preguntas
         public PreguntaVm Pregunta { get; set; } = new();
         public List<RespuestaVm> Respuestas { get; set; } = new();
 
+        public RespuestaVm AcceptedAnswer { get; set; }
+        public List<RespuestaVm> TopSuggestedAnswers { get; set; } = new();
+
+        // New: accepted/top suggested answers for JSON-LD and to render accepted to bots
+
+
         public int TotalItems { get; set; }
         public int TotalPages => PageSize > 0 ? (int)Math.Ceiling(TotalItems / (double)PageSize) : 1;
 
@@ -121,7 +127,6 @@ namespace eiibd26.Pages.Preguntas
             }
             else if (id.HasValue)
             {
-                // lookup by Id
                 preguntaQuery = await _db.Preguntas
                     .AsNoTracking()
                     .Where(p => p.Id == id.Value && !p.Eliminado)
@@ -141,7 +146,6 @@ namespace eiibd26.Pages.Preguntas
 
                 if (preguntaQuery != null)
                 {
-                    // populate Slug for downstream usage if available
                     Slug = ((dynamic)preguntaQuery).Slug ?? "";
                 }
             }
@@ -153,7 +157,7 @@ namespace eiibd26.Pages.Preguntas
             if (preguntaQuery == null)
                 return NotFound();
 
-            // Map anonymous projection into strongly typed locals (avoid dynamic inside EF expressions)
+            // Map anonymous projection into strongly typed locals
             var proj = (dynamic)preguntaQuery;
             Guid preguntaId = (Guid)proj.Id;
             string preguntaTitulo = proj.Titulo ?? "";
@@ -163,14 +167,10 @@ namespace eiibd26.Pages.Preguntas
             DateTimeOffset preguntaFechaCreacion = proj.FechaCreacion;
             int preguntaScore = (int)proj.Score;
 
-            // If the request was made using an id and we have an SEO slug, redirect permanently to the SEO URL.
-            // Preserve answersPage/pageSize/search only when present (non-default) to avoid losing pagination filters.
+            // Redirect to SEO slug if necessary
             if (id.HasValue && !string.IsNullOrWhiteSpace(preguntaSlug))
             {
-                // Build the SEO path
                 var seoPath = $"/Preguntas/{preguntaSlug}";
-
-                // Avoid redirect loop: if the incoming request path already equals the seoPath, don't redirect.
                 var currentPath = Request.Path.Value ?? "";
                 if (!currentPath.Equals(seoPath, StringComparison.OrdinalIgnoreCase))
                 {
@@ -181,8 +181,6 @@ namespace eiibd26.Pages.Preguntas
 
                     var qs = queryParts.Count > 0 ? "?" + string.Join("&", queryParts) : string.Empty;
                     var redirectUrl = seoPath + qs;
-
-                    // Permanent redirect (301) to the canonical SEO URL
                     return RedirectPermanent(redirectUrl);
                 }
             }
@@ -239,7 +237,7 @@ namespace eiibd26.Pages.Preguntas
                     .OrderBy(n => n)
                     .ToListAsync();
             }
-            catch (Exception ex) { _logger.LogWarning(ex, "Error cargando síntomas."); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Error cargando sintomas."); }
 
             try
             {
@@ -289,7 +287,116 @@ namespace eiibd26.Pages.Preguntas
                 }
             }
 
-            // Answers
+            // --- Load top answers for accepted/suggested (global, not paged) ---
+            try
+            {
+                var topAnswers = await _db.Respuestas.AsNoTracking()
+                    .Where(r => r.PreguntaId == preguntaId && !r.Eliminado)
+                    .Select(r => new
+                    {
+                        r.Id,
+                        r.Cuerpo,
+                        r.UsuarioId,
+                        r.FechaCreacion,
+                        Score = _db.Votos.Where(v => v.EntidadTipo == "respuesta" && v.EntidadId == r.Id && !v.Eliminado)
+                                         .Select(v => (int?)v.Valor).Sum() ?? 0
+                    })
+                    .OrderByDescending(x => x.Score)
+                    .ThenByDescending(x => x.FechaCreacion)
+                    .Take(6) // accepted + up to 5 suggested
+                    .ToListAsync();
+
+                if (topAnswers != null && topAnswers.Count > 0)
+                {
+                    var topIds = topAnswers.Select(x => x.Id).ToArray();
+
+                    // Map authors for these top answers
+                    var userIdsTop = topAnswers.Select(x => x.UsuarioId).Distinct().ToArray();
+                    var authorMap = new Dictionary<Guid, AuthorInfo>();
+                    try
+                    {
+                        var perfiles = await _db.Set<Perfil>().AsNoTracking()
+                            .Where(p => userIdsTop.Contains(p.idUser))
+                            .Select(p => new { p.idUser, p.Nombre, p.Apellidos, p.Avatar })
+                            .ToListAsync();
+
+                        foreach (var pf in perfiles)
+                        {
+                            var full = string.IsNullOrWhiteSpace(pf.Apellidos) ? (pf.Nombre ?? "Usuario")
+                                : $"{(pf.Nombre ?? "Usuario")} {pf.Apellidos}";
+                            var avatar = string.IsNullOrWhiteSpace(pf.Avatar) ? $"uploads/avatars/{pf.idUser}/avatar-64.png" : pf.Avatar.Replace("\\", "/");
+                            authorMap[pf.idUser] = new AuthorInfo(full, avatar);
+                        }
+
+                        var missing = userIdsTop.Except(authorMap.Keys).ToArray();
+                        if (missing.Length > 0)
+                        {
+                            var users = await _db.Users.AsNoTracking()
+                                .Where(u => missing.Contains(u.Id))
+                                .Select(u => new { u.Id, u.UserName })
+                                .ToListAsync();
+
+                            foreach (var u in users)
+                            {
+                                if (!authorMap.ContainsKey(u.Id))
+                                    authorMap[u.Id] = new AuthorInfo(string.IsNullOrWhiteSpace(u.UserName) ? "Usuario" : u.UserName, $"uploads/avatars/{u.Id}/avatar-64.png");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Error obteniendo perfiles autores top answers");
+                    }
+
+                    // Map votes by current user for top answers (if logged)
+                    var votosUsuarioTop = new Dictionary<Guid, int>();
+                    if (currentUserId.HasValue)
+                    {
+                        try
+                        {
+                            var votos = await _db.Votos.AsNoTracking()
+                                .Where(v => v.UsuarioId == currentUserId.Value && v.EntidadTipo == "respuesta" && topIds.Contains(v.EntidadId) && !v.Eliminado)
+                                .GroupBy(v => v.EntidadId)
+                                .Select(g => new { Id = g.Key, Valor = g.Select(x => (int?)x.Valor).FirstOrDefault() })
+                                .ToListAsync();
+                            votosUsuarioTop = votos.ToDictionary(x => x.Id, x => x.Valor ?? 0);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Error obteniendo votos usuario para top answers");
+                        }
+                    }
+
+                    var mappedTop = topAnswers.Select(x =>
+                    {
+                        var autor = authorMap.TryGetValue(x.UsuarioId, out var ai) ? ai : new AuthorInfo("Usuario", $"uploads/avatars/{x.UsuarioId}/avatar-64.png");
+                        return new RespuestaVm
+                        {
+                            Id = x.Id,
+                            Cuerpo = x.Cuerpo,
+                            UsuarioId = x.UsuarioId,
+                            AutorNombre = autor.Name,
+                            AutorAvatarUrl = autor.Avatar,
+                            FechaCreacion = x.FechaCreacion,
+                            Score = x.Score,
+                            UsuarioVoto = votosUsuarioTop.TryGetValue(x.Id, out var vv) ? vv : 0,
+                            EsMia = currentUserId.HasValue && x.UsuarioId == currentUserId.Value
+                        };
+                    }).ToList();
+
+                    if (mappedTop.Count > 0)
+                    {
+                        AcceptedAnswer = mappedTop.First();
+                        TopSuggestedAnswers = mappedTop.Skip(1).Take(5).ToList();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error obteniendo accepted/top suggested answers.");
+            }
+
+            // --- Now fetch paged answers for the UI (unchanged behavior) ---
             var baseAnsQ = _db.Respuestas.AsNoTracking()
                 .Where(r => r.PreguntaId == preguntaId && !r.Eliminado);
 
@@ -354,9 +461,7 @@ namespace eiibd26.Pages.Preguntas
                         foreach (var u in users)
                         {
                             if (!ansAuthors.ContainsKey(u.Id))
-                                ansAuthors[u.Id] = new AuthorInfo(
-                                    string.IsNullOrWhiteSpace(u.UserName) ? "Usuario" : u.UserName,
-                                    $"uploads/avatars/{u.Id}/avatar-64.png");
+                                ansAuthors[u.Id] = new AuthorInfo(string.IsNullOrWhiteSpace(u.UserName) ? "Usuario" : u.UserName, $"uploads/avatars/{u.Id}/avatar-64.png");
                         }
                     }
                 }

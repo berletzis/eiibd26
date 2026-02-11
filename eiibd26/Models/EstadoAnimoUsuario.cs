@@ -4,6 +4,15 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace eiibd26.Models
 {
+    public enum EstadoAnimoEnum
+    {
+        MuyMal = 1,
+        Mal = 2,
+        Neutral = 3,
+        Bien = 4,
+        MuyBien = 5
+    }
+
     public class EstadoAnimoUsuario
     {
         [Key]
@@ -12,15 +21,14 @@ namespace eiibd26.Models
         [Required]
         public Guid IdUsuario { get; set; }
 
+        // ✅ CAMBIO: Usar el enum en lugar de int
         [Required]
-        [StringLength(10)]
-        public string EstadoMood { get; set; } // MuyBien, Bien, Neutral, Mal, MuyMal
+        public EstadoAnimoEnum EstadoMood { get; set; }
 
         public string? Texto { get; set; }
 
         [Required]
         public DateTime FechaRegistro { get; set; }
-
 
         // Soft-delete flag
         public bool Eliminado { get; set; } = false;

@@ -523,11 +523,11 @@
 
 <main class="mapa-root conte-page">
     <div class="container py-4">
-                <h1 class="se-page-title">Buscador</h1>
+        <h1 class="se-page-title">Buscador</h1>
 
         <div class="se-header" role="region" aria-label="Buscador del mapa">
             <label for="cpMapaBuscar" class="se-search-label">
-                Utiliza los filtros para encontrar Usuarios/Pacientes con tu misma condición en la ubicación 
+                Utiliza los filtros para encontrar Usuarios/Pacientes con tu misma condición en la ubicación
             </label>
             <div class="mapa-controls" role="region" aria-label="Controles del mapa">
                 <div>
@@ -797,15 +797,21 @@
                 return '<img src="' + src + '" data-avatar="' + escapeHtml(avatar) + '" data-userid="' + escapeHtml(String(id)) + '" class="ums-avatar" alt="' + escapeHtml(profile.name || 'Usuario') + '" loading="lazy" />';
             }
 
-            function getMoodImage(moodState) {
+            // ✅ CAMBIO: Función actualizada para trabajar con valores numéricos (1-5)
+            function getMoodImage(moodValue) {
+                // Convertir a número si viene como string
+                const moodNum = parseInt(moodValue);
+                
+                // Mapeo directo de número a imagen
                 const moodMap = {
-                    'MuyBien': '/img/muybien.svg',
-                    'Bien': '/img/bien.svg',
-                    'Neutral': '/img/neutral.svg',
-                    'Mal': '/img/mal.svg',
-                    'MuyMal': '/img/muymal.svg'
+                    5: '/img/muybien.svg',   // Muy bien
+                    4: '/img/bien.svg',      // Bien
+                    3: '/img/neutral.svg',   // Neutral
+                    2: '/img/mal.svg',       // Mal
+                    1: '/img/muymal.svg'     // Muy mal
                 };
-                return moodMap[moodState] || '/img/neutral.svg';
+                
+                return moodMap[moodNum] || '/img/neutral.svg';
             }
 
             function buildCardHtml(p) {
@@ -815,9 +821,11 @@
                 const profileUrl = userSlug ? '/u/' + encodeURIComponent(userSlug) : '#';
                 const avatarImgHtml = buildAvatarPlaceholder(p);
                 const country = p.country || '';
-                const moodState = p.lastMood || '';
+                
+                // ✅ CAMBIO: lastMood ahora es un número (1-5) en lugar de string
+                const moodValue = p.lastMood || '';
                 const moodText = p.lastMoodText || '';
-                const moodImage = moodState ? getMoodImage(moodState) : '';
+                const moodImage = moodValue ? getMoodImage(moodValue) : '';
 
                 let html = '<div class="user-card" data-id="' + p.id + '">';
                 html += '<a href="' + profileUrl + '" target="_blank" class="user-card-slug" onclick="event.stopPropagation();">&#64;' + escapeHtml(userSlug) + '</a>';
@@ -834,8 +842,8 @@
                 }
 
                 html += '<div class="user-card-bottom">';
-                if (moodState) {
-                    html += '<img src="' + moodImage + '" alt="' + moodState + '" class="user-card-mood-icon" />';
+                if (moodValue) {
+                    html += '<img src="' + moodImage + '" alt="Mood ' + moodValue + '" class="user-card-mood-icon" />';
                 } else {
                     html += '<span></span>';
                 }

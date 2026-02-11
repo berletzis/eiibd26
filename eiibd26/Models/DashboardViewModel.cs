@@ -11,21 +11,24 @@ namespace eiibd26.Models
         public List<QuestionItem> Preguntas { get; set; } = new List<QuestionItem>();
         public List<AnswerItem> Respuestas { get; set; } = new List<AnswerItem>();
 
-        // New: properties for the notifications card
+        // ✅ AGREGAR ESTAS PROPIEDADES:
+        public List<RelationItem> UserConditions { get; set; } = new List<RelationItem>();
+        public List<RelationItem> UserSymptoms { get; set; } = new List<RelationItem>();
+        public List<RelationItem> UserTreatments { get; set; } = new List<RelationItem>();
+
+        // Flags para notificaciones
         public bool EmailConfirmed { get; set; }
         public bool PhoneNumberConfirmed { get; set; }
         public bool HasAnyCondition { get; set; }
         public bool HasMoodToday { get; set; }
-
-        // Counts / metadata for notifications
         public int NewAnswersCount { get; set; } = 0;
-        public int ScheduledItemsCount { get; set; } = 0; // placeholder for future scheduled tasks
+        public int ScheduledItemsCount { get; set; } = 0;
     }
 
     public class MoodPoint
     {
         public DateTime Fecha { get; set; }
-        public string Estado { get; set; } // MuyBien, Bien, Neutral, Mal, MuyMal
+        public int Estado { get; set; } // ✅ Cambiar de string a int
         public string Texto { get; set; }
         public string RelacionNombre { get; set; }
     }

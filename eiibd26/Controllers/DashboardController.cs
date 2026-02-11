@@ -1,13 +1,13 @@
-﻿using System;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+﻿using eiibd26.Data;
 using eiibd26.Models;
-using eiibd26.Data;
-using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Linq;
+using System.Security.Claims;
+using System.Threading.Tasks;
 
 namespace eiibd26.Controllers
 {
@@ -24,7 +24,7 @@ namespace eiibd26.Controllers
             _userManager = userManager;
         }
 
-        [HttpGet("")]
+        [HttpGet("Index")]
         public async Task<IActionResult> Index()
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -39,7 +39,7 @@ namespace eiibd26.Controllers
                 .Select(x => new MoodPoint
                 {
                     Fecha = x.FechaRegistro,
-                    Estado = x.EstadoMood,
+                //    Estado = x.EstadoMood,
                     Texto = x.Texto,
                     RelacionNombre = x.CondicionUsuario != null ? x.CondicionUsuario.Condicion.nombre : (x.SintomaUsuario != null ? x.SintomaUsuario.Sintoma.nombre : null)
                 })
@@ -170,7 +170,7 @@ namespace eiibd26.Controllers
             var model = new DashboardViewModel
             {
                 Moods = moods,
-                MoodRelations = relaciones,
+                //MoodRelations = relaciones,
                 TopSintomas = topSintomas,
                 Preguntas = preguntas,
                 Respuestas = respuestas,
@@ -196,7 +196,7 @@ namespace eiibd26.Controllers
             var nuevo = new EstadoAnimoUsuario
             {
                 IdUsuario = userGuid,
-                EstadoMood = mood,
+                //EstadoMood = mood,
                 Texto = string.IsNullOrWhiteSpace(texto) ? null : texto,
                 FechaRegistro = DateTime.UtcNow,
                 IdCondicionUsuario = relacionId
@@ -229,40 +229,12 @@ namespace eiibd26.Controllers
 
             return RedirectToAction(nameof(Index));
         }
+    }
 
-        // Añade dentro de la clase DashboardModel:
-
-        public async Task<IActionResult> OnPostTrackSintomaMatriz()
-        {
-            var form = Request.Form;
-            if (!form.ContainsKey("sintomaUsuarioId") || !form.ContainsKey("estado") || !form.ContainsKey("fecha"))
-                return BadRequest();
-
-            if (!int.TryParse(form["sintomaUsuarioId"], out var sintomaUsuarioId))
-                return BadRequest();
-
-            var estado = form["estado"].ToString();
-            if (!DateTime.TryParse(form["fecha"], out var fecha))
-                return BadRequest();
-
-            // Ejemplo genérico: inserta o actualiza registro en tabla de seguimiento
-            try
-            {
-                // Buscar registro existente para ese día
-                var start = fecha.Date;
-                var end = start.AddDays(1).AddMilliseconds(-1);
-
-                var existing = await _db.Set<object>()
-                    .FromSqlRaw("SELECT TOP(1) * FROM SintomaSeguimiento WHERE SintomaUsuarioId = {0} AND Fecha >= {1} AND Fecha <= {2}", sintomaUsuarioId, start, end)
-                    .ToListAsync();
-
-                return new OkResult();
-            }
-            catch (Exception ex)
-            {
-                // Log ex
-                return StatusCode(500);
-            }
-        }
+    public class RelationItem
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; }
+        public string Tipo { get; set; }
     }
 }

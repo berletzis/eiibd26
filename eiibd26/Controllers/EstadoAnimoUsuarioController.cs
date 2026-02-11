@@ -25,29 +25,32 @@ namespace eiibd26.Controllers
             if (userId == null) return Unauthorized();
             if (!Guid.TryParse(userId, out var guid)) return Unauthorized();
 
-            var lista = await _db.EstadoAnimoUsuario
+            // ✅ CAMBIO: Cargar datos primero SIN proyección
+            var registros = await _db.EstadoAnimoUsuario
                 .Where(x => x.IdUsuario == guid && !x.Eliminado)
                 .OrderByDescending(x => x.FechaRegistro)
                 .Include(x => x.CondicionUsuario).ThenInclude(c => c.Condicion)
                 .Include(x => x.SintomaUsuario).ThenInclude(su => su.Sintoma)
                 .Include(x => x.TratamientoUsuario).ThenInclude(tu => tu.Tratamiento)
-                .Select(x => new
-                {
-                    Id = x.Id,
-                    EstadoMood = x.EstadoMood,
-                    Texto = x.Texto,
-                    // Enviar la fecha como string ISO (ISO 8601) para evitar ambigüedades de zona/parseo en el cliente
-                    FechaRegistro = x.FechaRegistro.ToString("o"),
-                    RelacionNombre = x.CondicionUsuario != null ? x.CondicionUsuario.Condicion.nombre
-                                   : x.SintomaUsuario != null ? x.SintomaUsuario.Sintoma.nombre
-                                   : x.TratamientoUsuario != null ? x.TratamientoUsuario.Tratamiento.nombre
-                                   : null,
-                    TipoRelacion = x.CondicionUsuario != null ? "Condicion"
-                                 : x.SintomaUsuario != null ? "Sintoma"
-                                 : x.TratamientoUsuario != null ? "Tratamiento"
-                                 : null
-                })
+                .AsNoTracking()
                 .ToListAsync();
+
+            // ✅ CAMBIO: Proyectar EN MEMORIA (no en SQL)
+            var lista = registros.Select(x => new
+            {
+                Id = x.Id,
+                EstadoMood = (int)x.EstadoMood,
+                EstadoMoodNombre = x.EstadoMood.ToString(),
+                Texto = x.Texto,
+                FechaRegistro = x.FechaRegistro.ToString("o"),
+                RelacionNombre = x.CondicionUsuario?.Condicion?.nombre
+                               ?? x.SintomaUsuario?.Sintoma?.nombre
+                               ?? x.TratamientoUsuario?.Tratamiento?.nombre,
+                TipoRelacion = x.CondicionUsuario != null ? "Condicion"
+                             : x.SintomaUsuario != null ? "Sintoma"
+                             : x.TratamientoUsuario != null ? "Tratamiento"
+                             : null
+            }).ToList();
 
             return Ok(lista);
         }
@@ -78,19 +81,33 @@ namespace eiibd26.Controllers
             if (string.IsNullOrWhiteSpace(mood))
                 return BadRequest(new { ok = false, error = "El campo mood es requerido." });
 
-            // Opcional: validar valores permitidos para EstadoMood
-            var allowed = new[] { "MuyBien", "Bien", "Neutral", "Mal", "MuyMal" };
-            if (!allowed.Contains(mood))
-                return BadRequest(new { ok = false, error = "Valor de mood inválido." });
+            EstadoAnimoEnum estadoEnum;
+
+            // Intentar parsear como número (1-5)
+            if (int.TryParse(mood, out int moodNumero))
+            {
+                if (moodNumero < 1 || moodNumero > 5)
+                    return BadRequest(new { ok = false, error = "Valor de mood debe estar entre 1 y 5." });
+
+                estadoEnum = (EstadoAnimoEnum)moodNumero;
+            }
+            // Si no es número, intentar parsear como nombre del enum (MuyBien, Bien, etc.)
+            else if (Enum.TryParse<EstadoAnimoEnum>(mood, true, out estadoEnum))
+            {
+                // Éxito: se parseó como nombre del enum
+            }
+            else
+            {
+                return BadRequest(new { ok = false, error = $"Valor de mood inválido: {mood}" });
+            }
 
             if (string.IsNullOrWhiteSpace(texto)) texto = null;
 
             var nuevo = new EstadoAnimoUsuario
             {
                 IdUsuario = guid,
-                EstadoMood = mood,
+                EstadoMood = estadoEnum,
                 Texto = texto,
-                // Usar UTC para consistencia en la API y serialización
                 FechaRegistro = DateTime.UtcNow,
                 IdCondicionUsuario = condicionUsuarioId
             };
@@ -103,7 +120,6 @@ namespace eiibd26.Controllers
             }
             catch (Exception ex)
             {
-                // En un proyecto real aquí sería mejor loggear el error.
                 return StatusCode(500, new { ok = false, error = "Error al guardar el estado de ánimo." });
             }
 
@@ -120,9 +136,10 @@ namespace eiibd26.Controllers
 
             return Ok(new
             {
-                EstadoMood = nuevo.EstadoMood,
+                Id = nuevo.Id,
+                EstadoMood = (int)nuevo.EstadoMood,
+                EstadoMoodNombre = nuevo.EstadoMood.ToString(),
                 Texto = nuevo.Texto,
-                // devolver fecha en ISO para que el cliente la parsee sin ambigüedad
                 FechaRegistro = nuevo.FechaRegistro.ToString("o"),
                 RelacionNombre = nombre,
                 TipoRelacion = tipo
@@ -150,6 +167,35 @@ namespace eiibd26.Controllers
             }
 
             return Ok(new { ok = true });
+        }
+
+        [HttpGet("estadisticas")]
+        public async Task<ActionResult<object>> Estadisticas([FromQuery] int? meses = 1)
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
+            if (!Guid.TryParse(userId, out var guid)) return Unauthorized();
+
+            var fechaDesde = DateTime.UtcNow.AddMonths(-meses.Value);
+
+            // ✅ CAMBIO: Cargar entidades primero, luego proyectar en memoria
+            var entidades = await _db.EstadoAnimoUsuario
+                .Where(x => x.IdUsuario == guid && !x.Eliminado && x.FechaRegistro >= fechaDesde)
+                .AsNoTracking()
+                .ToListAsync();
+
+            if (!entidades.Any())
+                return Ok(new { total = 0, promedio = 0, maximo = 0, minimo = 0 });
+
+            var registros = entidades.Select(x => (int)x.EstadoMood).ToList();
+
+            return Ok(new
+            {
+                total = registros.Count,
+                promedio = Math.Round(registros.Average(), 2),
+                maximo = registros.Max(),
+                minimo = registros.Min()
+            });
         }
     }
 }

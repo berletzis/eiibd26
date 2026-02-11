@@ -158,9 +158,9 @@
         }
 
     /* FILTER + COUNT layout tweaks:
-           On small screens show buttons in a single horizontal row (scrollable if needed)
-           and the count on its own line beneath.
-        */
+               On small screens show buttons in a single horizontal row (scrollable if needed)
+               and the count on its own line beneath.
+            */
     .mood-filters-row {
         display: flex;
         gap: .5rem;
@@ -351,35 +351,61 @@
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    @* <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script> *@
     <script>
+        // ✅ CORREGIDO: Usar números en lugar de strings
         const moodOpts = [
-            { val: "MuyBien", label: "Muy bien", color: "#38D6C1", img: "/img/muybien.svg" },
-            { val: "Bien", label: "Bien", color: "#B3F1E9", img: "/img/bien.svg" },
-            { val: "Neutral", label: "Neutral", color: "#FEE019", img: "/img/neutral.svg" },
-            { val: "Mal", label: "Mal", color: "#D8B4F8", img: "/img/mal.svg" },
-            { val: "MuyMal", label: "Muy mal", color: "#9B5DE5", img: "/img/muymal.svg" }
+            { val: 5, label: "Muy bien", color: "#38D6C1", img: "/img/muybien.svg" },
+            { val: 4, label: "Bien", color: "#B3F1E9", img: "/img/bien.svg" },
+            { val: 3, label: "Neutral", color: "#FEE019", img: "/img/neutral.svg" },
+            { val: 2, label: "Mal", color: "#D8B4F8", img: "/img/mal.svg" },
+            { val: 1, label: "Muy mal", color: "#9B5DE5", img: "/img/muymal.svg" }
         ];
 
         const DAY_MS = 24 * 60 * 60 * 1000;
 
-        function moodNumFromStr(str){
-            return {"MuyBien":5,"Bien":4,"Neutral":3,"Mal":2,"MuyMal":1}[str.trim()]??null;
+        // ✅ CORREGIDO: Funciones que manejan números
+        function moodNumFromStr(val){
+            // Si ya es número, devolverlo
+            if (typeof val === 'number') return val >= 1 && val <= 5 ? val : null;
+            // Si es string, intentar parsearlo
+            if (typeof val === 'string') {
+                const num = parseInt(val.trim());
+                return num >= 1 && num <= 5 ? num : null;
+            }
+            return null;
         }
-        function moodPointColorFromStr(str) {
-            return {
-                "MuyBien": "#38D6C1",
-                "Bien": "#B3F1E9",
-                "Neutral": "#FEE019",
-                "Mal": "#D8B4F8",
-                "MuyMal": "#9B5DE5"
-            }[str.trim()] ?? "#CCC";
+
+        function moodPointColorFromNum(num) {
+            const colors = {
+                5: "#38D6C1", // MuyBien
+                4: "#B3F1E9", // Bien  
+                3: "#FEE019", // Neutral
+                2: "#D8B4F8", // Mal
+                1: "#9B5DE5"  // MuyMal
+            };
+            return colors[num] ?? "#CCC";
         }
-        function moodImgFromStr(str){
-            return {"MuyBien":"/img/muybien.svg","Bien":"/img/bien.svg","Neutral":"/img/neutral.svg","Mal":"/img/mal.svg","MuyMal":"/img/muymal.svg"}[str.trim()]??"/img/neutral.svg";
+
+        function moodImgFromNum(num){
+            const imgs = {
+                5: "/img/muybien.svg",
+                4: "/img/bien.svg", 
+                3: "/img/neutral.svg",
+                2: "/img/mal.svg",
+                1: "/img/muymal.svg"
+            };
+            return imgs[num] ?? "/img/neutral.svg";
         }
+
         function moodLabelFromNum(n){
-            return {5:"Muy bien",4:"Bien",3:"Neutral",2:"Mal",1:"Muy mal"}[n]||"";
+            const labels = {
+                5: "Muy bien",
+                4: "Bien", 
+                3: "Neutral",
+                2: "Mal",
+                1: "Muy mal"
+            };
+            return labels[n] || "";
         }
 
         function formatFecha(fecha){
@@ -391,15 +417,15 @@
         function agregarMoodCard(dto){
             let id = dto.id ?? dto.Id ?? "";
             let mood = dto.estadoMood ?? dto.EstadoMood ?? "";
-            let label = moodOpts.find(o => o.val === mood)?.label || mood;
-            let img = moodImgFromStr(mood);
+            let moodNum = moodNumFromStr(mood);
+            let label = moodLabelFromNum(moodNum);
+            let img = moodImgFromNum(moodNum);
             let fecha = dto.fechaRegistro ?? dto.FechaRegistro ? formatFecha(dto.fechaRegistro ?? dto.FechaRegistro) : "";
             let reflexion = dto.texto || dto.Texto || "";
             let relacionNombre = dto.RelacionNombre || dto.relacionNombre || null;
             let relacionHtml = relacionNombre ? `<span class="mood-relacion">Condición: <strong>${relacionNombre}</strong></span>` : "";
-            // incluir botón eliminar (usa id)
             let deleteBtn = id ? `<button class="mood-delete-btn" onclick="eliminarMood(${id})" title="Eliminar este estado de ánimo"><i class="bi bi-trash"></i></button>` : "";
-            // Nota: quitar repetición del label entre paréntesis, y colocar fecha en una línea debajo de "Ultimo Seguimiento"
+            
             return `<div class="mood-card-item" data-id="${id}">
                 ${deleteBtn}
                 <img class="mood-card-img" src="${img}" alt="${label}" />
@@ -414,19 +440,17 @@
 
         let allMoodsData = [], lastFilteredCount = 0, windowChart = null;
 
-        // Reusar parseDateString robusta (igual que la partial)
         function parseDateString(s) {
             if (!s) return null;
             try {
                 s = String(s);
-                s = s.replace(/\.(\d{3})\d+/, '.$1'); // limitar fracción a ms
+                s = s.replace(/\.(\d{3})\d+/, '.$1');
                 if (!/[zZ]$/.test(s) && !/[+\-]\d{2}:\d{2}$/.test(s)) s = s + 'Z';
                 const d = new Date(s);
                 return isNaN(d.getTime()) ? null : d;
             } catch (e) { return null; }
         }
 
-        // Get last-3-days window (anteayer, ayer, hoy) local dates
         function getLast3Window() {
             const today = new Date();
             const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 2);
@@ -435,20 +459,17 @@
             return { startMs, endMs };
         }
 
-        // Collapse multiple entries per same local day -> keep the one with latest fechaTs
         function collapseToLastPerDay(items) {
             const byDay = {};
             items.forEach(it => {
                 const ts = it.fechaTs || null;
                 if (!ts) return;
                 const d = new Date(ts);
-                // local date key yyyy-mm-dd to respect user's local day
                 const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
                 if (!byDay[key] || (byDay[key] && (it.fechaTs > byDay[key].fechaTs))) {
                     byDay[key] = it;
                 }
             });
-            // return array of kept entries
             return Object.keys(byDay).map(k => byDay[k]);
         }
 
@@ -474,14 +495,14 @@
             document.getElementById("moodForm").addEventListener("submit", async function(e){
                 e.preventDefault();
                 const moodSelected = document.getElementById("moodSelected").value;
-                if (!moodSelected || !["MuyBien","Bien","Neutral","Mal","MuyMal"].includes(moodSelected.trim())) {
+                if (!moodSelected || ![1,2,3,4,5].includes(parseInt(moodSelected))) {
                     mostrarLeyendaModal("Selecciona tu estado de ánimo por favor.", true);
                     return;
                 }
                 const moodText = document.getElementById("moodText").value || "";
                 const condicionUsuarioId = document.getElementById("moodCondicionSelect").value;
                 const formData = new FormData();
-                formData.append("mood", moodSelected);
+                formData.append("mood", moodSelected); // Envía el número
                 formData.append("texto", moodText);
                 formData.append("condicionUsuarioId", condicionUsuarioId);
                 try {
@@ -497,7 +518,6 @@
                             document.getElementById("moodForm").reset();
                         }, 1100);
                         await cargarHistorialEstadoAnimo();
-                        // dispatch global event so dashboard partial (or other listeners) can refresh too
                         try { window.dispatchEvent(new CustomEvent('mood:added', { detail: { source: 'fullpage' } })); } catch(e){}
                     } else {
                         mostrarLeyendaModal("Error al agregar estado de ánimo. Código: " + resp.status, true);
@@ -507,9 +527,7 @@
                 }
             });
 
-            // Listen for moods added from other parts (dashboard partial)
             window.addEventListener('mood:added', async function(e){
-                // reload data and reapply current filter
                 await cargarHistorialEstadoAnimo();
                 const activeBtn = document.querySelector('.mood-filter-btn.active');
                 if (activeBtn) aplicarFiltroMood(activeBtn.dataset.filter || '1m');
@@ -532,7 +550,7 @@
                 btn.className=`btn btn-outline-secondary mood-btn-option`;
                 btn.innerHTML = `<img src="${o.img}" alt="${o.label}" style="width:25px;vertical-align:middle;margin-right:6px;"> <span>${o.label}</span>`;
                 btn.onclick=function(){
-                    document.getElementById("moodSelected").value = o.val;
+                    document.getElementById("moodSelected").value = o.val; // ✅ Ahora guarda número
                     container.querySelectorAll(".mood-btn-option").forEach(b=>b.classList.remove("active"));
                     btn.classList.add("active");
                 };
@@ -540,14 +558,13 @@
             });
         }
 
-        // Load history and normalize dates into fechaTs + ISO fechaRegistro
         async function cargarHistorialEstadoAnimo(){
             try {
                 let respuesta = await fetch("/api/EstadoAnimoUsuario/historico", { cache: "no-store" });
                 let datos = await respuesta.json();
                 allMoodsData = Array.isArray(datos)
                     ? datos.map(x => {
-                        let mood = (x.estadoMood ?? x.EstadoMood ?? "").trim();
+                        let mood = x.estadoMood ?? x.EstadoMood ?? 0; // ✅ Ya es número
                         let rawFecha = (x.fechaRegistro ?? x.FechaRegistro ?? "") + "";
                         const parsed = parseDateString(rawFecha);
                         const fechaTs = parsed ? parsed.getTime() : null;
@@ -582,8 +599,8 @@
             }
 
             let validData = (allMoodsData||[]).filter(x =>
-                ["MuyBien","Bien","Neutral","Mal","MuyMal"].includes(x.estadoMood)
-                && x.fechaTs && !isNaN(x.fechaTs)
+                [1,2,3,4,5].includes(x.estadoMood) && // ✅ Validar números
+                x.fechaTs && !isNaN(x.fechaTs)
             );
 
             let filtrados = validData.filter(x => x.fechaTs >= fromDateTs && x.fechaTs <= toDateTs);
@@ -617,19 +634,15 @@
         }
 
         function renderMoodChart(data){
-            // data: array of entries already filtered by selected range
             const isMobile = (Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0) <= 750);
             let toPlot = Array.isArray(data) ? data.slice() : [];
 
             if (isMobile) {
-                // Limit to last 3 days (anteayer + ayer + hoy) and collapse multiple per day to last entry
                 const w3 = getLast3Window();
                 const last3 = toPlot.filter(n => n.fechaTs >= w3.startMs && n.fechaTs <= w3.endMs);
                 const collapsed = collapseToLastPerDay(last3);
-                // ensure order by timestamp ascending
                 toPlot = collapsed.sort((a,b) => a.fechaTs - b.fechaTs);
             } else {
-                // Desktop: keep entries as-is, ordered by timestamp ascending for timeline
                 toPlot = toPlot.sort((a,b) => a.fechaTs - b.fechaTs);
             }
 
@@ -638,13 +651,12 @@
             const ctx = canvas.getContext("2d");
             if (windowChart) try { windowChart.destroy(); } catch(e){}
 
-            // Prepare labels/data
             const labels = toPlot.map(x => {
                 const d = new Date(x.fechaTs);
                 return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
             });
-            const dataNum = toPlot.map(x => moodNumFromStr(x.estadoMood));
-            const colors  = toPlot.map(x => moodPointColorFromStr(x.estadoMood));
+            const dataNum = toPlot.map(x => moodNumFromStr(x.estadoMood)); // ✅ Ya manejamos números
+            const colors  = toPlot.map(x => moodPointColorFromNum(x.estadoMood)); // ✅ Función actualizada
 
             const isMobileChart = isMobile;
             const pointRadius = isMobileChart ? 10 : 13;
@@ -734,7 +746,6 @@
             });
         }
 
-        // Eliminar mood (soft-delete) por id
         async function eliminarMood(id){
             if (!id) return;
             if (!confirm('¿Eliminar este estado de ánimo? Esta acción lo ocultará (soft-delete).')) return;
@@ -745,7 +756,6 @@
                     credentials: 'same-origin'
                 });
                 if (res.ok) {
-                    // recargar historial y aplicar filtro actual
                     await cargarHistorialEstadoAnimo();
                     const activeBtn = document.querySelector('.mood-filter-btn.active');
                     if (activeBtn) aplicarFiltroMood(activeBtn.dataset.filter || '1m');

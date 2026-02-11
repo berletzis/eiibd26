@@ -40,7 +40,7 @@
         margin-top: 12px;
         box-sizing: border-box;
         width: 100%;
-        padding: 0; /* evita que padding externo provoque overflow del canvas */
+        padding: 0;
     }
 
         .chart-wrapper canvas {
@@ -77,7 +77,6 @@
         padding: 3px;
     }
 
-    /* Solo cambio de color y peso, sin tocar el comportamiento del botón */
     .btn-add-mood {
         background: #764ba2;
         color: #fff;
@@ -103,7 +102,6 @@
         min-width: 220px;
     }
 
-    /* Responsive: reduce chart height on small screens */
     @@media (max-width: 767.98px) {
         .chart-wrapper {
             height: 220px;
@@ -115,7 +113,6 @@
         }
     }
 
-    /* Ensure modal content is scrollable and modal is centered on small screens */
     .modal-dialog-centered {
         display: flex;
         align-items: center;
@@ -126,7 +123,6 @@
         max-height: calc(100vh - 3.5rem);
         overflow: auto;
     }
-
 </style>
 
 <div class="dashboard-col1-card">
@@ -135,8 +131,7 @@
             <div class="dashboard-col1-title">Mi Estado de Ánimo (Últimos 7 días)</div>
             <div class="small-muted" style="font-size:.9rem;">Se muestran registros reales (varios por día permitidos).</div>
         </div>
-        <button id="col1OpenMoodBtn" class="crm-btn crm-btn-primary btn-lg"  type="button">+<i class="bi bi-emoji-wink"></i></button>
-        
+        <button id="col1OpenMoodBtn" class="crm-btn crm-btn-primary btn-lg" type="button">+<i class="bi bi-emoji-wink"></i></button>
     </div>
 
     <div class="chart-wrapper" id="col1ChartWrapper">
@@ -155,7 +150,6 @@
 <!-- Modal -->
 <div class="modal fade" id="col1MoodModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <!-- centered -->
         <div class="modal-content">
             <form id="col1MoodForm">
                 @Html.AntiForgeryToken()
@@ -169,11 +163,11 @@
                     <div class="mb-3">
                         <label class="form-label">Selecciona tu estado</label>
                         <div class="d-flex gap-2 flex-wrap" id="col1MoodOptions">
-                            <button type="button" class="btn btn-outline-secondary mood-option-btn" data-val="MuyBien"><img src="/img/muybien.svg" style="width:22px;margin-right:6px" /> Muy bien</button>
-                            <button type="button" class="btn btn-outline-secondary mood-option-btn" data-val="Bien"><img src="/img/bien.svg" style="width:22px;margin-right:6px" /> Bien</button>
-                            <button type="button" class="btn btn-outline-secondary mood-option-btn" data-val="Neutral"><img src="/img/neutral.svg" style="width:22px;margin-right:6px" /> Neutral</button>
-                            <button type="button" class="btn btn-outline-secondary mood-option-btn" data-val="Mal"><img src="/img/mal.svg" style="width:22px;margin-right:6px" /> Mal</button>
-                            <button type="button" class="btn btn-outline-secondary mood-option-btn" data-val="MuyMal"><img src="/img/muymal.svg" style="width:22px;margin-right:6px" /> Muy mal</button>
+                            <button type="button" class="btn btn-outline-secondary mood-option-btn" data-val="5"><img src="/img/muybien.svg" style="width:22px;margin-right:6px" /> Muy bien</button>
+                            <button type="button" class="btn btn-outline-secondary mood-option-btn" data-val="4"><img src="/img/bien.svg" style="width:22px;margin-right:6px" /> Bien</button>
+                            <button type="button" class="btn btn-outline-secondary mood-option-btn" data-val="3"><img src="/img/neutral.svg" style="width:22px;margin-right:6px" /> Neutral</button>
+                            <button type="button" class="btn btn-outline-secondary mood-option-btn" data-val="2"><img src="/img/mal.svg" style="width:22px;margin-right:6px" /> Mal</button>
+                            <button type="button" class="btn btn-outline-secondary mood-option-btn" data-val="1"><img src="/img/muymal.svg" style="width:22px;margin-right:6px" /> Muy mal</button>
                         </div>
                         <input type="hidden" id="col1MoodSelected" name="mood" />
                     </div>
@@ -189,9 +183,9 @@
                             <option value="">Sin relación</option>
                             @if (Model?.MoodRelations != null)
                             {
-                                foreach (var r in Model.MoodRelations)
+                                foreach (var r in Model.MoodRelations.Where(x => x.Tipo == "condicion"))
                                 {
-                                    <option value="@r.Id">@r.Nombre (@r.Tipo)</option>
+                                    <option value="@r.Id">@r.Nombre</option>
                                 }
                             }
                         </select>
@@ -199,9 +193,7 @@
                 </div>
 
                 <div class="modal-footer">
-                    @* <button id="col1MoodSubmit" type="submit" class="btn btn-primary">Guardar</button> *@
                     <button id="col1MoodSubmit" type="submit" class="se-btn se-btn-primary" style="font-size:28px; border-radius:50%;"><i class="bi bi-check"></i></button>
-                    @* <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button> *@
                 </div>
             </form>
         </div>
@@ -230,8 +222,9 @@
       const ENDPOINT_HISTORICO = "/api/EstadoAnimoUsuario/historico";
       const ENDPOINT_NUEVO = "/api/EstadoAnimoUsuario/nuevo";
       const DAY_MS = 24 * 60 * 60 * 1000;
-      const mapVal = { "MuyBien":5, "Bien":4, "Neutral":3, "Mal":2, "MuyMal":1 };
-      const mapColor = { "MuyBien":"#38D6C1", "Bien":"#B3F1E9", "Neutral":"#FEE019", "Mal":"#D8B4F8", "MuyMal":"#9B5DE5" };
+      
+      // Mapeo de colores por valor numérico
+      const mapColor = { 5:"#38D6C1", 4:"#B3F1E9", 3:"#FEE019", 2:"#D8B4F8", 1:"#9B5DE5" };
       const moodLabelFromNum = n => ({5:"Muy bien",4:"Bien",3:"Neutral",2:"Mal",1:"Muy mal"}[n]||"");
 
       function parseDateString(s) {
@@ -265,13 +258,25 @@
         if (!Array.isArray(list)) return out;
         const w = getLast7Window();
         (list || []).forEach(x => {
-          const estado = (x.estadoMood ?? x.EstadoMood ?? x.Estado ?? "").toString();
-          if (!estado || mapVal[estado] === undefined) return;
+          // Ahora el API devuelve EstadoMood como número (1-5)
+          let estadoNum = x.estadoMood ?? x.EstadoMood ?? null;
+          if (estadoNum === null || estadoNum === undefined) return;
+          
+          // Convertir a número si viene como string
+          estadoNum = parseInt(estadoNum);
+          if (isNaN(estadoNum) || estadoNum < 1 || estadoNum > 5) return;
+          
           const fecha = parseDateString(x.fechaRegistro ?? x.FechaRegistro ?? x.FechaIso ?? x.Fecha ?? null);
           if (!fecha) return;
           const ts = fecha.getTime();
           if (ts < w.startMs || ts > w.endMs) return;
-          out.push({ estado, fecha, ts, texto: x.texto ?? x.Texto ?? "", relacion: x.relacionNombre ?? x.RelacionNombre ?? "" });
+          out.push({
+            estado: estadoNum,
+            fecha,
+            ts,
+            texto: x.texto ?? x.Texto ?? "",
+            relacion: x.relacionNombre ?? x.RelacionNombre ?? ""
+          });
         });
         out.sort((a,b) => a.ts - b.ts);
         return out;
@@ -283,7 +288,7 @@
         const bg = [];
         normalizedList.forEach(n => {
           labels.push(new Date(n.ts).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }));
-          data.push(mapVal[n.estado]);
+          data.push(n.estado); // Ya es numérico
           bg.push(mapColor[n.estado]);
         });
         return { labels, data, bg, raws: normalizedList };
@@ -475,12 +480,22 @@
         form.addEventListener("submit", async function(ev){
           ev.preventDefault();
           const selected = document.getElementById("col1MoodSelected").value;
-          if (!selected || !["MuyBien","Bien","Neutral","Mal","MuyMal"].includes(selected.trim())) {
-            const alertEl = document.getElementById("col1MoodAlert"); alertEl.className="alert alert-danger"; alertEl.textContent="Selecciona un estado de ánimo."; alertEl.style.display="block"; return;
+          
+          // Validar que sea un número entre 1-5
+          const moodNum = parseInt(selected);
+          if (!selected || isNaN(moodNum) || moodNum < 1 || moodNum > 5) {
+            const alertEl = document.getElementById("col1MoodAlert");
+            alertEl.className="alert alert-danger";
+            alertEl.textContent="Selecciona un estado de ánimo.";
+            alertEl.style.display="block";
+            return;
           }
+          
           const texto = document.getElementById("col1MoodText").value || "";
           const relacionId = document.getElementById("col1MoodRelacion").value || "";
           const fd = new FormData();
+          
+          // Enviar como string del número
           fd.append("mood", selected);
           fd.append("texto", texto);
           if (relacionId) fd.append("condicionUsuarioId", relacionId);
@@ -488,7 +503,11 @@
           try {
             const resp = await fetch(ENDPOINT_NUEVO, { method: "POST", body: fd });
             if (!resp.ok) {
-              const alertEl = document.getElementById("col1MoodAlert"); alertEl.className="alert alert-danger"; alertEl.textContent="Error al guardar. Código: "+resp.status; alertEl.style.display="block"; return;
+              const alertEl = document.getElementById("col1MoodAlert");
+              alertEl.className="alert alert-danger";
+              alertEl.textContent="Error al guardar. Código: "+resp.status;
+              alertEl.style.display="block";
+              return;
             }
             const created = await resp.json();
             const modalEl = document.getElementById('col1MoodModal');
@@ -505,7 +524,10 @@
             try { window.dispatchEvent(new CustomEvent('mood:added', { detail: { created } })); } catch(e) {}
           } catch (e) {
             console.error(e);
-            const alertEl = document.getElementById("col1MoodAlert"); alertEl.className = "alert alert-danger"; alertEl.textContent = "Error de red al guardar."; alertEl.style.display = "block";
+            const alertEl = document.getElementById("col1MoodAlert");
+            alertEl.className = "alert alert-danger";
+            alertEl.textContent = "Error de red al guardar.";
+            alertEl.style.display = "block";
           }
         });
       })();

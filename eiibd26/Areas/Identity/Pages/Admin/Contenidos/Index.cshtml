@@ -101,6 +101,14 @@
             <a asp-page="./Detalle" class="btn btn-primary">
                 <i class="bi bi-plus-lg"></i> Nuevo contenido
             </a>
+
+            <!-- NEW: Botón para actualizar sitemap (no cambia el layout existente) -->
+            <button id="btnRefreshSitemap" type="button" class="btn btn-outline-secondary ms-2" title="Actualizar sitemap">
+                <i class="bi bi-arrow-clockwise"></i> Actualizar sitemap
+            </button>
+
+            <!-- Resultado del refresh se mostrará aquí -->
+            <div id="sitemap-result" style="display:inline-block; margin-left:12px; vertical-align:middle; font-size:.95rem; color:#374151;"></div>
         </div>
     </div>
 
@@ -178,6 +186,7 @@
             const detallePageUrl = '@Url.Page("./Detalle")';
             const eliminarUrl = '@Url.Page("./Index", new { handler = "Eliminar" })';
             const cloneUrl = '@Url.Page("./Index", new { handler = "Clone" })';
+            const refreshSitemapUrl = '/admin/sitemap/refresh';
 
             const categoriasFlat = @Html.Raw(JsonSerializer.Serialize(Model.CategoriesFlat));
 
@@ -418,6 +427,62 @@
                     alert('Error al clonar.');
                 });
             });
+
+            // NEW: Refresh sitemap button behavior
+            (function () {
+                const btn = document.getElementById('btnRefreshSitemap');
+                const resultDiv = document.getElementById('sitemap-result');
+
+                if (!btn) return;
+
+                btn.addEventListener('click', async function () {
+                    btn.disabled = true;
+                    const originalHtml = btn.innerHTML;
+                    resultDiv.textContent = '';
+                    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Actualizando...';
+
+                    // Obtener token antiforgery del formulario oculto
+                    const tokenInput = document.querySelector('#__antiForgeryForm input[name="__RequestVerificationToken"]');
+                    const token = tokenInput ? tokenInput.value : null;
+
+                    try {
+                        const resp = await fetch(refreshSitemapUrl, {
+                            method: 'POST',
+                            credentials: 'same-origin',
+                            headers: {
+                                'Accept': 'application/json',
+                                ...(token ? { 'RequestVerificationToken': token } : {})
+                            },
+                            body: '' // no body needed
+                        });
+
+                        if (resp.ok) {
+                            const json = await resp.json();
+                            // Esperamos: { refreshed: true, counts: { contents: N, preguntas: M, categorias: K } }
+                            if (json && json.counts) {
+                                const c = json.counts;
+                                resultDiv.innerHTML = `<strong>Hecho:</strong> Contenidos ${c.contents ?? '-'}, Preguntas ${c.preguntas ?? '-'}, Categorías ${c.categorias ?? '-'}`;
+                            } else if (json && json.refreshed) {
+                                resultDiv.innerHTML = `<strong>Hecho:</strong> sitemap invalidado.`;
+                            } else {
+                                resultDiv.innerHTML = `<span style="color:#b45309">Respuesta inesperada.</span>`;
+                            }
+                        } else if (resp.status === 401 || resp.status === 403) {
+                            resultDiv.innerHTML = `<span style="color:#b45309">No autorizado. Inicia sesión/permiso admin.</span>`;
+                        } else {
+                            const txt = await resp.text();
+                            console.error('Refresh sitemap failed', resp.status, txt);
+                            resultDiv.innerHTML = `<span style="color:#b45309">Error al actualizar (status ${resp.status}).</span>`;
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        resultDiv.innerHTML = `<span style="color:#b45309">Error de red.</span>`;
+                    } finally {
+                        btn.disabled = false;
+                        btn.innerHTML = originalHtml;
+                    }
+                });
+            })();
 
             // Keep URL updated when user manually navigates DataTables controls (page/length/search handled on draw)
             // No extra wiring needed because drawCallback updates URL.

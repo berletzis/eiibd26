@@ -1,11 +1,13 @@
+// Program.cs (mejorado para proteger /Identity y permitir solo páginas públicas)
 using eiibd26.Data;
 using eiibd26.Helpers;
 using eiibd26.Models;
 using eiibd26.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authorization;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,7 +25,7 @@ builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
 
-// Cookie configuration (ya existente, se preserva)
+// Cookie configuration
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/Identity/Account/Login";
@@ -32,11 +34,10 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.Cookie.HttpOnly = true;
     options.ExpireTimeSpan = TimeSpan.FromHours(8);
     options.SlidingExpiration = true;
-    // opcional: asegurar cookie solo vía HTTPS en producción
-    // options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    // options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // activar en prod
 });
 
-// Authorization: pol��ticas y convenciones
+// Authorization: políticas
 builder.Services.AddAuthorization(options =>
 {
     // Política para administradores (ajusta el nombre del rol si tu DB usa otro)
@@ -45,26 +46,33 @@ builder.Services.AddAuthorization(options =>
         policy.RequireRole("Administrador");
     });
 
-    // Nota: no configuramos una FallbackPolicy global para no forzar autenticación
-    // en todas las páginas públicas. En su lugar usamos convenciones específicas.
+    // no definimos una FallbackPolicy global aquí porque se protegerá el area Identity por convención
 });
 
-// Register Razor Pages and add route convention so SEO URL /Preguntas/{slug} maps to the Detalles page
+// Register Razor Pages and add route convention + authorization conventions
 builder.Services.AddRazorPages()
     .AddRazorPagesOptions(options =>
     {
-        // Map the SEO-friendly route /Preguntas/{slug} to the page at /Preguntas/Detalles
+        // Map SEO-friendly route /Preguntas/{slug} -> /Preguntas/Detalles
         options.Conventions.AddPageRoute("/Preguntas/Detalles", "/Preguntas/{slug}");
 
-        // Protecciones por convención:
-        // Requiere autenticación para todas las páginas en /Identity/Usuario
-        options.Conventions.AuthorizeAreaFolder("Identity", "/Usuario");
+        // PROTECCIÓN: autorizar TODO el área Identity por defecto
+        options.Conventions.AuthorizeAreaFolder("Identity", "/");
 
-        // Requiere rol Administrador para todo lo bajo /Identity/Admin
+        // Exponer explícitamente las páginas públicas de Identity (permitir anónimo)
+        options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/Login");
+        options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/Register");
+        options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/ForgotPassword");
+        options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/ResetPassword");
+        options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/ConfirmEmail");
+        options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/AccessDenied");
+        // Si tienes otras páginas públicas (ConfirmEmailChange, ExternalLoginCallback...) añádelas también.
+
+        // Protección por roles (ejemplo): /Identity/Admin -> Administradores solamente
         options.Conventions.AuthorizeAreaFolder("Identity", "/Admin", "AdminOnly");
 
-        // Si necesitas exponer explícitamente la página de login como anónima (no necesario si solo proteges carpetas),
-        // puedes usar: options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/Login");
+        // Si quieres proteger sólo /Account/Manage puedes usar:
+        // options.Conventions.AuthorizeAreaFolder("Identity", "/Account/Manage");
     });
 
 builder.Services.AddControllers();
@@ -87,7 +95,7 @@ else
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
-// ===== MIDDLEWARE SEO (ANTES DE UseRouting) =====
+// ===== MIDDLEWARE SEO (antes de UseRouting) - mantengo tu lógica =====
 app.Use(async (context, next) =>
 {
     var path = context.Request.Path.Value ?? "";
@@ -141,7 +149,7 @@ app.Use(async (context, next) =>
     {
         var contentSlug = segments[1];
 
-        logger.LogInformation("=== CASO 1: Contenido sin categoría /c/{ContentSlug} ===", contentSlug);
+        logger.LogDebug("=== CASO 1: Contenido sin categoría /c/{ContentSlug} ===", contentSlug);
 
         var exists = await db.Contenidos
             .AsNoTracking()
@@ -149,23 +157,15 @@ app.Use(async (context, next) =>
 
         if (exists)
         {
-            logger.LogInformation("✅ Contenido existe, reescribiendo a /Contenidos/Detalle");
             context.Request.Path = "/Contenidos/Detalle";
             context.Request.QueryString = new QueryString($"?slug={Uri.EscapeDataString(contentSlug)}");
         }
-        else
-        {
-            logger.LogWarning("❌ Contenido /c/{ContentSlug} no existe", contentSlug);
-        }
     }
-
     // ===== CASO 2: /{categorySlug}/{contentSlug} → Contenido con categoría =====
     else if (segments.Length == 2)
     {
         var categorySlug = segments[0];
         var contentSlug = segments[1];
-
-        logger.LogInformation("=== CASO 2: Contenido con categoría /{CategorySlug}/{ContentSlug} ===", categorySlug, contentSlug);
 
         var category = await db.ContenidosCategorias
             .AsNoTracking()
@@ -175,8 +175,6 @@ app.Use(async (context, next) =>
 
         if (category != null)
         {
-            logger.LogInformation("✅ Categoría '{Nombre}' encontrada (ID={Sequence})", category.Nombre, category.Sequence);
-
             var contentId = await db.Contenidos
                 .AsNoTracking()
                 .Where(c => c.ContenidoTituloSlug == contentSlug && !c.Eliminado)
@@ -190,14 +188,11 @@ app.Use(async (context, next) =>
 
             if (contentId != 0)
             {
-                logger.LogInformation("✅ Contenido pertenece a la categoría, reescribiendo URL");
                 context.Request.Path = "/Contenidos/Detalle";
                 context.Request.QueryString = new QueryString($"?categorySlug={Uri.EscapeDataString(categorySlug)}&slug={Uri.EscapeDataString(contentSlug)}");
             }
             else
             {
-                logger.LogWarning("⚠️ Contenido NO pertenece a esta categoría, buscando categoría real...");
-
                 var content = await db.Contenidos
                     .AsNoTracking()
                     .Where(c => c.ContenidoTituloSlug == contentSlug && !c.Eliminado)
@@ -218,35 +213,22 @@ app.Use(async (context, next) =>
 
                     if (realCat != null && !string.IsNullOrWhiteSpace(realCat.CategoriaSlug))
                     {
-                        logger.LogInformation("🔄 Redirigiendo 301 a categoría real: /{RealCat}/{ContentSlug}", realCat.CategoriaSlug, contentSlug);
                         context.Response.Redirect($"/{realCat.CategoriaSlug}/{contentSlug}", permanent: true);
                         return;
                     }
                     else
                     {
-                        logger.LogInformation("🔄 Contenido sin categoría, redirigiendo a /c/{ContentSlug}", contentSlug);
                         context.Response.Redirect($"/c/{contentSlug}", permanent: true);
                         return;
                     }
                 }
-                else
-                {
-                    logger.LogWarning("❌ Contenido '{ContentSlug}' no existe", contentSlug);
-                }
             }
         }
-        else
-        {
-            logger.LogWarning("❌ Categoría '{CategorySlug}' no existe", categorySlug);
-        }
     }
-
     // ===== CASO 3: /{categorySlug} → Listado de categoría =====
     else if (segments.Length == 1)
     {
         var categorySlug = segments[0];
-
-        logger.LogInformation("=== CASO 3: Listado de categoría /{CategorySlug} ===", categorySlug);
 
         var exists = await db.ContenidosCategorias
             .AsNoTracking()
@@ -254,15 +236,9 @@ app.Use(async (context, next) =>
 
         if (exists)
         {
-            logger.LogInformation("✅ Categoría existe, reescribiendo a /Contenidos/categoria/{CategorySlug}", categorySlug);
-
-            // CORREGIDO: Usar la ruta correcta de la página Razor
+            // Reescribir a la página de categoría (ajusta si tienes otra ruta)
             context.Request.Path = $"/Contenidos/categoria/{categorySlug}";
             context.Request.QueryString = QueryString.Empty;
-        }
-        else
-        {
-            logger.LogWarning("❌ Categoría '{CategorySlug}' no existe", categorySlug);
         }
     }
     // ===== CASO 4: /u/{slug} → Perfil público de usuario =====
@@ -270,20 +246,13 @@ app.Use(async (context, next) =>
     {
         var userSlug = segments[1];
 
-        logger.LogInformation("=== CASO 4: Perfil público /u/{UserSlug} ===", userSlug);
-
         var exists = await db.Perfil
             .AsNoTracking()
             .AnyAsync(p => p.slug == userSlug);
 
         if (exists)
         {
-            logger.LogInformation("✅ Perfil público existe, procesando /u/{UserSlug}", userSlug);
-            // NO reescribir: ASP.NET Routing manejará /u/{slug} directamente
-        }
-        else
-        {
-            logger.LogWarning("❌ Perfil público /u/{UserSlug} no existe", userSlug);
+            // dejar que routing lo maneje
         }
     }
 
@@ -294,9 +263,11 @@ app.Use(async (context, next) =>
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Opcional: re-ejecutar NotFound en /NotFound
 app.UseStatusCodePagesWithReExecute("/NotFound");
 
-// Atajos de login
+// Shortcuts to login
 app.MapGet("/login", ctx =>
 {
     ctx.Response.Redirect("/Identity/Account/Login");
@@ -314,8 +285,21 @@ app.MapGet("/account/login", ctx =>
     ctx.Response.Redirect("/Identity/Account/Login");
     return Task.CompletedTask;
 });
+// Pega este fragmento en Program.cs (antes de app.MapControllers()/app.MapRazorPages())
+app.MapGet("/robots.txt", async ctx =>
+{
+    ctx.Response.ContentType = "text/plain; charset=utf-8";
+    var host = $"{ctx.Request.Scheme}://{ctx.Request.Host}";
+    var sb = new StringBuilder();
+    sb.AppendLine("User-agent: *");
+    sb.AppendLine("Disallow:");
+    sb.AppendLine(); // espacios opcionales
+    sb.AppendLine($"Sitemap: {host}/sitemap.xml");
+    await ctx.Response.WriteAsync(sb.ToString());
+});
 
 app.MapControllers();
 app.MapRazorPages();
+
 
 app.Run();

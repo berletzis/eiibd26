@@ -1,4 +1,4 @@
-using eiibd26.Models;
+﻿using eiibd26.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -309,7 +309,14 @@ namespace eiibd26.Pages.Mapa
                 var items = page.Select(o =>
                 {
                     var lm = latestMoodByUser.ContainsKey(o.idUser) ? latestMoodByUser[o.idUser] : null;
-                    string lastMood = lm != null ? (lm.EstadoMood ?? "") : "";
+
+                    // ✅ CAMBIO: Convertir el enum a int y luego a string para compatibilidad
+                    int? lastMoodNum = lm != null ? (int?)lm.EstadoMood : null;
+                    string lastMood = lastMoodNum.HasValue ? lastMoodNum.Value.ToString() : "";
+
+                    // También podemos enviar el nombre legible del enum
+                    string lastMoodLabel = lastMoodNum.HasValue ? lm.EstadoMood.ToString() : "";
+
                     string lastMoodText = lm != null ? (lm.Texto ?? "") : "";
                     string condNombre = o.condId.HasValue && condLookup.ContainsKey(o.condId.Value) ? condLookup[o.condId.Value] : "";
 
@@ -332,7 +339,7 @@ namespace eiibd26.Pages.Mapa
                         else
                         {
                             var years = (int)Math.Floor(span.TotalDays / 365.25);
-                            diagnosisAgeText = years == 1 ? "1 a�o" : (years + " a�os");
+                            diagnosisAgeText = years == 1 ? "1 año" : (years + " años");
                             yearsSinceDiagnosis = years;
                         }
                     }
@@ -352,7 +359,11 @@ namespace eiibd26.Pages.Mapa
                         hasFechaDiagnostico = o.condFechaInicio.HasValue,
                         yearsSinceDiagnosis = yearsSinceDiagnosis,
                         diagnosisAgeText = diagnosisAgeText,
+
+                        // ✅ CAMBIO: Enviar el valor numérico (1-5)
                         lastMood = lastMood,
+                        // Opcional: También enviar el nombre legible (MuyBien, Bien, etc.)
+                        lastMoodLabel = lastMoodLabel,
                         lastMoodText = lastMoodText
                     };
                 }).ToList();

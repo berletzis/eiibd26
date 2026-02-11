@@ -1,4 +1,4 @@
-using eiibd26.Data;
+Ôªøusing eiibd26.Data;
 using eiibd26.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,7 +19,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
         private readonly ApplicationDbContext _db;
         public DashboardModel(ApplicationDbContext db) => _db = db;
 
-        // VM que la vista y el partial consumir·n
+        // VM que la vista y el partial consumir√°n
         public DashboardViewModel VM { get; set; } = new DashboardViewModel();
 
         public async Task OnGetAsync()
@@ -36,7 +36,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 .Select(x => new MoodPoint
                 {
                     Fecha = x.FechaRegistro,
-                    Estado = x.EstadoMood,
+                    Estado = (int)x.EstadoMood,  // ‚úÖ Cast expl√≠cito
                     Texto = x.Texto,
                     RelacionNombre = x.CondicionUsuario != null ? x.CondicionUsuario.Condicion.nombre :
                                     (x.SintomaUsuario != null ? x.SintomaUsuario.Sintoma.nombre : null)
@@ -124,7 +124,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     topItems.Add(item);
                 }
 
-                // Rellenar Condiciones relacionadas (usando navegaciÛn)
+                // Rellenar Condiciones relacionadas (usando navegaci√≥n)
                 var scList = await _db.SintomaCondicionUsuario
                     .Where(sc => sc.IdUsuario == userGuid && sintomaUsuarioIds.Contains(sc.IdSintomaUsuario))
                     .Include(sc => sc.CondicionUsuario)
@@ -160,7 +160,6 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             }
 
             // ---------- Top Preguntas del usuario (top 2 por votos) ----------
-            // Obtenemos las preguntas del usuario y contamos respuestas
             var preguntasUsuario = await _db.Preguntas
                 .Where(p => p.UsuarioId == userGuid && !p.Eliminado)
                 .Select(p => new
@@ -171,7 +170,6 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 })
                 .ToListAsync();
 
-            // Votos: Votos.EntidadTipo == "Pregunta" and EntidadId is Guid
             var preguntaIds = preguntasUsuario.Select(p => p.Id).ToList();
             Dictionary<Guid, int> votosPreguntas = new Dictionary<Guid, int>();
             if (preguntaIds.Any())
@@ -236,20 +234,16 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             VM.Respuestas = respuestasVm;
 
             // ---------- Notifications / quick checks ----------
-            // Get ApplicationUser to inspect EmailConfirmed / PhoneNumberConfirmed
             var appUser = await _db.Users.FirstOrDefaultAsync(u => u.Id == userGuid);
             VM.EmailConfirmed = appUser?.EmailConfirmed ?? false;
             VM.PhoneNumberConfirmed = appUser?.PhoneNumberConfirmed ?? false;
 
-            // Has at least one condition?
             VM.HasAnyCondition = await _db.condicionUsuario.AnyAsync(c => c.idUsuario == userGuid && !c.Eliminado);
 
-            // Has mood today? Use FechaRegistro range [today,today+1)
             var todayStart = DateTime.Today;
             var todayEnd = DateTime.Today.AddDays(1);
             VM.HasMoodToday = await _db.EstadoAnimoUsuario.AnyAsync(m => m.IdUsuario == userGuid && m.FechaRegistro >= todayStart && m.FechaRegistro < todayEnd);
 
-            // New answers to user's questions in last 7 days (excluding user's own answers)
             var weekAgo = DateTimeOffset.UtcNow.AddDays(-7);
             var newAnswersCount = await _db.Respuestas
                 .Where(r => r.FechaCreacion >= weekAgo && r.UsuarioId != userGuid)
@@ -258,13 +252,9 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 .CountAsync();
             VM.NewAnswersCount = newAnswersCount;
 
-            // Scheduled items - placeholder (no table in current model). Keep 0 for now.
             VM.ScheduledItemsCount = 0;
         }
 
-        // POST handler: crea o actualiza registro en TrackingSintomaUsuario usando EF Core (LINQ)
-        // FIX: when creating/updating we must preserve the selected *day* but also ensure the stored timestamp makes the entry the most recent record for that day,
-        // so we set the time-of-day to current server time while keeping the chosen date. This avoids older timestamps on the same day overshadowing the saved value.
         public async Task<IActionResult> OnPostTrackSintomaMatriz()
         {
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -273,25 +263,22 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
             var form = Request.Form;
             if (!form.ContainsKey("sintomaUsuarioId") || !form.ContainsKey("estado") || !form.ContainsKey("fecha"))
-                return BadRequest(new { success = false, error = "Faltan par·metros." });
+                return BadRequest(new { success = false, error = "Faltan par√°metros." });
 
             if (!int.TryParse(form["sintomaUsuarioId"], out var sintomaUsuarioId))
-                return BadRequest(new { success = false, error = "sintomaUsuarioId inv·lido." });
+                return BadRequest(new { success = false, error = "sintomaUsuarioId inv√°lido." });
 
             var estado = form["estado"].ToString();
 
-            // Parsear fecha exactamente en formato yyyy-MM-dd (lo que enviamos desde JS)
             var fechaStr = form["fecha"].ToString();
             if (!DateTime.TryParseExact(fechaStr, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var fecha))
-                return BadRequest(new { success = false, error = "fecha inv·lida." });
+                return BadRequest(new { success = false, error = "fecha inv√°lida." });
 
             var dayStart = fecha.Date;
             var dayEnd = fecha.Date.AddDays(1).AddTicks(-1);
 
             try
             {
-                // Compose a timestamp that belongs to the requested date but has current time-of-day,
-                // so it will be considered the "latest" entry for that date when we group by Fecha.Date and pick most recent.
                 var now = DateTime.Now;
                 var timestampForRecord = fecha.Date.Add(now.TimeOfDay);
 
@@ -302,7 +289,6 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 if (existing != null)
                 {
                     existing.Estado = estado;
-                    // keep the date the user selected, but set the time-of-day to now so this entry becomes the most recent for that day
                     existing.Fecha = timestampForRecord;
                     _db.TrackingSintomaUsuario.Update(existing);
                     await _db.SaveChangesAsync();
@@ -324,7 +310,6 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             }
             catch (Exception ex)
             {
-                // log(ex) si tienes logger
                 return StatusCode(500, new { success = false, error = "Error interno al guardar." });
             }
         }
