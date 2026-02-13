@@ -1,6 +1,7 @@
-using eiibd26.Data;
+ï»¿using eiibd26.Data;
 using eiibd26.Models;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -14,6 +15,8 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Text.Encodings.Web;
+using Microsoft.AspNetCore.Identity.UI.Services;
 
 namespace eiibd26.Areas.Identity.Pages.Account
 {
@@ -23,17 +26,20 @@ namespace eiibd26.Areas.Identity.Pages.Account
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly ILogger<RegisterModel> _logger;
         private readonly ApplicationDbContext _db;
+        private readonly IEmailSender _emailSender; // âœ… NUEVO
 
         public RegisterModel(
             UserManager<ApplicationUser> userManager,
             SignInManager<ApplicationUser> signInManager,
             ILogger<RegisterModel> logger,
-            ApplicationDbContext db)
+            ApplicationDbContext db,
+            IEmailSender emailSender) // âœ… NUEVO
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _logger = logger;
             _db = db;
+            _emailSender = emailSender; // âœ… NUEVO
         }
 
         [BindProperty]
@@ -46,30 +52,30 @@ namespace eiibd26.Areas.Identity.Pages.Account
 
         public class InputModel
         {
-            [Required(ErrorMessage = "El correo electrónico es requerido.")]
-            [EmailAddress(ErrorMessage = "Ingrese un correo válido.")]
-            [Display(Name = "Correo electrónico")]
+            [Required(ErrorMessage = "El correo electrÃ³nico es requerido.")]
+            [EmailAddress(ErrorMessage = "Ingrese un correo vÃ¡lido.")]
+            [Display(Name = "Correo electrÃ³nico")]
             public string Email { get; set; }
 
-            [Required(ErrorMessage = "La contraseña es requerida.")]
-            [StringLength(100, ErrorMessage = "La {0} debe tener al menos {2} y máximo {1} caracteres.", MinimumLength = 6)]
+            [Required(ErrorMessage = "La contraseÃ±a es requerida.")]
+            [StringLength(100, ErrorMessage = "La {0} debe tener al menos {2} y mÃ¡ximo {1} caracteres.", MinimumLength = 6)]
             [DataType(DataType.Password)]
-            [Display(Name = "Contraseña")]
+            [Display(Name = "ContraseÃ±a")]
             public string Password { get; set; }
 
             [DataType(DataType.Password)]
-            [Display(Name = "Confirmar contraseña")]
-            [Compare("Password", ErrorMessage = "La contraseña y su confirmación no coinciden.")]
+            [Display(Name = "Confirmar contraseÃ±a")]
+            [Compare("Password", ErrorMessage = "La contraseÃ±a y su confirmaciÃ³n no coinciden.")]
             public string ConfirmPassword { get; set; }
 
-            // País (obligatorio)
-            [Required(ErrorMessage = "Selecciona un país.")]
-            [Display(Name = "País")]
+            // PaÃ­s (obligatorio)
+            [Required(ErrorMessage = "Selecciona un paÃ­s.")]
+            [Display(Name = "PaÃ­s")]
             public string PaisCodigo { get; set; }
 
-            // Condición padre (obligatoria)
-            [Required(ErrorMessage = "Selecciona una condición.")]
-            [Display(Name = "Condición (padre)")]
+            // CondiciÃ³n padre (obligatoria)
+            [Required(ErrorMessage = "Selecciona una condiciÃ³n.")]
+            [Display(Name = "CondiciÃ³n (padre)")]
             public int? CondicionPadreId { get; set; }
         }
 
@@ -93,7 +99,7 @@ namespace eiibd26.Areas.Identity.Pages.Account
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error cargando países para registro.");
+                _logger.LogError(ex, "Error cargando paÃ­ses para registro.");
                 PaisesSelectList = new SelectList(Enumerable.Empty<SelectListItem>());
             }
         }
@@ -148,19 +154,44 @@ namespace eiibd26.Areas.Identity.Pages.Account
 
             _logger.LogInformation("Usuario creado: {Email}", user.Email);
 
-            // Añadir claim de email (opcional)
-            await _userManager.AddClaimAsync(user, new Claim(ClaimTypes.Email, user.Email));
-
-            // Crear perfil asociado con la información mínima solicitada
+            // âœ… NUEVO: Generar token y enviar email de confirmaciÃ³n
             try
             {
-                // En tu ApplicationDbContext IdentityDbContext<..., Guid>, user.Id es Guid
-                Guid userGuid = user.Id;
+                var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+                var callbackUrl = Url.Page(
+                    "/Account/ConfirmEmail",
+                    pageHandler: null,
+                    values: new { area = "Identity", userId = user.Id, code = code, returnUrl = returnUrl },
+                    protocol: Request.Scheme);
 
-                // Guardar el código del país directamente en NombrePais (puedes cambiar a PaisCodigo si agregas la columna)
+                var emailBody = $@"
+            <h2>Bienvenido a eiibd</h2>
+            <p>Por favor confirma tu cuenta haciendo <a href='{System.Text.Encodings.Web.HtmlEncoder.Default.Encode(callbackUrl)}'>clic aquÃ­</a>.</p>
+            <p>Si no creaste esta cuenta, ignora este mensaje.</p>
+        ";
+
+                await _emailSender.SendEmailAsync(Input.Email, "Confirma tu correo electrÃ³nico", emailBody);
+
+                _logger.LogInformation("Email de confirmaciÃ³n enviado a {Email}", Input.Email);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error enviando email de confirmaciÃ³n a {Email}", Input.Email);
+                // No interrumpimos el flujo, pero lo registramos
+            }
+
+            // AÃ±adir claim de email (opcional)
+            await _userManager.AddClaimAsync(user, new Claim(ClaimTypes.Email, user.Email));
+
+            // Variable para guardar el slug generado
+            string slugGenerado = null;
+
+            // Crear perfil asociado con la informaciÃ³n mÃ­nima solicitada
+            try
+            {
+                Guid userGuid = user.Id;
                 string codigoPais = Input.PaisCodigo;
 
-                // Rellenamos campos obligatorios del modelo Perfil con valores por defecto razonables
                 var emailLocal = (user.Email ?? "usuario").Split('@')[0];
                 if (string.IsNullOrWhiteSpace(emailLocal))
                     emailLocal = "usuario";
@@ -170,54 +201,47 @@ namespace eiibd26.Areas.Identity.Pages.Account
                 var perfil = new Perfil
                 {
                     idUser = userGuid,
-                    Avatar = avatarUrl,                     // [Required]
-                    Titulo = string.Empty,                  // [Required]
+                    Avatar = avatarUrl,
+                    Titulo = string.Empty,
                     Nombre = string.Empty,
                     Apellidos = string.Empty,
                     FechaDeNacimiento = null,
-                    
                     idZone = null,
                     FechaCreacion = DateTime.UtcNow,
                     UltimaActividad = DateTime.UtcNow,
-                    // slug se generará justo a continuación
                     slug = null,
                     Genero = null,
-                    Latitud = "0",                          // [Required]
-                    Longitud = "0",                         // [Required]
+                    Latitud = "0",
+                    Longitud = "0",
                     NombreCiudad = null,
-                    NombrePais = codigoPais,                // guarda la clave/código del país
+                    NombrePais = codigoPais,
                     AceptoPP = null,
-                    
                     AcercaDe = null,
-                    
                     UsuarioModificacion = null,
                     UsuarioCreacion = null,
                     FechaModificado = null,
                     FechaCreado = DateTime.UtcNow,
-                    
                     PermitirTelefonoReal = true,
                     PermitirCorreoNoticias = true,
                     PermitirMostrarPais = true
                 };
 
-                // Generar slug inicial a partir del local-part del email y asegurar unicidad
                 try
                 {
                     var slugCandidate = await GenerateUniqueSlugAsync(emailLocal);
                     perfil.slug = slugCandidate;
+                    slugGenerado = slugCandidate;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "No se pudo generar slug único automáticamente para {EmailLocal}. Dejo slug en null.", emailLocal);
+                    _logger.LogWarning(ex, "No se pudo generar slug Ãºnico automÃ¡ticamente para {EmailLocal}. Dejo slug en null.", emailLocal);
                     perfil.slug = null;
                 }
 
                 _db.Perfil.Add(perfil);
 
-                // Vincular la condición seleccionada al usuario (ajustado al modelo condicionUsuario)
                 if (Input.CondicionPadreId.HasValue)
                 {
-                    // Agregar la condición seleccionada por el usuario
                     var condicionUsuarioPrincipal = new condicionUsuario
                     {
                         idCondicion = Input.CondicionPadreId.Value,
@@ -229,9 +253,6 @@ namespace eiibd26.Areas.Identity.Pages.Account
                     };
                     _db.condicionUsuario.Add(condicionUsuarioPrincipal);
 
-                    // Reglas adicionales:
-                    // - Si la condición seleccionada ES 1 -> además agregar condicionUsuario con idCondicion = 20
-                    // - Si la condición seleccionada ES 7 -> además agregar condicionUsuario con idCondicion = 19
                     if (Input.CondicionPadreId.Value == 1)
                     {
                         var extra1 = new condicionUsuario
@@ -261,27 +282,46 @@ namespace eiibd26.Areas.Identity.Pages.Account
                 }
 
                 await _db.SaveChangesAsync();
+
+                try
+                {
+                    await _signInManager.SignInAsync(user, isPersistent: false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "No se pudo iniciar sesiÃ³n automÃ¡ticamente para {Email}", user.Email);
+                }
+
+                // âœ… NUEVO: Marcar que es un registro nuevo
+                TempData["IsNewRegistration"] = true;
+
+                // âœ… ACTUALIZADO: Redirigir SIEMPRE a Manage/Index despuÃ©s del registro
+                return RedirectToPage("/Account/Manage/Index", new { area = "Identity" });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creando perfil o condicionesUsuario para el usuario {Email}", user.Email);
-                // No interrumpimos el flujo principal por este error.
             }
 
-            // Intentamos iniciar sesión (ten en cuenta SignIn.RequireConfirmedAccount en Program.cs)
+            // Intentamos iniciar sesiÃ³n
             try
             {
                 await _signInManager.SignInAsync(user, isPersistent: false);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "No se pudo iniciar sesión automáticamente para {Email}", user.Email);
+                _logger.LogWarning(ex, "No se pudo iniciar sesiÃ³n automÃ¡ticamente para {Email}", user.Email);
             }
 
-            // Redirigimos al usuario a su perfil para que complete los datos
-            //return RedirectToPage("/Usuario/UsuarioPerfil", new { area = "Identity" });
-            // Redirigir al dashboard después del registro exitoso
-            return RedirectToPage("/Usuario/Dashboard", new { area = "Identity" });
+            // Redirigir
+            if (!string.IsNullOrWhiteSpace(slugGenerado))
+            {
+                return Redirect($"/u/{slugGenerado}");
+            }
+            else
+            {
+                return RedirectToPage("/Usuario/Dashboard", new { area = "Identity" });
+            }
         }
 
         // Genera un slug "limpio" a partir de texto
@@ -306,7 +346,7 @@ namespace eiibd26.Areas.Identity.Pages.Account
             return text;
         }
 
-        // Genera un slug único en la tabla Perfil (añade -1, -2, ... si es necesario)
+        // Genera un slug Ãºnico en la tabla Perfil (aÃ±ade -1, -2, ... si es necesario)
         private async Task<string> GenerateUniqueSlugAsync(string baseText)
         {
             var baseSlug = Slugify(baseText);
@@ -323,7 +363,7 @@ namespace eiibd26.Areas.Identity.Pages.Account
                 candidate = $"{baseSlug}-{suffix}";
                 if (suffix > 10000) // safety guard
                 {
-                    _logger.LogWarning("Generación de slug alcanzó límite de intentos para base '{BaseSlug}'", baseSlug);
+                    _logger.LogWarning("GeneraciÃ³n de slug alcanzÃ³ lÃ­mite de intentos para base '{BaseSlug}'", baseSlug);
                     break;
                 }
             }

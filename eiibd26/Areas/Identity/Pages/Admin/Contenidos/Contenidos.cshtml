@@ -1,5 +1,5 @@
 ﻿@page
-@model eiibd26.Areas.Identity.Pages.Admin.Contenidos.IndexModel
+@model eiibd26.Areas.Identity.Pages.Admin.Contenidos.ContenidosModel
 
 @section Styles {
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" />
@@ -302,6 +302,11 @@
                     Administre, edite y publique todos los contenidos del sistema.
                 </div>
             </div>
+            <div>
+                <a asp-page="./Detalle" class="btn btn-primary">
+                    <i class="bi bi-plus-lg"></i> Nuevo contenido
+                </a>
+            </div>
         </div>
     </div>
 
@@ -388,16 +393,30 @@
         let contenidosTabla;
 
         $(function() {
+        console.log('✅ Inicializando DataTable para Contenidos (POST con switches)');
+            
         contenidosTabla = $('#contenidosGrid').DataTable({
         processing: true,
         serverSide: true,
         dom: 'lfrtip',
         ajax: {
-        url: '@Url.Page(null, "GridData")',
-        type: 'GET',
+        url: '/Identity/Admin/Contenidos/Contenidos?handler=GridData',
+        type: 'POST',
         data: function(d) {
-        d.mostrarEliminados = $('#switchEliminados').is(':checked');
-        d.mostrarBorradores = $('#switchBorradores').is(':checked');
+        d.mostrarEliminados = $('#switchEliminados').is(':checked') ? 'true' : 'false';
+        d.mostrarBorradores = $('#switchBorradores').is(':checked') ? 'true' : 'false';
+        console.log('📤 Parámetros (POST):', {
+        eliminados: d.mostrarEliminados,
+        borradores: d.mostrarBorradores
+        });
+        },
+        error: function(xhr, error, code) {
+        console.error('❌ Error AJAX:', { status: xhr.status, error: error, code: code });
+        console.error('❌ Response:', xhr.responseText);
+        },
+        dataSrc: function(json) {
+        console.log('✅ Datos recibidos:', json);
+        return json.data;
         }
         },
         columns: [
@@ -480,9 +499,14 @@
         language: {
         emptyTable: "No hay contenidos registrados.",
         search: "Buscar:",
-        lengthMenu: "Mostrar _MENU_ registros"
+        lengthMenu: "Mostrar _MENU_ registros",
+        processing: "Procesando...",
+        loadingRecords: "Cargando...",
+        zeroRecords: "No se encontraron resultados"
         },
         initComplete: function(settings, json) {
+        console.log('✅ DataTable inicializado correctamente');
+                    
         if ($('#contenidosGrid_length').length) {
         const $length = $('#contenidosGrid_length');
         $length.css({ display: 'inline-flex', 'align-items': 'center', margin: '0', 'white-space': 'nowrap' });
@@ -497,18 +521,25 @@
         });
 
         $('#switchEliminados, #switchBorradores').change(function() {
+        console.log('🔄 Recargando grid con switches:', {
+        eliminados: $('#switchEliminados').is(':checked'),
+        borradores: $('#switchBorradores').is(':checked')
+        });
         contenidosTabla.ajax.reload();
         });
 
         $('#contenidosGrid').on('click', '.btn-borrar', function() {
         const id = $(this).data('id');
+        console.log('🗑️ Eliminando contenido:', id);
+                
         if (confirm('¿Seguro que desea eliminar este contenido?')) {
         $.ajax({
-        url: '@Url.Page(null, "EliminarContenido")',
+        url: '/Identity/Admin/Contenidos/Contenidos?handler=EliminarContenido',
         type: "POST",
         data: $.param({ id: id }),
         contentType: "application/x-www-form-urlencoded; charset=UTF-8",
         success: function(response) {
+        console.log('✅ Respuesta eliminar:', response);
         if (response.success) {
         contenidosTabla.ajax.reload(null, false);
         } else {
@@ -516,6 +547,7 @@
         }
         },
         error: function(xhr, status, error) {
+        console.error('❌ Error:', { status: xhr.status, error: error });
         alert('Error al eliminar: ' + error);
         }
         });
@@ -524,13 +556,16 @@
 
         $('#contenidosGrid').on('click', '.btn-restaurar', function() {
         const id = $(this).data('id');
+        console.log('♻️ Restaurando contenido:', id);
+                
         if (confirm('¿Seguro que desea restaurar este contenido?')) {
         $.ajax({
-        url: '@Url.Page(null, "RestaurarContenido")',
+        url: '/Identity/Admin/Contenidos/Contenidos?handler=RestaurarContenido',
         type: "POST",
         data: $.param({ id: id }),
         contentType: "application/x-www-form-urlencoded; charset=UTF-8",
         success: function(response) {
+        console.log('✅ Respuesta restaurar:', response);
         if (response.success) {
         contenidosTabla.ajax.reload(null, false);
         } else {
@@ -538,6 +573,7 @@
         }
         },
         error: function(xhr, status, error) {
+        console.error('❌ Error:', { status: xhr.status, error: error });
         alert('Error al restaurar: ' + error);
         }
         });

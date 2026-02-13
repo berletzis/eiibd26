@@ -195,14 +195,23 @@
         }
 
             .datosRelacionados-list .badge-cat {
-                display: inline-block;
+                display: block;
                 background: #eef5ff;
                 color: #24527a;
-                padding: 6px 10px;
+                padding: 8px 12px;
                 border-radius: 999px;
                 font-size: .85rem;
-                margin: 6px 6px 0 0;
+                text-align: center;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                cursor: help;
+                transition: background 0.2s;
             }
+
+                .datosRelacionados-list .badge-cat:hover {
+                    background: #dbeafe;
+                }
 
         .meta-card {
             padding: 12px;
@@ -238,27 +247,37 @@
 
         .related-card {
             display: flex;
-            gap: 10px;
-            align-items: center;
-            margin-bottom: 12px;
+            flex-direction: column;
+            margin-bottom: 16px;
             background: #fff;
             border-radius: 10px;
-            padding: 10px;
+            padding: 0;
             border: 1px solid #eef2f7;
+            overflow: hidden;
+            transition: box-shadow 0.2s;
         }
 
+            .related-card:hover {
+                box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            }
+
             .related-card img {
-                width: 64px;
-                height: 48px;
+                width: 100%;
+                height: 180px;
                 object-fit: cover;
-                border-radius: 8px;
-                flex: 0 0 64px;
+                border-radius: 0;
+            }
+
+            .related-card > div {
+                padding: 12px;
             }
 
             .related-card .r-title {
-                font-size: .95rem;
-                font-weight: 100;
+                font-size: 1rem;
+                font-weight: 500;
                 color: #0f172a;
+                margin-bottom: 6px;
+                line-height: 1.3;
             }
 
             .related-card .r-meta {
@@ -298,6 +317,32 @@
             margin-bottom: 10px;
             font-weight: 100;
             font-size: .95rem;
+        }
+
+        /* Grid para artículos relacionados - 3 columnas */
+        .related-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-top: 12px;
+        }
+
+        /* Ocultar tab de Contenido similar */              
+        .tab-btn[data-panel="tab-similar"],
+        #tab-similar {
+            display: none !important;
+        }
+
+        @@media (max-width: 991px) {
+            .related-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+                
+        @@media (max-width: 768px) {
+            .related-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
             .pregunta-card a {
@@ -445,32 +490,31 @@
                     <div id="tab-manual" class="tab-panel active" role="tabpanel" aria-hidden="false">
                         @if (Model.Item?.ManualRelated?.Any() == true)
                         {
-                            @foreach (var r in Model.Item.ManualRelated)
-                            {
-                                <a href="@(Url.Page("/Contenidos/Detalle", new { slug = string.IsNullOrWhiteSpace(r.Slug) ? (object)r.Id : r.Slug }))" style="text-decoration:none;color:inherit;">
-                                    <div class="related-card" title="@r.Note">
-                                        @if (!string.IsNullOrWhiteSpace(r.ImageUrl))
-                                        {
-                                            <img src="@r.ImageUrl" alt="@r.Title" />
-                                        }
-                                        else
-                                        {
-                                            <div style="width:64px;height:48px;background:#f3f6fa;border-radius:8px;flex:0 0 64px;"></div>
-                                        }
-                                        <div>
-                                            <div style="display:flex;gap:8px;align-items:center;">
-                                                <div class="r-title">@r.Title</div>
-                                                <span style="background:#eef5ff;color:#24527a;padding:4px 8px;border-radius:999px;font-size:.72rem;margin-left:8px;">Manual</span>
-                                            </div>
-                                            <div class="r-meta">@r.CreatedAt.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</div>
-                                            @if (!string.IsNullOrWhiteSpace(r.Note))
+                            <div class="related-grid">
+                                @foreach (var r in Model.Item.ManualRelated)
+                                {
+                                    <a href="@(!string.IsNullOrWhiteSpace(r.SeoUrl) ? r.SeoUrl : ("/c/" + (string.IsNullOrWhiteSpace(r.Slug) ? r.Id.ToString() : r.Slug)))" style="text-decoration:none;color:inherit;">
+                                        <div class="related-card" title="@r.Note">
+                                            @if (!string.IsNullOrWhiteSpace(r.ImageUrl))
                                             {
-                                                <div style="font-size:.78rem;color:#6b7280;margin-top:4px;">@r.Note</div>
+                                                <img src="@r.ImageUrl" alt="@r.Title" loading="lazy" />
                                             }
+                                            else
+                                            {
+                                                <div style="width:100%;height:180px;background:#f3f6fa;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:3rem;"><i class="bi bi-file-text"></i></div>
+                                            }
+                                            <div>
+                                                <div class="r-title">@r.Title</div>
+                                                <div class="r-meta">@r.CreatedAt.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</div>
+                                                @if (!string.IsNullOrWhiteSpace(r.Note))
+                                                {
+                                                    <div style="font-size:.82rem;color:#6b7280;margin-top:6px;">@r.Note</div>
+                                                }
+                                            </div>
                                         </div>
-                                    </div>
-                                </a>
-                            }
+                                    </a>
+                                }
+                            </div>
                         }
                         else
                         {
@@ -481,25 +525,27 @@
                     <div id="tab-reco" class="tab-panel" role="tabpanel" aria-hidden="true">
                         @if (Model.Item?.RelatedByCategories?.Any() == true)
                         {
-                            @foreach (var r in Model.Item.RelatedByCategories)
-                            {
-                                <a href="@(Url.Page("/Contenidos/Detalle", new { slug = string.IsNullOrWhiteSpace(r.Slug) ? (object)r.Id : r.Slug }))" style="text-decoration:none;color:inherit;">
-                                    <div class="related-card" title="@r.Note">
-                                        @if (!string.IsNullOrWhiteSpace(r.ImageUrl))
-                                        {
-                                            <img src="@r.ImageUrl" alt="@r.Title" />
-                                        }
-                                        else
-                                        {
-                                            <div style="width:64px;height:48px;background:#f3f6fa;border-radius:8px;flex:0 0 64px;"></div>
-                                        }
-                                        <div>
-                                            <div class="r-title">@r.Title</div>
-                                            <div class="r-meta">@r.CreatedAt.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</div>
+                            <div class="related-grid">
+                                @foreach (var r in Model.Item.RelatedByCategories)
+                                {
+                                    <a href="@(!string.IsNullOrWhiteSpace(r.SeoUrl) ? r.SeoUrl : ("/c/" + (string.IsNullOrWhiteSpace(r.Slug) ? r.Id.ToString() : r.Slug)))" style="text-decoration:none;color:inherit;">
+                                        <div class="related-card" title="@r.Note">
+                                            @if (!string.IsNullOrWhiteSpace(r.ImageUrl))
+                                            {
+                                                <img src="@r.ImageUrl" alt="@r.Title" loading="lazy" />
+                                            }
+                                            else
+                                            {
+                                                <div style="width:100%;height:180px;background:#f3f6fa;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:3rem;"><i class="bi bi-file-text"></i></div>
+                                            }
+                                            <div>
+                                                <div class="r-title">@r.Title</div>
+                                                <div class="r-meta">@r.CreatedAt.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</div>
+                                            </div>
                                         </div>
-                                    </div>
-                                </a>
-                            }
+                                    </a>
+                                }
+                            </div>
                         }
                         else
                         {
@@ -509,7 +555,7 @@
 
                     <div id="tab-similar" class="tab-panel" role="tabpanel" aria-hidden="true">
                         <div class="similar-internet">
-                            <p<style="margin-top:0;margin-bottom:8px;">Artículos similares encontrados en la web:</p>
+                            <p style="margin-top:0;margin-bottom:8px;">Artículos similares encontrados en la web:</p>
                             <ul>
                                 <li>No hay resultados externos configurados. Aquí puedes mostrar resultados de búsqueda (Google, Bing, etc.) o un widget externo.</li>
                             </ul>
@@ -566,7 +612,7 @@
                     {
                         foreach (var n in Model.Item.ManualCondiciones)
                         {
-                            <div class="badge-cat">@n</div>
+                            <div class="badge-cat" title="@n">@n</div>
                         }
                     }
                     else
@@ -583,7 +629,7 @@
                     {
                         foreach (var n in Model.Item.ManualSintomas)
                         {
-                            <div class="badge-cat">@n</div>
+                            <div class="badge-cat" title="@n">@n</div>
                         }
                     }
                     else
@@ -600,7 +646,7 @@
                     {
                         foreach (var n in Model.Item.ManualTratamientos)
                         {
-                            <div class="badge-cat">@n</div>
+                            <div class="badge-cat" title="@n">@n</div>
                         }
                     }
                     else

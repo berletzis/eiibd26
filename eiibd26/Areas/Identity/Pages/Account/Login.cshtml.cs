@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 #nullable disable
 
@@ -56,7 +56,7 @@ namespace eiibd26.Areas.Identity.Pages.Account
             [DataType(DataType.Password)]
             public string Password { get; set; }
 
-            [Display(Name = "�Recordar mis datos?")]
+            [Display(Name = "¿Recordar mis datos?")]
             public bool RememberMe { get; set; }
         }
 
@@ -77,8 +77,21 @@ namespace eiibd26.Areas.Identity.Pages.Account
 
         public async Task<IActionResult> OnPostAsync(string returnUrl = null)
         {
-            returnUrl ??= Url.Content("~/Identity/Usuario/Dashboard");
             ExternalLogins = (await _signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
+
+            // ✅ CORREGIDO: Filtrar returnUrl no deseados
+            if (!string.IsNullOrEmpty(returnUrl))
+            {
+                // Rechazar returnUrl si apunta a Logout, Login, Register, etc.
+                var invalidPaths = new[] { "/logout", "/login", "/register", "/account/logout", "/account/login" };
+                if (invalidPaths.Any(p => returnUrl.Contains(p, StringComparison.OrdinalIgnoreCase)))
+                {
+                    returnUrl = null;
+                }
+            }
+
+            // Si no hay returnUrl válido, usar Dashboard por defecto
+            returnUrl ??= Url.Content("~/Identity/Usuario/Dashboard");
 
             if (ModelState.IsValid)
             {
@@ -88,20 +101,28 @@ namespace eiibd26.Areas.Identity.Pages.Account
                 if (user != null && IsHashInvalid(user.PasswordHash))
                 {
                     // Mensaje por seguridad
-                    ResetPasswordMessage = "Por seguridad debes realizar el cambio de contrase�a.";
+                    ResetPasswordMessage = "Por seguridad debes realizar el cambio de contraseña.";
                     var token = await _userManager.GeneratePasswordResetTokenAsync(user);
                     var tokenBytes = Encoding.UTF8.GetBytes(token);
                     var encodedToken = WebEncoders.Base64UrlEncode(tokenBytes);
                     return RedirectToPage("./ResetPassword", new { email = Input.Email, code = encodedToken });
                 }
 
-                // Esto no cuenta fallos hacia el lockout
-                var result = await _signInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: false);
+                // ✅ SEGURIDAD: Habilitar lockout para protección contra fuerza bruta
+                var result = await _signInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: true);
 
                 if (result.Succeeded)
                 {
-                    _logger.LogInformation("User logged in.");
-                    return LocalRedirect(returnUrl);
+                    _logger.LogInformation("Usuario {Email} inició sesión correctamente.", Input.Email);
+
+                    // ✅ Validar que returnUrl sea local y seguro
+                    if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+                    {
+                        return LocalRedirect(returnUrl);
+                    }
+
+                    // ✅ Por defecto, ir al Dashboard
+                    return RedirectToPage("/Usuario/Dashboard", new { area = "Identity" });
                 }
                 if (result.RequiresTwoFactor)
                 {
@@ -114,7 +135,7 @@ namespace eiibd26.Areas.Identity.Pages.Account
                 }
                 else
                 {
-                    ModelState.AddModelError(string.Empty, "Intento de Inicio de Sesi�n Incorrecto.");
+                    ModelState.AddModelError(string.Empty, "Intento de Inicio de Sesión Incorrecto.");
                     return Page();
                 }
             }
@@ -123,12 +144,12 @@ namespace eiibd26.Areas.Identity.Pages.Account
             return Page();
         }
 
-        // L�gica auxiliar para detectar hash inv�lido
+        // Lógica auxiliar para detectar hash inválido
         private bool IsHashInvalid(string passwordHash)
         {
             return string.IsNullOrEmpty(passwordHash)
                 || passwordHash.Length < 50 // Los hashes Identity .NET normalmente tienen 60+
-                || !passwordHash.StartsWith("AQAAAA"); // Prefijo t�pico de Identity
+                || !passwordHash.StartsWith("AQAAAA"); // Prefijo típico de Identity
         }
     }
 }

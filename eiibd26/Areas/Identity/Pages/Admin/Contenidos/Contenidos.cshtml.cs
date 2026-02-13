@@ -1,51 +1,72 @@
+using eiibd26.Data;
+using eiibd26.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
-using eiibd26.Data;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Collections.Generic;
 
 namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 {
     //[Authorize(Roles = "Administrador")]
     [IgnoreAntiforgeryToken]
-    public class IndexModel : PageModel
+    public class ContenidosModel : PageModel
     {
         private readonly ApplicationDbContext _db;
 
-        public IndexModel(ApplicationDbContext db)
+        public ContenidosModel(ApplicationDbContext db)
         {
-            System.Diagnostics.Debug.WriteLine("*** Constructor Contenidos/IndexModel ejecutado ***");
+            System.Diagnostics.Debug.WriteLine("*** Constructor ContenidosModel ejecutado ***");
             _db = db;
         }
 
-        public void OnGet() { }
-
-        public async Task<IActionResult> OnGetGridDataAsync(bool mostrarEliminados = false)
+        public void OnGet()
         {
-            var draw = int.TryParse(Request.Query["draw"], out var dVal) ? dVal : 1;
-            var start = int.TryParse(Request.Query["start"], out var sVal) ? sVal : 0;
-            var length = int.TryParse(Request.Query["length"], out var lVal) ? lVal : 10;
-            var searchValue = Request.Query["search[value]"].ToString();
+            System.Diagnostics.Debug.WriteLine("*** OnGet() ContenidosModel ejecutado ***");
+        }
 
-            var mostrarBorradoresStr = Request.Query["mostrarBorradores"].ToString();
-            bool mostrarBorradores = mostrarBorradoresStr == "1"
-                || mostrarBorradoresStr.Equals("true", StringComparison.OrdinalIgnoreCase)
+        public async Task<IActionResult> OnPostGridData()
+        {
+            System.Diagnostics.Debug.WriteLine("========= ENTRA AL HANDLER GridData (POST) ==========");
+
+            var draw = int.TryParse(Request.Form["draw"], out var dVal) ? dVal : 1;
+            var start = int.TryParse(Request.Form["start"], out var sVal) ? sVal : 0;
+            var length = int.TryParse(Request.Form["length"], out var lVal) ? lVal : 10;
+            var searchValue = Request.Form["search[value]"].ToString();
+
+            // ✅ Leer switches desde Request.Form
+            var mostrarEliminadosStr = Request.Form["mostrarEliminados"].ToString();
+            bool mostrarEliminados = mostrarEliminadosStr.Equals("true", StringComparison.OrdinalIgnoreCase)
+                || mostrarEliminadosStr == "1"
+                || mostrarEliminadosStr.Equals("on", StringComparison.OrdinalIgnoreCase);
+
+            var mostrarBorradoresStr = Request.Form["mostrarBorradores"].ToString();
+            bool mostrarBorradores = mostrarBorradoresStr.Equals("true", StringComparison.OrdinalIgnoreCase)
+                || mostrarBorradoresStr == "1"
                 || mostrarBorradoresStr.Equals("on", StringComparison.OrdinalIgnoreCase);
 
-            var allItems = await _db.Contenidos
-                .Where(c => mostrarEliminados || !c.Eliminado)
-                .Where(c => string.IsNullOrEmpty(searchValue) || c.ContenidoTitulo.Contains(searchValue))
-                .Where(c => mostrarBorradores || c.EstadoPublicacion != 0)
+            System.Diagnostics.Debug.WriteLine($"[GridData POST] mostrarEliminados={mostrarEliminados}, mostrarBorradores={mostrarBorradores}");
+
+            // ✅ Si mostrar eliminados, ignorar el filtro global
+            IQueryable<Contenido> query = mostrarEliminados
+                ? _db.Contenidos.IgnoreQueryFilters()  // ✅ Ignorar filtro global para ver eliminados
+                : _db.Contenidos;
+
+            var allItems = await query
+                .Where(c => mostrarEliminados || !c.Eliminado)  // Filtro adicional si no se muestran eliminados
+                .Where(c => string.IsNullOrEmpty(searchValue) ||
+                    c.ContenidoTitulo.Contains(searchValue) ||
+                    (c.ContenidoTextoC != null && c.ContenidoTextoC.Contains(searchValue)))
+                .Where(c => mostrarBorradores || (c.EstadoPublicacion != null && c.EstadoPublicacion != 0))
                 .Select(c => new {
                     id = c.Id,
-                    titulo = c.ContenidoTitulo,
-                    descripcion = c.ContenidoTextoC,
-                    tipo = c.IdTipo,
-                    publicado = c.EstadoPublicacion,
+                    titulo = c.ContenidoTitulo ?? "",
+                    descripcion = c.ContenidoTextoC ?? "",
+                    tipo = c.IdTipo ?? 0,
+                    publicado = c.EstadoPublicacion ?? 0,
                     fechaCreado = c.FechaCreado,
                     eliminado = c.Eliminado,
                     imagenUrlRaw = c.URLImagenPrincipal
@@ -73,6 +94,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 })
                 .ToList();
 
+            System.Diagnostics.Debug.WriteLine($"[GridData POST] Registros devueltos: {data.Count} (Eliminados: {data.Count(d => d.eliminado)})");
+
             return new JsonResult(new
             {
                 draw,
@@ -82,7 +105,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             });
         }
 
-        public async Task<IActionResult> OnGetGetContenidoAsync(int id)
+        public async Task<IActionResult> OnGetGetContenido(int id)
         {
             var c = await _db.Contenidos
                 .AsNoTracking()
@@ -93,15 +116,15 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             return new JsonResult(new
             {
                 id = c.Id,
-                titulo = c.ContenidoTitulo,
-                descripcion = c.ContenidoTextoC,
-                tipo = c.IdTipo,
-                publicado = c.EstadoPublicacion,
+                titulo = c.ContenidoTitulo ?? "",
+                descripcion = c.ContenidoTextoC ?? "",
+                tipo = c.IdTipo ?? 0,
+                publicado = c.EstadoPublicacion ?? 0,
                 eliminado = c.Eliminado
             });
         }
 
-        public async Task<IActionResult> OnPostEditarContenidoAsync()
+        public async Task<IActionResult> OnPostEditarContenido()
         {
             System.Diagnostics.Debug.WriteLine("========= ENTRA AL HANDLER EditarContenido ==========");
             var formDebug = string.Join(", ", Request.Form.Select(f => $"{f.Key}={f.Value}"));
@@ -113,8 +136,12 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             var id = int.Parse(Request.Form["id"]);
             var titulo = Request.Form["titulo"].ToString();
             var descripcion = Request.Form["descripcion"].ToString();
-            var tipo = int.Parse(Request.Form["tipo"]);
-            var publicado = int.Parse(Request.Form["publicado"]);
+
+            if (!int.TryParse(Request.Form["tipo"], out var tipo))
+                tipo = 1;
+
+            if (!int.TryParse(Request.Form["publicado"], out var publicado))
+                publicado = 0;
 
             var contenido = await _db.Contenidos.FirstOrDefaultAsync(x => x.Id == id);
 
@@ -125,15 +152,17 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             contenido.ContenidoTextoC = descripcion;
             contenido.IdTipo = tipo;
             contenido.EstadoPublicacion = publicado;
-            contenido.FechaModificado = DateTime.Now;
+            contenido.FechaModificado = DateTime.UtcNow;
 
             await _db.SaveChangesAsync();
 
             return new JsonResult(new { success = true });
         }
 
-        public async Task<IActionResult> OnPostEliminarContenidoAsync()
+        public async Task<IActionResult> OnPostEliminarContenido()
         {
+            System.Diagnostics.Debug.WriteLine("========= ENTRA AL HANDLER EliminarContenido ==========");
+
             if (!Request.HasFormContentType || string.IsNullOrWhiteSpace(Request.Form["id"]))
                 return BadRequest(new { success = false, message = "ID inválido" });
 
@@ -144,14 +173,18 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 return new JsonResult(new { success = false, message = "Contenido no encontrado." });
 
             c.Eliminado = true;
-            c.FechaModificado = DateTime.Now;
+            c.FechaModificado = DateTime.UtcNow;
             await _db.SaveChangesAsync();
+
+            System.Diagnostics.Debug.WriteLine($"✅ Contenido {id} eliminado correctamente");
 
             return new JsonResult(new { success = true });
         }
 
-        public async Task<IActionResult> OnPostRestaurarContenidoAsync()
+        public async Task<IActionResult> OnPostRestaurarContenido()
         {
+            System.Diagnostics.Debug.WriteLine("========= ENTRA AL HANDLER RestaurarContenido ==========");
+
             var ct = Request.ContentType;
             System.Diagnostics.Debug.WriteLine("Content-Type received: " + ct);
             var formDebug = string.Join(", ", Request.Form.Select(f => $"{f.Key}={f.Value}"));
@@ -167,8 +200,10 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 return new JsonResult(new { success = false, message = "Contenido no encontrado." });
 
             c.Eliminado = false;
-            c.FechaModificado = DateTime.Now;
+            c.FechaModificado = DateTime.UtcNow;
             await _db.SaveChangesAsync();
+
+            System.Diagnostics.Debug.WriteLine($"✅ Contenido {id} restaurado correctamente");
 
             return new JsonResult(new { success = true });
         }

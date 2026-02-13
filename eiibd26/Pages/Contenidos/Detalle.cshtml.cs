@@ -239,8 +239,40 @@ namespace eiibd26.Pages.Contenidos
                     if (manualContents.Count >= 5) break;
                 }
 
+                // Construir URL SEO y agregar nota para cada contenido manual relacionado
                 foreach (var m in manualContents)
                 {
+                    // Obtener categoría primaria del contenido relacionado
+                    var relCatIds = await _db.ContenidosCategoriasRelacion.AsNoTracking()
+                        .Where(r => r.IdContenido == m.Id && !r.Borrado && r.IdCategoria != null)
+                        .Select(r => r.IdCategoria.Value)
+                        .Distinct()
+                        .ToListAsync();
+
+                    if (relCatIds.Any())
+                    {
+                        var relPrimaryCat = await _db.ContenidosCategorias.AsNoTracking()
+                            .Where(c => relCatIds.Contains(c.Sequence) && !c.Borrado)
+                            .OrderBy(c => c.CategoriaPadre.HasValue ? 0 : 1)
+                            .ThenBy(c => c.Sequence)
+                            .FirstOrDefaultAsync();
+
+                        if (relPrimaryCat != null)
+                        {
+                            var catSlug = !string.IsNullOrWhiteSpace(relPrimaryCat.CategoriaSlug)
+                                ? relPrimaryCat.CategoriaSlug
+                                : relPrimaryCat.Sequence.ToString();
+                            m.SeoUrl = $"/{catSlug}/{m.Slug}";
+                        }
+                    }
+
+                    // Fallback: si no tiene categoría, usar /c/slug
+                    if (string.IsNullOrWhiteSpace(m.SeoUrl))
+                    {
+                        m.SeoUrl = $"/c/{m.Slug}";
+                    }
+
+                    // Agregar nota de relación manual
                     var rel = allManualRelations.FirstOrDefault(r =>
                         (r.Tipo == 1) &&
                         ((r.IdContenido == entity.Id && r.IdContenidoRelacionado == m.Id) ||
@@ -283,6 +315,40 @@ namespace eiibd26.Pages.Contenidos
                             Type = RelatedType.Contenido
                         })
                         .ToListAsync();
+
+                    // Construir URL SEO para cada contenido automático relacionado
+                    foreach (var a in automaticItems)
+                    {
+                        // Obtener categoría primaria del contenido relacionado
+                        var relCatIds = await _db.ContenidosCategoriasRelacion.AsNoTracking()
+                            .Where(r => r.IdContenido == a.Id && !r.Borrado && r.IdCategoria != null)
+                            .Select(r => r.IdCategoria.Value)
+                            .Distinct()
+                            .ToListAsync();
+
+                        if (relCatIds.Any())
+                        {
+                            var relPrimaryCat = await _db.ContenidosCategorias.AsNoTracking()
+                                .Where(c => relCatIds.Contains(c.Sequence) && !c.Borrado)
+                                .OrderBy(c => c.CategoriaPadre.HasValue ? 0 : 1)
+                                .ThenBy(c => c.Sequence)
+                                .FirstOrDefaultAsync();
+
+                            if (relPrimaryCat != null)
+                            {
+                                var catSlug = !string.IsNullOrWhiteSpace(relPrimaryCat.CategoriaSlug)
+                                    ? relPrimaryCat.CategoriaSlug
+                                    : relPrimaryCat.Sequence.ToString();
+                                a.SeoUrl = $"/{catSlug}/{a.Slug}";
+                            }
+                        }
+
+                        // Fallback: si no tiene categoría, usar /c/slug
+                        if (string.IsNullOrWhiteSpace(a.SeoUrl))
+                        {
+                            a.SeoUrl = $"/c/{a.Slug}";
+                        }
+                    }
                 }
             }
 

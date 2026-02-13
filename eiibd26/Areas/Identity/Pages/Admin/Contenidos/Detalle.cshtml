@@ -250,6 +250,10 @@
                 {
                     <div class="alert alert-danger">@Model.ErrorMessage</div>
                 }
+                @if (!string.IsNullOrEmpty(Model.WarningMessage))
+                {
+                    <div class="alert alert-warning">@Model.WarningMessage</div>
+                }
                 @if (!string.IsNullOrEmpty(Model.SuccessMessage))
                 {
                     <div id="successBanner" class="alert alert-success text-center">@Model.SuccessMessage</div>
@@ -723,7 +727,12 @@
             subSel.value='';
             populateSub(parentSel.value,null);
         });
-        populateSub(parentSel?.value,'@(Model.IdCategoria?.ToString() ?? "")');
+        // Initialize with Model values (not DOM values, to avoid timing issues)
+        const initialParent = '@(Model.IdCategoriaPadre?.ToString() ?? "")';
+        const initialSub = '@(Model.IdCategoria?.ToString() ?? "")';
+        if (initialParent) {
+            populateSub(initialParent, initialSub);
+        }
 
         // ---------- Filters & badges ----------
         const searchInput = document.getElementById('searchGeneralCont');

@@ -60,6 +60,7 @@ namespace eiibd26.Models
         public DateTime CreatedAt { get; set; }
         public string Category { get; set; } = "";
         public string Slug { get; set; } = "";
+        public string SeoUrl { get; set; } = ""; // Full SEO URL path (e.g., "/categoria/slug" or "/c/slug")
         public string Note { get; set; } = ""; // optional: description from manual relation
         public bool IsManual { get; set; } = false;
         public RelatedType Type { get; set; } = RelatedType.Contenido;

@@ -14,18 +14,43 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
+// Configuración de DbContext con resiliencia de errores transitorios
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(connectionString));
+    options.UseSqlServer(connectionString, sqlOptions =>
+    {
+        sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorNumbersToAdd: null);
+
+        // ===== PERFORMANCE: Optimizaciones adicionales =====
+        sqlOptions.CommandTimeout(30); // Timeout explícito de 30 segundos
+        sqlOptions.MaxBatchSize(100); // Optimizar batch inserts/updates
+    }));
 
 builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
 {
+    // Sign-in options
     options.SignIn.RequireConfirmedAccount = false;
     options.User.RequireUniqueEmail = true;
+
+    // Password policy (fortalecida)
+    options.Password.RequireDigit = true;
+    options.Password.RequireLowercase = true;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireNonAlphanumeric = true;
+    options.Password.RequiredLength = 8;
+    options.Password.RequiredUniqueChars = 4;
+
+    // Lockout settings (protección contra fuerza bruta)
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.AllowedForNewUsers = true;
 })
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
 
-// Cookie configuration
+// Cookie configuration (seguridad mejorada)
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/Identity/Account/Login";
@@ -34,7 +59,12 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.Cookie.HttpOnly = true;
     options.ExpireTimeSpan = TimeSpan.FromHours(8);
     options.SlidingExpiration = true;
-    // options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // activar en prod
+
+    // Security: HTTPS-only cookies en producción, protección CSRF
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Lax; // Changed from Strict to Lax for AJAX compatibility
 });
 
 // Authorization: políticas
@@ -69,7 +99,7 @@ builder.Services.AddRazorPages()
         // Si tienes otras páginas públicas (ConfirmEmailChange, ExternalLoginCallback...) añádelas también.
 
         // Protección por roles (ejemplo): /Identity/Admin -> Administradores solamente
-        options.Conventions.AuthorizeAreaFolder("Identity", "/Admin", "AdminOnly");
+        //options.Conventions.AuthorizeAreaFolder("Identity", "/Admin", "AdminOnly");
 
         // Si quieres proteger sólo /Account/Manage puedes usar:
         // options.Conventions.AuthorizeAreaFolder("Identity", "/Account/Manage");
@@ -77,6 +107,39 @@ builder.Services.AddRazorPages()
 
 builder.Services.AddControllers();
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+
+// ===== PERFORMANCE: Response Caching =====
+builder.Services.AddResponseCaching();
+builder.Services.AddMemoryCache();
+
+// ===== PERFORMANCE: Response Compression (Gzip/Brotli) =====
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProvider>();
+    options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProvider>();
+    options.MimeTypes = Microsoft.AspNetCore.ResponseCompression.ResponseCompressionDefaults.MimeTypes.Concat(
+        new[] { "image/svg+xml", "application/json", "application/javascript" });
+});
+
+builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProviderOptions>(options =>
+{
+    options.Level = System.IO.Compression.CompressionLevel.Fastest;
+});
+
+builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProviderOptions>(options =>
+{
+    options.Level = System.IO.Compression.CompressionLevel.Fastest;
+});
+
+// HSTS mejorado para producción
+builder.Services.AddHsts(options =>
+{
+    options.MaxAge = TimeSpan.FromDays(365);
+    options.IncludeSubDomains = true;
+    options.Preload = true;
+});
+
 builder.Services.AddTransient<IEmailSender, SendGridEmailSender>();
 builder.Services.AddTransient<ISmsSender, TwilioSmsSender>();
 
@@ -92,8 +155,109 @@ else
     app.UseHsts();
 }
 
+// ===== SECURITY HEADERS MIDDLEWARE =====
+app.Use(async (context, next) =>
+{
+    // Protección contra clickjacking
+    context.Response.Headers.Add("X-Frame-Options", "DENY");
+
+    // Prevenir MIME-sniffing
+    context.Response.Headers.Add("X-Content-Type-Options", "nosniff");
+
+    // Protección XSS (legacy browsers)
+    context.Response.Headers.Add("X-XSS-Protection", "1; mode=block");
+
+    // Política de referrer
+    context.Response.Headers.Add("Referrer-Policy", "strict-origin-when-cross-origin");
+
+    // Content Security Policy (ajustada para tu aplicación)
+    var cspBuilder = new StringBuilder();
+    cspBuilder.Append("default-src 'self'; ");
+
+    // Scripts: App, CDNs, Google Maps, Cloudflare y TinyMCE
+    cspBuilder.Append("script-src 'self' 'unsafe-inline' 'unsafe-eval' " +
+                      "https://cdn.jsdelivr.net " +
+                      "https://unpkg.com " +
+                      "https://maps.googleapis.com " +
+                      "https://cdn.datatables.net " +
+                      "https://code.jquery.com " +
+                      "https://cdnjs.cloudflare.com " +
+                      "https://static.cloudflareinsights.com " +
+                      "https://cdn.tiny.cloud; ");
+
+    // Estilos: App, CDNs, Google Fonts y TinyMCE
+    cspBuilder.Append("style-src 'self' 'unsafe-inline' " +
+                      "https://cdn.jsdelivr.net " +
+                      "https://fonts.googleapis.com " +
+                      "https://cdn.datatables.net " +
+                      "https://cdnjs.cloudflare.com " +
+                      "https://cdn.tiny.cloud; ");
+
+    // Fuentes: Google Fonts y Bootstrap Icons en CDN
+    cspBuilder.Append("font-src 'self' " +
+                      "https://fonts.gstatic.com " +
+                      "https://cdn.jsdelivr.net " +
+                      "data:; ");
+
+    // Imágenes: permitir blob: para imágenes dinámicas (avatares, etc.)
+    cspBuilder.Append("img-src 'self' data: https: blob:; ");
+
+    // Conexiones: permitir localhost en desarrollo para Hot Reload y Browser Link
+    if (app.Environment.IsDevelopment())
+    {
+        cspBuilder.Append("connect-src 'self' " +
+                          "http://localhost:* " +
+                          "ws://localhost:* " +
+                          "wss://localhost:* " +
+                          "https://cdn.jsdelivr.net " +
+                          "https://maps.googleapis.com " +
+                          "https://static.cloudflareinsights.com " +
+                          "https://cloudflareinsights.com " +
+                          "https://cdn.tiny.cloud; ");
+    }
+    else
+    {
+        cspBuilder.Append("connect-src 'self' " +
+                          "https://eiibd.com " +
+                          "https://www.eiibd.com " +
+                          "https://cdn.jsdelivr.net " +
+                          "https://maps.googleapis.com " +
+                          "https://static.cloudflareinsights.com " +
+                          "https://cloudflareinsights.com " +
+                          "https://cdn.tiny.cloud; ");
+    }
+
+    // Frames: permitir Google Maps
+    cspBuilder.Append("frame-src 'self' https://maps.googleapis.com;");
+
+    context.Response.Headers.Add("Content-Security-Policy", cspBuilder.ToString());
+
+    // Permissions Policy (permitir geolocalización para el mapa)
+    context.Response.Headers.Add("Permissions-Policy",
+        "geolocation=(self), microphone=(), camera=()");
+
+    await next();
+});
+
 app.UseHttpsRedirection();
-app.UseStaticFiles();
+
+// ===== PERFORMANCE: Enable Response Compression =====
+app.UseResponseCompression();
+
+// ===== PERFORMANCE: Enable Response Caching =====
+app.UseResponseCaching();
+
+// ===== PERFORMANCE: Static Files con caching headers =====
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        // Cache estático: CSS, JS, imágenes por 1 año (usa versionado para invalidar)
+        const int durationInSeconds = 31536000; // 1 año
+        ctx.Context.Response.Headers.Append("Cache-Control", $"public,max-age={durationInSeconds}");
+        ctx.Context.Response.Headers.Append("Expires", DateTime.UtcNow.AddYears(1).ToString("R"));
+    }
+});
 
 // ===== MIDDLEWARE SEO (antes de UseRouting) - mantengo tu lógica =====
 app.Use(async (context, next) =>

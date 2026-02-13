@@ -78,6 +78,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         // Messages / debug used by view
         public string ErrorMessage { get; set; }
         public string SuccessMessage { get; set; }
+        public string WarningMessage { get; set; }
         public string DebugInfoHtml { get; set; }
 
         // SEO full URL for the content (computed)
@@ -119,8 +120,11 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             }
 
             Id = id.Value;
-            var contenido = await _db.Contenidos.AsNoTracking()
-                .FirstOrDefaultAsync(c => c.Id == Id && !c.Eliminado);
+            // Use IgnoreQueryFilters to allow viewing soft-deleted content
+            var contenido = await _db.Contenidos
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == Id);
 
             if (contenido == null)
             {
@@ -128,6 +132,12 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 BuildDebug();
                 await BuildSeoUrlAsync();
                 return Page();
+            }
+
+            // Show warning if content is soft-deleted
+            if (contenido.Eliminado)
+            {
+                WarningMessage = "⚠️ ADVERTENCIA: Este contenido está marcado como ELIMINADO.";
             }
 
             MapContenidoToModel(contenido);
@@ -138,7 +148,15 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             BuildDebug();
             await BuildSeoUrlAsync();
 
-            if (saved) SuccessMessage = "Guardado correctamente.";
+            // Check for restoration message from TempData
+            if (TempData.ContainsKey("RestoredMessage"))
+            {
+                SuccessMessage = TempData["RestoredMessage"]?.ToString();
+            }
+            else if (saved)
+            {
+                SuccessMessage = "Guardado correctamente.";
+            }
             return Page();
         }
 
@@ -232,7 +250,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
                 if (Id.HasValue)
                 {
-                    var entity = await _db.Contenidos.FirstOrDefaultAsync(c => c.Id == Id.Value && !c.Eliminado);
+                    var entity = await _db.Contenidos
+                        .IgnoreQueryFilters()
+                        .FirstOrDefaultAsync(c => c.Id == Id.Value);
                     if (entity == null) { ErrorMessage = "Contenido no encontrado."; BuildDebug(); return Page(); }
 
                     entity.ContenidoTitulo = ContenidoTitulo;
@@ -240,6 +260,14 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     entity.ContenidoTextoC = ContenidoTextoC;
                     entity.ContenidoTextoL = ContenidoTextoL;
                     entity.EstadoPublicacion = EstadoPublicacion;
+
+                    // Auto-restore soft-deleted content when publishing
+                    if (entity.Eliminado && EstadoPublicacion != 0)
+                    {
+                        entity.Eliminado = false;
+                        TempData["RestoredMessage"] = "✅ Contenido restaurado automáticamente (ya no está eliminado).";
+                    }
+
                     entity.ContenidoFechaInicio = ContenidoFechaInicio;
                     entity.ContenidoFechaFin = ContenidoFechaFin;
                     entity.IdAutor = autorGuid;
