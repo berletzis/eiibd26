@@ -11,10 +11,12 @@ using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using eiibd26.Data;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 
 namespace eiibd26.Controllers
 {
     [Route("")]
+    [AllowAnonymous]
     public class SitemapController : Controller
     {
         private readonly ApplicationDbContext _db;
@@ -37,7 +39,7 @@ namespace eiibd26.Controllers
         public async Task<IActionResult> Index()
         {
             if (_cache.TryGetValue<string>(CacheKeyIndex, out var cachedIndex))
-                return Content(cachedIndex, "application/xml; charset=utf-8");
+                return File(Encoding.UTF8.GetBytes(cachedIndex), "application/xml; charset=utf-8");
 
             // contar urls estimadas
             var contentsCount = await _db.Contenidos.AsNoTracking().Where(c => !c.Eliminado).CountAsync();
@@ -80,9 +82,9 @@ namespace eiibd26.Controllers
                 xw.WriteEndDocument();
             }
 
-            var indexXml = sb.ToString();
-            _cache.Set(CacheKeyIndex, indexXml, TimeSpan.FromMinutes(30));
-            return Content(indexXml, "application/xml; charset=utf-8");
+                var indexXml = sb.ToString();
+                _cache.Set(CacheKeyIndex, indexXml, TimeSpan.FromMinutes(30));
+                return File(Encoding.UTF8.GetBytes(indexXml), "application/xml; charset=utf-8");
         }
 
         // GET /sitemap-{page}.xml  (page is 1-based)
@@ -93,11 +95,11 @@ namespace eiibd26.Controllers
 
             var cacheKey = CacheKeyPagePrefix + page;
             if (_cache.TryGetValue<string>(cacheKey, out var cached))
-                return Content(cached, "application/xml; charset=utf-8");
+                return File(Encoding.UTF8.GetBytes(cached), "application/xml; charset=utf-8");
 
             var xml = await GenerateSitemapPageXml(page - 1);
             _cache.Set(cacheKey, xml, TimeSpan.FromMinutes(30));
-            return Content(xml, "application/xml; charset=utf-8");
+            return File(Encoding.UTF8.GetBytes(xml), "application/xml; charset=utf-8");
         }
 
         [HttpPost("admin/sitemap/refresh")]

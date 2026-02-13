@@ -9,6 +9,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using eiibd26.Data;
+using Microsoft.AspNetCore.Authorization;
 
 namespace eiibd26.Controllers
 {
@@ -17,6 +18,7 @@ namespace eiibd26.Controllers
     //  - /sitemap-preguntas.xml        -> índice o único sitemap de preguntas
     //  - /sitemap-preguntas-{n}.xml    -> páginas (1-based)
     [Route("")]
+    [AllowAnonymous]
     public class SitemapPreguntasController : Controller
     {
         private readonly ApplicationDbContext _db;
@@ -39,7 +41,7 @@ namespace eiibd26.Controllers
         public async Task<IActionResult> Index()
         {
             if (_cache.TryGetValue<string>(CacheKeyIndex, out var cachedIndex))
-                return Content(cachedIndex, "application/xml; charset=utf-8");
+                return File(Encoding.UTF8.GetBytes(cachedIndex), "application/xml; charset=utf-8");
 
             var preguntasCount = await _db.Preguntas.AsNoTracking().Where(p => !p.Eliminado).CountAsync();
             var totalUrls = preguntasCount + 5; // + algunas páginas estáticas relacionadas (opcional)
@@ -79,7 +81,7 @@ namespace eiibd26.Controllers
 
             var indexXml = sb.ToString();
             _cache.Set(CacheKeyIndex, indexXml, TimeSpan.FromMinutes(30));
-            return Content(indexXml, "application/xml; charset=utf-8");
+            return File(Encoding.UTF8.GetBytes(indexXml), "application/xml; charset=utf-8");
         }
 
         // GET /sitemap-preguntas-{page}.xml  (page is 1-based)
@@ -90,11 +92,11 @@ namespace eiibd26.Controllers
 
             var cacheKey = CacheKeyPagePrefix + page;
             if (_cache.TryGetValue<string>(cacheKey, out var cached))
-                return Content(cached, "application/xml; charset=utf-8");
+                return File(Encoding.UTF8.GetBytes(cached), "application/xml; charset=utf-8");
 
             var xml = await GeneratePreguntasSitemapPageXml(page - 1);
             _cache.Set(cacheKey, xml, TimeSpan.FromMinutes(30));
-            return Content(xml, "application/xml; charset=utf-8");
+            return File(Encoding.UTF8.GetBytes(xml), "application/xml; charset=utf-8");
         }
 
         // Genera un urlset para la página indicada (0-based pageIndex)
