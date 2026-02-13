@@ -102,12 +102,12 @@
                                 {
                                     @foreach (var cond in sint.Condiciones)
                                     {
-                                        <span class="crm-badge bg-info mb-1 d-inline-flex align-items-center">
+                                        <a href="#" class="crm-badge crm-badge-label bg-info mb-1 d-inline-flex align-items-center">
                                             @cond.Nombre
                                             <button type="button" class="crm-btn btn-sm btn-link p-0 ms-1 badge-cond-del" style="color:red; border:none;" data-condid="@cond.Id" data-sintid="@sint.Id" title="Quitar condición">
                                                 <i class="bi bi-x-circle"></i>
                                             </button>
-                                        </span>
+                                        </a>
                                     }
                                 }
                                 else
@@ -128,12 +128,12 @@
                                 {
                                     @foreach (var trat in sint.Tratamientos)
                                     {
-                                        <span class="crm-badge bg-success text-white mb-1 d-inline-flex align-items-center">
+                                        <a href="#" class="crm-badge crm-badge-label bg-success text-white mb-1 d-inline-flex align-items-center">
                                             @trat.Nombre
                                             <button type="button" class="crm-btn btn-sm btn-link p-0 ms-1 badge-trat-del" style="color:red; border:none;" data-tratid="@trat.Id" data-sintid="@sint.Id" title="Quitar tratamiento">
                                                 <i class="bi bi-x-circle"></i>
                                             </button>
-                                        </span>
+                                        </a>
                                     }
                                 }
                                 else
@@ -143,30 +143,26 @@
                             </div>
                         </div>
                         <!-- Seguimiento: leyenda tipo fuente y tamaño igual a Sin seguimiento -->
-                        <div class="mt-auto pt-2 d-flex align-items-center flex-wrap justify-content-start">
+                        <div class="mt-auto pt-2 d-flex align-items-start flex-wrap justify-content-start">
                                 <div class="crm-card-subtitle" style="font-size:.98em; color:#315686;">
-                                    <span>Seguimiento <br  /></span>
+                                    <div>Seguimiento</div>
+                                    <div class="crm-seguimiento-value" style="margin-top:6px;">
+                                        @if (ultimoTracking != null)
+                                        {
+                                            <span>@(ultimoTracking.Estado) (@ultimoTracking.Fecha.ToString("dd/MM/yyyy"))</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Sin seguimiento</span>
+                                        }
+                                    </div>
                                 </div>
-                            <button type="button" class="crm-btn btn-link p-0 text-primary btn-track-sintoma"
-                                    style="border:none; box-shadow:none;background:transparent;"
+                            <button type="button" class="btn-track-sintoma" 
                                     data-id="@sint.Id"
                                     data-nombre="@sint.Nombre"
-                                        title="Registra cómo estás hoy">
-                                    <span><br /></span>
-                                <i class="bi bi-clipboard-heart-fill fs-4" style="color:#6c7a95;vertical-align:middle;"></i>
+                                    title="Registra cómo estás hoy">
+                                <i class="bi bi-clipboard-heart-fill"></i>
                             </button>
-                            <span id="badge-tracking-@sint.Id" class="text-muted small" style="font-size:.95em; color:#888ca0; font-weight:500; background:none; border:none; text-align:left; display:flex; align-items:center; gap:8px;">
-                                @if (ultimoTracking != null)
-                                {
-                                    <span class="text-muted small" style="color:#888ca0;">
-                                        Ultimo Seguimiento @ultimoTracking.Fecha.ToString("dd/MM/yyyy") (@ultimoTracking.Estado)
-                                    </span>
-                                }
-                                else
-                                {
-                                    <span class="text-muted small">Sin seguimiento</span>
-                                }
-                            </span>
                         </div>
                     </div>
                 </div>
@@ -249,7 +245,7 @@
 
 @section Styles {
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" />
-    <link rel="stylesheet" href="~/css/usuario-condiciones-crm.css" />
+    <link rel="stylesheet" href="~/css/usuario-condiciones-crm.css" asp-append-version="true" />
 }
 
 @section Scripts {
@@ -359,22 +355,28 @@
                                     let resp = await fetch('?handler=TrackSintoma', { method: 'POST', body: formData });
                                     if (resp.ok) {
                                         let msg = document.getElementById('mensajeTrackingAgregado');
-                                        msg.classList.remove('d-none');
-                                        let badge = document.getElementById('badge-tracking-' + sintomaUsuarioId);
-                                        if(badge){
-                                            let hoy = new Date();
-                                            let fecha = hoy.getDate().toString().padStart(2, '0') + "/" +
-                                                (hoy.getMonth()+1).toString().padStart(2, '0') + "/" +
-                                                hoy.getFullYear();
-                                            // SOLO icono clipboard a la izquierda
-                                                badge.innerHTML = `<span class="text-muted small" style="color:#888ca0;"><span style='margin-right:7px'><br /><i class="bi bi-clipboard-heart-fill fs-4" style="color:#6c7a95;vertical-align:middle;"></i></span>Ultimo Seguimiento ${fecha} (${estado})</span>`;
+                                        if (msg) msg.classList.remove('d-none');
+
+                                        // Update seguimiento text inside the card without refreshing
+                                        const btnTrack = document.querySelector('.btn-track-sintoma[data-id="' + sintomaUsuarioId + '"]');
+                                        if (btnTrack) {
+                                            const cardInner = btnTrack.closest('.crm-card-inner');
+                                            if (cardInner) {
+                                                const segEl = cardInner.querySelector('.crm-seguimiento-value');
+                                                if (segEl) {
+                                                    const hoy = new Date();
+                                                    const fecha = hoy.getDate().toString().padStart(2, '0') + "/" + (hoy.getMonth() + 1).toString().padStart(2, '0') + "/" + hoy.getFullYear();
+                                                    segEl.textContent = estado + ' (' + fecha + ')';
+                                                }
+                                            }
                                         }
+
                                         setTimeout(() => {
                                             var modalElemClose = document.getElementById('modalTrackSintoma');
                                             if (modalElemClose) {
                                                 bootstrap.Modal.getOrCreateInstance(modalElemClose).hide();
                                             }
-                                        }, 900);
+                                        }, 700);
                                     } else {
                                         alert('Error guardando seguimiento');
                                     }

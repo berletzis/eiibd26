@@ -133,6 +133,16 @@
                 margin-left: 0.4em;
             }
 
+        /* Category cell text truncation */
+        .categoria-text {
+            display: inline-block;
+            max-width: 240px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+        }
+
         #contenidosGrid {
             width: 100% !important;
             margin: 0;
@@ -313,13 +323,25 @@
     <div class="dt-controls-flex">
         <div class="dt-controls-left">
             <div id="gridLengthWrapper"></div>
+            <!-- category selects -->
+            <div class="ms-3">
+                <label for="selectCategoriaPadre" class="small me-2">Categoría padre</label>
+                <select id="selectCategoriaPadre" class="form-select d-inline-block" style="width:220px">
+                    <option value="">(Todas)</option>
+                </select>
+                <label for="selectCategoriaHijo" class="small ms-3 me-2">Hijo</label>
+                <select id="selectCategoriaHijo" class="form-select d-inline-block" style="width:220px" disabled>
+                    <option value="">(Todos)</option>
+                </select>
+            </div>
         </div>
         <div class="dt-controls-right">
-            <div class="form-check form-switch d-inline-block align-middle">
+            <!-- switches on the right so they are visible and consistent with previous layout -->
+            <div class="form-check form-switch d-inline-block align-middle me-3">
                 <input class="form-check-input" type="checkbox" role="switch" id="switchEliminados">
                 <label class="form-check-label" for="switchEliminados">Mostrar eliminados</label>
             </div>
-            <div class="form-check form-switch d-inline-block align-middle">
+            <div class="form-check form-switch d-inline-block align-middle me-3">
                 <input class="form-check-input" type="checkbox" role="switch" id="switchBorradores">
                 <label class="form-check-label" for="switchBorradores">Mostrar borradores</label>
             </div>
@@ -337,8 +359,8 @@
                     <th>Descripción</th>
                     <th>Tipo</th>
                     <th>Estado</th>
+                    <th>Categoría</th>
                     <th>Fecha creado</th>
-                    <th>Eliminado</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -395,19 +417,30 @@
         $(function() {
         console.log('✅ Inicializando DataTable para Contenidos (POST con switches)');
             
+        // register switches change handler early so toggling immediately triggers reload
+        $('#switchEliminados, #switchBorradores').on('change', function() {
+            try { if (typeof contenidosTabla !== 'undefined' && contenidosTabla) contenidosTabla.ajax.reload(); } catch(e) { console.warn(e); }
+        });
+
         contenidosTabla = $('#contenidosGrid').DataTable({
         processing: true,
         serverSide: true,
-        dom: 'lfrtip',
+        // show the DataTables "info" (e.g. "Mostrando 1 a 10 de 100 entradas") at the top of the grid
+        dom: 'i lfrtip',
         ajax: {
         url: '/Identity/Admin/Contenidos/Contenidos?handler=GridData',
         type: 'POST',
         data: function(d) {
-        d.mostrarEliminados = $('#switchEliminados').is(':checked') ? 'true' : 'false';
-        d.mostrarBorradores = $('#switchBorradores').is(':checked') ? 'true' : 'false';
+        // send as 1/0 to be unambiguous
+        d.mostrarEliminados = $('#switchEliminados').is(':checked') ? '1' : '0';
+        d.mostrarBorradores = $('#switchBorradores').is(':checked') ? '1' : '0';
+        d.categoriaPadre = $('#selectCategoriaPadre').val();
+        d.categoriaHijo = $('#selectCategoriaHijo').val();
         console.log('📤 Parámetros (POST):', {
         eliminados: d.mostrarEliminados,
-        borradores: d.mostrarBorradores
+        borradores: d.mostrarBorradores,
+        categoriaPadre: d.categoriaPadre,
+        categoriaHijo: d.categoriaHijo
         });
         },
         error: function(xhr, error, code) {
@@ -431,7 +464,7 @@
         data: 'imagenUrl',
         orderable: false,
         render: function(data) {
-        if (data) return `<img src="${data}" class="grid-thumb" alt="">`;
+        if (data) return `<img src="${data}" class="grid-thumb" alt="" loading="lazy" decoding="async" width="80" height="50" fetchpriority="low">`;
         return `<div class="text-muted small">Sin IMG</div>`;
         }
         },
@@ -453,14 +486,16 @@
         }
         },
         {
-        data: 'publicado',
+        data: null,
         orderable: false,
-        render: function(d) {
-        return d === 0
-        ? '<span class="badge badge-grid-gray badge-borrador">Borrador</span>'
-        : '<span class="badge badge-grid-gray badge-publicado">Publicado</span>';
+        render: function(row) {
+        // mostrar tres capsulas: publicado, borrador, eliminado dependiendo del estado
+        var pub = row.publicado === 0 ? '<span class="badge badge-grid-gray badge-borrador">Borrador</span>' : '<span class="badge badge-grid-gray badge-publicado">Publicado</span>';
+        var elim = row.eliminado ? '<span class="badge badge-grid-gray badge-eliminado">Eliminado</span>' : '';
+        return pub + (elim ? ' ' + elim : '');
         }
         },
+        { data: 'categoria', orderable: false, render: function(d) { return d ? `<span class="categoria-text" title="${d}">${d}</span>` : '';} },
         {
         data: 'fechaCreado',
         render: function(d) {
@@ -469,13 +504,7 @@
         try { return dt.toLocaleDateString(); } catch (e) { return dt.toISOString().slice(0, 10); }
         }
         },
-        {
-        data: 'eliminado',
-        orderable: false,
-        render: function(d) {
-        return d ? '<span class="badge badge-grid-gray badge-eliminado">Sí</span>' : '<span class="badge badge-grid-gray">No</span>';
-        }
-        },
+        // columna eliminado eliminada (estado ahora en columna Estado)
         {
         data: null,
         orderable: false,
@@ -500,6 +529,8 @@
         emptyTable: "No hay contenidos registrados.",
         search: "Buscar:",
         lengthMenu: "Mostrar _MENU_ registros",
+        info: "Mostrando _START_ a _END_ de _TOTAL_ entradas",
+        infoFiltered: "(filtrado de _MAX_ entradas total)",
         processing: "Procesando...",
         loadingRecords: "Cargando...",
         zeroRecords: "No se encontraron resultados"
@@ -517,6 +548,33 @@
         $filter.css({ display: 'inline-flex', 'align-items': 'center', margin: '0', 'white-space': 'nowrap' });
         $("#gridSearchWrapper").empty().append($filter.children());
         }
+        // Load parent categories into select
+        $.get('/Identity/Admin/Contenidos/Contenidos?handler=CategoriesList', function(items){
+            const $p = $('#selectCategoriaPadre');
+            $p.find('option:gt(0)').remove();
+            items.forEach(i=>{
+                $p.append(`<option value="${i.sequence}">${i.label}</option>`);
+            });
+        }).fail(function(){ console.warn('No se pudieron cargar categorias padres'); });
+
+        // when parent changes, load children
+        $('#selectCategoriaPadre').on('change', function(){
+            const val = $(this).val();
+            const $child = $('#selectCategoriaHijo');
+            $child.prop('disabled', true);
+            $child.find('option:gt(0)').remove();
+            if (!val) { contenidosTabla.ajax.reload(); return; }
+            $.get('/Identity/Admin/Contenidos/Contenidos?handler=ChildrenList', { parent: val }, function(items){
+                if (!items || items.length===0) { $child.prop('disabled', true); }
+                else {
+                    items.forEach(i=> $child.append(`<option value="${i.sequence}">${i.nombre}</option>`));
+                    $child.prop('disabled', false);
+                }
+                contenidosTabla.ajax.reload();
+            }).fail(function(){ $child.prop('disabled', true); contenidosTabla.ajax.reload(); });
+        });
+
+        $('#selectCategoriaHijo').on('change', function(){ contenidosTabla.ajax.reload(); });
         }
         });
 

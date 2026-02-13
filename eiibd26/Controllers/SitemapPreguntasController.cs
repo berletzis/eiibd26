@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -40,7 +39,7 @@ namespace eiibd26.Controllers
         public async Task<IActionResult> Index()
         {
             if (_cache.TryGetValue<string>(CacheKeyIndex, out var cachedIndex))
-                return Content(cachedIndex, "application/xml", Encoding.UTF8);
+                return Content(cachedIndex, "application/xml; charset=utf-8");
 
             var preguntasCount = await _db.Preguntas.AsNoTracking().Where(p => !p.Eliminado).CountAsync();
             var totalUrls = preguntasCount + 5; // + algunas páginas estáticas relacionadas (opcional)
@@ -49,14 +48,19 @@ namespace eiibd26.Controllers
             {
                 var xml = await GeneratePreguntasSitemapPageXml(0);
                 _cache.Set(CacheKeyIndex, xml, TimeSpan.FromMinutes(30));
-                return Content(xml, "application/xml", Encoding.UTF8);
+                return Content(xml, "application/xml; charset=utf-8");
             }
 
             var pages = (int)Math.Ceiling(totalUrls / (double)MaxUrlsPerSitemap);
             var hostBase = GetHostBase();
 
-            using var sw = new StringWriter();
-            using (var xw = XmlWriter.Create(sw, new XmlWriterSettings { Indent = true, Encoding = Encoding.UTF8 }))
+            var sb = new StringBuilder();
+            using (var xw = XmlWriter.Create(sb, new XmlWriterSettings
+            {
+                Indent = true,
+                Encoding = Encoding.UTF8,
+                OmitXmlDeclaration = false
+            }))
             {
                 xw.WriteStartDocument();
                 xw.WriteStartElement("sitemapindex", "http://www.sitemaps.org/schemas/sitemap/0.9");
@@ -73,9 +77,9 @@ namespace eiibd26.Controllers
                 xw.WriteEndDocument();
             }
 
-            var indexXml = sw.ToString();
+            var indexXml = sb.ToString();
             _cache.Set(CacheKeyIndex, indexXml, TimeSpan.FromMinutes(30));
-            return Content(indexXml, "application/xml", Encoding.UTF8);
+            return Content(indexXml, "application/xml; charset=utf-8");
         }
 
         // GET /sitemap-preguntas-{page}.xml  (page is 1-based)
@@ -86,11 +90,11 @@ namespace eiibd26.Controllers
 
             var cacheKey = CacheKeyPagePrefix + page;
             if (_cache.TryGetValue<string>(cacheKey, out var cached))
-                return Content(cached, "application/xml", Encoding.UTF8);
+                return Content(cached, "application/xml; charset=utf-8");
 
             var xml = await GeneratePreguntasSitemapPageXml(page - 1);
             _cache.Set(cacheKey, xml, TimeSpan.FromMinutes(30));
-            return Content(xml, "application/xml", Encoding.UTF8);
+            return Content(xml, "application/xml; charset=utf-8");
         }
 
         // Genera un urlset para la página indicada (0-based pageIndex)
@@ -136,8 +140,13 @@ namespace eiibd26.Controllers
         // Construye XML de urlset
         private string BuildXml(List<UrlEntry> entries)
         {
-            using var sw = new StringWriter();
-            using (var xw = XmlWriter.Create(sw, new XmlWriterSettings { Indent = true, Encoding = Encoding.UTF8 }))
+            var sb = new StringBuilder();
+            using (var xw = XmlWriter.Create(sb, new XmlWriterSettings
+            {
+                Indent = true,
+                Encoding = Encoding.UTF8,
+                OmitXmlDeclaration = false
+            }))
             {
                 xw.WriteStartDocument();
                 xw.WriteStartElement("urlset", "http://www.sitemaps.org/schemas/sitemap/0.9");
@@ -159,7 +168,7 @@ namespace eiibd26.Controllers
                 xw.WriteEndDocument();
             }
 
-            return sw.ToString();
+            return sb.ToString();
         }
 
         private string GetHostBase()

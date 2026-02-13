@@ -1,23 +1,74 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
+
+    <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-DPH2X6YNQ5"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-DPH2X6YNQ5');
+</script>
+
     <meta charset="utf-8" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>@ViewData["Title"] - Enfermedad Inflamatoria Intestinal</title>
+
+    <!-- ===== PERFORMANCE: DNS Prefetch y Preconnect para CDNs ===== -->
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="https://cdn.datatables.net">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://cdn.datatables.net" crossorigin>
+
     @RenderSection("Head", required: false)  
-    <!-- Bootstrap & icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" integrity="" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" />
 
-    <!-- App styles -->
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/miSalud.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/account.css" asp-append-version="true" />
+    <!-- ===== CRITICAL CSS: Inline para LCP ===== -->
+    <style>
+        /* Critical CSS - Estilos para above-the-fold */
+        body{background:#f8f9fa;margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+        .layout-root{min-height:100vh;display:flex;flex-direction:column}
+        .layout-main{flex:1 1 auto}
+    </style>
 
-    <!-- Responsive overrides: must be loaded after app/bootstrap styles -->
-    <link rel="stylesheet" href="~/css/site-responsive.css" asp-append-version="true" />
+
+
+    <!-- ===== PERFORMANCE: Preload recursos críticos ===== -->
+    @inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment Env
+    @{ 
+        var bundlePhysical = System.IO.Path.Combine(Env.WebRootPath ?? "wwwroot", "css", "bundle.min.css");
+        var bundleExists = System.IO.File.Exists(bundlePhysical);
+    }
+    @if (bundleExists)
+    {
+        <link rel="preload" href="~/css/bundle.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'" asp-append-version="true" />
+        <!-- Fallback / ensure styles are applied quickly for Identity and admin pages -->
+        <link rel="stylesheet" href="~/css/bundle.min.css" asp-append-version="true" />
+    }
+    else
+    {
+        <!-- If bundle is not present (e.g. not generated in publish), include individual CSS files to avoid 404 returning HTML -->
+        <link rel="stylesheet" href="~/css/account.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/miSalud.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/usuario-condiciones-crm.css" asp-append-version="true" />
+        <link rel="stylesheet" href="~/css/site-responsive.css" asp-append-version="true" />
+    }
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <!-- Ensure Bootstrap CSS is applied immediately (helps Identity/account pages) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+
+    <!-- Fallback para navegadores sin JS -->
+    <noscript>
+        <link rel="stylesheet" href="~/css/bundle.min.css" asp-append-version="true" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    </noscript>
+
+    <!-- ===== CSS NO CRÍTICO: Cargar de forma diferida ===== -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.min.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" media="print" onload="this.media='all'" />
 
     @RenderSection("Styles", required: false)
 
@@ -83,6 +134,8 @@
             }
         }
     </style>
+
+
 </head>
 <body class="bg-light">
     <div class="layout-root">
@@ -167,11 +220,12 @@
         </button>
     }
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- ===== PERFORMANCE: JavaScript con defer para no bloquear renderizado ===== -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" defer></script>
 
     <!-- Clear offcanvas inline width/max-width that some scripts (or bootstrap) may set at runtime -->
-    <script>
-        (function(){
+    <script defer>
+        window.addEventListener('DOMContentLoaded', function() {
           function clearOffcanvasInlineStyles(el) {
             try {
               if (!el || !el.style) return;
@@ -223,10 +277,11 @@
             });
             bodyObserver.observe(document.body, { childList: true, subtree: true });
           } catch(e) { /* ignore */ }
-        })();
+        });
     </script>
 
-    <script>
+    <script defer>
+        window.addEventListener('DOMContentLoaded', function() {
         // --- Prevent layout shift from Bootstrap's body padding compensation for scrollbar ---
         (function () {
             function clearBodyPadding() {

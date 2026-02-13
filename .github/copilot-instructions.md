@@ -1,0 +1,4 @@
+# Copilot Instructions
+
+## Project Guidelines
+- Project preference: When DataTable/GridData AJAX handlers fail in admin pages, apply one or more of: add an OnPostGridDataAsync shim when client uses POST, or switch client to GET; add [IgnoreAntiforgeryToken] and [Authorize(Roles = "Administrador")] to AJAX handlers; use .IgnoreQueryFilters() when restoring soft-deleted records; ensure image DB values are converted to absolute URLs prefixed with '/uploads/contenidos/...' and use lazy loading. In the frontend, use attributes in images: loading="lazy", decoding="async", fetchpriority="low", and specify dimensions (width/height). Also prefer WebOptimizer for bundling/minification and CSP entries for Google Tag Manager. Future recommendation: generate WebP/AVIF formats and srcset for cards/hero/grid, and implement preloading for the largest contentful paint (LCP) image.

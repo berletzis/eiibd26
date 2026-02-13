@@ -14,9 +14,6 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace eiibd26.Controllers
 {
-    // Básico y funcional:
-    //  - /sitemap.xml
-    //  - /sitemap-{n}.xml
     [Route("")]
     public class SitemapController : Controller
     {
@@ -40,7 +37,7 @@ namespace eiibd26.Controllers
         public async Task<IActionResult> Index()
         {
             if (_cache.TryGetValue<string>(CacheKeyIndex, out var cachedIndex))
-                return Content(cachedIndex, "application/xml", Encoding.UTF8);
+                return Content(cachedIndex, "application/xml; charset=utf-8");
 
             // contar urls estimadas
             var contentsCount = await _db.Contenidos.AsNoTracking().Where(c => !c.Eliminado).CountAsync();
@@ -54,14 +51,19 @@ namespace eiibd26.Controllers
             {
                 var xml = await GenerateSitemapPageXml(0);
                 _cache.Set(CacheKeyIndex, xml, TimeSpan.FromMinutes(30));
-                return Content(xml, "application/xml", Encoding.UTF8);
+                return Content(xml, "application/xml; charset=utf-8");
             }
 
             var pages = (int)Math.Ceiling(totalUrls / (double)MaxUrlsPerSitemap);
             var hostBase = GetHostBase();
 
-            using var sw = new StringWriter();
-            using (var xw = XmlWriter.Create(sw, new XmlWriterSettings { Indent = true, Encoding = Encoding.UTF8 }))
+            var sb = new StringBuilder();
+            using (var xw = XmlWriter.Create(sb, new XmlWriterSettings
+            {
+                Indent = true,
+                Encoding = Encoding.UTF8,
+                OmitXmlDeclaration = false
+            }))
             {
                 xw.WriteStartDocument();
                 xw.WriteStartElement("sitemapindex", "http://www.sitemaps.org/schemas/sitemap/0.9");
@@ -78,9 +80,9 @@ namespace eiibd26.Controllers
                 xw.WriteEndDocument();
             }
 
-            var indexXml = sw.ToString();
+            var indexXml = sb.ToString();
             _cache.Set(CacheKeyIndex, indexXml, TimeSpan.FromMinutes(30));
-            return Content(indexXml, "application/xml", Encoding.UTF8);
+            return Content(indexXml, "application/xml; charset=utf-8");
         }
 
         // GET /sitemap-{page}.xml  (page is 1-based)
@@ -91,15 +93,13 @@ namespace eiibd26.Controllers
 
             var cacheKey = CacheKeyPagePrefix + page;
             if (_cache.TryGetValue<string>(cacheKey, out var cached))
-                return Content(cached, "application/xml", Encoding.UTF8);
+                return Content(cached, "application/xml; charset=utf-8");
 
             var xml = await GenerateSitemapPageXml(page - 1);
             _cache.Set(cacheKey, xml, TimeSpan.FromMinutes(30));
-            return Content(xml, "application/xml", Encoding.UTF8);
+            return Content(xml, "application/xml; charset=utf-8");
         }
 
-        // dentro de Controllers/SitemapController.cs
-        // POST /admin/sitemap/refresh  -> invalida cache del sitemap (protegido)
         [HttpPost("admin/sitemap/refresh")]
         [Authorize(Policy = "AdminOnly")]
         [ValidateAntiForgeryToken]
@@ -139,6 +139,7 @@ namespace eiibd26.Controllers
                 return StatusCode(500, new { refreshed = false, error = ex.Message });
             }
         }
+
         [NonAction]
         public void InvalidateCache()
         {
@@ -149,7 +150,7 @@ namespace eiibd26.Controllers
             }
             _logger.LogInformation("Sitemap cache invalidated.");
         }
-        // Construye una página del sitemap (0-based pageIndex)
+
         private async Task<string> GenerateSitemapPageXml(int pageIndex)
         {
             var hostBase = GetHostBase();
@@ -198,15 +199,12 @@ namespace eiibd26.Controllers
                     entries.Add(new UrlEntry { Loc = loc, LastMod = c.LastMod, ChangeFreq = "weekly", Priority = "0.6" });
                 }
 
-                // If we filled 'take' with contents, we are done for this page
                 if (entries.Count >= take) return BuildXml(entries);
-                // else adjust remaining space
                 take -= entries.Count;
                 skip = Math.Max(0, skip - contents.Count);
             }
             else
             {
-                // If no contents in this slice, adjust skip for next sections
                 var totalContents = await _db.Contenidos.AsNoTracking().Where(c => !c.Eliminado).CountAsync();
                 skip = Math.Max(0, skip - totalContents);
             }
@@ -299,8 +297,13 @@ namespace eiibd26.Controllers
 
         private string BuildXml(List<UrlEntry> entries)
         {
-            using var sw = new StringWriter();
-            using (var xw = XmlWriter.Create(sw, new XmlWriterSettings { Indent = true, Encoding = Encoding.UTF8 }))
+            var sb = new StringBuilder();
+            using (var xw = XmlWriter.Create(sb, new XmlWriterSettings
+            {
+                Indent = true,
+                Encoding = Encoding.UTF8,
+                OmitXmlDeclaration = false
+            }))
             {
                 xw.WriteStartDocument();
                 xw.WriteStartElement("urlset", "http://www.sitemaps.org/schemas/sitemap/0.9");
@@ -322,7 +325,7 @@ namespace eiibd26.Controllers
                 xw.WriteEndDocument();
             }
 
-            return sw.ToString();
+            return sb.ToString();
         }
 
         private string GetHostBase()

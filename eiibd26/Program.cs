@@ -99,7 +99,7 @@ builder.Services.AddRazorPages()
         // Si tienes otras páginas públicas (ConfirmEmailChange, ExternalLoginCallback...) añádelas también.
 
         // Protección por roles (ejemplo): /Identity/Admin -> Administradores solamente
-        //options.Conventions.AuthorizeAreaFolder("Identity", "/Admin", "AdminOnly");
+        options.Conventions.AuthorizeAreaFolder("Identity", "/Admin", "AdminOnly");
 
         // Si quieres proteger sólo /Account/Manage puedes usar:
         // options.Conventions.AuthorizeAreaFolder("Identity", "/Account/Manage");
@@ -111,6 +111,24 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 // ===== PERFORMANCE: Response Caching =====
 builder.Services.AddResponseCaching();
 builder.Services.AddMemoryCache();
+
+// ===== PERFORMANCE: WebOptimizer (Bundling & Minification) =====
+builder.Services.AddWebOptimizer(pipeline =>
+{
+    // Bundle CSS: Combina todos los archivos CSS en uno
+    pipeline.AddCssBundle("/css/bundle.min.css",
+        "css/site.css",
+        "css/miSalud.css",
+        "css/account.css",
+        "css/site-responsive.css")
+        .UseContentRoot();
+
+    // Minifica todos los archivos JS individuales
+    pipeline.MinifyJsFiles("js/**/*.js");
+
+    // Minifica archivos CSS individuales (útil para páginas específicas)
+    pipeline.MinifyCssFiles("css/**/*.css");
+});
 
 // ===== PERFORMANCE: Response Compression (Gzip/Brotli) =====
 builder.Services.AddResponseCompression(options =>
@@ -183,7 +201,9 @@ app.Use(async (context, next) =>
                       "https://code.jquery.com " +
                       "https://cdnjs.cloudflare.com " +
                       "https://static.cloudflareinsights.com " +
-                      "https://cdn.tiny.cloud; ");
+                      "https://cdn.tiny.cloud " +
+                      "https://www.googletagmanager.com " +
+                      "https://www.google-analytics.com; ");
 
     // Estilos: App, CDNs, Google Fonts y TinyMCE
     cspBuilder.Append("style-src 'self' 'unsafe-inline' " +
@@ -217,6 +237,7 @@ app.Use(async (context, next) =>
     }
     else
     {
+        // Allow Google Analytics/Measurement Protocol endpoints used by gtag and analytics
         cspBuilder.Append("connect-src 'self' " +
                           "https://eiibd.com " +
                           "https://www.eiibd.com " +
@@ -224,7 +245,9 @@ app.Use(async (context, next) =>
                           "https://maps.googleapis.com " +
                           "https://static.cloudflareinsights.com " +
                           "https://cloudflareinsights.com " +
-                          "https://cdn.tiny.cloud; ");
+                          "https://cdn.tiny.cloud " +
+                          "https://analytics.google.com " +
+                          "https://www.google-analytics.com; ");
     }
 
     // Frames: permitir Google Maps
@@ -246,6 +269,9 @@ app.UseResponseCompression();
 
 // ===== PERFORMANCE: Enable Response Caching =====
 app.UseResponseCaching();
+
+// ===== PERFORMANCE: WebOptimizer (debe ir ANTES de UseStaticFiles) =====
+app.UseWebOptimizer();
 
 // ===== PERFORMANCE: Static Files con caching headers =====
 app.UseStaticFiles(new StaticFileOptions
