@@ -34,6 +34,7 @@ namespace eiibd26.Pages
             public string CuerpoPreview { get; set; } = "";
             public string Slug { get; set; } = ""; // ← NUEVO
             public Guid UsuarioId { get; set; }
+            public string AutorSlug { get; set; } = "";
             public string AutorNombre { get; set; } = "Usuario";
             public string AutorAvatarUrl { get; set; } = "/img/avatar-placeholder.png";
             public DateTimeOffset FechaCreacion { get; set; }
@@ -112,6 +113,27 @@ namespace eiibd26.Pages
 
             var preguntaIds = items.Select(i => i.Id).ToArray();
             var userIds = items.Select(i => i.UsuarioId).Distinct().ToArray();
+
+            // Fetch slugs for authors to build profile links if available
+            var authorSlugs = new Dictionary<Guid, string>();
+            try
+            {
+                if (userIds.Length > 0)
+                {
+                    var slugRows = await _db.Perfil.AsNoTracking()
+                        .Where(p => userIds.Contains(p.idUser))
+                        .Select(p => new { p.idUser, p.slug })
+                        .ToListAsync();
+                    foreach (var s in slugRows)
+                    {
+                        if (!string.IsNullOrWhiteSpace(s.slug)) authorSlugs[s.idUser] = s.slug;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error obteniendo slugs autores");
+            }
 
             var authors = new Dictionary<Guid, (string name, string avatar)>();
             if (userIds.Length > 0)
@@ -313,6 +335,7 @@ namespace eiibd26.Pages
                     UsuarioId = i.UsuarioId,
                     AutorNombre = authors.TryGetValue(i.UsuarioId, out var info) ? info.name : "Usuario",
                     AutorAvatarUrl = authors.TryGetValue(i.UsuarioId, out var info2) ? info2.avatar : "/img/avatar-placeholder.png",
+                    AutorSlug = "",
                     FechaCreacion = i.FechaCreacion,
                     RespuestasCount = i.RespuestasCount,
                     Score = i.Score,
@@ -335,6 +358,9 @@ namespace eiibd26.Pages
                 {
                     vm.RespondersAvatars.Add(responderUsers.TryGetValue(rid, out var ru) ? ru.avatar : "/img/avatar-placeholder.png");
                 }
+
+                // assign author slug if available
+                if (authorSlugs.TryGetValue(i.UsuarioId, out var aslug)) vm.AutorSlug = aslug;
 
                 return vm;
             }).ToList();

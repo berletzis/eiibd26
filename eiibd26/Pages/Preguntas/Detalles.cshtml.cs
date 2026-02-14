@@ -26,7 +26,7 @@ namespace eiibd26.Pages.Preguntas
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public record AuthorInfo(string Name, string Avatar);
+        public record AuthorInfo(string Name, string Avatar, string Slug = "");
 
         public class PreguntaVm
         {
@@ -35,6 +35,7 @@ namespace eiibd26.Pages.Preguntas
             public string Cuerpo { get; set; } = "";
             public string Slug { get; set; } = "";
             public Guid UsuarioId { get; set; }
+            public string AutorSlug { get; set; } = "";
             public string AutorNombre { get; set; } = "Usuario";
             public string AutorAvatarUrl { get; set; } = "/img/avatar-placeholder.png";
             public DateTimeOffset FechaCreacion { get; set; }
@@ -51,6 +52,7 @@ namespace eiibd26.Pages.Preguntas
             public Guid Id { get; set; }
             public string Cuerpo { get; set; } = "";
             public Guid UsuarioId { get; set; }
+            public string AutorSlug { get; set; } = "";
             public string AutorNombre { get; set; } = "Usuario";
             public string AutorAvatarUrl { get; set; } = "/img/avatar-placeholder.png";
             public DateTimeOffset FechaCreacion { get; set; }
@@ -191,7 +193,7 @@ namespace eiibd26.Pages.Preguntas
             {
                 var perfilAutor = await _db.Set<Perfil>().AsNoTracking()
                     .Where(p => p.idUser == preguntaUsuarioId)
-                    .Select(p => new { p.Nombre, p.Apellidos, p.Avatar })
+                    .Select(p => new { p.Nombre, p.Apellidos, p.Avatar, p.slug })
                     .FirstOrDefaultAsync();
 
                 if (perfilAutor != null)
@@ -202,7 +204,7 @@ namespace eiibd26.Pages.Preguntas
                     var avatar = string.IsNullOrWhiteSpace(perfilAutor.Avatar)
                         ? $"uploads/avatars/{preguntaUsuarioId}/avatar-64.png"
                         : perfilAutor.Avatar.Replace("\\", "/");
-                    preguntaAutor = new AuthorInfo(nombre, avatar);
+                    preguntaAutor = new AuthorInfo(nombre, avatar, perfilAutor.slug ?? "");
                 }
             }
             catch (Exception ex)
@@ -260,6 +262,7 @@ namespace eiibd26.Pages.Preguntas
                 UsuarioId = preguntaUsuarioId,
                 AutorNombre = preguntaAutor.Name,
                 AutorAvatarUrl = preguntaAutor.Avatar,
+                AutorSlug = preguntaAutor.Slug ?? "",
                 FechaCreacion = preguntaFechaCreacion,
                 Score = preguntaScore,
                 UsuarioVoto = 0,
@@ -315,9 +318,9 @@ namespace eiibd26.Pages.Preguntas
                     var authorMap = new Dictionary<Guid, AuthorInfo>();
                     try
                     {
-                        var perfiles = await _db.Set<Perfil>().AsNoTracking()
+                    var perfiles = await _db.Set<Perfil>().AsNoTracking()
                             .Where(p => userIdsTop.Contains(p.idUser))
-                            .Select(p => new { p.idUser, p.Nombre, p.Apellidos, p.Avatar })
+                            .Select(p => new { p.idUser, p.Nombre, p.Apellidos, p.Avatar, p.slug })
                             .ToListAsync();
 
                         foreach (var pf in perfiles)
@@ -325,7 +328,7 @@ namespace eiibd26.Pages.Preguntas
                             var full = string.IsNullOrWhiteSpace(pf.Apellidos) ? (pf.Nombre ?? "Usuario")
                                 : $"{(pf.Nombre ?? "Usuario")} {pf.Apellidos}";
                             var avatar = string.IsNullOrWhiteSpace(pf.Avatar) ? $"uploads/avatars/{pf.idUser}/avatar-64.png" : pf.Avatar.Replace("\\", "/");
-                            authorMap[pf.idUser] = new AuthorInfo(full, avatar);
+                            authorMap[pf.idUser] = new AuthorInfo(full, avatar, pf.slug ?? "");
                         }
 
                         var missing = userIdsTop.Except(authorMap.Keys).ToArray();
@@ -338,8 +341,8 @@ namespace eiibd26.Pages.Preguntas
 
                             foreach (var u in users)
                             {
-                                if (!authorMap.ContainsKey(u.Id))
-                                    authorMap[u.Id] = new AuthorInfo(string.IsNullOrWhiteSpace(u.UserName) ? "Usuario" : u.UserName, $"uploads/avatars/{u.Id}/avatar-64.png");
+                        if (!authorMap.ContainsKey(u.Id))
+                            authorMap[u.Id] = new AuthorInfo(string.IsNullOrWhiteSpace(u.UserName) ? "Usuario" : u.UserName, $"uploads/avatars/{u.Id}/avatar-64.png", "");
                             }
                         }
                     }
@@ -370,18 +373,21 @@ namespace eiibd26.Pages.Preguntas
                     var mappedTop = topAnswers.Select(x =>
                     {
                         var autor = authorMap.TryGetValue(x.UsuarioId, out var ai) ? ai : new AuthorInfo("Usuario", $"uploads/avatars/{x.UsuarioId}/avatar-64.png");
-                        return new RespuestaVm
+                            var resp = new RespuestaVm
                         {
                             Id = x.Id,
                             Cuerpo = x.Cuerpo,
                             UsuarioId = x.UsuarioId,
-                            AutorNombre = autor.Name,
-                            AutorAvatarUrl = autor.Avatar,
+                                AutorNombre = autor.Name,
+                                AutorAvatarUrl = autor.Avatar,
+                                AutorSlug = autor.Slug ?? "",
                             FechaCreacion = x.FechaCreacion,
                             Score = x.Score,
                             UsuarioVoto = votosUsuarioTop.TryGetValue(x.Id, out var vv) ? vv : 0,
                             EsMia = currentUserId.HasValue && x.UsuarioId == currentUserId.Value
-                        };
+                            };
+                            // author slug stored in resp.AutorSlug above
+                            return resp;
                     }).ToList();
 
                     if (mappedTop.Count > 0)
@@ -436,7 +442,7 @@ namespace eiibd26.Pages.Preguntas
                 {
                     var perfiles = await _db.Set<Perfil>().AsNoTracking()
                         .Where(p => ansUserIds.Contains(p.idUser))
-                        .Select(p => new { p.idUser, p.Nombre, p.Apellidos, p.Avatar })
+                        .Select(p => new { p.idUser, p.Nombre, p.Apellidos, p.Avatar, p.slug })
                         .ToListAsync();
 
                     foreach (var pf in perfiles)
@@ -447,7 +453,7 @@ namespace eiibd26.Pages.Preguntas
                         var avatar = string.IsNullOrWhiteSpace(pf.Avatar)
                             ? $"uploads/avatars/{pf.idUser}/avatar-64.png"
                             : pf.Avatar.Replace("\\", "/");
-                        ansAuthors[pf.idUser] = new AuthorInfo(full, avatar);
+                        ansAuthors[pf.idUser] = new AuthorInfo(full, avatar, pf.slug ?? "");
                     }
 
                     var missing = ansUserIds.Except(ansAuthors.Keys).ToArray();
@@ -460,8 +466,8 @@ namespace eiibd26.Pages.Preguntas
 
                         foreach (var u in users)
                         {
-                            if (!ansAuthors.ContainsKey(u.Id))
-                                ansAuthors[u.Id] = new AuthorInfo(string.IsNullOrWhiteSpace(u.UserName) ? "Usuario" : u.UserName, $"uploads/avatars/{u.Id}/avatar-64.png");
+                        if (!ansAuthors.ContainsKey(u.Id))
+                                ansAuthors[u.Id] = new AuthorInfo(string.IsNullOrWhiteSpace(u.UserName) ? "Usuario" : u.UserName, $"uploads/avatars/{u.Id}/avatar-64.png", "");
                         }
                     }
                 }
@@ -498,20 +504,22 @@ namespace eiibd26.Pages.Preguntas
             {
                 var autorInfo = ansAuthors.TryGetValue(a.UsuarioId, out var ai)
                     ? ai
-                    : new AuthorInfo("Usuario", $"uploads/avatars/{a.UsuarioId}/avatar-64.png");
+                    : new AuthorInfo("Usuario", $"uploads/avatars/{a.UsuarioId}/avatar-64.png", "");
 
-                return new RespuestaVm
+                var resp = new RespuestaVm
                 {
                     Id = a.Id,
                     Cuerpo = a.Cuerpo,
                     UsuarioId = a.UsuarioId,
                     AutorNombre = autorInfo.Name,
                     AutorAvatarUrl = autorInfo.Avatar,
+                    AutorSlug = autorInfo.Slug ?? "",
                     FechaCreacion = a.FechaCreacion,
                     Score = a.Score,
                     UsuarioVoto = votosUsuarioAns.TryGetValue(a.Id, out var vv) ? vv : 0,
                     EsMia = currentUserId.HasValue && a.UsuarioId == currentUserId.Value
                 };
+                return resp;
             }).ToList();
 
             return Page();

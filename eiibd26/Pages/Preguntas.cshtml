@@ -321,27 +321,34 @@
 
                                 <div class="se-meta">
                                     <div class="se-user">
-                                        @if (_visIdx < 4)
-                                        {
-                                            <img class="se-avatar"
-                                                 src="@ResolveAvatar(q.AutorAvatarUrl)"
-                                                 alt="@q.AutorNombre" width="36" height="36"
-                                                 decoding="async"
-                                                 onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+                                        @{
+                                            var perfilHref = !string.IsNullOrWhiteSpace(q.AutorSlug)
+                                                ? Url.Page("/u/Index", new { slug = q.AutorSlug }) ?? ("/u/" + q.AutorSlug)
+                                                : "/u/" + q.UsuarioId;
                                         }
-                                        else
-                                        {
-                                            <img class="se-avatar lazy-avatar"
-                                                 src="@Url.Content("~/uploads/avatar-placeholder.png")"
-                                                 data-src="@ResolveAvatar(q.AutorAvatarUrl)"
-                                                 alt="@q.AutorNombre" width="36" height="36"
-                                                 decoding="async" loading="lazy"
-                                                 onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
-                                        }
+                                        <a class="se-avatar-link" href="@perfilHref" aria-label="Perfil del autor">
+                                            @if (_visIdx < 4)
+                                            {
+                                                <img class="se-avatar"
+                                                     src="@ResolveAvatar(q.AutorAvatarUrl)"
+                                                     alt="@q.AutorNombre" width="36" height="36"
+                                                     decoding="async"
+                                                     onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+                                            }
+                                            else
+                                            {
+                                                <img class="se-avatar lazy-avatar"
+                                                     src="@Url.Content("~/uploads/avatar-placeholder.png")"
+                                                     data-src="@ResolveAvatar(q.AutorAvatarUrl)"
+                                                     alt="@q.AutorNombre" width="36" height="36"
+                                                     decoding="async" loading="lazy"
+                                                     onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+                                            }
+                                        </a>
                                         @{
                                             _visIdx++;
                                         }
-                                        <a class="se-user-name" href="#" aria-label="Autor">@q.AutorNombre</a>
+                                        <a class="se-user-name" href="@perfilHref" aria-label="Autor">@q.AutorNombre</a>
                                     </div>
                                     <div class="se-time">
                                         pregunto <time datetime="@q.FechaCreacion.ToString("o")">@HumanizeDate(q.FechaCreacion)</time>

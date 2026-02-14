@@ -378,12 +378,15 @@
 
                         <div class="se-meta">
                             <div class="se-user">
-                                <img class="se-author-avatar lazy-avatar" src="@Url.Content("~/img/avatar-placeholder.png")"
-                                     data-src="@ResolveAvatar(Model.Pregunta.AutorAvatarUrl)"
-                                     alt="@Model.Pregunta.AutorNombre" width="48" height="48" decoding="async"
-                                     onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+                                @{ var autorHref = !string.IsNullOrWhiteSpace(Model.Pregunta.AutorSlug) ? (siteRoot.TrimEnd('/') + "/u/" + Model.Pregunta.AutorSlug) : (siteRoot.TrimEnd('/') + "/u/" + Model.Pregunta.UsuarioId); }
+                                <a href="@autorHref" class="se-author-avatar-link">
+                                    <img class="se-author-avatar lazy-avatar" src="@Url.Content("~/img/avatar-placeholder.png")"
+                                         data-src="@ResolveAvatar(Model.Pregunta.AutorAvatarUrl)"
+                                         alt="@Model.Pregunta.AutorNombre" width="48" height="48" decoding="async"
+                                         onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+                                </a>
                                 <div class="se-author-meta">
-                                    <a class="se-author-name" href="#">@Model.Pregunta.AutorNombre</a>
+                                    <a class="se-author-name" href="@autorHref">@Model.Pregunta.AutorNombre</a>
                                     <span>
                                         @if (Model.Pregunta.EsMia)
                                         {
