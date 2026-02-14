@@ -6,6 +6,11 @@
 @{
     ViewData["Title"] = (Model.Item?.Title != null ? Model.Item.Title + " - #HazViralLoQueImporta" : "Contenido");
 
+    // Determine site root (map localhost to production domain for rendered structured data)
+    var siteRoot = (Request.Host.HasValue && Request.Host.Value.IndexOf("localhost", StringComparison.OrdinalIgnoreCase) >= 0)
+        ? "https://eiibd.com"
+        : $"{Request.Scheme}://{Request.Host.Value}";
+
     // Build share URL using the SEO path when available (Model.SeoUrl expected to be like "/categoria/slug")
     // Fallback to the current request URL if SeoUrl is null/empty.
     string seoPath = Model?.SeoUrl ?? string.Empty;
@@ -17,26 +22,40 @@
         // Si es absoluta (http:// o https://) la usamos tal cual
         if (Uri.IsWellFormedUriString(seoRaw, UriKind.Absolute))
         {
-            shareUrl = seoRaw;
+            // If absolute but points to localhost, rewrite host to canonical siteRoot
+            try {
+                var u = new Uri(seoRaw);
+                if (u.Host.IndexOf("localhost", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    shareUrl = siteRoot.TrimEnd('/') + u.PathAndQuery;
+                } else {
+                    shareUrl = seoRaw;
+                }
+            } catch { shareUrl = seoRaw; }
         }
         else
         {
             // Si es relativa (ej. "/categoria/slug" o "categoria/slug") la normalizamos y la hacemos absoluta
             var path = seoRaw.StartsWith("/") ? seoRaw : "/" + seoRaw;
-            shareUrl = $"{Request.Scheme}://{Request.Host}{path}";
+            shareUrl = siteRoot.TrimEnd('/') + path;
         }
     }
     else
     {
         // Fallback a la URL actual de la petición
-        shareUrl = HttpContext.Request.GetDisplayUrl();
+        // Use siteRoot + request path to avoid localhost in rendered outputs
+        try {
+            var req = HttpContext.Request;
+            shareUrl = siteRoot.TrimEnd('/') + req.Path + req.QueryString;
+        } catch {
+            shareUrl = HttpContext.Request.GetDisplayUrl();
+        }
     }
 
     var shareTitle = Model?.Item?.Title ?? (ViewData["Title"]?.ToString() ?? "Contenido");
     var shareImage = !string.IsNullOrWhiteSpace(Model?.Item?.ImageUrl)
         ? (Model.Item.ImageUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase)
-            ? Model.Item.ImageUrl
-            : $"{Request.Scheme}://{Request.Host}{Model.Item.ImageUrl}")
+            ? (Model.Item.ImageUrl.IndexOf("localhost", StringComparison.OrdinalIgnoreCase) >= 0 ? siteRoot.TrimEnd('/') + new Uri(Model.Item.ImageUrl).PathAndQuery : Model.Item.ImageUrl)
+            : siteRoot.TrimEnd('/') + (Model.Item.ImageUrl.StartsWith("/") ? Model.Item.ImageUrl : "/" + Model.Item.ImageUrl))
         : null;
 
     // Serializamos para JS (si lo usas)
@@ -61,6 +80,221 @@
     @if (!string.IsNullOrWhiteSpace(shareImage))
     {
         <meta name="twitter:image" content="@shareImage" />
+    }
+}
+
+@section Head {
+    @if (Model.Item != null)
+    {
+        // Determine if this is the 'Recién diagnosticado' article (slug or title heuristics)
+        var isRecien = false;
+        try {
+            isRecien = (!string.IsNullOrWhiteSpace(Model.Item.Slug) && Model.Item.Slug.Equals("recien-diagnosticado", System.StringComparison.OrdinalIgnoreCase))
+                      || (!string.IsNullOrWhiteSpace(Model.Item.Title) && (Model.Item.Title.IndexOf("Reci", System.StringComparison.OrdinalIgnoreCase) >= 0 || Model.Item.Title.IndexOf("Recien", System.StringComparison.OrdinalIgnoreCase) >= 0));
+        } catch { isRecien = false; }
+
+        var ldOptions = new System.Text.Json.JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
+        // Always emit a BreadcrumbList JSON-LD derived from available category crumbs (fallback to Contenidos)
+        var itemList = new System.Collections.Generic.List<object>();
+        int pos = 1;
+        // Home
+        itemList.Add(new System.Collections.Generic.Dictionary<string, object> {
+            ["@type"] = "ListItem",
+            ["position"] = pos++,
+            ["name"] = "EIIBD",
+            ["item"] = siteRoot.TrimEnd('/') + "/"
+        });
+
+        // Info y Ayuda (recommended parent for this section)
+        itemList.Add(new System.Collections.Generic.Dictionary<string, object> {
+            ["@type"] = "ListItem",
+            ["position"] = pos++,
+            ["name"] = "Info y Ayuda",
+            ["item"] = siteRoot.TrimEnd('/') + "/info-y-ayuda"
+        });
+
+        // Category crumbs (if any) - avoid duplicating the "Info y Ayuda" level
+        if (Model.CategoryCrumbs != null && Model.CategoryCrumbs.Any())
+        {
+            foreach (var c in Model.CategoryCrumbs)
+            {
+                try {
+                    var title = (c.Title ?? "").Trim();
+                    if (string.IsNullOrWhiteSpace(title)) continue;
+                    // Skip if it duplicates the generic Info y Ayuda level
+                    if (title.Equals("Info y Ayuda", System.StringComparison.OrdinalIgnoreCase)) continue;
+                    if (title.Equals("Recién diagnosticado", System.StringComparison.OrdinalIgnoreCase) || title.Equals("Recien diagnosticado", System.StringComparison.OrdinalIgnoreCase)) continue;
+
+                    var urlPart = (c.Url ?? "").Trim();
+                    if (string.IsNullOrWhiteSpace(urlPart)) continue;
+                    var href = siteRoot.TrimEnd('/') + (urlPart.StartsWith("/") ? urlPart : "/" + urlPart);
+                    itemList.Add(new System.Collections.Generic.Dictionary<string, object> {
+                        ["@type"] = "ListItem",
+                        ["position"] = pos++,
+                        ["name"] = title,
+                        ["item"] = href
+                    });
+                } catch { }
+            }
+        }
+
+        // If this article belongs to the "Recién diagnosticado" section, insert a dedicated section item
+        if (isRecien)
+        {
+            var sectionUrl = siteRoot.TrimEnd('/') + "/info-y-ayuda/recien-diagnosticado";
+            itemList.Add(new System.Collections.Generic.Dictionary<string, object> {
+                ["@type"] = "ListItem",
+                ["position"] = pos++,
+                ["name"] = "Recién diagnosticado",
+                ["item"] = sectionUrl
+            });
+        }
+
+        // Current page as last item - ensure absolute and not pointing to localhost
+        string currentUrl;
+        if (!string.IsNullOrWhiteSpace(Model.SeoUrl))
+        {
+            var seo = Model.SeoUrl.Trim();
+            if (Uri.IsWellFormedUriString(seo, UriKind.Absolute))
+            {
+                try {
+                    var u = new Uri(seo);
+                    if (u.Host.IndexOf("localhost", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        currentUrl = siteRoot.TrimEnd('/') + u.PathAndQuery;
+                    }
+                    else
+                    {
+                        currentUrl = seo;
+                    }
+                } catch { currentUrl = seo; }
+            }
+            else
+            {
+                currentUrl = siteRoot.TrimEnd('/') + (seo.StartsWith("/") ? seo : "/" + seo);
+            }
+        }
+        else
+        {
+            try {
+                var req = HttpContext.Request;
+                currentUrl = siteRoot.TrimEnd('/') + req.Path + req.QueryString;
+            } catch { currentUrl = HttpContext.Request.GetDisplayUrl(); }
+        }
+
+        itemList.Add(new System.Collections.Generic.Dictionary<string, object> {
+            ["@type"] = "ListItem",
+            ["position"] = pos++,
+            ["name"] = Model.Item.Title ?? "",
+            ["item"] = currentUrl
+        });
+
+        var bc = new System.Collections.Generic.Dictionary<string, object> {
+            ["@context"] = "https://schema.org",
+            ["@type"] = "BreadcrumbList",
+            ["itemListElement"] = itemList
+        };
+
+        var bcJson = System.Text.Json.JsonSerializer.Serialize(bc, ldOptions);
+        <text>
+            <script type="application/ld+json">
+                @Html.Raw(bcJson)
+            </script>
+        </text>
+
+        if (isRecien)
+        {
+            // Emit MedicalWebPage JSON-LD using the values requested and enhanced for YMYL
+            var med = new System.Collections.Generic.Dictionary<string, object>
+            {
+                ["@context"] = "https://schema.org",
+                ["@type"] = "MedicalWebPage",
+                ["name"] = "Guía para el Recién Diagnosticado con EII",
+                ["description"] = "Recibir un diagnóstico de Crohn o Colitis Ulcerosa es difícil. Aquí te explicamos los primeros pasos, tratamientos y cómo manejar el impacto emocional.",
+                ["medicalAudience"] = "Patient",
+                ["relevantSpecialty"] = new System.Collections.Generic.Dictionary<string, object> { ["@type"] = "MedicalSpecialty", ["name"] = "Gastroenterology" },
+                ["lastReviewed"] = "2026-02-13",
+                ["isAccessibleForFree"] = true,
+                ["inLanguage"] = "es-ES",
+                ["mainContentOfPage"] = new System.Collections.Generic.Dictionary<string, object> { ["@type"] = "WebPageElement", ["cssSelector"] = ".contenido-html" },
+                ["author"] = new System.Collections.Generic.Dictionary<string, object> { ["@type"] = "Person", ["name"] = "Carlos Berletzis", ["url"] = "https://eiibd.com/u/berletzis" },
+                ["about"] = new System.Collections.Generic.Dictionary<string, object> {
+                    ["@type"] = "MedicalCondition",
+                    ["name"] = "Enfermedad Inflamatoria Intestinal",
+                    ["alternateName"] = new string[] { "EII", "Crohn", "Colitis Ulcerosa" },
+                    ["associatedAnatomy"] = new System.Collections.Generic.Dictionary<string, object> { ["@type"] = "AnatomicalStructure", ["name"] = "Sistema Digestivo" }
+                }
+            };
+
+            var medJson = System.Text.Json.JsonSerializer.Serialize(med, ldOptions);
+            <text>
+                <script type="application/ld+json">
+                    @Html.Raw(medJson)
+                </script>
+            </text>
+        }
+
+        // --- BlogPosting JSON-LD (enhanced) ---
+        try {
+            var descRaw = !string.IsNullOrWhiteSpace(Model.Item.Excerpt) ? Model.Item.Excerpt : (Model.Item.ContentHtml ?? "");
+            // strip tags for description fallback
+            descRaw = System.Text.RegularExpressions.Regex.Replace(descRaw, "<[^>]+>", " ");
+            descRaw = System.Net.WebUtility.HtmlDecode(descRaw ?? "");
+            var description = descRaw.Length > 300 ? descRaw.Substring(0, 297) + "..." : descRaw;
+
+            var imageUrlForSchema = !string.IsNullOrWhiteSpace(shareImage) ? shareImage : (siteRoot.TrimEnd('/') + "/img/logo.png");
+            var authorName2 = Model.Item?.Author ?? "Autor";
+            var authorUrl2 = (authorName2.IndexOf("Carlos", System.StringComparison.OrdinalIgnoreCase) >= 0) ? "https://eiibd.com/u/berletzis" : null;
+
+            // Use clean ISO 8601 UTC timestamps without fractional seconds
+            string datePublished;
+            try {
+                if (Model.Item != null && Model.Item.CreatedAt != default(DateTime))
+                {
+                    var dp = DateTime.SpecifyKind(Model.Item.CreatedAt, DateTimeKind.Utc).ToUniversalTime();
+                    datePublished = dp.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'");
+                }
+                else
+                {
+                    datePublished = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'");
+                }
+            } catch {
+                datePublished = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'");
+            }
+
+            var dateModified = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'");
+
+            var keywordsArr = (Model.Item?.Categories != null && Model.Item.Categories.Any()) ? Model.Item.Categories.Where(s => !string.IsNullOrWhiteSpace(s)).ToArray() : new string[0];
+
+            var blog = new System.Collections.Generic.Dictionary<string, object>
+            {
+                ["@context"] = "https://schema.org",
+                ["@type"] = "BlogPosting",
+                ["headline"] = Model.Item?.Title ?? "",
+                ["description"] = description ?? "",
+                ["image"] = imageUrlForSchema,
+                ["mainEntityOfPage"] = currentUrl,
+                ["author"] = new System.Collections.Generic.Dictionary<string, object> { ["@type"] = "Person", ["name"] = authorName2, ["url"] = authorUrl2 ?? siteRoot.TrimEnd('/') },
+                ["publisher"] = new System.Collections.Generic.Dictionary<string, object> {
+                    ["@type"] = "Organization",
+                    ["name"] = "EIIBD",
+                    ["logo"] = new System.Collections.Generic.Dictionary<string, object> { ["@type"] = "ImageObject", ["url"] = siteRoot.TrimEnd('/') + "/img/logo.png" }
+                },
+                ["datePublished"] = datePublished,
+                ["dateModified"] = dateModified,
+                ["isAccessibleForFree"] = true,
+                ["inLanguage"] = "es-ES",
+                ["keywords"] = (keywordsArr.Length > 0) ? string.Join(", ", keywordsArr) : null
+            };
+
+            var blogJson = System.Text.Json.JsonSerializer.Serialize(blog, ldOptions);
+            <text>
+                <script type="application/ld+json">
+                    @Html.Raw(blogJson)
+                </script>
+            </text>
+        } catch { }
     }
 }
 
@@ -434,7 +668,32 @@
         <div class="author">
             <img src="~/img/avatar-placeholder.png" alt="@Model.Item?.Author" />
             <div>
-                <div style="font-weight:100;">por @Model.Item?.Author | <i class="bi bi-calendar"></i> @(Model.Item != null && Model.Item.CreatedAt != default(DateTime) ? Model.Item.CreatedAt.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture) : "") | <i class="bi bi-clock"></i> @Model.Item?.ReadMinutes min read (aprox).</div>
+                <div style="font-weight:100;">
+                    por 
+                    @{
+                        var authorName = Model.Item?.Author ?? "Autor";
+                        var authorUrl = "";
+                        if (!string.IsNullOrWhiteSpace(authorName) && authorName.IndexOf("Carlos", StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            authorName = "Carlos Berletzis";
+                            authorUrl = "https://eiibd.com/u/berletzis";
+                        }
+                    }
+                    @if (!string.IsNullOrWhiteSpace(authorUrl))
+                    {
+                        <a href="@authorUrl">@authorName</a>
+                    }
+                    else
+                    {
+                        @authorName
+                    }
+                    | <i class="bi bi-calendar"></i>
+                    @if (Model.Item != null && Model.Item.CreatedAt != default(DateTime))
+                    {
+                        <time datetime="@Model.Item.CreatedAt.ToString("yyyy-MM-dd")">@Model.Item.CreatedAt.ToString("d 'de' MMMM 'de' yyyy", new System.Globalization.CultureInfo("es-ES"))</time>
+                    }
+                    | <i class="bi bi-clock"></i> @Model.Item?.ReadMinutes min read (aprox).
+                </div>
             </div>
         </div>
     </div>
@@ -585,21 +844,43 @@
             <h4 id="social-heading" style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">#HazViralLoQueImporta</h4>
             <div class="social-list" aria-labelledby="social-heading">
                 <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
-                    <div class="a2a_kit a2a_kit_size_32 a2a_default_style" data-a2a-url="@shareUrl" data-a2a-title="@shareTitle" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">
-                        <a class="a2a_button_whatsapp"></a>
-                        <a class="a2a_button_facebook"></a>
-                        <a class="a2a_button_x"></a>
-                        <a class="a2a_button_email"></a>
-                        <a class="a2a_dd" href="https://www.addtoany.com/share"></a>
+                    <div class="share-icons" aria-label="Compartir">
+                        @{
+                            var encUrl = System.Net.WebUtility.UrlEncode(shareUrl ?? "");
+                            var encTitle = System.Net.WebUtility.UrlEncode(shareTitle ?? "");
+                            var waHref = $"https://api.whatsapp.com/send?text={encTitle}%20{encUrl}";
+                            var fbHref = $"https://www.facebook.com/sharer/sharer.php?u={encUrl}";
+                            var twHref = $"https://twitter.com/intent/tweet?text={encTitle}&url={encUrl}";
+                            var mailHref = $"mailto:?subject={encTitle}&body={encUrl}";
+                        }
+
+                        <a class="share-btn" href="#" data-href="@waHref" title="Compartir en WhatsApp" aria-label="Compartir en WhatsApp"><i class="bi bi-whatsapp"></i></a>
+                        <a class="share-btn" href="#" data-href="@fbHref" title="Compartir en Facebook" aria-label="Compartir en Facebook"><i class="bi bi-facebook"></i></a>
+                        <a class="share-btn" href="#" data-href="@twHref" title="Compartir en X" aria-label="Compartir en X"><i class="bi bi-twitter"></i></a>
+                        <a class="share-btn" href="@mailHref" title="Enviar por email" aria-label="Enviar por email"><i class="bi bi-envelope"></i></a>
                     </div>
                     <script>
-                        var a2a_config = a2a_config || {};
-                        a2a_config.locale = "es";
-                        // ensure AddToAny uses our URL/title when opened by script-based sharers
-                        a2a_config.linkurl = "@shareUrl";
-                        a2a_config.linkname = "@shareTitle";
+                        (function(){
+                            function openPopup(url){
+                                try{
+                                    var w = 600, h = 600;
+                                    var left = (screen.width/2)-(w/2);
+                                    var top = (screen.height/2)-(h/2);
+                                    window.open(url, '_blank', `scrollbars=yes,resizable=yes,toolbar=no,location=no,width=${w},height=${h},top=${top},left=${left}`);
+                                }catch(e){ window.location.href = url; }
+                            }
+                            document.addEventListener('click', function(e){
+                                var a = e.target.closest && e.target.closest('.share-btn');
+                                if(!a) return;
+                                e.preventDefault();
+                                var href = a.getAttribute('data-href') || a.getAttribute('href');
+                                if(!href) return;
+                                // For mailto keep default behavior
+                                if(href.indexOf('mailto:') === 0){ window.location.href = href; return; }
+                                openPopup(href);
+                            }, {passive:false});
+                        })();
                     </script>
-                    <script defer src="https://static.addtoany.com/menu/page.js"></script>
                 </div>
             </div>
 

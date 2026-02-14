@@ -8,6 +8,11 @@
     ViewData["Title"] = Model.Pregunta?.Titulo ?? "Pregunta";
     Layout = "_Layout";
 
+    // Determine site root (map localhost to production domain for structured data)
+    var siteRoot = (Request.Host.HasValue && Request.Host.Value.IndexOf("localhost", StringComparison.OrdinalIgnoreCase) >= 0)
+        ? "https://eiibd.com"
+        : $"{Request.Scheme}://{Request.Host.Value}";
+
     string ResolveAvatar(string avatar)
     {
         if (string.IsNullOrWhiteSpace(avatar)) return Url.Content("~/img/avatar-placeholder.png");
@@ -42,8 +47,8 @@
 
         // Prefer SEO-friendly /Preguntas/{slug} when slug exists, otherwise use Detalles?id=
         var canonicalUrl = !string.IsNullOrWhiteSpace(Model.Pregunta.Slug)
-            ? $"{Request.Scheme}://{Request.Host}/Preguntas/{Model.Pregunta.Slug}"
-            : $"{Request.Scheme}://{Request.Host}/Preguntas/Detalles?id={Model.Pregunta.Id}";
+            ? siteRoot.TrimEnd('/') + "/Preguntas/" + Model.Pregunta.Slug
+            : siteRoot.TrimEnd('/') + "/Preguntas/Detalles?id=" + Model.Pregunta.Id;
 
         // Build JSON-LD structure
         var mainEntity = new Dictionary<string, object>
@@ -52,7 +57,7 @@
             ["name"] = Model.Pregunta.Titulo ?? "",
             ["text"] = cleanBody ?? "",
             ["answerCount"] = answerCount,
-            ["dateCreated"] = Model.Pregunta.FechaCreacion.ToString("o"),
+            ["dateCreated"] = Model.Pregunta.FechaCreacion.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"),
             ["author"] = new Dictionary<string, object>
             {
                 ["@type"] = "Person",
@@ -66,7 +71,7 @@
             {
                 ["@type"] = "Answer",
                 ["text"] = StripHtml(accepted.Cuerpo) ?? "",
-                ["dateCreated"] = accepted.FechaCreacion.ToString("o"),
+                ["dateCreated"] = accepted.FechaCreacion.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"),
                 ["upvoteCount"] = accepted.Score,
                 ["author"] = new Dictionary<string, object> { ["@type"] = "Person", ["name"] = accepted.AutorNombre ?? "Usuario" }
             };
@@ -83,7 +88,7 @@
                 {
                     ["@type"] = "Answer",
                     ["text"] = StripHtml(a.Cuerpo) ?? "",
-                    ["dateCreated"] = a.FechaCreacion.ToString("o"),
+                    ["dateCreated"] = a.FechaCreacion.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"),
                     ["upvoteCount"] = a.Score,
                     ["author"] = new Dictionary<string, object> { ["@type"] = "Person", ["name"] = a.AutorNombre ?? "Usuario" }
                 });
@@ -91,11 +96,18 @@
             if (list.Any()) mainEntity["suggestedAnswer"] = list;
         }
 
+        // BreadcrumbList for SEO
+        var breadcrumbs = new List<Dictionary<string, object>>();
+        breadcrumbs.Add(new Dictionary<string, object> { ["@type"] = "ListItem", ["position"] = 1, ["name"] = "Inicio", ["item"] = siteRoot.TrimEnd('/') + "/" });
+        breadcrumbs.Add(new Dictionary<string, object> { ["@type"] = "ListItem", ["position"] = 2, ["name"] = "Preguntas", ["item"] = siteRoot.TrimEnd('/') + "/Preguntas" });
+        breadcrumbs.Add(new Dictionary<string, object> { ["@type"] = "ListItem", ["position"] = 3, ["name"] = Model.Pregunta.Titulo ?? "", ["item"] = canonicalUrl });
+
         var ld = new Dictionary<string, object>
         {
             ["@context"] = "https://schema.org",
             ["@type"] = "QAPage",
-            ["mainEntity"] = mainEntity
+            ["mainEntity"] = mainEntity,
+            ["breadcrumb"] = new Dictionary<string, object> { ["@type"] = "BreadcrumbList", ["itemListElement"] = breadcrumbs }
         };
 
         var jsonOptions = new JsonSerializerOptions { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
@@ -278,8 +290,43 @@
                         }
                     </div>
 
+@section Scripts {
+    <script>
+        (function () {
+            function initLazyAvatars() {
+                const imgs = Array.from(document.querySelectorAll('img.lazy-avatar[data-src]'));
+                if (!imgs.length) return;
+                const loadImg = img => {
+                    const src = img.getAttribute('data-src');
+                    if (!src) { img.src='@Url.Content("~/img/avatar-placeholder.png")'; return; }
+                    const tmp = new Image();
+                    tmp.decoding = 'async';
+                    tmp.onload = () => { img.src = src; img.classList.add('loaded'); };
+                    tmp.onerror = () => { img.src='@Url.Content("~/img/avatar-placeholder.png")'; img.classList.add('loaded'); };
+                    tmp.src = src;
+                };
+                if ('IntersectionObserver' in window) {
+                    const io = new IntersectionObserver(entries => {
+                        entries.forEach(e => {
+                            if (e.isIntersecting) {
+                                io.unobserve(e.target);
+                                loadImg(e.target);
+                            }
+                        });
+                    }, { rootMargin: '200px 0px' });
+                    imgs.forEach(i => io.observe(i));
+                } else {
+                    imgs.forEach(loadImg);
+                }
+            }
+            document.addEventListener('DOMContentLoaded', initLazyAvatars);
+            if (document.readyState === 'interactive' || document.readyState === 'complete') initLazyAvatars();
+        })();
+    </script>
+}
+
                     <div class="se-summary">
-                        <h2 class="se-card-title">@Model.Pregunta.Titulo</h2>
+                        <div class="se-card-title" role="heading" aria-level="2">@Model.Pregunta.Titulo</div>
 
                         <div class="se-excerpt">@Html.Raw(Model.Pregunta.Cuerpo)</div>
                         <div class="se-answers-float answered" title="Respuestas totales">

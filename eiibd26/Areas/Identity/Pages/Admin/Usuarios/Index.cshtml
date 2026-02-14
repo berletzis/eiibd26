@@ -1,6 +1,7 @@
 ﻿@page
 @model eiibd26.Areas.Identity.Pages.Admin.Usuarios.UsuariosIndexModel
 @using Microsoft.AspNetCore.Authorization
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 @attribute [Authorize(Roles = "Administrador")]
 
 @section Styles {
@@ -117,7 +118,14 @@
 }
 
 <div class="crm-container-admin">
-    <h2 class="crm-title-admin mb-4">Usuarios registrados</h2>
+    <meta name="csrf-token" content="@Antiforgery.GetAndStoreTokens(HttpContext).RequestToken" />
+    <div class="d-flex align-items-center mb-3">
+        <h2 class="crm-title-admin mb-0">Usuarios registrados</h2>
+        <div class="ms-3">
+            <button id="btnFillUserSlugs" class="btn btn-sm btn-primary">Generar SLUGs vacíos</button>
+            <span id="fillSlugsStatus" class="ms-2 text-muted" style="display:none"></span>
+        </div>
+    </div>
     <div class="table-centered-admin">
         <table id="usersGrid" class="table table-bordered table-hover align-middle mb-0">
             <thead>
@@ -169,6 +177,36 @@
                 columnDefs: [
                     { targets: 2, type: "num" }
                 ]
+            });
+
+            // Handler for generating missing slugs
+            $('#btnFillUserSlugs').on('click', function () {
+                if (!confirm('¿Generar slugs para usuarios que no los tienen y actualizar su fecha de modificación?')) return;
+                var $btn = $(this);
+                $btn.prop('disabled', true).text('Procesando...');
+                $('#fillSlugsStatus').hide().text('');
+
+                fetch(window.location.pathname + '?handler=FillMissingSlugs', {
+                    method: 'POST',
+                    headers: {
+                        'RequestVerificationToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    }
+                })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        $btn.prop('disabled', false).text('Generar SLUGs vacíos');
+                        if (data && data.modified !== undefined) {
+                            $('#fillSlugsStatus').show().text('SLUGs generados: ' + data.modified);
+                        } else if (data && data.error) {
+                            $('#fillSlugsStatus').show().text('Error: ' + data.error);
+                        } else {
+                            $('#fillSlugsStatus').show().text('Operación completada.');
+                        }
+                    })
+                    .catch(function (err) {
+                        $btn.prop('disabled', false).text('Generar SLUGs vacíos');
+                        $('#fillSlugsStatus').show().text('Error: ' + err);
+                    });
             });
         });
     </script>

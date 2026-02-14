@@ -316,6 +316,13 @@
                 <a asp-page="./Detalle" class="btn btn-primary">
                     <i class="bi bi-plus-lg"></i> Nuevo contenido
                 </a>
+                <button id="btnFillSlugs" type="button" class="btn btn-outline-secondary ms-2">
+                    <i class="bi bi-slash-circle me-1"></i> Rellenar SLUGs faltantes
+                </button>
+                <span id="fillSlugsCount" class="ms-2 text-muted">Modificados: <strong>0</strong></span>
+                <button id="btnRefreshSitemapContents" type="button" class="btn btn-outline-info ms-3">Actualizar XML de Contenidos</button>
+                <button id="btnRefreshSitemapPreguntas" type="button" class="btn btn-outline-info ms-2">Actualizar XML de Preguntas</button>
+                <span id="refreshSitemapStatus" class="ms-2 text-muted">&nbsp;</span>
             </div>
         </div>
     </div>
@@ -420,6 +427,58 @@
         // register switches change handler early so toggling immediately triggers reload
         $('#switchEliminados, #switchBorradores').on('change', function() {
             try { if (typeof contenidosTabla !== 'undefined' && contenidosTabla) contenidosTabla.ajax.reload(); } catch(e) { console.warn(e); }
+        });
+
+        // Refresh sitemap XML for contents
+        $('#btnRefreshSitemapContents').on('click', function() {
+            if (!confirm('¿Desea regenerar y actualizar el sitemap de contenidos?')) return;
+            var $btn = $(this);
+            $btn.prop('disabled', true).text('Actualizando...');
+            $('#refreshSitemapStatus').text('Procesando...');
+            $.ajax({
+                url: '/sitemap/refresh',
+                type: 'POST',
+                contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+                data: $.param({ scope: 'contents' }),
+                success: function(res) {
+                    console.log('Sitemap contenidos actualizado:', res);
+                    $('#refreshSitemapStatus').text('OK');
+                },
+                error: function(xhr) {
+                    console.error('Error actualizando sitemap contenidos:', xhr.responseText);
+                    $('#refreshSitemapStatus').text('Error');
+                    alert('Error actualizando sitemap de contenidos. Revisa la consola.');
+                },
+                complete: function() {
+                    $btn.prop('disabled', false).html('Actualizar XML de Contenidos');
+                }
+            });
+        });
+
+        // Refresh sitemap XML for preguntas
+        $('#btnRefreshSitemapPreguntas').on('click', function() {
+            if (!confirm('¿Desea regenerar y actualizar el sitemap de preguntas?')) return;
+            var $btn = $(this);
+            $btn.prop('disabled', true).text('Actualizando...');
+            $('#refreshSitemapStatus').text('Procesando...');
+            $.ajax({
+                url: '/sitemap-preguntas/refresh',
+                type: 'POST',
+                contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+                data: $.param({ scope: 'preguntas' }),
+                success: function(res) {
+                    console.log('Sitemap preguntas actualizado:', res);
+                    $('#refreshSitemapStatus').text('OK');
+                },
+                error: function(xhr) {
+                    console.error('Error actualizando sitemap preguntas:', xhr.responseText);
+                    $('#refreshSitemapStatus').text('Error');
+                    alert('Error actualizando sitemap de preguntas. Revisa la consola.');
+                },
+                complete: function() {
+                    $btn.prop('disabled', false).html('Actualizar XML de Preguntas');
+                }
+            });
         });
 
         contenidosTabla = $('#contenidosGrid').DataTable({
@@ -636,6 +695,35 @@
         }
         });
         }
+        });
+
+        // Handler: Fill missing slugs
+        $('#btnFillSlugs').on('click', function() {
+            if (!confirm('¿Desea rellenar los slugs faltantes para contenidos publicados? Esto actualizará la base de datos.')) return;
+            var $btn = $(this);
+            $btn.prop('disabled', true).text('Procesando...');
+            $.ajax({
+                url: '/Identity/Admin/Contenidos/Contenidos?handler=FillMissingSlugs',
+                type: 'POST',
+                contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+                data: $.param({ }),
+                success: function(res) {
+                    console.log('Rellenado SLUGs respuesta:', res);
+                    if (res && typeof res.modified === 'number') {
+                        $('#fillSlugsCount strong').text(res.modified);
+                        contenidosTabla.ajax.reload();
+                    } else {
+                        alert('Respuesta inesperada del servidor. Revisa la consola.');
+                    }
+                },
+                error: function(xhr) {
+                    console.error('Error rellenando slugs:', xhr.responseText);
+                    alert('Error al rellenar slugs. Revisa la consola.');
+                },
+                complete: function() {
+                    $btn.prop('disabled', false).html('<i class="bi bi-slash-circle me-1"></i> Rellenar SLUGs faltantes');
+                }
+            });
         });
         });
     </script>

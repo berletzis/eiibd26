@@ -14,10 +14,14 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios // <-- namespace corregido
     public class UsuariosIndexModel : PageModel
     {
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly ApplicationDbContext _db;
+        private readonly ILogger<UsuariosIndexModel> _logger;
 
-        public UsuariosIndexModel(UserManager<ApplicationUser> userManager)
+        public UsuariosIndexModel(UserManager<ApplicationUser> userManager, ApplicationDbContext db, ILogger<UsuariosIndexModel> logger)
         {
             _userManager = userManager;
+            _db = db;
+            _logger = logger;
         }
 
         public void OnGet() { }
@@ -103,5 +107,43 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios // <-- namespace corregido
             !string.IsNullOrEmpty(hash)
             && hash.Length >= 50
             && hash.StartsWith("AQAAAA");
+
+        public async Task<IActionResult> OnPostFillMissingSlugsAsync()
+        {
+            try
+            {
+                var toFix = await _db.Perfil
+                    .Where(p => string.IsNullOrWhiteSpace(p.slug) && !string.IsNullOrWhiteSpace(p.Nombre))
+                    .ToListAsync();
+
+                var modified = 0;
+                foreach (var perfil in toFix)
+                {
+                    var baseText = perfil.Nombre + (string.IsNullOrWhiteSpace(perfil.Apellidos) ? "" : " " + perfil.Apellidos);
+                    var baseSlug = eiibd26.Helpers.SlugHelper.GenerateSlug(baseText);
+                    var slug = baseSlug;
+                    var counter = 1;
+                    while (await _db.Perfil.AsNoTracking().AnyAsync(x => x.slug == slug))
+                    {
+                        slug = $"{baseSlug}-{counter}";
+                        counter++;
+                    }
+
+                    perfil.slug = slug;
+                    perfil.FechaModificado = DateTime.UtcNow;
+                    modified++;
+                }
+
+                if (modified > 0)
+                    await _db.SaveChangesAsync();
+
+                return new JsonResult(new { modified });
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error generando slugs para usuarios");
+                return new JsonResult(new { error = ex.Message });
+            }
+        }
     }
 }

@@ -70,7 +70,8 @@ namespace eiibd26.Pages.u
                     {
                         Nombre = c.Condicion.nombre ?? "Sin nombre",
                         Icono = c.Condicion.icono,
-                        FechaInicio = c.fechaInicio
+                        FechaInicio = c.fechaInicio,
+                        EdadDiagnostico = null // computed below once we have perfil.FechaDeNacimiento
                     })
                     .ToListAsync();
 
@@ -160,6 +161,21 @@ namespace eiibd26.Pages.u
                     TrackingSintomas = trackingSintomas // ✅ NUEVO
                 };
 
+                // Compute EdadDiagnostico for condiciones using perfil.FechaDeNacimiento
+                if (perfil.FechaDeNacimiento.HasValue)
+                {
+                    foreach (var cond in PerfilPublico.Condiciones)
+                    {
+                        if (cond.FechaInicio.HasValue)
+                        {
+                            var age = perfil.FechaDeNacimiento.Value;
+                            var diff = cond.FechaInicio.Value - age;
+                            var years = (int)Math.Floor(diff.TotalDays / 365.25);
+                            cond.EdadDiagnostico = years >= 0 && years < 120 ? years : (int?)null;
+                        }
+                    }
+                }
+
                 return Page();
             }
             catch (Exception ex)
@@ -242,6 +258,8 @@ namespace eiibd26.Pages.u
         public string Nombre { get; set; }
         public string Icono { get; set; }
         public DateTime? FechaInicio { get; set; }
+        // Edad (años) al momento del diagnóstico (calculada a partir de FechaInicio y FechaDeNacimiento del perfil)
+        public int? EdadDiagnostico { get; set; }
     }
 
     public class EstadoAnimoVm

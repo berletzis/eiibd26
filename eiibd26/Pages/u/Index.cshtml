@@ -6,6 +6,165 @@
     ViewData["Description"] = descripcionMeta;
 }
 
+@section Head {
+    <title>Perfil de @Model.PerfilPublico?.NombreCompleto - EIIBD</title>
+
+    @{ 
+        var perfil = Model.PerfilPublico;
+        string canonicalUrl = null;
+        string avatarNorm = null;
+        string firstCondition = null;
+        int? edadDiagnostico = null;
+        string ogDescription = null;
+        string twitterDesc = null;
+
+        if (perfil != null)
+        {
+            canonicalUrl = $"https://eiibd.com/u/{perfil.Slug}";
+            avatarNorm = perfil.Avatar ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(avatarNorm) && !avatarNorm.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            {
+                avatarNorm = $"https://eiibd.com{(avatarNorm.StartsWith("/") ? "" : "/")}{avatarNorm}";
+            }
+
+            // Usar EdadDiagnostico ya calculada en InfoClinicaVm si está disponible
+            firstCondition = perfil.Condiciones?.FirstOrDefault()?.Nombre;
+            edadDiagnostico = perfil.Condiciones?.FirstOrDefault()?.EdadDiagnostico;
+
+            // Preferir la descripción que el usuario escribe ('AcercaDe') como meta description
+            if (!string.IsNullOrWhiteSpace(perfil.AcercaDe))
+            {
+                ogDescription = perfil.AcercaDe.Length > 200 ? perfil.AcercaDe.Substring(0, 197) + "..." : perfil.AcercaDe;
+            }
+            else if (!string.IsNullOrWhiteSpace(firstCondition) && edadDiagnostico.HasValue)
+            {
+                ogDescription = $"{firstCondition} ({edadDiagnostico} años) • Registro de síntomas y tratamientos en la comunidad EIIBD.";
+            }
+            else if (!string.IsNullOrWhiteSpace(firstCondition))
+            {
+                ogDescription = $"{firstCondition} • Registro de síntomas y tratamientos en la comunidad EIIBD.";
+            }
+            else
+            {
+                ogDescription = "Registro de síntomas y tratamientos en la comunidad EIIBD.";
+            }
+
+            // Twitter description (shorter, based on first condition if any)
+            twitterDesc = !string.IsNullOrWhiteSpace(firstCondition)
+                ? $"Paciente con {firstCondition} compartiendo su viaje de salud."
+                : "Paciente compartiendo su viaje de salud.";
+        }
+    }
+
+    @if (!string.IsNullOrWhiteSpace(canonicalUrl))
+    {
+        <meta property="og:type" content="profile" />
+        <meta property="og:url" content="@canonicalUrl" />
+        <meta property="og:title" content="Perfil de Paciente: @perfil.NombreCompleto" />
+        <meta property="og:description" content="@ogDescription" />
+        <meta property="og:image" content="@avatarNorm" />
+
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="@perfil.NombreCompleto - Comunidad EIIBD" />
+        <meta name="twitter:description" content="@twitterDesc" />
+        <meta name="twitter:image" content="@avatarNorm" />
+    }
+
+    <script type="application/ld+json">
+    @{ 
+        if (perfil != null)
+        {
+            var firstCond = perfil.Condiciones?.FirstOrDefault();
+            var knowsAbout = perfil.Condiciones?.Where(c => !string.IsNullOrWhiteSpace(c.Nombre)).Select(c => (object)c.Nombre).ToList() ?? new List<object>();
+            var drugs = perfil.Tratamientos?.Where(t => !string.IsNullOrWhiteSpace(t.Nombre)).Select(t => (object)new Dictionary<string, object?> { ["@type"] = "Drug", ["name"] = t.Nombre }).ToList() ?? new List<object>();
+
+            // address parsing from UbicacionTexto ("City, Country" or single token)
+            string addressLocality = null;
+            string addressRegion = null;
+            string addressCountry = null;
+            if (!string.IsNullOrWhiteSpace(perfil.UbicacionTexto))
+            {
+                var parts = perfil.UbicacionTexto.Split(',').Select(p => p.Trim()).Where(p => !string.IsNullOrEmpty(p)).ToArray();
+                if (parts.Length == 1)
+                {
+                    addressCountry = parts[0];
+                }
+                else if (parts.Length >= 2)
+                {
+                    addressLocality = parts[0];
+                    addressCountry = parts[parts.Length - 1];
+                    if (parts.Length >= 3) addressRegion = parts[1];
+                }
+
+                // Normalizar códigos de país de 2 letras a mayúsculas (estándar ISO / Schema.org)
+                if (!string.IsNullOrWhiteSpace(addressCountry) && addressCountry.Length == 2)
+                {
+                    addressCountry = addressCountry.ToUpperInvariant();
+                }
+            }
+
+            // time since diagnosis in ISO 8601 duration (years)
+            string timeSinceDiagnosis = null;
+            if (firstCond?.FechaInicio.HasValue == true)
+            {
+                var years = (int)Math.Floor((DateTime.UtcNow - firstCond.FechaInicio.Value).TotalDays / 365.25);
+                if (years >= 0) timeSinceDiagnosis = $"P{years}Y";
+            }
+
+            var ld = new Dictionary<string, object?>()
+            {
+                ["@context"] = "https://schema.org",
+                ["@type"] = "Patient",
+                ["name"] = perfil.NombreCompleto,
+                ["alternateName"] = !string.IsNullOrWhiteSpace(perfil.Slug) ? "@" + perfil.Slug : null,
+                ["gender"] = perfil.GeneroTexto,
+                ["age"] = perfil.EdadAproximada.HasValue ? perfil.EdadAproximada.Value.ToString() : null,
+                ["description"] = !string.IsNullOrWhiteSpace(perfil.AcercaDe) ? perfil.AcercaDe : "Perfil público en la comunidad EIIBD.",
+                ["knowsAbout"] = knowsAbout.Any() ? (object)knowsAbout : null
+            };
+
+            if (!string.IsNullOrWhiteSpace(addressLocality) || !string.IsNullOrWhiteSpace(addressCountry) || !string.IsNullOrWhiteSpace(addressRegion))
+            {
+                var addr = new Dictionary<string, object?>() { ["@type"] = "PostalAddress" } as Dictionary<string, object?>;
+                if (!string.IsNullOrWhiteSpace(addressLocality)) addr["addressLocality"] = addressLocality;
+                if (!string.IsNullOrWhiteSpace(addressRegion)) addr["addressRegion"] = addressRegion;
+                if (!string.IsNullOrWhiteSpace(addressCountry)) addr["addressCountry"] = addressCountry;
+                ld["address"] = addr;
+            }
+
+            if (firstCond != null && !string.IsNullOrWhiteSpace(firstCond.Nombre))
+            {
+                var hc = new Dictionary<string, object?>() { ["@type"] = "MedicalCondition", ["name"] = firstCond.Nombre } as Dictionary<string, object?>;
+                if (!string.IsNullOrWhiteSpace(timeSinceDiagnosis)) hc["timeSinceDiagnosis"] = timeSinceDiagnosis;
+                // heuristics: if condition mentions colon/pancolitis add associatedAnatomy
+                if (firstCond.Nombre.ToLowerInvariant().Contains("colon") || firstCond.Nombre.ToLowerInvariant().Contains("panco"))
+                {
+                    hc["associatedAnatomy"] = new Dictionary<string, object?> { ["@type"] = "AnatomicalStructure", ["name"] = "Colon" };
+                }
+                hc["relevantSpecialty"] = new Dictionary<string, object?> { ["@type"] = "MedicalSpecialty", ["name"] = "Gastroenterology" };
+                ld["healthCondition"] = hc;
+            }
+
+            if (drugs.Any()) ld["drug"] = drugs;
+
+            ld["mainEntityOfPage"] = new Dictionary<string, object?> {
+                ["@type"] = "WebPage",
+                ["@id"] = canonicalUrl,
+                ["datePublished"] = perfil.FechaRegistro.ToString("yyyy-MM-dd"),
+                ["dateModified"] = DateTime.UtcNow.ToString("yyyy-MM-dd")
+            };
+
+            if (!string.IsNullOrWhiteSpace(avatarNorm)) ld["image"] = avatarNorm;
+
+            var options = new System.Text.Json.JsonSerializerOptions { WriteIndented = true };
+            options.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+            var json = System.Text.Json.JsonSerializer.Serialize(ld, options);
+            @Html.Raw(json)
+        }
+    }
+    </script>
+}
+
 @section Styles {
     <style>
         .perfil-publico-container {
@@ -127,6 +286,27 @@
             .perfil-condicion-badge i {
                 color: #764ba2;
             }
+
+        .perfil-leyenda-diagnostico {
+            font-size: 0.75rem;
+            margin-left: 0.35rem;
+            padding-left: 0.35rem;
+            border-left: 3px solid #f3e8ff; /* visual alignment with pill color */
+            color: #6d28d9; /* usar color morado para texto como solicitado */
+            font-weight: 600;
+        }
+
+        .perfil-edad-texto {
+            font-size: 0.75rem;
+            color: #6d28d9;
+            font-weight: 600;
+        }
+
+        .perfil-leyenda-edad {
+            color: #6d28d9;
+            font-weight: 400; /* quitar negrita según solicitado */
+            font-size: 0.9rem;
+        }
 
         .perfil-acerca {
             font-size: 0.9rem;
@@ -540,9 +720,21 @@
                                 }
                             }
 
-                            <div class="perfil-condicion-badge">
-                                <i class="bi bi-heart-pulse-fill"></i>
-                                <span>@primeraCondicion.Nombre@(!string.IsNullOrEmpty(tiempoConCondicion) ? $" · {tiempoConCondicion}" : "")</span>
+                            <div style="display:flex; flex-direction:column; align-items:flex-start; gap:0.25rem;">
+                                <div style="display:flex; align-items:center; width:100%; max-width:560px; gap:0.5rem;">
+                                    <div class="perfil-condicion-badge">
+                                        <i class="bi bi-heart-pulse-fill"></i>
+                                        <span>@primeraCondicion.Nombre@(!string.IsNullOrEmpty(tiempoConCondicion) ? $" · {tiempoConCondicion}" : "")</span>
+                                    </div>
+                                </div>
+
+                                    
+                                    @if (primeraCondicion.EdadDiagnostico.HasValue)
+                                    {
+                                <div class="perfil-leyenda-diagnostico" style="width:100%; max-width:560px; display:flex; justify-content:space-between; align-items:center;">
+                                        <span class="perfil-leyenda-edad">Al momento de ser Diagnosticado @primeraCondicion.EdadDiagnostico años</span>
+                                </div>
+                                    }
                             </div>
                         }
 

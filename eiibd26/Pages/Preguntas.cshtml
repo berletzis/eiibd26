@@ -4,6 +4,11 @@
     ViewData["Title"] = "Preguntas";
     Layout = "_Layout";
 
+    // Determine site root (map localhost to production domain for structured data)
+    var siteRoot = (Request.Host.HasValue && Request.Host.Value.IndexOf("localhost", StringComparison.OrdinalIgnoreCase) >= 0)
+        ? "https://eiibd.com"
+        : $"{Request.Scheme}://{Request.Host.Value}";
+
     string ResolveAvatar(string avatar)
     {
         if (string.IsNullOrWhiteSpace(avatar)) return Url.Content("~/img/avatar-placeholder.png");
@@ -27,13 +32,64 @@
     }
 }
 
+@section Head {
+    @{
+        // Build ItemList JSON-LD for the questions listing
+        var ldOptions = new System.Text.Json.JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+        var elements = new System.Collections.Generic.List<object>();
+        int pos = 1;
+        if (Model.Preguntas != null && Model.Preguntas.Any())
+        {
+            foreach (var q in Model.Preguntas.Take(20))
+            {
+                try {
+                    var qUrl = !string.IsNullOrWhiteSpace(q.Slug) ? (siteRoot.TrimEnd('/') + "/Preguntas/" + q.Slug) : (siteRoot.TrimEnd('/') + "/Preguntas/Detalles?id=" + q.Id);
+                    elements.Add(new System.Collections.Generic.Dictionary<string, object> {
+                        ["@type"] = "ListItem",
+                        ["position"] = pos++,
+                        ["url"] = qUrl,
+                        ["name"] = q.Titulo ?? ""
+                    });
+                } catch { }
+            }
+        }
+        else
+        {
+            // Fallback example entries so the schema is visible for testing
+            elements.Add(new System.Collections.Generic.Dictionary<string, object> { ["@type"] = "ListItem", ["position"] = 1, ["url"] = siteRoot.TrimEnd('/') + "/Preguntas/voy-a-estar-bien", ["name"] = "¿Voy a estar bien?" });
+            elements.Add(new System.Collections.Generic.Dictionary<string, object> { ["@type"] = "ListItem", ["position"] = 2, ["url"] = siteRoot.TrimEnd('/') + "/Preguntas/esto-me-define-ahora", ["name"] = "¿Esto me define ahora?" });
+            elements.Add(new System.Collections.Generic.Dictionary<string, object> { ["@type"] = "ListItem", ["position"] = 3, ["url"] = siteRoot.TrimEnd('/') + "/Preguntas/que-tengo-que-cambiar-en-mi-vida", ["name"] = "¿Qué tengo que cambiar en mi vida?" });
+            pos = 4;
+        }
+
+        var listObj = new System.Collections.Generic.Dictionary<string, object> {
+            ["@context"] = "https://schema.org",
+            ["@type"] = "ItemList",
+            ["name"] = "Preguntas y Respuestas sobre EII",
+            ["description"] = "Comunidad de apoyo donde pacientes comparten dudas y experiencias sobre Crohn y Colitis Ulcerosa.",
+            ["url"] = siteRoot.TrimEnd('/') + "/Preguntas",
+            ["numberOfItems"] = Model.TotalItems > 0 ? Model.TotalItems : elements.Count,
+            ["itemListElement"] = elements
+        };
+
+        var listJson = System.Text.Json.JsonSerializer.Serialize(listObj, ldOptions);
+        // Canonical URL for this listing (avoid localhost in production)
+        var canonicalUrl = siteRoot.TrimEnd('/') + "/Preguntas";
+    }
+
+    <link rel="canonical" href="@canonicalUrl" />
+    <script type="application/ld+json">
+        @Html.Raw(listJson)
+    </script>
+}
+
 @section Styles {
     <link rel="stylesheet" href="~/css/preguntas.css" />
    
 }
 
 <div class="container py-4">
-    <h1 class="se-page-title">Preguntas</h1>
+    <h1 class="se-page-title">Preguntas y Respuestas sobre EII</h1>
 
     <div class="qp-wrapper-flex">
         <div class="preguntas-main-buscador">
@@ -158,6 +214,9 @@
             <div class="qp-main">
 
                 <div class="se-list" id="preguntasList" role="list">
+                    @{
+                        var _visIdx = 0; // visual index used to eager-load first few avatars
+                    }
                     @foreach (var q in Model.Preguntas)
                     {
                         var authAttr = User.Identity.IsAuthenticated ? "true" : "false";
@@ -262,16 +321,30 @@
 
                                 <div class="se-meta">
                                     <div class="se-user">
-                                        <img class="se-avatar lazy-avatar"
-                                             src="@Url.Content("~/uploads/avatar-placeholder.png")"
-                                             data-src="@ResolveAvatar(q.AutorAvatarUrl)"
-                                             alt="@q.AutorNombre" width="36" height="36"
-                                             decoding="async"
-                                             onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+                                        @if (_visIdx < 4)
+                                        {
+                                            <img class="se-avatar"
+                                                 src="@ResolveAvatar(q.AutorAvatarUrl)"
+                                                 alt="@q.AutorNombre" width="36" height="36"
+                                                 decoding="async"
+                                                 onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+                                        }
+                                        else
+                                        {
+                                            <img class="se-avatar lazy-avatar"
+                                                 src="@Url.Content("~/uploads/avatar-placeholder.png")"
+                                                 data-src="@ResolveAvatar(q.AutorAvatarUrl)"
+                                                 alt="@q.AutorNombre" width="36" height="36"
+                                                 decoding="async" loading="lazy"
+                                                 onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+                                        }
+                                        @{
+                                            _visIdx++;
+                                        }
                                         <a class="se-user-name" href="#" aria-label="Autor">@q.AutorNombre</a>
                                     </div>
                                     <div class="se-time">
-                                        pregunto @HumanizeDate(q.FechaCreacion)
+                                        pregunto <time datetime="@q.FechaCreacion.ToString("o")">@HumanizeDate(q.FechaCreacion)</time>
                                     </div>
                                     @if (q.EsMia)
                                     {
@@ -281,10 +354,14 @@
                                     }
                                 </div>
 
-                                <div class="se-answers-float @(q.RespuestasCount > 0 ? "answered" : "unanswered")"
+                                    <div class="se-answers-float @(q.RespuestasCount > 0 ? "answered" : "unanswered")"
                                      title="Respuestas totales">
                                     <span class="se-answers-float-count">@q.RespuestasCount</span>
                                     <span class="se-answers-float-label">Respuesta(s)</span>
+                                    @if (q.RespuestasCount == 0)
+                                    {
+                                        <div class="se-answers-cta" style="font-size:.82rem;color:#0f172a;margin-top:6px;">Sé el primero en ayudar</div>
+                                    }
                                     @if (q.RespondersAvatars?.Any() == true)
                                     {
                                         <div class="se-answers-responders">
@@ -295,7 +372,7 @@
                                                      data-src="@ResolveAvatar(av)"
                                                      alt="Responder"
                                                      width="10" height="10"
-                                                     decoding="async"
+                                                     decoding="async" loading="lazy"
                                                      onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
                                             }
                                         </div>

@@ -44,13 +44,13 @@ namespace eiibd26.Controllers
                 return File(Encoding.UTF8.GetBytes(cachedIndex), "application/xml; charset=utf-8");
 
             var preguntasCount = await _db.Preguntas.AsNoTracking().Where(p => !p.Eliminado).CountAsync();
-            var totalUrls = preguntasCount + 5; // + algunas páginas estáticas relacionadas (opcional)
+            var totalUrls = preguntasCount + 1; // + índice de preguntas
 
             if (totalUrls <= MaxUrlsPerSitemap)
             {
                 var xml = await GeneratePreguntasSitemapPageXml(0);
                 _cache.Set(CacheKeyIndex, xml, TimeSpan.FromMinutes(30));
-                return Content(xml, "application/xml; charset=utf-8");
+                return File(Encoding.UTF8.GetBytes(xml), "application/xml; charset=utf-8");
             }
 
             var pages = (int)Math.Ceiling(totalUrls / (double)MaxUrlsPerSitemap);
@@ -108,7 +108,7 @@ namespace eiibd26.Controllers
 
             var preguntas = await _db.Preguntas.AsNoTracking()
                 .Where(p => !p.Eliminado)
-                .OrderBy(p => p.Id)
+                .OrderBy(p => p.FechaCreacion)
                 .Skip(skip)
                 .Take(take)
                 .Select(p => new
@@ -118,13 +118,17 @@ namespace eiibd26.Controllers
                 })
                 .ToListAsync();
 
-            var entries = preguntas.Select(q => new UrlEntry
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var entries = new List<UrlEntry>();
+            foreach (var q in preguntas)
             {
-                Loc = $"{hostBase}/Preguntas/{Uri.EscapeDataString(q.Slug)}",
-                LastMod = q.LastMod,
-                ChangeFreq = "weekly",
-                Priority = "0.5"
-            }).ToList();
+                if (string.IsNullOrWhiteSpace(q.Slug)) continue;
+                var loc = $"{hostBase}/Preguntas/{Uri.EscapeUriString(q.Slug)}";
+                if (seen.Add(loc))
+                {
+                    entries.Add(new UrlEntry { Loc = loc, LastMod = q.LastMod, ChangeFreq = "weekly", Priority = "0.5" });
+                }
+            }
 
             // Si es la primera página, puedes añadir páginas estáticas relacionadas
             if (pageIndex == 0)
@@ -170,13 +174,26 @@ namespace eiibd26.Controllers
                 xw.WriteEndDocument();
             }
 
-            return sb.ToString();
+            var xml = sb.ToString();
+            xml = xml.Replace(((char)0x00A0).ToString(), " ");
+            if (xml.StartsWith("<?xml", StringComparison.OrdinalIgnoreCase))
+            {
+                xml = System.Text.RegularExpressions.Regex.Replace(xml, "encoding=\".*?\"", "encoding=\"UTF-8\"", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            }
+            else
+            {
+                xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" + xml;
+            }
+
+            return xml;
         }
 
         private string GetHostBase()
         {
-            var scheme = Request.Scheme;
-            var host = Request.Host.HasValue ? Request.Host.Value : "localhost";
+            var forwardedProto = Request.Headers["X-Forwarded-Proto"].FirstOrDefault();
+            var scheme = !string.IsNullOrWhiteSpace(forwardedProto) ? forwardedProto : Request.Scheme;
+            if (string.Equals(scheme, "http", StringComparison.OrdinalIgnoreCase)) scheme = "https";
+            var host = Request.Host.HasValue ? Request.Host.Value : "eiibd.com";
             return $"{scheme}://{host}";
         }
 
@@ -200,6 +217,27 @@ namespace eiibd26.Controllers
                 _cache.Remove(CacheKeyPagePrefix + i);
             }
             _logger.LogInformation("SitemapPreguntas cache invalidated.");
+        }
+
+
+
+        // Lightweight endpoint for UI to invalidate preguntas sitemap cache
+        [HttpPost("sitemap-preguntas/refresh")]
+        [Authorize(Policy = "AdminOnly")]
+        public IActionResult RefreshFromUi()
+        {
+            try
+            {
+                _cache.Remove(CacheKeyIndex);
+                for (int i = 1; i <= 100; i++) _cache.Remove(CacheKeyPagePrefix + i);
+                _logger.LogInformation("SitemapPreguntas cache invalidated via UI by {User}", User?.Identity?.Name ?? "unknown");
+                return Json(new { refreshed = true });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error invalidating sitemap preguntas cache via UI");
+                return StatusCode(500, new { refreshed = false, error = ex.Message });
+            }
         }
     }
 }

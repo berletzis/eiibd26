@@ -251,6 +251,55 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             return new JsonResult(new { success = true });
         }
 
+        // POST: Fill missing slugs for published, not-deleted contents
+        public async Task<IActionResult> OnPostFillMissingSlugs()
+        {
+            try
+            {
+                var candidates = await _db.Contenidos
+                    .Where(c => !c.Eliminado && c.EstadoPublicacion != null && c.EstadoPublicacion != 0 && (c.ContenidoTituloSlug == null || c.ContenidoTituloSlug == "") && !string.IsNullOrWhiteSpace(c.ContenidoTitulo))
+                    .ToListAsync();
+
+                int modified = 0;
+                foreach (var c in candidates)
+                {
+                    var slug = SlugifyLocal(c.ContenidoTitulo);
+                    if (string.IsNullOrWhiteSpace(slug)) continue;
+
+                    // Ensure uniqueness among non-deleted contents
+                    var exists = await _db.Contenidos.AsNoTracking().AnyAsync(x => x.ContenidoTituloSlug == slug && !x.Eliminado);
+                    if (exists)
+                    {
+                        slug = slug + "-" + c.Id;
+                    }
+
+                    c.ContenidoTituloSlug = slug;
+                    c.FechaModificado = DateTime.UtcNow;
+                    modified++;
+                }
+
+                if (modified > 0) await _db.SaveChangesAsync();
+
+                return new JsonResult(new { modified });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        private static string SlugifyLocal(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return "";
+            var s = value.ToLowerInvariant().Normalize(System.Text.NormalizationForm.FormD);
+            var chars = s.Where(ch => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch) != System.Globalization.UnicodeCategory.NonSpacingMark).ToArray();
+            var cleaned = new string(chars);
+            cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"[^a-z0-9\s-]", "").Trim();
+            cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"\s+", "-");
+            cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, "-+", "-");
+            return cleaned;
+        }
+
         // Categories list for parent select (hierarchical label)
         public async Task<IActionResult> OnGetCategoriesList()
         {
