@@ -17,6 +17,10 @@ namespace eiibd26.Models
         public string ContentHtml { get; set; } = "";
         public string ImageUrl { get; set; }
         public string Author { get; set; } = "";
+        // Optional author fields to support profile linking and avatar display in views
+        public string AuthorImageUrl { get; set; }
+        public string AuthorSlug { get; set; } = "";
+        public Guid? AuthorId { get; set; }
         public DateTime CreatedAt { get; set; }
         public int ReadMinutes { get; set; }
 

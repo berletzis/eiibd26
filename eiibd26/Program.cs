@@ -225,6 +225,7 @@ app.Use(async (context, next) =>
     // Conexiones: permitir localhost en desarrollo para Hot Reload y Browser Link
     if (app.Environment.IsDevelopment())
     {
+        // In development allow local hosts and common analytics endpoints used during testing
         cspBuilder.Append("connect-src 'self' " +
                           "http://localhost:* " +
                           "ws://localhost:* " +
@@ -233,7 +234,10 @@ app.Use(async (context, next) =>
                           "https://maps.googleapis.com " +
                           "https://static.cloudflareinsights.com " +
                           "https://cloudflareinsights.com " +
-                          "https://cdn.tiny.cloud; ");
+                          "https://cdn.tiny.cloud " +
+                          // Allow Google analytics endpoints which the gtag script may call
+                          "https://analytics.google.com " +
+                          "https://www.google-analytics.com; ");
     }
     else
     {

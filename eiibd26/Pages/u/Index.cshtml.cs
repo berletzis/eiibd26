@@ -311,16 +311,20 @@ namespace eiibd26.Pages.u
 
         public string ColorEstado => Estado switch
         {
-            "Severo" => "#dc2626",    // Rojo
-            "Moderado" => "#f59e0b",  // Naranja
-            "Leve" => "#fbbf24",      // Amarillo
-            "Ninguno" => "#10b981",   // Verde
-            _ => "#9ca3af"            // Gris
+            // Normalizado para coincidir con los colores usados en los partials de seguimiento
+            // (ver Areas/Identity/Pages/Usuario/_SintomasTop5Seguimiento.cshtml)
+            "Severo" => "#FF8A65",
+            "Extremo" => "#D32F2F",
+            "Moderado" => "#FFD121",
+            "Leve" => "#B6C2D7",
+            "Ninguno" => "#E6E6EB",
+            _ => "#9ca3af"
         };
 
         public string IconoEstado => Estado switch
         {
             "Severo" => "bi-exclamation-triangle-fill",
+            "Extremo" => "bi-exclamation-octagon-fill",
             "Moderado" => "bi-exclamation-circle-fill",
             "Leve" => "bi-info-circle-fill",
             "Ninguno" => "bi-check-circle-fill",

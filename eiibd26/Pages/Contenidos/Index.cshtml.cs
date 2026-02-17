@@ -215,7 +215,11 @@ namespace eiibd26.Pages.Contenidos
                     ImageUrl = string.IsNullOrEmpty(c.URLImagenPrincipal)
                         ? null
                         : ("/uploads/contenidos/" + c.URLImagenPrincipal),
-                    Author = string.IsNullOrEmpty(c.Autor) ? "Autor" : c.Autor,
+                    // Preferir nombre del perfil cuando exista
+                    Author = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.Nombre)) ? c.AutorPerfil.Nombre : (string.IsNullOrWhiteSpace(c.Autor) ? "Autor" : c.Autor),
+                    AuthorImageUrl = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.Avatar)) ? c.AutorPerfil.Avatar : (string)null,
+                    AuthorSlug = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.slug)) ? c.AutorPerfil.slug : "",
+                    AuthorId = (c.AutorPerfil != null) ? c.AutorPerfil.idUser : (Guid?)null,
                     CreatedAt = c.FechaCreado,
                     Conditions = new List<string>(),
                     Symptoms = new List<string>(),

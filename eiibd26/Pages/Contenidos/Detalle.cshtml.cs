@@ -84,7 +84,13 @@ namespace eiibd26.Pages.Contenidos
                     : (entity.URLImagenPrincipal.StartsWith("http", StringComparison.OrdinalIgnoreCase)
                         ? entity.URLImagenPrincipal
                         : "/uploads/contenidos/" + entity.URLImagenPrincipal),
-                Author = string.IsNullOrWhiteSpace(entity.Autor) ? "Autor" : entity.Autor,
+                // Prefer the profile display name when available, fallback to the raw Autor field
+                Author = (entity.AutorPerfil != null && !string.IsNullOrWhiteSpace(entity.AutorPerfil.Nombre))
+                    ? entity.AutorPerfil.Nombre
+                    : (string.IsNullOrWhiteSpace(entity.Autor) ? "Autor" : entity.Autor),
+                AuthorImageUrl = (entity.AutorPerfil != null && !string.IsNullOrWhiteSpace(entity.AutorPerfil.Avatar)) ? entity.AutorPerfil.Avatar : null,
+                AuthorSlug = (entity.AutorPerfil != null && !string.IsNullOrWhiteSpace(entity.AutorPerfil.slug)) ? entity.AutorPerfil.slug : "",
+                AuthorId = (entity.AutorPerfil != null) ? entity.AutorPerfil.idUser : (Guid?)null,
                 CreatedAt = entity.FechaCreado,
                 Slug = entity.ContenidoTituloSlug ?? ""
             };

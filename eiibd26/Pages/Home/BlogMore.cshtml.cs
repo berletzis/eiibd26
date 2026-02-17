@@ -163,7 +163,16 @@ namespace eiibd26.Pages.Home
                     ImageUrl = string.IsNullOrEmpty(c.URLImagenPrincipal)
                         ? null
                         : ("/uploads/contenidos/" + c.URLImagenPrincipal),
-                    Author = string.IsNullOrEmpty(c.Autor) ? "Autor" : c.Autor,
+                    // Prefer profile display name when available, fallback to the raw Autor field
+                    Author = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.Nombre))
+                        ? c.AutorPerfil.Nombre
+                        : (string.IsNullOrWhiteSpace(c.Autor) ? "Autor" : c.Autor),
+                    // Attempt to resolve author avatar and profile identifiers from related Perfil if available
+                    AuthorImageUrl = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.Avatar))
+                        ? c.AutorPerfil.Avatar
+                        : (string)null,
+                    AuthorSlug = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.slug)) ? c.AutorPerfil.slug : "",
+                    AuthorId = (c.AutorPerfil != null) ? c.AutorPerfil.idUser : (Guid?)null,
                     CreatedAt = c.FechaCreado,
                     Conditions = new List<string>(),
                     Symptoms = new List<string>(),

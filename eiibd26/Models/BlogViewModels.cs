@@ -17,6 +17,9 @@ namespace eiibd26.Models
         public string Title { get; set; } = "";
         public string Excerpt { get; set; } = "";
         public string ImageUrl { get; set; }
+        public string AuthorImageUrl { get; set; } = "";
+        public string AuthorSlug { get; set; } = "";
+        public Guid? AuthorId { get; set; }
         public string Author { get; set; } = "";
         public DateTime CreatedAt { get; set; }
         public string Slug { get; set; } = "";  // ← Asegurar que existe
@@ -33,6 +36,7 @@ namespace eiibd26.Models
 
         // Number of distinct related questions for this content
         public int RelatedQuestionsCount { get; set; } = 0;
+
     }
 
     public class BlogListViewModel

@@ -106,6 +106,16 @@
             transform: scale(1.25);
         }
 
+    /* Asegurar que el nombre del autor siempre sea visible y con buen contraste */
+    .blog-footer .author a,
+    .blog-footer .author span {
+        color: #374151;
+        font-size: 0.95rem;
+        line-height: 1;
+        display: inline-block;
+        vertical-align: middle;
+    }
+
     /* ✅ Categoría con fondo gris (solo texto, sin link clickeable) */
     .blog-category-overlay {
         position: absolute;
@@ -160,19 +170,19 @@
                 <a href="@contentUrl" aria-label="@item.Title">
                     @if (!string.IsNullOrWhiteSpace(item.ImageUrl))
                     {
-                        <img src="@item.ImageUrl" alt="@item.Title" loading="lazy" decoding="async" fetchpriority="low" />
+                        <img src="@(item.ImageUrl)" alt="@item.Title" loading="lazy" decoding="async" fetchpriority="low" onerror="this.onerror=null;this.src='@Url.Content("~/img/Enfermedad-Inflamatoria-Intestinal-BLOG.jpg")';" />
                     }
                     else
                     {
-                        <div style="width:100%;height:100%;background:#f3f6fa;position:relative;"></div>
-                    }
-
-                    @* ✅ Mostrar solo el TEXTO de la categoría (sin link) *@
-                    @if (!string.IsNullOrWhiteSpace(categoryText))
-                    {
-                        <span class="blog-category-overlay">@categoryText</span>
+                        <img src="@Url.Content("~/img/Enfermedad-Inflamatoria-Intestinal-BLOG.jpg")" alt="@item.Title" loading="lazy" decoding="async" fetchpriority="low" />
                     }
                 </a>
+
+                @* ✅ Mostrar solo el TEXTO de la categoría (sin link) - colocado fuera del <a> para evitar heredar estilos de enlace *@
+                @if (!string.IsNullOrWhiteSpace(categoryText))
+                {
+                    <span class="blog-category-overlay">@categoryText</span>
+                }
             </div>
 
             <div class="content">
@@ -190,9 +200,20 @@
                 <div class="blog-footer">
                     <div class="author">
                         <div class="avatar">
-                            <img src="~/img/avatar-placeholder.png" alt="@item.Author" loading="lazy" decoding="async" width="32" height="32" />
+                            @{
+                                var authorImg = !string.IsNullOrWhiteSpace(item.AuthorImageUrl) ? item.AuthorImageUrl : Url.Content("~/img/avatar-placeholder.png");
+                            }
+                            <img src="@authorImg" alt="@item.Author" loading="lazy" decoding="async" width="32" height="32" onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")'" />
                         </div>
-                        <span>@item.Author</span>
+                        @if (!string.IsNullOrWhiteSpace(item.AuthorSlug) || item.AuthorId != null)
+                        {
+                            var profileUrl = !string.IsNullOrWhiteSpace(item.AuthorSlug) ? ("/u/" + item.AuthorSlug) : ("/u/" + (item.AuthorId?.ToString() ?? ""));
+                            <a href="@profileUrl" class="ms-1">@item.Author</a>
+                        }
+                        else
+                        {
+                            <span class="ms-1">@item.Author</span>
+                        }
                     </div>
                     <time datetime="@item.CreatedAt.ToString("yyyy-MM-dd")">
                         @item.CreatedAt.ToString("MMM dd, yyyy", CultureInfo.InvariantCulture)

@@ -206,6 +206,11 @@
         if (isRecien)
         {
             // Emit MedicalWebPage JSON-LD using the values requested and enhanced for YMYL
+            var medAuthorName = !string.IsNullOrWhiteSpace(Model.Item?.Author) ? Model.Item.Author : "Autor";
+            var medAuthorUrl = !string.IsNullOrWhiteSpace(Model.Item?.AuthorSlug)
+                ? siteRoot.TrimEnd('/') + "/u/" + Model.Item.AuthorSlug
+                : (Model.Item?.AuthorId != null ? siteRoot.TrimEnd('/') + "/u/" + Model.Item.AuthorId.ToString() : null);
+
             var med = new System.Collections.Generic.Dictionary<string, object>
             {
                 ["@context"] = "https://schema.org",
@@ -218,7 +223,9 @@
                 ["isAccessibleForFree"] = true,
                 ["inLanguage"] = "es-ES",
                 ["mainContentOfPage"] = new System.Collections.Generic.Dictionary<string, object> { ["@type"] = "WebPageElement", ["cssSelector"] = ".contenido-html" },
-                ["author"] = new System.Collections.Generic.Dictionary<string, object> { ["@type"] = "Person", ["name"] = "Carlos Berletzis", ["url"] = "https://eiibd.com/u/berletzis" },
+                ["author"] = (medAuthorUrl != null)
+                    ? new System.Collections.Generic.Dictionary<string, object> { ["@type"] = "Person", ["name"] = medAuthorName, ["url"] = medAuthorUrl }
+                    : new System.Collections.Generic.Dictionary<string, object> { ["@type"] = "Person", ["name"] = medAuthorName },
                 ["about"] = new System.Collections.Generic.Dictionary<string, object> {
                     ["@type"] = "MedicalCondition",
                     ["name"] = "Enfermedad Inflamatoria Intestinal",
@@ -666,19 +673,27 @@
 
     <div class="meta-card" role="complementary" aria-label="Meta del artículo">
         <div class="author">
-            <img src="~/img/avatar-placeholder.png" alt="@Model.Item?.Author" />
+            @{ 
+                var authorName = Model.Item?.Author ?? "Autor";
+                var authorUrl = "";
+                if (!string.IsNullOrWhiteSpace(Model.Item?.AuthorSlug))
+                {
+                    authorUrl = "/u/" + Model.Item.AuthorSlug;
+                }
+                else if (Model.Item?.AuthorId != null)
+                {
+                    authorUrl = "/u/" + Model.Item.AuthorId.ToString();
+                }
+
+                var authorImg = !string.IsNullOrWhiteSpace(Model.Item?.AuthorImageUrl)
+                    ? Model.Item.AuthorImageUrl
+                    : Url.Content("~/img/avatar-placeholder.png");
+            }
+
+            <img src="@authorImg" alt="@authorName" />
             <div>
                 <div style="font-weight:100;">
                     por 
-                    @{
-                        var authorName = Model.Item?.Author ?? "Autor";
-                        var authorUrl = "";
-                        if (!string.IsNullOrWhiteSpace(authorName) && authorName.IndexOf("Carlos", StringComparison.OrdinalIgnoreCase) >= 0)
-                        {
-                            authorName = "Carlos Berletzis";
-                            authorUrl = "https://eiibd.com/u/berletzis";
-                        }
-                    }
                     @if (!string.IsNullOrWhiteSpace(authorUrl))
                     {
                         <a href="@authorUrl">@authorName</a>

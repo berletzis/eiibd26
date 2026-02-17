@@ -390,6 +390,15 @@
                 display: block;
             }
 
+        /* Asegurar visibilidad del nombre del autor */
+        .blog-footer .author span,
+        .blog-footer .author a {
+            color: #374151;
+            font-size: .95rem;
+            line-height: 1;
+            display: inline-block;
+        }
+
         .more-panel {
             display: none;
             margin-top: 12px;
@@ -638,11 +647,11 @@
                             <a href="@contentUrl" class="thumb" aria-label="@item.Title">
                                 @if (!string.IsNullOrEmpty(item.ImageUrl))
                                 {
-                                    <img src="@item.ImageUrl" alt="@item.Title" loading="lazy" />
+                                    <img src="@(item.ImageUrl)" alt="@item.Title" loading="lazy" decoding="async" fetchpriority="low" onerror="this.onerror=null;this.src='@Url.Content("~/img/Enfermedad-Inflamatoria-Intestinal-BLOG.jpg")';" />
                                 }
                                 else
                                 {
-                                    <div style="width:100%; height:160px; background:#f3f6fb; position:relative;"></div>
+                                    <img src="@Url.Content("~/img/Enfermedad-Inflamatoria-Intestinal-BLOG.jpg")" alt="@item.Title" loading="lazy" decoding="async" fetchpriority="low" />
                                 }
 
                                 @* ✅ NUEVO: Categoría sobre la imagen *@
@@ -663,7 +672,8 @@
                                 <div class="blog-footer">
                                     <div class="author">
                                             <span class="avatar">
-                                                <img src="~/img/avatar-placeholder.png" alt="@item.Author" loading="lazy" decoding="async" width="32" height="32" />
+                                                @{ var authorImg = !string.IsNullOrWhiteSpace(item.AuthorImageUrl) ? item.AuthorImageUrl : Url.Content("~/img/avatar-placeholder.png"); }
+                                                <img src="@authorImg" alt="@item.Author" loading="lazy" decoding="async" width="32" height="32" onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")'" />
                                             </span>
                                         <span>@item.Author</span>
                                     </div>

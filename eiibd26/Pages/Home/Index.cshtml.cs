@@ -60,14 +60,18 @@ namespace eiibd26.Pages.Home
                     .Where(c => !c.Eliminado && (c.EstadoPublicacion ?? 0) == 1)
                     .OrderByDescending(c => c.FechaCreado)
                     .Take(pageSize)
-                    .Select(c => new BlogItemVm
+                        .Select(c => new BlogItemVm
                     {
                         Id = c.Id,
                         Title = c.ContenidoTitulo ?? "",
                         Slug = c.ContenidoTituloSlug ?? "",
                         Excerpt = c.ContenidoTextoC ?? "",
                         ImageUrl = string.IsNullOrEmpty(c.URLImagenPrincipal) ? null : ("/uploads/contenidos/" + c.URLImagenPrincipal),
-                        Author = string.IsNullOrEmpty(c.Autor) ? "Autor" : c.Autor,
+                            // Prefer profile name when available
+                            Author = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.Nombre)) ? c.AutorPerfil.Nombre : (string.IsNullOrWhiteSpace(c.Autor) ? "Autor" : c.Autor),
+                            AuthorImageUrl = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.Avatar))
+                        ? c.AutorPerfil.Avatar
+                        : (string)null,
                         CreatedAt = c.FechaCreado,
                         Conditions = new List<string>(),
                         Symptoms = new List<string>(),
@@ -139,7 +143,7 @@ namespace eiibd26.Pages.Home
 
                     var list = await _db.Contenidos
                         .AsNoTracking()
-                        .Where(c => !c.Eliminado && c.EstadoPublicacion == estadoPublicacion)
+                        .Where(c => !c.Eliminado && (c.EstadoPublicacion ?? 0) == estadoPublicacion)
                         .OrderByDescending(c => c.FechaCreado)
                         .Take(3)
                         .Select(c => new BlogItemVm
@@ -149,8 +153,16 @@ namespace eiibd26.Pages.Home
                             Slug = c.ContenidoTituloSlug ?? "",
                             Excerpt = c.ContenidoTextoC ?? "",
                             ImageUrl = string.IsNullOrEmpty(c.URLImagenPrincipal) ? null : ("/uploads/contenidos/" + c.URLImagenPrincipal),
-                            Author = string.IsNullOrEmpty(c.Autor) ? "Autor" : c.Autor,
-                            CreatedAt = c.FechaCreado
+                            // Prefer profile name when available
+                            Author = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.Nombre)) ? c.AutorPerfil.Nombre : (string.IsNullOrWhiteSpace(c.Autor) ? "Autor" : c.Autor),
+                            CreatedAt = c.FechaCreado,
+                            AuthorImageUrl = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.Avatar)) ? c.AutorPerfil.Avatar : (string)null,
+                            AuthorSlug = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.slug)) ? c.AutorPerfil.slug : "",
+                            AuthorId = (c.AutorPerfil != null) ? c.AutorPerfil.idUser : (Guid?)null,
+                            Conditions = new List<string>(),
+                            Symptoms = new List<string>(),
+                            Treatments = new List<string>(),
+                            RelatedQuestionsCount = 0
                         })
                         .ToListAsync();
 
