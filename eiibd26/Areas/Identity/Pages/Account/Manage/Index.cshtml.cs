@@ -80,7 +80,14 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
             {
-                return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
+                // If the request is unauthenticated, redirect to login. If the user was
+                // authenticated but not found (e.g. deleted), return 404 to avoid showing
+                // implementation details in the UI.
+                if (User?.Identity == null || !User.Identity.IsAuthenticated)
+                {
+                    return RedirectToPage("/Account/Login", new { area = "Identity" });
+                }
+                return NotFound();
             }
 
             await LoadAsync(user);
@@ -92,7 +99,11 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
             {
-                return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
+                if (User?.Identity == null || !User.Identity.IsAuthenticated)
+                {
+                    return RedirectToPage("/Account/Login", new { area = "Identity" });
+                }
+                return NotFound();
             }
 
             if (!ModelState.IsValid)

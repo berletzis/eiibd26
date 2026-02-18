@@ -23,6 +23,7 @@ namespace eiibd26.Pages.u
         }
 
         public PerfilPublicoVm PerfilPublico { get; set; }
+        public bool PerfilIncompleto { get; set; } = false;
 
         public async Task<IActionResult> OnGetAsync(string slug)
         {
@@ -34,13 +35,24 @@ namespace eiibd26.Pages.u
 
             try
             {
+                // Primero buscamos el perfil por slug sin filtrar por Nombre para detectar
+                // perfiles existentes pero incompletos.
                 var perfil = await _db.Perfil
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(p => p.slug == slug && !string.IsNullOrWhiteSpace(p.Nombre));
+                    .FirstOrDefaultAsync(p => p.slug == slug);
 
                 if (perfil == null)
                 {
                     _logger.LogInformation("Perfil no encontrado para slug: {Slug}", slug);
+                    return NotFound();
+                }
+
+                if (string.IsNullOrWhiteSpace(perfil.Nombre))
+                {
+                    // Perfil existe pero no tiene nombre (incompleto). Mostramos la misma página
+                    // pero con un aviso al usuario para indicar que no es posible conocer al usuario.
+                    PerfilIncompleto = true;
+                    PerfilPublico = null;
                     return Page();
                 }
 
@@ -151,8 +163,8 @@ namespace eiibd26.Pages.u
                     EstoyAquiTexto = ObtenerEstoyAquiTexto(perfil.EstoyAqui),
                     GeneroTexto = perfil.Genero,
                     EdadAproximada = CalcularEdad(perfil.FechaDeNacimiento),
-                    UbicacionTexto = ObtenerUbicacion(perfil),
-                    MostrarUbicacion = perfil.PermitirMostrarPais ?? false,
+                    UbicacionTexto = perfil.PermitirMostrarPais == true ? ObtenerUbicacion(perfil) : null,
+                    MostrarUbicacion = perfil.PermitirMostrarPais == true,
                     FechaRegistro = fechaRegistro,
                     Condiciones = condiciones,
                     Sintomas = sintomas, // Ya no se usa en el grid

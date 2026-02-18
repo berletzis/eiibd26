@@ -64,7 +64,11 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
             {
-                return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
+                if (User?.Identity == null || !User.Identity.IsAuthenticated)
+                {
+                    return RedirectToPage("/Account/Login", new { area = "Identity" });
+                }
+                return NotFound();
             }
 
             HasAuthenticator = await _userManager.GetAuthenticatorKeyAsync(user) != null;
@@ -80,7 +84,11 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
             {
-                return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
+                if (User?.Identity == null || !User.Identity.IsAuthenticated)
+                {
+                    return RedirectToPage("/Account/Login", new { area = "Identity" });
+                }
+                return NotFound();
             }
 
             await _signInManager.ForgetTwoFactorClientAsync();

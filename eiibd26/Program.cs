@@ -3,6 +3,8 @@ using eiibd26.Data;
 using eiibd26.Helpers;
 using eiibd26.Models;
 using eiibd26.Services;
+using Microsoft.AspNetCore.Authentication;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
@@ -457,6 +459,46 @@ app.Use(async (context, next) =>
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Middleware: si la cookie indica un usuario pero ese usuario ya no existe en la DB,
+// forzar sign-out y redirigir al login para evitar errores como "Unable to load user with ID ...".
+app.Use(async (context, next) =>
+{
+    try
+    {
+        if (context.User?.Identity != null && context.User.Identity.IsAuthenticated)
+        {
+            var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!string.IsNullOrEmpty(userIdClaim))
+            {
+                // resolver DB por scope
+                using var scope = context.RequestServices.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                if (!Guid.TryParse(userIdClaim, out var userGuid))
+                {
+                    // claim inválido: forzar signout
+                    await context.SignOutAsync();
+                    context.Response.Redirect("/Identity/Account/Login");
+                    return;
+                }
+
+                var exists = await db.Users.AsNoTracking().AnyAsync(u => u.Id == userGuid);
+                if (!exists)
+                {
+                    // user was removed from DB, sign out and redirect to login
+                    await context.SignOutAsync();
+                    context.Response.Redirect("/Identity/Account/Login");
+                    return;
+                }
+            }
+        }
+    }
+    catch (Exception)
+    {
+        // ignore and continue; we don't want middleware errors breaking app startup
+    }
+    await next();
+});
 
 // Opcional: re-ejecutar NotFound en /NotFound
 app.UseStatusCodePagesWithReExecute("/NotFound");
