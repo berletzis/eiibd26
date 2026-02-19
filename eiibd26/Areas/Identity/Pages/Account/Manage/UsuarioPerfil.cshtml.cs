@@ -254,6 +254,20 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                         System.IO.File.Move(tmp64, final64);
 
                         var relativeUrl = $"/uploads/avatars/{userId.Value}/avatar-110.png";
+                        // Build absolute URL to avoid origin/proxy issues in clients
+                        // Respect reverse proxy headers (X-Forwarded-Proto) when building absolute URL
+                        var forwardedProto = Request.Headers["X-Forwarded-Proto"].FirstOrDefault();
+                        var scheme = !string.IsNullOrWhiteSpace(forwardedProto) ? forwardedProto : (Request.Scheme ?? "https");
+                        // Force https in non-development environments to avoid mixed-content issues
+                        if (!_env.IsDevelopment() && !string.Equals(scheme, "https", StringComparison.OrdinalIgnoreCase))
+                        {
+                            scheme = "https";
+                        }
+                        var host = Request.Host.HasValue ? Request.Host.Value : "eiibd.com";
+                        var absoluteUrl = scheme + "://" + host + relativeUrl;
+                        // Add a cache-busting query string for the immediate response so clients/CDNs
+                        // fetch the new image. Don't persist this query string in the DB.
+                        var versionedUrl = absoluteUrl + "?v=" + DateTime.UtcNow.Ticks.ToString();
 
                         var perfil = await _db.Perfil.FirstOrDefaultAsync(p => p.idUser == userId.Value);
                         if (perfil != null)
@@ -265,7 +279,8 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                             await _db.SaveChangesAsync();
                         }
 
-                        return new JsonResult(new { url = relativeUrl });
+                        // Ensure JSON response content type and consistent shape
+                        return new JsonResult(new { url = versionedUrl }) { StatusCode = 200 };
                     }
                 }
                 finally
@@ -289,10 +304,13 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             }
         }
 
-        public async Task<IActionResult> OnPostRemoveAvatarAsync()
+        public async Task<JsonResult> OnPostRemoveAvatarAsync()
         {
             var userId = GetUserIdGuid();
-            if (userId == null) return Unauthorized();
+            if (userId == null)
+            {
+                return new JsonResult(new { error = "Usuario no autenticado" }) { StatusCode = 401 };
+            }
 
             var webRoot = _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
             var uploadsRoot = Path.Combine(webRoot, "uploads", "avatars", userId.Value.ToString());
@@ -326,12 +344,12 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                     await _db.SaveChangesAsync();
                 }
 
-                return new OkResult();
+                return new JsonResult(new { ok = true });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error eliminando avatar para {User}", userId);
-                return StatusCode(500);
+                return new JsonResult(new { error = "Error eliminando avatar" }) { StatusCode = 500 };
             }
         }
 

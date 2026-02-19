@@ -646,6 +646,7 @@
     <script>
         (function () {
             const pageSize = @Model.PageSize;
+            const TAG_PREVIEW = @TAG_PREVIEW;
             const selectedIds = { condition: new Set(), sintoma: new Set(), tratamiento: new Set() };
             const spinner = document.getElementById('resultsSpinner');
             const searchInput = document.querySelector('.se-search-input');
@@ -671,43 +672,56 @@
                 return null;
             }
 
-            const collapseEl = document.getElementById('tagsBlocksCollapse');
-            const toggleBtn = document.getElementById('filtersToggle');
-            if (collapseEl && toggleBtn && typeof bootstrap !== 'undefined') {
-                const bsCollapse = new bootstrap.Collapse(collapseEl, { toggle: false });
+            // Initialize collapse once DOM and deferred scripts (bootstrap) are ready
+            document.addEventListener('DOMContentLoaded', function () {
+                const collapseEl = document.getElementById('tagsBlocksCollapse');
+                const toggleBtn = document.getElementById('filtersToggle');
+                if (!collapseEl || !toggleBtn) return;
 
-                const savedState = getCookie('contenidos_filters_expanded');
-                if (savedState === 'true') {
-                    bsCollapse.show();
-                    toggleBtn.setAttribute('aria-expanded', 'true');
-                } else if (savedState === 'false') {
-                    bsCollapse.hide();
-                    toggleBtn.setAttribute('aria-expanded', 'false');
-                }
+                function initCollapse() {
+                    if (typeof bootstrap === 'undefined' || !bootstrap.Collapse) {
+                        // retry shortly until bootstrap is available
+                        setTimeout(initCollapse, 50);
+                        return;
+                    }
 
-                toggleBtn.addEventListener('click', function() {
-                    const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
-                    if (isExpanded) {
-                        bsCollapse.hide();
-                        toggleBtn.setAttribute('aria-expanded', 'false');
-                        setCookie('contenidos_filters_expanded', 'false', 30);
-                    } else {
+                    const bsCollapse = new bootstrap.Collapse(collapseEl, { toggle: false });
+
+                    const savedState = getCookie('contenidos_filters_expanded');
+                    if (savedState === 'true') {
                         bsCollapse.show();
                         toggleBtn.setAttribute('aria-expanded', 'true');
-                        setCookie('contenidos_filters_expanded', 'true', 30);
+                    } else if (savedState === 'false') {
+                        bsCollapse.hide();
+                        toggleBtn.setAttribute('aria-expanded', 'false');
                     }
-                });
 
-                collapseEl.addEventListener('shown.bs.collapse', function() {
-                    toggleBtn.setAttribute('aria-expanded', 'true');
-                    setCookie('contenidos_filters_expanded', 'true', 30);
-                });
+                    toggleBtn.addEventListener('click', function() {
+                        const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+                        if (isExpanded) {
+                            bsCollapse.hide();
+                            toggleBtn.setAttribute('aria-expanded', 'false');
+                            setCookie('contenidos_filters_expanded', 'false', 30);
+                        } else {
+                            bsCollapse.show();
+                            toggleBtn.setAttribute('aria-expanded', 'true');
+                            setCookie('contenidos_filters_expanded', 'true', 30);
+                        }
+                    });
 
-                collapseEl.addEventListener('hidden.bs.collapse', function() {
-                    toggleBtn.setAttribute('aria-expanded', 'false');
-                    setCookie('contenidos_filters_expanded', 'false', 30);
-                });
-            }
+                    collapseEl.addEventListener('shown.bs.collapse', function() {
+                        toggleBtn.setAttribute('aria-expanded', 'true');
+                        setCookie('contenidos_filters_expanded', 'true', 30);
+                    });
+
+                    collapseEl.addEventListener('hidden.bs.collapse', function() {
+                        toggleBtn.setAttribute('aria-expanded', 'false');
+                        setCookie('contenidos_filters_expanded', 'false', 30);
+                    });
+                }
+
+                initCollapse();
+            });
 
             document.querySelectorAll('.tag.active').forEach(btn => {
                 const type = btn.getAttribute('data-filter-type');
@@ -853,14 +867,19 @@
                     const group = mt.getAttribute('data-toggle-group');
                     const container = document.querySelector('.group-tags[data-group="' + group + '"]');
                     if (container) {
-                        const hiddenBtns = container.querySelectorAll('[data-hidden="true"]');
+                        const tags = Array.from(container.querySelectorAll('.tag'));
                         const expanded = mt.getAttribute('aria-expanded') === 'true';
                         if (!expanded) {
-                            hiddenBtns.forEach(b => b.removeAttribute('data-hidden'));
+                            // expand: show all
+                            tags.forEach(t => t.removeAttribute('data-hidden'));
                             mt.setAttribute('aria-expanded', 'true');
                             mt.textContent = 'Ver menos';
                         } else {
-                            hiddenBtns.forEach(b => b.setAttribute('data-hidden', 'true'));
+                            // collapse: hide items beyond preview index
+                            tags.forEach((t, idx) => {
+                                if (idx >= TAG_PREVIEW) t.setAttribute('data-hidden', 'true');
+                                else t.removeAttribute('data-hidden');
+                            });
                             mt.setAttribute('aria-expanded', 'false');
                             mt.textContent = 'Ver más';
                         }

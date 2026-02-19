@@ -208,7 +208,8 @@
             const f = ev.target.files && ev.target.files[0];
             if (!f) { resetSelecting(); return; }
 
-            const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+            // Keep allowed types in sync with server-side validation (avoid webp if server doesn't support it)
+            const allowed = ['image/jpeg', 'image/png'];
             if (!allowed.includes(f.type)) { setStatus('Tipo de imagen no permitido'); resetSelecting(); return; }
             if (f.size > 5 * 1024 * 1024) { setStatus('El archivo supera 5 MB'); resetSelecting(); return; }
 
@@ -237,15 +238,27 @@
                     credentials: 'same-origin'
                 });
 
+                // Debug: log status and response for easier troubleshooting
+                dbg('upload response status', resp.status);
+                const respText = await resp.text();
+                dbg('upload response text', respText);
+
                 if (!resp.ok) {
-                    const txt = await resp.text();
-                    dbg('upload failed', resp.status, txt);
+                    dbg('upload failed', resp.status, respText);
                     if (imgEl) imgEl.src = prev;
                     setStatus('Error subiendo imagen', 3000);
                     return;
                 }
 
-                const json = await resp.json();
+                // Parse response body safely (some responses may be empty or not valid JSON)
+                let json = {};
+                try {
+                    json = respText ? JSON.parse(respText) : {};
+                } catch (e) {
+                    console.error('Invalid JSON from upload response', e, respText);
+                    json = {};
+                }
+
                 if (json && json.url) {
                     const final = json.url + '?t=' + Date.now();
                     if (imgEl) imgEl.src = final;

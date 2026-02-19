@@ -737,47 +737,62 @@
                 return null;
             }
 
-            // Initialize Bootstrap collapse con persistencia
-            const collapseEl = document.getElementById('tagsBlocksCollapse');
-            const toggleBtn = document.getElementById('filtersToggle');
-            if (collapseEl && toggleBtn && typeof bootstrap !== 'undefined') {
-                const bsCollapse = new bootstrap.Collapse(collapseEl, { toggle: false });
+            // Initialize Bootstrap collapse with persistence, retrying until bootstrap is available
+            document.addEventListener('DOMContentLoaded', function () {
+                const collapseEl = document.getElementById('tagsBlocksCollapse');
+                const toggleBtn = document.getElementById('filtersToggle');
+                if (!collapseEl || !toggleBtn) return;
 
-                // Restaurar estado del acordeón desde cookie
-                const savedState = getCookie('categoria_filters_expanded');
-                if (savedState === 'true') {
-                    bsCollapse.show();
-                    toggleBtn.setAttribute('aria-expanded', 'true');
-                } else if (savedState === 'false') {
-                    bsCollapse.hide();
-                    toggleBtn.setAttribute('aria-expanded', 'false');
-                }
+                function initCollapse() {
+                    if (typeof bootstrap === 'undefined' || !bootstrap.Collapse) {
+                        setTimeout(initCollapse, 50);
+                        return;
+                    }
 
-                // Guardar estado cuando cambie
-                toggleBtn.addEventListener('click', function() {
-                    const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
-                    if (isExpanded) {
-                        bsCollapse.hide();
-                        toggleBtn.setAttribute('aria-expanded', 'false');
-                        setCookie('categoria_filters_expanded', 'false', 30);
-                    } else {
+                    const bsCollapse = new bootstrap.Collapse(collapseEl, { toggle: false });
+
+                    // Restore saved state
+                    const savedState = getCookie('categoria_filters_expanded');
+                    if (savedState === 'true') {
                         bsCollapse.show();
                         toggleBtn.setAttribute('aria-expanded', 'true');
-                        setCookie('categoria_filters_expanded', 'true', 30);
+                    } else if (savedState === 'false') {
+                        bsCollapse.hide();
+                        toggleBtn.setAttribute('aria-expanded', 'false');
                     }
-                });
 
-                // También guardar cuando el collapse cambia por Bootstrap
-                collapseEl.addEventListener('shown.bs.collapse', function() {
-                    toggleBtn.setAttribute('aria-expanded', 'true');
-                    setCookie('categoria_filters_expanded', 'true', 30);
-                });
+                    function toggleAction() {
+                        const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+                        if (isExpanded) {
+                            bsCollapse.hide();
+                            toggleBtn.setAttribute('aria-expanded', 'false');
+                            setCookie('categoria_filters_expanded', 'false', 30);
+                        } else {
+                            bsCollapse.show();
+                            toggleBtn.setAttribute('aria-expanded', 'true');
+                            setCookie('categoria_filters_expanded', 'true', 30);
+                        }
+                    }
 
-                collapseEl.addEventListener('hidden.bs.collapse', function() {
-                    toggleBtn.setAttribute('aria-expanded', 'false');
-                    setCookie('categoria_filters_expanded', 'false', 30);
-                });
-            }
+                    toggleBtn.addEventListener('click', toggleAction);
+                    // keyboard accessibility: toggle with Enter or Space
+                    toggleBtn.addEventListener('keydown', function (e) {
+                        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleAction(); }
+                    });
+
+                    collapseEl.addEventListener('shown.bs.collapse', function() {
+                        toggleBtn.setAttribute('aria-expanded', 'true');
+                        setCookie('categoria_filters_expanded', 'true', 30);
+                    });
+
+                    collapseEl.addEventListener('hidden.bs.collapse', function() {
+                        toggleBtn.setAttribute('aria-expanded', 'false');
+                        setCookie('categoria_filters_expanded', 'false', 30);
+                    });
+                }
+
+                initCollapse();
+            });
 
             document.querySelectorAll('.tag.active').forEach(btn => {
                 const type = btn.getAttribute('data-filter-type');
