@@ -232,7 +232,7 @@ app.Use(async (context, next) =>
     cspBuilder.Append("default-src 'self'; ");
 
     // Scripts: App, CDNs, Google Maps, Cloudflare y TinyMCE
-    cspBuilder.Append("script-src 'self' 'unsafe-inline' 'unsafe-eval' " +
+    cspBuilder.Append("script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: " +
                       "https://cdn.jsdelivr.net " +
                       "https://unpkg.com " +
                       "https://maps.googleapis.com " +
@@ -249,7 +249,7 @@ app.Use(async (context, next) =>
 
     // Explicit element-level/script-src-elem for newer CSP checks (e.g. Tag Assistant)
     // Include common CDNs (jsdelivr, code.jquery.com), Chart.js and allow inline scripts where necessary
-    cspBuilder.Append("script-src-elem 'self' 'unsafe-inline' " +
+    cspBuilder.Append("script-src-elem 'self' 'unsafe-inline' blob: " +
                       "https://cdn.jsdelivr.net " +
                       "https://cdn.jsdelivr.net/npm " +
                       "https://code.jquery.com " +
@@ -264,10 +264,12 @@ app.Use(async (context, next) =>
                       "https://static.cloudflareinsights.com " +
                       "https://cloudflareinsights.com " +
                       "https://cdn.datatables.net " +
-                      "https://api.cloudflare.com; ");
+                      "https://api.cloudflare.com " +
+                      "https://cdnjs.cloudflare.com " +
+                      "https://cdn.tiny.cloud; ");
 
     // Allow inline handlers (script-src-attr) and include CDNs + Google domains
-    cspBuilder.Append("script-src-attr 'self' 'unsafe-inline' " +
+    cspBuilder.Append("script-src-attr 'self' 'unsafe-inline' blob: " +
                       "https://cdn.jsdelivr.net " +
                       "https://cdn.jsdelivr.net/npm " +
                       "https://code.jquery.com " +
@@ -279,7 +281,9 @@ app.Use(async (context, next) =>
                       "https://www.google.com " +
                       "https://static.cloudflareinsights.com " +
                       "https://cloudflareinsights.com " +
-                      "https://cdn.datatables.net; ");
+                      "https://cdn.datatables.net " +
+                      "https://cdnjs.cloudflare.com " +
+                      "https://cdn.tiny.cloud; ");
 
     // Estilos: App, CDNs, Google Fonts y TinyMCE
     cspBuilder.Append("style-src 'self' 'unsafe-inline' " +
@@ -307,6 +311,7 @@ app.Use(async (context, next) =>
                           "ws://localhost:* " +
                           "wss://localhost:* " +
                           "https://cdn.jsdelivr.net " +
+                          "https://unpkg.com " +
                           "https://maps.googleapis.com " +
                           "https://static.cloudflareinsights.com " +
                           "https://cloudflareinsights.com " +
@@ -325,6 +330,7 @@ app.Use(async (context, next) =>
                           "https://eiibd.com " +
                           "https://www.eiibd.com " +
                           "https://cdn.jsdelivr.net " +
+                          "https://unpkg.com " +
                           "https://maps.googleapis.com " +
                           "https://static.cloudflareinsights.com " +
                           "https://cloudflareinsights.com " +

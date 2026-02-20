@@ -69,49 +69,10 @@
 
 @if (parent != null && shouldRenderParent)
 {
-    <style>
-        /* Make dropdown-item with fw-bold remain transparent (no background) and purple text */
-        .dropdown-item.fw-bold {
-            background: transparent !important;
-        }
-
-        .text-purple {
-            color: #6a4e7a !important;
-        }
-    </style>
-
-    <li class="nav-item dropdown">
-        @* Parent link: add fw-bold when parent or any child is active. Parent keeps using nav-link.active for color if desired. *@
-        <a class="nav-link dropdown-toggle d-flex align-items-center@(parentIsActive ? " fw-bold" : "")"
-           href="@Url.Content(parentPath)"
-           id="cat@parent.Sequence-Dropdown"
-           role="button"
-           data-bs-toggle="dropdown"
-           aria-expanded="false">
-            <i class="bi bi-info-circle" aria-hidden="true"></i>
+    <li class="nav-item">
+        <a class="nav-link d-flex align-items-center@(parentIsActive ? " fw-bold" : "")" href="@Url.Content(parentPath)">
+            <i class="bi bi-lightning-charge" aria-hidden="true"></i>
             <span> &nbsp; @(parent.Nombre ?? "Categoría")</span>
         </a>
-
-        <ul class="dropdown-menu" aria-labelledby="cat@parent.Sequence-Dropdown">
-            @if (children != null && children.Any())
-            {
-                foreach (var ch in children)
-                {
-                    var slug = string.IsNullOrWhiteSpace((string)ch.CategoriaSlug) ? ch.Sequence.ToString() : (string)ch.CategoriaSlug;
-                    var url = "/" + slug; // SEO-friendly
-                    var childIsActive = IsActivePath(url);
-                    <li>
-                        @* No 'active' class: only fw-bold + purple text when active, no background *@
-                        <a class="dropdown-item@(childIsActive ? " fw-bold text-purple" : "")" href="@Url.Content(url)">@ch.Nombre</a>
-                    </li>
-                }
-            }
-            else
-            {
-                <li>
-                    <a class="dropdown-item@(IsActivePath(parentPath) ? " fw-bold text-purple" : "")" href="@Url.Content(parentPath)">Ver categoría</a>
-                </li>
-            }
-        </ul>
     </li>
 }

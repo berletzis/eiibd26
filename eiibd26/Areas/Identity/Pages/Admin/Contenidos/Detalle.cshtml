@@ -305,11 +305,18 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">País</label>
-                        <select class="form-select" asp-for="PaisClave">
+                        <select class="form-select" name="PaisClave" id="paisSelect">
                             <option value="">(Seleccionar país)</option>
                             @foreach (var p in Model.PaisesLista)
                             {
-                                <option value="@p.code" selected="@(p.code == Model.PaisClave ? "selected" : null)">@p.name (@p.code)</option>
+                                if (p.code == Model.PaisClave)
+                                {
+                                    <option value="@p.code" selected>@p.name (@p.code)</option>
+                                }
+                                else
+                                {
+                                    <option value="@p.code">@p.name (@p.code)</option>
+                                }
                             }
                         </select>
                     </div>
@@ -318,11 +325,18 @@
                 <div class="row g-2 mt-3">
                     <div class="col-md-6">
                         <label class="form-label">Autor</label>
-                        <select asp-for="SelectedAutorId" class="form-select">
+                        <select name="SelectedAutorId" id="SelectedAutorId" class="form-select">
                             <option value="">(Seleccionar autor)</option>
                             @foreach (var a in Model.AdminAuthors)
                             {
-                                <option value="@a.id" selected="@(Model.SelectedAutorId == a.id ? "selected" : null)">@a.name</option>
+                                if (Model.SelectedAutorId == a.id)
+                                {
+                                    <option value="@a.id" selected>@a.name</option>
+                                }
+                                else
+                                {
+                                    <option value="@a.id">@a.name</option>
+                                }
                             }
                         </select>
                     </div>
@@ -341,21 +355,35 @@
                 <div class="row g-2 mt-3">
                     <div class="col-md-6">
                         <label class="form-label">Categoría (padre)</label>
-                        <select id="categoriaPadre" class="form-select" asp-for="IdCategoriaPadre">
+                        <select id="categoriaPadre" name="IdCategoriaPadre" class="form-select">
                             <option value="">(Seleccionar categoría)</option>
                             @foreach (var c in Model.CategoryItems.Where(c => c.CategoriaPadre == null))
                             {
-                                <option value="@c.Sequence" selected="@(Model.IdCategoriaPadre == c.Sequence ? "selected" : null)">@c.Nombre</option>
+                                if (Model.IdCategoriaPadre == c.Sequence)
+                                {
+                                    <option value="@c.Sequence" selected>@c.Nombre</option>
+                                }
+                                else
+                                {
+                                    <option value="@c.Sequence">@c.Nombre</option>
+                                }
                             }
                         </select>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Subcategoría</label>
-                        <select id="subcategoria" class="form-select" asp-for="IdCategoria">
+                        <select id="subcategoria" name="IdCategoria" class="form-select">
                             <option value="">(Seleccionar subcategoría)</option>
                             @foreach (var s in Model.Subcategories)
                             {
-                                <option value="@s.seq" selected="@(Model.IdCategoria == s.seq ? "selected" : null)">@s.name</option>
+                                if (Model.IdCategoria == s.seq)
+                                {
+                                    <option value="@s.seq" selected>@s.name</option>
+                                }
+                                else
+                                {
+                                    <option value="@s.seq">@s.name</option>
+                                }
                             }
                         </select>
                     </div>
@@ -369,12 +397,12 @@
 
             <aside class="right-rel-panel">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <div>
-                        <a class="btn btn-sm btn-outline-secondary mb-2" href="@Url.Page("./Index")">Regresar a Ver todos</a>
-                    </div>
-                    <div>
-                        <a class="btn btn-sm btn-primary mb-2" href="@Url.Page("./Detalle")">Agregar nuevo</a>
-                    </div>
+                <div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="location.href='@Url.Page("/Admin/Contenidos/Contenidos", new { area = "Identity" })'">Regresar a Ver todos</button>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-sm btn-primary mb-2" onclick="window.open('/Identity/Admin/Contenidos/Detalle','_blank')">Agregar nuevo</button>
+                </div>
                 </div>
 
                 <div class="rel-box">
@@ -477,7 +505,7 @@
                             {
                                 <div class="cond-group" data-parent="@parent.id">
                                     <div class="cond-parent">
-                                        <input type="checkbox" class="cond-parent-checkbox" data-parent-id="@parent.id" id="parentchk_@parent.id" />
+                                    <input type="checkbox" name="SelectedCondicionesIds" value="@parent.id" class="cond-parent-checkbox" data-parent-id="@parent.id" id="parentchk_@parent.id" @(Model.SelectedCondicionesIds.Contains(parent.id) ? "checked" : "") />
                                         <div class="parent-title">@parent.nombre</div>
                                     </div>
                                     <div class="cond-children">
@@ -728,11 +756,36 @@
             populateSub(parentSel.value,null);
         });
         // Initialize with Model values (not DOM values, to avoid timing issues)
-        const initialParent = '@(Model.IdCategoriaPadre?.ToString() ?? "")';
-        const initialSub = '@(Model.IdCategoria?.ToString() ?? "")';
-        if (initialParent) {
-            populateSub(initialParent, initialSub);
-        }
+        const initialParentRaw = '@(Model.IdCategoriaPadre?.ToString() ?? "")';
+        const initialSubRaw = '@(Model.IdCategoria?.ToString() ?? "")';
+        const initialParent = initialParentRaw ? initialParentRaw.toString().trim() : '';
+        const initialSub = initialSubRaw ? initialSubRaw.toString().trim() : '';
+        // Try to initialize selects immediately (script is at bottom so elements exist)
+        try {
+            if (initialParent) {
+                if (parentSel) parentSel.value = initialParent;
+                populateSub(initialParent, initialSub);
+                if (initialSub && subSel) subSel.value = initialSub;
+            } else if (initialSub) {
+                // If server provided only the subcategory, infer its parent from the categories list
+                const found = categories.find(c => String(c.seq) === String(initialSub));
+                const inferredParent = found && found.parent ? String(found.parent) : '';
+                if (inferredParent && parentSel) {
+                    parentSel.value = inferredParent;
+                }
+                populateSub(inferredParent || initialParent, initialSub);
+                if (initialSub && subSel) subSel.value = initialSub;
+            }
+            // Also preselect sub if present (populateSub will mark it)
+        } catch(e) { /* ignore */ }
+
+        // Debug: log initial values and selects state
+        try {
+            console.debug('DETALLE: initialParent=', initialParent, 'initialSub=', initialSub);
+            console.debug('DETALLE: categories=', categories);
+            console.debug('DETALLE: parentSel value=', parentSel ? parentSel.value : null);
+            console.debug('DETALLE: subSel value=', subSel ? subSel.value : null);
+        } catch (e) { /* ignore */ }
 
         // ---------- Filters & badges ----------
         const searchInput = document.getElementById('searchGeneralCont');
@@ -825,8 +878,9 @@
                     refreshBadges('generalContSelectedBadges','.rel-check-generalcont');
                 }else if(e.target.matches('.rel-check-pregunta')){
                     refreshBadges('pregSelectedBadges','.rel-check-pregunta');
-                }else if(e.target.matches('.rel-check-condicion')){
-                    refreshBadges('condSelectedBadges','.rel-check-condicion');
+                }else if(e.target.matches('.rel-check-condicion') || e.target.matches('.cond-parent-checkbox')){
+                    // include parent checkboxes (standalone parents without children)
+                    refreshBadges('condSelectedBadges','.rel-check-condicion, .cond-parent-checkbox');
                     const parentGroup = e.target.closest('.cond-group');
                     if(parentGroup) updateParentCheckboxState(parentGroup);
                 }else if(e.target.matches('.rel-check-sintoma')){
@@ -860,10 +914,15 @@
             if(!parentGroup) return;
             const parentCheckbox = parentGroup.querySelector('.cond-parent-checkbox');
             const childChecks = Array.from(parentGroup.querySelectorAll('.rel-check-condicion'));
-            if(!parentCheckbox || !childChecks.length) {
-                if(parentCheckbox) { parentCheckbox.checked = false; parentCheckbox.indeterminate = false; }
+            if (!parentCheckbox) return;
+
+            // If there are no child checkboxes, treat the parent as a standalone selectable item
+            if (childChecks.length === 0) {
+                parentCheckbox.indeterminate = false;
+                // Keep the checked state as-is (server may have preselected it)
                 return;
             }
+
             const allChecked = childChecks.every(ch => ch.checked);
             const noneChecked = childChecks.every(ch => !ch.checked);
             parentCheckbox.checked = allChecked;
@@ -886,10 +945,13 @@
                     const group = this.closest(`.cond-group[data-parent="${parentId}"]`);
                     if(!group) return;
                     const childChecks = Array.from(group.querySelectorAll('.rel-check-condicion'));
-                    childChecks.forEach(ch => {
-                        ch.checked = checked;
-                        ch.dispatchEvent(new Event('change'));
-                    });
+                    // If there are child checkboxes, propagate the parent's state to them.
+                    if (childChecks.length > 0) {
+                        childChecks.forEach(ch => {
+                            ch.checked = checked;
+                            ch.dispatchEvent(new Event('change'));
+                        });
+                    }
                     updateParentCheckboxState(group);
                 });
             });
@@ -913,6 +975,44 @@
 
             wireUpParentCheckboxes();
             updateAllParentCheckboxStates();
+
+            // Ensure category parent/subcategory UI reflects server-side selection
+            try {
+                if (initialParent && parentSel) {
+                    parentSel.value = initialParent;
+                    populateSub(initialParent, initialSub);
+                }
+                // Preselect country based on server model
+                const paisSelect = document.querySelector('select[name="PaisClave"]');
+                const initialPais = '@(Model.PaisClave ?? "")';
+                if (paisSelect && initialPais) {
+                    paisSelect.value = initialPais;
+                }
+                // Ensure the parent option is visibly selected and populate subcategories
+                if (parentSel) {
+                    const opt = parentSel.querySelector(`option[value="${initialParent}"]`);
+                    if (opt) opt.selected = true;
+                    if (initialParent) parentSel.value = initialParent;
+                    // Trigger change to populate subcategories; populateSub will select sub if present
+                    parentSel.dispatchEvent(new Event('change'));
+                    // After a short delay ensure subSel gets selected (timing race with populateSub)
+                    setTimeout(()=>{
+                        try {
+                            if (initialSub && subSel) {
+                                // If subSel has options, set selected; otherwise repopulate and set
+                                if (subSel.querySelector(`option[value="${initialSub}"]`)) {
+                                    subSel.value = initialSub;
+                                } else {
+                                    populateSub(initialParent, initialSub);
+                                    if (subSel.querySelector(`option[value="${initialSub}"]`)) subSel.value = initialSub;
+                                }
+                            }
+                        } catch(e) {}
+                    }, 60);
+                }
+            } catch (e) {
+                // ignore
+            }
 
             // fade success
             const success=document.getElementById('successBanner');

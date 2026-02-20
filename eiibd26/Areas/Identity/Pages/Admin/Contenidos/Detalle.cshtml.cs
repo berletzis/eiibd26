@@ -116,6 +116,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 BuildSubcategories();
                 BuildDebug();
                 await BuildSeoUrlAsync();
+                // Ensure ModelState does not override our select values on initial render
+                ModelState.Remove(nameof(IdCategoriaPadre));
+                ModelState.Remove(nameof(IdCategoria));
                 return Page();
             }
 
@@ -143,9 +146,12 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             MapContenidoToModel(contenido);
             await LoadSelectedRelationsAsync(Id.Value);
             await LoadSelectedManualRelationsAsync(Id.Value);
-            ResolveCategorySelectionFromRelation();
+            await ResolveCategorySelectionFromRelationAsync();
             BuildSubcategories();
             BuildDebug();
+            // Ensure ModelState does not override server-assigned category selections
+            ModelState.Remove(nameof(IdCategoriaPadre));
+            ModelState.Remove(nameof(IdCategoria));
             await BuildSeoUrlAsync();
 
             // Check for restoration message from TempData
@@ -601,28 +607,78 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 .ToListAsync();
         }
 
-        private void ResolveCategorySelectionFromRelation()
+        private async Task ResolveCategorySelectionFromRelationAsync()
         {
             if (!Id.HasValue) return;
-            var last = _db.ContenidosCategoriasRelacion
+            // Prefer a relation pointing to a subcategory (child) when possible.
+            var relWithCat = await _db.ContenidosCategoriasRelacion
                 .AsNoTracking()
                 .Where(r => r.IdContenido == Id && !r.Borrado && r.IdCategoria != null)
-                .OrderByDescending(r => r.FechaCreacion)
-                .FirstOrDefault();
+                .Join(_db.ContenidosCategorias.AsNoTracking(),
+                      rel => rel.IdCategoria,
+                      cat => cat.Sequence,
+                      (rel, cat) => new { Rel = rel, Cat = cat })
+                // prefer child categories (Cat.CategoriaPadre != null) so we pick the most specific category
+                .OrderBy(x => x.Cat.CategoriaPadre.HasValue ? 0 : 1)
+                .ThenByDescending(x => x.Rel.FechaCreacion)
+                .FirstOrDefaultAsync();
 
-            if (last?.IdCategoria == null) return;
+            if (relWithCat == null) return;
 
-            var catObj = CategoryItems.FirstOrDefault(c => c.Sequence == last.IdCategoria.Value);
-            if (catObj == null) return;
+            var cat = relWithCat.Cat;
 
-            if (catObj.CategoriaPadre.HasValue)
+            // Try to resolve from loaded CategoryItems first
+            var catObj = CategoryItems.FirstOrDefault(c => c.Sequence == cat.Sequence);
+            if (catObj != null)
             {
-                IdCategoriaPadre = catObj.CategoriaPadre;
-                IdCategoria = catObj.Sequence;
+                if (catObj.CategoriaPadre.HasValue)
+                {
+                    IdCategoriaPadre = catObj.CategoriaPadre;
+                    IdCategoria = catObj.Sequence;
+                }
+                else
+                {
+                    IdCategoriaPadre = catObj.Sequence;
+                    IdCategoria = null;
+                }
+                return;
+            }
+
+            // Ensure CategoryItems contains this category and its parent so the UI can populate selects
+            if (!CategoryItems.Any(ci => ci.Sequence == cat.Sequence))
+            {
+                CategoryItems.Add(new CategoryItem
+                {
+                    Sequence = cat.Sequence,
+                    CategoriaPadre = cat.CategoriaPadre,
+                    Nombre = cat.Nombre ?? string.Empty,
+                    CategoriaSlug = cat.CategoriaSlug
+                });
+            }
+            if (cat.CategoriaPadre.HasValue)
+            {
+                var parentCat = await _db.ContenidosCategorias.AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.Sequence == cat.CategoriaPadre.Value);
+                if (parentCat != null && !CategoryItems.Any(ci => ci.Sequence == parentCat.Sequence))
+                {
+                    CategoryItems.Add(new CategoryItem
+                    {
+                        Sequence = parentCat.Sequence,
+                        CategoriaPadre = parentCat.CategoriaPadre,
+                        Nombre = parentCat.Nombre ?? string.Empty,
+                        CategoriaSlug = parentCat.CategoriaSlug
+                    });
+                }
+            }
+
+            if (cat.CategoriaPadre.HasValue)
+            {
+                IdCategoriaPadre = cat.CategoriaPadre;
+                IdCategoria = cat.Sequence;
             }
             else
             {
-                IdCategoriaPadre = catObj.Sequence;
+                IdCategoriaPadre = cat.Sequence;
                 IdCategoria = null;
             }
         }
