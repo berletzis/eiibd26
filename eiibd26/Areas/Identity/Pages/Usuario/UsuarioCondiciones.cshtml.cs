@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using System;
+using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -13,10 +14,12 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
     public class UsuarioCondicionesModel : PageModel
     {
         private readonly ApplicationDbContext _db;
+        private readonly ILogger<UsuarioCondicionesModel> _logger;
 
-        public UsuarioCondicionesModel(ApplicationDbContext db)
+        public UsuarioCondicionesModel(ApplicationDbContext db, ILogger<UsuarioCondicionesModel> logger)
         {
             _db = db;
+            _logger = logger;
         }
 
         public List<PadreCondicionGroup> MisCondicionesAgrupadas { get; set; } = new();

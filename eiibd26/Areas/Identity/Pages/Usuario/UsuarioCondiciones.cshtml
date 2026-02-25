@@ -146,16 +146,39 @@
         const urlAgregar = "/Identity/Usuario/UsuarioCondiciones?handler=AgregarCondicion";
         const urlEliminar = "/Identity/Usuario/UsuarioCondiciones?handler=EliminarCondicion";
         const urlEditarFecha = "/Identity/Usuario/UsuarioCondiciones?handler=EditarFechaInicio";
+        // Autocomplete guard: track last request token and ignore stale responses.
+        let _lastAutocompleteToken = 0;
         document.getElementById('condicionBuscar').addEventListener('input', async function () {
             let query = this.value.trim();
             let sugerenciasUl = document.getElementById('condicionSugerencias');
+            // Clear current suggestions immediately
             sugerenciasUl.innerHTML = '';
             document.getElementById('condicionIdSeleccionada').value = "";
             if (query.length < 2) return;
-            let resp = await fetch(urlAutocomplete + '?q=' + encodeURIComponent(query));
+
+            const myToken = ++_lastAutocompleteToken;
+            let resp;
+            try {
+                resp = await fetch(urlAutocomplete + '?q=' + encodeURIComponent(query));
+            } catch (e) {
+                return; // network error
+            }
+
+            // If a newer request was started meanwhile, ignore this response
+            if (myToken !== _lastAutocompleteToken) return;
+
             if (!resp.ok) return;
             let datos = await resp.json();
+
+            // Defensive: ignore response if input changed after request was issued
+            if (document.getElementById('condicionBuscar').value.trim() !== query) return;
+
+            // Render suggestions, avoiding duplicates by id
+            const seen = new Set();
             datos.forEach(item => {
+                if (seen.has(item.id)) return;
+                seen.add(item.id);
+
                 let display = item.padreNombre
                     ? item.padreNombre + ' > ' + item.nombre
                     : item.nombre;

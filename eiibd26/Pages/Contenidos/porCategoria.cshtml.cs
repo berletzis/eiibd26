@@ -258,6 +258,7 @@ namespace eiibd26.Pages.Contenidos
 
             var items = await _db.Contenidos
                 .AsNoTracking()
+                .Include(c => c.AutorPerfil)
                 .Where(c => !c.Eliminado &&
                            allowedStatuses.Contains((c.EstadoPublicacion ?? 0)) &&
                            distinctIds.Contains(c.Id))
@@ -273,10 +274,12 @@ namespace eiibd26.Pages.Contenidos
                     ImageUrl = string.IsNullOrEmpty(c.URLImagenPrincipal)
                         ? null
                         : "/uploads/contenidos/" + c.URLImagenPrincipal,
-                    Author = string.IsNullOrEmpty(c.Autor) ? "Autor" : c.Autor,
+                    Author = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.Nombre)) ? c.AutorPerfil.Nombre : (string.IsNullOrWhiteSpace(c.Autor) ? "Autor" : c.Autor),
                     AuthorImageUrl = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.Avatar))
                         ? c.AutorPerfil.Avatar
                         : (string)null,
+                    AuthorSlug = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.slug)) ? c.AutorPerfil.slug : "",
+                    AuthorId = (c.AutorPerfil != null) ? c.AutorPerfil.idUser : (Guid?)null,
                     CreatedAt = c.FechaCreado
                 })
                 .ToListAsync();

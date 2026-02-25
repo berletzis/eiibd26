@@ -123,8 +123,21 @@ namespace eiibd26.Pages.Mapa
                 var now = DateTime.UtcNow;
                 var minValidDate = new DateTime(1900, 1, 1);
 
-                var basePerfil = _db.Perfil.AsNoTracking()
-                    .Where(p => !string.IsNullOrWhiteSpace(p.Latitud) && !string.IsNullOrWhiteSpace(p.Longitud));
+
+            // Obtener el ID del rol "Paciente"
+            var pacienteRoleId = await _db.Roles
+                .Where(r => r.Name == "Paciente")
+                .Select(r => r.Id)
+                .FirstOrDefaultAsync();
+
+            // Filtrar perfiles cuyo usuario tenga SOLO el rol Paciente
+            var basePerfil = _db.Perfil.AsNoTracking()
+                .Where(p =>
+                    !string.IsNullOrWhiteSpace(p.Latitud) &&
+                    !string.IsNullOrWhiteSpace(p.Longitud) &&
+                    _db.UserRoles.Count(ur => ur.UserId == p.idUser) == 1 &&
+                    _db.UserRoles.Any(ur => ur.UserId == p.idUser && ur.RoleId == pacienteRoleId)
+                );
 
                 if (!string.IsNullOrWhiteSpace(country))
                 {

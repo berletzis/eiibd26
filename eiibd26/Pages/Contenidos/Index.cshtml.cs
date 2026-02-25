@@ -200,6 +200,7 @@ namespace eiibd26.Pages.Contenidos
 
             var contentsQuery = _db.Contenidos
                 .AsNoTracking()
+                .Include(c => c.AutorPerfil)
                 .Where(c => idsQuery.Contains(c.Id))
                 .OrderByDescending(c => c.FechaCreado);
 

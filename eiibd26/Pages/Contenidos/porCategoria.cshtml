@@ -622,80 +622,7 @@
             <div id="itemsContainer" class="items-container" style="display:@((Model.Items == null || !Model.Items.Any()) ? "none" : "grid")">
                 @if (Model.Items != null && Model.Items.Any())
                 {
-                    foreach (var item in Model.Items)
-                    {
-                        // ✅ Extraer texto limpio de la categoría
-                        var categoryText = string.Empty;
-                        if (!string.IsNullOrWhiteSpace(item.Category))
-                        {
-                            // Remover HTML y obtener solo el texto
-                            categoryText = System.Text.RegularExpressions.Regex.Replace(item.Category, "<.*?>", string.Empty);
-                            categoryText = System.Net.WebUtility.HtmlDecode(categoryText).Trim();
-                        }
-                        else if (item.Conditions != null && item.Conditions.Any())
-                        {
-                            categoryText = item.Conditions.First();
-                        }
-
-                        var contentUrl = string.IsNullOrWhiteSpace(item.Slug)
-                            ? Url.Page("/Contenidos/Detalle", new { id = item.Id })
-                            : (!string.IsNullOrWhiteSpace(item.PrimaryCategorySlug)
-                                ? "/" + item.PrimaryCategorySlug + "/" + item.Slug
-                                : "/c/" + item.Slug);
-
-                        <article class="blog-card" role="article" aria-labelledby="title-@item.Id" data-id="@item.Id">
-                            <a href="@contentUrl" class="thumb" aria-label="@item.Title">
-                                @if (!string.IsNullOrEmpty(item.ImageUrl))
-                                {
-                                    <img src="@(item.ImageUrl)" alt="@item.Title" loading="lazy" decoding="async" fetchpriority="low" onerror="this.onerror=null;this.src='@Url.Content("~/img/Enfermedad-Inflamatoria-Intestinal-BLOG.jpg")';" />
-                                }
-                                else
-                                {
-                                    <img src="@Url.Content("~/img/Enfermedad-Inflamatoria-Intestinal-BLOG.jpg")" alt="@item.Title" loading="lazy" decoding="async" fetchpriority="low" />
-                                }
-
-                                @* ✅ NUEVO: Categoría sobre la imagen *@
-                                @if (!string.IsNullOrWhiteSpace(categoryText))
-                                {
-                                    <span class="blog-category-overlay">@categoryText</span>
-                                }
-                            </a>
-
-                            <div class="content">
-                                <h3 id="title-@item.Id" class="blog-title">
-                                    <a href="@contentUrl">
-                                        @item.Title
-                                    </a>
-                                </h3>
-                                <div class="blog-excerpt">@item.Excerpt</div>
-
-                                <div class="blog-footer">
-                                    <div class="author">
-                                            <span class="avatar">
-                                                @{ var authorImg = !string.IsNullOrWhiteSpace(item.AuthorImageUrl) ? item.AuthorImageUrl : Url.Content("~/img/avatar-placeholder.png"); }
-                                                <img src="@authorImg" alt="@item.Author" loading="lazy" decoding="async" width="32" height="32" onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")'" />
-                                            </span>
-                                        <span>@item.Author</span>
-                                    </div>
-                                    <div class="pubdate">@item.CreatedAt.ToString("yyyy-MM-dd")</div>
-                                </div>
-
-                                <div style="margin-top:8px;">
-                                    <button type="button" class="more-toggle"
-                                            data-content-id="@item.Id"
-                                            aria-expanded="false"
-                                            aria-controls="more-@item.Id"
-                                            aria-label="Mostrar más información relacionada">
-                                        + Más
-                                    </button>
-                                </div>
-
-                                <div id="more-@item.Id" class="more-panel" data-loaded="false" aria-hidden="true">
-                                    <div class="more-placeholder">Contenido relacionado no cargado. Haz clic en "+ Más" para ver más.</div>
-                                </div>
-                            </div>
-                        </article>
-                    }
+                    @await Html.PartialAsync("~/Pages/Shared/_BlogItems.cshtml", Model.Items)
                 }
             </div>
 
@@ -849,19 +776,32 @@
                     const totalHeader = res.headers.get('X-Total-Count');
                     const total = totalHeader ? parseInt(totalHeader, 10) : null;
 
+                    // Parse returned HTML and extract only .blog-card nodes to avoid
+                    // inserting a full document (which may include scripts or layout)
+                    // that can cause SyntaxError/Unexpected end of input when browsers
+                    // attempt to parse inline scripts. Use a temporary container and
+                    // move only the .blog-card elements.
                     const temp = document.createElement('div');
+                    // Use innerHTML but do NOT assign returned HTML wholesale to
+                    // itemsContainer. We'll extract cards safely below.
                     temp.innerHTML = html;
-                    const itemsFound = temp.querySelectorAll('.blog-card').length;
+                    const cards = temp.querySelectorAll('.blog-card');
+                    const itemsFound = cards.length;
 
                     if (!append) {
-                        itemsContainer.innerHTML = html;
+                        // Replace current items with the returned cards only
+                        itemsContainer.innerHTML = '';
+                        if (itemsFound > 0) {
+                            cards.forEach(function (c) { itemsContainer.appendChild(c); });
+                        }
                         updateNoResultsAndContainer(itemsFound > 0);
                         resetLoadMoreUI();
                     } else {
                         if (itemsFound === 0) {
                             markLoadMoreEnded();
                         } else {
-                            while (temp.firstChild) itemsContainer.appendChild(temp.firstChild);
+                            // Append only the card nodes
+                            cards.forEach(function (c) { itemsContainer.appendChild(c); });
                         }
                     }
 
@@ -909,42 +849,10 @@
                     return;
                 }
 
-                const moreBtn = e.target.closest('.more-toggle');
-                if (moreBtn) {
-                    const contentId = moreBtn.getAttribute('data-content-id');
-                    const panel = document.getElementById('more-' + contentId);
-                    if (!panel) return;
-                    const loaded = panel.getAttribute('data-loaded') === 'true';
-                    if (loaded) {
-                        const isHidden = panel.style.display === 'none' || panel.style.display === '';
-                        panel.style.display = isHidden ? 'block' : 'none';
-                        moreBtn.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
-                        moreBtn.textContent = isHidden ? '- Menos' : '+ Más';
-                        return;
-                    }
-
-                    fetch('@Url.Page("/Contenidos/ContentMeta")' + '?id=' + encodeURIComponent(contentId), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                        .then(r => {
-                            if (!r.ok) throw new Error('Error cargando fragmento: ' + r.status);
-                            return r.text();
-                        })
-                        .then(html => {
-                            panel.innerHTML = html;
-                            panel.setAttribute('data-loaded', 'true');
-                            panel.style.display = 'block';
-                            moreBtn.setAttribute('aria-expanded', 'true');
-                            moreBtn.textContent = '- Menos';
-                        })
-                        .catch(err => {
-                            console.error(err);
-                            panel.innerHTML = '<div style="color:#6b7280">Error cargando información relacionada.</div>';
-                            panel.setAttribute('data-loaded', 'true');
-                            panel.style.display = 'block';
-                            moreBtn.setAttribute('aria-expanded', 'true');
-                            moreBtn.textContent = '- Menos';
-                        });
-                    return;
-                }
+                // NOTE: per-page '.more-toggle' handler removed in favor of centralized
+                // `wwwroot/js/content-meta-loader.js` which handles '.btn-blog-more' via
+                // delegated click events. This keeps behavior consistent for initial and
+                // AJAX-loaded items.
             });
 
             const loadMoreBtn = document.getElementById('loadMoreBtn');
@@ -963,4 +871,5 @@
             })();
         })();
     </script>
+    <script src="~/js/content-meta-loader.js" asp-append-version="true"></script>
 }

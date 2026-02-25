@@ -14,8 +14,8 @@ namespace eiibd26.Pages.Home
         private readonly ApplicationDbContext _db;
         private readonly IMemoryCache _cache;
 
-        public IndexModel(ApplicationDbContext db, IMemoryCache cache) 
-        { 
+        public IndexModel(ApplicationDbContext db, IMemoryCache cache)
+        {
             _db = db;
             _cache = cache;
         }
@@ -34,7 +34,7 @@ namespace eiibd26.Pages.Home
             Hero.Subtitle = "Analizamos datos relacionados la Enfermedad Inflamatoria Intestinal";
             Hero.CallToAction = "Registrate!";
 
-            const int pageSize = 7;
+            const int pageSize = 7; 
 
             // ===== PERFORMANCE: Cache main blog list for 3 minutes =====
             var cacheKey = "home_blog_list_v1";
@@ -57,21 +57,21 @@ namespace eiibd26.Pages.Home
 
                 var items = await _db.Contenidos
                     .AsNoTracking()
+                    .Include(c => c.AutorPerfil)
                     .Where(c => !c.Eliminado && (c.EstadoPublicacion ?? 0) == 1)
                     .OrderByDescending(c => c.FechaCreado)
                     .Take(pageSize)
-                        .Select(c => new BlogItemVm
+                    .Select(c => new BlogItemVm
                     {
                         Id = c.Id,
                         Title = c.ContenidoTitulo ?? "",
                         Slug = c.ContenidoTituloSlug ?? "",
                         Excerpt = c.ContenidoTextoC ?? "",
                         ImageUrl = string.IsNullOrEmpty(c.URLImagenPrincipal) ? null : ("/uploads/contenidos/" + c.URLImagenPrincipal),
-                            // Prefer profile name when available
-                            Author = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.Nombre)) ? c.AutorPerfil.Nombre : (string.IsNullOrWhiteSpace(c.Autor) ? "Autor" : c.Autor),
-                            AuthorImageUrl = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.Avatar))
-                        ? c.AutorPerfil.Avatar
-                        : (string)null,
+                        Author = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.Nombre)) ? c.AutorPerfil.Nombre : (string.IsNullOrWhiteSpace(c.Autor) ? "Autor" : c.Autor),
+                        AuthorImageUrl = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.Avatar)) ? c.AutorPerfil.Avatar : (string)null,
+                        AuthorSlug = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.slug)) ? c.AutorPerfil.slug : "",
+                        AuthorId = (c.AutorPerfil != null) ? c.AutorPerfil.idUser : (Guid?)null,
                         CreatedAt = c.FechaCreado,
                         Conditions = new List<string>(),
                         Symptoms = new List<string>(),
@@ -132,9 +132,9 @@ namespace eiibd26.Pages.Home
             });
 
             // ===== PERFORMANCE: Cache featured content for 5 minutes =====
-            async Task<List<BlogItemVm>> GetTopForEstadoAsync(int estadoPublicacion)
+            async Task<List<BlogItemVm>> GetTopForEstadoAsync(int estadoPublicacion, int take = 3)
             {
-                var cacheKey = $"home_featured_estado_{estadoPublicacion}_v1";
+                var cacheKey = $"home_featured_estado_{estadoPublicacion}_v1_take_{take}";
                 return await _cache.GetOrCreateAsync(cacheKey, async entry =>
                 {
                     entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
@@ -143,9 +143,10 @@ namespace eiibd26.Pages.Home
 
                     var list = await _db.Contenidos
                         .AsNoTracking()
+                        .Include(c => c.AutorPerfil)
                         .Where(c => !c.Eliminado && (c.EstadoPublicacion ?? 0) == estadoPublicacion)
                         .OrderByDescending(c => c.FechaCreado)
-                        .Take(3)
+                        .Take(take)
                         .Select(c => new BlogItemVm
                         {
                             Id = c.Id,
@@ -171,7 +172,59 @@ namespace eiibd26.Pages.Home
             }
 
             Featured1042 = await GetTopForEstadoAsync(2);
-            Featured1043 = await GetTopForEstadoAsync(3);
+
+            // Build Featured1043 as: populares (estado 3) first, then fill with latest publicados (estado 1)
+            var populares = await GetTopForEstadoAsync(3, 9) ?? new List<BlogItemVm>();
+            var finalFeatured = new List<BlogItemVm>();
+            finalFeatured.AddRange(populares);
+
+            const int desiredCount = 9;
+            if (finalFeatured.Count < desiredCount)
+            {
+                var need = desiredCount - finalFeatured.Count;
+                var excludedIds = finalFeatured.Select(x => x.Id).ToList();
+
+                var extras = await _db.Contenidos
+                    .AsNoTracking()
+                    .Include(c => c.AutorPerfil)
+                    .Where(c => !c.Eliminado && (c.EstadoPublicacion ?? 0) == 1 && !excludedIds.Contains(c.Id))
+                    .OrderByDescending(c => c.FechaCreado)
+                    .Take(need)
+                    .Select(c => new BlogItemVm
+                    {
+                        Id = c.Id,
+                        Title = c.ContenidoTitulo ?? string.Empty,
+                        Slug = c.ContenidoTituloSlug ?? string.Empty,
+                        Excerpt = c.ContenidoTextoC ?? string.Empty,
+                        ImageUrl = string.IsNullOrEmpty(c.URLImagenPrincipal) ? null : ("/uploads/contenidos/" + c.URLImagenPrincipal),
+                        Author = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.Nombre)) ? c.AutorPerfil.Nombre : (string.IsNullOrWhiteSpace(c.Autor) ? "Autor" : c.Autor),
+                        AuthorImageUrl = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.Avatar)) ? c.AutorPerfil.Avatar : null,
+                        AuthorSlug = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.slug)) ? c.AutorPerfil.slug : string.Empty,
+                        AuthorId = (c.AutorPerfil != null) ? c.AutorPerfil.idUser : (Guid?)null,
+                        CreatedAt = c.FechaCreado,
+                        Conditions = new List<string>(),
+                        Symptoms = new List<string>(),
+                        Treatments = new List<string>(),
+                        RelatedQuestionsCount = 0
+                    })
+                    .ToListAsync();
+
+                if (extras.Any())
+                {
+                    finalFeatured.AddRange(extras);
+                }
+            }
+
+            // As last fallback, if still empty, use BlogList recent items
+            if (!finalFeatured.Any() && BlogList?.Items != null)
+            {
+                finalFeatured = BlogList.Items.Take(desiredCount).ToList();
+            }
+
+            Featured1043 = finalFeatured;
+
+            // Debugging: log how many DB records have EstadoPublicacion == 3 and the chosen IDs
+            // production: no debug logging
 
             async Task AttachCatsAsync(List<BlogItemVm> list)
             {

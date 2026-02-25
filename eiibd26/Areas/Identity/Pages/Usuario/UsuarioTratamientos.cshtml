@@ -208,17 +208,38 @@
     <script>
         // --- Autocomplete para tratamientos ---
         const urlAutocomplete = "/api/tratamientos/autocomplete";
+        // token to ignore stale responses when user types fast
+        let _lastTratAutocompleteToken = 0;
         document.getElementById('tratamientoBuscar').addEventListener('input', async function () {
             let query = this.value.trim();
             let sugerenciasUl = document.getElementById('tratamientoSugerencias');
+            // clear immediately
             sugerenciasUl.innerHTML = '';
             document.getElementById('tratamientoIdSeleccionado').value = "";
             if (query.length < 2) return;
 
-            let resp = await fetch(urlAutocomplete + '?q=' + encodeURIComponent(query));
+            const myToken = ++_lastTratAutocompleteToken;
+            let resp;
+            try {
+                resp = await fetch(urlAutocomplete + '?q=' + encodeURIComponent(query));
+            } catch (e) {
+                return; // network error
+            }
+
+            // ignore if newer request started
+            if (myToken !== _lastTratAutocompleteToken) return;
             if (!resp.ok) return;
             let datos = await resp.json();
+
+            // Defensive: ignore if input changed
+            if (document.getElementById('tratamientoBuscar').value.trim() !== query) return;
+
+            // Dedupe by id before rendering
+            const seen = new Set();
             datos.forEach(item => {
+                if (seen.has(item.id)) return;
+                seen.add(item.id);
+
                 let li = document.createElement('li');
                 li.className = 'crm-list-item list-group-item';
                 li.innerText = item.nombre;
@@ -232,7 +253,7 @@
         });
 
         document.getElementById('tratamientoBuscar').addEventListener('blur', function () {
-            setTimeout(() => { document.getElementById('tratamientoSugerencias').innerHTML = ''; }, 200);
+            setTimeout(() => { document.getElementById('tratamientoSugerencias').innerHTML = ''; }, 220);
         });
 
         // Agregar tratamiento

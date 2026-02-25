@@ -357,7 +357,12 @@ app.Use(async (context, next) =>
 app.UseHttpsRedirection();
 
 // ===== PERFORMANCE: Enable Response Compression =====
-app.UseResponseCompression();
+// Enable response compression except when running in Development to help
+// diagnose potential double-compression / decoding issues under IIS Express.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseResponseCompression();
+}
 
 // ===== PERFORMANCE: Enable Response Caching =====
 app.UseResponseCaching();
