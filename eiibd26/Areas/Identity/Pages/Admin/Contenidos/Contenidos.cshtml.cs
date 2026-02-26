@@ -129,18 +129,45 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 relsAllQuery = relsAllQuery.Where(r => !r.Borrado);
             var relsAll = await relsAllQuery.ToListAsync();
 
-            // Map content id -> last child category name (if any)
-            var categoriaMap = new Dictionary<int, string>();
+            // Map content id -> list of category names (principal first), deduplicated
+            var categoriaMap = new Dictionary<int, List<string>>();
             if (relsAll.Any())
             {
                 var catIds = relsAll.Where(r => r.IdCategoria.HasValue).Select(r => r.IdCategoria.Value).Distinct().ToList();
-                var cats = await _db.ContenidosCategorias.AsNoTracking().Where(c => catIds.Contains(c.Sequence)).ToDictionaryAsync(c => c.Sequence, c => c.Nombre ?? "");
+                var catEntities = await _db.ContenidosCategorias.AsNoTracking()
+                    .Where(c => catIds.Contains(c.Sequence))
+                    .Select(c => new { c.Sequence, c.Nombre, c.CategoriaPadre })
+                    .ToListAsync();
+
+                var catsBySeq = catEntities.ToDictionary(c => c.Sequence, c => (Name: c.Nombre ?? string.Empty, Parent: c.CategoriaPadre));
+
                 foreach (var gid in relsAll.GroupBy(r => r.IdContenido))
                 {
-                    // pick last relation by FechaCreacion if available, otherwise first
-                    var rel = gid.OrderByDescending(r => r.FechaCreacion).FirstOrDefault();
-                    if (rel != null && rel.IdCategoria.HasValue && cats.TryGetValue(rel.IdCategoria.Value, out var name))
-                        categoriaMap[gid.Key] = name;
+                    // Order relations: principal first, then most recent
+                    var ordered = gid
+                        .Where(r => r.IdCategoria.HasValue)
+                        .OrderByDescending(r => r.EsPrincipal == true)
+                        .ThenByDescending(r => r.FechaCreacion)
+                        .Select(r => r.IdCategoria.Value)
+                        .ToList();
+
+                    var names = new List<string>();
+                    var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var catId in ordered)
+                    {
+                        if (!catsBySeq.TryGetValue(catId, out var ce)) continue;
+                        var display = string.IsNullOrWhiteSpace(ce.Name) ? catId.ToString() : ce.Name;
+                        if (seen.Add(display))
+                        {
+                            // mark parent categories with <strong>
+                            if (!ce.Parent.HasValue)
+                                names.Add("<strong>" + System.Net.WebUtility.HtmlEncode(display) + "</strong>");
+                            else
+                                names.Add(System.Net.WebUtility.HtmlEncode(display));
+                        }
+                    }
+
+                    if (names.Any()) categoriaMap[gid.Key] = names;
                 }
             }
 
@@ -165,7 +192,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 })
                 .ToList();
 
-            // attach categoria name into each data row
+                // attach categoria names into each data row (comma-separated)
             var finalData = data.Select(d => new {
                 d.id,
                 d.titulo,
@@ -175,7 +202,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 d.fechaCreado,
                 d.eliminado,
                 d.imagenUrl,
-                categoria = categoriaMap.ContainsKey(d.id) ? categoriaMap[d.id] : (string)null
+                categorias = categoriaMap.ContainsKey(d.id) ? string.Join(", ", categoriaMap[d.id]) : (string)null
             }).ToList();
 
             // Safety: ensure drafts are not returned unless mostrarBorradores is true

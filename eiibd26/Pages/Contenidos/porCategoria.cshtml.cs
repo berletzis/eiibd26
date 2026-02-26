@@ -172,7 +172,7 @@ namespace eiibd26.Pages.Contenidos
                     targetCategorySeqs.AddRange(children);
             }
 
-            // Get distinct content IDs from category relation table
+            // Get distinct content IDs from category relation table (support multiple category relations per content)
             var distinctIds = await _db.ContenidosCategoriasRelacion
                 .AsNoTracking()
                 .Where(r => !r.Borrado &&

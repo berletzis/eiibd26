@@ -120,13 +120,32 @@ namespace eiibd26.Pages.Contenidos
 
                 vm.Categories = catNames.Where(n => !string.IsNullOrWhiteSpace(n)).ToList();
 
-                // Determinar categoría primaria (preferir hijo sobre padre)
-                var primaryCat = await _db.ContenidosCategorias
-                    .AsNoTracking()
-                    .Where(c => catIds.Contains(c.Sequence) && !c.Borrado)
-                    .OrderBy(c => c.CategoriaPadre.HasValue ? 0 : 1)
-                    .ThenBy(c => c.Sequence)
+                // Determinar categoría primaria:
+                // 1) Intentar usar la relación marcada como EsPrincipal en ContenidosCategoriasRelacion
+                // 2) Si no existe, usar la lógica de fallback (preferir hijo sobre padre)
+                ContenidoCategoria primaryCat = null;
+
+                var principalRel = await _db.ContenidosCategoriasRelacion.AsNoTracking()
+                    .Where(r => r.IdContenido == entity.Id && !r.Borrado && r.IdCategoria != null && r.EsPrincipal == true)
                     .FirstOrDefaultAsync();
+
+                if (principalRel != null && principalRel.IdCategoria.HasValue)
+                {
+                    primaryCat = await _db.ContenidosCategorias.AsNoTracking()
+                        .Where(c => c.Sequence == principalRel.IdCategoria.Value && !c.Borrado)
+                        .FirstOrDefaultAsync();
+                }
+
+                if (primaryCat == null)
+                {
+                    // fallback: preferir hijos sobre padres como antes
+                    primaryCat = await _db.ContenidosCategorias
+                        .AsNoTracking()
+                        .Where(c => catIds.Contains(c.Sequence) && !c.Borrado)
+                        .OrderBy(c => c.CategoriaPadre.HasValue ? 0 : 1)
+                        .ThenBy(c => c.Sequence)
+                        .FirstOrDefaultAsync();
+                }
 
                 if (primaryCat != null)
                 {
@@ -134,8 +153,9 @@ namespace eiibd26.Pages.Contenidos
                         ? primaryCat.CategoriaSlug
                         : primaryCat.Sequence.ToString();
 
-                    // Build breadcrumbs
-                    var crumbsReversed = new List<BreadcrumbItem>();
+                    // Build breadcrumbs: recorrer hacia arriba guardando (Title, Segment),
+                    // invertir para tener orden root -> leaf y construir rutas acumuladas: /parent, /parent/child, ...
+                    var crumbsTemp = new List<(string Title, string Segment)>();
                     int? current = primaryCat.Sequence;
 
                     while (current.HasValue && current.Value > 0)
@@ -149,17 +169,25 @@ namespace eiibd26.Pages.Contenidos
                             ? cat.CategoriaSlug
                             : cat.Sequence.ToString();
 
-                        crumbsReversed.Add(new BreadcrumbItem
-                        {
-                            Title = cat.Nombre ?? $"Categoría {cat.Sequence}",
-                            Url = $"/{segment}"
-                        });
+                        crumbsTemp.Add((Title: cat.Nombre ?? $"Categoría {cat.Sequence}", Segment: segment));
 
                         current = cat.CategoriaPadre;
                     }
 
-                    crumbsReversed.Reverse();
-                    CategoryCrumbs = crumbsReversed;
+                    crumbsTemp.Reverse();
+                    var accum = "";
+                    var finalCrumbs = new List<BreadcrumbItem>();
+                    foreach (var c in crumbsTemp)
+                    {
+                        accum = accum + "/" + c.Segment;
+                        finalCrumbs.Add(new BreadcrumbItem
+                        {
+                            Title = c.Title,
+                            Url = accum
+                        });
+                    }
+
+                    CategoryCrumbs = finalCrumbs;
                 }
             }
 

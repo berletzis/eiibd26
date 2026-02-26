@@ -24,6 +24,9 @@ namespace eiibd26.Pages.Contenidos
         public List<string> Symptoms { get; set; } = new List<string>();
         public List<string> Treatments { get; set; } = new List<string>();
 
+        public class CategoryLink { public string Name { get; set; } public string Url { get; set; } public bool IsPrincipal { get; set; } }
+        public List<CategoryLink> Categories { get; set; } = new List<CategoryLink>();
+
         public class QuestionVm { public Guid Id { get; set; } public string Title { get; set; } public DateTime CreatedAt { get; set; } }
         public List<QuestionVm> RelatedQuestions { get; set; } = new List<QuestionVm>();
 
@@ -74,6 +77,49 @@ namespace eiibd26.Pages.Contenidos
                 .Distinct()
                 .ToListAsync();
             Treatments = trts;
+
+            // Load categories assigned to this content (may be multiple)
+            var contentSlug = await _db.Contenidos.AsNoTracking()
+                .Where(c => c.Id == id)
+                .Select(c => c.ContenidoTituloSlug)
+                .FirstOrDefaultAsync();
+
+            // Load category relations and build links. Show principal first, deduplicate by category slug.
+            var catRels = await _db.ContenidosCategoriasRelacion
+                .AsNoTracking()
+                .Where(r => r.IdContenido == id && !r.Borrado && r.IdCategoria != null)
+                .Join(_db.ContenidosCategorias.AsNoTracking(),
+                      rel => rel.IdCategoria,
+                      cat => cat.Sequence,
+                      (rel, cat) => new { rel.EsPrincipal, cat.Sequence, cat.Nombre, cat.CategoriaSlug })
+                .ToListAsync();
+
+            if (catRels != null && catRels.Any())
+            {
+                // Normalize entries and deduplicate by category slug (or sequence if slug missing)
+                var normalized = catRels
+                    .Select(x => new {
+                        Seq = x.Sequence,
+                        Name = x.Nombre ?? x.Sequence.ToString(),
+                        Slug = !string.IsNullOrWhiteSpace(x.CategoriaSlug) ? x.CategoriaSlug.Trim('/') : x.Sequence.ToString(),
+                        IsPrincipal = x.EsPrincipal == true
+                    })
+                    .GroupBy(x => x.Slug)
+                    .Select(g => g.OrderByDescending(x => x.IsPrincipal).First())
+                    .OrderByDescending(x => x.IsPrincipal)
+                    .ToList();
+
+                foreach (var c in normalized)
+                {
+                    string url;
+                    if (!string.IsNullOrWhiteSpace(contentSlug))
+                        url = "/" + Uri.EscapeUriString(c.Slug) + "/" + Uri.EscapeUriString(contentSlug);
+                    else
+                        url = "/" + Uri.EscapeUriString(c.Slug);
+
+                    Categories.Add(new CategoryLink { Name = c.Name, Url = url, IsPrincipal = c.IsPrincipal });
+                }
+            }
 
             // Load related questions (limit e.g. 5 latest)
             var qIds = await _db.ContenidosPreguntasRelacion

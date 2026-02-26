@@ -202,12 +202,15 @@ namespace eiibd26.Controllers
                     .Join(_db.ContenidosCategorias.AsNoTracking(),
                           rel => rel.IdCategoria,
                           cat => cat.Sequence,
-                          (rel, cat) => new { rel.IdContenido, cat.CategoriaSlug, cat.CategoriaPadre })
+                              (rel, cat) => new { rel.IdContenido, cat.CategoriaSlug, cat.CategoriaPadre, rel.EsPrincipal })
                     .ToListAsync();
 
                 var catLookup = cats.GroupBy(x => x.IdContenido).ToDictionary(
                     g => g.Key,
-                    g => g.OrderBy(x => x.CategoriaPadre.HasValue ? 0 : 1).FirstOrDefault()?.CategoriaSlug
+                    g => g
+                        .OrderByDescending(x => x.EsPrincipal == true) // prefer principal relation when present
+                        .ThenBy(x => x.CategoriaPadre.HasValue ? 0 : 1) // prefer child categories
+                        .FirstOrDefault()?.CategoriaSlug
                 );
 
                 foreach (var c in contents)

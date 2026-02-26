@@ -41,6 +41,10 @@ namespace eiibd26.Models
     
         public bool Borrado { get; set; }
 
+        // New: flag to mark this relation as the principal category for the content
+        // NOTE: DB schema must include a corresponding nullable bit column (EsPrincipal). You will run the migration/SQL.
+        public bool? EsPrincipal { get; set; }
+
         /* Navigation */
         [ForeignKey("IdCategoria")]
         public virtual ContenidoCategoria Categoria { get; set; }

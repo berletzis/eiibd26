@@ -303,7 +303,7 @@ namespace eiibd26.Pages.Contenidos
                     .Join(_db.ContenidosCategorias.AsNoTracking(),
                           rel => rel.IdCategoria,
                           cat => cat.Sequence,
-                          (rel, cat) => new { rel.IdContenido, cat.Sequence, cat.CategoriaSlug, cat.Nombre, cat.CategoriaPadre })
+                          (rel, cat) => new { rel.IdContenido, cat.Sequence, cat.CategoriaSlug, cat.Nombre, cat.CategoriaPadre, rel.EsPrincipal })
                     .ToListAsync();
 
                 // Map content ID -> (CategoryName, CategorySlug, CategoryLink)
@@ -311,9 +311,10 @@ namespace eiibd26.Pages.Contenidos
                     .GroupBy(x => x.IdContenido)
                     .ToDictionary(g => g.Key, g =>
                     {
-                        // Prefer child category (has parent) over parent category
+                        // Prefer relation marked as EsPrincipal, otherwise prefer child category (has parent)
                         var chosen = g
-                            .OrderBy(x => x.CategoriaPadre.HasValue ? 0 : 1)
+                            .OrderByDescending(x => x.EsPrincipal == true) // principal first
+                            .ThenBy(x => x.CategoriaPadre.HasValue ? 0 : 1)
                             .ThenBy(x => x.Sequence)
                             .FirstOrDefault();
 

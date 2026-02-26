@@ -50,6 +50,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         [BindProperty] public List<int> SelectedCondicionesIds { get; set; } = new();
         [BindProperty] public List<int> SelectedSintomasIds { get; set; } = new();
         [BindProperty] public List<int> SelectedTratamientosIds { get; set; } = new();
+        [BindProperty] public List<int> SelectedCategoryIds { get; set; } = new();
+        [BindProperty] public int? PrincipalCategoryId { get; set; }
 
         // Relaciones manuales (para contenidos relacionados)
         [BindProperty] public List<int> SelectedManualContenidoIds { get; set; } = new();
@@ -223,16 +225,22 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 if (string.IsNullOrWhiteSpace(ContenidoTituloSlug))
                     ContenidoTituloSlug = Slugify(ContenidoTitulo);
 
+                // Ensure slug is not empty after generation
+                if (string.IsNullOrWhiteSpace(ContenidoTituloSlug))
+                {
+                    ErrorMessage = "El slug generado es inválido. Edita el campo 'Slug' manualmente."; BuildDebug(); return Page();
+                }
+
+                // Validate uniqueness across all records (incluyendo eliminados) to avoid SEO collisions
                 var slugExists = await _db.Contenidos
                     .AsNoTracking()
                     .AnyAsync(c =>
                         c.ContenidoTituloSlug == ContenidoTituloSlug &&
-                        !c.Eliminado &&
                         (!Id.HasValue || c.Id != Id.Value));
 
                 if (slugExists)
                 {
-                    ErrorMessage = "El slug ya existe."; BuildDebug(); return Page();
+                    ErrorMessage = "El slug ya existe en otro contenido (incluso eliminado). Elige otro."; BuildDebug(); return Page();
                 }
 
                 if (UploadedImage != null && UploadedImage.Length > 0)
@@ -288,7 +296,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
                     await _db.SaveChangesAsync();
 
-                    await SaveCategoryRelationAsync(entity.Id, selectedCategory, currentUser, now);
+                    // Save category relations using the multi-select list (backwards compatible)
+                    await SaveCategoryRelationAsync(entity.Id, SelectedCategoryIds, PrincipalCategoryId, currentUser, now);
 
                     // save manual relations (contenidos + preguntas)
                     await SaveManualRelationsAsync(entity.Id, SelectedManualContenidoIds, SelectedManualPreguntasIds, currentUser, now);
@@ -324,7 +333,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     await _db.SaveChangesAsync();
                     Id = entity.Id;
 
-                    await SaveCategoryRelationAsync(entity.Id, selectedCategory, currentUser, now);
+                    // Save category relations using the multi-select list (backwards compatible)
+                    await SaveCategoryRelationAsync(entity.Id, SelectedCategoryIds, PrincipalCategoryId, currentUser, now);
 
                     // save manual relations
                     await SaveManualRelationsAsync(entity.Id, SelectedManualContenidoIds, SelectedManualPreguntasIds, currentUser, now);
@@ -350,19 +360,32 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         // ------------------------------
         private async Task SaveCategoryRelationAsync(int contenidoId, int? selectedCategory, Guid user, DateTime now)
         {
-            if (!selectedCategory.HasValue) return;
+            // Backwards-compat: if caller passed null or empty list via new overload, treat as no-op
+            return; // old signature retained but no-op - use new overload below
+        }
 
-            var desiredCategoryIds = new List<int> { selectedCategory.Value };
+        // New: accept multiple desired category ids. This preserves DB schema and only updates relations.
+        private async Task SaveCategoryRelationAsync(int contenidoId, List<int> desiredCategoryIds, int? principalCategoryId, Guid user, DateTime now)
+        {
+            desiredCategoryIds = desiredCategoryIds?.Where(i => i > 0).Distinct().ToList() ?? new List<int>();
+            if (!desiredCategoryIds.Any() && !principalCategoryId.HasValue) return;
 
-            var selectedCat = await _db.ContenidosCategorias
+            // Normalize: include parents for any selected child categories
+            var selectedCats = await _db.ContenidosCategorias
                 .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.Sequence == selectedCategory.Value);
+                .Where(c => desiredCategoryIds.Contains(c.Sequence))
+                .ToListAsync();
 
-            if (selectedCat != null && selectedCat.CategoriaPadre.HasValue && selectedCat.CategoriaPadre.Value > 0)
+            var normalized = new HashSet<int>(desiredCategoryIds);
+            foreach (var sc in selectedCats)
             {
-                if (!desiredCategoryIds.Contains(selectedCat.CategoriaPadre.Value))
-                    desiredCategoryIds.Add(selectedCat.CategoriaPadre.Value);
+                if (sc.CategoriaPadre.HasValue && sc.CategoriaPadre.Value > 0)
+                    normalized.Add(sc.CategoriaPadre.Value);
             }
+
+            // If a principal category is provided and not present in normalized, include it
+            if (principalCategoryId.HasValue && principalCategoryId.Value > 0)
+                normalized.Add(principalCategoryId.Value);
 
             var existingRels = await _db.ContenidosCategoriasRelacion
                 .Where(r => r.IdContenido == contenidoId && !r.Borrado && r.IdCategoria != null)
@@ -374,7 +397,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 .ToHashSet();
 
             var toSoftDelete = existingRels
-                .Where(r => !r.IdCategoria.HasValue || !desiredCategoryIds.Contains(r.IdCategoria.Value))
+                .Where(r => !r.IdCategoria.HasValue || !normalized.Contains(r.IdCategoria.Value))
                 .ToList();
 
             foreach (var rel in toSoftDelete)
@@ -382,9 +405,22 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 rel.Borrado = true;
                 rel.FechaModificacion = now;
                 rel.UsuarioModificacion = user;
+                // Ensure principal flag cleared when relation is soft-deleted
+                rel.EsPrincipal = null;
             }
 
-            foreach (var catId in desiredCategoryIds.Where(id => !existingCategoryIds.Contains(id)))
+            // Update EsPrincipal on existing (non-deleted) relations according to principalCategoryId
+            foreach (var rel in existingRels.Where(r => !r.Borrado))
+            {
+                if (rel.IdCategoria.HasValue && principalCategoryId.HasValue && rel.IdCategoria.Value == principalCategoryId.Value)
+                    rel.EsPrincipal = true;
+                else
+                    rel.EsPrincipal = null;
+                rel.FechaModificacion = now;
+                rel.UsuarioModificacion = user;
+            }
+
+            foreach (var catId in normalized.Where(id => !existingCategoryIds.Contains(id)))
             {
                 _db.ContenidosCategoriasRelacion.Add(new ContenidoCategoriaRelacion
                 {
@@ -394,7 +430,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     FechaModificacion = now,
                     UsuarioCreacion = user,
                     UsuarioModificacion = user,
-                    Borrado = false
+                    Borrado = false,
+                    EsPrincipal = (principalCategoryId.HasValue && principalCategoryId.Value == catId) ? true : (bool?)null
                 });
             }
 
@@ -569,6 +606,28 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
             SelectedTratamientosIds = Request.Form["SelectedTratamientosIds"]
                 .Select(v => int.TryParse(v, out var i) ? i : 0).Where(i => i > 0).Distinct().ToList();
+
+            // Read new multi-category selection (supports both SelectedCategoryIds[] and legacy single selects)
+            var multi = Request.Form["SelectedCategoryIds"]
+                .Select(v => int.TryParse(v, out var i) ? i : 0)
+                .Where(i => i > 0)
+                .Distinct()
+                .ToList();
+
+            if (multi.Any())
+            {
+                SelectedCategoryIds = multi;
+            }
+            else
+            {
+                // Fallback to previous single parent/sub selection
+                var list = new List<int>();
+                var parentRaw = Request.Form["IdCategoriaPadre"].FirstOrDefault();
+                if (int.TryParse(parentRaw, out var parentParsed)) list.Add(parentParsed);
+                var subRaw = Request.Form["IdCategoria"].FirstOrDefault();
+                if (int.TryParse(subRaw, out var subParsed)) list.Add(subParsed);
+                SelectedCategoryIds = list.Where(i => i > 0).Distinct().ToList();
+            }
         }
 
         private async Task LoadSelectedRelationsAsync(int contenidoId)
@@ -610,39 +669,38 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         private async Task ResolveCategorySelectionFromRelationAsync()
         {
             if (!Id.HasValue) return;
-            // Prefer a relation pointing to a subcategory (child) when possible.
-            var relWithCat = await _db.ContenidosCategoriasRelacion
+            // Load all active category relations for this content and populate SelectedCategoryIds
+            var rels = await _db.ContenidosCategoriasRelacion
                 .AsNoTracking()
                 .Where(r => r.IdContenido == Id && !r.Borrado && r.IdCategoria != null)
                 .Join(_db.ContenidosCategorias.AsNoTracking(),
                       rel => rel.IdCategoria,
                       cat => cat.Sequence,
                       (rel, cat) => new { Rel = rel, Cat = cat })
-                // prefer child categories (Cat.CategoriaPadre != null) so we pick the most specific category
+                .ToListAsync();
+
+            if (rels == null || !rels.Any()) return;
+
+            SelectedCategoryIds = rels
+                .Where(x => x.Rel.IdCategoria.HasValue)
+                .Select(x => x.Rel.IdCategoria.Value)
+                .Distinct()
+                .ToList();
+
+            // Determine principal category if any
+            var principalRel = rels.FirstOrDefault(x => x.Rel.EsPrincipal == true);
+            if (principalRel != null && principalRel.Rel.IdCategoria.HasValue)
+                PrincipalCategoryId = principalRel.Rel.IdCategoria.Value;
+
+            // For backward-compatibility, pick a preferred category (child preferred) to populate IdCategoriaPadre/IdCategoria
+            var relWithCat = rels
                 .OrderBy(x => x.Cat.CategoriaPadre.HasValue ? 0 : 1)
                 .ThenByDescending(x => x.Rel.FechaCreacion)
-                .FirstOrDefaultAsync();
+                .FirstOrDefault();
 
             if (relWithCat == null) return;
 
             var cat = relWithCat.Cat;
-
-            // Try to resolve from loaded CategoryItems first
-            var catObj = CategoryItems.FirstOrDefault(c => c.Sequence == cat.Sequence);
-            if (catObj != null)
-            {
-                if (catObj.CategoriaPadre.HasValue)
-                {
-                    IdCategoriaPadre = catObj.CategoriaPadre;
-                    IdCategoria = catObj.Sequence;
-                }
-                else
-                {
-                    IdCategoriaPadre = catObj.Sequence;
-                    IdCategoria = null;
-                }
-                return;
-            }
 
             // Ensure CategoryItems contains this category and its parent so the UI can populate selects
             if (!CategoryItems.Any(ci => ci.Sequence == cat.Sequence))
@@ -1023,6 +1081,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 Slug = ContenidoTituloSlug,
                 CatPadre = IdCategoriaPadre,
                 SubCat = IdCategoria,
+                SelectedCats = SelectedCategoryIds,
                 CondSel = SelectedCondicionesIds,
                 SintSel = SelectedSintomasIds,
                 TratSel = SelectedTratamientosIds,
@@ -1064,10 +1123,12 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     return;
                 }
 
+                // Prefer relation marked as EsPrincipal, otherwise fall back to most recent relation
                 var rel = await _db.ContenidosCategoriasRelacion
                     .AsNoTracking()
                     .Where(r => r.IdContenido == Id.Value && !r.Borrado && r.IdCategoria != null)
-                    .OrderByDescending(r => r.FechaCreacion)
+                    .OrderByDescending(r => r.EsPrincipal == true) // true first
+                    .ThenByDescending(r => r.FechaCreacion)
                     .FirstOrDefaultAsync();
 
                 if (rel == null || rel.IdCategoria == null)

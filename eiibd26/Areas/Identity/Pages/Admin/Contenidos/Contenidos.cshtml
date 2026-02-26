@@ -445,9 +445,14 @@
                     $('#refreshSitemapStatus').text('OK');
                 },
                 error: function(xhr) {
-                    console.error('Error actualizando sitemap contenidos:', xhr.responseText);
-                    $('#refreshSitemapStatus').text('Error');
-                    alert('Error actualizando sitemap de contenidos. Revisa la consola.');
+                    console.error('Error actualizando sitemap contenidos:', xhr.status, xhr.responseText);
+                    if (xhr.status === 403) {
+                        $('#refreshSitemapStatus').text('Forbidden');
+                        alert('No autorizado. Necesitas permisos de administrador para regenerar el sitemap.');
+                    } else {
+                        $('#refreshSitemapStatus').text('Error');
+                        alert('Error actualizando sitemap de contenidos. Revisa la consola.');
+                    }
                 },
                 complete: function() {
                     $btn.prop('disabled', false).html('Actualizar XML de Contenidos');
@@ -471,9 +476,14 @@
                     $('#refreshSitemapStatus').text('OK');
                 },
                 error: function(xhr) {
-                    console.error('Error actualizando sitemap preguntas:', xhr.responseText);
-                    $('#refreshSitemapStatus').text('Error');
-                    alert('Error actualizando sitemap de preguntas. Revisa la consola.');
+                    console.error('Error actualizando sitemap preguntas:', xhr.status, xhr.responseText);
+                    if (xhr.status === 403) {
+                        $('#refreshSitemapStatus').text('Forbidden');
+                        alert('No autorizado. Necesitas permisos de administrador para regenerar el sitemap.');
+                    } else {
+                        $('#refreshSitemapStatus').text('Error');
+                        alert('Error actualizando sitemap de preguntas. Revisa la consola.');
+                    }
                 },
                 complete: function() {
                     $btn.prop('disabled', false).html('Actualizar XML de Preguntas');
@@ -554,7 +564,13 @@
         return pub + (elim ? ' ' + elim : '');
         }
         },
-        { data: 'categoria', orderable: false, render: function(d) { return d ? `<span class="categoria-text" title="${d}">${d}</span>` : '';} },
+        { data: 'categorias', orderable: false, render: function(d) {
+            if (!d) return '';
+            try {
+                // d already contains HTML-encoded names and <strong> for parents; just render
+                return `<div class="categoria-text" title="${d.replace(/<[^>]*>?/gm, '')}">${d}</div>`;
+            } catch(e) { return `<span class="categoria-text" title="${d}">${d}</span>`; }
+        } },
         {
         data: 'fechaCreado',
         render: function(d) {
