@@ -120,60 +120,80 @@ namespace eiibd26.Pages.Contenidos
 
                 vm.Categories = catNames.Where(n => !string.IsNullOrWhiteSpace(n)).ToList();
 
-                // Determinar categoría primaria:
-                // 1) Intentar usar la relación marcada como EsPrincipal en ContenidosCategoriasRelacion
-                // 2) Si no existe, usar la lógica de fallback (preferir hijo sobre padre)
-                ContenidoCategoria primaryCat = null;
-
+                // Buscar la categoría principal (EsPrincipal)
                 var principalRel = await _db.ContenidosCategoriasRelacion.AsNoTracking()
                     .Where(r => r.IdContenido == entity.Id && !r.Borrado && r.IdCategoria != null && r.EsPrincipal == true)
                     .FirstOrDefaultAsync();
 
+                ContenidoCategoria principalCat = null;
                 if (principalRel != null && principalRel.IdCategoria.HasValue)
                 {
-                    primaryCat = await _db.ContenidosCategorias.AsNoTracking()
+                    principalCat = await _db.ContenidosCategorias.AsNoTracking()
                         .Where(c => c.Sequence == principalRel.IdCategoria.Value && !c.Borrado)
                         .FirstOrDefaultAsync();
                 }
 
-                if (primaryCat == null)
+                // Si no hay principal, usar la más profunda
+                if (principalCat == null)
                 {
-                    // fallback: preferir hijos sobre padres como antes
-                    primaryCat = await _db.ContenidosCategorias
+                    var allCats = await _db.ContenidosCategorias
                         .AsNoTracking()
                         .Where(c => catIds.Contains(c.Sequence) && !c.Borrado)
-                        .OrderBy(c => c.CategoriaPadre.HasValue ? 0 : 1)
-                        .ThenBy(c => c.Sequence)
-                        .FirstOrDefaultAsync();
+                        .ToListAsync();
+
+                    List<(List<ContenidoCategoria> chain, ContenidoCategoria leaf)> chains = new();
+                    foreach (var cat in allCats)
+                    {
+                        var chain = new List<ContenidoCategoria>();
+                        var current = cat;
+                        while (current != null)
+                        {
+                            chain.Add(current);
+                            if (current.CategoriaPadre.HasValue && current.CategoriaPadre.Value > 0)
+                            {
+                                current = allCats.FirstOrDefault(c => c.Sequence == current.CategoriaPadre.Value);
+                            }
+                            else
+                            {
+                                current = null;
+                            }
+                        }
+                        chain.Reverse();
+                        chains.Add((chain, cat));
+                    }
+                    // Elegir la cadena más profunda (con más niveles)
+                    var deepestChain = chains.OrderByDescending(x => x.chain.Count).FirstOrDefault();
+                    if (deepestChain.chain != null && deepestChain.chain.Count > 0)
+                    {
+                        principalCat = deepestChain.leaf;
+                    }
                 }
 
-                if (primaryCat != null)
+                if (principalCat != null)
                 {
-                    primaryCategorySlug = !string.IsNullOrWhiteSpace(primaryCat.CategoriaSlug)
-                        ? primaryCat.CategoriaSlug
-                        : primaryCat.Sequence.ToString();
+                    primaryCategorySlug = !string.IsNullOrWhiteSpace(principalCat.CategoriaSlug)
+                        ? principalCat.CategoriaSlug
+                        : principalCat.Sequence.ToString();
 
-                    // Build breadcrumbs: recorrer hacia arriba guardando (Title, Segment),
-                    // invertir para tener orden root -> leaf y construir rutas acumuladas: /parent, /parent/child, ...
+                    // Armar la cadena de padres desde la principal
                     var crumbsTemp = new List<(string Title, string Segment)>();
-                    int? current = primaryCat.Sequence;
-
-                    while (current.HasValue && current.Value > 0)
+                    var current = principalCat;
+                    while (current != null)
                     {
-                        var cat = await _db.ContenidosCategorias.AsNoTracking()
-                            .FirstOrDefaultAsync(c => c.Sequence == current.Value && !c.Borrado);
-
-                        if (cat == null) break;
-
-                        var segment = !string.IsNullOrWhiteSpace(cat.CategoriaSlug)
-                            ? cat.CategoriaSlug
-                            : cat.Sequence.ToString();
-
-                        crumbsTemp.Add((Title: cat.Nombre ?? $"Categoría {cat.Sequence}", Segment: segment));
-
-                        current = cat.CategoriaPadre;
+                        var segment = !string.IsNullOrWhiteSpace(current.CategoriaSlug)
+                            ? current.CategoriaSlug
+                            : current.Sequence.ToString();
+                        crumbsTemp.Add((current.Nombre ?? $"Categoría {current.Sequence}", segment));
+                        if (current.CategoriaPadre.HasValue && current.CategoriaPadre.Value > 0)
+                        {
+                            current = await _db.ContenidosCategorias.AsNoTracking()
+                                .FirstOrDefaultAsync(c => c.Sequence == current.CategoriaPadre.Value && !c.Borrado);
+                        }
+                        else
+                        {
+                            current = null;
+                        }
                     }
-
                     crumbsTemp.Reverse();
                     var accum = "";
                     var finalCrumbs = new List<BreadcrumbItem>();
@@ -186,7 +206,6 @@ namespace eiibd26.Pages.Contenidos
                             Url = accum
                         });
                     }
-
                     CategoryCrumbs = finalCrumbs;
                 }
             }

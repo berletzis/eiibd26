@@ -383,23 +383,17 @@
 
             @* Breadcrumb: Home -> category parents -> category (all links) -> current content title (plain) *@
             <nav class="breadcrumbs" aria-label="breadcrumbs">
-            <a href="@Url.Content("~/")">Inicio</a>
-            @if (Model.CategoryCrumbs != null && Model.CategoryCrumbs.Any())
-            {
-                foreach (var bc in Model.CategoryCrumbs)
+                <a href="@Url.Content("~/")">Inicio</a>
+                @{
+                    var lastCat = (Model.CategoryCrumbs != null && Model.CategoryCrumbs.Count > 0) ? Model.CategoryCrumbs.Last() : null;
+                }
+                @if (lastCat != null)
                 {
                     <span class="sep">›</span>
-                    <a href="@bc.Url">@bc.Title</a>
+                    <a href="@(lastCat.Url ?? "/contenidos")">@lastCat.Title</a>
                 }
-            }
-                else
-                {
                 <span class="sep">›</span>
-                <a href="@Url.Content("~/Contenidos")">Contenidos</a>
-
-                }
-            <span class="sep">›</span>
-            <span>@Model.Item?.Title</span>
+                <span>@Model.Item?.Title</span>
             </nav>
 
             @if (!string.IsNullOrWhiteSpace(Model.Item?.Excerpt))
@@ -612,6 +606,39 @@
                 </div>
             </div>
 
+            <div class="datosRelacionados-list" aria-labelledby="categoriasRelacionadas-heading">
+                <h5 style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">Categorías relacionadas</h5>
+                <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
+                    @if (Model.Item?.Categories?.Any() == true)
+                    {
+                        var principal = Model.CategoryCrumbs?.LastOrDefault()?.Title;
+                        foreach (var cat in Model.Item.Categories)
+                        {
+                            var isPrincipal = !string.IsNullOrWhiteSpace(principal) && cat == principal;
+                            string url = null;
+                            if (Model.CategoryCrumbs != null && Model.CategoryCrumbs.Any())
+                            {
+                                // Buscar el crumb correspondiente a la categoría
+                                var crumb = Model.CategoryCrumbs.LastOrDefault(c => c.Title != null && c.Title.Equals(cat, System.StringComparison.OrdinalIgnoreCase));
+                                if (crumb != null && !string.IsNullOrWhiteSpace(crumb.Url))
+                                {
+                                    url = crumb.Url.StartsWith("/") ? crumb.Url : "/" + crumb.Url;
+                                }
+                            }
+                            if (string.IsNullOrWhiteSpace(url))
+                            {
+                                url = "/" + (cat.ToLower().Replace(" ", "-").Replace("á","a").Replace("é","e").Replace("í","i").Replace("ó","o").Replace("ú","u").Replace("ñ","n"));
+                            }
+                            <a class="badge-cat @(isPrincipal ? "badge-cat-principal" : "")" href="@url" title="@cat">@cat</a>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-muted">No hay categorías relacionadas.</div>
+                    }
+                </div>
+            </div>
+
             @if ((Model.Item?.ManualRelated?.Any() != true) && (Model.Item?.RelatedByCategories?.Any() != true) && (Model.Item?.ManualPreguntas?.Any() != true))
             {
                 <div class="text-muted" style="font-size:.9rem; margin-top:12px;">No hay artículos o preguntas relacionadas.</div>
@@ -676,3 +703,11 @@
         })();
     </script>
 }
+<style>
+.badge-cat-principal {
+    background: #2563eb;
+    color: #fff;
+    font-weight: bold;
+    border: 1px solid #1d4ed8;
+}
+</style>
