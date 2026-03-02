@@ -302,7 +302,7 @@ namespace eiibd26.Pages.Contenidos
                     .Join(_db.ContenidosCategorias.AsNoTracking(),
                           rel => rel.IdCategoria,
                           cat => cat.Sequence,
-                          (rel, cat) => new { rel.IdContenido, cat.Sequence, cat.CategoriaSlug, cat.Nombre, cat.CategoriaPadre })
+                          (rel, cat) => new { rel.IdContenido, rel.EsPrincipal, cat.Sequence, cat.CategoriaSlug, cat.Nombre, cat.CategoriaPadre })
                     .ToListAsync();
 
                 // Map content ID -> (CategoryName, CategorySlug, CategoryLink)
@@ -310,7 +310,18 @@ namespace eiibd26.Pages.Contenidos
                     .GroupBy(x => x.IdContenido)
                     .ToDictionary(g => g.Key, g =>
                     {
-                        // Prefer child category (has parent) over parent category
+                        // First try to find primary category (EsPrincipal == true)
+                        var primary = g.FirstOrDefault(x => x.EsPrincipal == true);
+                        if (primary != null)
+                        {
+                            var segment = !string.IsNullOrWhiteSpace(primary.CategoriaSlug)
+                                ? primary.CategoriaSlug
+                                : primary.Sequence.ToString();
+                            var link = $"/{segment}";
+                            return (Name: primary.Nombre, Slug: segment, Link: link);
+                        }
+
+                        // Otherwise, prefer child category (has parent) over parent category
                         var chosen = g
                             .OrderBy(x => x.CategoriaPadre.HasValue ? 0 : 1)
                             .ThenBy(x => x.Sequence)
@@ -319,14 +330,14 @@ namespace eiibd26.Pages.Contenidos
                         if (chosen == null)
                             return (Name: (string)null, Slug: (string)null, Link: (string)null);
 
-                        var segment = !string.IsNullOrWhiteSpace(chosen.CategoriaSlug)
+                        var seg = !string.IsNullOrWhiteSpace(chosen.CategoriaSlug)
                             ? chosen.CategoriaSlug
                             : chosen.Sequence.ToString();
 
                         // SEO-friendly link: /{categorySlug}
-                        var link = $"/{segment}";
+                        var lnk = $"/{seg}";
 
-                        return (Name: chosen.Nombre, Slug: segment, Link: link);
+                        return (Name: chosen.Nombre, Slug: seg, Link: lnk);
                     });
 
                 // Attach category data to each item

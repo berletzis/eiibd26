@@ -347,6 +347,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             if (!selectedCategory.HasValue) return;
 
             var desiredCategoryIds = new List<int> { selectedCategory.Value };
+            var primaryCategoryId = selectedCategory.Value;
 
             var selectedCat = await _db.ContenidosCategorias
                 .AsNoTracking()
@@ -378,18 +379,36 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 rel.UsuarioModificacion = user;
             }
 
+            // Desmarcar todas las categorías existentes como no principales
+            foreach (var rel in existingRels.Where(r => !r.Borrado))
+            {
+                rel.EsPrincipal = false;
+                rel.FechaModificacion = now;
+                rel.UsuarioModificacion = user;
+            }
+
             foreach (var catId in desiredCategoryIds.Where(id => !existingCategoryIds.Contains(id)))
             {
                 _db.ContenidosCategoriasRelacion.Add(new ContenidoCategoriaRelacion
                 {
                     IdContenido = contenidoId,
                     IdCategoria = catId,
+                    EsPrincipal = (catId == primaryCategoryId),
                     FechaCreacion = now,
                     FechaModificacion = now,
                     UsuarioCreacion = user,
                     UsuarioModificacion = user,
                     Borrado = false
                 });
+            }
+
+            // Marcar la categoría seleccionada como principal
+            var primaryRel = existingRels.FirstOrDefault(r => !r.Borrado && r.IdCategoria == primaryCategoryId);
+            if (primaryRel != null)
+            {
+                primaryRel.EsPrincipal = true;
+                primaryRel.FechaModificacion = now;
+                primaryRel.UsuarioModificacion = user;
             }
 
             await _db.SaveChangesAsync();
@@ -604,7 +623,16 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         private void ResolveCategorySelectionFromRelation()
         {
             if (!Id.HasValue) return;
-            var last = _db.ContenidosCategoriasRelacion
+
+            // First try to find the primary category
+            var primary = _db.ContenidosCategoriasRelacion
+                .AsNoTracking()
+                .Where(r => r.IdContenido == Id && !r.Borrado && r.IdCategoria != null && r.EsPrincipal == true)
+                .OrderByDescending(r => r.FechaCreacion)
+                .FirstOrDefault();
+
+            // If no primary found, get the most recent category
+            var last = primary ?? _db.ContenidosCategoriasRelacion
                 .AsNoTracking()
                 .Where(r => r.IdContenido == Id && !r.Borrado && r.IdCategoria != null)
                 .OrderByDescending(r => r.FechaCreacion)
@@ -721,6 +749,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                               (rel, cat) => new
                               {
                                   rel.IdContenido,
+                                  rel.EsPrincipal,
                                   cat.Sequence,
                                   cat.CategoriaSlug,
                                   cat.Nombre,
@@ -734,6 +763,16 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                             g => g.Key,
                             g =>
                             {
+                                // First try to find primary category (EsPrincipal == true)
+                                var primary = g.FirstOrDefault(x => x.EsPrincipal.HasValue && x.EsPrincipal.Value);
+                                if (primary != null)
+                                {
+                                    var seg = !string.IsNullOrWhiteSpace(primary.CategoriaSlug) ? primary.CategoriaSlug : primary.Sequence.ToString();
+                                    var parentSeq = primary.CategoriaPadre.HasValue ? primary.CategoriaPadre.Value : primary.Sequence;
+                                    return (Name: primary.Nombre, Slug: seg, Seq: (int?)primary.Sequence, ParentSeq: (int?)parentSeq);
+                                }
+
+                                // Otherwise, prefer child categories over parent
                                 var chosen = g
                                     .OrderBy(x => x.CategoriaPadre.HasValue ? 0 : 1)
                                     .ThenBy(x => x.Sequence)
@@ -742,9 +781,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                                 if (chosen == null)
                                     return (Name: (string)null, Slug: (string)null, Seq: (int?)null, ParentSeq: (int?)null);
 
-                                var seg = !string.IsNullOrWhiteSpace(chosen.CategoriaSlug) ? chosen.CategoriaSlug : chosen.Sequence.ToString();
-                                var parentSeq = chosen.CategoriaPadre.HasValue ? chosen.CategoriaPadre.Value : chosen.Sequence;
-                                return (Name: chosen.Nombre, Slug: seg, Seq: (int?)chosen.Sequence, ParentSeq: (int?)parentSeq);
+                                var segment = !string.IsNullOrWhiteSpace(chosen.CategoriaSlug) ? chosen.CategoriaSlug : chosen.Sequence.ToString();
+                                var pSeq = chosen.CategoriaPadre.HasValue ? chosen.CategoriaPadre.Value : chosen.Sequence;
+                                return (Name: chosen.Nombre, Slug: segment, Seq: (int?)chosen.Sequence, ParentSeq: (int?)pSeq);
                             });
 
                     var allCats = await _db.ContenidosCategorias
@@ -988,7 +1027,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             return cleaned;
         }
 
-        // BuildSeoUrlAsync: compute SEO URL using the content's immediate category slug (do NOT prepend parent)
+        // BuildSeoUrlAsync: compute SEO URL using the content's primary category slug
         private async Task BuildSeoUrlAsync()
         {
             try
@@ -1010,7 +1049,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
                 var rel = await _db.ContenidosCategoriasRelacion
                     .AsNoTracking()
-                    .Where(r => r.IdContenido == Id.Value && !r.Borrado && r.IdCategoria != null)
+                    .Where(r => r.IdContenido == Id.Value && !r.Borrado && r.IdCategoria != null && r.EsPrincipal == true)
                     .OrderByDescending(r => r.FechaCreacion)
                     .FirstOrDefaultAsync();
 

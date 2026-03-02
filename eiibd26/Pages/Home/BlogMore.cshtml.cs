@@ -69,9 +69,11 @@ namespace eiibd26.Pages.Home
             }
             else if (!string.IsNullOrWhiteSpace(CategorySlug))
             {
+                // Case-insensitive comparison for slug
+                var normalizedSlug = CategorySlug.ToLowerInvariant();
                 var cat = await _db.ContenidosCategorias
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(c => c.CategoriaSlug == CategorySlug && !c.Borrado);
+                    .FirstOrDefaultAsync(c => c.CategoriaSlug.ToLower() == normalizedSlug && !c.Borrado);
 
                 if (cat != null)
                 {
@@ -194,6 +196,7 @@ namespace eiibd26.Pages.Home
                           (rel, cat) => new
                           {
                               rel.IdContenido,
+                              rel.EsPrincipal,
                               cat.Sequence,
                               cat.CategoriaSlug,
                               cat.Nombre,
@@ -207,6 +210,17 @@ namespace eiibd26.Pages.Home
                         g => g.Key,
                         g =>
                         {
+                            // First try to find primary category (EsPrincipal == true)
+                            var primary = g.FirstOrDefault(x => x.EsPrincipal == true);
+                            if (primary != null)
+                            {
+                                var segment = !string.IsNullOrWhiteSpace(primary.CategoriaSlug)
+                                    ? primary.CategoriaSlug
+                                    : primary.Sequence.ToString();
+                                return (Name: primary.Nombre, Slug: segment, Id: (int?)primary.Sequence);
+                            }
+
+                            // Otherwise, prefer child categories over parent
                             var chosen = g
                                 .OrderBy(x => x.CategoriaPadre.HasValue ? 0 : 1)
                                 .ThenBy(x => x.Sequence)
@@ -215,11 +229,11 @@ namespace eiibd26.Pages.Home
                             if (chosen == null)
                                 return (Name: (string)null, Slug: (string)null, Id: (int?)null);
 
-                            var segment = !string.IsNullOrWhiteSpace(chosen.CategoriaSlug)
+                            var seg = !string.IsNullOrWhiteSpace(chosen.CategoriaSlug)
                                 ? chosen.CategoriaSlug
                                 : chosen.Sequence.ToString();
 
-                            return (Name: chosen.Nombre, Slug: segment, Id: (int?)chosen.Sequence);
+                            return (Name: chosen.Nombre, Slug: seg, Id: (int?)chosen.Sequence);
                         });
 
                 foreach (var it in items)

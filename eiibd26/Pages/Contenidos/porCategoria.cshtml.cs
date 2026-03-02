@@ -99,9 +99,11 @@ namespace eiibd26.Pages.Contenidos
             }
             else
             {
+                // Case-insensitive comparison for slug
+                var normalizedSegment = categorySegment?.ToLowerInvariant();
                 cat = await _db.ContenidosCategorias
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(c => c.CategoriaSlug == categorySegment && !c.Borrado);
+                    .FirstOrDefaultAsync(c => c.CategoriaSlug.ToLower() == normalizedSegment && !c.Borrado);
             }
 
             if (cat == null) return NotFound();
@@ -366,7 +368,7 @@ namespace eiibd26.Pages.Contenidos
 
             var ids = list.Select(x => x.Id).ToList();
 
-            // Get category relations for all items
+            // Get category relations for all items, prioritizing primary categories
             var catRels = await _db.ContenidosCategoriasRelacion
                 .AsNoTracking()
                 .Where(r => ids.Contains(r.IdContenido) && !r.Borrado && r.IdCategoria != null)
@@ -375,6 +377,7 @@ namespace eiibd26.Pages.Contenidos
                       cat => cat.Sequence,
                       (rel, cat) => new {
                           rel.IdContenido,
+                          rel.EsPrincipal,
                           cat.Sequence,
                           cat.CategoriaSlug,
                           cat.Nombre,
@@ -382,13 +385,24 @@ namespace eiibd26.Pages.Contenidos
                       })
                 .ToListAsync();
 
-            // Build map: prefer child categories over parent
+            // Build map: prefer primary category, then child categories over parent
             var map = catRels
                 .GroupBy(x => x.IdContenido)
                 .ToDictionary(
                     g => g.Key,
                     g =>
                     {
+                        // First try to find primary category (EsPrincipal == true)
+                        var primary = g.FirstOrDefault(x => x.EsPrincipal == true);
+                        if (primary != null)
+                        {
+                            var segment = !string.IsNullOrWhiteSpace(primary.CategoriaSlug)
+                                ? primary.CategoriaSlug
+                                : primary.Sequence.ToString();
+                            return (Name: primary.Nombre, Slug: segment, Id: (int?)primary.Sequence);
+                        }
+
+                        // Otherwise, prefer child categories over parent
                         var chosen = g
                             .OrderBy(x => x.CategoriaPadre.HasValue ? 0 : 1)
                             .ThenBy(x => x.Sequence)
@@ -397,11 +411,11 @@ namespace eiibd26.Pages.Contenidos
                         if (chosen == null)
                             return (Name: (string)null, Slug: (string)null, Id: (int?)null);
 
-                        var segment = !string.IsNullOrWhiteSpace(chosen.CategoriaSlug)
+                        var seg = !string.IsNullOrWhiteSpace(chosen.CategoriaSlug)
                             ? chosen.CategoriaSlug
                             : chosen.Sequence.ToString();
 
-                        return (Name: chosen.Nombre, Slug: segment, Id: (int?)chosen.Sequence);
+                        return (Name: chosen.Nombre, Slug: seg, Id: (int?)chosen.Sequence);
                     }
                 );
 

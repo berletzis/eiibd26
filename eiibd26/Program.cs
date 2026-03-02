@@ -361,9 +361,11 @@ app.Use(async (context, next) =>
         var categorySlug = segments[0];
         var contentSlug = segments[1];
 
+        // Case-insensitive slug lookup for category
+        var normalizedCategorySlug = categorySlug.ToLowerInvariant();
         var category = await db.ContenidosCategorias
             .AsNoTracking()
-            .Where(c => c.CategoriaSlug == categorySlug && !c.Borrado)
+            .Where(c => c.CategoriaSlug.ToLower() == normalizedCategorySlug && !c.Borrado)
             .Select(c => new { c.Sequence, c.Nombre })
             .FirstOrDefaultAsync();
 
@@ -424,15 +426,19 @@ app.Use(async (context, next) =>
     {
         var categorySlug = segments[0];
 
+        // Case-insensitive slug lookup
+        var normalizedSlug = categorySlug.ToLowerInvariant();
         var exists = await db.ContenidosCategorias
             .AsNoTracking()
-            .AnyAsync(c => c.CategoriaSlug == categorySlug && !c.Borrado);
+            .AnyAsync(c => c.CategoriaSlug.ToLower() == normalizedSlug && !c.Borrado);
 
         if (exists)
         {
-            // Reescribir a la página de categoría (ajusta si tienes otra ruta)
-            context.Request.Path = $"/Contenidos/categoria/{categorySlug}";
-            context.Request.QueryString = QueryString.Empty;
+            // ✅ NO reescribir - dejar que Razor Pages maneje la ruta /{categorySegment}
+            // La página porCategoria.cshtml ya está configurada con @page "/{categorySegment?}"
+            // Simplemente continuar y Razor Pages capturará la solicitud
+            await next();
+            return;
         }
     }
     // ===== CASO 4: /u/{slug} → Perfil público de usuario =====

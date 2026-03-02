@@ -38,14 +38,17 @@ namespace eiibd26.Models
     
         public DateTime FechaModificacion { get; set; }
 
-    
-        public bool Borrado { get; set; }
 
-        /* Navigation */
-        [ForeignKey("IdCategoria")]
-        public virtual ContenidoCategoria Categoria { get; set; }
+            public bool Borrado { get; set; }
 
-        [ForeignKey("IdContenido")]
-        public virtual Contenido Contenido { get; set; }
-    }
+
+            public bool? EsPrincipal { get; set; }
+
+            /* Navigation */
+            [ForeignKey("IdCategoria")]
+            public virtual ContenidoCategoria Categoria { get; set; }
+
+            [ForeignKey("IdContenido")]
+            public virtual Contenido Contenido { get; set; }
+        }
 }
