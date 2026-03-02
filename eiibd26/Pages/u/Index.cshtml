@@ -79,10 +79,11 @@
             var drugs = perfil.Tratamientos?.Where(t => !string.IsNullOrWhiteSpace(t.Nombre)).Select(t => (object)new Dictionary<string, object?> { ["@type"] = "Drug", ["name"] = t.Nombre }).ToList() ?? new List<object>();
 
             // address parsing from UbicacionTexto ("City, Country" or single token)
+            // Only include address in metadata if the user allowed showing country publicly
             string addressLocality = null;
             string addressRegion = null;
             string addressCountry = null;
-            if (!string.IsNullOrWhiteSpace(perfil.UbicacionTexto))
+            if (perfil.MostrarUbicacion && !string.IsNullOrWhiteSpace(perfil.UbicacionTexto))
             {
                 var parts = perfil.UbicacionTexto.Split(',').Select(p => p.Trim()).Where(p => !string.IsNullOrEmpty(p)).ToArray();
                 if (parts.Length == 1)
@@ -651,7 +652,14 @@
 }
 
 <div class="perfil-publico-container">
-    @if (Model.PerfilPublico != null)
+    @if (Model.PerfilIncompleto)
+    {
+        <div class="perfil-section">
+            <h2 class="perfil-section-title"><i class="bi bi-person-x-fill"></i> Perfil incompleto</h2>
+            <p>Este usuario no ha completado su perfil público, por lo que no es posible conocer más detalles. Si deseas, puedes intentarlo más tarde.</p>
+        </div>
+    }
+    else if (Model.PerfilPublico != null)
     {
         <div class="perfil-header">
             <div class="perfil-banner">
@@ -682,7 +690,7 @@
                 <div class="perfil-info-layout">
                     <div class="perfil-info-principal">
                         <h1 class="perfil-nombre">@Model.PerfilPublico.NombreCompleto</h1>
-                        <div class="perfil-slug">@@@Model.PerfilPublico.Slug</div>
+                        <div class="perfil-slug">@("@" + Model.PerfilPublico.Slug)</div>
 
                         @if (!string.IsNullOrWhiteSpace(Model.PerfilPublico.EstoyAquiTexto))
                         {

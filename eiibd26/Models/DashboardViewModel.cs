@@ -23,6 +23,10 @@ namespace eiibd26.Models
         public bool HasMoodToday { get; set; }
         public int NewAnswersCount { get; set; } = 0;
         public int ScheduledItemsCount { get; set; } = 0;
+        // Indica si al menos una condición tiene fecha de diagnóstico igual a la fecha de registro
+        // del usuario y por tanto debe actualizarse.
+        public bool NeedsDiagnosisDateUpdate { get; set; } = false;
+        public int DiagnosisUpdatesCount { get; set; } = 0;
     }
 
     public class MoodPoint

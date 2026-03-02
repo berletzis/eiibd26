@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using System;
+using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -13,10 +14,12 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
     public class UsuarioCondicionesModel : PageModel
     {
         private readonly ApplicationDbContext _db;
+        private readonly ILogger<UsuarioCondicionesModel> _logger;
 
-        public UsuarioCondicionesModel(ApplicationDbContext db)
+        public UsuarioCondicionesModel(ApplicationDbContext db, ILogger<UsuarioCondicionesModel> logger)
         {
             _db = db;
+            _logger = logger;
         }
 
         public List<PadreCondicionGroup> MisCondicionesAgrupadas { get; set; } = new();
@@ -28,6 +31,9 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             public DateTime FechaInicio { get; set; }
             public int TratamientosCount { get; set; }
             public int SintomasCount { get; set; }
+            // Si true, la fecha de diagnóstico coincide con la fecha de creación del perfil
+            // y el usuario debería actualizar la fecha de diagnóstico.
+            public bool FechaCoincideConRegistro { get; set; }
         }
 
         public class PadreCondicionGroup
@@ -45,17 +51,20 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             // Trae hijo+padre y datos de vínculo (solo las asignadas de usuario).
             // Importante: capturamos también el id de la fila en condicionUsuario (CondicionUsuarioId)
             // porque las tablas de relación referencian esa PK, y los contadores deben agruparse por ella.
+            // Trae tanto condiciones hijas como condiciones padre (si el usuario guardó la relación
+            // apuntando a la condición padre). Para las condiciones que no tienen padre, usamos
+            // el propio nombre como "PadreNombre" para que se muestren en la UI.
             var condiciones = await (from cu in _db.condicionUsuario
                                      join c in _db.condiciones on cu.idCondicion equals c.id
                                      join padre in _db.condiciones on c.idPadre equals padre.id into padres
                                      from padreJoin in padres.DefaultIfEmpty()
-                                     where cu.idUsuario == userIdGuid && !cu.Eliminado && c.idPadre != null
+                                     where cu.idUsuario == userIdGuid && !cu.Eliminado
                                      select new
                                      {
                                          CondicionUsuarioId = cu.id,       // PK de condicionUsuario (usada por relaciones)
-                                         HijoId = c.id,                    // id de la condicion hija (tabla condiciones)
+                                         HijoId = c.id,
                                          HijoNombre = c.nombre,
-                                         PadreNombre = padreJoin != null ? padreJoin.nombre : "(Sin padre)",
+                                         PadreNombre = padreJoin != null ? padreJoin.nombre : c.nombre,
                                          cu.fechaInicio
                                      }).ToListAsync();
 
@@ -66,6 +75,10 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             }
 
             var condUsuarioIds = condiciones.Select(x => x.CondicionUsuarioId).ToList();
+
+            // Obtener fecha de creación del perfil para comparar
+            var perfil = await _db.Perfil.AsNoTracking().FirstOrDefaultAsync(p => p.idUser == userIdGuid);
+            DateTime? perfilCreado = perfil?.FechaCreado ?? perfil?.FechaCreacion;
 
             // TratamientosCount: contamos TratamientoCondicionUsuario que pertenezcan al usuario,
             // cuyo tratamientoUsuario esté activo (no eliminado) y su IdCondicionUsuario corresponda
@@ -108,6 +121,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                         Id = h.HijoId,
                         Nombre = h.HijoNombre,
                         FechaInicio = h.fechaInicio ?? DateTime.UtcNow,
+                        FechaCoincideConRegistro = perfilCreado.HasValue && h.fechaInicio.HasValue && h.fechaInicio.Value.Date == perfilCreado.Value.Date,
                         // counts looked up by condicionUsuarioId
                         TratamientosCount = tratCountMap.TryGetValue(h.CondicionUsuarioId, out var tc) ? tc : 0,
                         SintomasCount = sintCountMap.TryGetValue(h.CondicionUsuarioId, out var sc) ? sc : 0

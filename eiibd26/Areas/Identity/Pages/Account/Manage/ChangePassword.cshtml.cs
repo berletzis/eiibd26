@@ -84,7 +84,11 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
             {
-                return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
+                if (User?.Identity == null || !User.Identity.IsAuthenticated)
+                {
+                    return RedirectToPage("/Account/Login", new { area = "Identity" });
+                }
+                return NotFound();
             }
 
             var hasPassword = await _userManager.HasPasswordAsync(user);
@@ -106,7 +110,11 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
             {
-                return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
+                if (User?.Identity == null || !User.Identity.IsAuthenticated)
+                {
+                    return RedirectToPage("/Account/Login", new { area = "Identity" });
+                }
+                return NotFound();
             }
 
             var changePasswordResult = await _userManager.ChangePasswordAsync(user, Input.OldPassword, Input.NewPassword);

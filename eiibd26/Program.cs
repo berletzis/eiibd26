@@ -3,11 +3,15 @@ using eiibd26.Data;
 using eiibd26.Helpers;
 using eiibd26.Models;
 using eiibd26.Services;
+using Microsoft.AspNetCore.Authentication;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
+using System.Diagnostics;
+using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -163,6 +167,41 @@ builder.Services.AddTransient<ISmsSender, TwilioSmsSender>();
 
 var app = builder.Build();
 
+// Diagnostic middleware: on local requests or when query `showException=1` is present,
+// return exception details in the response to aid debugging without enabling global Development env.
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (Exception ex)
+    {
+        var logger = context.RequestServices.GetService(typeof(ILogger<Program>)) as ILogger;
+        var requestId = Activity.Current?.Id ?? context.TraceIdentifier;
+        try { logger?.LogError(ex, "Unhandled exception (RequestId={RequestId})", requestId); } catch { }
+
+        bool isLocal = false;
+        try
+        {
+            var ip = context.Connection.RemoteIpAddress;
+            if (ip != null && (IPAddress.IsLoopback(ip) || ip.ToString() == "::1")) isLocal = true;
+        }
+        catch { }
+
+        if (isLocal || (context.Request.Query.TryGetValue("showException", out var v) && v == "1") || context.Request.Headers["X-Debug"] == "1")
+        {
+            context.Response.StatusCode = 500;
+            context.Response.ContentType = "text/plain; charset=utf-8";
+            await context.Response.WriteAsync($"RequestId: {requestId}\n\n{ex}");
+            return;
+        }
+
+        // rethrow to let existing exception handler middleware process it in production
+        throw;
+    }
+});
+
 if (app.Environment.IsDevelopment())
 {
     app.UseMigrationsEndPoint();
@@ -193,7 +232,7 @@ app.Use(async (context, next) =>
     cspBuilder.Append("default-src 'self'; ");
 
     // Scripts: App, CDNs, Google Maps, Cloudflare y TinyMCE
-    cspBuilder.Append("script-src 'self' 'unsafe-inline' 'unsafe-eval' " +
+    cspBuilder.Append("script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: " +
                       "https://cdn.jsdelivr.net " +
                       "https://unpkg.com " +
                       "https://maps.googleapis.com " +
@@ -203,7 +242,48 @@ app.Use(async (context, next) =>
                       "https://static.cloudflareinsights.com " +
                       "https://cdn.tiny.cloud " +
                       "https://www.googletagmanager.com " +
-                      "https://www.google-analytics.com; ");
+                      "https://www.google-analytics.com " +
+                      "https://googleads.g.doubleclick.net " +
+                      "https://www.google.com " +
+                      "https://api.cloudflare.com; ");
+
+    // Explicit element-level/script-src-elem for newer CSP checks (e.g. Tag Assistant)
+    // Include common CDNs (jsdelivr, code.jquery.com), Chart.js and allow inline scripts where necessary
+    cspBuilder.Append("script-src-elem 'self' 'unsafe-inline' blob: " +
+                      "https://cdn.jsdelivr.net " +
+                      "https://cdn.jsdelivr.net/npm " +
+                      "https://code.jquery.com " +
+                      "https://unpkg.com " +
+                      "https://maps.googleapis.com " +
+                      "https://www.googletagmanager.com " +
+                      "https://www.google-analytics.com " +
+                      "https://googleads.g.doubleclick.net " +
+                      "https://www.google.com " +
+                      "https://www.googleadservices.com " +
+                      "https://stats.g.doubleclick.net " +
+                      "https://static.cloudflareinsights.com " +
+                      "https://cloudflareinsights.com " +
+                      "https://cdn.datatables.net " +
+                      "https://api.cloudflare.com " +
+                      "https://cdnjs.cloudflare.com " +
+                      "https://cdn.tiny.cloud; ");
+
+    // Allow inline handlers (script-src-attr) and include CDNs + Google domains
+    cspBuilder.Append("script-src-attr 'self' 'unsafe-inline' blob: " +
+                      "https://cdn.jsdelivr.net " +
+                      "https://cdn.jsdelivr.net/npm " +
+                      "https://code.jquery.com " +
+                      "https://unpkg.com " +
+                      "https://maps.googleapis.com " +
+                      "https://www.googletagmanager.com " +
+                      "https://www.google-analytics.com " +
+                      "https://googleads.g.doubleclick.net " +
+                      "https://www.google.com " +
+                      "https://static.cloudflareinsights.com " +
+                      "https://cloudflareinsights.com " +
+                      "https://cdn.datatables.net " +
+                      "https://cdnjs.cloudflare.com " +
+                      "https://cdn.tiny.cloud; ");
 
     // Estilos: App, CDNs, Google Fonts y TinyMCE
     cspBuilder.Append("style-src 'self' 'unsafe-inline' " +
@@ -224,38 +304,46 @@ app.Use(async (context, next) =>
 
     // Conexiones: permitir localhost en desarrollo para Hot Reload y Browser Link
     if (app.Environment.IsDevelopment())
-    {
+        {
         // In development allow local hosts and common analytics endpoints used during testing
         cspBuilder.Append("connect-src 'self' " +
                           "http://localhost:* " +
                           "ws://localhost:* " +
                           "wss://localhost:* " +
                           "https://cdn.jsdelivr.net " +
+                          "https://unpkg.com " +
                           "https://maps.googleapis.com " +
                           "https://static.cloudflareinsights.com " +
                           "https://cloudflareinsights.com " +
                           "https://cdn.tiny.cloud " +
-                          // Allow Google analytics endpoints which the gtag script may call
+                          // Allow Google analytics/endpoints the gtag script may call
                           "https://analytics.google.com " +
-                          "https://www.google-analytics.com; ");
+                          "https://www.google-analytics.com " +
+                          "https://googleads.g.doubleclick.net " +
+                          "https://www.google.com " +
+                          "https://api.cloudflare.com; ");
     }
     else
     {
-        // Allow Google Analytics/Measurement Protocol endpoints used by gtag and analytics
+        // Allow Google Analytics/Measurement Protocol & Ads endpoints used by gtag and analytics
         cspBuilder.Append("connect-src 'self' " +
                           "https://eiibd.com " +
                           "https://www.eiibd.com " +
                           "https://cdn.jsdelivr.net " +
+                          "https://unpkg.com " +
                           "https://maps.googleapis.com " +
                           "https://static.cloudflareinsights.com " +
                           "https://cloudflareinsights.com " +
                           "https://cdn.tiny.cloud " +
                           "https://analytics.google.com " +
-                          "https://www.google-analytics.com; ");
+                          "https://www.google-analytics.com " +
+                          "https://googleads.g.doubleclick.net " +
+                          "https://www.google.com " +
+                          "https://api.cloudflare.com; ");
     }
 
-    // Frames: permitir Google Maps
-    cspBuilder.Append("frame-src 'self' https://maps.googleapis.com;");
+    // Frames: permitir Google Maps y Google Tag Manager (necesario para algunos contenedores/preview)
+    cspBuilder.Append("frame-src 'self' https://maps.googleapis.com https://www.googletagmanager.com https://tagmanager.google.com;");
 
     context.Response.Headers.Add("Content-Security-Policy", cspBuilder.ToString());
 
@@ -269,7 +357,12 @@ app.Use(async (context, next) =>
 app.UseHttpsRedirection();
 
 // ===== PERFORMANCE: Enable Response Compression =====
-app.UseResponseCompression();
+// Enable response compression except when running in Development to help
+// diagnose potential double-compression / decoding issues under IIS Express.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseResponseCompression();
+}
 
 // ===== PERFORMANCE: Enable Response Caching =====
 app.UseResponseCaching();
@@ -282,10 +375,23 @@ app.UseStaticFiles(new StaticFileOptions
 {
     OnPrepareResponse = ctx =>
     {
-        // Cache estático: CSS, JS, imágenes por 1 año (usa versionado para invalidar)
-        const int durationInSeconds = 31536000; // 1 año
-        ctx.Context.Response.Headers.Append("Cache-Control", $"public,max-age={durationInSeconds}");
-        ctx.Context.Response.Headers.Append("Expires", DateTime.UtcNow.AddYears(1).ToString("R"));
+        // Conservative caching: keep long-term cache for static assets but use short cache for
+        // user-uploaded avatars so updates propagate quickly in production.
+        var reqPath = ctx.Context.Request.Path.Value ?? string.Empty;
+        if (reqPath.StartsWith("/uploads/avatars/", StringComparison.OrdinalIgnoreCase))
+        {
+            // Short cache for avatars (1 minute) to reduce stale images while still allowing
+            // some client-side caching.
+            ctx.Context.Response.Headers["Cache-Control"] = "public, max-age=60, must-revalidate";
+            ctx.Context.Response.Headers["Expires"] = DateTime.UtcNow.AddMinutes(1).ToString("R");
+        }
+        else
+        {
+            // Cache estático: CSS, JS, imágenes por 1 año (usa versionado para invalidar)
+            const int durationInSeconds = 31536000; // 1 año
+            ctx.Context.Response.Headers["Cache-Control"] = $"public, max-age={durationInSeconds}";
+            ctx.Context.Response.Headers["Expires"] = DateTime.UtcNow.AddYears(1).ToString("R");
+        }
     }
 });
 
@@ -463,6 +569,46 @@ app.Use(async (context, next) =>
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Middleware: si la cookie indica un usuario pero ese usuario ya no existe en la DB,
+// forzar sign-out y redirigir al login para evitar errores como "Unable to load user with ID ...".
+app.Use(async (context, next) =>
+{
+    try
+    {
+        if (context.User?.Identity != null && context.User.Identity.IsAuthenticated)
+        {
+            var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!string.IsNullOrEmpty(userIdClaim))
+            {
+                // resolver DB por scope
+                using var scope = context.RequestServices.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                if (!Guid.TryParse(userIdClaim, out var userGuid))
+                {
+                    // claim inválido: forzar signout
+                    await context.SignOutAsync();
+                    context.Response.Redirect("/Identity/Account/Login");
+                    return;
+                }
+
+                var exists = await db.Users.AsNoTracking().AnyAsync(u => u.Id == userGuid);
+                if (!exists)
+                {
+                    // user was removed from DB, sign out and redirect to login
+                    await context.SignOutAsync();
+                    context.Response.Redirect("/Identity/Account/Login");
+                    return;
+                }
+            }
+        }
+    }
+    catch (Exception)
+    {
+        // ignore and continue; we don't want middleware errors breaking app startup
+    }
+    await next();
+});
 
 // Opcional: re-ejecutar NotFound en /NotFound
 app.UseStatusCodePagesWithReExecute("/NotFound");

@@ -242,9 +242,22 @@ namespace eiibd26.Areas.Identity.Pages.Account
 
                 if (Input.CondicionPadreId.HasValue)
                 {
+                    var selectedId = Input.CondicionPadreId.Value;
+
+                    // Validar que la condición seleccionada exista y no esté eliminada
+                    var exists = await _db.condiciones.AnyAsync(c => c.id == selectedId && !c.Eliminado);
+                    if (!exists)
+                    {
+                        ModelState.AddModelError("Input.CondicionPadreId", "La condición seleccionada no es válida.");
+                        // Re-popular selects y devolver la página para que el usuario corrija
+                        await PopulatePaisesAsync();
+                        await PopulateCondicionesPadreAsync();
+                        return Page();
+                    }
+
                     var condicionUsuarioPrincipal = new condicionUsuario
                     {
-                        idCondicion = Input.CondicionPadreId.Value,
+                        idCondicion = selectedId,
                         idUsuario = userGuid,
                         fechaInicio = null,
                         fechaCreado = DateTime.UtcNow,
@@ -252,33 +265,6 @@ namespace eiibd26.Areas.Identity.Pages.Account
                         Eliminado = false
                     };
                     _db.condicionUsuario.Add(condicionUsuarioPrincipal);
-
-                    if (Input.CondicionPadreId.Value == 1)
-                    {
-                        var extra1 = new condicionUsuario
-                        {
-                            idCondicion = 20,
-                            idUsuario = userGuid,
-                            fechaInicio = null,
-                            fechaCreado = DateTime.UtcNow,
-                            fechaModificado = DateTime.UtcNow,
-                            Eliminado = false
-                        };
-                        _db.condicionUsuario.Add(extra1);
-                    }
-                    else if (Input.CondicionPadreId.Value == 7)
-                    {
-                        var extra7 = new condicionUsuario
-                        {
-                            idCondicion = 19,
-                            idUsuario = userGuid,
-                            fechaInicio = null,
-                            fechaCreado = DateTime.UtcNow,
-                            fechaModificado = DateTime.UtcNow,
-                            Eliminado = false
-                        };
-                        _db.condicionUsuario.Add(extra7);
-                    }
                 }
 
                 await _db.SaveChangesAsync();

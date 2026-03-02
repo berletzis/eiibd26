@@ -41,21 +41,37 @@ namespace eiibd26.Controllers
                 .OrderBy(c => c.padreNombre).ThenBy(c => c.nombre)
                 .ToListAsync();
 
-            // Encuentra IDs de padres en la respuesta
-            var padresIds = condiciones.Where(c => c.esPadre).Select(c => c.id).Distinct().ToList();
-            var padres = condiciones.Where(c => c.idPadre == null && c.esPadre).ToList();
-
-            // Armar resultado: padres primero, luego hijos
+            // Construir resultado evitando duplicados y mostrando padres (si existen) seguido de sus hijos.
             var resultado = new List<object>();
-            foreach (var padre in padres)
+            var agregado = new HashSet<int>();
+
+            // Agregar padres de nivel superior primero (idPadre == null)
+            var padresNivelSuperior = condiciones.Where(c => c.idPadre == null).OrderBy(c => c.nombre).ToList();
+            foreach (var padre in padresNivelSuperior)
             {
-                resultado.Add(padre);
-                var hijos = condiciones.Where(c => c.idPadre == padre.id).ToList();
-                resultado.AddRange(hijos);
+                if (agregado.Add(padre.id))
+                {
+                    resultado.Add(padre);
+                }
+
+                var hijos = condiciones.Where(c => c.idPadre == padre.id).OrderBy(c => c.nombre).ToList();
+                foreach (var hijo in hijos)
+                {
+                    if (agregado.Add(hijo.id))
+                    {
+                        resultado.Add(hijo);
+                    }
+                }
             }
-            // Agrega hijos sin padre (caso aislado)
-            var hijosSinPadre = condiciones.Where(c => c.idPadre != null && !padresIds.Contains(c.idPadre.Value)).ToList();
-            resultado.AddRange(hijosSinPadre);
+
+            // Agregar cualquier otro elemento restante (padres con idPadre != null o hijos sueltos), evitando duplicados
+            foreach (var item in condiciones.OrderBy(c => c.padreNombre).ThenBy(c => c.nombre))
+            {
+                if (agregado.Add(item.id))
+                {
+                    resultado.Add(item);
+                }
+            }
 
             return Ok(resultado);
         }

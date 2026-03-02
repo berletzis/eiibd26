@@ -96,6 +96,24 @@
             gap: 4px;
         }
 
+        /* Principal category appearance */
+        .rel-badge-sel.principal {
+            background: #fff4e6; /* warm highlight */
+            color: #9a5300;
+            border-color: #ffd8b5;
+        }
+
+        .badge-principal {
+            display: inline-block;
+            background: #9a5300;
+            color: #fff;
+            font-size: 0.6rem;
+            line-height: 1;
+            padding: 2px 5px;
+            border-radius: 999px;
+            margin-left: 6px;
+        }
+
             .rel-badge-sel button {
                 background: transparent;
                 border: 0;
@@ -224,6 +242,13 @@
             @if (!string.IsNullOrWhiteSpace(Model.SeoUrl))
             {
                 <a href="@Model.SeoUrl" target="_blank" rel="noopener noreferrer">@Model.SeoUrl</a>
+                // Show principal category (if available)
+                var pc = Model.PrincipalCategoryId.HasValue ? Model.CategoryItems.FirstOrDefault(c => c.Sequence == Model.PrincipalCategoryId.Value) : null;
+                if (pc != null)
+                {
+                    var seg = !string.IsNullOrWhiteSpace(pc.CategoriaSlug) ? pc.CategoriaSlug.Trim('/') : pc.Sequence.ToString();
+                    <div class="small text-muted mt-1">Categoría principal: <a href="/@seg" target="_blank">@pc.Nombre</a></div>
+                }
             }
             else
             {
@@ -305,11 +330,18 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">País</label>
-                        <select class="form-select" asp-for="PaisClave">
+                        <select class="form-select" name="PaisClave" id="paisSelect">
                             <option value="">(Seleccionar país)</option>
                             @foreach (var p in Model.PaisesLista)
                             {
-                                <option value="@p.code" selected="@(p.code == Model.PaisClave ? "selected" : null)">@p.name (@p.code)</option>
+                                if (p.code == Model.PaisClave)
+                                {
+                                    <option value="@p.code" selected>@p.name (@p.code)</option>
+                                }
+                                else
+                                {
+                                    <option value="@p.code">@p.name (@p.code)</option>
+                                }
                             }
                         </select>
                     </div>
@@ -318,11 +350,18 @@
                 <div class="row g-2 mt-3">
                     <div class="col-md-6">
                         <label class="form-label">Autor</label>
-                        <select asp-for="SelectedAutorId" class="form-select">
+                        <select name="SelectedAutorId" id="SelectedAutorId" class="form-select">
                             <option value="">(Seleccionar autor)</option>
                             @foreach (var a in Model.AdminAuthors)
                             {
-                                <option value="@a.id" selected="@(Model.SelectedAutorId == a.id ? "selected" : null)">@a.name</option>
+                                if (Model.SelectedAutorId == a.id)
+                                {
+                                    <option value="@a.id" selected>@a.name</option>
+                                }
+                                else
+                                {
+                                    <option value="@a.id">@a.name</option>
+                                }
                             }
                         </select>
                     </div>
@@ -338,28 +377,7 @@
                     </div>
                 </div>
 
-                <div class="row g-2 mt-3">
-                    <div class="col-md-6">
-                        <label class="form-label">Categoría (padre)</label>
-                        <select id="categoriaPadre" class="form-select" asp-for="IdCategoriaPadre">
-                            <option value="">(Seleccionar categoría)</option>
-                            @foreach (var c in Model.CategoryItems.Where(c => c.CategoriaPadre == null))
-                            {
-                                <option value="@c.Sequence" selected="@(Model.IdCategoriaPadre == c.Sequence ? "selected" : null)">@c.Nombre</option>
-                            }
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Subcategoría</label>
-                        <select id="subcategoria" class="form-select" asp-for="IdCategoria">
-                            <option value="">(Seleccionar subcategoría)</option>
-                            @foreach (var s in Model.Subcategories)
-                            {
-                                <option value="@s.seq" selected="@(Model.IdCategoria == s.seq ? "selected" : null)">@s.name</option>
-                            }
-                        </select>
-                    </div>
-                </div>
+                @* Categories moved to right column per UX request. *@
 
                 <div class="mt-4 text-end">
                     <a class="btn btn-secondary me-2" href="@Url.Page("./Index")">Cancelar</a>
@@ -368,13 +386,88 @@
             </div>
 
             <aside class="right-rel-panel">
+                <div class="rel-box">
+                    <h5>Categorías seleccionadas <span class="badge bg-light text-dark">@Model.SelectedCategoryIds.Count</span></h5>
+                    <div id="selectedCategoryBadges" class="rel-selected-badges mb-2">
+                        @foreach (var seq in Model.SelectedCategoryIds)
+                        {
+                            var cat = Model.CategoryItems.FirstOrDefault(c => c.Sequence == seq);
+                            if (cat != null)
+                            {
+                                var isPrincipal = Model.PrincipalCategoryId.HasValue && Model.PrincipalCategoryId.Value == cat.Sequence;
+                                <span class="rel-badge-sel@(isPrincipal ? " principal" : "")" data-id="@cat.Sequence">@cat.Nombre
+                                    @if (isPrincipal)
+                                    {
+                                        <span class="badge-principal">Principal</span>
+                                    }
+                                    <button type="button" class="badge-remove btn-close" data-target-name="SelectedCategoryIds" data-id="@cat.Sequence" aria-label="Eliminar"></button>
+                                </span>
+                            }
+                        }
+                    </div>
+                    <div class="rel-search-row mb-2">
+                        <input type="text" id="filterCategories" placeholder="Filtrar categorías..." autocomplete="off" />
+                        @* Secondary container removed. JS will update the primary #selectedCategoryBadges to avoid duplicates. *@
+                    </div>
+                    <div class="rel-scroll" id="categoriesPanel">
+                        @* Render grouped checkboxes here (parents with children) *@
+                        @{
+                            var parents = Model.CategoryItems.Where(ci => ci.CategoriaPadre == null).OrderBy(ci => ci.Nombre).ToList();
+                            var children = Model.CategoryItems.Where(ci => ci.CategoriaPadre != null).OrderBy(ci => ci.Nombre).ToList();
+                            var childrenByParent = children.GroupBy(c => c.CategoriaPadre).ToDictionary(g => g.Key, g => g.ToList());
+                            var orphanChildren = children.Where(c => c.CategoriaPadre.HasValue && !parents.Any(p => p.Sequence == c.CategoriaPadre.Value)).ToList();
+                        }
+                        @foreach (var p in parents)
+                        {
+                            <div class="cond-group" data-filter="@p.Nombre.ToLowerInvariant()">
+                                <div class="cond-parent">
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <input type="checkbox" name="SelectedCategoryIds" class="cat-parent-checkbox" id="cat_parent_@p.Sequence" data-seq="@p.Sequence" value="@p.Sequence" @(Model.SelectedCategoryIds.Contains(p.Sequence) ? "checked" : "") />
+                                        <input type="radio" name="PrincipalCategoryId" value="@p.Sequence" @(Model.PrincipalCategoryId.HasValue && Model.PrincipalCategoryId.Value == p.Sequence ? "checked" : "") title="Marcar como principal" />
+                                        <span class="parent-title ms-2">@p.Nombre</span>
+                                    </div>
+                                </div>
+                                <div class="cond-children ms-3">
+                                    @if (childrenByParent.TryGetValue(p.Sequence, out var chs))
+                                    {
+                                        foreach (var ch in chs)
+                                        {
+                                            <label class="rel-item" data-filter="@ch.Nombre.ToLowerInvariant()">
+                                                <input type="checkbox" name="SelectedCategoryIds" class="cat-child-checkbox ms-1" data-parent="@p.Sequence" value="@ch.Sequence" @(Model.SelectedCategoryIds.Contains(ch.Sequence) ? "checked" : "") />
+                                                <input type="radio" name="PrincipalCategoryId" value="@ch.Sequence" @(Model.PrincipalCategoryId.HasValue && Model.PrincipalCategoryId.Value == ch.Sequence ? "checked" : "") title="Marcar como principal" />
+                                                <span class="ms-2">@ch.Nombre</span>
+                                            </label>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        @if (orphanChildren.Any())
+                        {
+                            <div class="cond-group" data-filter="otras">
+                                <div class="cond-parent"><strong>Otras categorías</strong></div>
+                                <div class="cond-children ms-3">
+                                    @foreach (var oc in orphanChildren)
+                                    {
+                                        <label class="rel-item" data-filter="@oc.Nombre.ToLowerInvariant()">
+                                            <input type="checkbox" name="SelectedCategoryIds" class="cat-child-checkbox ms-1" value="@oc.Sequence" @(Model.SelectedCategoryIds.Contains(oc.Sequence) ? "checked" : "") />
+                                            <input type="radio" name="PrincipalCategoryId" value="@oc.Sequence" @(Model.PrincipalCategoryId.HasValue && Model.PrincipalCategoryId.Value == oc.Sequence ? "checked" : "") title="Marcar como principal" />
+                                            <span class="ms-2">@oc.Nombre</span>
+                                        </label>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <div>
-                        <a class="btn btn-sm btn-outline-secondary mb-2" href="@Url.Page("./Index")">Regresar a Ver todos</a>
-                    </div>
-                    <div>
-                        <a class="btn btn-sm btn-primary mb-2" href="@Url.Page("./Detalle")">Agregar nuevo</a>
-                    </div>
+                <div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="location.href='@Url.Page("/Admin/Contenidos/Contenidos", new { area = "Identity" })'">Regresar a Ver todos</button>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-sm btn-primary mb-2" onclick="window.open('/Identity/Admin/Contenidos/Detalle','_blank')">Agregar nuevo</button>
+                </div>
                 </div>
 
                 <div class="rel-box">
@@ -477,7 +570,7 @@
                             {
                                 <div class="cond-group" data-parent="@parent.id">
                                     <div class="cond-parent">
-                                        <input type="checkbox" class="cond-parent-checkbox" data-parent-id="@parent.id" id="parentchk_@parent.id" />
+                                    <input type="checkbox" name="SelectedCondicionesIds" value="@parent.id" class="cond-parent-checkbox" data-parent-id="@parent.id" id="parentchk_@parent.id" @(Model.SelectedCondicionesIds.Contains(parent.id) ? "checked" : "") />
                                         <div class="parent-title">@parent.nombre</div>
                                     </div>
                                     <div class="cond-children">
@@ -606,6 +699,86 @@
 @section Scripts {
     <script src="https://cdn.tiny.cloud/1/c1xlulcw2ayqu8bq58edh8qjshj6yruj6g2linjofz9rw369/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
     <script>
+    // Category selection UX: when a child is checked, auto-check parent; when parent toggled, toggle children
+    (function () {
+        function toggleParentForChild(childEl) {
+            var parentId = childEl.dataset.parent;
+            if (!parentId) return;
+            var parentCheckbox = document.querySelector('#cat_parent_' + parentId);
+            if (!parentCheckbox) return;
+            if (childEl.checked) parentCheckbox.checked = true;
+            else {
+                // if no other child checked, uncheck parent
+                var siblings = document.querySelectorAll('.cond-child-checkbox[data-parent="' + parentId + '"]');
+                var any = false;
+                siblings.forEach(s => { if (s.checked) any = true; });
+                if (!any) parentCheckbox.checked = false;
+            }
+        }
+
+        // wire category child/parent checkboxes
+        document.querySelectorAll('.cat-child-checkbox').forEach(ch => {
+            ch.addEventListener('change', function () { toggleParentForChild(ch); updateSelectedBadges(); });
+        });
+        document.querySelectorAll('.cat-parent-checkbox').forEach(pc => {
+            pc.addEventListener('change', function () {
+                var pid = pc.getAttribute('data-seq');
+                var children = document.querySelectorAll('.cat-child-checkbox[data-parent="' + pid + '"]');
+                children.forEach(c => { c.checked = pc.checked; });
+                updateSelectedBadges();
+            });
+        });
+
+        // legacy conditioners handled above
+    })();
+
+    // Principal radio: ensure principal is always part of SelectedCategoryIds when selected
+    document.addEventListener('change', function (e) {
+        if (!e.target) return;
+        if (e.target.name === 'PrincipalCategoryId' && e.target.type === 'radio') {
+            var val = e.target.value;
+            if (!val) return;
+            var chk = document.querySelector('input[name="SelectedCategoryIds"][value="' + CSS.escape(val) + '"]');
+            if (chk && !chk.checked) {
+                chk.checked = true;
+                chk.dispatchEvent(new Event('change'));
+            }
+        }
+    });
+
+    function updateSelectedBadges(){
+        var container = document.getElementById('selectedCategoryBadgesContainer');
+        if(!container) return;
+        var checks = document.querySelectorAll('input[name="SelectedCategoryIds"]:checked');
+        var principalRadio = document.querySelector('input[name="PrincipalCategoryId"]:checked');
+        var principalVal = principalRadio ? principalRadio.value : null;
+        container.innerHTML = '';
+        checks.forEach(ch => {
+            var id = ch.value;
+            var label = ch.nextElementSibling ? ch.nextElementSibling.textContent.trim() : id;
+            var span = document.createElement('span');
+            var isPrincipal = (principalVal && String(principalVal) === String(id));
+            span.className = 'rel-badge-sel' + (isPrincipal ? ' principal' : '');
+            span.dataset.id = id;
+            // build inner HTML: label, optional principal badge, remove button
+            span.innerHTML = '';
+            var textNode = document.createTextNode(label + ' ');
+            span.appendChild(textNode);
+            if (isPrincipal) {
+                var bp = document.createElement('span');
+                bp.className = 'badge-principal';
+                bp.textContent = 'Principal';
+                span.appendChild(bp);
+            }
+            var btn = document.createElement('button');
+            btn.type = 'button'; btn.className = 'badge-remove btn-close'; btn.dataset.id = id; btn.setAttribute('data-target-name','SelectedCategoryIds'); btn.setAttribute('aria-label','Eliminar'); btn.innerHTML = '';
+            span.appendChild(btn);
+            container.appendChild(span);
+        });
+    }
+
+    // Initial badges populate
+    updateSelectedBadges();
         // ---------- TinyMCE (WYSIWYG) ----------
         tinymce.init({
             selector:'#contenidoHtml',
@@ -728,11 +901,36 @@
             populateSub(parentSel.value,null);
         });
         // Initialize with Model values (not DOM values, to avoid timing issues)
-        const initialParent = '@(Model.IdCategoriaPadre?.ToString() ?? "")';
-        const initialSub = '@(Model.IdCategoria?.ToString() ?? "")';
-        if (initialParent) {
-            populateSub(initialParent, initialSub);
-        }
+        const initialParentRaw = '@(Model.IdCategoriaPadre?.ToString() ?? "")';
+        const initialSubRaw = '@(Model.IdCategoria?.ToString() ?? "")';
+        const initialParent = initialParentRaw ? initialParentRaw.toString().trim() : '';
+        const initialSub = initialSubRaw ? initialSubRaw.toString().trim() : '';
+        // Try to initialize selects immediately (script is at bottom so elements exist)
+        try {
+            if (initialParent) {
+                if (parentSel) parentSel.value = initialParent;
+                populateSub(initialParent, initialSub);
+                if (initialSub && subSel) subSel.value = initialSub;
+            } else if (initialSub) {
+                // If server provided only the subcategory, infer its parent from the categories list
+                const found = categories.find(c => String(c.seq) === String(initialSub));
+                const inferredParent = found && found.parent ? String(found.parent) : '';
+                if (inferredParent && parentSel) {
+                    parentSel.value = inferredParent;
+                }
+                populateSub(inferredParent || initialParent, initialSub);
+                if (initialSub && subSel) subSel.value = initialSub;
+            }
+            // Also preselect sub if present (populateSub will mark it)
+        } catch(e) { /* ignore */ }
+
+        // Debug: log initial values and selects state
+        try {
+            console.debug('DETALLE: initialParent=', initialParent, 'initialSub=', initialSub);
+            console.debug('DETALLE: categories=', categories);
+            console.debug('DETALLE: parentSel value=', parentSel ? parentSel.value : null);
+            console.debug('DETALLE: subSel value=', subSel ? subSel.value : null);
+        } catch (e) { /* ignore */ }
 
         // ---------- Filters & badges ----------
         const searchInput = document.getElementById('searchGeneralCont');
@@ -825,8 +1023,9 @@
                     refreshBadges('generalContSelectedBadges','.rel-check-generalcont');
                 }else if(e.target.matches('.rel-check-pregunta')){
                     refreshBadges('pregSelectedBadges','.rel-check-pregunta');
-                }else if(e.target.matches('.rel-check-condicion')){
-                    refreshBadges('condSelectedBadges','.rel-check-condicion');
+                }else if(e.target.matches('.rel-check-condicion') || e.target.matches('.cond-parent-checkbox')){
+                    // include parent checkboxes (standalone parents without children)
+                    refreshBadges('condSelectedBadges','.rel-check-condicion, .cond-parent-checkbox');
                     const parentGroup = e.target.closest('.cond-group');
                     if(parentGroup) updateParentCheckboxState(parentGroup);
                 }else if(e.target.matches('.rel-check-sintoma')){
@@ -860,10 +1059,15 @@
             if(!parentGroup) return;
             const parentCheckbox = parentGroup.querySelector('.cond-parent-checkbox');
             const childChecks = Array.from(parentGroup.querySelectorAll('.rel-check-condicion'));
-            if(!parentCheckbox || !childChecks.length) {
-                if(parentCheckbox) { parentCheckbox.checked = false; parentCheckbox.indeterminate = false; }
+            if (!parentCheckbox) return;
+
+            // If there are no child checkboxes, treat the parent as a standalone selectable item
+            if (childChecks.length === 0) {
+                parentCheckbox.indeterminate = false;
+                // Keep the checked state as-is (server may have preselected it)
                 return;
             }
+
             const allChecked = childChecks.every(ch => ch.checked);
             const noneChecked = childChecks.every(ch => !ch.checked);
             parentCheckbox.checked = allChecked;
@@ -886,10 +1090,13 @@
                     const group = this.closest(`.cond-group[data-parent="${parentId}"]`);
                     if(!group) return;
                     const childChecks = Array.from(group.querySelectorAll('.rel-check-condicion'));
-                    childChecks.forEach(ch => {
-                        ch.checked = checked;
-                        ch.dispatchEvent(new Event('change'));
-                    });
+                    // If there are child checkboxes, propagate the parent's state to them.
+                    if (childChecks.length > 0) {
+                        childChecks.forEach(ch => {
+                            ch.checked = checked;
+                            ch.dispatchEvent(new Event('change'));
+                        });
+                    }
                     updateParentCheckboxState(group);
                 });
             });
@@ -913,6 +1120,44 @@
 
             wireUpParentCheckboxes();
             updateAllParentCheckboxStates();
+
+            // Ensure category parent/subcategory UI reflects server-side selection
+            try {
+                if (initialParent && parentSel) {
+                    parentSel.value = initialParent;
+                    populateSub(initialParent, initialSub);
+                }
+                // Preselect country based on server model
+                const paisSelect = document.querySelector('select[name="PaisClave"]');
+                const initialPais = '@(Model.PaisClave ?? "")';
+                if (paisSelect && initialPais) {
+                    paisSelect.value = initialPais;
+                }
+                // Ensure the parent option is visibly selected and populate subcategories
+                if (parentSel) {
+                    const opt = parentSel.querySelector(`option[value="${initialParent}"]`);
+                    if (opt) opt.selected = true;
+                    if (initialParent) parentSel.value = initialParent;
+                    // Trigger change to populate subcategories; populateSub will select sub if present
+                    parentSel.dispatchEvent(new Event('change'));
+                    // After a short delay ensure subSel gets selected (timing race with populateSub)
+                    setTimeout(()=>{
+                        try {
+                            if (initialSub && subSel) {
+                                // If subSel has options, set selected; otherwise repopulate and set
+                                if (subSel.querySelector(`option[value="${initialSub}"]`)) {
+                                    subSel.value = initialSub;
+                                } else {
+                                    populateSub(initialParent, initialSub);
+                                    if (subSel.querySelector(`option[value="${initialSub}"]`)) subSel.value = initialSub;
+                                }
+                            }
+                        } catch(e) {}
+                    }, 60);
+                }
+            } catch (e) {
+                // ignore
+            }
 
             // fade success
             const success=document.getElementById('successBanner');

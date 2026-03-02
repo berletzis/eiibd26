@@ -3,14 +3,34 @@
 <head>
 
     <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-DPH2X6YNQ5"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-DPH2X6YNQ5"></script>
+    @{
+        var currentArea = (ViewContext.RouteData.Values["area"] as string) ?? "";
+        var currentPage = (ViewContext.RouteData.Values["page"] as string) ?? "";
+        bool addSecondGtag = false;
+        if (string.Equals(currentArea, "Identity", StringComparison.OrdinalIgnoreCase))
+        {
+            var p = (currentPage ?? string.Empty).ToLowerInvariant();
+            if (p == "/account/register" || p == "/account/login" || p == "/usuario/dashboard")
+            {
+                addSecondGtag = true;
+            }
+        }
+    }
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
 
-  gtag('config', 'G-DPH2X6YNQ5');
-</script>
+      // Configurar la propiedad principal siempre
+      gtag('config', 'G-DPH2X6YNQ5');
+      // Google Ads / AW tag requerida
+      gtag('config', 'AW-11417573828');
+      @if (addSecondGtag)
+      {
+          <text>gtag('config', 'G-QTD8HR2PJ3');</text>
+      }
+    </script>
 
     <meta charset="utf-8" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />

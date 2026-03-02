@@ -253,6 +253,29 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             VM.NewAnswersCount = newAnswersCount;
 
             VM.ScheduledItemsCount = 0;
+
+            // ---- Diagnosis date check: si alguna condicion del usuario tiene fechaInicio igual
+            // a la fecha de creación del perfil (o a FechaCreado) avisar que actualice la fecha.
+            try
+            {
+                var perfil = await _db.Perfil.AsNoTracking().FirstOrDefaultAsync(p => p.idUser == userGuid);
+                DateTime? perfilCreado = perfil?.FechaCreado ?? perfil?.FechaCreacion ?? null;
+                if (perfilCreado.HasValue)
+                {
+                    var diagMatches = await _db.condicionUsuario
+                        .Where(cu => cu.idUsuario == userGuid && !cu.Eliminado && cu.fechaInicio != null && cu.fechaCreado != null)
+                        .AsNoTracking()
+                        .ToListAsync();
+
+                    var countMatches = diagMatches.Count(cu => cu.fechaInicio.Value.Date == perfilCreado.Value.Date);
+                    VM.DiagnosisUpdatesCount = countMatches;
+                    VM.NeedsDiagnosisDateUpdate = countMatches > 0;
+                }
+            }
+            catch (Exception)
+            {
+                // No bloquear flujo por errores aquí
+            }
         }
 
         public async Task<IActionResult> OnPostTrackSintomaMatriz()

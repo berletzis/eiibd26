@@ -88,6 +88,14 @@
             position: relative;
         }
 
+        /* Header container to control horizontal padding separately from Bootstrap utilities
+           so the list area can expand to the page edges when needed. */
+        .mapa-header-container {
+            padding-left: 12px;
+            padding-right: 12px;
+            max-width: none;
+        }
+
         .mapa-controls {
             display: flex;
             gap: 12px;
@@ -197,13 +205,20 @@
             align-items: flex-start;
         }
 
+        /* Avatars como círculo con contorno morado */
         .user-avatar {
             width: 72px;
             height: 72px;
-            border-radius: 8px;
+            border-radius: 50%;
             overflow: hidden;
             background: #f3f6fa;
             flex: 0 0 72px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            /* contorno morado visible */
+            border: 3px solid #764ba2;
         }
 
             .user-avatar img {
@@ -211,6 +226,7 @@
                 height: 100%;
                 object-fit: cover;
                 display: block;
+                border-radius: 50%;
             }
 
         .user-info {
@@ -285,18 +301,69 @@
             .mapa-right {
                 min-height: 56vh;
             }
+            /* On tablet and smaller screens remove negative margins used for full-width map
+               and apply modest lateral padding so content doesn't touch the edges. */
+            .mapa-main-wrap {
+                margin-left: 0;
+                margin-right: 0;
+                padding-left: 16px;
+                padding-right: 16px;
+            }
+
+            .mapa-root {
+                padding-left: 16px;
+                padding-right: 16px;
+            }
+            /* allow left column to shrink on narrower viewports (avoid forced horizontal scrolling) */
+            .mapa-left { min-width: 0; padding-left: 0; padding-right: 0; }
         }
 
         @@media (max-width:576px) {
-            .cards-grid {
-                grid-template-columns: 1fr;
+            /* Wider card layout on very small screens: remove outer gutters and let the list
+               area use more horizontal space so two columns distribute across the viewport. */
+            .container-fluid { padding-left: 0 !important; padding-right: 0 !important; }
+
+            .mapa-root {
+                padding-left: 0;
+                padding-right: 0;
             }
 
-            .user-avatar {
-                width: 60px;
-                height: 60px;
-                flex: 0 0 60px;
+            .mapa-main-wrap {
+                margin-left: 0;
+                margin-right: 0;
+                padding-left: 0;
+                padding-right: 0;
             }
+
+            /* Keep a small inner gutter inside the left column but allow most width for grid */
+            .mapa-left { padding-left: 6px; padding-right: 6px; min-width: 0; }
+
+            /* Grid: two columns, allow columns to grow and use available width. Increase gap
+               slightly so cards breathe when wider. */
+            .cards-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 12px;
+                width: 100%;
+                box-sizing: border-box;
+                padding: 0;
+                margin: 0;
+                max-width: none;
+                justify-items: stretch;
+            }
+
+            /* Make cards slightly roomier when the grid grows */
+            .user-card {
+                padding: 12px;
+                box-sizing: border-box;
+                min-width: 0;
+            }
+
+            .cards-scroll { padding-right: 6px; overflow-x: hidden; }
+
+            /* Stack controls on mobile to avoid overflow */
+            .mapa-controls { flex-direction: column; gap: 10px; }
+            .mapa-controls > div { width: 100%; }
+            .mapa-controls .form-select { min-width: 0 !important; width: 100% !important; }
         }
 
         .loading-indicator {
@@ -522,14 +589,25 @@
 }
 
 <main class="mapa-root conte-page">
-    <div class="container py-4">
+    <!-- use container-fluid so header and filters align with the site brand/logo at the page edge -->
+    <div class="container-fluid mapa-header-container py-4">
         <h1 class="se-page-title">Buscador</h1>
 
         <div class="se-header" role="region" aria-label="Buscador del mapa">
-            <label for="cpMapaBuscar" class="se-search-label">
-                Utiliza los filtros para encontrar Usuarios/Pacientes con tu misma condición en la ubicación
-            </label>
-            <div class="mapa-controls" role="region" aria-label="Controles del mapa">
+            @* Mobile filter toggle: visible only on small screens. The filters are wrapped in a collapse
+               which is forced to display on large screens via the d-lg-block utility so desktop UX remains unchanged. *@
+            <div class="d-flex align-items-center justify-content-between mb-2 d-lg-none">
+                <div class="fw-semibold">Filtros</div>
+                <button class="btn btn-sm btn-outline-secondary filters-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#mapFiltersCollapse" aria-expanded="false" aria-controls="mapFiltersCollapse" title="Mostrar filtros">
+                    <i class="bi bi-funnel"></i>
+                </button>
+            </div>
+
+            <div class="collapse d-lg-block" id="mapFiltersCollapse">
+                <label for="cpMapaBuscar" class="se-search-label">
+                    Utiliza los filtros para encontrar Usuarios/Pacientes con tu misma condición en la ubicación
+                </label>
+                <div class="mapa-controls" role="region" aria-label="Controles del mapa">
                 <div>
                     <label class="form-label mb-0">País</label>
                     <select id="filter_country" class="form-select form-select-sm" style="min-width:200px;" @(!estaAutenticado ? "disabled" : "")>

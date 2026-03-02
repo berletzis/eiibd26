@@ -120,46 +120,93 @@ namespace eiibd26.Pages.Contenidos
 
                 vm.Categories = catNames.Where(n => !string.IsNullOrWhiteSpace(n)).ToList();
 
-                // Determinar categoría primaria (preferir hijo sobre padre)
-                var primaryCat = await _db.ContenidosCategorias
-                    .AsNoTracking()
-                    .Where(c => catIds.Contains(c.Sequence) && !c.Borrado)
-                    .OrderBy(c => c.CategoriaPadre.HasValue ? 0 : 1)
-                    .ThenBy(c => c.Sequence)
+                // Buscar la categoría principal (EsPrincipal)
+                var principalRel = await _db.ContenidosCategoriasRelacion.AsNoTracking()
+                    .Where(r => r.IdContenido == entity.Id && !r.Borrado && r.IdCategoria != null && r.EsPrincipal == true)
                     .FirstOrDefaultAsync();
 
-                if (primaryCat != null)
+                ContenidoCategoria principalCat = null;
+                if (principalRel != null && principalRel.IdCategoria.HasValue)
                 {
-                    primaryCategorySlug = !string.IsNullOrWhiteSpace(primaryCat.CategoriaSlug)
-                        ? primaryCat.CategoriaSlug
-                        : primaryCat.Sequence.ToString();
+                    principalCat = await _db.ContenidosCategorias.AsNoTracking()
+                        .Where(c => c.Sequence == principalRel.IdCategoria.Value && !c.Borrado)
+                        .FirstOrDefaultAsync();
+                }
 
-                    // Build breadcrumbs
-                    var crumbsReversed = new List<BreadcrumbItem>();
-                    int? current = primaryCat.Sequence;
+                // Si no hay principal, usar la más profunda
+                if (principalCat == null)
+                {
+                    var allCats = await _db.ContenidosCategorias
+                        .AsNoTracking()
+                        .Where(c => catIds.Contains(c.Sequence) && !c.Borrado)
+                        .ToListAsync();
 
-                    while (current.HasValue && current.Value > 0)
+                    List<(List<ContenidoCategoria> chain, ContenidoCategoria leaf)> chains = new();
+                    foreach (var cat in allCats)
                     {
-                        var cat = await _db.ContenidosCategorias.AsNoTracking()
-                            .FirstOrDefaultAsync(c => c.Sequence == current.Value && !c.Borrado);
-
-                        if (cat == null) break;
-
-                        var segment = !string.IsNullOrWhiteSpace(cat.CategoriaSlug)
-                            ? cat.CategoriaSlug
-                            : cat.Sequence.ToString();
-
-                        crumbsReversed.Add(new BreadcrumbItem
+                        var chain = new List<ContenidoCategoria>();
+                        var current = cat;
+                        while (current != null)
                         {
-                            Title = cat.Nombre ?? $"Categoría {cat.Sequence}",
-                            Url = $"/{segment}"
-                        });
-
-                        current = cat.CategoriaPadre;
+                            chain.Add(current);
+                            if (current.CategoriaPadre.HasValue && current.CategoriaPadre.Value > 0)
+                            {
+                                current = allCats.FirstOrDefault(c => c.Sequence == current.CategoriaPadre.Value);
+                            }
+                            else
+                            {
+                                current = null;
+                            }
+                        }
+                        chain.Reverse();
+                        chains.Add((chain, cat));
                     }
+                    // Elegir la cadena más profunda (con más niveles)
+                    var deepestChain = chains.OrderByDescending(x => x.chain.Count).FirstOrDefault();
+                    if (deepestChain.chain != null && deepestChain.chain.Count > 0)
+                    {
+                        principalCat = deepestChain.leaf;
+                    }
+                }
 
-                    crumbsReversed.Reverse();
-                    CategoryCrumbs = crumbsReversed;
+                if (principalCat != null)
+                {
+                    primaryCategorySlug = !string.IsNullOrWhiteSpace(principalCat.CategoriaSlug)
+                        ? principalCat.CategoriaSlug
+                        : principalCat.Sequence.ToString();
+
+                    // Armar la cadena de padres desde la principal
+                    var crumbsTemp = new List<(string Title, string Segment)>();
+                    var current = principalCat;
+                    while (current != null)
+                    {
+                        var segment = !string.IsNullOrWhiteSpace(current.CategoriaSlug)
+                            ? current.CategoriaSlug
+                            : current.Sequence.ToString();
+                        crumbsTemp.Add((current.Nombre ?? $"Categoría {current.Sequence}", segment));
+                        if (current.CategoriaPadre.HasValue && current.CategoriaPadre.Value > 0)
+                        {
+                            current = await _db.ContenidosCategorias.AsNoTracking()
+                                .FirstOrDefaultAsync(c => c.Sequence == current.CategoriaPadre.Value && !c.Borrado);
+                        }
+                        else
+                        {
+                            current = null;
+                        }
+                    }
+                    crumbsTemp.Reverse();
+                    var accum = "";
+                    var finalCrumbs = new List<BreadcrumbItem>();
+                    foreach (var c in crumbsTemp)
+                    {
+                        accum = accum + "/" + c.Segment;
+                        finalCrumbs.Add(new BreadcrumbItem
+                        {
+                            Title = c.Title,
+                            Url = accum
+                        });
+                    }
+                    CategoryCrumbs = finalCrumbs;
                 }
             }
 
