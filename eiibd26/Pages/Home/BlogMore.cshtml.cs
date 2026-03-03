@@ -150,6 +150,7 @@ namespace eiibd26.Pages.Home
 
             var contentsQuery = _db.Contenidos
                 .AsNoTracking()
+                .Include(c => c.AutorPerfil)
                 .Where(c => idsQuery.Contains(c.Id))
                 .OrderByDescending(c => c.FechaCreado);
 
@@ -210,7 +211,7 @@ namespace eiibd26.Pages.Home
                         g => g.Key,
                         g =>
                         {
-                            // First try to find primary category (EsPrincipal == true)
+                            // First try to find primary category
                             var primary = g.FirstOrDefault(x => x.EsPrincipal == true);
                             if (primary != null)
                             {

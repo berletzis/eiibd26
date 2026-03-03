@@ -130,13 +130,28 @@ namespace eiibd26.Pages.Mapa
                 .Select(r => r.Id)
                 .FirstOrDefaultAsync();
 
-            // Filtrar perfiles cuyo usuario tenga SOLO el rol Paciente
+            if (pacienteRoleId == null)
+            {
+                // Si no existe el rol Paciente, devolver lista vacía
+                var emptyResult = new { total = 0, profiles = new List<object>() };
+                if (_cache != null)
+                {
+                    var optEmpty = new MemoryCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromMinutes(2));
+                    _cache.Set(key, emptyResult, optEmpty);
+                }
+                return new JsonResult(emptyResult);
+            }
+
+            // Filtrar perfiles cuyo usuario tenga el rol Paciente (puede tener otros roles también)
+            var usersWithPacienteRole = _db.UserRoles
+                .Where(ur => ur.RoleId == pacienteRoleId)
+                .Select(ur => ur.UserId);
+
             var basePerfil = _db.Perfil.AsNoTracking()
                 .Where(p =>
                     !string.IsNullOrWhiteSpace(p.Latitud) &&
                     !string.IsNullOrWhiteSpace(p.Longitud) &&
-                    _db.UserRoles.Count(ur => ur.UserId == p.idUser) == 1 &&
-                    _db.UserRoles.Any(ur => ur.UserId == p.idUser && ur.RoleId == pacienteRoleId)
+                    usersWithPacienteRole.Contains(p.idUser)
                 );
 
                 if (!string.IsNullOrWhiteSpace(country))

@@ -57,6 +57,7 @@ namespace eiibd26.Pages.Contenidos
             if (!string.IsNullOrWhiteSpace(slug))
             {
                 entity = await _db.Contenidos.AsNoTracking()
+                    .Include(c => c.AutorPerfil)
                     .Where(c => !c.Eliminado && c.ContenidoTituloSlug == slug)
                     .FirstOrDefaultAsync();
             }
@@ -64,6 +65,7 @@ namespace eiibd26.Pages.Contenidos
             if (entity == null && id.HasValue)
             {
                 entity = await _db.Contenidos.AsNoTracking()
+                    .Include(c => c.AutorPerfil)
                     .Where(c => !c.Eliminado && c.Id == id.Value)
                     .FirstOrDefaultAsync();
             }

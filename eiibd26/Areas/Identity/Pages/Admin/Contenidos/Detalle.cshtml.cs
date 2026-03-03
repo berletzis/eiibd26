@@ -51,6 +51,10 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         [BindProperty] public List<int> SelectedSintomasIds { get; set; } = new();
         [BindProperty] public List<int> SelectedTratamientosIds { get; set; } = new();
 
+        // Multi-category support with principal category marking
+        [BindProperty] public List<int> SelectedCategoryIds { get; set; } = new();
+        [BindProperty] public int? PrincipalCategoryId { get; set; }
+
         // Relaciones manuales (para contenidos relacionados)
         [BindProperty] public List<int> SelectedManualContenidoIds { get; set; } = new();
         // Preguntas como GUIDs
@@ -246,7 +250,16 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 if (!string.IsNullOrWhiteSpace(SelectedAutorId) && Guid.TryParse(SelectedAutorId, out var parsedAutor))
                     autorGuid = parsedAutor;
 
-                int? selectedCategory = IdCategoria ?? IdCategoriaPadre;
+                // Use multi-category selection if available, otherwise fall back to legacy single category
+                var categoriesToSave = (SelectedCategoryIds != null && SelectedCategoryIds.Any()) 
+                    ? SelectedCategoryIds 
+                    : (IdCategoria.HasValue || IdCategoriaPadre.HasValue 
+                        ? new List<int> { IdCategoria ?? IdCategoriaPadre.Value } 
+                        : new List<int>());
+
+                // Use PrincipalCategoryId if set, otherwise use the first selected or legacy category
+                var principalCategory = PrincipalCategoryId 
+                    ?? (categoriesToSave.Any() ? categoriesToSave.First() : (int?)null);
 
                 if (Id.HasValue)
                 {
@@ -282,7 +295,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
                     await _db.SaveChangesAsync();
 
-                    await SaveCategoryRelationAsync(entity.Id, selectedCategory, currentUser, now);
+                    await SaveCategoryRelationAsync(entity.Id, categoriesToSave, principalCategory, currentUser, now);
 
                     // save manual relations (contenidos + preguntas)
                     await SaveManualRelationsAsync(entity.Id, SelectedManualContenidoIds, SelectedManualPreguntasIds, currentUser, now);
@@ -318,7 +331,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     await _db.SaveChangesAsync();
                     Id = entity.Id;
 
-                    await SaveCategoryRelationAsync(entity.Id, selectedCategory, currentUser, now);
+                    await SaveCategoryRelationAsync(entity.Id, categoriesToSave, principalCategory, currentUser, now);
 
                     // save manual relations
                     await SaveManualRelationsAsync(entity.Id, SelectedManualContenidoIds, SelectedManualPreguntasIds, currentUser, now);
@@ -340,25 +353,49 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         }
 
         // ------------------------------
-        // SaveCategoryRelationAsync
+        // SaveCategoryRelationAsync - Updated for multi-category with principal
         // ------------------------------
-        private async Task SaveCategoryRelationAsync(int contenidoId, int? selectedCategory, Guid user, DateTime now)
+        private async Task SaveCategoryRelationAsync(int contenidoId, List<int> selectedCategoryIds, int? principalCategoryId, Guid user, DateTime now)
         {
-            if (!selectedCategory.HasValue) return;
-
-            var desiredCategoryIds = new List<int> { selectedCategory.Value };
-            var primaryCategoryId = selectedCategory.Value;
-
-            var selectedCat = await _db.ContenidosCategorias
-                .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.Sequence == selectedCategory.Value);
-
-            if (selectedCat != null && selectedCat.CategoriaPadre.HasValue && selectedCat.CategoriaPadre.Value > 0)
+            // If no categories selected, remove all existing relations
+            if (selectedCategoryIds == null || !selectedCategoryIds.Any())
             {
-                if (!desiredCategoryIds.Contains(selectedCat.CategoriaPadre.Value))
-                    desiredCategoryIds.Add(selectedCat.CategoriaPadre.Value);
+                var allExisting = await _db.ContenidosCategoriasRelacion
+                    .Where(r => r.IdContenido == contenidoId && !r.Borrado)
+                    .ToListAsync();
+
+                foreach (var rel in allExisting)
+                {
+                    rel.Borrado = true;
+                    rel.FechaModificacion = now;
+                    rel.UsuarioModificacion = user;
+                }
+                await _db.SaveChangesAsync();
+                return;
             }
 
+            // Ensure principal category is in the selected list
+            var desiredCategoryIds = new HashSet<int>(selectedCategoryIds);
+            if (principalCategoryId.HasValue && !desiredCategoryIds.Contains(principalCategoryId.Value))
+            {
+                desiredCategoryIds.Add(principalCategoryId.Value);
+            }
+
+            // Auto-include parent categories if a child is selected
+            var expandedCategoryIds = new HashSet<int>(desiredCategoryIds);
+            foreach (var catId in desiredCategoryIds.ToList())
+            {
+                var cat = await _db.ContenidosCategorias
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.Sequence == catId);
+
+                if (cat != null && cat.CategoriaPadre.HasValue && cat.CategoriaPadre.Value > 0)
+                {
+                    expandedCategoryIds.Add(cat.CategoriaPadre.Value);
+                }
+            }
+
+            // Get existing relations
             var existingRels = await _db.ContenidosCategoriasRelacion
                 .Where(r => r.IdContenido == contenidoId && !r.Borrado && r.IdCategoria != null)
                 .ToListAsync();
@@ -368,18 +405,20 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 .Select(r => r.IdCategoria.Value)
                 .ToHashSet();
 
+            // Soft-delete relations not in desired list
             var toSoftDelete = existingRels
-                .Where(r => !r.IdCategoria.HasValue || !desiredCategoryIds.Contains(r.IdCategoria.Value))
+                .Where(r => !r.IdCategoria.HasValue || !expandedCategoryIds.Contains(r.IdCategoria.Value))
                 .ToList();
 
             foreach (var rel in toSoftDelete)
             {
                 rel.Borrado = true;
+                rel.EsPrincipal = false;
                 rel.FechaModificacion = now;
                 rel.UsuarioModificacion = user;
             }
 
-            // Desmarcar todas las categorías existentes como no principales
+            // Unmark all existing as non-principal first
             foreach (var rel in existingRels.Where(r => !r.Borrado))
             {
                 rel.EsPrincipal = false;
@@ -387,13 +426,15 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 rel.UsuarioModificacion = user;
             }
 
-            foreach (var catId in desiredCategoryIds.Where(id => !existingCategoryIds.Contains(id)))
+            // Add new category relations
+            foreach (var catId in expandedCategoryIds.Where(id => !existingCategoryIds.Contains(id)))
             {
+                var isPrincipal = principalCategoryId.HasValue && catId == principalCategoryId.Value;
                 _db.ContenidosCategoriasRelacion.Add(new ContenidoCategoriaRelacion
                 {
                     IdContenido = contenidoId,
                     IdCategoria = catId,
-                    EsPrincipal = (catId == primaryCategoryId),
+                    EsPrincipal = isPrincipal,
                     FechaCreacion = now,
                     FechaModificacion = now,
                     UsuarioCreacion = user,
@@ -402,13 +443,16 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 });
             }
 
-            // Marcar la categoría seleccionada como principal
-            var primaryRel = existingRels.FirstOrDefault(r => !r.Borrado && r.IdCategoria == primaryCategoryId);
-            if (primaryRel != null)
+            // Mark the principal category
+            if (principalCategoryId.HasValue)
             {
-                primaryRel.EsPrincipal = true;
-                primaryRel.FechaModificacion = now;
-                primaryRel.UsuarioModificacion = user;
+                var principalRel = existingRels.FirstOrDefault(r => !r.Borrado && r.IdCategoria == principalCategoryId.Value);
+                if (principalRel != null)
+                {
+                    principalRel.EsPrincipal = true;
+                    principalRel.FechaModificacion = now;
+                    principalRel.UsuarioModificacion = user;
+                }
             }
 
             await _db.SaveChangesAsync();
@@ -624,23 +668,39 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         {
             if (!Id.HasValue) return;
 
-            // First try to find the primary category
-            var primary = _db.ContenidosCategoriasRelacion
-                .AsNoTracking()
-                .Where(r => r.IdContenido == Id && !r.Borrado && r.IdCategoria != null && r.EsPrincipal == true)
-                .OrderByDescending(r => r.FechaCreacion)
-                .FirstOrDefault();
-
-            // If no primary found, get the most recent category
-            var last = primary ?? _db.ContenidosCategoriasRelacion
+            // Load ALL selected categories for this content
+            var allRels = _db.ContenidosCategoriasRelacion
                 .AsNoTracking()
                 .Where(r => r.IdContenido == Id && !r.Borrado && r.IdCategoria != null)
-                .OrderByDescending(r => r.FechaCreacion)
-                .FirstOrDefault();
+                .ToList();
 
-            if (last?.IdCategoria == null) return;
+            if (!allRels.Any()) return;
 
-            var catObj = CategoryItems.FirstOrDefault(c => c.Sequence == last.IdCategoria.Value);
+            // Populate SelectedCategoryIds with all assigned categories
+            SelectedCategoryIds = allRels.Select(r => r.IdCategoria.Value).Distinct().ToList();
+
+            // Find the primary category
+            var primary = allRels.FirstOrDefault(r => r.EsPrincipal.HasValue && r.EsPrincipal.Value);
+            if (primary?.IdCategoria != null)
+            {
+                PrincipalCategoryId = primary.IdCategoria.Value;
+            }
+            else
+            {
+                // If no primary marked, use the most recent as fallback
+                var mostRecent = allRels.OrderByDescending(r => r.FechaCreacion).FirstOrDefault();
+                if (mostRecent?.IdCategoria != null)
+                {
+                    PrincipalCategoryId = mostRecent.IdCategoria.Value;
+                }
+            }
+
+            // Legacy: also populate IdCategoriaPadre/IdCategoria for backward compatibility
+            // Use the primary category if available, otherwise most recent
+            var refCatId = PrincipalCategoryId ?? allRels.OrderByDescending(r => r.FechaCreacion).FirstOrDefault()?.IdCategoria;
+            if (refCatId == null) return;
+
+            var catObj = CategoryItems.FirstOrDefault(c => c.Sequence == refCatId.Value);
             if (catObj == null) return;
 
             if (catObj.CategoriaPadre.HasValue)
@@ -763,7 +823,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                             g => g.Key,
                             g =>
                             {
-                                // First try to find primary category (EsPrincipal == true)
+                                // First try to find primary category
                                 var primary = g.FirstOrDefault(x => x.EsPrincipal.HasValue && x.EsPrincipal.Value);
                                 if (primary != null)
                                 {
@@ -1049,7 +1109,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
                 var rel = await _db.ContenidosCategoriasRelacion
                     .AsNoTracking()
-                    .Where(r => r.IdContenido == Id.Value && !r.Borrado && r.IdCategoria != null && r.EsPrincipal == true)
+                    .Where(r => r.IdContenido == Id.Value && !r.Borrado && r.IdCategoria != null && (r.EsPrincipal.HasValue && r.EsPrincipal.Value))
                     .OrderByDescending(r => r.FechaCreacion)
                     .FirstOrDefaultAsync();
 

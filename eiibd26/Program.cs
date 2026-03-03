@@ -477,6 +477,21 @@ app.Use(async (context, next) =>
 
         if (category != null)
         {
+            // ✅ PRIMERO: Verificar si el segundo segmento es una categoría hija
+            var normalizedContentSlug = contentSlug.ToLowerInvariant();
+            var childCategory = await db.ContenidosCategorias
+                .AsNoTracking()
+                .Where(c => c.CategoriaSlug.ToLower() == normalizedContentSlug && !c.Borrado && c.CategoriaPadre == category.Sequence)
+                .FirstOrDefaultAsync();
+
+            if (childCategory != null)
+            {
+                // Es una categoría hija, no un contenido - redirigir a la categoría
+                context.Response.Redirect($"/{contentSlug}", permanent: true);
+                return;
+            }
+
+            // SEGUNDO: Buscar contenido con esa categoría específica
             var contentId = await db.Contenidos
                 .AsNoTracking()
                 .Where(c => c.ContenidoTituloSlug == contentSlug && !c.Eliminado)
@@ -495,6 +510,7 @@ app.Use(async (context, next) =>
             }
             else
             {
+                // TERCERO: Buscar contenido sin importar categoría
                 var content = await db.Contenidos
                     .AsNoTracking()
                     .Where(c => c.ContenidoTituloSlug == contentSlug && !c.Eliminado)

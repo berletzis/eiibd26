@@ -27,6 +27,14 @@ namespace eiibd26.Pages
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        // ===== ENUM PARA ORDENAMIENTO =====
+        public enum OrdenPreguntas
+        {
+            Activas,    // FechaUltimaActividad DESC (por defecto)
+            Recientes,  // FechaCreacion DESC
+            Votadas     // Score DESC
+        }
+
         public class PreguntaCardVm
         {
             public Guid Id { get; set; }
@@ -53,6 +61,7 @@ namespace eiibd26.Pages
         [BindProperty(SupportsGet = true)] public int PageNumber { get; set; } = 1;
         [BindProperty(SupportsGet = true)] public int PageSize { get; set; } = 12;
         [BindProperty(SupportsGet = true)] public string Search { get; set; } = "";
+        [BindProperty(SupportsGet = true)] public OrdenPreguntas Orden { get; set; } = OrdenPreguntas.Activas;
 
         public int TotalItems { get; set; }
         public int TotalPages => (int)Math.Ceiling(TotalItems / (double)PageSize);
@@ -92,6 +101,7 @@ namespace eiibd26.Pages
 
             if (PageNumber > TotalPages) PageNumber = TotalPages;
 
+            // ===== APLICAR ORDENAMIENTO SEGÚN TAB SELECCIONADO =====
             var pageQ = baseQ
                 .Select(p => new
                 {
@@ -100,19 +110,34 @@ namespace eiibd26.Pages
                     p.Cuerpo,
                     p.UsuarioId,
                     p.FechaCreacion,
+                    p.Slug,
                     RespuestasCount = _db.Respuestas.Count(r => r.PreguntaId == p.Id && !r.Eliminado),
                     Score = _db.Votos.Where(v => v.EntidadTipo == "pregunta" && v.EntidadId == p.Id && !v.Eliminado)
-                                     .Select(v => (int?)v.Valor).Sum() ?? 0
-                })
-                .OrderByDescending(x => x.Score)
-                .ThenByDescending(x => x.FechaCreacion)
+                                     .Select(v => (int?)v.Valor).Sum() ?? 0,
+                    // Usar la fecha de la respuesta más reciente como "actividad"
+                    UltimaRespuesta = _db.Respuestas
+                        .Where(r => r.PreguntaId == p.Id && !r.Eliminado)
+                        .OrderByDescending(r => r.FechaCreacion)
+                        .Select(r => (DateTimeOffset?)r.FechaCreacion)
+                        .FirstOrDefault()
+                });
+
+            // Aplicar ordenamiento según el tab seleccionado
+            IQueryable<dynamic> orderedQ = Orden switch
+            {
+                OrdenPreguntas.Recientes => pageQ.OrderByDescending(x => x.FechaCreacion),
+                OrdenPreguntas.Votadas => pageQ.OrderByDescending(x => x.Score).ThenByDescending(x => x.FechaCreacion),
+                OrdenPreguntas.Activas => pageQ.OrderByDescending(x => x.UltimaRespuesta ?? x.FechaCreacion).ThenByDescending(x => x.Score),
+                _ => pageQ.OrderByDescending(x => x.UltimaRespuesta ?? x.FechaCreacion).ThenByDescending(x => x.Score)
+            };
+
+            var items = await orderedQ
                 .Skip((PageNumber - 1) * PageSize)
-                .Take(PageSize);
+                .Take(PageSize)
+                .ToListAsync();
 
-            var items = await pageQ.ToListAsync();
-
-            var preguntaIds = items.Select(i => i.Id).ToArray();
-            var userIds = items.Select(i => i.UsuarioId).Distinct().ToArray();
+            var preguntaIds = items.Select(i => (Guid)i.Id).ToArray();
+            var userIds = items.Select(i => (Guid)i.UsuarioId).Distinct().ToArray();
 
             // Fetch slugs for authors to build profile links if available
             var authorSlugs = new Dictionary<Guid, string>();
@@ -332,22 +357,22 @@ namespace eiibd26.Pages
                     Titulo = i.Titulo ?? "",
                     CuerpoPreview = BuildPreview(i.Cuerpo, 400),
                     Slug = SlugHelper.GenerateSlug(i.Titulo ?? "pregunta"), // ← NUEVO
-                    UsuarioId = i.UsuarioId,
-                    AutorNombre = authors.TryGetValue(i.UsuarioId, out var info) ? info.name : "Usuario",
-                    AutorAvatarUrl = authors.TryGetValue(i.UsuarioId, out var info2) ? info2.avatar : "/img/avatar-placeholder.png",
+                    UsuarioId = (Guid)i.UsuarioId,
+                    AutorNombre = authors.TryGetValue((Guid)i.UsuarioId, out (string name, string avatar) info) ? info.name : "Usuario",
+                    AutorAvatarUrl = authors.TryGetValue((Guid)i.UsuarioId, out (string name, string avatar) info2) ? info2.avatar : "/img/avatar-placeholder.png",
                     AutorSlug = "",
-                    FechaCreacion = i.FechaCreacion,
-                    RespuestasCount = i.RespuestasCount,
-                    Score = i.Score,
-                    UsuarioVoto = votosUsuario.TryGetValue(i.Id, out var vv) ? vv : 0,
-                    EsMia = currentUserId.HasValue && i.UsuarioId == currentUserId.Value,
-                    Condiciones = condByQ.TryGetValue(i.Id, out var cl) ? cl : new List<string>(),
-                    Sintomas = sintByQ.TryGetValue(i.Id, out var sl) ? sl : new List<string>(),
-                    Tratamientos = tratByQ.TryGetValue(i.Id, out var tl) ? tl : new List<string>()
+                    FechaCreacion = (DateTimeOffset)i.FechaCreacion,
+                    RespuestasCount = (int)i.RespuestasCount,
+                    Score = (int)i.Score,
+                    UsuarioVoto = votosUsuario.TryGetValue((Guid)i.Id, out int vv) ? vv : 0,
+                    EsMia = currentUserId.HasValue && (Guid)i.UsuarioId == currentUserId.Value,
+                    Condiciones = condByQ.TryGetValue((Guid)i.Id, out List<string> cl) ? cl : new List<string>(),
+                    Sintomas = sintByQ.TryGetValue((Guid)i.Id, out List<string> sl) ? sl : new List<string>(),
+                    Tratamientos = tratByQ.TryGetValue((Guid)i.Id, out List<string> tl) ? tl : new List<string>()
                 };
 
                 var respondersForQ = responderRows
-                    .Where(r => r.PreguntaId == i.Id)
+                    .Where(r => r.PreguntaId == (Guid)i.Id)
                     .Select(r => r.UsuarioId)
                     .Where(uid => uid != i.UsuarioId)
                     .Distinct()
@@ -360,7 +385,7 @@ namespace eiibd26.Pages
                 }
 
                 // assign author slug if available
-                if (authorSlugs.TryGetValue(i.UsuarioId, out var aslug)) vm.AutorSlug = aslug;
+                if (authorSlugs.TryGetValue((Guid)i.UsuarioId, out string aslug)) vm.AutorSlug = aslug;
 
                 return vm;
             }).ToList();

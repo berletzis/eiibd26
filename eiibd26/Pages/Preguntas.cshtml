@@ -85,7 +85,73 @@
 
 @section Styles {
     <link rel="stylesheet" href="~/css/preguntas.css" />
-   
+    <style>
+        /* ===== TABS DE ORDENAMIENTO ESTILO STACK OVERFLOW ===== */
+        .sort-tabs-wrapper {
+            margin: 1.5rem 0 1rem 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .sort-tabs {
+            display: flex;
+            gap: 0.5rem;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sort-tab {
+            padding: 0.65rem 1.25rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #6b7280;
+            text-decoration: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            background: transparent;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+        }
+
+        .sort-tab:hover {
+            color: #764ba2;
+            background: #f9fafb;
+            border-radius: 6px 6px 0 0;
+        }
+
+        .sort-tab.active {
+            color: #764ba2;
+            border-bottom-color: #764ba2;
+            font-weight: 600;
+        }
+
+        .sort-tab i {
+            font-size: 1rem;
+        }
+
+        /* Responsive */
+        @@media (max-width: 600px) {
+            .sort-tabs {
+                flex-direction: column;
+                gap: 0.25rem;
+            }
+
+            .sort-tab {
+                padding: 0.75rem 1rem;
+                border-bottom: none;
+                border-left: 3px solid transparent;
+                border-radius: 6px;
+            }
+
+            .sort-tab.active {
+                border-left-color: #764ba2;
+                border-bottom-color: transparent;
+                background: #f9fafb;
+            }
+        }
+    </style>
 }
 
 <div class="container py-4">
@@ -114,6 +180,27 @@
                     }
                 </form>
             </div>
+        </div>
+    </div>
+
+    @* ===== TABS DE ORDENAMIENTO (ESTILO STACK OVERFLOW) ===== *@
+    <div class="sort-tabs-wrapper">
+        <div class="sort-tabs">
+            <a href="@Url.Page(null, new { orden = eiibd26.Pages.PreguntasModel.OrdenPreguntas.Activas, search = Model.Search, pageSize = Model.PageSize, pageNumber = 1 })" 
+               class="sort-tab @(Model.Orden == eiibd26.Pages.PreguntasModel.OrdenPreguntas.Activas ? "active" : "")"
+               aria-current="@(Model.Orden == eiibd26.Pages.PreguntasModel.OrdenPreguntas.Activas ? "page" : null)">
+                <i class="bi bi-activity"></i> Activas
+            </a>
+            <a href="@Url.Page(null, new { orden = eiibd26.Pages.PreguntasModel.OrdenPreguntas.Recientes, search = Model.Search, pageSize = Model.PageSize, pageNumber = 1 })" 
+               class="sort-tab @(Model.Orden == eiibd26.Pages.PreguntasModel.OrdenPreguntas.Recientes ? "active" : "")"
+               aria-current="@(Model.Orden == eiibd26.Pages.PreguntasModel.OrdenPreguntas.Recientes ? "page" : null)">
+                <i class="bi bi-clock"></i> Recientes
+            </a>
+            <a href="@Url.Page(null, new { orden = eiibd26.Pages.PreguntasModel.OrdenPreguntas.Votadas, search = Model.Search, pageSize = Model.PageSize, pageNumber = 1 })" 
+               class="sort-tab @(Model.Orden == eiibd26.Pages.PreguntasModel.OrdenPreguntas.Votadas ? "active" : "")"
+               aria-current="@(Model.Orden == eiibd26.Pages.PreguntasModel.OrdenPreguntas.Votadas ? "page" : null)">
+                <i class="bi bi-trophy"></i> Más votadas
+            </a>
         </div>
     </div>
 
@@ -221,8 +308,9 @@
                     {
                         var authAttr = User.Identity.IsAuthenticated ? "true" : "false";
                         var isMineAttr = q.EsMia ? "true" : "false";
-                        var disableDown = q.Score <= 0;
-                        var disableUp = q.UsuarioVoto != 0;
+                        // Lógica correcta: deshabilitar solo el botón usado, habilitar el opuesto
+                        var disableUp = q.UsuarioVoto == 1;    // Deshabilitar upvote solo si ya votó upvote
+                        var disableDown = (q.Score <= 0) || (q.UsuarioVoto == -1);  // Deshabilitar downvote si score=0 o ya votó downvote
                         <article class="se-item"
                                  role="listitem"
                                  data-id="@q.Id"
@@ -543,15 +631,23 @@
                 const id = article.getAttribute('data-id');
                 if (!id) return;
 
-                if (!isAuth) { alert('Inicia sesión para votar.'); return; }
+                if (!isAuth) { 
+                    const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+                    if (confirm('Inicia sesión para votar. ¿Ir a login?')) {
+                        window.location.href = '/Identity/Account/Login?returnUrl=' + returnUrl;
+                    }
+                    return; 
+                }
                 if (isMine) { alert('No puedes votar tu propia pregunta.'); return; }
 
                 const dir = btn.getAttribute('data-dir');
                 const currentScore = parseInt(article.getAttribute('data-score') || '0', 10);
                 const currentUserVote = parseInt(article.getAttribute('data-user-vote') || '0', 10);
 
-                if (dir === 'up' && currentUserVote !== 0) return;
-                if (dir === 'down' && currentScore <= 0) return;
+                // Validación: no permitir downvote si score ya es 0 o negativo
+                if (dir === 'down' && currentScore <= 0) {
+                    return;
+                }
 
                 const upBtn = article.querySelector('.se-vote-up');
                 const downBtn = article.querySelector('.se-vote-down');
@@ -572,8 +668,10 @@
                     }
                     const j = await res.json();
                     const scoreEl = document.getElementById('score-' + id);
-                    const newScore = (j.score !== undefined) ? parseInt(j.score, 10) : (currentScore + (dir === 'up' ? 1 : -1));
-                    const newUserVote = (j.userVote !== undefined) ? parseInt(j.userVote, 10) : (dir === 'up' ? 1 : -1);
+
+                    // Usar score del servidor (siempre confiable)
+                    const newScore = (j.score !== undefined) ? parseInt(j.score, 10) : currentScore;
+                    const newUserVote = (j.userVote !== undefined) ? parseInt(j.userVote, 10) : 0;
 
                     if (scoreEl) scoreEl.textContent = String(newScore);
                     article.setAttribute('data-score', String(newScore));
@@ -581,18 +679,21 @@
 
                     if (upBtn) {
                         if (newUserVote === 1) upBtn.classList.add('active'); else upBtn.classList.remove('active');
-                        upBtn.disabled = newUserVote !== 0;
+                        upBtn.disabled = newUserVote === 1;  // Deshabilitar solo si votó upvote
                     }
                     if (downBtn) {
                         if (newUserVote === -1) downBtn.classList.add('active'); else downBtn.classList.remove('active');
-                        downBtn.disabled = newScore <= 0;
+                        downBtn.disabled = (newScore <= 0) || (newUserVote === -1);  // Deshabilitar si score=0 o votó downvote
                     }
                 } catch (err) {
                     console.error(err);
                     alert('Error de red al votar');
                 } finally {
-                    if (upBtn && !upBtn.disabled) upBtn.disabled = parseInt(article.getAttribute('data-user-vote') || '0', 10) !== 0;
-                    if (downBtn && !downBtn.disabled) downBtn.disabled = parseInt(article.getAttribute('data-score') || '0', 10) <= 0;
+                    // Re-habilitar botones según estado actual
+                    const finalScore = parseInt(article.getAttribute('data-score') || '0', 10);
+                    const finalUserVote = parseInt(article.getAttribute('data-user-vote') || '0', 10);
+                    if (upBtn) upBtn.disabled = finalUserVote === 1;  // Deshabilitar solo si votó upvote
+                    if (downBtn) downBtn.disabled = (finalScore <= 0) || (finalUserVote === -1);  // Deshabilitar si score=0 o votó downvote
                 }
             });
         })();

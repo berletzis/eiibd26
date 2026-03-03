@@ -395,7 +395,7 @@ namespace eiibd26.Pages.Contenidos
                     g => g.Key,
                     g =>
                     {
-                        // First try to find primary category (EsPrincipal == true)
+                        // First try to find primary category
                         var primary = g.FirstOrDefault(x => x.EsPrincipal == true);
                         if (primary != null)
                         {

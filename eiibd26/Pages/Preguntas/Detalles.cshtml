@@ -249,8 +249,9 @@
             }
             else
             {
-                var disableUp = Model.Pregunta.UsuarioVoto != 0;
-                var disableDown = Model.Pregunta.Score <= 0;
+                // Lógica correcta: deshabilitar solo el botón usado, habilitar el opuesto
+                var disableUp = Model.Pregunta.UsuarioVoto == 1;    // Deshabilitar upvote solo si ya votó upvote
+                var disableDown = (Model.Pregunta.Score <= 0) || (Model.Pregunta.UsuarioVoto == -1);  // Deshabilitar downvote si score=0 o ya votó downvote
 
                 <article class="se-item"
                          data-id="@Model.Pregunta.Id"
@@ -289,41 +290,6 @@
                             </button>
                         }
                     </div>
-
-@section Scripts {
-    <script>
-        (function () {
-            function initLazyAvatars() {
-                const imgs = Array.from(document.querySelectorAll('img.lazy-avatar[data-src]'));
-                if (!imgs.length) return;
-                const loadImg = img => {
-                    const src = img.getAttribute('data-src');
-                    if (!src) { img.src='@Url.Content("~/img/avatar-placeholder.png")'; return; }
-                    const tmp = new Image();
-                    tmp.decoding = 'async';
-                    tmp.onload = () => { img.src = src; img.classList.add('loaded'); };
-                    tmp.onerror = () => { img.src='@Url.Content("~/img/avatar-placeholder.png")'; img.classList.add('loaded'); };
-                    tmp.src = src;
-                };
-                if ('IntersectionObserver' in window) {
-                    const io = new IntersectionObserver(entries => {
-                        entries.forEach(e => {
-                            if (e.isIntersecting) {
-                                io.unobserve(e.target);
-                                loadImg(e.target);
-                            }
-                        });
-                    }, { rootMargin: '200px 0px' });
-                    imgs.forEach(i => io.observe(i));
-                } else {
-                    imgs.forEach(loadImg);
-                }
-            }
-            document.addEventListener('DOMContentLoaded', initLazyAvatars);
-            if (document.readyState === 'interactive' || document.readyState === 'complete') initLazyAvatars();
-        })();
-    </script>
-}
 
                     <div class="se-summary">
                         <div class="se-card-title" role="heading" aria-level="2">@Model.Pregunta.Titulo</div>
@@ -400,12 +366,39 @@
                     </div>
                 </article>
 
+                @* --- Reply box SIEMPRE debajo de la pregunta --- *@
+                @if (!User.Identity.IsAuthenticated)
+                {
+                    <div class="login-hint-box">
+                        <div class="login-hint-header">
+                            <i class="bi bi-unlock login-hint-icon"></i>
+                            <div class="login-hint-text">Inicia sesión para ver y participar en las respuestas de la comunidad.</div>
+                        </div>
+                        <div class="login-hint-actions">
+                            <a href="/Identity/Account/Register?returnUrl=@Uri.EscapeDataString(HttpContext.Request.Path + HttpContext.Request.QueryString)" class="btn-login-hint btn-login-hint-primary"><i class="bi bi-person-plus"></i> Crear cuenta gratis</a>
+                            <a href="/Identity/Account/Login?returnUrl=@Uri.EscapeDataString(HttpContext.Request.Path + HttpContext.Request.QueryString)" class="btn-login-hint btn-login-hint-secondary"><i class="bi bi-box-arrow-in-right"></i> Iniciar sesión</a>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    @* Reply box for authenticated users *@
+                    <div class="se-reply-box">
+                        <div style="position: relative;">
+                            <label for="respuestaBuscar" class="se-answers-label">Revisa que tu aporte sea claro y útil.</label>
+                            <textarea id="replyCuerpo" class="se-reply-textarea" placeholder="Escribe tu respuesta..."></textarea>
+                            <div><button id="btnSendReply" class="responder-boton" type="button">Publicar respuesta</button></div>
+                        </div>
+                    </div>
+                }
+
                 @* --- Show accepted answer always (visible to bots and users) --- *@
                 @if (Model.AcceptedAnswer != null)
                 {
                     var a = Model.AcceptedAnswer;
-                    var rDisableUp = a.UsuarioVoto != 0;
-                    var rDisableDown = a.Score <= 0;
+                    // Lógica correcta: deshabilitar solo el botón usado, habilitar el opuesto
+                    var rDisableUp = a.UsuarioVoto == 1;    // Deshabilitar upvote solo si ya votó upvote
+                    var rDisableDown = (a.Score <= 0) || (a.UsuarioVoto == -1);  // Deshabilitar downvote si score=0 o ya votó downvote
                     var esMia = a.EsMia;
                     <article class="se-answer accepted"
                              data-id="@a.Id"
@@ -462,32 +455,6 @@
                     </article>
                 }
 
-                @* --- If user not authenticated: keep hint to login for viewing other answers --- *@
-                @if (!User.Identity.IsAuthenticated)
-                {
-                    <div class="login-hint-box">
-                        <div class="login-hint-header">
-                            <i class="bi bi-unlock login-hint-icon"></i>
-                            <div class="login-hint-text">Inicia sesión para ver y participar en las respuestas de la comunidad.</div>
-                        </div>
-                        <div class="login-hint-actions">
-                            <a href="/Identity/Account/Register" class="btn-login-hint btn-login-hint-primary"><i class="bi bi-person-plus"></i> Crear cuenta gratis</a>
-                            <a href="/Identity/Account/Login" class="btn-login-hint btn-login-hint-secondary"><i class="bi bi-box-arrow-in-right"></i> Iniciar sesión</a>
-                        </div>
-                    </div>
-                }
-                else
-                {
-                    @* Reply box for authenticated users (no change) *@
-                    <div class="se-reply-box">
-                        <div style="position: relative;">
-                            <label for="respuestaBuscar" class="se-answers-label">Revisa que tu aporte sea claro y útil.</label>
-                            <textarea id="replyCuerpo" class="se-reply-textarea" placeholder="Escribe tu respuesta..."></textarea>
-                            <div><button id="btnSendReply" class="responder-boton" type="button">Publicar respuesta</button></div>
-                        </div>
-                    </div>
-                }
-
                 @* Answers list: render paged answers but skip accepted one if already shown above *@
                 @if (User.Identity.IsAuthenticated)
                 {
@@ -501,8 +468,9 @@
                             @foreach (var a in Model.Respuestas)
                             {
                                 if (Model.AcceptedAnswer != null && a.Id == Model.AcceptedAnswer.Id) continue; // avoid duplicate
-                                var rDisableUp = a.UsuarioVoto != 0;
-                                var rDisableDown = a.Score <= 0;
+                                // Lógica correcta: deshabilitar solo el botón usado, habilitar el opuesto
+                                var rDisableUp = a.UsuarioVoto == 1;    // Deshabilitar upvote solo si ya votó upvote
+                                var rDisableDown = (a.Score <= 0) || (a.UsuarioVoto == -1);  // Deshabilitar downvote si score=0 o ya votó downvote
                                 var esMia = a.EsMia;
                                 <article class="se-answer"
                                          data-id="@a.Id"
@@ -629,3 +597,220 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            // ===== LAZY LOAD AVATARS =====
+            function initLazyAvatars() {
+                const imgs = Array.from(document.querySelectorAll('img.lazy-avatar[data-src]'));
+                if (!imgs.length) return;
+                const loadImg = img => {
+                    const src = img.getAttribute('data-src');
+                    if (!src) { img.src = '@Url.Content("~/img/avatar-placeholder.png")'; return; }
+                    const tmp = new Image();
+                    tmp.decoding = 'async';
+                    tmp.onload = () => { img.src = src; img.classList.add('loaded'); };
+                    tmp.onerror = () => { img.src = '@Url.Content("~/img/avatar-placeholder.png")'; img.classList.add('loaded'); };
+                    tmp.src = src;
+                };
+                if ('IntersectionObserver' in window) {
+                    const io = new IntersectionObserver(entries => {
+                        entries.forEach(e => {
+                            if (e.isIntersecting) {
+                                io.unobserve(e.target);
+                                loadImg(e.target);
+                            }
+                        });
+                    }, { rootMargin: '200px 0px' });
+                    imgs.forEach(i => io.observe(i));
+                } else {
+                    imgs.forEach(loadImg);
+                }
+            }
+
+            // ===== VOTING HANDLER (QUESTIONS & ANSWERS) =====
+            document.addEventListener('click', async function (e) {
+                const btn = e.target.closest('.se-vote-btn');
+                if (!btn) return;
+
+                // Determine if this is a question or answer
+                const article = btn.closest('.se-item, .se-answer');
+                if (!article) return;
+
+                const isAuth = article.getAttribute('data-authenticated') === 'true';
+                const isMine = article.getAttribute('data-is-mine') === 'true';
+                const id = article.getAttribute('data-id');
+                if (!id) return;
+
+                if (!isAuth) { 
+                    const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+                    if (confirm('Inicia sesión para votar. ¿Ir a login?')) {
+                        window.location.href = '/Identity/Account/Login?returnUrl=' + returnUrl;
+                    }
+                    return; 
+                }
+                if (isMine) { 
+                    alert(article.classList.contains('se-item') 
+                        ? 'No puedes votar tu propia pregunta.' 
+                        : 'No puedes votar tu propia respuesta.'); 
+                    return; 
+                }
+
+                const dir = btn.getAttribute('data-dir');
+                const currentScore = parseInt(article.getAttribute('data-score') || '0', 10);
+
+                // Validación: no permitir downvote si score ya es 0
+                if (dir === 'down' && currentScore <= 0) {
+                    return;
+                }
+
+                const upBtn = article.querySelector('.se-vote-up');
+                const downBtn = article.querySelector('.se-vote-down');
+                if (upBtn) upBtn.disabled = true;
+                if (downBtn) downBtn.disabled = true;
+
+                const valor = dir === 'up' ? 1 : -1;
+                const isQuestion = article.classList.contains('se-item');
+                const apiUrl = isQuestion 
+                    ? '/api/preguntas/' + id + '/votar'
+                    : '/api/respuestas/' + id + '/votar';
+
+                try {
+                    const res = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ valor })
+                    });
+
+                    if (!res.ok) {
+                        alert('Error al votar');
+                        return;
+                    }
+
+                    const j = await res.json();
+                    const scoreElId = isQuestion ? 'qscore-' + id : 'ascore-' + id;
+                    const scoreEl = document.getElementById(scoreElId);
+                    const scoreInlineEl = document.getElementById('ascore-inline-' + id);
+
+                    const newScore = (j.score !== undefined) ? parseInt(j.score, 10) : currentScore;
+                    const newUserVote = (j.userVote !== undefined) ? parseInt(j.userVote, 10) : 0;
+
+                    if (scoreEl) scoreEl.textContent = String(newScore);
+                    if (scoreInlineEl) scoreInlineEl.textContent = String(newScore);
+                    article.setAttribute('data-score', String(newScore));
+                    article.setAttribute('data-user-vote', String(newUserVote));
+
+                    if (upBtn) {
+                        if (newUserVote === 1) upBtn.classList.add('active'); else upBtn.classList.remove('active');
+                        upBtn.disabled = newUserVote === 1;  // Deshabilitar solo si votó upvote
+                    }
+                    if (downBtn) {
+                        if (newUserVote === -1) downBtn.classList.add('active'); else downBtn.classList.remove('active');
+                        downBtn.disabled = (newScore <= 0) || (newUserVote === -1);  // Deshabilitar si score=0 o votó downvote
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert('Error de red al votar');
+                } finally {
+                    const finalScore = parseInt(article.getAttribute('data-score') || '0', 10);
+                    const finalUserVote = parseInt(article.getAttribute('data-user-vote') || '0', 10);
+                    if (upBtn) upBtn.disabled = finalUserVote === 1;  // Deshabilitar solo si votó upvote
+                    if (downBtn) downBtn.disabled = (finalScore <= 0) || (finalUserVote === -1);  // Deshabilitar si score=0 o votó downvote
+                }
+            });
+
+            // ===== PUBLISH ANSWER =====
+            const btnSendReply = document.getElementById('btnSendReply');
+            if (btnSendReply) {
+                btnSendReply.addEventListener('click', async function () {
+                    const textarea = document.getElementById('replyCuerpo');
+                    if (!textarea) return;
+
+                    const cuerpo = textarea.value.trim();
+                    if (!cuerpo) {
+                        alert('Por favor escribe una respuesta.');
+                        return;
+                    }
+
+                    const preguntaId = '@Model.Pregunta?.Id';
+                    if (!preguntaId) return;
+
+                    btnSendReply.disabled = true;
+                    btnSendReply.textContent = 'Publicando...';
+
+                    try {
+                        const res = await fetch('/api/respuestas', {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'X-Pregunta-Id': preguntaId
+                            },
+                            body: JSON.stringify({ 
+                                cuerpo: cuerpo,
+                                preguntaId: preguntaId
+                            })
+                        });
+
+                        if (!res.ok) {
+                            const errorText = await res.text();
+                            console.error('Error response:', errorText);
+                            alert('Error al publicar respuesta: ' + (errorText || res.statusText));
+                            return;
+                        }
+
+                        // Recargar página para mostrar la nueva respuesta
+                        window.location.reload();
+                    } catch (err) {
+                        console.error(err);
+                        alert('Error de red al publicar respuesta');
+                    } finally {
+                        btnSendReply.disabled = false;
+                        btnSendReply.textContent = 'Publicar respuesta';
+                    }
+                });
+            }
+
+            // ===== DELETE ANSWER =====
+            document.addEventListener('click', async function (e) {
+                const btn = e.target.closest('.se-delete-btn');
+                if (!btn) return;
+
+                const id = btn.getAttribute('data-id');
+                if (!id) return;
+
+                if (!confirm('¿Estás seguro de eliminar esta respuesta?')) return;
+
+                btn.disabled = true;
+                btn.textContent = 'Eliminando...';
+
+                try {
+                    const res = await fetch('/api/respuestas/' + id + '/eliminar', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    if (!res.ok) {
+                        const errorText = await res.text();
+                        console.error('Error response:', errorText);
+                        alert('Error al eliminar respuesta: ' + (errorText || res.statusText));
+                        return;
+                    }
+
+                    // Recargar página para reflejar el cambio
+                    window.location.reload();
+                } catch (err) {
+                    console.error(err);
+                    alert('Error de red al eliminar respuesta');
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = 'Eliminar';
+                }
+            });
+
+            // Initialize
+            document.addEventListener('DOMContentLoaded', initLazyAvatars);
+            if (document.readyState === 'interactive' || document.readyState === 'complete') initLazyAvatars();
+        })();
+    </script>
+}

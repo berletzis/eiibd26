@@ -222,16 +222,19 @@ namespace eiibd26.Controllers
                 }
                 else
                 {
+                    // Usuario ya votó previamente
                     if (existing.Valor == dto.Valor)
                     {
-                        // same value -> toggle active/soft-delete
+                        // Intenta votar lo mismo (ej: +1 cuando ya votó +1)
+                        // Toggle: activo ↔ cancelado (permite re-votación flexible)
                         existing.Eliminado = !existing.Eliminado;
                         if (hasFechaModificacion) existing.FechaModificacion = DateTimeOffset.UtcNow;
                         _db.Votos.Update(existing);
                     }
                     else
                     {
-                        // opposite clicked -> remove existing vote (soft-delete)
+                        // Intenta cambiar el voto (ej: -1 cuando ya votó +1)
+                        // Eliminar el voto anterior para permitir crear uno nuevo
                         existing.Eliminado = true;
                         if (hasFechaModificacion) existing.FechaModificacion = DateTimeOffset.UtcNow;
                         _db.Votos.Update(existing);
