@@ -1,0 +1,238 @@
+@page
+@model eiibd26.Areas.Identity.Pages.Admin.Notifications.IndexModel
+@{
+    ViewData["Title"] = "Notificaciones Push";
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">📱 Notificaciones Push</h1>
+            <p class="text-muted mb-0">Gestiona las notificaciones enviadas a los usuarios</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a asp-page="Debug" class="btn btn-outline-secondary">
+                <i class="bi bi-bug"></i> Debug
+            </a>
+            <a asp-page="Create" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Nueva Notificación
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle"></i> @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle"></i> @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Stats Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1 small">Total Enviadas</p>
+                            <h3 class="mb-0">@Model.TotalSent</h3>
+                        </div>
+                        <div class="bg-primary bg-opacity-10 p-3 rounded">
+                            <i class="bi bi-send-check text-primary fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1 small">Programadas</p>
+                            <h3 class="mb-0">@Model.TotalScheduled</h3>
+                        </div>
+                        <div class="bg-warning bg-opacity-10 p-3 rounded">
+                            <i class="bi bi-clock-history text-warning fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1 small">Suscriptores</p>
+                            <h3 class="mb-0">@Model.TotalSubscribers</h3>
+                        </div>
+                        <div class="bg-success bg-opacity-10 p-3 rounded">
+                            <i class="bi bi-people text-success fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1 small">Tasa de Éxito</p>
+                            <h3 class="mb-0">@Model.SuccessRate%</h3>
+                        </div>
+                        <div class="bg-info bg-opacity-10 p-3 rounded">
+                            <i class="bi bi-graph-up text-info fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications Table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Historial de Notificaciones</h5>
+                <div class="btn-group btn-group-sm" role="group">
+                    <a asp-page="Index" asp-route-filter="all" class="btn @(Model.Filter == "all" ? "btn-primary" : "btn-outline-secondary")">Todas</a>
+                    <a asp-page="Index" asp-route-filter="sent" class="btn @(Model.Filter == "sent" ? "btn-primary" : "btn-outline-secondary")">Enviadas</a>
+                    <a asp-page="Index" asp-route-filter="scheduled" class="btn @(Model.Filter == "scheduled" ? "btn-primary" : "btn-outline-secondary")">Programadas</a>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            @if (Model.Notifications.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="ps-4">Notificación</th>
+                                <th>Estado</th>
+                                <th>Destinatarios</th>
+                                <th>Enviados / Fallidos</th>
+                                <th>Fecha</th>
+                                <th class="text-end pe-4">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var notification in Model.Notifications)
+                            {
+                                <tr>
+                                    <td class="ps-4">
+                                        <div>
+                                            <strong class="d-block">@notification.Title</strong>
+                                            <small class="text-muted">@notification.Body</small>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        @if (notification.IsSent)
+                                        {
+                                            <span class="badge bg-success">
+                                                <i class="bi bi-check-circle"></i> Enviada
+                                            </span>
+                                        }
+                                        else if (notification.ScheduledFor.HasValue && notification.ScheduledFor > DateTimeOffset.UtcNow)
+                                        {
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="bi bi-clock"></i> Programada
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary" title="Creada pero no enviada. Puedes enviarla manualmente con el botón verde.">
+                                                <i class="bi bi-pause-circle"></i> Pendiente
+                                            </span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (notification.TargetUserIds == "all")
+                                        {
+                                            <span class="badge bg-primary">Todos</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-info">Específicos</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="text-success fw-bold">@notification.TotalSent</span> / 
+                                        <span class="text-danger">@notification.TotalFailed</span>
+                                    </td>
+                                    <td>
+                                        @if (notification.SentAt.HasValue)
+                                        {
+                                            <small>@notification.SentAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</small>
+                                        }
+                                        else if (notification.ScheduledFor.HasValue)
+                                        {
+                                            <small class="text-warning">
+                                                <i class="bi bi-calendar-event"></i>
+                                                @notification.ScheduledFor.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                            </small>
+                                        }
+                                        else
+                                        {
+                                            <small class="text-muted">@notification.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</small>
+                                        }
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        @if (!notification.IsSent)
+                                        {
+                                            <form method="post" asp-page-handler="Send" asp-route-id="@notification.Id" class="d-inline"
+                                                  onsubmit="return confirm('¿Enviar esta notificación ahora?');">
+                                                <button type="submit" class="btn btn-sm btn-success" title="Enviar ahora">
+                                                    <i class="bi bi-send"></i> Enviar
+                                                </button>
+                                            </form>
+                                        }
+                                        <form method="post" asp-page-handler="Delete" asp-route-id="@notification.Id" class="d-inline" 
+                                              onsubmit="return confirm('¿Estás seguro de eliminar esta notificación?');">
+                                            <button type="submit" class="btn btn-sm btn-danger" title="Eliminar">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-5">
+                    <i class="bi bi-inbox display-1 text-muted"></i>
+                    <p class="text-muted mt-3">No hay notificaciones para mostrar</p>
+                    <a asp-page="Create" class="btn btn-primary">Crear Primera Notificación</a>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Auto-refresh cada 30 segundos si hay notificaciones programadas
+        @if (Model.TotalScheduled > 0)
+        {
+            <text>
+            setTimeout(function() {
+                window.location.reload();
+            }, 30000);
+            </text>
+        }
+    </script>
+}

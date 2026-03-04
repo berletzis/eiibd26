@@ -53,6 +53,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
 
     public DbSet<BannerInicio> BannersInicio { get; set; }
 
+    // PWA Push Notifications
+    public DbSet<NotificationSubscription> NotificationSubscriptions { get; set; }
+    public DbSet<PushNotification> PushNotifications { get; set; }
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

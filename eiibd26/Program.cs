@@ -32,6 +32,9 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
         sqlOptions.MaxBatchSize(100); // Optimizar batch inserts/updates
     }));
 
+// ⭐ NUEVO: Localización en español para mensajes de Identity
+builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+
 builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
 {
     // Sign-in options
@@ -52,7 +55,8 @@ builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
     options.Lockout.AllowedForNewUsers = true;
 })
     .AddEntityFrameworkStores<ApplicationDbContext>()
-    .AddDefaultTokenProviders();
+    .AddDefaultTokenProviders()
+    .AddErrorDescriber<SpanishIdentityErrorDescriber>();
 
 // Cookie configuration (seguridad mejorada)
 builder.Services.ConfigureApplicationCookie(options =>
@@ -165,6 +169,12 @@ builder.Services.AddHsts(options =>
 builder.Services.AddTransient<IEmailSender, SendGridEmailSender>();
 builder.Services.AddTransient<ISmsSender, TwilioSmsSender>();
 
+// PWA Push Notifications
+builder.Services.AddScoped<eiibd26.Services.PushNotificationService>();
+
+// ⭐ NUEVO: Background Service para procesar notificaciones programadas
+builder.Services.AddHostedService<eiibd26.Services.ScheduledNotificationWorker>();
+
 var app = builder.Build();
 
 // Diagnostic middleware: on local requests or when query `showException=1` is present,
@@ -211,6 +221,16 @@ else
     app.UseExceptionHandler("/Error");
     app.UseHsts();
 }
+
+// ⭐ NUEVO: Configurar localización en español
+var supportedCultures = new[] { "es-MX", "es-ES", "es" };
+var localizationOptions = new RequestLocalizationOptions
+{
+    DefaultRequestCulture = new Microsoft.AspNetCore.Localization.RequestCulture("es-MX"),
+    SupportedCultures = supportedCultures.Select(c => new System.Globalization.CultureInfo(c)).ToList(),
+    SupportedUICultures = supportedCultures.Select(c => new System.Globalization.CultureInfo(c)).ToList()
+};
+app.UseRequestLocalization(localizationOptions);
 
 // ===== SECURITY HEADERS MIDDLEWARE =====
 app.Use(async (context, next) =>

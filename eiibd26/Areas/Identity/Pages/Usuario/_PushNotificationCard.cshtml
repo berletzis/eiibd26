@@ -1,0 +1,149 @@
+<!-- PWA Push Notification Subscription Card - Solo se muestra si NO está suscrito -->
+<div class="card border-0 shadow-sm mb-4" id="pwa-notification-card" style="display:none;">
+    <div class="card-body">
+        <div class="d-flex align-items-start gap-3">
+            <div class="bg-primary bg-opacity-10 p-3 rounded">
+                <i class="bi bi-bell-fill text-primary fs-4"></i>
+            </div>
+            <div class="flex-grow-1">
+                <h5 class="mb-2">🔔 Activa las notificaciones push</h5>
+                <p class="text-muted mb-3" id="notification-status">
+                    Recibe actualizaciones importantes de la comunidad directamente en tu dispositivo
+                </p>
+                <div id="notification-actions">
+                    <button class="btn btn-primary" onclick="subscribePush()">
+                        <i class="bi bi-bell"></i> Activar notificaciones
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const cardEl = document.getElementById('pwa-notification-card');
+    const statusEl = document.getElementById('notification-status');
+    const actionsEl = document.getElementById('notification-actions');
+
+    async function checkAndShowCard() {
+        // Check if notifications are supported
+        if (!('Notification' in window)) {
+            console.log('🔕 Notificaciones no soportadas en este navegador');
+            return; // No mostrar card
+        }
+
+        const permission = Notification.permission;
+        console.log('🔔 Notification permission:', permission);
+
+        // Si ya tiene permiso, verificar suscripción
+        if (permission === 'granted') {
+            const subscription = await checkSubscription();
+            if (subscription) {
+                console.log('✅ Usuario ya suscrito, ocultando card');
+                cardEl.style.display = 'none'; // Usuario ya suscrito, ocultar
+                return;
+            } else {
+                // Tiene permiso pero no suscrito - mostrar para suscribir
+                console.log('⚠️ Tiene permiso pero no suscrito');
+                statusEl.innerHTML = '<i class="bi bi-exclamation-triangle text-warning"></i> Permiso concedido pero no suscrito. Activa para recibir notificaciones.';
+                actionsEl.innerHTML = `
+                    <button class="btn btn-primary" onclick="subscribePush()">
+                        <i class="bi bi-bell"></i> Suscribirse ahora
+                    </button>
+                `;
+            }
+        } else if (permission === 'denied') {
+            // Permiso bloqueado - mostrar instrucciones
+            console.log('❌ Permiso denegado');
+            statusEl.innerHTML = '<i class="bi bi-x-circle text-danger"></i> Has bloqueado las notificaciones. Cambia los permisos en tu navegador para activarlas.';
+            actionsEl.innerHTML = `
+                <small class="text-muted">
+                    <strong>Para activar:</strong> Haz clic en el candado 🔒 en la barra de direcciones → Notificaciones → Permitir
+                </small>
+            `;
+        } else {
+            // Default - no ha decidido aún, mostrar botón principal
+            console.log('🔔 Permiso no decidido, mostrando card');
+        }
+
+        // Mostrar la card en todos los casos EXCEPTO si ya está suscrito
+        cardEl.style.display = 'block';
+    }
+
+    async function checkSubscription() {
+        try {
+            const registration = await navigator.serviceWorker.getRegistration();
+            if (!registration) return null;
+
+            const subscription = await registration.pushManager.getSubscription();
+            return subscription;
+        } catch (error) {
+            console.error('Error checking subscription:', error);
+            return null;
+        }
+    }
+
+    window.subscribePush = async function() {
+        const btn = event.target;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Activando...';
+
+        try {
+            console.log('🔔 [Subscribe] Iniciando suscripción...');
+
+            // Check if function exists
+            if (typeof window.subscribeToPush !== 'function') {
+                throw new Error('subscribeToPush no está disponible. Verifica que pwa.js esté cargado.');
+            }
+
+            console.log('🔔 [Subscribe] Llamando a subscribeToPush()...');
+
+            // Call the global function from pwa.js
+            const subscription = await window.subscribeToPush();
+
+            console.log('🔔 [Subscribe] Resultado:', subscription);
+
+            if (subscription) {
+                // ✅ Suscripción exitosa - OCULTAR CARD PERMANENTEMENTE
+                cardEl.style.display = 'none';
+
+                // Mostrar toast de éxito
+                showSuccessToast('✅ ¡Notificaciones activadas! Ya no verás esta alerta.');
+            } else {
+                // Error
+                const permission = Notification.permission;
+                if (permission === 'denied') {
+                    statusEl.innerHTML = '<i class="bi bi-x-circle text-danger"></i> Has bloqueado las notificaciones en tu navegador. Para activarlas:<br><small>1. Haz clic en el candado (🔒) en la barra de direcciones<br>2. Busca "Notificaciones"<br>3. Cambia a "Permitir"<br>4. Recarga la página</small>';
+                    actionsEl.innerHTML = '';
+                } else {
+                    alert('❌ No se pudo activar las notificaciones. Abre la consola (F12) para más detalles.');
+                }
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-bell"></i> Activar notificaciones';
+            }
+        } catch (error) {
+            console.error('❌ [Subscribe] Error:', error);
+            alert('❌ Error: ' + error.message + '\n\nRevisa la consola (F12) para más detalles.');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-bell"></i> Activar notificaciones';
+        }
+    };
+
+    function showSuccessToast(message) {
+        // Simple toast notification
+        const toast = document.createElement('div');
+        toast.className = 'alert alert-success position-fixed bottom-0 end-0 m-3';
+        toast.style.zIndex = '9999';
+        toast.innerHTML = message;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.remove();
+        }, 5000);
+    }
+
+    // Initialize on page load
+    checkAndShowCard();
+})();
+</script>

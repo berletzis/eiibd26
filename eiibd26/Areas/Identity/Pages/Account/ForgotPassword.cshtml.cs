@@ -72,10 +72,84 @@ namespace eiibd26.Areas.Identity.Pages.Account
                     values: new { area = "Identity", code },
                     protocol: Request.Scheme);
 
+                // HTML email template profesional
+                var emailBody = $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset=""utf-8"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+</head>
+<body style=""margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f7fb;"">
+    <table width=""100%"" cellpadding=""0"" cellspacing=""0"" style=""background-color: #f5f7fb; padding: 20px 0;"">
+        <tr>
+            <td align=""center"">
+                <table width=""600"" cellpadding=""0"" cellspacing=""0"" style=""background-color: #ffffff; border-radius: 12px; box-shadow: 0 2px 16px rgba(0,0,0,0.1);"">
+                    <tr>
+                        <td style=""background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 12px 12px 0 0;"">
+                            <h1 style=""color: #ffffff; margin: 0; font-size: 28px;"">?? EIIBD</h1>
+                            <p style=""color: #ffffff; margin: 10px 0 0 0; font-size: 16px;"">Comunidad EII</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style=""padding: 40px 30px;"">
+                            <h2 style=""color: #14253f; margin: 0 0 20px 0; font-size: 24px;"">Recuperación de Contraseña</h2>
+                            <p style=""color: #555; line-height: 1.6; margin: 0 0 20px 0; font-size: 16px;"">Hola,</p>
+                            <p style=""color: #555; line-height: 1.6; margin: 0 0 20px 0; font-size: 16px;"">
+                                Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en EIIBD.
+                            </p>
+                            <p style=""color: #555; line-height: 1.6; margin: 0 0 30px 0; font-size: 16px;"">
+                                Para establecer una nueva contraseña, haz clic en el siguiente botón:
+                            </p>
+                            <table width=""100%"" cellpadding=""0"" cellspacing=""0"">
+                                <tr>
+                                    <td align=""center"" style=""padding: 0 0 30px 0;"">
+                                        <a href=""{HtmlEncoder.Default.Encode(callbackUrl)}"" 
+                                           style=""display: inline-block; padding: 16px 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;"">
+                                            Restablecer Contraseña
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                            <p style=""color: #555; line-height: 1.6; margin: 0 0 10px 0; font-size: 14px;"">
+                                <strong>O copia y pega este enlace:</strong>
+                            </p>
+                            <p style=""color: #667eea; line-height: 1.6; margin: 0 0 30px 0; font-size: 12px; word-break: break-all; background-color: #f5f7fb; padding: 12px; border-radius: 6px;"">
+                                {HtmlEncoder.Default.Encode(callbackUrl)}
+                            </p>
+                            <div style=""border-top: 2px solid #f0f0f0; padding-top: 20px; margin-top: 20px;"">
+                                <p style=""color: #888; line-height: 1.6; margin: 0 0 10px 0; font-size: 13px;"">
+                                    ?? <strong>Importante:</strong>
+                                </p>
+                                <ul style=""color: #888; line-height: 1.8; margin: 0; font-size: 13px; padding-left: 20px;"">
+                                    <li>Este enlace expirará en 24 horas</li>
+                                    <li>Si no solicitaste este cambio, ignora este correo</li>
+                                    <li>Tu contraseña actual seguirá válida hasta que la cambies</li>
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style=""background-color: #f5f7fb; padding: 30px; text-align: center; border-radius: 0 0 12px 12px;"">
+                            <p style=""color: #888; margin: 0 0 10px 0; font-size: 13px;"">
+                                ¿Necesitas ayuda? Responde este correo
+                            </p>
+                            <p style=""color: #aaa; margin: 0; font-size: 12px;"">
+                                © 2024 EIIBD - Comunidad de apoyo para pacientes con EII
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>";
+
                 await _emailSender.SendEmailAsync(
                     Input.Email,
-                    "Reset Password",
-                    $"Resetea tu contraseña dando <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>Click Aquí</a>.");
+                    "?? Restablece tu contraseña - EIIBD",
+                    emailBody);
 
                 return RedirectToPage("./ForgotPasswordConfirmation");
             }
