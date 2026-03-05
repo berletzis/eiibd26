@@ -26,8 +26,23 @@ namespace eiibd26.Models
         public DateTimeOffset FechaCreacion { get; set; } = DateTimeOffset.UtcNow;
         public DateTimeOffset? FechaModificacion { get; set; }
 
+        // ===== AI FIELDS =====
+        /// <summary>
+        /// Indica si ya se generó una respuesta de IA para esta pregunta
+        /// </summary>
+        public bool TieneRespuestaIA { get; set; } = false;
+
+        /// <summary>
+        /// Fecha en que se generó la respuesta de IA
+        /// </summary>
+        public DateTimeOffset? FechaGeneracionIA { get; set; }
+        // ===== END AI FIELDS =====
+
         // Navegación
         public List<Respuesta> Respuestas { get; set; } = new List<Respuesta>();
         public List<PreguntaEtiqueta> PreguntaEtiquetas { get; set; } = new List<PreguntaEtiqueta>();
+        public List<PreguntaCondicion> PreguntaCondiciones { get; set; } = new List<PreguntaCondicion>();
+        public List<PreguntaSintoma> PreguntaSintomas { get; set; } = new List<PreguntaSintoma>();
+        public List<PreguntaTratamiento> PreguntaTratamientos { get; set; } = new List<PreguntaTratamiento>();
     }
 }

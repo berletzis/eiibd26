@@ -59,6 +59,10 @@ namespace eiibd26.Pages.Preguntas
             public int Score { get; set; }
             public int UsuarioVoto { get; set; } = 0;
             public bool EsMia { get; set; } = false;
+
+            // AI Fields
+            public bool EsIA { get; set; } = false;
+            public string? ModeloIA { get; set; }
         }
 
         [BindProperty(SupportsGet = true)]
@@ -82,8 +86,11 @@ namespace eiibd26.Pages.Preguntas
         public RespuestaVm AcceptedAnswer { get; set; }
         public List<RespuestaVm> TopSuggestedAnswers { get; set; } = new();
 
-        // New: accepted/top suggested answers for JSON-LD and to render accepted to bots
-
+        // ===== NUEVO: Propiedades para UI de respuesta de IA =====
+        public RespuestaVm RespuestaIA { get; set; }
+        public bool TienePreguntaPendienteIA { get; set; } = false;
+        public int TotalRespuestasHumanas { get; set; } = 0;
+        // =========================================================
 
         public int TotalItems { get; set; }
         public int TotalPages => PageSize > 0 ? (int)Math.Ceiling(TotalItems / (double)PageSize) : 1;
@@ -301,12 +308,17 @@ namespace eiibd26.Pages.Preguntas
                         r.Cuerpo,
                         r.UsuarioId,
                         r.FechaCreacion,
+                        r.EsIA,
+                        r.ModeloIA,
+                        r.EsAceptada,
                         Score = _db.Votos.Where(v => v.EntidadTipo == "respuesta" && v.EntidadId == r.Id && !v.Eliminado)
                                          .Select(v => (int?)v.Valor).Sum() ?? 0
                     })
-                    .OrderByDescending(x => x.Score)
-                    .ThenByDescending(x => x.FechaCreacion)
-                    .Take(6) // accepted + up to 5 suggested
+                    .OrderByDescending(x => x.EsAceptada)  // Accepted first
+                    .ThenBy(x => x.EsIA)                    // Human before AI
+                    .ThenByDescending(x => x.Score)         // By score
+                    .ThenBy(x => x.FechaCreacion)           // Older first
+                    .Take(20) // Get more to ensure we get all answers including AI
                     .ToListAsync();
 
                 if (topAnswers != null && topAnswers.Count > 0)
@@ -384,7 +396,9 @@ namespace eiibd26.Pages.Preguntas
                             FechaCreacion = x.FechaCreacion,
                             Score = x.Score,
                             UsuarioVoto = votosUsuarioTop.TryGetValue(x.Id, out var vv) ? vv : 0,
-                            EsMia = currentUserId.HasValue && x.UsuarioId == currentUserId.Value
+                            EsMia = currentUserId.HasValue && x.UsuarioId == currentUserId.Value,
+                            EsIA = x.EsIA,
+                            ModeloIA = x.ModeloIA
                             };
                             // author slug stored in resp.AutorSlug above
                             return resp;
@@ -392,8 +406,9 @@ namespace eiibd26.Pages.Preguntas
 
                     if (mappedTop.Count > 0)
                     {
-                        AcceptedAnswer = mappedTop.First();
-                        TopSuggestedAnswers = mappedTop.Skip(1).Take(5).ToList();
+                        // AcceptedAnswer debe ser SOLO respuestas humanas aceptadas, no IA
+                        AcceptedAnswer = mappedTop.FirstOrDefault(x => x.EsIA == false);
+                        TopSuggestedAnswers = mappedTop.Where(x => x.EsIA == false).Skip(AcceptedAnswer != null ? 1 : 0).Take(5).ToList();
                     }
                 }
             }
@@ -424,11 +439,16 @@ namespace eiibd26.Pages.Preguntas
                     r.Cuerpo,
                     r.UsuarioId,
                     r.FechaCreacion,
+                    r.EsIA,
+                    r.ModeloIA,
+                    r.EsAceptada,
                     Score = _db.Votos.Where(v => v.EntidadTipo == "respuesta" && v.EntidadId == r.Id && !v.Eliminado)
                                      .Select(v => (int?)v.Valor).Sum() ?? 0
                 })
-                .OrderByDescending(x => x.Score)
-                .ThenByDescending(x => x.FechaCreacion)
+                .OrderByDescending(x => x.EsAceptada)  // Accepted first
+                .ThenBy(x => x.EsIA)                    // Human before AI
+                .ThenByDescending(x => x.Score)         // By score
+                .ThenBy(x => x.FechaCreacion)           // Older first
                 .Skip((AnswersPage - 1) * PageSize)
                 .Take(PageSize);
 
@@ -517,10 +537,88 @@ namespace eiibd26.Pages.Preguntas
                     FechaCreacion = a.FechaCreacion,
                     Score = a.Score,
                     UsuarioVoto = votosUsuarioAns.TryGetValue(a.Id, out var vv) ? vv : 0,
-                    EsMia = currentUserId.HasValue && a.UsuarioId == currentUserId.Value
+                    EsMia = currentUserId.HasValue && a.UsuarioId == currentUserId.Value,
+                    EsIA = a.EsIA,
+                    ModeloIA = a.ModeloIA
                 };
                 return resp;
             }).ToList();
+
+            // ===== NUEVO: Cargar respuesta de IA y verificar estado =====
+            try
+            {
+                // Verificar si la pregunta tiene respuesta de IA
+                var preguntaConIA = await _db.Preguntas.AsNoTracking()
+                    .Where(p => p.Id == preguntaId)
+                    .Select(p => new { p.TieneRespuestaIA, p.FechaGeneracionIA })
+                    .FirstOrDefaultAsync();
+
+                if (preguntaConIA != null)
+                {
+                    if (preguntaConIA.TieneRespuestaIA)
+                    {
+                        // Ya tiene respuesta, cargarla
+                        var respIA = await _db.Respuestas.AsNoTracking()
+                            .Where(r => r.PreguntaId == preguntaId && !r.Eliminado && r.EsIA)
+                            .OrderByDescending(r => r.FechaCreacion)
+                            .Select(r => new
+                            {
+                                r.Id,
+                                r.Cuerpo,
+                                r.UsuarioId,
+                                r.FechaCreacion,
+                                r.EsIA,
+                                r.ModeloIA,
+                                Score = _db.Votos.Where(v => v.EntidadTipo == "respuesta" && v.EntidadId == r.Id && !v.Eliminado)
+                                    .Select(v => (int?)v.Valor).Sum() ?? 0
+                            })
+                            .FirstOrDefaultAsync();
+
+                        if (respIA != null)
+                        {
+                            var autorInfo = ansAuthors.TryGetValue(respIA.UsuarioId, out var ai)
+                                ? ai
+                                : new AuthorInfo("IA - Claude", "/img/ai-avatar.png", "");
+
+                            RespuestaIA = new RespuestaVm
+                            {
+                                Id = respIA.Id,
+                                Cuerpo = respIA.Cuerpo,
+                                UsuarioId = respIA.UsuarioId,
+                                AutorNombre = autorInfo.Name,
+                                AutorAvatarUrl = autorInfo.Avatar,
+                                AutorSlug = autorInfo.Slug ?? "",
+                                FechaCreacion = respIA.FechaCreacion,
+                                Score = respIA.Score,
+                                UsuarioVoto = currentUserId.HasValue && votosUsuarioAns.TryGetValue(respIA.Id, out var vv) ? vv : 0,
+                                EsMia = false,
+                                EsIA = respIA.EsIA,
+                                ModeloIA = respIA.ModeloIA
+                            };
+                        }
+                    }
+                    else
+                    {
+                        // No tiene respuesta, verificar si está pendiente (pregunta reciente sin respuesta)
+                        var minutosDesdeCreacion = (DateTimeOffset.UtcNow - preguntaFechaCreacion).TotalMinutes;
+                        TienePreguntaPendienteIA = minutosDesdeCreacion < 5; // Mostrar "Procesando..." si tiene menos de 5 minutos
+                    }
+                }
+
+                // Contar respuestas humanas (sin IA)
+                TotalRespuestasHumanas = await _db.Respuestas.AsNoTracking()
+                    .Where(r => r.PreguntaId == preguntaId && !r.Eliminado && !r.EsIA)
+                    .CountAsync();
+
+                _logger.LogInformation(
+                    "📊 Pregunta {PreguntaId}: TieneIA={TieneIA}, PendienteIA={PendienteIA}, RespuestasHumanas={Humanas}",
+                    preguntaId, RespuestaIA != null, TienePreguntaPendienteIA, TotalRespuestasHumanas);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error verificando estado de respuesta IA");
+            }
+            // =========================================================
 
             return Page();
         }

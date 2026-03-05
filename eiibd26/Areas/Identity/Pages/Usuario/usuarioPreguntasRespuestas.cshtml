@@ -601,8 +601,8 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Cuerpo</label>
-                        <textarea name="cuerpo" id="preguntaCuerpo" class="form-control" rows="6" maxlength="2000" required></textarea>
-                        <div class="form-text text-muted">Máx. 2000 caracteres</div>
+                        <textarea name="cuerpo" id="preguntaCuerpo" class="form-control" rows="6" maxlength="2000" required placeholder="Describe tu pregunta con detalle: ¿Qué síntomas tienes? ¿Cuándo empezaron? ¿Qué tratamiento sigues? Cuanto más información proporciones, mejores respuestas recibirás de la comunidad y la IA."></textarea>
+                        <div class="form-text text-muted">Máx. 2000 caracteres. Mínimo 20 caracteres recomendado.</div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -772,9 +772,33 @@
             const alertPregunta = document.getElementById('alertPregunta');
             preguntaForm?.addEventListener('submit', async e => {
                 e.preventDefault();
+
+                // Obtener valores
+                const titulo = document.getElementById('preguntaTitulo')?.value?.trim();
+                const cuerpo = document.getElementById('preguntaCuerpo')?.value?.trim();
+
+                // Validación: campos obligatorios
+                if (!titulo || !cuerpo) {
+                    showAlert('Por favor completa el título y la descripción de tu pregunta.', true);
+                    return;
+                }
+
+                // Validación: el cuerpo debe ser diferente al título
+                if (titulo.toLowerCase() === cuerpo.toLowerCase()) {
+                    showAlert('⚠️ La descripción debe ser diferente al título. Por favor, explica más detalles sobre tu pregunta para que la comunidad y la IA puedan ayudarte mejor.', true);
+                    return;
+                }
+
+                // Validación: mínimo 20 caracteres en el cuerpo
+                if (cuerpo.length < 20) {
+                    showAlert('⚠️ Por favor, describe tu pregunta con más detalle (mínimo 20 caracteres). Esto ayudará a obtener mejores respuestas.', true);
+                    return;
+                }
+
                 const fd = new FormData(preguntaForm);
                 const btn = document.getElementById('btnSavePregunta');
                 if (btn) btn.disabled = true;
+                showAlert('📤 Publicando tu pregunta...', false);
                 try {
                     const resp = await fetch(preguntaForm.action || '?handler=CrearPregunta', {
                         method: 'POST',
@@ -787,8 +811,8 @@
                     }
                     const j = await resp.json();
                     if (j.ok) {
-                        showAlert('Pregunta publicada correctamente.', false);
-                        setTimeout(() => location.reload(), 800);
+                        showAlert('✅ Pregunta publicada correctamente. La IA está procesando tu pregunta...', false);
+                        setTimeout(() => location.reload(), 1200);
                     } else {
                         showAlert('Error: ' + (j.error || 'desconocido'), true);
                     }

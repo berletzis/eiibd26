@@ -1,0 +1,49 @@
+// ===== AI SERVICES CONFIGURATION =====
+// Agregar esta sección ANTES de: var app = builder.Build();
+
+// 1. Configurar opciones de IA desde appsettings.json
+builder.Services.Configure<eiibd26.Configuration.AiAnswerConfiguration>(
+    builder.Configuration.GetSection("AiAnswer"));
+
+// 2. Registrar HttpClient para Anthropic API
+builder.Services.AddHttpClient("AnthropicClient", (serviceProvider, client) =>
+{
+    var config = serviceProvider.GetRequiredService<IOptions<eiibd26.Configuration.AiAnswerConfiguration>>().Value;
+    
+    client.BaseAddress = new Uri(config.ApiBaseUrl);
+    client.DefaultRequestHeaders.Add("x-api-key", config.AnthropicApiKey);
+    client.DefaultRequestHeaders.Add("anthropic-version", config.ApiVersion);
+    client.Timeout = TimeSpan.FromSeconds(config.TimeoutSeconds);
+});
+
+// 3. Registrar servicios de IA
+builder.Services.AddScoped<eiibd26.Services.AI.IAiAnswerService, eiibd26.Services.AI.AiAnswerService>();
+builder.Services.AddScoped<eiibd26.Services.AI.IAiSafetyService, eiibd26.Services.AI.AiSafetyService>();
+builder.Services.AddScoped<eiibd26.Services.AI.IAiPromptBuilder, eiibd26.Services.AI.AiPromptBuilder>();
+
+// 4. Registrar background job
+builder.Services.AddScoped<eiibd26.Jobs.AiAnswerJob>();
+
+// 5. Configurar Hangfire (background jobs)
+builder.Services.AddHangfire(config => config
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UseSqlServerStorage(builder.Configuration.GetConnectionString("DefaultConnection"),
+        new Hangfire.SqlServer.SqlServerStorageOptions
+        {
+            CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
+            SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
+            QueuePollInterval = TimeSpan.Zero,
+            UseRecommendedIsolationLevel = true,
+            DisableGlobalLocks = true
+        }));
+
+// 6. Agregar servidor de Hangfire
+builder.Services.AddHangfireServer(options =>
+{
+    options.WorkerCount = 2; // 2 workers para startup, escalar según carga
+    options.Queues = new[] { "default", "ai" }; // Cola 'ai' para jobs de IA
+});
+
+// ===== FIN AI SERVICES CONFIGURATION =====

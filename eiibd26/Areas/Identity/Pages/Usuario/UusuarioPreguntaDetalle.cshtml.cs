@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using System.Security.Claims;
 using eiibd26.Data;
 using eiibd26.Models;
-using eiibd26.Helpers; // <-- added for SlugHelper
+using eiibd26.Helpers;
 
 namespace eiibd26.Areas.Identity.Pages.Usuario
 {
@@ -17,11 +17,16 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
     {
         private readonly ApplicationDbContext _db;
         private readonly ILogger<UusuarioPreguntaDetalleModel> _logger;
+        private readonly IServiceProvider _serviceProvider;
 
-        public UusuarioPreguntaDetalleModel(ApplicationDbContext db, ILogger<UusuarioPreguntaDetalleModel> logger)
+        public UusuarioPreguntaDetalleModel(
+            ApplicationDbContext db, 
+            ILogger<UusuarioPreguntaDetalleModel> logger,
+            IServiceProvider serviceProvider)
         {
             _db = db;
             _logger = logger;
+            _serviceProvider = serviceProvider;
         }
 
         [BindProperty] public Guid? Id { get; set; }
@@ -40,6 +45,10 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
         public string SuccessMessage { get; set; }
         public bool CanModify { get; set; } = true;
         public int RespuestasActivasCount { get; set; }
+        public string CreatedQuestionSlug { get; set; } // Para mostrar el link después de crear
+        public string CurrentSlug { get; set; } // Para mostrar el slug siempre (no solo después de crear)
+        public bool TieneRespuestaIA { get; set; } // Para mostrar badge de IA
+        public DateTimeOffset? FechaGeneracionIA { get; set; } // Fecha de generación de IA
 
         private Guid GetUserId()
         {
@@ -58,6 +67,12 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             if (TempData.ContainsKey("SuccessMessage"))
             {
                 SuccessMessage = TempData["SuccessMessage"]?.ToString();
+            }
+
+            // If TempData contains the created question slug, load it
+            if (TempData.ContainsKey("CreatedQuestionSlug"))
+            {
+                CreatedQuestionSlug = TempData["CreatedQuestionSlug"]?.ToString();
             }
 
             if (id.HasValue)
@@ -81,6 +96,13 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 CanModify = RespuestasActivasCount == 0;
                 Titulo = pregunta.Titulo;
                 Cuerpo = pregunta.Cuerpo;
+
+                // Cargar slug actual para mostrarlo siempre
+                CurrentSlug = pregunta.Slug;
+
+                // Cargar estado de IA
+                TieneRespuestaIA = pregunta.TieneRespuestaIA;
+                FechaGeneracionIA = pregunta.FechaGeneracionIA;
 
                 SelectedCondiciones = await _db.PreguntaCondiciones
                     .AsNoTracking()
@@ -217,8 +239,57 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 await InsertRelationsAsync(nueva.Id);
                 await _db.SaveChangesAsync();
 
+                // ===== ENCOLAR JOB DE IA EN FIRE-AND-FORGET (igual que el modal) =====
+                _logger.LogDebug("[UusuarioPreguntaDetalle] Job de IA programado para pregunta {PreguntaId}", nueva.Id);
+                _logger.LogDebug("[UusuarioPreguntaDetalle] Pregunta guardada - ID: {Id}, Slug: {Slug}", 
+                    nueva.Id, nueva.Slug);
+
+                var preguntaIdCapture = nueva.Id;
+
+                // Usar Task.Factory.StartNew con LongRunning para asegurar un thread separado
+                var task = Task.Factory.StartNew(async () =>
+                {
+                    try
+                    {
+                        _logger.LogTrace("[BG-AI] Esperando delay antes de procesar pregunta {PreguntaId}", preguntaIdCapture);
+                        await Task.Delay(3000);
+
+                        _logger.LogDebug("[BG-AI] Iniciando procesamiento de IA para pregunta {PreguntaId}", preguntaIdCapture);
+
+                        using var scope = _serviceProvider.CreateScope();
+                        var aiJob = scope.ServiceProvider.GetRequiredService<eiibd26.Jobs.AiAnswerJob>();
+
+                        if (aiJob == null)
+                        {
+                            _logger.LogError("[BG-AI] AiAnswerJob es NULL para pregunta {PreguntaId}", preguntaIdCapture);
+                            return;
+                        }
+
+                        await aiJob.ProcesarPreguntaAsync(preguntaIdCapture);
+
+                        _logger.LogInformation("[BG-AI] Respuesta IA generada para pregunta {PreguntaId}", preguntaIdCapture);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        _logger.LogDebug("[BG-AI] Job cancelado para pregunta {PreguntaId}", preguntaIdCapture);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "[BG-AI] Error procesando IA para pregunta {PreguntaId}", preguntaIdCapture);
+                    }
+                }, TaskCreationOptions.LongRunning).Unwrap();
+
+                _logger.LogDebug("[UusuarioPreguntaDetalle] Task de IA encolado para pregunta {PreguntaId}", nueva.Id);
+                // =============================================
+
+                // Guardar el slug en TempData para mostrarlo en la página
+                if (!string.IsNullOrWhiteSpace(nueva.Slug))
+                {
+                    TempData["CreatedQuestionSlug"] = nueva.Slug;
+                }
+
                 // use TempData and redirect (PRG) so the page becomes the edit state and further saves update
-                TempData["SuccessMessage"] = "Pregunta creada.";
+                TempData["SuccessMessage"] = "✅ Pregunta creada exitosamente. La IA está procesando tu pregunta...";
                 return RedirectToPage(new { id = nueva.Id });
             }
         }

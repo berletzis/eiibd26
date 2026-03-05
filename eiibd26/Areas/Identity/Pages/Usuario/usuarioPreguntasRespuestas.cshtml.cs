@@ -21,11 +21,16 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
     {
         private readonly ApplicationDbContext _db;
         private readonly ILogger<PreguntasRespuestasModel> _logger;
+        private readonly IServiceProvider _serviceProvider;
 
-        public PreguntasRespuestasModel(ApplicationDbContext db, ILogger<PreguntasRespuestasModel> logger)
+        public PreguntasRespuestasModel(
+            ApplicationDbContext db, 
+            ILogger<PreguntasRespuestasModel> logger,
+            IServiceProvider serviceProvider)
         {
             _db = db ?? throw new ArgumentNullException(nameof(db));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         }
 
         public class PreguntaCardVm
@@ -403,13 +408,52 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     UsuarioId = userId.Value,
                     Titulo = titulo,
                     Cuerpo = cuerpo,
-                    Slug = slug,  // ← AGREGAR ESTA LÍNEA
+                    Slug = slug,
                     FechaCreacion = DateTimeOffset.UtcNow,
                     Eliminado = false
                 };
 
                 _db.Preguntas.Add(p);
                 await _db.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "✅ [PAGE MODEL] Pregunta creada {PreguntaId} con slug '{Slug}'", 
+                    p.Id, p.Slug);
+
+                // ===== ENCOLAR JOB DE IA EN SEGUNDO PLANO =====
+                _logger.LogInformation("🚀 [PAGE MODEL] Iniciando Job de IA para pregunta {PreguntaId}...", p.Id);
+
+                var preguntaIdCapture = p.Id;
+
+                // Usar Task.Factory.StartNew con LongRunning para asegurar un thread separado
+                Task.Factory.StartNew(async () =>
+                {
+                    try
+                    {
+                        _logger.LogInformation("⚡ [TASK.RUN] Inicio del Task.Run para pregunta {PreguntaId}", preguntaIdCapture);
+                        _logger.LogInformation("⚡ [TASK.RUN] Creando scope para AiAnswerJob...");
+
+                        using var scope = _serviceProvider.CreateScope();
+                        _logger.LogInformation("⚡ [TASK.RUN] Scope creado exitosamente");
+
+                        var aiJob = scope.ServiceProvider.GetRequiredService<eiibd26.Jobs.AiAnswerJob>();
+                        _logger.LogInformation("✅ [TASK.RUN] AiAnswerJob obtenido del DI, tipo: {Type}", aiJob.GetType().FullName);
+
+                        _logger.LogInformation("✅ [TASK.RUN] Ejecutando ProcesarPreguntaAsync para {PreguntaId}...", preguntaIdCapture);
+                        await aiJob.ProcesarPreguntaAsync(preguntaIdCapture);
+
+                        _logger.LogInformation("✅ [TASK.RUN] Job de IA completado exitosamente para pregunta {PreguntaId}", preguntaIdCapture);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "❌ [TASK.RUN] ERROR CRÍTICO ejecutando job de IA para pregunta {PreguntaId}: {Message}\nStackTrace: {StackTrace}", 
+                            preguntaIdCapture, ex.Message, ex.StackTrace);
+                    }
+                }, TaskCreationOptions.LongRunning).Unwrap();
+
+                _logger.LogInformation(
+                    "✅ [PAGE MODEL] Job de IA encolado exitosamente. Retornando respuesta al cliente.");
+                // =============================================
 
                 return new JsonResult(new { ok = true, id = p.Id, slug = p.Slug });
             }

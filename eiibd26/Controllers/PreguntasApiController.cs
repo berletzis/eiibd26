@@ -12,28 +12,33 @@ using System;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
+// NOTE: Hangfire will be added after package installation
 
 namespace eiibd26.Controllers
 {
     [ApiController]
     [Route("api/preguntas")]
-    public class PreguntasApiController : ControllerBase
+    public partial class PreguntasApiController : ControllerBase
     {
         private readonly ApplicationDbContext _db;
         private readonly ILogger<PreguntasApiController> _logger;
         private readonly IHostEnvironment _env;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IServiceProvider _serviceProvider;
+        // NOTE: IBackgroundJobClient will be injected after Hangfire package installation
 
         public PreguntasApiController(
               ApplicationDbContext db,
               ILogger<PreguntasApiController> logger,
               IHostEnvironment env,
-              UserManager<ApplicationUser> userManager)
+              UserManager<ApplicationUser> userManager,
+              IServiceProvider serviceProvider)
         {
             _db = db;
             _logger = logger;
             _env = env;
             _userManager = userManager;
+            _serviceProvider = serviceProvider;
         }
 
         private Guid? GetUserIdGuid()
@@ -79,6 +84,56 @@ namespace eiibd26.Controllers
 
                 _db.Preguntas.Add(pregunta);
                 await _db.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "✅ [CONTROLLER] Pregunta creada {PreguntaId} con slug '{Slug}'", 
+                    pregunta.Id, pregunta.Slug);
+
+                // ===== ENCOLAR JOB DE IA EN SEGUNDO PLANO =====
+                // TODO: Descomentar después de instalar Hangfire packages
+                // _backgroundJobClient.Enqueue<eiibd26.Jobs.AiAnswerJob>(
+                //     job => job.ProcesarPreguntaAsync(pregunta.Id));
+
+                // SOLUCIÓN TEMPORAL: Ejecutar el job directamente en Fire-and-Forget
+                // Esto funciona SIN Hangfire pero no es ideal para producción
+                _logger.LogInformation("🚀 [CONTROLLER] Job de IA programado para pregunta {PreguntaId} (delay: 3 segundos)...", pregunta.Id);
+
+                var preguntaIdCapture = pregunta.Id;
+
+                // Usar Task.Factory.StartNew con LongRunning para asegurar un thread separado
+                Task.Factory.StartNew(async () =>
+                {
+                    try
+                    {
+                        // ⏱️ Delay de 3 segundos para no saturar y dar tiempo a ver "Procesando..."
+                        _logger.LogInformation("⏱️ [TASK.RUN] Esperando 3 segundos antes de procesar pregunta {PreguntaId}...", preguntaIdCapture);
+                        await Task.Delay(3000);
+
+                        _logger.LogInformation("⚡ [TASK.RUN] Iniciando procesamiento de IA para pregunta {PreguntaId}", preguntaIdCapture);
+                        _logger.LogInformation("⚡ [TASK.RUN] Creando scope para AiAnswerJob...");
+
+                        using var scope = _serviceProvider.CreateScope();
+                        _logger.LogInformation("⚡ [TASK.RUN] Scope creado exitosamente");
+
+                        var aiJob = scope.ServiceProvider.GetRequiredService<eiibd26.Jobs.AiAnswerJob>();
+                        _logger.LogInformation("✅ [TASK.RUN] AiAnswerJob obtenido del DI, tipo: {Type}", aiJob.GetType().FullName);
+
+                        _logger.LogInformation("✅ [TASK.RUN] Ejecutando ProcesarPreguntaAsync para {PreguntaId}...", preguntaIdCapture);
+                        await aiJob.ProcesarPreguntaAsync(preguntaIdCapture);
+
+                        _logger.LogInformation("✅ [TASK.RUN] Job de IA completado exitosamente para pregunta {PreguntaId}", preguntaIdCapture);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "❌ [TASK.RUN] ERROR CRÍTICO ejecutando job de IA para pregunta {PreguntaId}: {Message}\nStackTrace: {StackTrace}", 
+                            preguntaIdCapture, ex.Message, ex.StackTrace);
+                    }
+                }, TaskCreationOptions.LongRunning).Unwrap();
+
+                _logger.LogInformation(
+                    "✅ [CONTROLLER] Job de IA encolado exitosamente. Retornando respuesta al cliente.", 
+                    pregunta.Id);
+                // =============================================
 
                 return Ok(new { ok = true, id = pregunta.Id, slug = pregunta.Slug });
             }
@@ -276,5 +331,48 @@ namespace eiibd26.Controllers
         }
 
         // Other endpoints (GetLista, GetDetalle, Crear, CrearRespuesta, etc.) remain as previously implemented.
+
+        // ===== NUEVO: GET api/preguntas/{id}/ai-status - Verificar estado de respuesta IA =====
+        /// <summary>
+        /// Endpoint para polling: verifica si ya existe respuesta de IA para una pregunta
+        /// </summary>
+        [HttpGet("{id:guid}/ai-status")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetAiStatus(Guid id)
+        {
+            try
+            {
+                var pregunta = await _db.Preguntas.AsNoTracking()
+                    .Where(p => p.Id == id && !p.Eliminado)
+                    .Select(p => new { p.TieneRespuestaIA, p.FechaGeneracionIA })
+                    .FirstOrDefaultAsync();
+
+                if (pregunta == null)
+                    return NotFound(new { ok = false, error = "Pregunta no encontrada" });
+
+                bool hasAiAnswer = pregunta.TieneRespuestaIA;
+                DateTimeOffset? generatedAt = pregunta.FechaGeneracionIA;
+
+                return Ok(new
+                {
+                    ok = true,
+                    hasAiAnswer,
+                    generatedAt,
+                    // Si tiene respuesta, también podríamos devolver el ID para navegación
+                    respuestaId = hasAiAnswer
+                        ? (await _db.Respuestas.AsNoTracking()
+                            .Where(r => r.PreguntaId == id && !r.Eliminado && r.EsIA)
+                            .Select(r => (Guid?)r.Id)
+                            .FirstOrDefaultAsync())
+                        : null
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error verificando estado AI para pregunta {Id}", id);
+                return StatusCode(500, new { ok = false, error = "Error al verificar estado" });
+            }
+        }
+        // ==================================================================================
     }
 }

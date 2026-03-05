@@ -14,5 +14,8 @@ namespace eiibd26.Models
 
         [ForeignKey(nameof(PreguntaId))]
         public virtual Pregunta Pregunta { get; set; }
+
+        [ForeignKey(nameof(CondicionId))]
+        public virtual condiciones Condicion { get; set; }
     }
 }

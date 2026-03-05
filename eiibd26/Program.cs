@@ -175,6 +175,86 @@ builder.Services.AddScoped<eiibd26.Services.PushNotificationService>();
 // ⭐ NUEVO: Background Service para procesar notificaciones programadas
 builder.Services.AddHostedService<eiibd26.Services.ScheduledNotificationWorker>();
 
+// ===== AI ANSWER SERVICES =====
+// Configure AI Answer settings
+builder.Services.Configure<eiibd26.Configuration.AiAnswerConfiguration>(
+    builder.Configuration.GetSection("AiAnswer"));
+
+// Register AI services
+builder.Services.AddSingleton<eiibd26.Services.AI.IAiAnswerService, eiibd26.Services.AI.AiAnswerService>();
+builder.Services.AddSingleton<eiibd26.Services.AI.IAiPromptBuilder, eiibd26.Services.AI.AiPromptBuilder>();
+builder.Services.AddSingleton<eiibd26.Services.AI.IAiSafetyService, eiibd26.Services.AI.AiSafetyService>();
+
+// Register HttpClient for Anthropic API
+builder.Services.AddHttpClient("AnthropicClient", (serviceProvider, client) =>
+{
+    var config = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<eiibd26.Configuration.AiAnswerConfiguration>>().Value;
+    var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+
+    logger.LogInformation("🔧 [HTTP CLIENT] Configurando AnthropicClient...");
+
+    if (!string.IsNullOrWhiteSpace(config.ApiBaseUrl))
+    {
+        // Asegurar que BaseAddress termina con /
+        var baseUrl = config.ApiBaseUrl.TrimEnd('/') + "/";
+        client.BaseAddress = new Uri(baseUrl);
+        logger.LogInformation("🔧 [HTTP CLIENT] BaseAddress configurado: {BaseUrl}", baseUrl);
+    }
+    else
+    {
+        logger.LogWarning("⚠️ [HTTP CLIENT] ApiBaseUrl NO configurado");
+    }
+
+    if (!string.IsNullOrWhiteSpace(config.AnthropicApiKey))
+    {
+        client.DefaultRequestHeaders.Add("x-api-key", config.AnthropicApiKey);
+        logger.LogInformation("🔧 [HTTP CLIENT] API Key configurado (primeros 10 chars): {ApiKeyPrefix}...", config.AnthropicApiKey.Substring(0, Math.Min(10, config.AnthropicApiKey.Length)));
+    }
+    else
+    {
+        logger.LogWarning("⚠️ [HTTP CLIENT] AnthropicApiKey NO configurado");
+    }
+
+    if (!string.IsNullOrWhiteSpace(config.ApiVersion))
+    {
+        client.DefaultRequestHeaders.Add("anthropic-version", config.ApiVersion);
+        logger.LogInformation("🔧 [HTTP CLIENT] API Version configurado: {ApiVersion}", config.ApiVersion);
+    }
+    else
+    {
+        logger.LogWarning("⚠️ [HTTP CLIENT] ApiVersion NO configurado");
+    }
+
+    var timeout = config.TimeoutSeconds > 0 ? config.TimeoutSeconds : 30;
+    client.Timeout = TimeSpan.FromSeconds(timeout);
+    logger.LogInformation("🔧 [HTTP CLIENT] Timeout configurado: {Timeout}s", timeout);
+});
+
+// Register background job processor (simulated until Hangfire is added)
+// Changed to Scoped to allow consuming ApplicationDbContext
+builder.Services.AddScoped<eiibd26.Jobs.AiAnswerJob>();
+
+// Log AI service initialization
+var logger = LoggerFactory.Create(b => b.AddConsole()).CreateLogger("Startup");
+var aiConfig = builder.Configuration.GetSection("AiAnswer").Get<eiibd26.Configuration.AiAnswerConfiguration>();
+if (aiConfig != null)
+{
+    logger.LogInformation("✅ AI Answer Services configured. Enabled: {Enabled}", aiConfig.Enabled);
+    if (aiConfig.Enabled)
+    {
+        if (!string.IsNullOrWhiteSpace(aiConfig.AnthropicApiKey) && aiConfig.AnthropicApiKey != "ANTHROPIC_API_KEY_AQUI")
+            logger.LogInformation("✅ Anthropic API Key configured");
+        else
+            logger.LogWarning("⚠️ Anthropic API Key NOT configured or using placeholder");
+
+        if (aiConfig.SystemUserId != Guid.Empty)
+            logger.LogInformation("✅ System User ID configured: {SystemUserId}", aiConfig.SystemUserId);
+        else
+            logger.LogWarning("⚠️ System User ID NOT configured (using empty GUID)");
+    }
+}
+// ===== END AI ANSWER SERVICES =====
+
 var app = builder.Build();
 
 // Diagnostic middleware: on local requests or when query `showException=1` is present,
