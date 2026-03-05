@@ -155,8 +155,17 @@ namespace eiibd26.Jobs
                 // 7. Crear la respuesta en la base de datos
                 _logger.LogInformation("💾 [AI Job] Guardando respuesta en BD...");
 
-                // Convertir Markdown a HTML para mostrar formato correctamente
-                var cuerpoHtml = Markdown.ToHtml(contenidoFinal);
+                // Convertir Markdown a HTML con pipeline mejorado para formato consistente
+                var pipeline = new Markdig.MarkdownPipelineBuilder()
+                    .UseAdvancedExtensions()
+                    .Build();
+
+                var cuerpoHtml = Markdown.ToHtml(contenidoFinal, pipeline);
+
+                // Normalizar el HTML para consistencia visual
+                cuerpoHtml = NormalizarHtmlRespuesta(cuerpoHtml);
+
+                _logger.LogInformation("✅ [AI Job] HTML normalizado generado ({Length} chars)", cuerpoHtml.Length);
 
                 var respuestaIA = new Respuesta
                 {
@@ -235,6 +244,30 @@ namespace eiibd26.Jobs
                     preguntaId, ex.Message);
                 // No hacer throw para evitar reintentos infinitos en errores desconocidos
             }
+        }
+
+        /// <summary>
+        /// Normaliza el HTML generado para tener formato consistente
+        /// Convierte h1/h2/h3 a negritas, evita estilos inconsistentes
+        /// </summary>
+        private string NormalizarHtmlRespuesta(string html)
+        {
+            if (string.IsNullOrWhiteSpace(html))
+                return html;
+
+            // Convertir h1, h2, h3 a párrafos con negrita (más consistente)
+            html = System.Text.RegularExpressions.Regex.Replace(html, @"<h1[^>]*>(.*?)</h1>", "<p><strong>$1</strong></p>", System.Text.RegularExpressions.RegexOptions.Singleline);
+            html = System.Text.RegularExpressions.Regex.Replace(html, @"<h2[^>]*>(.*?)</h2>", "<p><strong>$1</strong></p>", System.Text.RegularExpressions.RegexOptions.Singleline);
+            html = System.Text.RegularExpressions.Regex.Replace(html, @"<h3[^>]*>(.*?)</h3>", "<p><strong>$1</strong></p>", System.Text.RegularExpressions.RegexOptions.Singleline);
+            html = System.Text.RegularExpressions.Regex.Replace(html, @"<h4[^>]*>(.*?)</h4>", "<p><strong>$1</strong></p>", System.Text.RegularExpressions.RegexOptions.Singleline);
+
+            // Normalizar espacios múltiples
+            html = System.Text.RegularExpressions.Regex.Replace(html, @"\s+", " ");
+
+            // Remover espacios entre tags
+            html = System.Text.RegularExpressions.Regex.Replace(html, @">\s+<", "><");
+
+            return html.Trim();
         }
 
         /// <summary>

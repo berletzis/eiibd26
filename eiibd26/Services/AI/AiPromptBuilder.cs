@@ -46,7 +46,11 @@ ESTRUCTURA:
 
 LONGITUD: Máximo 300 tokens. Sé directo y útil.
 
-FORMATO: Markdown simple con negritas moderadas.
+FORMATO OBLIGATORIO:
+- Usa **negritas** para enfatizar términos clave (NO uses # títulos grandes)
+- Usa listas con guiones (-) para enumerar puntos
+- Usa párrafos cortos separados por línea en blanco
+- NO uses títulos markdown (###), solo texto en negrita
 
 CIERRE OBLIGATORIO (copia exacto):
 ⚠️ *Importante:* Esta información es educativa y no sustituye la evaluación de un profesional de salud. Consulta siempre con tu médico o especialista para decisiones médicas.";
