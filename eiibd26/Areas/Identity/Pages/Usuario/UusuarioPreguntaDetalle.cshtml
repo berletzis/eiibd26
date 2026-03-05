@@ -189,6 +189,12 @@
             pointer-events: none;
         }
 
+        /* Permite que elementos específicos dentro de disabled-mask mantengan interactividad */
+        .enable-pointer {
+            pointer-events: auto !important;
+            opacity: 1 !important;
+        }
+
         @@media (max-width:1200px) {
             .qp-wrapper-flex {
                 flex-direction: column;
@@ -239,12 +245,23 @@
                         @if (!string.IsNullOrEmpty(Model.CurrentSlug) || !string.IsNullOrEmpty(Model.CreatedQuestionSlug))
                         {
                             var slugToShow = !string.IsNullOrEmpty(Model.CurrentSlug) ? Model.CurrentSlug : Model.CreatedQuestionSlug;
-                            <div class="mt-2">
+                            <div class="mt-2 d-flex align-items-center gap-2">
                                 <small class="text-muted">
                                     <i class="bi bi-link-45deg"></i> 
                                     <strong>Slug:</strong> 
                                     <code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px;">@slugToShow</code>
                                 </small>
+                                @* Botón para ir a ver la pregunta si ya tiene respuesta IA *@
+                                @if (Model.TieneRespuestaIA)
+                                {
+                                    <a href="@Url.Page("/Preguntas/Detalles", new { slug = slugToShow })" 
+                                       class="btn btn-sm btn-outline-primary enable-pointer" 
+                                       style="font-size: 0.75rem; padding: 2px 8px;"
+                                       title="Ver pregunta con respuestas"
+                                       target="_blank">
+                                        <i class="bi bi-box-arrow-up-right"></i> Ver pregunta
+                                    </a>
+                                }
                             </div>
                         }
 

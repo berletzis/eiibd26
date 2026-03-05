@@ -239,47 +239,39 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 await InsertRelationsAsync(nueva.Id);
                 await _db.SaveChangesAsync();
 
-                // ===== ENCOLAR JOB DE IA EN FIRE-AND-FORGET (igual que el modal) =====
-                _logger.LogDebug("[UusuarioPreguntaDetalle] Job de IA programado para pregunta {PreguntaId}", nueva.Id);
-                _logger.LogDebug("[UusuarioPreguntaDetalle] Pregunta guardada - ID: {Id}, Slug: {Slug}", 
-                    nueva.Id, nueva.Slug);
+                // ===== ENCOLAR JOB DE IA EN SEGUNDO PLANO (igual que el modal) =====
+                _logger.LogInformation("🚀 [UusuarioPreguntaDetalle] Iniciando Job de IA para pregunta {PreguntaId}...", nueva.Id);
 
                 var preguntaIdCapture = nueva.Id;
 
                 // Usar Task.Factory.StartNew con LongRunning para asegurar un thread separado
-                var task = Task.Factory.StartNew(async () =>
+                Task.Factory.StartNew(async () =>
                 {
                     try
                     {
-                        _logger.LogTrace("[BG-AI] Esperando delay antes de procesar pregunta {PreguntaId}", preguntaIdCapture);
-                        await Task.Delay(3000);
-
-                        _logger.LogDebug("[BG-AI] Iniciando procesamiento de IA para pregunta {PreguntaId}", preguntaIdCapture);
+                        _logger.LogInformation("⚡ [TASK.RUN] Inicio del Task.Run para pregunta {PreguntaId}", preguntaIdCapture);
+                        _logger.LogInformation("⚡ [TASK.RUN] Creando scope para AiAnswerJob...");
 
                         using var scope = _serviceProvider.CreateScope();
+                        _logger.LogInformation("⚡ [TASK.RUN] Scope creado exitosamente");
+
                         var aiJob = scope.ServiceProvider.GetRequiredService<eiibd26.Jobs.AiAnswerJob>();
+                        _logger.LogInformation("✅ [TASK.RUN] AiAnswerJob obtenido del DI, tipo: {Type}", aiJob.GetType().FullName);
 
-                        if (aiJob == null)
-                        {
-                            _logger.LogError("[BG-AI] AiAnswerJob es NULL para pregunta {PreguntaId}", preguntaIdCapture);
-                            return;
-                        }
-
+                        _logger.LogInformation("✅ [TASK.RUN] Ejecutando ProcesarPreguntaAsync para {PreguntaId}...", preguntaIdCapture);
                         await aiJob.ProcesarPreguntaAsync(preguntaIdCapture);
 
-                        _logger.LogInformation("[BG-AI] Respuesta IA generada para pregunta {PreguntaId}", preguntaIdCapture);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        _logger.LogDebug("[BG-AI] Job cancelado para pregunta {PreguntaId}", preguntaIdCapture);
+                        _logger.LogInformation("✅ [TASK.RUN] Job de IA completado exitosamente para pregunta {PreguntaId}", preguntaIdCapture);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "[BG-AI] Error procesando IA para pregunta {PreguntaId}", preguntaIdCapture);
+                        _logger.LogError(ex, "❌ [TASK.RUN] ERROR CRÍTICO ejecutando job de IA para pregunta {PreguntaId}: {Message}\nStackTrace: {StackTrace}", 
+                            preguntaIdCapture, ex.Message, ex.StackTrace);
                     }
                 }, TaskCreationOptions.LongRunning).Unwrap();
 
-                _logger.LogDebug("[UusuarioPreguntaDetalle] Task de IA encolado para pregunta {PreguntaId}", nueva.Id);
+                _logger.LogInformation(
+                    "✅ [UusuarioPreguntaDetalle] Job de IA encolado exitosamente. Retornando respuesta al cliente.");
                 // =============================================
 
                 // Guardar el slug en TempData para mostrarlo en la página

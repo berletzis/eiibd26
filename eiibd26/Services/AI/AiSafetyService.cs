@@ -140,10 +140,16 @@ Por favor, consulta con un profesional médico para obtener orientación especí
             if (string.IsNullOrWhiteSpace(contenido))
                 return contenido;
 
-            // Si ya tiene el disclaimer, no duplicar
-            if (contenido.Contains("⚠️ **Aviso Importante:**"))
+            // Si ya tiene alguna versión del disclaimer, no duplicar
+            if (contenido.Contains("⚠️ **Aviso Importante:**") || 
+                contenido.Contains("⚠️ *Importante:*") ||
+                contenido.Contains("⚠️") && contenido.Contains("Importante"))
+            {
+                _logger.LogDebug("[Safety] Disclaimer ya presente, no se duplicará");
                 return contenido;
+            }
 
+            _logger.LogDebug("[Safety] Agregando disclaimer a la respuesta");
             return contenido + DISCLAIMER;
         }
     }

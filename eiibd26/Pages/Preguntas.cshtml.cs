@@ -356,7 +356,7 @@ namespace eiibd26.Pages
                     Id = i.Id,
                     Titulo = i.Titulo ?? "",
                     CuerpoPreview = BuildPreview(i.Cuerpo, 400),
-                    Slug = SlugHelper.GenerateSlug(i.Titulo ?? "pregunta"), // ← NUEVO
+                    Slug = i.Slug ?? SlugHelper.GenerateSlug(i.Titulo ?? "pregunta"), // Usar slug de BD, fallback a generado
                     UsuarioId = (Guid)i.UsuarioId,
                     AutorNombre = authors.TryGetValue((Guid)i.UsuarioId, out (string name, string avatar) info) ? info.name : "Usuario",
                     AutorAvatarUrl = authors.TryGetValue((Guid)i.UsuarioId, out (string name, string avatar) info2) ? info2.avatar : "/img/avatar-placeholder.png",

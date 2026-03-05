@@ -79,11 +79,18 @@ namespace eiibd26.Jobs
                 }
 
                 _logger.LogInformation(
-                    "✅ [AI Job] Pregunta cargada: '{Titulo}', Condiciones={CondCount}, Síntomas={SintCount}, Tratamientos={TratCount}",
-                    pregunta.Titulo,
+                    "✅ [AI Job] Pregunta cargada: Título='{Titulo}', Cuerpo length={CuerpoLength}, Condiciones={CondCount}, Síntomas={SintCount}, Tratamientos={TratCount}",
+                    pregunta.Titulo ?? "[SIN TÍTULO]",
+                    pregunta.Cuerpo?.Length ?? 0,
                     pregunta.PreguntaCondiciones?.Count ?? 0,
                     pregunta.PreguntaSintomas?.Count ?? 0,
                     pregunta.PreguntaTratamientos?.Count ?? 0);
+
+                _logger.LogInformation(
+                    "📄 [AI Job] Contenido de la pregunta:\n  Título: '{Titulo}'\n  Cuerpo: '{Cuerpo}'",
+                    pregunta.Titulo ?? "[VACÍO]",
+                    string.IsNullOrWhiteSpace(pregunta.Cuerpo) ? "[VACÍO]" : 
+                        (pregunta.Cuerpo.Length > 200 ? pregunta.Cuerpo.Substring(0, 200) + "..." : pregunta.Cuerpo));
 
                 // 3. Verificar si ya tiene respuesta de IA
                 _logger.LogInformation("🔍 [AI Job] Verificando si ya tiene respuesta IA...");

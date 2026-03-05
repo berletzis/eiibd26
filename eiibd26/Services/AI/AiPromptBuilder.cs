@@ -19,134 +19,95 @@ namespace eiibd26.Services.AI
 
         public string BuildSystemPrompt()
         {
-            return @"Eres un asistente educativo de una comunidad de apoyo sobre Enfermedades Inflamatorias Intestinales (EII), incluyendo Enfermedad de Crohn y Colitis Ulcerosa.
+            return @"Eres un miembro experimentado de una comunidad de apoyo sobre Enfermedades Inflamatorias Intestinales (EII): Enfermedad de Crohn y Colitis Ulcerosa. Tu rol es ofrecer información educativa, empática y contextualizada, NO eres un médico ni debes actuar como uno.
 
-Tu función es ofrecer información GENERAL, EDUCATIVA y EMPÁTICA para ayudar a las personas a entender mejor su situación mientras esperan respuestas de la comunidad o consultan con su equipo médico.
-
-NO eres un médico ni debes actuar como uno.
-
---------------------------------------------------
-REGLAS ESTRICTAS (OBLIGATORIAS)
---------------------------------------------------
-
-1. NUNCA proporciones diagnósticos médicos.
-2. NUNCA interpretes síntomas individuales como conclusiones clínicas.
-3. NUNCA sugieras modificar dosis de medicamentos.
-4. NUNCA aconsejes iniciar, cambiar o suspender tratamientos.
-5. NUNCA des instrucciones médicas específicas.
-6. SIEMPRE recuerda que las decisiones médicas deben tomarse con un profesional de salud.
-7. MODERA Utiliza otro tipo de Frase para Impacto económico potencial como Algunas familias también necesitan adaptarse a aspectos prácticos o logísticos relacionados con el tratamiento.
-8. MODERA y Utiliza otro tipo de Frase para Considera terapia como Algunas personas encuentran útil hablar con profesionales de apoyo emocional...
-9. SIEMPRE revisa que no exista mas de un AVISO Importante o AVISO o Importante en la respuesta.
-10. NUNCA des nombres de marcas, nombres de instituciones, nombres de organizaciones, ofrece respuestas como revisa en tu localidad o asociaciones en tu pais.
---------------------------------------------------
-CONTROL DE LENGUAJE MÉDICO (MUY IMPORTANTE)
---------------------------------------------------
-
-Usa lenguaje general y probabilístico.
-
-Prefiere frases como:
-- ""Algunas personas con EII experimentan...""
-- ""En general...""
-- ""Puede variar entre personas...""
-- ""Cada caso es diferente...""
-
-Evita frases como:
-- ""Esto es normal para ti""
-- ""Significa que...""
-- ""Tu tratamiento está funcionando o fallando""
-- ""Lo que tienes es...""
-
-Nunca afirmes certezas clínicas sobre el usuario.
-
-Evita Marcas o nombres de instituciones o asociaciones, en su lugar sugiere buscar recursos locales o nacionales de apoyo.
-
---------------------------------------------------
-OBJETIVO DE LA RESPUESTA
---------------------------------------------------
-
+OBJETIVO DE LA RESPUESTA:
 Ayudar a la persona a:
 - comprender conceptos generales,
 - sentirse acompañada,
 - reducir confusión inicial,
 - obtener orientación educativa segura.
 
-Habla como un miembro informado y empático de una comunidad de apoyo, NO como un profesional médico.
+REGLAS OBLIGATORIAS:
+1. NO diagnostiques ni interpretes síntomas como conclusiones médicas
+2. NO sugieras cambios en medicamentos o tratamientos
+3. Usa lenguaje probabilístico: ""Algunas personas con EII..."", ""En general..."", ""Cada caso es diferente...""
+4. Evita certezas: NO digas ""Esto es normal para ti"" o ""Tu tratamiento está funcionando""
+5. NO menciones marcas, instituciones específicas ni asociaciones. Di ""recursos locales"" o ""asociaciones en tu país""
+6. Para impacto económico: ""Algunas familias necesitan adaptarse a aspectos prácticos...""
+7. Para apoyo emocional: ""Algunas personas encuentran útil hablar con profesionales de apoyo...""
+8. USA SOLO UN AVISO al final (no dupliques advertencias)
 
---------------------------------------------------
-ESTRUCTURA DE RESPUESTA
---------------------------------------------------
+ESTRUCTURA:
+1. Validación empática breve (1 línea)
+2. Información educativa específica a la pregunta
+3. Cuándo consultar al médico (2-3 puntos concretos)
+4. Sugerencias prácticas seguras (opcional)
 
-1. Empatía inicial (1–2 líneas).
-2. Información educativa general clara y accesible.
-3. Cuándo consultar con un profesional de salud (2–3 puntos).
-4. Sugerencias generales de autocuidado SOLO si son seguras y no médicas.
-5. Referencias generales opcionales (organizaciones o guías reconocidas).
-6. Solo Utiliza un **Aviso importante:** o **Importante** en toda la respuesta.
+LONGITUD: Máximo 300 tokens. Sé directo y útil.
 
---------------------------------------------------
-TONO
---------------------------------------------------
+FORMATO: Markdown simple con negritas moderadas.
 
-Empático, calmado, neutral, educativo y sin alarmismo.
-Evita lenguaje técnico complejo o autoritario.
-
---------------------------------------------------
-LONGITUD
---------------------------------------------------
-
-Máximo 350 tokens.
-Sé claro, útil y conciso.
-
---------------------------------------------------
-FORMATO
---------------------------------------------------
-
-Usa Markdown simple:
-- párrafos cortos
-- listas claras
-- negritas moderadas
-
-Finaliza SIEMPRE con este aviso:
-
-⚠️ *Importante:*  Esta información es educativa y no sustituye la evaluación de un profesional de salud. Consulta siempre con tu médico o especialista para decisiones médicas.";
+CIERRE OBLIGATORIO (copia exacto):
+⚠️ *Importante:* Esta información es educativa y no sustituye la evaluación de un profesional de salud. Consulta siempre con tu médico o especialista para decisiones médicas.";
         }
 
         public string BuildUserPrompt(Pregunta pregunta, string? contextoDinamico = null)
         {
+            // Log RAW input antes de procesar
+            _logger.LogInformation(
+                "📥 [Prompt Builder] RAW INPUT - PreguntaId={PreguntaId}, Título='{Titulo}', Cuerpo RAW (primeros 200 chars)='{CuerpoRaw}'",
+                pregunta.Id, 
+                pregunta.Titulo ?? "[VACÍO]",
+                string.IsNullOrWhiteSpace(pregunta.Cuerpo) ? "[VACÍO]" : 
+                    (pregunta.Cuerpo.Length > 200 ? pregunta.Cuerpo.Substring(0, 200) + "..." : pregunta.Cuerpo));
+
             // Limpiar HTML del cuerpo para enviar texto plano a la IA
             var cuerpoLimpio = StripHtml(pregunta.Cuerpo ?? "");
 
-            _logger.LogInformation(
-                "📝 [Prompt Builder] Pregunta ID={PreguntaId}, Título='{Titulo}', Cuerpo original length={OriginalLength}, Cuerpo limpio length={CleanLength}",
-                pregunta.Id, pregunta.Titulo, pregunta.Cuerpo?.Length ?? 0, cuerpoLimpio.Length);
+            // Truncar si es muy largo para evitar exceder límites de tokens
+            const int maxLength = 2000;
+            if (cuerpoLimpio.Length > maxLength)
+            {
+                cuerpoLimpio = cuerpoLimpio.Substring(0, maxLength) + "... [texto truncado]";
+                _logger.LogWarning(
+                    "⚠️ [Prompt Builder] Cuerpo truncado a {MaxLength} caracteres para pregunta {PreguntaId}",
+                    maxLength, pregunta.Id);
+            }
 
             _logger.LogInformation(
-                "📝 [Prompt Builder] Cuerpo limpio: {CuerpoLimpio}",
-                cuerpoLimpio.Length > 200 ? cuerpoLimpio.Substring(0, 200) + "..." : cuerpoLimpio);
+                "📝 [Prompt Builder] AFTER CLEAN - PreguntaId={PreguntaId}, Cuerpo limpio length={CleanLength}, Contenido='{Contenido}'",
+                pregunta.Id, cuerpoLimpio.Length,
+                string.IsNullOrWhiteSpace(cuerpoLimpio) ? "[VACÍO DESPUÉS DE LIMPIAR]" : 
+                    (cuerpoLimpio.Length > 200 ? cuerpoLimpio.Substring(0, 200) + "..." : cuerpoLimpio));
 
-            var userPrompt = $@"Un paciente con EII ha preguntado:
+            // Construir prompt más directo y específico
+            var userPrompt = $@"Pregunta sobre {(pregunta.Titulo?.Contains("Crohn", StringComparison.OrdinalIgnoreCase) == true ? "Crohn" : pregunta.Titulo?.Contains("Colitis", StringComparison.OrdinalIgnoreCase) == true ? "Colitis Ulcerosa" : "EII")}:
 
-**Título:** {pregunta.Titulo}
+**{pregunta.Titulo}**
 
-**Descripción:**
-{cuerpoLimpio}
-
-";
+{cuerpoLimpio}";
 
             // Futuro: Aquí se inyectará contexto de RAG
             if (!string.IsNullOrWhiteSpace(contextoDinamico))
             {
+                if (contextoDinamico.Length > 500)
+                {
+                    contextoDinamico = contextoDinamico.Substring(0, 500) + "...";
+                }
                 userPrompt += $@"
-**Contexto adicional relevante:**
-{contextoDinamico}
 
-";
-                _logger.LogDebug("Contexto dinámico agregado al prompt (longitud: {Length})", contextoDinamico.Length);
+Contexto: {contextoDinamico}";
+                _logger.LogInformation("📋 [Prompt Builder] Contexto dinámico agregado");
             }
 
             userPrompt += @"
-Proporciona una respuesta educativa siguiendo las reglas del sistema. Recuerda ser empático, claro y siempre recomendar consulta médica para decisiones específicas.";
+
+Responde de forma específica a esta situación, siendo empático y educativo. Enfócate en lo que la persona preguntó.";
+
+            _logger.LogInformation(
+                "📤 [Prompt Builder] PROMPT FINAL GENERADO ({Length} chars):\n{Prompt}",
+                userPrompt.Length, userPrompt);
 
             return userPrompt;
         }
@@ -156,7 +117,14 @@ Proporciona una respuesta educativa siguiendo las reglas del sistema. Recuerda s
         /// </summary>
         private string StripHtml(string html)
         {
-            if (string.IsNullOrWhiteSpace(html)) return "";
+            if (string.IsNullOrWhiteSpace(html))
+            {
+                _logger.LogWarning("⚠️ [StripHtml] Input HTML es nulo o vacío");
+                return "";
+            }
+
+            _logger.LogDebug("🧹 [StripHtml] Input HTML (primeros 100 chars): {Html}", 
+                html.Length > 100 ? html.Substring(0, 100) + "..." : html);
 
             // Remover scripts y styles
             var noScript = Regex.Replace(html, @"<script[\s\S]*?>[\s\S]*?</script>", "", RegexOptions.IgnoreCase);
@@ -170,6 +138,9 @@ Proporciona una respuesta educativa siguiendo las reglas del sistema. Recuerda s
 
             // Normalizar espacios
             text = Regex.Replace(text, @"\s+", " ").Trim();
+
+            _logger.LogDebug("🧹 [StripHtml] Output text (primeros 100 chars): {Text}", 
+                text.Length > 100 ? text.Substring(0, 100) + "..." : text);
 
             return text;
         }
