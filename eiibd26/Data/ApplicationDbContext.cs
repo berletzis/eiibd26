@@ -60,6 +60,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     // AI Feedback
     public DbSet<RespuestaAIFeedback> RespuestaAIFeedbacks { get; set; }
 
+    // Article Ratings
+    public DbSet<ArticleRating> ArticleRatings { get; set; }
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -287,6 +290,42 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
         builder.Entity<PreguntaTratamiento>(b =>
         {
             b.HasIndex(x => new { x.PreguntaId, x.TratamientoId }).IsUnique();
+        });
+
+        // ArticleRating configuration
+        builder.Entity<ArticleRating>(b =>
+        {
+            b.ToTable("ArticleRatings");
+            b.HasKey(ar => ar.Id);
+
+            // Index for article lookups
+            b.HasIndex(ar => ar.ArticleId);
+
+            // Index for user lookups
+            b.HasIndex(ar => ar.UserId);
+
+            // Unique constraint: one rating per user per article
+            // For authenticated users: UserId + ArticleId must be unique
+            b.HasIndex(ar => new { ar.UserId, ar.ArticleId })
+             .IsUnique()
+             .HasFilter("[UserId] IS NOT NULL");
+
+            // For anonymous users: IP + ArticleId (optional, commented out by default)
+            // b.HasIndex(ar => new { ar.IpAddress, ar.ArticleId })
+            //  .IsUnique()
+            //  .HasFilter("[IpAddress] IS NOT NULL AND [UserId] IS NULL");
+
+            // Relationship with Contenido (Article)
+            b.HasOne(ar => ar.Article)
+             .WithMany()
+             .HasForeignKey(ar => ar.ArticleId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            // Relationship with User (optional)
+            b.HasOne(ar => ar.User)
+             .WithMany()
+             .HasForeignKey(ar => ar.UserId)
+             .OnDelete(DeleteBehavior.SetNull);
         });
     }
 

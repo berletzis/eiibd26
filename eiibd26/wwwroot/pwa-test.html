@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PWA Testing Tool - EIIBD</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            color: #764ba2;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #6b7280;
+            margin-bottom: 30px;
+        }
+        
+        .section {
+            background: #f9fafb;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .section h2 {
+            color: #374151;
+            font-size: 18px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            display: inline-block;
+            margin: 5px 5px 5px 0;
+        }
+        
+        .status.ok {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .status.warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .btn {
+            background: #764ba2;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 5px 5px 5px 0;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            background: #5d3a82;
+            transform: translateY(-1px);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn.secondary {
+            background: #6b7280;
+        }
+        
+        .btn.secondary:hover {
+            background: #4b5563;
+        }
+        
+        .btn.danger {
+            background: #ef4444;
+        }
+        
+        .btn.danger:hover {
+            background: #dc2626;
+        }
+        
+        .log {
+            background: #1f2937;
+            color: #10b981;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+        
+        .log div {
+            margin-bottom: 5px;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .info-item:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #374151;
+        }
+        
+        .info-value {
+            color: #6b7280;
+        }
+        
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        
+        .alert.info {
+            background: #dbeafe;
+            color: #1e40af;
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .alert.success {
+            background: #d1fae5;
+            color: #065f46;
+            border-left: 4px solid #10b981;
+        }
+        
+        .alert.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border-left: 4px solid #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 PWA Testing Tool</h1>
+        <p class="subtitle">Herramienta de diagnóstico y testing para PWA y Push Notifications</p>
+        
+        <!-- Status Overview -->
+        <div class="section">
+            <h2>📊 Estado General</h2>
+            <div id="status-overview">
+                <p style="color: #6b7280;">Ejecutando diagnóstico...</p>
+            </div>
+        </div>
+        
+        <!-- API Support -->
+        <div class="section">
+            <h2>🔌 Soporte de APIs</h2>
+            <div id="api-support"></div>
+        </div>
+        
+        <!-- Installation Status -->
+        <div class="section">
+            <h2>📱 Estado de Instalación</h2>
+            <div id="install-status"></div>
+        </div>
+        
+        <!-- Service Worker -->
+        <div class="section">
+            <h2>⚙️ Service Worker</h2>
+            <div id="sw-status"></div>
+        </div>
+        
+        <!-- Push Notifications -->
+        <div class="section">
+            <h2>🔔 Push Notifications</h2>
+            <div id="push-status"></div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="section">
+            <h2>🚀 Acciones</h2>
+            <button class="btn" onclick="testInstallPrompt()">🔄 Forzar Banner de Instalación</button>
+            <button class="btn secondary" onclick="testPushSubscription()">🔔 Test Push Subscription</button>
+            <button class="btn danger" onclick="resetEverything()">🗑️ Reset Completo</button>
+            <button class="btn secondary" onclick="runFullDiagnostic()">🔍 Diagnóstico Completo</button>
+        </div>
+        
+        <!-- Console Log -->
+        <div class="section">
+            <h2>📝 Console Log</h2>
+            <div id="console-log" class="log">
+                <div>Esperando acciones...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let logContainer = document.getElementById('console-log');
+        
+        function log(message, type = 'info') {
+            const colors = {
+                info: '#10b981',
+                error: '#ef4444',
+                warning: '#f59e0b',
+                success: '#22c55e'
+            };
+            
+            const div = document.createElement('div');
+            div.style.color = colors[type] || colors.info;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logContainer.appendChild(div);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        // Diagnóstico automático al cargar
+        window.addEventListener('load', async () => {
+            log('🚀 Iniciando diagnóstico automático...', 'info');
+            await checkEverything();
+        });
+        
+        async function checkEverything() {
+            // API Support
+            checkAPISupport();
+            
+            // Installation Status
+            checkInstallStatus();
+            
+            // Service Worker
+            await checkServiceWorker();
+            
+            // Push Status
+            await checkPushStatus();
+            
+            // Overview
+            updateOverview();
+        }
+        
+        function checkAPISupport() {
+            const apiDiv = document.getElementById('api-support');
+            let html = '';
+            
+            const checks = [
+                { name: 'Service Worker', supported: 'serviceWorker' in navigator },
+                { name: 'Notifications', supported: 'Notification' in window },
+                { name: 'Push Manager', supported: 'PushManager' in window },
+                { name: 'Cache API', supported: 'caches' in window }
+            ];
+            
+            checks.forEach(check => {
+                html += `<div class="info-item">
+                    <span class="info-label">${check.name}</span>
+                    <span class="status ${check.supported ? 'ok' : 'error'}">
+                        ${check.supported ? '✅ Soportado' : '❌ No Soportado'}
+                    </span>
+                </div>`;
+                
+                log(`API ${check.name}: ${check.supported ? '✅' : '❌'}`, check.supported ? 'success' : 'error');
+            });
+            
+            apiDiv.innerHTML = html;
+        }
+        
+        function checkInstallStatus() {
+            const installDiv = document.getElementById('install-status');
+            
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+            const isiOS = window.navigator.standalone === true;
+            const pwaInstalled = localStorage.getItem('pwa-installed') === 'true';
+            const pwaDismissed = localStorage.getItem('pwa-install-dismissed');
+            
+            let html = '';
+            
+            html += `<div class="info-item">
+                <span class="info-label">Modo Standalone</span>
+                <span class="status ${isStandalone ? 'ok' : 'warning'}">
+                    ${isStandalone ? '✅ Activo' : '⚠️ Inactivo'}
+                </span>
+            </div>`;
+            
+            html += `<div class="info-item">
+                <span class="info-label">iOS Standalone</span>
+                <span class="status ${isiOS ? 'ok' : 'warning'}">
+                    ${isiOS ? '✅ Activo' : '⚠️ Inactivo'}
+                </span>
+            </div>`;
+            
+            html += `<div class="info-item">
+                <span class="info-label">Flag Instalación</span>
+                <span class="status ${pwaInstalled ? 'ok' : 'warning'}">
+                    ${pwaInstalled ? '✅ Marcada como instalada' : '⚠️ No marcada'}
+                </span>
+            </div>`;
+            
+            if (pwaDismissed) {
+                const dismissTime = parseInt(pwaDismissed);
+                const daysSince = (Date.now() - dismissTime) / (1000 * 60 * 60 * 24);
+                html += `<div class="info-item">
+                    <span class="info-label">Banner Descartado</span>
+                    <span class="status warning">
+                        ⚠️ Hace ${Math.floor(daysSince)} días
+                    </span>
+                </div>`;
+            }
+            
+            installDiv.innerHTML = html;
+            
+            log(`Modo Standalone: ${isStandalone}`, isStandalone ? 'success' : 'warning');
+            log(`PWA Installed Flag: ${pwaInstalled}`, pwaInstalled ? 'success' : 'warning');
+        }
+        
+        async function checkServiceWorker() {
+            const swDiv = document.getElementById('sw-status');
+            let html = '';
+            
+            if (!('serviceWorker' in navigator)) {
+                swDiv.innerHTML = '<p class="status error">❌ Service Workers no soportados</p>';
+                return;
+            }
+            
+            try {
+                const registration = await navigator.serviceWorker.getRegistration();
+                
+                if (registration) {
+                    html += `<div class="info-item">
+                        <span class="info-label">Estado</span>
+                        <span class="status ok">✅ Registrado</span>
+                    </div>`;
+                    
+                    html += `<div class="info-item">
+                        <span class="info-label">Scope</span>
+                        <span class="info-value">${registration.scope}</span>
+                    </div>`;
+                    
+                    if (registration.active) {
+                        html += `<div class="info-item">
+                            <span class="info-label">Estado Worker</span>
+                            <span class="status ok">✅ Activo</span>
+                        </div>`;
+                        log('Service Worker: ✅ Activo', 'success');
+                    } else {
+                        html += `<div class="info-item">
+                            <span class="info-label">Estado Worker</span>
+                            <span class="status error">❌ Inactivo</span>
+                        </div>`;
+                        log('Service Worker: ❌ Inactivo', 'error');
+                    }
+                } else {
+                    html = '<p class="status error">❌ No registrado</p>';
+                    log('Service Worker: ❌ No registrado', 'error');
+                }
+                
+                swDiv.innerHTML = html;
+            } catch (error) {
+                swDiv.innerHTML = `<p class="status error">❌ Error: ${error.message}</p>`;
+                log(`Service Worker error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function checkPushStatus() {
+            const pushDiv = document.getElementById('push-status');
+            let html = '';
+            
+            if (!('Notification' in window)) {
+                pushDiv.innerHTML = '<p class="status error">❌ Notifications no soportadas</p>';
+                return;
+            }
+            
+            const permission = Notification.permission;
+            
+            html += `<div class="info-item">
+                <span class="info-label">Permiso</span>
+                <span class="status ${permission === 'granted' ? 'ok' : permission === 'denied' ? 'error' : 'warning'}">
+                    ${permission === 'granted' ? '✅ Concedido' : permission === 'denied' ? '❌ Denegado' : '⚠️ No solicitado'}
+                </span>
+            </div>`;
+            
+            log(`Notification permission: ${permission}`, permission === 'granted' ? 'success' : 'warning');
+            
+            if ('serviceWorker' in navigator) {
+                const registration = await navigator.serviceWorker.getRegistration();
+                if (registration && registration.pushManager) {
+                    const subscription = await registration.pushManager.getSubscription();
+                    
+                    if (subscription) {
+                        html += `<div class="info-item">
+                            <span class="info-label">Suscripción</span>
+                            <span class="status ok">✅ Activa</span>
+                        </div>`;
+                        
+                        html += `<div class="info-item">
+                            <span class="info-label">Endpoint</span>
+                            <span class="info-value" style="font-size: 11px;">${subscription.endpoint.substring(0, 50)}...</span>
+                        </div>`;
+                        
+                        log('Push Subscription: ✅ Activa', 'success');
+                    } else {
+                        html += `<div class="info-item">
+                            <span class="info-label">Suscripción</span>
+                            <span class="status warning">⚠️ No suscrito</span>
+                        </div>`;
+                        log('Push Subscription: ⚠️ No suscrito', 'warning');
+                    }
+                }
+            }
+            
+            pushDiv.innerHTML = html;
+        }
+        
+        function updateOverview() {
+            const overviewDiv = document.getElementById('status-overview');
+            
+            const isOK = 'serviceWorker' in navigator && 
+                         'Notification' in window && 
+                         'PushManager' in window;
+            
+            if (isOK) {
+                overviewDiv.innerHTML = `
+                    <div class="alert success">
+                        ✅ <strong>Sistema PWA Operacional</strong><br>
+                        Todas las APIs necesarias están disponibles.
+                    </div>
+                `;
+            } else {
+                overviewDiv.innerHTML = `
+                    <div class="alert error">
+                        ❌ <strong>Problemas Detectados</strong><br>
+                        Algunas APIs necesarias no están disponibles.
+                    </div>
+                `;
+            }
+            
+            // Verificar si está instalada
+            const pwaInstalled = localStorage.getItem('pwa-installed') === 'true';
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+            
+            if (pwaInstalled || isStandalone) {
+                overviewDiv.innerHTML += `
+                    <div class="alert info">
+                        ℹ️ <strong>App Instalada</strong><br>
+                        El banner de instalación no se mostrará porque la app ya está instalada.
+                    </div>
+                `;
+            }
+        }
+        
+        function testInstallPrompt() {
+            log('🔄 Limpiando flags de instalación...', 'info');
+            localStorage.removeItem('pwa-installed');
+            localStorage.removeItem('pwa-install-dismissed');
+            log('✅ Flags eliminados', 'success');
+            log('ℹ️ Recargando página en 2 segundos...', 'info');
+            
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        }
+        
+        async function testPushSubscription() {
+            log('🔔 Intentando suscribir a push...', 'info');
+            
+            if (!('serviceWorker' in navigator)) {
+                log('❌ Service Worker no disponible', 'error');
+                alert('Service Worker no está disponible');
+                return;
+            }
+            
+            try {
+                const registration = await navigator.serviceWorker.getRegistration();
+                
+                if (!registration) {
+                    log('❌ Service Worker no registrado', 'error');
+                    alert('Service Worker no está registrado. Recarga la página.');
+                    return;
+                }
+                
+                log('📝 Solicitando permiso de notificaciones...', 'info');
+                const permission = await Notification.requestPermission();
+                log(`📊 Permiso: ${permission}`, permission === 'granted' ? 'success' : 'warning');
+                
+                if (permission !== 'granted') {
+                    alert('Necesitas conceder permisos de notificaciones');
+                    return;
+                }
+                
+                // Check if subscribeToPush exists
+                if (typeof window.subscribeToPush === 'function') {
+                    log('✅ Función subscribeToPush encontrada, ejecutando...', 'success');
+                    await window.subscribeToPush();
+                    log('✅ Suscripción completada', 'success');
+                    await checkPushStatus();
+                } else {
+                    log('⚠️ Función subscribeToPush no encontrada, suscribiendo manualmente...', 'warning');
+                    
+                    // Manual subscription
+                    const vapidResponse = await fetch('/api/push/vapid-public-key');
+                    const vapidKey = await vapidResponse.text();
+                    log('✅ VAPID key obtenida', 'success');
+                    
+                    // Subscribe
+                    const subscription = await registration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(vapidKey)
+                    });
+                    log('✅ Suscripción creada', 'success');
+                    
+                    // Save to server
+                    const saveResponse = await fetch('/api/push/subscribe', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(subscription)
+                    });
+                    
+                    if (saveResponse.ok) {
+                        log('✅ Suscripción guardada en servidor', 'success');
+                        alert('✅ Suscripción a push notifications exitosa!');
+                    } else {
+                        log('❌ Error guardando suscripción en servidor', 'error');
+                        alert('Error guardando suscripción');
+                    }
+                    
+                    await checkPushStatus();
+                }
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        async function resetEverything() {
+            if (!confirm('⚠️ Esto eliminará toda la configuración PWA. ¿Continuar?')) {
+                return;
+            }
+            
+            log('🗑️ Iniciando reset completo...', 'warning');
+            
+            // 1. Clear localStorage
+            localStorage.removeItem('pwa-installed');
+            localStorage.removeItem('pwa-install-dismissed');
+            log('✅ localStorage limpiado', 'success');
+            
+            // 2. Unregister service workers
+            if ('serviceWorker' in navigator) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                for (let registration of registrations) {
+                    await registration.unregister();
+                    log('✅ Service Worker desregistrado', 'success');
+                }
+            }
+            
+            // 3. Clear caches
+            if ('caches' in window) {
+                const cacheNames = await caches.keys();
+                for (let name of cacheNames) {
+                    await caches.delete(name);
+                    log(`✅ Caché eliminado: ${name}`, 'success');
+                }
+            }
+            
+            log('✅ Reset completo terminado', 'success');
+            log('🔄 Recargando en 2 segundos...', 'info');
+            
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        }
+        
+        async function runFullDiagnostic() {
+            log('🔍 Ejecutando diagnóstico completo...', 'info');
+            logContainer.innerHTML = '';
+            await checkEverything();
+            log('✅ Diagnóstico completo terminado', 'success');
+        }
+        
+        // Helper function
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+    </script>
+</body>
+</html>

@@ -160,6 +160,58 @@
                 display: flex;
             }
         }
+
+        /* ===== SCROLL TO TOP BUTTON ===== */
+        .scroll-to-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 12px rgba(118, 75, 162, 0.3);
+            transition: all 0.3s ease;
+            z-index: 999;
+            opacity: 0;
+            transform: translateY(100px);
+        }
+
+        .scroll-to-top.show {
+            display: flex;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .scroll-to-top:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 16px rgba(118, 75, 162, 0.4);
+        }
+
+        .scroll-to-top:active {
+            transform: translateY(-1px);
+        }
+
+        .scroll-to-top i {
+            line-height: 1;
+        }
+
+        @@media (max-width: 768px) {
+            .scroll-to-top {
+                width: 45px;
+                height: 45px;
+                bottom: 20px;
+                right: 20px;
+                font-size: 1.3rem;
+            }
+        }
     </style>
 
 
@@ -439,5 +491,40 @@
 
     @await RenderSectionAsync("Scripts", required: false)
     @await Html.PartialAsync("~/Pages/Shared/_FloatingHamburger.cshtml", model: null)
+
+    @* ===== SCROLL TO TOP BUTTON ===== *@
+    <button id="scrollToTopBtn" class="scroll-to-top" aria-label="Volver arriba" title="Volver arriba">
+        <i class="bi bi-arrow-up"></i>
+    </button>
+
+    <script>
+        // ===== SCROLL TO TOP FUNCTIONALITY =====
+        (function() {
+            const scrollBtn = document.getElementById('scrollToTopBtn');
+            if (!scrollBtn) return;
+
+            // Mostrar/ocultar botón según scroll
+            let scrollTimeout;
+            window.addEventListener('scroll', function() {
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(function() {
+                    if (window.pageYOffset > 300) {
+                        scrollBtn.classList.add('show');
+                    } else {
+                        scrollBtn.classList.remove('show');
+                    }
+                }, 100);
+            }, { passive: true });
+
+            // Scroll suave al hacer click
+            scrollBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+            });
+        })();
+    </script>
 </body>
 </html>

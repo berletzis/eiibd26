@@ -361,8 +361,8 @@
                  alt="@authorName" 
                  loading="lazy" 
                  decoding="async" 
-                 width="30" 
-                 height="30"
+                 width="40" 
+                 height="40"
                  onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
             <div>
                 <div style="font-weight:100;">
@@ -533,9 +533,64 @@
         </article>
 
         <aside class="right-panel" aria-labelledby="related-heading">
-            <h4 id="social-heading" style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">#HazViralLoQueImporta</h4>
-            <div class="social-list" aria-labelledby="social-heading">
-                <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
+            @* ===== ÍNDICE AUTOMÁTICO DE SECCIONES (ARRIBA DEL SIDEBAR) ===== *@
+            <div class="article-index-sidebar" id="articleIndex" role="navigation" aria-label="Índice del artículo">
+                <div class="sidebar-section-header" onclick="toggleSidebarSection('articleIndexContent')">
+                    <h4 class="sidebar-section-title">
+                        <i class="bi bi-list-ul"></i> En este artículo
+                    </h4>
+                    <i class="bi bi-chevron-down sidebar-section-icon"></i>
+                </div>
+                <div class="sidebar-section-content partial-open" id="articleIndexContent">
+                    <ul class="article-index-list" id="articleIndexList">
+                        @* Generado dinámicamente por JavaScript *@
+                    </ul>
+                </div>
+            </div>
+
+            @* ===== CALIFICAR ARTÍCULO (SIEMPRE VISIBLE) ===== *@
+            <div class="sidebar-section sidebar-static">
+                <div class="sidebar-section-header-static">
+                    <h4 class="sidebar-section-title">
+                        Calificar artículo
+                    </h4>
+                </div>
+                <div class="sidebar-section-content-static">
+                    <div class="article-rating" id="articleRating" data-article-id="@Model.Item.Id">
+                        <div class="rating-buttons">
+                            @if (User.Identity.IsAuthenticated)
+                            {
+                                <button type="button" class="rating-btn rating-like" data-rating="like" title="Me fue útil">
+                                    <i class="bi bi-hand-thumbs-up"></i>
+                                    <span class="rating-text">Me fue útil</span>
+                                    <span class="rating-count" id="likeCount">...</span>
+                                </button>
+                                <button type="button" class="rating-btn rating-dislike" data-rating="dislike" title="No me fue útil">
+                                    <i class="bi bi-hand-thumbs-down"></i>
+                                    <span class="rating-text">No me fue útil</span>
+                                    <span class="rating-count" id="dislikeCount">...</span>
+                                </button>
+                            }
+                            else
+                            {
+                                <div class="rating-login-hint">
+                                    <a href="/Identity/Account/Login?returnUrl=@Uri.EscapeDataString(HttpContext.Request.Path + HttpContext.Request.QueryString)">Inicia sesión</a> para calificar este artículo
+                                </div>
+                            }
+                        </div>
+                        <div class="rating-message" id="ratingMessage" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+
+            @* ===== COMPARTIR ARTÍCULO (SIEMPRE VISIBLE, SIN TOGGLE) ===== *@
+            <div class="sidebar-section sidebar-static">
+                <div class="sidebar-section-header-static">
+                    <h4 class="sidebar-section-title">
+                        Compartir artículo
+                    </h4>
+                </div>
+                <div class="sidebar-section-content-static">
                     <div class="share-icons" aria-label="Compartir">
                         @{
                             var encUrl = System.Net.WebUtility.UrlEncode(shareUrl ?? "");
@@ -576,90 +631,102 @@
                 </div>
             </div>
 
-            <h4 id="datosRelacionados-heading" style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">Datos Relacionados</h4>
-
-            <div class="datosRelacionados-list" aria-labelledby="social-heading">
-                <h5 style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">Condiciones</h5>
-                <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
-                    @if (Model.Item?.ManualCondiciones?.Any() == true)
-                    {
-                        foreach (var n in Model.Item.ManualCondiciones)
-                        {
-                            <div class="badge-cat" title="@n">@n</div>
-                        }
-                    }
-                    else
-                    {
-                        <div class="text-muted">No hay condiciones relacionadas.</div>
-                    }
+            @* ===== DATOS RELACIONADOS (TOGGLE ABIERTO POR DEFECTO) ===== *@
+            <div class="sidebar-section">
+                <div class="sidebar-section-header" onclick="toggleSidebarSection('datosContent')">
+                    <h4 class="sidebar-section-title">
+                        Datos Relacionados
+                    </h4>
+                    <i class="bi bi-chevron-down sidebar-section-icon"></i>
                 </div>
-            </div>
+                <div class="sidebar-section-content open" id="datosContent">
+                    @* Condiciones *@
+                    <div class="sidebar-subsection">
+                        <h5 class="sidebar-subsection-title">Condiciones</h5>
+                        <div class="sidebar-badges-compact">
+                            @if (Model.Item?.ManualCondiciones?.Any() == true)
+                            {
+                                foreach (var n in Model.Item.ManualCondiciones)
+                                {
+                                    <span class="badge-cat-compact" title="@n">@n</span>
+                                }
+                            }
+                            else
+                            {
+                                <div class="text-muted-small">Sin datos</div>
+                            }
+                        </div>
+                    </div>
 
-            <div class="datosRelacionados-list" aria-labelledby="datosRelacionados-heading">
-                <h5 style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">Sintomas</h5>
-                <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
+            @* Síntomas *@
+            <div class="sidebar-subsection">
+                <h5 class="sidebar-subsection-title">Síntomas</h5>
+                <div class="sidebar-badges-compact">
                     @if (Model.Item?.ManualSintomas?.Any() == true)
                     {
                         foreach (var n in Model.Item.ManualSintomas)
                         {
-                            <div class="badge-cat" title="@n">@n</div>
+                            <span class="badge-cat-compact" title="@n">@n</span>
                         }
                     }
                     else
                     {
-                        <div class="text-muted">No hay síntomas relacionados.</div>
+                        <div class="text-muted-small">Sin datos</div>
                     }
                 </div>
             </div>
 
-            <div class="datosRelacionados-list" aria-labelledby="datosRelacionados-heading">
-                <h5 style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">Tratamientos</h5>
-                <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
+            @* Tratamientos *@
+            <div class="sidebar-subsection tratamientos-section">
+                <h5 class="sidebar-subsection-title">Tratamientos</h5>
+                <div class="sidebar-badges-compact">
                     @if (Model.Item?.ManualTratamientos?.Any() == true)
                     {
                         foreach (var n in Model.Item.ManualTratamientos)
                         {
-                            <div class="badge-cat" title="@n">@n</div>
+                            <span class="badge-cat-compact" title="@n">@n</span>
                         }
                     }
                     else
                     {
-                        <div class="text-muted">No hay tratamientos relacionados.</div>
+                        <div class="text-muted-small">Sin datos</div>
                     }
                 </div>
             </div>
 
-            <div class="datosRelacionados-list" aria-labelledby="categoriasRelacionadas-heading">
-                <h5 style="margin:0 0 8px 0;font-size:1.1rem;color:#374151; font-weight:100;">Categorías relacionadas</h5>
-                <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
-                    @if (Model.Item?.Categories?.Any() == true)
-                    {
-                        var principal = Model.CategoryCrumbs?.LastOrDefault()?.Title;
-                        foreach (var cat in Model.Item.Categories)
-                        {
-                            var isPrincipal = !string.IsNullOrWhiteSpace(principal) && cat == principal;
-                            string url = null;
-                            if (Model.CategoryCrumbs != null && Model.CategoryCrumbs.Any())
+                    @* Categorías *@
+                    <div class="sidebar-subsection">
+                        <h5 class="sidebar-subsection-title">Categorías</h5>
+                        <div class="sidebar-badges-compact">
+                            @if (Model.Item?.Categories?.Any() == true)
                             {
-                                // Buscar el crumb correspondiente a la categoría
-                                var crumb = Model.CategoryCrumbs.LastOrDefault(c => c.Title != null && c.Title.Equals(cat, System.StringComparison.OrdinalIgnoreCase));
-                                if (crumb != null && !string.IsNullOrWhiteSpace(crumb.Url))
+                                var principal = Model.CategoryCrumbs?.LastOrDefault()?.Title;
+                                foreach (var cat in Model.Item.Categories)
                                 {
-                                    url = crumb.Url.StartsWith("/") ? crumb.Url : "/" + crumb.Url;
+                                    var isPrincipal = !string.IsNullOrWhiteSpace(principal) && cat == principal;
+                                    string url = null;
+                                    if (Model.CategoryCrumbs != null && Model.CategoryCrumbs.Any())
+                                    {
+                                        var crumb = Model.CategoryCrumbs.LastOrDefault(c => c.Title != null && c.Title.Equals(cat, System.StringComparison.OrdinalIgnoreCase));
+                                        if (crumb != null && !string.IsNullOrWhiteSpace(crumb.Url))
+                                        {
+                                            url = crumb.Url.StartsWith("/") ? crumb.Url : "/" + crumb.Url;
+                                        }
+                                    }
+                                    if (string.IsNullOrWhiteSpace(url))
+                                    {
+                                        url = "/" + (cat.ToLower().Replace(" ", "-").Replace("á","a").Replace("é","e").Replace("í","i").Replace("ó","o").Replace("ú","u").Replace("ñ","n"));
+                                    }
+                                    var isSintomas = cat.Equals("Sintomas", StringComparison.OrdinalIgnoreCase) || cat.Equals("Síntomas", StringComparison.OrdinalIgnoreCase);
+                                    <a class="badge-cat-compact @(isPrincipal ? "badge-cat-principal" : "") @(isSintomas ? "sintomas-badge" : "")" href="@url" title="@cat">@cat</a>
                                 }
                             }
-                            if (string.IsNullOrWhiteSpace(url))
+                            else
                             {
-                                url = "/" + (cat.ToLower().Replace(" ", "-").Replace("á","a").Replace("é","e").Replace("í","i").Replace("ó","o").Replace("ú","u").Replace("ñ","n"));
+                                <div class="text-muted-small">Sin datos</div>
                             }
-                            var isSintomas = cat.Equals("Sintomas", StringComparison.OrdinalIgnoreCase) || cat.Equals("Síntomas", StringComparison.OrdinalIgnoreCase);
-                            <a class="badge-cat @(isPrincipal ? "badge-cat-principal" : "") @(isSintomas ? "sintomas-badge" : "")" href="@url" title="@cat">@cat</a>
-                        }
-                    }
-                    else
-                    {
-                        <div class="text-muted">No hay categorías relacionadas.</div>
-                    }
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -766,6 +833,361 @@
 
             checkContentHeight();
             window.addEventListener('resize', checkContentHeight);
+        })();
+
+        // ===== SIDEBAR COLLAPSIBLE SECTIONS =====
+        window.toggleSidebarSection = function(contentId) {
+            const content = document.getElementById(contentId);
+            if (!content) return;
+
+            // Check if it's transitioning from partial-open
+            const wasPartialOpen = content.classList.contains('partial-open');
+
+            if (wasPartialOpen) {
+                // Transition from partial-open to open
+                content.classList.remove('partial-open');
+                content.classList.add('open');
+                const header = content.previousElementSibling;
+                if (header) {
+                    const icon = header.querySelector('.sidebar-section-icon');
+                    if (icon) {
+                        icon.style.transform = 'rotate(180deg)';
+                    }
+                }
+                console.log('[Sidebar] Section', contentId, 'expanded from partial to full');
+            } else {
+                // Normal toggle behavior
+                const isOpen = content.classList.toggle('open');
+                const header = content.previousElementSibling;
+                if (header) {
+                    const icon = header.querySelector('.sidebar-section-icon');
+                    if (icon) {
+                        icon.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+                    }
+                }
+                console.log('[Sidebar] Section', contentId, isOpen ? 'opened' : 'closed');
+            }
+        };
+
+        // Initialize sidebar states on load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Índice: partial-open (ya tiene la clase en HTML)
+            const indexContent = document.getElementById('articleIndexContent');
+            if (indexContent) {
+                console.log('[Sidebar] Index initialized as partial-open');
+            }
+
+            // Datos Relacionados: open por defecto
+            const datosContent = document.getElementById('datosContent');
+            if (datosContent) {
+                datosContent.classList.add('open');
+                const header = datosContent.previousElementSibling;
+                if (header) {
+                    const icon = header.querySelector('.sidebar-section-icon');
+                    if (icon) {
+                        icon.style.transform = 'rotate(180deg)';
+                    }
+                }
+                console.log('[Sidebar] Datos Relacionados initialized as open');
+            }
+        });
+
+        // ===== AUTO-GENERATED TABLE OF CONTENTS =====
+        (function () {
+            const articleContent = document.getElementById('contenido-html');
+            const indexContainer = document.getElementById('articleIndex');
+            const indexList = document.getElementById('articleIndexList');
+            const indexToggle = document.getElementById('articleIndexToggle');
+            const indexContent = document.getElementById('articleIndexContent');
+
+            if (!articleContent || !indexContainer || !indexList) {
+                console.warn('[TOC] Required elements not found');
+                return;
+            }
+
+            console.log('[TOC] Initializing table of contents generator');
+
+            // ===== STEP 1: Generate unique IDs for all H2 and H3 headers =====
+            function slugify(text) {
+                return text
+                    .toString()
+                    .toLowerCase()
+                    .trim()
+                    .normalize('NFD') // Normalize accented characters
+                    .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+                    .replace(/[^\w\s-]/g, '') // Remove non-word chars
+                    .replace(/\s+/g, '-') // Replace spaces with -
+                    .replace(/--+/g, '-'); // Replace multiple - with single -
+            }
+
+            const headers = articleContent.querySelectorAll('h2, h3');
+            console.log('[TOC] Found', headers.length, 'headers (H2 + H3)');
+
+            if (headers.length < 3) {
+                console.log('[TOC] Less than 3 headers, hiding index');
+                indexContainer.style.display = 'none';
+                return;
+            }
+
+            // Assign unique IDs to all headers
+            const usedIds = new Set();
+            headers.forEach((header, index) => {
+                let baseId = slugify(header.textContent);
+                let uniqueId = baseId;
+                let counter = 1;
+
+                // Ensure ID is unique
+                while (usedIds.has(uniqueId)) {
+                    uniqueId = `${baseId}-${counter}`;
+                    counter++;
+                }
+
+                usedIds.add(uniqueId);
+                header.id = uniqueId;
+                console.log('[TOC] Assigned ID:', uniqueId, 'to', header.tagName, ':', header.textContent.substring(0, 40));
+            });
+
+            // ===== STEP 2: Build the index list =====
+            const indexItems = [];
+
+            headers.forEach((header) => {
+                const level = header.tagName === 'H2' ? 2 : 3;
+                const text = header.textContent;
+                const id = header.id;
+
+                const li = document.createElement('li');
+                if (level === 3) {
+                    li.classList.add('sub');
+                }
+
+                const link = document.createElement('a');
+                link.href = `#${id}`;
+                link.textContent = text;
+                link.setAttribute('data-section-id', id);
+
+                li.appendChild(link);
+                indexItems.push({ li, link, id });
+            });
+
+            // Append all items to the index list
+            indexItems.forEach(({ li }) => indexList.appendChild(li));
+
+            console.log('[TOC] Generated', indexItems.length, 'index links');
+
+            // ===== STEP 3: Mobile accordion toggle =====
+            if (indexToggle && indexContent) {
+                indexToggle.addEventListener('click', function () {
+                    const isOpen = indexContent.classList.toggle('open');
+                    indexToggle.classList.toggle('open', isOpen);
+                    indexToggle.setAttribute('aria-expanded', isOpen);
+                    console.log('[TOC] Mobile toggle:', isOpen ? 'opened' : 'closed');
+                });
+            }
+
+            // ===== STEP 4: Intersection Observer for active section highlighting =====
+            const observerOptions = {
+                root: null,
+                rootMargin: '-20% 0px -60% 0px',
+                threshold: 0
+            };
+
+            let activeLink = null;
+
+            function setActiveLink(id) {
+                if (activeLink) {
+                    activeLink.classList.remove('active');
+                }
+
+                const newActive = indexList.querySelector(`a[data-section-id="${id}"]`);
+                if (newActive) {
+                    newActive.classList.add('active');
+                    activeLink = newActive;
+                    console.log('[TOC] Active section:', id);
+                }
+            }
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        setActiveLink(entry.target.id);
+                    }
+                });
+            }, observerOptions);
+
+            // Observe all headers
+            headers.forEach((header) => observer.observe(header));
+
+            // ===== STEP 5: Smooth scroll on click + AUTO-EXPAND ARTICLE =====
+            indexList.addEventListener('click', (e) => {
+                if (e.target.tagName === 'A') {
+                    e.preventDefault();
+                    const targetId = e.target.getAttribute('href').substring(1);
+                    const targetElement = document.getElementById(targetId);
+
+                    if (targetElement) {
+                        // ✅ AUTO-EXPAND: Trigger "Continue Reading" button if article is collapsed
+                        const readmoreBtn = document.getElementById('btn-continuar-leyendo');
+                        const contenidoHtml = document.getElementById('contenido-html');
+                        const fade = document.getElementById('contenido-fade');
+                        const readmoreContainer = document.getElementById('contenido-readmore-container');
+
+                        if (readmoreBtn && contenidoHtml && fade && readmoreContainer) {
+                            const isCollapsed = contenidoHtml.style.maxHeight && contenidoHtml.style.maxHeight !== 'none';
+
+                            if (isCollapsed) {
+                                console.log('[TOC] Article is collapsed, expanding automatically...');
+                                contenidoHtml.style.maxHeight = 'none';
+                                contenidoHtml.style.overflow = 'visible';
+                                fade.style.display = 'none';
+                                readmoreContainer.style.display = 'none';
+                            }
+                        }
+
+                        // Scroll to section with offset
+                        const offset = 100; // Account for sticky header
+                        const elementPosition = targetElement.getBoundingClientRect().top;
+                        const offsetPosition = elementPosition + window.pageYOffset - offset;
+
+                        window.scrollTo({
+                            top: offsetPosition,
+                            behavior: 'smooth'
+                        });
+
+                        // Update active link immediately
+                        setActiveLink(targetId);
+
+                        console.log('[TOC] Scrolled to:', targetId);
+                    }
+                }
+            });
+
+            console.log('[TOC] Table of contents initialized successfully');
+        })();
+
+        // ===== ARTICLE RATING SYSTEM =====
+        (function() {
+            const ratingContainer = document.getElementById('articleRating');
+            if (!ratingContainer) return;
+
+            const articleId = ratingContainer.getAttribute('data-article-id');
+            const likeBtn = ratingContainer.querySelector('.rating-like');
+            const dislikeBtn = ratingContainer.querySelector('.rating-dislike');
+            const likeCount = document.getElementById('likeCount');
+            const dislikeCount = document.getElementById('dislikeCount');
+            const ratingMessage = document.getElementById('ratingMessage');
+
+            console.log('🎯 [Article Rating] Inicializando sistema de calificación para artículo:', articleId);
+
+            // Cargar estado inicial
+            async function loadRatingState() {
+                try {
+                    const response = await fetch(`/api/articles/${articleId}/rating`);
+                    const data = await response.json();
+
+                    if (data.ok && data.estadisticas) {
+                        // Actualizar contadores
+                        if (likeCount) likeCount.textContent = data.estadisticas.likes || 0;
+                        if (dislikeCount) dislikeCount.textContent = data.estadisticas.dislikes || 0;
+
+                        // Si el usuario ya votó, marcar botón activo
+                        if (data.ratingUsuario) {
+                            const ratingType = data.ratingUsuario.tipo;
+                            if (ratingType === 'like' && likeBtn) {
+                                likeBtn.classList.add('active');
+                            } else if (ratingType === 'dislike' && dislikeBtn) {
+                                dislikeBtn.classList.add('active');
+                            }
+                            console.log('✅ [Article Rating] Estado cargado:', data.ratingUsuario);
+                        }
+                    }
+                } catch (err) {
+                    console.error('❌ [Article Rating] Error al cargar estado:', err);
+                    // Valores por defecto en caso de error
+                    if (likeCount) likeCount.textContent = '0';
+                    if (dislikeCount) dislikeCount.textContent = '0';
+                }
+            }
+
+            // Enviar calificación
+            async function sendRating(ratingType) {
+                try {
+                    showMessage('Guardando...', 'info');
+
+                    const response = await fetch(`/api/articles/${articleId}/rating`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            ratingType: ratingType
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.ok) {
+                        // Actualizar contadores
+                        if (data.estadisticas) {
+                            if (likeCount) likeCount.textContent = data.estadisticas.likes || 0;
+                            if (dislikeCount) dislikeCount.textContent = data.estadisticas.dislikes || 0;
+                        }
+
+                        // Actualizar botones activos
+                        if (likeBtn) likeBtn.classList.toggle('active', ratingType === 'like');
+                        if (dislikeBtn) dislikeBtn.classList.toggle('active', ratingType === 'dislike');
+
+                        showMessage('✅ ¡Gracias por tu opinión!', 'success');
+                        console.log('✅ [Article Rating] Calificación guardada:', ratingType);
+
+                        // Auto-hide mensaje después de 3 segundos
+                        setTimeout(() => hideMessage(), 3000);
+                    } else {
+                        showMessage('❌ ' + (data.error || 'Error al guardar'), 'error');
+                    }
+                } catch (err) {
+                    console.error('❌ [Article Rating] Error al guardar:', err);
+                    showMessage('❌ Error de conexión', 'error');
+                }
+            }
+
+            // Event listeners
+            if (likeBtn) {
+                likeBtn.addEventListener('click', function() {
+                    if (likeBtn.classList.contains('active')) {
+                        console.log('ℹ️ [Article Rating] Ya votaste like anteriormente');
+                        return;
+                    }
+                    sendRating('like');
+                });
+            }
+
+            if (dislikeBtn) {
+                dislikeBtn.addEventListener('click', function() {
+                    if (dislikeBtn.classList.contains('active')) {
+                        console.log('ℹ️ [Article Rating] Ya votaste dislike anteriormente');
+                        return;
+                    }
+                    sendRating('dislike');
+                });
+            }
+
+            function showMessage(text, type = 'info') {
+                if (!ratingMessage) return;
+                ratingMessage.textContent = text;
+                ratingMessage.className = 'rating-message ' + type;
+                ratingMessage.style.display = 'block';
+            }
+
+            function hideMessage() {
+                if (ratingMessage) {
+                    ratingMessage.style.display = 'none';
+                }
+            }
+
+            // Inicializar
+            loadRatingState();
+
+            console.log('✅ [Article Rating] Sistema inicializado correctamente');
         })();
     </script>
 }
