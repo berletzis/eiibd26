@@ -1,7 +1,7 @@
 ﻿@page "{id?}"
 @model eiibd26.Areas.Identity.Pages.Usuario.UusuarioPreguntaDetalleModel
 @{
-    ViewData["Title"] = Model.Id.HasValue ? "Editar Pregunta Detallada" : "Nueva Pregunta Detallada";
+    ViewData["Title"] = Model.Id.HasValue ? "Editar Pregunta" : "Haz tu Pregunta";
     Layout = "_Layout";
 }
 
@@ -357,20 +357,28 @@
                 }
 
                 <div class="mb-3">
-                    <label class="form-label">Título</label>
+                    <label class="form-label">Haz tu pregunta</label>
                     @if (Model.CanModify)
                     {
-                        <input class="form-control" asp-for="Titulo" maxlength="180" required autocomplete="off" />
+                        <input class="form-control" asp-for="Titulo" id="tituloInput" maxlength="180" required autocomplete="off" />
                     }
                     else
                     {
-                        <input class="form-control" asp-for="Titulo" maxlength="180" required autocomplete="off" disabled />
+                        <input class="form-control" asp-for="Titulo" id="tituloInput" maxlength="180" required autocomplete="off" disabled />
                     }
-                    <div class="qp-info-text">Máx. 180 caracteres</div>
+                    <div class="qp-info-text">Sé específico e imagina que le estás haciendo una pregunta a otra persona. Máx. 180 caracteres</div>
+
+                    @* ⭐ NUEVO: Contenedor de sugerencias *@
+                    <div id="suggestionBox" style="display:none; margin-top: 12px; padding: 12px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px;">
+                        <div style="font-size: 0.85rem; font-weight: 600; color: #495057; margin-bottom: 8px;">
+                            💡 Tal vez esto ya se ha preguntado o puede ayudarte:
+                        </div>
+                        <div id="suggestionContent"></div>
+                    </div>
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label">Cuerpo</label>
+                    <label class="form-label">Detalla mas tu Pregunta, ¿Qué te gustaría saber?</label>
                     @if (Model.CanModify)
                     {
                         <textarea class="form-control" asp-for="Cuerpo" rows="8" maxlength="4000" required></textarea>
@@ -379,7 +387,7 @@
                     {
                         <textarea class="form-control" asp-for="Cuerpo" rows="8" maxlength="4000" required disabled></textarea>
                     }
-                    <div class="qp-info-text">Máx. 4000 caracteres</div>
+                    <div class="qp-info-text">Incluya toda la información necesaria para responder a su pregunta. Máx. 4000 caracteres</div>
                 </div>
 
                 <div class="mt-4 text-end">
@@ -748,6 +756,138 @@
             console.log('🚀 [AI Polling] Iniciando polling para detectar respuesta de IA...');
             setTimeout(pollForAiAnswer, 5000);
         });
+
+        // ===== SUGERENCIAS EN TIEMPO REAL MIENTRAS ESCRIBE =====
+        (function() {
+            const tituloInput = document.getElementById('tituloInput');
+            const suggestionBox = document.getElementById('suggestionBox');
+            const suggestionContent = document.getElementById('suggestionContent');
+
+            if (!tituloInput || !suggestionBox || !suggestionContent) return;
+
+            let debounceTimer;
+            let lastQuery = '';
+
+            tituloInput.addEventListener('input', function() {
+                const query = this.value.trim();
+
+                // Limpiar timer anterior
+                clearTimeout(debounceTimer);
+
+                // Ocultar si < 20 caracteres
+                if (query.length < 20) {
+                    suggestionBox.style.display = 'none';
+                    return;
+                }
+
+                // Evitar búsquedas duplicadas
+                if (query === lastQuery) return;
+
+                // Debounce de 400ms
+                debounceTimer = setTimeout(async () => {
+                    lastQuery = query;
+                    console.log('🔍 [Suggestions] Buscando para:', query);
+
+                    try {
+                        // Obtener condición seleccionada (si hay)
+                        const condicionChecked = document.querySelector('.rel-check-condicion:checked');
+                        const condicionId = condicionChecked ? condicionChecked.value : null;
+
+                        const url = condicionId 
+                            ? `/api/search/suggestions?q=${encodeURIComponent(query)}&condicionId=${condicionId}`
+                            : `/api/search/suggestions?q=${encodeURIComponent(query)}`;
+
+                        const response = await fetch(url);
+                        const data = await response.json();
+
+                        if (!data.ok) {
+                            console.warn('⚠️ [Suggestions] Error en respuesta:', data);
+                            return;
+                        }
+
+                        const totalResults = (data.preguntas?.length || 0) + 
+                                           (data.articulos?.length || 0) + 
+                                           (data.respuestas?.length || 0);
+
+                        if (totalResults === 0) {
+                            suggestionBox.style.display = 'none';
+                            console.log('📭 [Suggestions] Sin resultados');
+                            return;
+                        }
+
+                        // Renderizar sugerencias
+                        let html = '';
+
+                        // Preguntas
+                        if (data.preguntas && data.preguntas.length > 0) {
+                            html += '<div style="margin-bottom: 12px;">';
+                            html += '<strong style="font-size: 0.8rem; color: #6c757d;">❓ Preguntas similares:</strong>';
+                            html += '<ul style="margin: 4px 0 0 0; padding-left: 20px; font-size: 0.85rem;">';
+                            data.preguntas.forEach(p => {
+                                html += `<li><a href="${p.url}" target="_blank" style="color: #0d6efd; text-decoration: none;">${p.titulo}</a> <span style="color: #6c757d;">(${p.respuestasCount} respuestas)</span></li>`;
+                            });
+                            html += '</ul></div>';
+                        }
+
+                        // Artículos
+                        if (data.articulos && data.articulos.length > 0) {
+                            html += '<div style="margin-bottom: 12px;">';
+                            html += '<strong style="font-size: 0.8rem; color: #6c757d;">📄 Artículos relacionados:</strong>';
+                            html += '<ul style="margin: 4px 0 0 0; padding-left: 20px; font-size: 0.85rem;">';
+                            data.articulos.forEach(a => {
+                                html += `<li><a href="${a.url}" target="_blank" style="color: #0d6efd; text-decoration: none;">${a.titulo}</a></li>`;
+                            });
+                            html += '</ul></div>';
+                        }
+
+                        // Respuestas
+                        if (data.respuestas && data.respuestas.length > 0) {
+                            html += '<div>';
+                            html += '<strong style="font-size: 0.8rem; color: #6c757d;">💬 Respuestas destacadas:</strong>';
+                            html += '<ul style="margin: 4px 0 0 0; padding-left: 20px; font-size: 0.85rem;">';
+                            data.respuestas.forEach(r => {
+                                html += `<li><a href="${r.url}" target="_blank" style="color: #0d6efd; text-decoration: none;">${r.preguntaTitulo || 'Ver respuesta'}</a> <span style="color: #6c757d;">(+${r.puntuacion})</span></li>`;
+                            });
+                            html += '</ul></div>';
+                        }
+
+                        suggestionContent.innerHTML = html;
+                        suggestionBox.style.display = 'block';
+                        console.log('✅ [Suggestions] Mostradas:', totalResults, 'sugerencias');
+
+                    } catch (err) {
+                        console.error('❌ [Suggestions] Error:', err);
+                        suggestionBox.style.display = 'none';
+                    }
+                }, 400);
+            });
+        })();
+
+        // ===== VALIDACIÓN: AL MENOS UNA CONDICIÓN OBLIGATORIA =====
+        (function() {
+            const form = document.getElementById('preguntaDetForm');
+            if (!form) return;
+
+            form.addEventListener('submit', function(e) {
+                const condicionesChecked = document.querySelectorAll('.rel-check-condicion:checked');
+
+                if (condicionesChecked.length === 0) {
+                    e.preventDefault();
+                    alert('⚠️ Selecciona al menos una condición para publicar tu pregunta.');
+
+                    // Scroll a condiciones
+                    const boxCondiciones = document.getElementById('boxCondiciones');
+                    if (boxCondiciones) {
+                        boxCondiciones.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        boxCondiciones.style.border = '2px solid #dc3545';
+                        setTimeout(() => {
+                            boxCondiciones.style.border = '';
+                        }, 3000);
+                    }
+                    return false;
+                }
+            });
+        })();
     </script>
 
 }

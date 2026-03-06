@@ -1,7 +1,3 @@
-// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-#nullable disable
-
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.Text;
@@ -11,6 +7,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Logging;
 using eiibd26.Models;
 
 namespace eiibd26.Areas.Identity.Pages.Account
@@ -18,10 +15,14 @@ namespace eiibd26.Areas.Identity.Pages.Account
     public class ResetPasswordModel : PageModel
     {
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly ILogger<ResetPasswordModel> _logger;
 
-        public ResetPasswordModel(UserManager<ApplicationUser> userManager)
+        public ResetPasswordModel(
+            UserManager<ApplicationUser> userManager,
+            ILogger<ResetPasswordModel> logger)
         {
             _userManager = userManager;
+            _logger = logger;
         }
 
         /// <summary>
@@ -72,46 +73,89 @@ namespace eiibd26.Areas.Identity.Pages.Account
 
         }
 
-        public IActionResult OnGet(string code = null)
+        public IActionResult OnGet(string code = null, string email = null)
         {
             if (code == null)
             {
+                _logger.LogWarning("⚠️ [ResetPassword] Token faltante en URL");
+                ModelState.AddModelError(string.Empty, "Token de reseteo faltante.");
                 return BadRequest("Se requiere un código para restablecer la contraseña.");
             }
-            else
+
+            // ✅ NO decodificar aquí - el code viene correctamente codificado desde ForgotPassword
+            Input = new InputModel
             {
-                Input = new InputModel
-                {
-                    Code = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(code))
-                };
-                return Page();
-            }
+                Code = code,
+                Email = email ?? ""
+            };
+
+            _logger.LogInformation("📧 [ResetPassword] Página cargada");
+
+            return Page();
         }
 
         public async Task<IActionResult> OnPostAsync()
         {
             if (!ModelState.IsValid)
             {
+                _logger.LogWarning("⚠️ [ResetPassword] ModelState inválido");
                 return Page();
             }
 
             var user = await _userManager.FindByEmailAsync(Input.Email);
             if (user == null)
             {
+                _logger.LogWarning("⚠️ [ResetPassword] Usuario no encontrado: {Email}", Input.Email);
                 // Don't reveal that the user does not exist
                 return RedirectToPage("./ResetPasswordConfirmation");
             }
 
-            var result = await _userManager.ResetPasswordAsync(user, Input.Code, Input.Password);
-            if (result.Succeeded)
+            try
             {
-                return RedirectToPage("./ResetPasswordConfirmation");
+                // ✅ Decodificar el token SOLO aquí, una vez
+                string decodedToken;
+                try
+                {
+                    decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(Input.Code));
+                    _logger.LogInformation("🔓 [ResetPassword] Token decodificado correctamente");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "❌ [ResetPassword] Error al decodificar token");
+                    ModelState.AddModelError(string.Empty, "El token de reseteo es inválido o está corrupto.");
+                    return Page();
+                }
+
+                var result = await _userManager.ResetPasswordAsync(user, decodedToken, Input.Password);
+
+                if (result.Succeeded)
+                {
+                    _logger.LogInformation("✅ [ResetPassword] Contraseña reseteada exitosamente para: {Email}", Input.Email);
+                    return RedirectToPage("./ResetPasswordConfirmation");
+                }
+
+                foreach (var error in result.Errors)
+                {
+                    _logger.LogWarning("⚠️ [ResetPassword] Error: {Code} - {Description}", error.Code, error.Description);
+
+                    // Mensajes más amigables
+                    if (error.Code == "InvalidToken")
+                    {
+                        ModelState.AddModelError(string.Empty, 
+                            "El enlace de recuperación ha expirado o ya fue usado. Por favor, solicita uno nuevo.");
+                    }
+                    else
+                    {
+                        ModelState.AddModelError(string.Empty, error.Description);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ [ResetPassword] Excepción al resetear contraseña");
+                ModelState.AddModelError(string.Empty, "Ocurrió un error al restablecer tu contraseña. Por favor, intenta de nuevo.");
             }
 
-            foreach (var error in result.Errors)
-            {
-                ModelState.AddModelError(string.Empty, error.Description);
-            }
             return Page();
         }
     }

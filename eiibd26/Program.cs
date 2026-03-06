@@ -8,6 +8,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
 using System.Diagnostics;
@@ -57,6 +58,21 @@ builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders()
     .AddErrorDescriber<SpanishIdentityErrorDescriber>();
+
+// ⭐ NUEVO: Persistir Data Protection Keys (para tokens de reseteo de contraseña)
+var dataProtectionPath = Path.Combine(builder.Environment.ContentRootPath, "DataProtectionKeys");
+Directory.CreateDirectory(dataProtectionPath); // Crear si no existe
+
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath))
+    .SetApplicationName("eiibd26")
+    .SetDefaultKeyLifetime(TimeSpan.FromDays(90)); // Keys duran 90 días
+
+// Configurar tiempo de vida de tokens de reseteo de contraseña
+builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
+{
+    options.TokenLifespan = TimeSpan.FromDays(1); // 24 horas
+});
 
 // Cookie configuration (seguridad mejorada)
 builder.Services.ConfigureApplicationCookie(options =>
@@ -172,6 +188,9 @@ builder.Services.AddTransient<ISmsSender, TwilioSmsSender>();
 // PWA Push Notifications
 builder.Services.AddScoped<eiibd26.Services.PushNotificationService>();
 
+// Search Suggestions (sin IA)
+builder.Services.AddScoped<eiibd26.Services.SearchSuggestionService>();
+
 // ⭐ NUEVO: Background Service para procesar notificaciones programadas
 builder.Services.AddHostedService<eiibd26.Services.ScheduledNotificationWorker>();
 
@@ -184,6 +203,7 @@ builder.Services.Configure<eiibd26.Configuration.AiAnswerConfiguration>(
 builder.Services.AddSingleton<eiibd26.Services.AI.IAiAnswerService, eiibd26.Services.AI.AiAnswerService>();
 builder.Services.AddSingleton<eiibd26.Services.AI.IAiPromptBuilder, eiibd26.Services.AI.AiPromptBuilder>();
 builder.Services.AddSingleton<eiibd26.Services.AI.IAiSafetyService, eiibd26.Services.AI.AiSafetyService>();
+builder.Services.AddScoped<eiibd26.Services.AI.ISimilarQuestionDetector, eiibd26.Services.AI.SimilarQuestionDetector>();
 
 // Register HttpClient for Anthropic API
 builder.Services.AddHttpClient("AnthropicClient", (serviceProvider, client) =>

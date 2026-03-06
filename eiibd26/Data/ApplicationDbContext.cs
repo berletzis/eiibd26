@@ -57,6 +57,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<NotificationSubscription> NotificationSubscriptions { get; set; }
     public DbSet<PushNotification> PushNotifications { get; set; }
 
+    // AI Feedback
+    public DbSet<RespuestaAIFeedback> RespuestaAIFeedbacks { get; set; }
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

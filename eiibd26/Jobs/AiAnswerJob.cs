@@ -19,6 +19,7 @@ namespace eiibd26.Jobs
         private readonly ApplicationDbContext _db;
         private readonly IAiAnswerService _aiAnswerService;
         private readonly IAiSafetyService _aiSafetyService;
+        private readonly ISimilarQuestionDetector _similarQuestionDetector;
         private readonly AiAnswerConfiguration _config;
         private readonly ILogger<AiAnswerJob> _logger;
 
@@ -26,12 +27,14 @@ namespace eiibd26.Jobs
             ApplicationDbContext db,
             IAiAnswerService aiAnswerService,
             IAiSafetyService aiSafetyService,
+            ISimilarQuestionDetector similarQuestionDetector,
             IOptions<AiAnswerConfiguration> config,
             ILogger<AiAnswerJob> logger)
         {
             _db = db;
             _aiAnswerService = aiAnswerService;
             _aiSafetyService = aiSafetyService;
+            _similarQuestionDetector = similarQuestionDetector;
             _config = config.Value;
             _logger = logger;
         }
@@ -111,61 +114,101 @@ namespace eiibd26.Jobs
                     return;
                 }
 
-                // 5. Generar respuesta de IA CON CONTEXTO de relaciones
-                cancellationToken.ThrowIfCancellationRequested();
+                // 5. ⭐ NUEVO: Buscar preguntas similares con respuesta IA existente
+                _logger.LogInformation("🔎 [AI Job] Buscando preguntas similares para reutilizar respuestas...");
+                var respuestaSimilar = await _similarQuestionDetector.BuscarRespuestaSimilarAsync(
+                    pregunta, 
+                    umbralSimilitud: 0.80, // 80% de similitud requerida
+                    cancellationToken);
 
-                var generationStart = DateTimeOffset.UtcNow;
-                _logger.LogInformation("🤖 [AI Job] Llamando a Claude API para generar respuesta...");
-
-                // Construir contexto dinámico con las relaciones de la pregunta
-                var contextoDinamico = BuildContextoFromRelaciones(pregunta);
-
-                if (!string.IsNullOrWhiteSpace(contextoDinamico))
-                {
-                    _logger.LogInformation("📋 [AI Job] Contexto dinámico construido: {Contexto}", contextoDinamico);
-                }
-
-                var contenidoGenerado = await _aiAnswerService.GenerarRespuestaAsync(pregunta, cancellationToken, contextoDinamico);
-
-                var generationTime = (DateTimeOffset.UtcNow - generationStart).TotalSeconds;
-                var estimatedTokens = contenidoGenerado.Length / 4; // Rough estimate: 1 token ≈ 4 chars
-
-                _logger.LogInformation(
-                    "✅ [AI Job] Respuesta generada en {Duration:F2}s, ~{Tokens} tokens",
-                    generationTime, estimatedTokens);
-
-                // 6. Validar seguridad del contenido
-                _logger.LogInformation("🛡️ [AI Job] Validando seguridad del contenido...");
                 string contenidoFinal;
-                bool safetyPassed = _aiSafetyService.ValidarContenido(contenidoGenerado);
+                bool esReutilizada = false;
 
-                if (safetyPassed)
+                if (respuestaSimilar != null)
                 {
-                    contenidoFinal = _aiSafetyService.AgregarDisclaimer(contenidoGenerado);
-                    _logger.LogInformation("✅ [AI Job] Validación de seguridad APROBADA");
+                    // ✅ Se encontró pregunta similar, reutilizar respuesta
+                    _logger.LogInformation(
+                        "♻️ [AI Job] REUTILIZANDO respuesta de pregunta similar (RespuestaId={RespuestaId}). NO se llamará a Claude API.",
+                        respuestaSimilar.Id);
+
+                    contenidoFinal = respuestaSimilar.Cuerpo;
+                    esReutilizada = true;
+
+                    // Agregar nota al inicio de la respuesta reutilizada
+                    var notaReutilizacion = "<div style='background-color: #e8f5e9; border-left: 4px solid #4caf50; padding: 12px; margin-bottom: 16px;'>" +
+                                            "<strong>💡 Nota:</strong> Esta respuesta ha sido generada previamente por NINA para una pregunta similar y fue validada como útil." +
+                                            "</div>";
+                    contenidoFinal = notaReutilizacion + contenidoFinal;
                 }
                 else
                 {
-                    contenidoFinal = _aiSafetyService.ObtenerRespuestaFallback();
-                    _logger.LogWarning("⚠️ [AI Job] Validación de seguridad RECHAZADA, usando fallback");
+                    // ❌ No se encontró pregunta similar, generar nueva respuesta con IA
+                    _logger.LogInformation("🆕 [AI Job] No se encontró pregunta similar. Generando respuesta nueva con Claude API...");
+
+                    // 6. Generar respuesta de IA CON CONTEXTO de relaciones
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var generationStart = DateTimeOffset.UtcNow;
+                    _logger.LogInformation("🤖 [AI Job] Llamando a Claude API para generar respuesta...");
+
+                    // Construir contexto dinámico con las relaciones de la pregunta
+                    var contextoDinamico = BuildContextoFromRelaciones(pregunta);
+
+                    if (!string.IsNullOrWhiteSpace(contextoDinamico))
+                    {
+                        _logger.LogInformation("📋 [AI Job] Contexto dinámico construido: {Contexto}", contextoDinamico);
+                    }
+
+                    var contenidoGenerado = await _aiAnswerService.GenerarRespuestaAsync(pregunta, cancellationToken, contextoDinamico);
+
+                    var generationTime = (DateTimeOffset.UtcNow - generationStart).TotalSeconds;
+                    var estimatedTokens = contenidoGenerado.Length / 4; // Rough estimate: 1 token ≈ 4 chars
+
+                    _logger.LogInformation(
+                        "✅ [AI Job] Respuesta generada en {Duration:F2}s, ~{Tokens} tokens",
+                        generationTime, estimatedTokens);
+
+                    // 7. Validar seguridad del contenido
+                    _logger.LogInformation("🛡️ [AI Job] Validando seguridad del contenido...");
+                    bool safetyPassed = _aiSafetyService.ValidarContenido(contenidoGenerado);
+
+                    if (safetyPassed)
+                    {
+                        contenidoFinal = _aiSafetyService.AgregarDisclaimer(contenidoGenerado);
+                        _logger.LogInformation("✅ [AI Job] Validación de seguridad APROBADA");
+                    }
+                    else
+                    {
+                        contenidoFinal = _aiSafetyService.ObtenerRespuestaFallback();
+                        _logger.LogWarning("⚠️ [AI Job] Validación de seguridad RECHAZADA, usando fallback");
+                    }
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // 7. Crear la respuesta en la base de datos
+                // 8. Crear la respuesta en la base de datos
                 _logger.LogInformation("💾 [AI Job] Guardando respuesta en BD...");
 
-                // Convertir Markdown a HTML con pipeline mejorado para formato consistente
-                var pipeline = new Markdig.MarkdownPipelineBuilder()
-                    .UseAdvancedExtensions()
-                    .Build();
+                string cuerpoHtml;
+                if (esReutilizada)
+                {
+                    // La respuesta ya viene en HTML, solo usarla
+                    cuerpoHtml = contenidoFinal;
+                }
+                else
+                {
+                    // Convertir Markdown a HTML con pipeline mejorado para formato consistente
+                    var pipeline = new Markdig.MarkdownPipelineBuilder()
+                        .UseAdvancedExtensions()
+                        .Build();
 
-                var cuerpoHtml = Markdown.ToHtml(contenidoFinal, pipeline);
+                    cuerpoHtml = Markdown.ToHtml(contenidoFinal, pipeline);
 
-                // Normalizar el HTML para consistencia visual
-                cuerpoHtml = NormalizarHtmlRespuesta(cuerpoHtml);
+                    // Normalizar el HTML para consistencia visual
+                    cuerpoHtml = NormalizarHtmlRespuesta(cuerpoHtml);
 
-                _logger.LogInformation("✅ [AI Job] HTML normalizado generado ({Length} chars)", cuerpoHtml.Length);
+                    _logger.LogInformation("✅ [AI Job] HTML normalizado generado ({Length} chars)", cuerpoHtml.Length);
+                }
 
                 var respuestaIA = new Respuesta
                 {
@@ -175,7 +218,7 @@ namespace eiibd26.Jobs
                     Cuerpo = cuerpoHtml,
                     EsAceptada = false,
                     EsIA = true,
-                    ModeloIA = _config.Model,
+                    ModeloIA = esReutilizada ? "NINA-Reused" : _config.Model,
                     EsColapsada = false, // Mostrar expandida por defecto cuando es la única respuesta
                     Puntuacion = 0,
                     Eliminado = false,
@@ -186,7 +229,7 @@ namespace eiibd26.Jobs
 
                 _db.Respuestas.Add(respuestaIA);
 
-                // 8. Marcar la pregunta como que tiene respuesta de IA
+                // 9. Marcar la pregunta como que tiene respuesta de IA
                 pregunta.TieneRespuestaIA = true;
                 pregunta.FechaGeneracionIA = DateTimeOffset.UtcNow;
 
@@ -197,8 +240,8 @@ namespace eiibd26.Jobs
                     var totalTime = (DateTimeOffset.UtcNow - startTime).TotalSeconds;
 
                     _logger.LogInformation(
-                        "🎉 [AI Job] COMPLETADO EXITOSAMENTE en {TotalTime:F2}s: PreguntaId={PreguntaId}, RespuestaId={RespuestaId}, SafetyPassed={SafetyPassed}",
-                        totalTime, preguntaId, respuestaIA.Id, safetyPassed);
+                        "🎉 [AI Job] COMPLETADO EXITOSAMENTE en {TotalTime:F2}s: PreguntaId={PreguntaId}, RespuestaId={RespuestaId}, Tipo={Tipo}",
+                        totalTime, preguntaId, respuestaIA.Id, esReutilizada ? "♻️ REUTILIZADA" : "🆕 NUEVA");
                 }
                 catch (DbUpdateException dbEx) when (dbEx.InnerException?.Message?.Contains("UX_Respuestas_OneAIAnswerPerQuestion") == true)
                 {

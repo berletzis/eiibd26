@@ -59,7 +59,7 @@ namespace eiibd26.Pages
         public List<PreguntaCardVm> Preguntas { get; set; } = new();
 
         [BindProperty(SupportsGet = true)] public int PageNumber { get; set; } = 1;
-        [BindProperty(SupportsGet = true)] public int PageSize { get; set; } = 12;
+        [BindProperty(SupportsGet = true)] public int PageSize { get; set; } = 15;
         [BindProperty(SupportsGet = true)] public string Search { get; set; } = "";
         [BindProperty(SupportsGet = true)] public OrdenPreguntas Orden { get; set; } = OrdenPreguntas.Activas;
 
@@ -80,7 +80,7 @@ namespace eiibd26.Pages
             if (pageSize.HasValue) PageSize = Math.Max(1, pageSize.Value);
             if (search != null) Search = search.Trim();
 
-            if (PageSize <= 0) PageSize = 12;
+            if (PageSize <= 0) PageSize = 15;
             if (PageNumber < 1) PageNumber = 1;
 
             var currentUserId = GetUserIdGuid();

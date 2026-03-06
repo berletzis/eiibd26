@@ -1,6 +1,7 @@
 using eiibd26.Data;
 using eiibd26.Models;
 using eiibd26.Helpers;
+using eiibd26.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -19,11 +20,16 @@ namespace eiibd26.Pages.Preguntas
     {
         private readonly ApplicationDbContext _db;
         private readonly ILogger<DetallesModel> _logger;
+        private readonly SearchSuggestionService _suggestionService;
 
-        public DetallesModel(ApplicationDbContext db, ILogger<DetallesModel> logger)
+        public DetallesModel(
+            ApplicationDbContext db, 
+            ILogger<DetallesModel> logger,
+            SearchSuggestionService suggestionService)
         {
             _db = db ?? throw new ArgumentNullException(nameof(db));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _suggestionService = suggestionService ?? throw new ArgumentNullException(nameof(suggestionService));
         }
 
         public record AuthorInfo(string Name, string Avatar, string Slug = "");
@@ -91,6 +97,12 @@ namespace eiibd26.Pages.Preguntas
         public bool TienePreguntaPendienteIA { get; set; } = false;
         public int TotalRespuestasHumanas { get; set; } = 0;
         // =========================================================
+
+        // ===== NUEVO: Contenido Relacionado =====
+        public List<SuggestionDto> PreguntasRelacionadas { get; set; } = new();
+        public List<SuggestionDto> ArticulosRelacionados { get; set; } = new();
+        public List<SuggestionDto> RespuestasRelacionadas { get; set; } = new();
+        // =========================================
 
         public int TotalItems { get; set; }
         public int TotalPages => PageSize > 0 ? (int)Math.Ceiling(TotalItems / (double)PageSize) : 1;
@@ -620,7 +632,99 @@ namespace eiibd26.Pages.Preguntas
             }
             // =========================================================
 
+            // ===== NUEVO: Cargar contenido relacionado =====
+            try
+            {
+                _logger.LogInformation("🔍 [Related] Cargando contenido relacionado para pregunta: {Titulo}", preguntaTitulo);
+
+                // Construir query de búsqueda (título + primeras 200 chars del cuerpo)
+                var searchQuery = preguntaTitulo;
+                if (!string.IsNullOrWhiteSpace(preguntaCuerpo))
+                {
+                    var cuerpoCorto = preguntaCuerpo.Length > 200 
+                        ? preguntaCuerpo.Substring(0, 200) 
+                        : preguntaCuerpo;
+                    searchQuery += " " + cuerpoCorto;
+                }
+
+                // Obtener condición principal (si existe)
+                int? condicionId = null;
+                try
+                {
+                    var primeraCondicion = await _db.PreguntaCondiciones.AsNoTracking()
+                        .Where(pc => pc.PreguntaId == preguntaId)
+                        .Select(pc => pc.CondicionId)
+                        .FirstOrDefaultAsync();
+
+                    if (primeraCondicion > 0)
+                    {
+                        condicionId = primeraCondicion;
+                    }
+                }
+                catch
+                {
+                    // Ignorar errores al obtener condición
+                }
+
+                // Llamar al servicio de sugerencias
+                var suggestions = await _suggestionService.GetSuggestionsAsync(
+                    searchQuery, 
+                    condicionId,
+                    CancellationToken.None);
+
+                // Mapear resultados a DTOs simples
+                PreguntasRelacionadas = suggestions.Preguntas.Select(p => new SuggestionDto
+                {
+                    Titulo = p.Titulo,
+                    Url = !string.IsNullOrWhiteSpace(p.Slug) ? $"/Preguntas/{p.Slug}" : $"/Preguntas/Detalles?id={p.Id}",
+                    Subtitulo = $"{p.RespuestasCount} respuestas"
+                }).ToList();
+
+                ArticulosRelacionados = suggestions.Articulos.Select(a => new SuggestionDto
+                {
+                    Titulo = a.Titulo,
+                    // ⭐ MEJORADO: Usar categoriaSlug/slug si existe, sino fallback
+                    Url = !string.IsNullOrWhiteSpace(a.Slug)
+                        ? (!string.IsNullOrWhiteSpace(a.CategoriaSlug)
+                            ? $"/{a.CategoriaSlug}/{a.Slug}"  // familia-y-relaciones/embarazo-y-parto
+                            : $"/c/{a.Slug}")                  // /c/embarazo-y-parto
+                        : $"/Contenidos/Detalle?id={a.Id}",    // Fallback con ID
+                    Subtitulo = !string.IsNullOrWhiteSpace(a.Resumen) && a.Resumen.Length > 100 
+                        ? a.Resumen.Substring(0, 100) + "..." 
+                        : a.Resumen
+                }).ToList();
+
+                RespuestasRelacionadas = suggestions.Respuestas.Select(r => new SuggestionDto
+                {
+                    Titulo = r.PreguntaTitulo ?? "Ver respuesta",
+                    Url = !string.IsNullOrWhiteSpace(r.PreguntaSlug) ? $"/Preguntas/{r.PreguntaSlug}" : $"/Preguntas/Detalles?id={r.PreguntaId}",
+                    Subtitulo = $"+{r.Puntuacion} puntos"
+                }).ToList();
+
+                _logger.LogInformation(
+                    "✅ [Related] Cargado: {Preguntas} preguntas, {Articulos} artículos, {Respuestas} respuestas",
+                    PreguntasRelacionadas.Count, ArticulosRelacionados.Count, RespuestasRelacionadas.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "❌ [Related] Error cargando contenido relacionado (continuando sin sidebar)");
+                // Inicializar listas vacías para que la vista no falle
+                PreguntasRelacionadas = new List<SuggestionDto>();
+                ArticulosRelacionados = new List<SuggestionDto>();
+                RespuestasRelacionadas = new List<SuggestionDto>();
+            }
+            // ==============================================
+
             return Page();
         }
+
+        // ===== NUEVO: DTO para suggestions en vista =====
+        public class SuggestionDto
+        {
+            public string Titulo { get; set; } = "";
+            public string Url { get; set; } = "";
+            public string Subtitulo { get; set; } = "";
+        }
+        // ==============================================
     }
 }
