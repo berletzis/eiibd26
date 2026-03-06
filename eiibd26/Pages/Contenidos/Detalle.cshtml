@@ -416,11 +416,19 @@
                 <p class="detail-sub" style="margin-bottom:12px;">@Model.Item.Excerpt</p>
             }
 
-            <div class="contenido-html">
-                @Html.Raw(Model.Item?.ContentHtml ?? "<p>Sin contenido disponible.</p>")
+            <div class="contenido-html-wrapper">
+                <div class="contenido-html" id="contenido-html">
+                    @Html.Raw(Model.Item?.ContentHtml ?? "<p>Sin contenido disponible.</p>")
+                </div>
+                <div class="contenido-fade" id="contenido-fade" style="display:none;"></div>
+                <div class="contenido-readmore-container" id="contenido-readmore-container" style="display:none;">
+                    <button type="button" class="btn-continuar-leyendo" id="btn-continuar-leyendo">
+                        <i class="bi bi-chevron-down"></i> Continuar leyendo
+                    </button>
+                </div>
             </div>
 
-            
+
             @* Tabs for related content (manual / recommended / similar internet) *@
             <div class="tabs" id="relatedTabs" role="tablist" aria-label="Contenido relacionado">
                 <div class="tab-list" role="tablist" aria-hidden="false">
@@ -644,7 +652,8 @@
                             {
                                 url = "/" + (cat.ToLower().Replace(" ", "-").Replace("á","a").Replace("é","e").Replace("í","i").Replace("ó","o").Replace("ú","u").Replace("ñ","n"));
                             }
-                            <a class="badge-cat @(isPrincipal ? "badge-cat-principal" : "")" href="@url" title="@cat">@cat</a>
+                            var isSintomas = cat.Equals("Sintomas", StringComparison.OrdinalIgnoreCase) || cat.Equals("Síntomas", StringComparison.OrdinalIgnoreCase);
+                            <a class="badge-cat @(isPrincipal ? "badge-cat-principal" : "") @(isSintomas ? "sintomas-badge" : "")" href="@url" title="@cat">@cat</a>
                         }
                     }
                     else
@@ -715,6 +724,48 @@
                 const first = buttons[0];
                 activate(first.getAttribute('data-panel'), first);
             }
+        })();
+
+        // "Continuar leyendo" logic
+        (function () {
+            const contenidoHtml = document.getElementById('contenido-html');
+            const fade = document.getElementById('contenido-fade');
+            const readmoreContainer = document.getElementById('contenido-readmore-container');
+            const readmoreBtn = document.getElementById('btn-continuar-leyendo');
+
+            if (!contenidoHtml || !fade || !readmoreContainer || !readmoreBtn) return;
+
+            const MAX_HEIGHT = 600;
+            let isExpanded = false;
+
+            function checkContentHeight() {
+                const contentHeight = contenidoHtml.scrollHeight;
+
+                if (contentHeight > MAX_HEIGHT && !isExpanded) {
+                    contenidoHtml.style.maxHeight = MAX_HEIGHT + 'px';
+                    contenidoHtml.style.overflow = 'hidden';
+                    fade.style.display = 'block';
+                    readmoreContainer.style.display = 'block';
+                } else if (contentHeight <= MAX_HEIGHT) {
+                    fade.style.display = 'none';
+                    readmoreContainer.style.display = 'none';
+                }
+            }
+
+            readmoreBtn.addEventListener('click', function() {
+                if (!isExpanded) {
+                    contenidoHtml.style.maxHeight = 'none';
+                    contenidoHtml.style.overflow = 'visible';
+                    fade.style.display = 'none';
+                    readmoreContainer.style.display = 'none';
+                    isExpanded = true;
+
+                    contenidoHtml.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            });
+
+            checkContentHeight();
+            window.addEventListener('resize', checkContentHeight);
         })();
     </script>
 }
