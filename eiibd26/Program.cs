@@ -144,6 +144,7 @@ builder.Services.AddWebOptimizer(pipeline =>
         "css/site.css",
         "css/miSalud.css",
         "css/account.css",
+        "css/usuario-condiciones-crm.css",
         "css/site-responsive.css")
         .UseContentRoot();
 

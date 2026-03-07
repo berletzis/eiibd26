@@ -37,11 +37,20 @@
             margin-bottom: 12px;
         }
 
+        /* Etiqueta de instrucciones - TIPOGRAFÍA ESTANDARIZADA */
         .se-search-label {
-            margin: 4px 0 0px 0;
-            font-weight: 100;
-            font-size: .9rem;
-            padding-bottom: 15px;
+            display: block;
+            margin: 0 0 var(--space-md) 0; /* Más margen abajo */
+            font-family: var(--font-primary);
+            font-size: var(--font-size-sm);
+            font-weight: 500;
+            color: var(--color-text-primary);
+            line-height: var(--line-height-base);
+        }
+
+        /* Contenedor de filtros */
+        #mapFiltersCollapse {
+            padding-top: var(--space-sm);  /* Menos padding (el header ya tiene) */
         }
 
         .se-btn {
@@ -91,27 +100,83 @@
         /* Header container to control horizontal padding separately from Bootstrap utilities
            so the list area can expand to the page edges when needed. */
         .mapa-header-container {
-            padding-left: 12px;
-            padding-right: 12px;
-            max-width: none;
+            padding: 24px 16px; /* Padding generoso arriba/abajo y lados */
+            max-width: none;    /* Sin límite - full width para que mapa ocupe todo */
         }
 
+        /* Controles del mapa - CON ESPACIADO GENEROSO */
         .mapa-controls {
             display: flex;
-            gap: 12px;
+            gap: 16px; /* Espacio generoso entre elementos (era 12px) */
             align-items: center;
-            margin-bottom: 6px;
+            margin-bottom: var(--space-md);
             flex-wrap: wrap;
         }
 
-        .results-count {
-            margin: 6px 0 0;
+        /* Cada filtro tiene margen para separarse */
+        .mapa-controls > div {
+            margin-right: 8px; /* Espacio adicional entre filtros */
+        }
+
+        /* Botón de búsqueda separado del último select */
+        .mapa-controls > div:last-of-type {
+            margin-left: 8px; /* Espacio extra antes del botón */
+        }
+
+        /* Labels de filtros - TIPOGRAFÍA ESTANDARIZADA CON MÁS ESPACIO */
+        .mapa-controls .form-label {
+            display: block;
+            padding-top: 12px;    /* Espacio arriba del label */
+            padding-bottom:12px; /* Espacio debajo del label (era xs) */
+            font-family: var(--font-primary);
+            font-size: var(--font-size-sm);
+            font-weight: 500;
+            color: var(--color-text-primary);
+            text-decoration: none;          /* Sin subrayado */
+        }
+
+        /* Selects - EXACTAMENTE COMO LA IMAGEN */
+        .mapa-controls .form-select {
+            flex: 1 1 auto;
+            padding: 14px 16px; /* Muy grande: 14px vertical */
+            border-radius: 0.375rem; /* Bordes suavemente redondeados */
+            border: 1px solid #d1d5db; /* Borde FINO gris claro siempre visible */
+            background: #ffffff;
+            font-family: var(--font-primary);
+            font-size: 1rem; /* Texto grande */
+            font-weight: 400;
             color: #374151;
-            font-size: .95rem;
+            line-height: 1.5;
+            margin-bottom: 0;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+            min-height: 52px; /* Altura grande garantizada */
+        }
+
+            /* Borde MORADO al hacer focus */
+            .mapa-controls .form-select:focus {
+                border-color: #764ba2; /* Morado */
+                outline: none;
+                box-shadow: 0 0 0 1px #764ba2; /* Glow morado fino */
+            }
+
+            /* Hover suave */
+            .mapa-controls .form-select:hover:not(:focus) {
+                border-color: #9ca3af;
+            }
+
+        /* Contador de resultados - TIPOGRAFÍA ESTANDARIZADA */
+        .results-count {
+            margin: var(--space-xs) 0 0;
+            font-family: var(--font-primary);
+            font-size: var(--font-size-sm);
+            font-weight: 400;
+            color: var(--color-text-secondary);
+            padding-top: 12px;    
         }
 
         .mapa-results-row {
-            margin-top: 4px;
+            margin-top: var(--space-md); /* Más espacio arriba del contador (era 4px) */
+            padding-top: var(--space-sm); /* Padding adicional */
         }
 
         /* Mantener mapa a ancho completo, solo el header va centrado */
@@ -788,7 +853,7 @@
 
             const USER_COUNTRY = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.UserCountry ?? ""));
 
-            const MIN_ZOOM = 2, MAX_ZOOM = 18, MAX_ZOOM_CLUSTER_CLICK = 10, JITTER_MAX_DEG = 0.02;
+            const MIN_ZOOM = 2, MAX_ZOOM = 9, MAX_ZOOM_CLUSTER_CLICK = 5, JITTER_MAX_DEG = 0.02;
             let map, clusterer, markers = [];
             let totalCount = 0, loadedCount = 0, isLoading = false;
             let loadedProfiles = [];

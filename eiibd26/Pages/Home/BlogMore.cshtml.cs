@@ -148,13 +148,45 @@ namespace eiibd26.Pages.Home
             var total = await idsQuery.Distinct().CountAsync();
             Response.Headers["X-Total-Count"] = total.ToString();
 
-            var contentsQuery = _db.Contenidos
+            // ✅ LOAD ALL RESULTS IN MEMORY FOR SCORING (before pagination)
+            var contentsQueryAll = await _db.Contenidos
                 .AsNoTracking()
                 .Include(c => c.AutorPerfil)
                 .Where(c => idsQuery.Contains(c.Id))
-                .OrderByDescending(c => c.FechaCreado);
+                .ToListAsync();  // ← Load all into memory for scoring
 
-            var items = await contentsQuery
+            // ✅ APPLY RELEVANCE SCORING when searching
+            bool hasSearch = !string.IsNullOrWhiteSpace(Q);
+            if (hasSearch)
+            {
+                var contentWithScores = contentsQueryAll
+                    .Select(c => new
+                    {
+                        Content = c,
+                        RelevanceScore = CalculateRelevanceScore(c, Q)
+                    })
+                    .OrderByDescending(x => x.RelevanceScore)           // ← Primary: relevance score
+                    .ThenByDescending(x => x.Content.FechaCreado)       // ← Secondary: date
+                    .ToList();
+
+                contentsQueryAll = contentWithScores.Select(x => x.Content).ToList();
+
+                // DEBUG
+                var debugResults = contentWithScores.Take(5).Select(c => new { Title = c.Content.ContenidoTitulo, Score = c.RelevanceScore }).ToList();
+                System.Diagnostics.Debug.WriteLine($"🔍 SEARCH: '{Q}' | Found {contentsQueryAll.Count} results | PAGE {PageNumber}");
+                foreach (var r in debugResults)
+                {
+                    System.Diagnostics.Debug.WriteLine($"  → Score {r.Score}: {r.Title}");
+                }
+            }
+            else
+            {
+                contentsQueryAll = contentsQueryAll.OrderByDescending(c => c.FechaCreado).ToList();
+            }
+
+            var contentsQuery = contentsQueryAll.AsEnumerable();
+
+            var items = contentsQuery
                 .Skip(skip)
                 .Take(PageSize)
                 .Select(c => new BlogItemVm
@@ -182,7 +214,7 @@ namespace eiibd26.Pages.Home
                     Treatments = new List<string>(),
                     RelatedQuestionsCount = 0
                 })
-                .ToListAsync();
+                .ToList();
 
             // Adjuntar categorías y slugs igual que en Index/porCategoria
             var contentIds = items.Select(i => i.Id).ToList();
@@ -252,6 +284,85 @@ namespace eiibd26.Pages.Home
 
             Items = items;
             return Page();
+        }
+
+        /// <summary>
+        /// Calculates relevance score for content based on where the search term appears.
+        /// ✅ SCORING RULES:
+        /// 
+        /// BÚSQUEDA EN TÍTULO (Prioridad 1):
+        ///   - Exacto (título == término)                           → 10,000
+        ///   - Comienza con (término al inicio)                    → 5,000
+        ///   - Contiene palabra límite (con espacios alrededor)    → 2,000
+        ///   - Contiene como substring (en cualquier lugar)        → 1,000
+        /// 
+        /// BÚSQUEDA EN CONTENIDO LARGO (Prioridad 2, solo si NO en título):
+        ///   - Contiene término                                     → 100
+        /// 
+        /// GARANTÍA: Resultados en TÍTULO siempre > Resultados en CONTENIDO
+        /// </summary>
+        private int CalculateRelevanceScore(Contenido content, string searchTerm)
+        {
+            if (string.IsNullOrWhiteSpace(searchTerm))
+                return 0;
+
+            int score = 0;
+            string term = searchTerm.Trim().ToLower();
+            bool foundInTitle = false;
+
+            // =====================================================
+            // PASO 1: BUSCAR EN TÍTULO (máxima prioridad)
+            // =====================================================
+            if (!string.IsNullOrWhiteSpace(content.ContenidoTitulo))
+            {
+                string titleLower = content.ContenidoTitulo.ToLower();
+
+                // 🥇 EXACTO: Título = término exacto
+                if (titleLower == term)
+                {
+                    score = 10000;
+                    foundInTitle = true;
+                    System.Diagnostics.Debug.WriteLine($"  [EXACTO] '{term}' = '{content.ContenidoTitulo}' → {score}");
+                }
+                // 🥈 COMIENZA CON: Término al inicio del título
+                else if (titleLower.StartsWith(term + " "))
+                {
+                    score = 5000;
+                    foundInTitle = true;
+                    System.Diagnostics.Debug.WriteLine($"  [COMIENZA] '{term}' at start of '{content.ContenidoTitulo}' → {score}");
+                }
+                // 🥉 PALABRA LÍMITE: Término con espacios alrededor
+                else if (titleLower.Contains(" " + term + " ") ||
+                         titleLower.Contains(" " + term) ||
+                         titleLower.Contains(term + " "))
+                {
+                    score = 2000;
+                    foundInTitle = true;
+                    System.Diagnostics.Debug.WriteLine($"  [LÍMITE] '{term}' word boundary in '{content.ContenidoTitulo}' → {score}");
+                }
+                // 🎯 SUBSTRING: Contiene el término
+                else if (titleLower.Contains(term))
+                {
+                    score = 1000;
+                    foundInTitle = true;
+                    System.Diagnostics.Debug.WriteLine($"  [SUBSTRING] '{term}' in '{content.ContenidoTitulo}' → {score}");
+                }
+            }
+
+            // =====================================================
+            // PASO 2: BUSCAR EN CONTENIDO LARGO (solo si NOT en título)
+            // =====================================================
+            if (!foundInTitle && !string.IsNullOrWhiteSpace(content.ContenidoTextoL))
+            {
+                string longLower = content.ContenidoTextoL.ToLower();
+                if (longLower.Contains(term))
+                {
+                    score = 100;
+                    System.Diagnostics.Debug.WriteLine($"  [LARGO] '{term}' in long content → {score}");
+                }
+            }
+
+            return score;
         }
     }
 }
