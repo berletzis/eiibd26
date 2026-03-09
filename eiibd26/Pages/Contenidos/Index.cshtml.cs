@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Security.Claims;
 using eiibd26.Data;
 using eiibd26.Models;
-using Microsoft.EntityFrameworkCore.Query;
 
 namespace eiibd26.Pages.Contenidos
 {
@@ -157,16 +156,14 @@ namespace eiibd26.Pages.Contenidos
             // ✅ SEARCH WITH RELEVANCE: Project data for scoring
             bool hasSearch = !string.IsNullOrWhiteSpace(SearchQuery);
             string searchTerm = hasSearch ? SearchQuery.Trim() : "";
-            string searchPattern = hasSearch ? $"%{searchTerm}%" : "";
 
             if (hasSearch)
             {
-                // Filter: must match in at least one field (case-insensitive)
-                // Using EF.Functions.Like for better SQL Server compatibility
+                // Filter: must match in at least one field
                 baseQuery = baseQuery.Where(c =>
-                    EF.Functions.Like(c.ContenidoTitulo, searchPattern) ||
-                    EF.Functions.Like(c.ContenidoTextoC, searchPattern) ||
-                    EF.Functions.Like(c.ContenidoTextoL, searchPattern));
+                    (c.ContenidoTitulo ?? "").Contains(searchTerm) ||
+                    (c.ContenidoTextoC ?? "").Contains(searchTerm) ||
+                    (c.ContenidoTextoL ?? "").Contains(searchTerm));
             }
 
             // --- Build IDs subquery and apply filters (AND across types) ---
@@ -202,56 +199,16 @@ namespace eiibd26.Pages.Contenidos
                 idsQuery = idsQuery.Where(id => tratContentIds.Contains(id));
             }
 
-            // --- Load all matching contents FIRST (before pagination) ---
-            var allContents = await _db.Contenidos
+            // --- Compute totals and load page of contents ---
+            TotalCount = await idsQuery.Distinct().CountAsync();
+
+            var contentsQuery = _db.Contenidos
                 .AsNoTracking()
                 .Include(c => c.AutorPerfil)
                 .Where(c => idsQuery.Contains(c.Id))
-                .ToListAsync();
+                .OrderByDescending(c => c.FechaCreado);
 
-            // ✅ APPLY RELEVANCE SCORING when searching
-            if (hasSearch)
-            {
-                // Build a list with scores for sorting
-                var contentWithScores = allContents
-                    .Select(c => new
-                    {
-                        Content = c,
-                        RelevanceScore = CalculateRelevanceScore(c, searchTerm)
-                    })
-                    .OrderByDescending(x => x.RelevanceScore)           // ← Primary: relevance score
-                    .ThenByDescending(x => x.Content.FechaCreado)       // ← Secondary: date (newest first)
-                    .ToList();
-
-                // Re-order allContents based on scored list
-                allContents = contentWithScores.Select(x => x.Content).ToList();
-
-                // DEBUG: Log top results with their scores
-                var debugResults = contentWithScores
-                    .Take(5)
-                    .Select(c => new
-                    {
-                        Title = c.Content.ContenidoTitulo,
-                        Score = c.RelevanceScore
-                    })
-                    .ToList();
-
-                System.Diagnostics.Debug.WriteLine($"🔍 SEARCH: '{searchTerm}' | Found {allContents.Count} results | PAGE {PageNumber}");
-                foreach (var r in debugResults)
-                {
-                    System.Diagnostics.Debug.WriteLine($"  → Score {r.Score}: {r.Title}");
-                }
-            }
-            else
-            {
-                // No search: order by date (newest first)
-                allContents = allContents.OrderByDescending(c => c.FechaCreado).ToList();
-            }
-
-            // --- Compute total AFTER scoring/ordering (for display) ---
-            TotalCount = allContents.Count;
-
-            var items = allContents
+            var items = await contentsQuery
                 .Skip(skip)
                 .Take(PageSize)
                 .Select(c => new BlogItemVm
@@ -274,7 +231,7 @@ namespace eiibd26.Pages.Contenidos
                     Treatments = new List<string>(),
                     RelatedQuestionsCount = 0
                 })
-                .ToList();
+                .ToListAsync();
 
             Items = items;
 
@@ -406,91 +363,6 @@ namespace eiibd26.Pages.Contenidos
             }
 
             return Page();
-        }
-
-        /// <summary>
-        /// Calculates relevance score for content based on where the search term appears.
-        /// ✅ SCORING RULES:
-        /// 
-        /// BÚSQUEDA EN TÍTULO (Prioridad 1):
-        ///   - Exacto (título == término)                           → 10,000
-        ///   - Comienza con (término al inicio)                    → 5,000
-        ///   - Contiene palabra límite (con espacios alrededor)    → 2,000
-        ///   - Contiene como substring (en cualquier lugar)        → 1,000
-        /// 
-        /// BÚSQUEDA EN CONTENIDO LARGO (Prioridad 2, solo si NO en título):
-        ///   - Contiene término                                     → 100
-        /// 
-        /// GARANTÍA: Resultados en TÍTULO siempre > Resultados en CONTENIDO
-        /// </summary>
-        private int CalculateRelevanceScore(Contenido content, string searchTerm)
-        {
-            if (string.IsNullOrWhiteSpace(searchTerm))
-                return 0;
-
-            int score = 0;
-            string term = searchTerm.Trim().ToLower();
-            bool foundInTitle = false;
-
-            // =====================================================
-            // PASO 1: BUSCAR EN TÍTULO (máxima prioridad)
-            // =====================================================
-            if (!string.IsNullOrWhiteSpace(content.ContenidoTitulo))
-            {
-                string titleLower = content.ContenidoTitulo.ToLower();
-
-                // 🥇 EXACTO: Título = término exacto
-                // Ejemplo: Búsqueda "Diarrea" → Título "Diarrea"
-                if (titleLower == term)
-                {
-                    score = 10000;
-                    foundInTitle = true;
-                    System.Diagnostics.Debug.WriteLine($"  [EXACTO] '{term}' = '{content.ContenidoTitulo}' → {score}");
-                }
-                // 🥈 COMIENZA CON: Término al inicio del título
-                // Ejemplo: Búsqueda "Diarrea" → Título "Diarrea en EII"
-                else if (titleLower.StartsWith(term + " "))
-                {
-                    score = 5000;
-                    foundInTitle = true;
-                    System.Diagnostics.Debug.WriteLine($"  [COMIENZA] '{term}' at start of '{content.ContenidoTitulo}' → {score}");
-                }
-                // 🥉 PALABRA LÍMITE: Término con espacios alrededor (palabra completa)
-                // Ejemplo: Búsqueda "diarrea" → Título "Síntomas de diarrea en niños"
-                else if (titleLower.Contains(" " + term + " ") ||
-                         titleLower.Contains(" " + term) ||
-                         titleLower.Contains(term + " "))
-                {
-                    score = 2000;
-                    foundInTitle = true;
-                    System.Diagnostics.Debug.WriteLine($"  [LÍMITE] '{term}' word boundary in '{content.ContenidoTitulo}' → {score}");
-                }
-                // 🎯 SUBSTRING: Contiene el término en cualquier lugar
-                // Ejemplo: Búsqueda "diarrea" → Título "Diarreas virales"
-                else if (titleLower.Contains(term))
-                {
-                    score = 1000;
-                    foundInTitle = true;
-                    System.Diagnostics.Debug.WriteLine($"  [SUBSTRING] '{term}' in '{content.ContenidoTitulo}' → {score}");
-                }
-            }
-
-            // =====================================================
-            // PASO 2: BUSCAR EN CONTENIDO LARGO (solo si NOT en título)
-            // =====================================================
-            // Solo buscar contenido largo si NO encontramos en título
-            // Esto asegura que TÍTULO siempre tenga prioridad
-            if (!foundInTitle && !string.IsNullOrWhiteSpace(content.ContenidoTextoL))
-            {
-                string longLower = content.ContenidoTextoL.ToLower();
-                if (longLower.Contains(term))
-                {
-                    score = 100;  // Mucho más bajo que cualquier coincidencia en título
-                    System.Diagnostics.Debug.WriteLine($"  [LARGO] '{term}' in long content → {score}");
-                }
-            }
-
-            return score;
         }
     }
 }
