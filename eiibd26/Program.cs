@@ -205,6 +205,12 @@ builder.Services.AddSingleton<eiibd26.Services.AI.IAiAnswerService, eiibd26.Serv
 builder.Services.AddSingleton<eiibd26.Services.AI.IAiPromptBuilder, eiibd26.Services.AI.AiPromptBuilder>();
 builder.Services.AddSingleton<eiibd26.Services.AI.IAiSafetyService, eiibd26.Services.AI.AiSafetyService>();
 builder.Services.AddScoped<eiibd26.Services.AI.ISimilarQuestionDetector, eiibd26.Services.AI.SimilarQuestionDetector>();
+// ⭐ NUEVO: Servicio especializado para generar descripciones de Síntomas y Tratamientos
+builder.Services.AddScoped<eiibd26.Services.AI.ISintomasTratamientosAiService, eiibd26.Services.AI.SintomasTratamientosAiService>();
+
+// ⭐ GLOSSARY MODULE: Servicios para navegación médica desacoplada
+builder.Services.AddScoped<eiibd26.Services.Glossary.Adapters.IMedicalDataAdapter, eiibd26.Services.Glossary.Adapters.MedicalDataAdapter>();
+builder.Services.AddScoped<eiibd26.Services.Glossary.IGlossaryService, eiibd26.Services.Glossary.GlossaryService>();
 
 // Register HttpClient for Anthropic API
 builder.Services.AddHttpClient("AnthropicClient", (serviceProvider, client) =>

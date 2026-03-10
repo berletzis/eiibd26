@@ -10,6 +10,20 @@ using System.Threading.Tasks;
 
 namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
 {
+    // DTO simple para evitar problemas con tipos anónimos y dinámicos
+    public class TratamientoGridItem
+    {
+        public int id { get; set; }
+        public string? nombre { get; set; }
+        public int? idPadre { get; set; }
+        public int? idIdioma { get; set; }
+        public bool Eliminado { get; set; }
+        public string? icono { get; set; }
+        public bool ValidadoIA { get; set; }
+        public bool ValidadoHumano { get; set; }
+        public bool RelacionEII { get; set; }
+    }
+
     [IgnoreAntiforgeryToken]
     public class IndexModel : PageModel
     {
@@ -29,14 +43,30 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
             var length = int.TryParse(Request.Query["length"], out var lVal) ? lVal : 10;
             var searchValue = Request.Query["search[value]"].ToString();
 
-            var baseQuery = _db.tratamientos.Where(t => mostrarEliminados || !t.Eliminado);
+            // Filtrar en EF Core ANTES de Select (en SQL)
+            var baseQuery = _db.tratamientos
+                .AsNoTracking()
+                .Where(t => mostrarEliminados || !t.Eliminado);
 
-            // 1. Todos los tratamientos que cumplan el filtro (hijos y padres)
-            var filtered = string.IsNullOrEmpty(searchValue)
-                ? await baseQuery.ToListAsync()
-                : await baseQuery
-                    .Where(t => t.nombre.Contains(searchValue))
-                    .ToListAsync();
+            // Aplicar búsqueda en SQL
+            if (!string.IsNullOrEmpty(searchValue))
+            {
+                baseQuery = baseQuery.Where(t => t.nombre.Contains(searchValue));
+            }
+
+            // Ahora proyectar al DTO
+            var projectedQuery = baseQuery.Select(t => new TratamientoGridItem
+            {
+                id = t.id,
+                nombre = t.nombre ?? string.Empty,
+                idPadre = t.idPadre,
+                idIdioma = t.idIdioma,
+                Eliminado = t.Eliminado,
+                icono = t.icono ?? string.Empty
+            });
+
+            // 1. Ejecutar la query y traer datos a memoria
+            var filtered = await projectedQuery.ToListAsync();
 
             // 2. Separa padres filtrados y los hijos filtrados
             var hijosConPadre = filtered.Where(x => x.idPadre != null).ToList();
@@ -50,11 +80,21 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
                 .ToList();
 
             // 4. Trae los padres estrictamente necesarios para mostrar los hijos
-            var padresExtra = new List<tratamientos>();
+            var padresExtra = new List<TratamientoGridItem>();
             if (padresExtraIds.Any())
             {
                 padresExtra = await _db.tratamientos
+                    .AsNoTracking()
                     .Where(t => padresExtraIds.Contains(t.id))
+                    .Select(t => new TratamientoGridItem
+                    {
+                        id = t.id,
+                        nombre = t.nombre,
+                        idPadre = t.idPadre,
+                        idIdioma = t.idIdioma,
+                        Eliminado = t.Eliminado,
+                        icono = t.icono
+                    })
                     .ToListAsync();
             }
 

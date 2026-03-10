@@ -63,6 +63,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     // Article Ratings
     public DbSet<ArticleRating> ArticleRatings { get; set; }
 
+    // ⭐ GLOSSARY MODULE (Desacoplado - solo índice de navegación)
+    public DbSet<eiibd26.Models.Glossary.GlossaryTerm> GlossaryTerms { get; set; }
+    public DbSet<eiibd26.Models.Glossary.GlossaryTermMedicalLink> GlossaryTermMedicalLinks { get; set; }
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

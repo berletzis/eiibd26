@@ -1,0 +1,247 @@
+@page "/Termino/{slug}"
+@model eiibd26.Pages.Glosario.TerminoModel
+@{
+    if (Model.Term == null)
+    {
+        ViewData["Title"] = "Término no encontrado";
+    }
+    else
+    {
+        ViewData["Title"] = Model.Term.Nombre + " - Glosario Médico";
+
+        // Descripción para SEO (máximo 160 caracteres)
+        var descripcionIA = Model.Term.DefinicionMedica?.DescripcionIA;
+        if (!string.IsNullOrWhiteSpace(descripcionIA))
+        {
+            var maxLength = Math.Min(160, descripcionIA.Length);
+            ViewData["Description"] = descripcionIA.Substring(0, maxLength);
+        }
+        else
+        {
+            ViewData["Description"] = $"Información sobre {Model.Term.Nombre}";
+        }
+    }
+}
+
+@if (Model.Term == null)
+{
+    <div class="container py-5">
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i>
+            <strong>Término no encontrado</strong>
+            <p class="mb-0">El término que buscas no existe o está inactivo.</p>
+        </div>
+        <a href="/Glosario" class="btn btn-primary">
+            <i class="bi bi-arrow-left"></i> Volver al Glosario
+        </a>
+    </div>
+}
+else
+{
+    var tipoClase = Model.Term.TipoTermino == eiibd26.Models.Glossary.GlossaryTermType.Sintoma ? "primary" : "success";
+    var tipoIcono = Model.Term.TipoTermino == eiibd26.Models.Glossary.GlossaryTermType.Sintoma ? "heart-pulse" : "prescription2";
+
+    <div class="container py-5">
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/">Inicio</a></li>
+                <li class="breadcrumb-item"><a href="/Glosario">Glosario</a></li>
+                <li class="breadcrumb-item">
+                    <a href="/Glosario/@(Model.Term.TipoTermino == eiibd26.Models.Glossary.GlossaryTermType.Sintoma ? "Sintomas" : "Tratamientos")">
+                        @(Model.Term.TipoTermino == eiibd26.Models.Glossary.GlossaryTermType.Sintoma ? "Síntomas" : "Tratamientos")
+                    </a>
+                </li>
+                <li class="breadcrumb-item active">@Model.Term.Nombre</li>
+            </ol>
+        </nav>
+
+        <!-- Header del término -->
+        <div class="row mb-4">
+            <div class="col">
+                <div class="d-flex align-items-center mb-3">
+                    <i class="bi bi-@tipoIcono display-3 text-@tipoClase me-3"></i>
+                    <div>
+                        <span class="badge bg-@tipoClase mb-2">
+                            @(Model.Term.TipoTermino == eiibd26.Models.Glossary.GlossaryTermType.Sintoma ? "Síntoma" : "Tratamiento")
+                        </span>
+                        <h1 class="display-4 fw-bold mb-0">@Model.Term.Nombre</h1>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Columna principal -->
+            <div class="col-lg-8">
+                <!-- Definición médica -->
+                @if (Model.Term.DefinicionMedica != null)
+                {
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-@tipoClase text-white">
+                            <h2 class="h5 mb-0">
+                                <i class="bi bi-file-medical"></i> Definición Médica
+                            </h2>
+                        </div>
+                        <div class="card-body">
+                            @if (!string.IsNullOrWhiteSpace(Model.Term.DefinicionMedica.DescripcionIA))
+                            {
+                                <div class="medical-definition">
+                                    @Html.Raw(Model.Term.DefinicionMedica.DescripcionIA.Replace("\n", "<br>"))
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="text-muted mb-0">
+                                    <i class="bi bi-info-circle"></i>
+                                    Definición pendiente de generar.
+                                </p>
+                            }
+
+                            <!-- Relación con EII -->
+                            @if (Model.Term.DefinicionMedica.RelacionEII && !string.IsNullOrWhiteSpace(Model.Term.DefinicionMedica.RelacionEIIDescripcion))
+                            {
+                                <div class="alert alert-info mt-3 mb-0">
+                                    <h6 class="alert-heading">
+                                        <i class="bi bi-link-45deg"></i> Relación con EII
+                                    </h6>
+                                    <p class="mb-0">@Model.Term.DefinicionMedica.RelacionEIIDescripcion</p>
+                                    
+                                    @if (!string.IsNullOrWhiteSpace(Model.Term.DefinicionMedica.Fuentes))
+                                    {
+                                        <hr class="my-2">
+                                        <small class="text-muted">
+                                            <i class="bi bi-book"></i> <strong>Fuentes:</strong> @Model.Term.DefinicionMedica.Fuentes
+                                        </small>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        No hay definición médica disponible para este término.
+                    </div>
+                }
+
+                <!-- Artículos relacionados -->
+                @if (Model.Term.ArticulosRelacionados.Any())
+                {
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header">
+                            <h2 class="h5 mb-0">
+                                <i class="bi bi-newspaper"></i> Artículos Relacionados
+                            </h2>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                @foreach (var articulo in Model.Term.ArticulosRelacionados)
+                                {
+                                    <div class="col-md-6">
+                                        <div class="card h-100 border-0 shadow-sm hover-card">
+                                            @if (!string.IsNullOrWhiteSpace(articulo.ImagenDestacada))
+                                            {
+                                                <img src="@articulo.ImagenDestacada" 
+                                                     class="card-img-top" 
+                                                     alt="@articulo.Titulo"
+                                                     style="height: 150px; object-fit: cover;">
+                                            }
+                                            <div class="card-body">
+                                                <h6 class="card-title">
+                                                    <a href="/Contenidos/@articulo.Slug" class="text-decoration-none text-dark">
+                                                        @articulo.Titulo
+                                                    </a>
+                                                </h6>
+                                                @if (!string.IsNullOrWhiteSpace(articulo.Resumen))
+                                                {
+                                                    <p class="card-text small text-muted">
+                                                        @articulo.Resumen
+                                                    </p>
+                                                }
+                                                @if (articulo.FechaPublicacion.HasValue)
+                                                {
+                                                    <small class="text-muted">
+                                                        <i class="bi bi-calendar3"></i> @articulo.FechaPublicacion.Value.ToString("dd MMM yyyy")
+                                                    </small>
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Placeholder Comunidad (futuro) -->
+                <div class="card shadow-sm mb-4 border-dashed">
+                    <div class="card-body text-center py-5">
+                        <i class="bi bi-people display-1 text-muted mb-3"></i>
+                        <h3 class="text-muted">Experiencias de la Comunidad</h3>
+                        <p class="text-muted">
+                            Próximamente podrás compartir y leer experiencias de otras personas con este término.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4">
+                <!-- Navegación rápida -->
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0">
+                            <i class="bi bi-compass"></i> Navegación
+                        </h6>
+                    </div>
+                    <div class="list-group list-group-flush">
+                        <a href="/Glosario" class="list-group-item list-group-item-action">
+                            <i class="bi bi-house"></i> Volver al Glosario
+                        </a>
+                        <a href="/Glosario/Sintomas" class="list-group-item list-group-item-action">
+                            <i class="bi bi-heart-pulse"></i> Ver todos los Síntomas
+                        </a>
+                        <a href="/Glosario/Tratamientos" class="list-group-item list-group-item-action">
+                            <i class="bi bi-prescription2"></i> Ver todos los Tratamientos
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Disclaimer -->
+                <div class="card shadow-sm border-warning">
+                    <div class="card-body">
+                        <h6 class="text-warning">
+                            <i class="bi bi-exclamation-triangle-fill"></i> Aviso Importante
+                        </h6>
+                        <small class="text-muted">
+                            Esta información es educativa y no reemplaza el consejo médico profesional. 
+                            Siempre consulta con tu médico sobre tu condición y tratamiento.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section Styles {
+    <style>
+        .hover-card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .hover-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+        }
+        .medical-definition {
+            font-size: 1.05rem;
+            line-height: 1.7;
+        }
+        .border-dashed {
+            border-style: dashed !important;
+        }
+    </style>
+}

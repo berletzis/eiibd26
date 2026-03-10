@@ -105,44 +105,63 @@ namespace eiibd26.Pages.Home
                     (c.ContenidoTextoL ?? "").Contains(q));
             }
 
-            // Filtros por tags
+            // Filtros por tags (OR across all types)
             var condIds = ParseIds(ConditionIds);
             var sintIds = ParseIds(SintomaIds);
             var tratIds = ParseIds(TratamientoIds);
 
             IQueryable<int> idsQuery = baseQuery.Select(c => c.Id);
 
-            if (condIds.Any())
+            // Si hay filtros, usar OR para combinar resultados de diferentes tipos
+            if (condIds.Any() || sintIds.Any() || tratIds.Any())
             {
-                var condContentIds = _db.ContenidoCondiciones
-                    .AsNoTracking()
-                    .Where(rel => !rel.Borrado && condIds.Contains(rel.CondicionId))
-                    .Select(rel => rel.ContenidoId)
-                    .Distinct();
+                // Crear un conjunto de IDs que cumplan con CUALQUIER filtro (OR)
+                var filteredIds = new HashSet<int>();
 
-                idsQuery = idsQuery.Where(id => condContentIds.Contains(id));
-            }
+                // Agregar IDs de contenidos que coincidan con Condiciones seleccionadas
+                if (condIds.Any())
+                {
+                    var condContentIds = await _db.ContenidoCondiciones
+                        .AsNoTracking()
+                        .Where(rel => !rel.Borrado && condIds.Contains(rel.CondicionId))
+                        .Select(rel => rel.ContenidoId)
+                        .Distinct()
+                        .ToListAsync();
 
-            if (sintIds.Any())
-            {
-                var sintContentIds = _db.ContenidoSintomas
-                    .AsNoTracking()
-                    .Where(rel => !rel.Borrado && sintIds.Contains(rel.SintomaId))
-                    .Select(rel => rel.ContenidoId)
-                    .Distinct();
+                    foreach (var id in condContentIds)
+                        filteredIds.Add(id);
+                }
 
-                idsQuery = idsQuery.Where(id => sintContentIds.Contains(id));
-            }
+                // Agregar IDs de contenidos que coincidan con Síntomas seleccionados
+                if (sintIds.Any())
+                {
+                    var sintContentIds = await _db.ContenidoSintomas
+                        .AsNoTracking()
+                        .Where(rel => !rel.Borrado && sintIds.Contains(rel.SintomaId))
+                        .Select(rel => rel.ContenidoId)
+                        .Distinct()
+                        .ToListAsync();
 
-            if (tratIds.Any())
-            {
-                var tratContentIds = _db.ContenidoTratamientos
-                    .AsNoTracking()
-                    .Where(rel => !rel.Borrado && tratIds.Contains(rel.TratamientoId))
-                    .Select(rel => rel.ContenidoId)
-                    .Distinct();
+                    foreach (var id in sintContentIds)
+                        filteredIds.Add(id);
+                }
 
-                idsQuery = idsQuery.Where(id => tratContentIds.Contains(id));
+                // Agregar IDs de contenidos que coincidan con Tratamientos seleccionados
+                if (tratIds.Any())
+                {
+                    var tratContentIds = await _db.ContenidoTratamientos
+                        .AsNoTracking()
+                        .Where(rel => !rel.Borrado && tratIds.Contains(rel.TratamientoId))
+                        .Select(rel => rel.ContenidoId)
+                        .Distinct()
+                        .ToListAsync();
+
+                    foreach (var id in tratContentIds)
+                        filteredIds.Add(id);
+                }
+
+                // Aplicar el filtro: solo incluir contenidos que están en el conjunto filteredIds
+                idsQuery = idsQuery.Where(id => filteredIds.Contains(id));
             }
 
             var total = await idsQuery.Distinct().CountAsync();

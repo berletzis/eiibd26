@@ -10,6 +10,20 @@ using System.Threading.Tasks;
 
 namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
 {
+    // DTO simple para evitar problemas con tipos anónimos y dinámicos
+    public class SintomaGridItem
+    {
+        public int id { get; set; }
+        public string? nombre { get; set; }
+        public int? idPadre { get; set; }
+        public int? idIdioma { get; set; }
+        public bool Eliminado { get; set; }
+        public string? icono { get; set; }
+        public bool ValidadoIA { get; set; }
+        public bool ValidadoHumano { get; set; }
+        public bool RelacionEII { get; set; }
+    }
+
     [IgnoreAntiforgeryToken]
     public class IndexModel : PageModel
     {
@@ -29,14 +43,33 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
             var length = int.TryParse(Request.Query["length"], out var lVal) ? lVal : 10;
             var searchValue = Request.Query["search[value]"].ToString();
 
-            var baseQuery = _db.sintomas.Where(s => mostrarEliminados || !s.Eliminado);
+            // Filtrar en EF Core ANTES de Select (en SQL)
+            var baseQuery = _db.sintomas
+                .AsNoTracking()
+                .Where(s => mostrarEliminados || !s.Eliminado);
 
-            // 1. Todos los síntomas que cumplan el filtro (hijos y padres)
-            var filtered = string.IsNullOrEmpty(searchValue)
-                ? await baseQuery.ToListAsync()
-                : await baseQuery
-                    .Where(s => s.nombre.Contains(searchValue))
-                    .ToListAsync();
+            // Aplicar búsqueda en SQL
+            if (!string.IsNullOrEmpty(searchValue))
+            {
+                baseQuery = baseQuery.Where(s => s.nombre.Contains(searchValue));
+            }
+
+            // Ahora proyectar al DTO
+            var projectedQuery = baseQuery.Select(s => new SintomaGridItem
+            {
+                id = s.id,
+                nombre = s.nombre ?? string.Empty,
+                idPadre = s.idPadre,
+                idIdioma = s.idIdioma,
+                Eliminado = s.Eliminado,
+                icono = s.icono ?? string.Empty,
+                ValidadoIA = s.ValidadoIA,
+                ValidadoHumano = s.ValidadoHumano,
+                RelacionEII = s.RelacionEII
+            });
+
+            // 1. Ejecutar la query y traer datos a memoria
+            var filtered = await projectedQuery.ToListAsync();
 
             // 2. Separa padres filtrados y los hijos filtrados
             var hijosConPadre = filtered.Where(x => x.idPadre != null).ToList();
@@ -50,11 +83,24 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
                 .ToList();
 
             // 4. Trae los padres estrictamente necesarios para mostrar los hijos
-            var padresExtra = new List<sintomas>();
+            var padresExtra = new List<SintomaGridItem>();
             if (padresExtraIds.Any())
             {
                 padresExtra = await _db.sintomas
+                    .AsNoTracking()
                     .Where(s => padresExtraIds.Contains(s.id))
+                    .Select(s => new SintomaGridItem
+                    {
+                        id = s.id,
+                        nombre = s.nombre ?? string.Empty,
+                        idPadre = s.idPadre,
+                        idIdioma = s.idIdioma,
+                        Eliminado = s.Eliminado,
+                        icono = s.icono ?? string.Empty,
+                        ValidadoIA = s.ValidadoIA,
+                        ValidadoHumano = s.ValidadoHumano,
+                        RelacionEII = s.RelacionEII
+                    })
                     .ToListAsync();
             }
 
@@ -70,7 +116,10 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
                     idPadre = padre.idPadre,
                     idIdioma = padre.idIdioma,
                     icono = padre.icono,
-                    eliminado = padre.Eliminado
+                    eliminado = padre.Eliminado,
+                    validadoIA = padre.ValidadoIA,
+                    validadoHumano = padre.ValidadoHumano,
+                    relacionEII = padre.RelacionEII
                 });
 
                 var hijos = hijosConPadre
@@ -88,7 +137,10 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
                         idPadre = h.idPadre,
                         idIdioma = h.idIdioma,
                         icono = h.icono,
-                        eliminado = h.Eliminado
+                        eliminado = h.Eliminado,
+                        validadoIA = h.ValidadoIA,
+                        validadoHumano = h.ValidadoHumano,
+                        relacionEII = h.RelacionEII
                     });
                 }
             }
@@ -107,21 +159,33 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
 
         public async Task<IActionResult> OnGetGetSintomaAsync(int id)
         {
-            var s = await _db.sintomas
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.id == id);
-
-            if (s == null) return NotFound();
-
-            return new JsonResult(new
+            try
             {
-                id = s.id,
-                nombre = s.nombre,
-                idPadre = s.idPadre,
-                idIdioma = s.idIdioma,
-                icono = s.icono,
-                eliminado = s.Eliminado
-            });
+                var s = await _db.sintomas
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(x => x.id == id);
+
+                if (s == null)
+                {
+                    return new JsonResult(new { success = false, message = "Síntoma no encontrado." }) { StatusCode = 404 };
+                }
+
+                return new JsonResult(new
+                {
+                    success = true,
+                    id = s.id,
+                    nombre = s.nombre ?? string.Empty,
+                    idPadre = s.idPadre,
+                    idIdioma = s.idIdioma,
+                    icono = s.icono ?? string.Empty,
+                    eliminado = s.Eliminado
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("OnGetGetSintomaAsync error: " + ex);
+                return new JsonResult(new { success = false, message = "Error al obtener el síntoma." }) { StatusCode = 500 };
+            }
         }
 
         public async Task<IActionResult> OnPostEditarSintomaAsync()

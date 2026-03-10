@@ -11,11 +11,101 @@
             background: #f5f7fb;
         }
 
+        /* ===== NUEVO LAYOUT CON PANEL LATERAL ===== */
         .crm-container-admin {
-            max-width: 1320px;
+            max-width: 1600px;
             margin: 0 auto 30px auto;
-            padding-left: 10px;
-            padding-right: 10px;
+            padding: 0 20px;
+        }
+
+        .admin-layout-flex {
+            display: flex;
+            gap: 24px;
+            min-height: calc(100vh - 200px);
+            margin-top: 20px;
+            transition: all 0.3s ease-out;
+        }
+
+        .grid-wrapper {
+            flex: 1 1 auto;
+            min-width: 0;
+            background: #fff;
+            border-radius: 18px;
+            box-shadow: 0 2px 16px rgba(70,80,120,0.07);
+            padding: 20px;
+            transition: all 0.3s ease-out;
+        }
+
+        .side-panel {
+            width: 0;
+            min-width: 0;
+            flex-shrink: 0;
+            background: #fff;
+            border-radius: 18px;
+            box-shadow: 0 2px 16px rgba(70,80,120,0.07);
+            padding: 0;
+            max-height: calc(100vh - 200px);
+            overflow: hidden;
+            opacity: 0;
+            transition: all 0.3s ease-out;
+            position: sticky;
+            top: 20px;
+            z-index: 10;
+        }
+
+        .side-panel.active {
+            width: 35%;
+            min-width: 400px;
+            padding: 24px;
+            opacity: 1;
+            overflow-y: auto;
+        }
+
+        @@keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .side-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 16px;
+            margin-bottom: 24px;
+        }
+
+        .side-panel-header h3 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #14253f;
+        }
+
+        .btn-close-panel {
+            background: #f3f4f6;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            color: #6b7280;
+            transition: all 0.2s;
+        }
+
+        .btn-close-panel:hover {
+            background: #e5e7eb;
+            color: #374151;
         }
 
         .crm-title-admin {
@@ -23,231 +113,406 @@
             font-weight: 600;
             letter-spacing: -0.07em;
             color: #14253f;
-            margin-bottom: .7em;
+            margin-bottom: 0;
         }
 
-        .table-centered-admin {
-            max-width: 1320px;
-            margin: 0;
-            background: #fff;
-            border-radius: 18px;
-            box-shadow: 0 2px 16px rgba(70,80,120,0.07);
+        /* ===== BOTÓN GENERAR IA ===== */
+        .btn-generar-ia {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
             border: none;
-            padding: 20px 22px 9px 22px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            margin-top: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-generar-ia:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-generar-ia:disabled {
+            background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spinner 0.8s linear infinite;
+        }
+
+        @@keyframes spinner {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ===== ESTILOS EXISTENTES ADAPTADOS ===== */
+        .table-centered-admin {
+            background: transparent;
+            border-radius: 0;
+            box-shadow: none;
+            padding: 0;
+            overflow-x: auto;
+        }
+
+        /* Asegurar que el DataTable sea responsive */
+        .dataTables_wrapper {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        table.dataTable {
+            width: 100% !important;
         }
 
         .dt-controls-flex {
-            max-width: 1320px;
-            margin: 0 auto 8px auto;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 1.5em;
-            flex-wrap: wrap;
+            margin-bottom: 16px;
         }
 
-        .form-switch {
-            padding-left: 2.5em;
-            margin-bottom: 0 !important;
-        }
-
-        .switch-label {
-            font-weight: normal;
-            margin-left: 0.5em;
-            margin-right: 2em;
-        }
-
-        #tratamientosGrid {
-            width: 100% !important;
-            margin: 0;
-        }
-
-            #tratamientosGrid th, #tratamientosGrid td {
-                border: none !important;
-            }
-
-            #tratamientosGrid th {
-                background: #eef4fa !important;
-                color: #3d436c !important;
-                font-weight: 600 !important;
-                border-bottom: 2.7px solid #ddeaf7 !important;
-                font-size: 1.07em;
-            }
-
-            #tratamientosGrid tbody tr {
-                border-bottom: 1.2px solid #e7ebf4 !important;
-                box-shadow: 0 1px 18px #e6edfa0c;
-            }
-
-            #tratamientosGrid tbody td {
-                background: #fff !important;
-                border-top: none !important;
-                border-bottom: 1.1px solid #f2f7fd !important;
-                font-size: 1.05em;
-                padding-top: 13px !important;
-                padding-bottom: 13px !important;
-            }
-
-            #tratamientosGrid tbody tr:nth-child(even) td {
-                background: #f9fbfc !important;
-            }
-
-        .badge-grid-gray {
-            background: #ededed !important;
-            color: #191919 !important;
-            font-weight: 600;
-            font-size: .94em;
-            border-radius: 9px;
-            border: 1px solid #dddddd;
-            padding: 6px 12px;
-            letter-spacing: .01em;
-            box-shadow: 0 1px 7px #dde2eb22;
+        .form-check-input:checked {
+            background-color: #667eea;
+            border-color: #667eea;
         }
 
         .btn-action-tratamiento {
-            background: #f3f8fd !important;
-            color: #315686 !important;
-            border: 1.1px solid #dde3ee !important;
-            font-weight: 500;
-            margin-right: 0.10em;
-            border-radius: 9px !important;
-            box-shadow: 0 2px 8px #dde2eb18;
-            padding: 6px 13px !important;
-            font-size: .98em;
+            padding: 6px 14px;
+            font-size: 0.875rem;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
         }
 
-            .btn-action-tratamiento:hover,
-            .btn-action-tratamiento:focus {
-                background: #e5ecf7 !important;
-                color: #222 !important;
-            }
-
-        .modal-header .btn-close {
-            position: absolute;
-            right: 1rem;
-            top: 1rem;
+        .btn-editar-tratamiento {
+            background: #3b82f6;
+            color: white;
         }
 
-        .crm-modal-header {
-            background: #f7f9fd;
-            border-bottom: 1px solid #e5e8ef;
-            border-top-left-radius: 16px;
-            border-top-right-radius: 16px;
-            padding: 1.1rem 1.5rem;
-            color: #315686;
+        .btn-editar-tratamiento:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
         }
 
-        .crm-modal-title {
-            font-size: 1.34rem;
-            font-weight: 600;
-            color: #315686;
+        .btn-borrar-tratamiento {
+            background: #ef4444;
+            color: white;
         }
 
-        .crm-modal-content {
-            border-radius: 20px;
-            box-shadow: 0 13px 32px 0 #b7c3f859;
-            background: #fff;
+        .btn-borrar-tratamiento:hover {
+            background: #dc2626;
         }
 
-        .crm-modal-footer {
-            border-top: 1px solid #ebecf1;
-            padding: 1rem 1.5rem;
-            background: #f7f9fd;
-            border-bottom-left-radius: 20px;
-            border-bottom-right-radius: 20px;
-            text-align: right;
+        .btn-restaurar-tratamiento {
+            background: #10b981;
+            color: white;
         }
 
-        .crm-modal-body {
-            padding: 1.3rem 1.5rem 1.3rem 1.5rem;
-        }
-
-        .trat-hijo {
-            padding-left: 2em;
-            color: #717485;
+        .btn-restaurar-tratamiento:hover {
+            background: #059669;
         }
 
         .trat-padre {
-            font-weight: bold;
+            font-weight: 600;
+            color: #14253f;
         }
 
-        .table-container-admin {
-            max-width: 1320px;
-            margin: 0 auto;
-        }
-        @@media (max-width: 1100px) {
-            .crm-container-admin, .table-container-admin, .table-centered-admin, .dt-controls-flex
-
-        {
-            max-width: 99vw;
+        .trat-hijo {
+            color: #6b7280;
+            padding-left: 20px;
         }
 
+        .badge-grid-gray {
+            background: #e5e7eb;
+            color: #374151;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            border: 1px solid #10b981;
+            color: #065f46;
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        @@media (max-width: 1200px) {
+            .admin-layout-flex {
+                flex-direction: column;
+            }
+            .grid-wrapper, .side-panel {
+                flex: 1 1 100%;
+                max-width: 100%;
+            }
+            .side-panel {
+                position: static;
+                max-height: none;
+            }
         }
     </style>
 }
 
 <div class="crm-container-admin">
-    <h2 class="crm-title-admin mb-4">Tratamientos</h2>
-    <div class="mb-2 table-centered-admin dt-controls-flex">
-        <div class="form-check form-switch d-inline-block align-middle">
-            <input class="form-check-input" type="checkbox" role="switch" id="switchEliminadosTratamientos">
-            <label class="form-check-label switch-label" for="switchEliminadosTratamientos">Mostrar eliminados</label>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="crm-title-admin mb-0">Tratamientos</h2>
+
+        <!-- ⭐ NUEVO: Botón Actualización Masiva -->
+        <button type="button" class="btn btn-primary btn-lg" id="btnActualizacionMasiva">
+            <i class="bi bi-magic"></i> Actualización Masiva con IA
+        </button>
+    </div>
+
+    <div class="admin-layout-flex">
+        <!-- ===== GRID (LADO IZQUIERDO 65%) ===== -->
+        <div class="grid-wrapper">
+            <div class="dt-controls-flex">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="switchEliminadosTratamientos">
+                    <label class="form-check-label" for="switchEliminadosTratamientos">Mostrar eliminados</label>
+                </div>
+            </div>
+
+            <div class="table-centered-admin">
+                <table id="tratamientosGrid" class="table table-bordered table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Tipo</th>
+                            <th>ID Padre</th>
+                            <th>Idioma</th>
+                            <th><i class="bi bi-robot" title="Validado por IA"></i> IA</th>
+                            <th><i class="bi bi-person-check" title="Validado por Humano"></i> Humano</th>
+                            <th>EII</th>
+                            <th>Eliminado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
         </div>
-    </div>
-    <div class="table-centered-admin">
-        <table id="tratamientosGrid" class="table table-bordered table-hover align-middle mb-0">
-            <thead>
-                <tr>
-                    <th>Nombre</th>
-                    <th>Tipo</th>
-                    <th>ID Padre</th>
-                    <th>Idioma</th>
-                    <th>Eliminado</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-        </table>
-    </div>
-    <!-- Modal Editar -->
-    <div class="modal fade" id="modalEditarTratamiento" tabindex="-1" aria-labelledby="modalEditarTratamientoLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <form id="formEditarTratamiento" class="crm-modal-content modal-content">
-                <div class="crm-modal-header modal-header">
-                    <h5 class="crm-modal-title modal-title" id="modalEditarTratamientoLabel">Editar Tratamiento</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+
+        <!-- ===== PANEL LATERAL (LADO DERECHO 35%) ===== -->
+        <div class="side-panel" id="panelEditarTratamiento">
+            <div class="side-panel-header">
+                <h3>Editar Tratamiento</h3>
+                <button type="button" class="btn-close-panel" id="btnCerrarPanel">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <form id="formEditarTratamiento">
+                <input type="hidden" name="id" id="editTratamiento_id">
+
+                <div class="mb-3">
+                    <label for="editTratamiento_nombre" class="form-label fw-semibold">Nombre</label>
+                    <input type="text" class="form-control" id="editTratamiento_nombre" name="nombre" required>
                 </div>
-                <div class="crm-modal-body modal-body">
-                    <input type="hidden" name="id" id="editTratamiento_id">
-                    <div class="mb-3">
-                        <label for="editTratamiento_nombre" class="form-label">Nombre</label>
-                        <input type="text" class="form-control" id="editTratamiento_nombre" name="nombre" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="editTratamiento_idPadre" class="form-label">ID Padre (dejar vacío si es padre)</label>
-                        <input type="number" class="form-control" id="editTratamiento_idPadre" name="idPadre">
-                    </div>
-                    <div class="mb-3">
-                        <label for="editTratamiento_idIdioma" class="form-label">ID Idioma</label>
-                        <input type="number" class="form-control" id="editTratamiento_idIdioma" name="idIdioma" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="editTratamiento_icono" class="form-label">Ícono</label>
-                        <input type="text" class="form-control" id="editTratamiento_icono" name="icono">
-                    </div>
-                    <div class="mb-3">
-                        <label for="editTratamiento_eliminado" class="form-label">¿Eliminado?</label>
-                        <select class="form-select" id="editTratamiento_eliminado" name="eliminado">
-                            <option value="false">No</option>
-                            <option value="true">Sí</option>
-                        </select>
-                    </div>
-                    <div class="alert alert-success d-none" id="msgEditTratamientoSuccess">¡Edición realizada correctamente!</div>
+
+                <div class="mb-3">
+                    <label for="editTratamiento_idPadre" class="form-label">ID Padre (vacío si es padre)</label>
+                    <input type="number" class="form-control" id="editTratamiento_idPadre" name="idPadre">
                 </div>
-                <div class="crm-modal-footer modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Aceptar cambios</button>
+
+                <div class="mb-3">
+                    <label for="editTratamiento_idIdioma" class="form-label">ID Idioma</label>
+                    <input type="number" class="form-control" id="editTratamiento_idIdioma" name="idIdioma" required>
+                </div>
+
+                <div class="mb-3">
+                    <label for="editTratamiento_icono" class="form-label">Ícono</label>
+                    <input type="text" class="form-control" id="editTratamiento_icono" name="icono">
+                </div>
+
+                <!-- ===== NUEVO: DESCRIPCIÓN IA ===== -->
+                <div class="mb-3">
+                    <label for="editTratamiento_descripcionIA" class="form-label fw-semibold">
+                        <i class="bi bi-magic"></i> Descripción IA
+                    </label>
+                    <textarea class="form-control" id="editTratamiento_descripcionIA" name="descripcionIA" rows="6" 
+                              placeholder="Genera una descripción automática con IA..."></textarea>
+                    <button type="button" class="btn-generar-ia" id="btnGenerarIA">
+                        <i class="bi bi-stars"></i>
+                        <span>Generar con IA</span>
+                    </button>
+                </div>
+
+                <!-- ===== NUEVO: VALIDACIÓN HUMANA ===== -->
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="editTratamiento_validadoHumano" name="validadoHumano">
+                    <label class="form-check-label" for="editTratamiento_validadoHumano">
+                        <i class="bi bi-person-check-fill text-primary"></i> Validado por Humano
+                    </label>
+                </div>
+
+                <!-- ===== NUEVO: RELACIÓN CON EII (SOLO LECTURA) ===== -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">
+                        <i class="bi bi-info-circle-fill text-primary"></i> Relación con EII
+                    </label>
+                    <div class="alert alert-info mb-0" id="editTratamiento_relacionEIIContainer" style="display: none;">
+                        <div class="d-flex align-items-start">
+                            <i class="bi bi-check-circle-fill text-success me-2 mt-1"></i>
+                            <div>
+                                <strong>Este tratamiento está relacionado con la EII</strong>
+                                <p class="mb-0 mt-2" id="editTratamiento_relacionEIITexto"></p>
+
+                                <!-- ⭐ MOSTRAR FUENTES SOLO SI EXISTEN -->
+                                <div class="mt-2 pt-2 border-top" id="editTratamiento_fuentesContainer" style="display: none;">
+                                    <small class="text-muted">
+                                        <i class="bi bi-link-45deg"></i> <strong>Fuentes verificadas:</strong> 
+                                        <span id="editTratamiento_fuentes"></span>
+                                    </small>
+                                </div>
+
+                                <!-- ⭐ DISCLAIMER CUANDO NO HAY FUENTES -->
+                                <div class="mt-2 pt-2 border-top" id="editTratamiento_noFuentesDisclaimer" style="display: none;">
+                                    <small class="text-muted">
+                                        <i class="bi bi-info-circle"></i> 
+                                        <em>Información generada por IA. Consulta fuentes médicas confiables o tu médico para verificar.</em>
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="alert alert-secondary mb-0" id="editTratamiento_noRelacionEIIContainer" style="display: none;">
+                        <div class="d-flex align-items-start">
+                            <i class="bi bi-x-circle text-muted me-2 mt-1"></i>
+                            <div>
+                                <strong>Sin relación documentada con EII</strong>
+                                <p class="mb-0 mt-2 text-muted">No se encontró evidencia de relación con Enfermedad Inflamatoria Intestinal</p>
+                            </div>
+                        </div>
+                    </div>
+                    <small class="text-muted">Esta información la determina la IA automáticamente</small>
+                </div>
+
+                <div class="mb-3">
+                    <label for="editTratamiento_eliminado" class="form-label">Estado</label>
+                    <select class="form-select" id="editTratamiento_eliminado" name="eliminado">
+                        <option value="false">Activo</option>
+                        <option value="true">Eliminado</option>
+                    </select>
+                </div>
+
+                <div class="alert alert-success d-none" id="msgEditTratamientoSuccess">
+                    <i class="bi bi-check-circle-fill"></i> ¡Guardado exitosamente!
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="bi bi-check-lg"></i> Guardar Cambios
+                    </button>
+                    <button type="button" class="btn btn-secondary" id="btnCancelar">
+                        Cancelar
+                    </button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- ⭐ MODAL DE ACTUALIZACIÓN MASIVA -->
+<div class="modal fade" id="modalActualizacionMasiva" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-magic"></i> Actualización Masiva con IA
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" id="btnCerrarModal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle-fill"></i>
+                    <strong>Este proceso generará descripciones IA automáticamente</strong>
+                    <p class="mb-0 mt-2">Se procesarán 10 registros a la vez. Puedes pausar en cualquier momento.</p>
+                </div>
+
+                <!-- Progreso -->
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span><strong>Progreso:</strong></span>
+                        <span id="progresoTexto">0 / 0 procesados</span>
+                    </div>
+                    <div class="progress" style="height: 30px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             id="progressBar" 
+                             role="progressbar" 
+                             style="width: 0%">
+                            0%
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Estadísticas -->
+                <div class="row text-center mb-3">
+                    <div class="col-4">
+                        <div class="card bg-success text-white">
+                            <div class="card-body py-2">
+                                <h3 class="mb-0" id="exitososCount">0</h3>
+                                <small>Exitosos</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="card bg-danger text-white">
+                            <div class="card-body py-2">
+                                <h3 class="mb-0" id="fallidosCount">0</h3>
+                                <small>Fallidos</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="card bg-primary text-white">
+                            <div class="card-body py-2">
+                                <h3 class="mb-0" id="pendientesCount">0</h3>
+                                <small>Pendientes</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Log de resultados -->
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <strong>Registro de procesamiento:</strong>
+                    </div>
+                    <div class="card-body" style="max-height: 300px; overflow-y: auto;" id="logResultados">
+                        <p class="text-muted">Presiona "Iniciar Actualización" para comenzar...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="btnCerrar">Cerrar</button>
+                <div>
+                    <button type="button" class="btn btn-primary btn-lg" id="btnIniciarBatch">
+                        <i class="bi bi-play-fill"></i> Iniciar Actualización
+                    </button>
+                    <button type="button" class="btn btn-success btn-lg d-none" id="btnContinuarBatch">
+                        <i class="bi bi-arrow-right-circle-fill"></i> Continuar (Siguientes 10)
+                    </button>
+                    <button type="button" class="btn btn-warning d-none" id="btnPausarBatch">
+                        <i class="bi bi-pause-fill"></i> Pausar
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -277,13 +542,18 @@
             tratamientosTabla = $('#tratamientosGrid').DataTable({
                 processing: true,
                 serverSide: true,
+                scrollX: true,
+                scrollCollapse: true,
                 ajax: {
                     url: '@Url.Page(null, "GridData")',
                     type: 'GET',
+                    cache: false, // ⭐ NO CACHEAR RESPUESTAS
                     data: function (d) {
                         d.mostrarEliminados = $('#switchEliminadosTratamientos').is(':checked');
+                        d.timestamp = new Date().getTime(); // ⭐ AGREGAR TIMESTAMP PARA EVITAR CACHE
                     },
                     dataSrc: function (json) {
+                        console.log('Datos recibidos del servidor:', json);
                         actualizarDiccionarioHijosTratamientos(json.data);
                         return json.data;
                     }
@@ -310,6 +580,36 @@
                     },
                     { data: 'idPadre', orderable: false, defaultContent: '' },
                     { data: 'idIdioma', orderable: false },
+                    // ⭐ NUEVA COLUMNA: Validado IA
+                    {
+                        data: 'validadoIA',
+                        orderable: false,
+                        render: function (data) {
+                            return data 
+                                ? '<i class="bi bi-check-circle-fill text-success" title="Validado por IA"></i>' 
+                                : '<i class="bi bi-dash-circle text-muted" title="No validado por IA"></i>';
+                        }
+                    },
+                    // ⭐ NUEVA COLUMNA: Validado Humano
+                    {
+                        data: 'validadoHumano',
+                        orderable: false,
+                        render: function (data) {
+                            return data 
+                                ? '<i class="bi bi-person-check-fill text-primary" title="Validado por Humano"></i>' 
+                                : '<i class="bi bi-dash-circle text-muted" title="No validado por Humano"></i>';
+                        }
+                    },
+                    // ⭐ NUEVA COLUMNA: Relación EII
+                    {
+                        data: 'relacionEII',
+                        orderable: false,
+                        render: function (data) {
+                            return data 
+                                ? '<span class="badge bg-success">Sí</span>' 
+                                : '<span class="badge bg-secondary">No</span>';
+                        }
+                    },
                     {
                         data: 'eliminado',
                         orderable: false,
@@ -350,36 +650,209 @@
 
             $('#tratamientosGrid').on('click', '.btn-editar-tratamiento', function () {
                 const id = $(this).data('id');
-                $.get('@Url.Page(null, "GetTratamiento")', { id: id }, function (data) {
+
+                // Cargar datos del tratamiento usando la API nueva
+                $.get('/api/admin/tratamientos/' + id, function (data) {
+                    console.log('API response:', data);
+
+                    if (!data || !data.ok) {
+                        alert('Error: ' + (data?.error || 'No se pudo obtener el tratamiento.'));
+                        return;
+                    }
+
+                    // Rellenar formulario
                     $('#editTratamiento_id').val(data.id);
-                    $('#editTratamiento_nombre').val(data.nombre);
+                    $('#editTratamiento_nombre').val(data.nombre || '');
                     $('#editTratamiento_idPadre').val(data.idPadre || "");
-                    $('#editTratamiento_idIdioma').val(data.idIdioma);
+                    $('#editTratamiento_idIdioma').val(data.idIdioma || '');
                     $('#editTratamiento_icono').val(data.icono || "");
+                    $('#editTratamiento_descripcionIA').val(data.descripcionIA || "");
+                    $('#editTratamiento_validadoHumano').prop('checked', data.validadoHumano || false);
+
+                    // ⭐ MOSTRAR RELACIÓN EII CON EXPLICACIÓN
+                    if (data.relacionEII) {
+                        $('#editTratamiento_relacionEIIContainer').show();
+                        $('#editTratamiento_noRelacionEIIContainer').hide();
+                        $('#editTratamiento_relacionEIITexto').text(data.relacionEIIDescripcion || 'Tratamiento documentado para EII');
+
+                        // ⭐ MOSTRAR FUENTES SOLO SI EXISTEN Y SON REALES
+                        if (data.fuentes && data.fuentes.trim() !== '') {
+                            $('#editTratamiento_fuentes').text(data.fuentes);
+                            $('#editTratamiento_fuentesContainer').show();
+                            $('#editTratamiento_noFuentesDisclaimer').hide();
+                        } else {
+                            $('#editTratamiento_fuentesContainer').hide();
+                            $('#editTratamiento_noFuentesDisclaimer').show();
+                        }
+                    } else {
+                        $('#editTratamiento_relacionEIIContainer').hide();
+                        $('#editTratamiento_noRelacionEIIContainer').show();
+                    }
+
                     $('#editTratamiento_eliminado').val(data.eliminado ? "true" : "false");
                     $('#msgEditTratamientoSuccess').addClass('d-none');
-                    $('#modalEditarTratamiento').modal('show');
+
+                    // Mostrar panel lateral
+                    $('#panelEditarTratamiento').addClass('active');
+
+                    // ⭐ NUEVO: Recalcular DataTable después de abrir el panel
+                    setTimeout(function() {
+                        tratamientosTabla.columns.adjust().draw(false);
+                    }, 350);
+                }).fail(function (xhr, status, error) {
+                    console.error('API failed:', status, error, xhr.responseText);
+                    alert('Error al obtener el tratamiento: ' + (xhr.responseJSON?.error || error));
+                });
+            });
+
+            // ⭐ NUEVO: Cerrar panel lateral
+            $('#btnCerrarPanel, #btnCancelar').on('click', function () {
+                $('#panelEditarTratamiento').removeClass('active');
+                $('#msgEditTratamientoSuccess').addClass('d-none');
+
+                // ⭐ NUEVO: Recalcular DataTable después de cerrar el panel
+                setTimeout(function() {
+                    tratamientosTabla.columns.adjust().draw(false);
+                }, 350);
+            });
+
+            // ⭐ NUEVO: Botón Generar IA
+            $('#btnGenerarIA').on('click', function () {
+                const id = $('#editTratamiento_id').val();
+                const $btn = $(this);
+                const $icon = $btn.find('i');
+                const $span = $btn.find('span');
+
+                if (!id) {
+                    alert('Error: No hay tratamiento seleccionado');
+                    return;
+                }
+
+                // Deshabilitar botón y mostrar loading
+                $btn.prop('disabled', true);
+                $icon.removeClass('bi-stars').addClass('d-none');
+                $btn.prepend('<span class="loading-spinner"></span>');
+                $span.text('Generando...');
+
+                // Llamar a la API
+                $.ajax({
+                    url: `/api/admin/tratamientos/${id}/generate-ia-description`,
+                    type: 'POST',
+                    contentType: 'application/json',
+                    success: function (data) {
+                        if (data.ok) {
+                            // Llenar el textarea con la descripción generada
+                            $('#editTratamiento_descripcionIA').val(data.descripcion);
+
+                            // ⭐ ACTUALIZAR NOMBRE SI FUE TRADUCIDO
+                            if (data.nombreTraducido && data.nombreTraducido.trim() !== '') {
+                                const nombreActual = $('#editTratamiento_nombre').val();
+                                if (data.nombreTraducido !== nombreActual) {
+                                    $('#editTratamiento_nombre').val(data.nombreTraducido);
+                                    agregarLog('info', `📝 Nombre traducido: ${nombreActual} → ${data.nombreTraducido}`);
+                                }
+                            }
+
+                            // ⭐ ACTUALIZAR RELACIÓN EII CON EXPLICACIÓN
+                            if (data.relacionEII) {
+                                $('#editTratamiento_relacionEIIContainer').show();
+                                $('#editTratamiento_noRelacionEIIContainer').hide();
+                                $('#editTratamiento_relacionEIITexto').text(data.relacionEIITexto || 'Tratamiento documentado para EII');
+
+                                // ⭐ MOSTRAR FUENTES SOLO SI EXISTEN Y SON REALES
+                                if (data.fuentes && data.fuentes.trim() !== '') {
+                                    $('#editTratamiento_fuentes').text(data.fuentes);
+                                    $('#editTratamiento_fuentesContainer').show();
+                                    $('#editTratamiento_noFuentesDisclaimer').hide();
+                                } else {
+                                    $('#editTratamiento_fuentesContainer').hide();
+                                    $('#editTratamiento_noFuentesDisclaimer').show();
+                                }
+                            } else {
+                                $('#editTratamiento_relacionEIIContainer').hide();
+                                $('#editTratamiento_noRelacionEIIContainer').show();
+                            }
+
+                            // Mostrar mensaje de éxito
+                            let mensaje = '✅ Descripción generada exitosamente por IA';
+                            if (data.nombreTraducido) {
+                                mensaje += '\n\n📝 El nombre fue traducido al español';
+                            }
+                            alert(mensaje);
+
+                            // Recargar el grid para mostrar el checkmark de ValidadoIA
+                            tratamientosTabla.ajax.reload(null, false);
+                        } else {
+                            alert('Error: ' + (data.error || 'No se pudo generar la descripción'));
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        console.error('Error generando IA:', error, xhr.responseText);
+                        alert('Error al generar descripción: ' + (xhr.responseJSON?.error || error));
+                    },
+                    complete: function () {
+                        // Restaurar botón
+                        $btn.prop('disabled', false);
+                        $btn.find('.loading-spinner').remove();
+                        $icon.removeClass('d-none').addClass('bi-stars');
+                        $span.text('Generar con IA');
+                    }
                 });
             });
 
             $('#formEditarTratamiento').on('submit', function (e) {
                 e.preventDefault();
-                var serialized = $(this).serialize();
+                const id = $('#editTratamiento_id').val();
+
+                // Preparar datos para enviar usando la API
+                const requestData = {
+                    nombre: $('#editTratamiento_nombre').val(),
+                    idPadre: $('#editTratamiento_idPadre').val() ? parseInt($('#editTratamiento_idPadre').val()) : null,
+                    idIdioma: parseInt($('#editTratamiento_idIdioma').val()),
+                    icono: $('#editTratamiento_icono').val(),
+                    eliminado: $('#editTratamiento_eliminado').val() === "true",
+                    descripcionIA: $('#editTratamiento_descripcionIA').val(),
+                    validadoHumano: $('#editTratamiento_validadoHumano').is(':checked')
+                };
+
                 $.ajax({
-                    url: '@Url.Page(null, "EditarTratamiento")',
-                    type: "POST",
-                    data: serialized,
-                    contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+                    url: `/api/admin/tratamientos/${id}`,
+                    type: "PUT",
+                    contentType: "application/json",
+                    data: JSON.stringify(requestData),
                     success: function (response) {
-                        if (response.success) {
+                        console.log('Respuesta del servidor al guardar:', response);
+                        if (response.ok) {
                             $('#msgEditTratamientoSuccess').removeClass('d-none');
-                            tratamientosTabla.ajax.reload(null, false);
+
+                            console.log('Recargando grid de tratamientos...');
+
+                            // ⭐ RECARGAR GRID INMEDIATAMENTE sin resetear paginación
+                            tratamientosTabla.ajax.reload(function(json) {
+                                console.log('Grid recargado. Registros:', json.recordsTotal);
+                                console.log('Datos recibidos:', json.data);
+                            }, false);
+
                             setTimeout(function () {
-                                $('#modalEditarTratamiento').modal('hide');
-                            }, 1000);
+                                $('#panelEditarTratamiento').removeClass('active');
+                                $('#msgEditTratamientoSuccess').addClass('d-none');
+
+                                // ⭐ RECARGA ADICIONAL después de cerrar panel
+                                console.log('Recarga adicional del grid...');
+                                tratamientosTabla.ajax.reload(function() {
+                                    console.log('Segunda recarga completada');
+                                }, false);
+
+                                // ⭐ FORZAR REDIBUJADO COMPLETO
+                                tratamientosTabla.columns.adjust().draw(false);
+                            }, 1500);
                         } else {
-                            alert('Error: ' + (response.message || 'No se pudo guardar.') );
+                            alert('Error: ' + (response.error || 'No se pudo guardar.'));
                         }
+                    },
+                    error: function (xhr, status, error) {
+                        console.error('Error al guardar:', error, xhr.responseText);
+                        alert('Error al guardar: ' + (xhr.responseJSON?.error || error));
                     }
                 });
             });
@@ -421,6 +894,152 @@
                     });
                 }
             });
+
+            // ⭐⭐⭐ ACTUALIZACIÓN MASIVA CON IA ⭐⭐⭐
+            let batchSkip = 0;
+            let batchTake = 10;
+            let totalExitosos = 0;
+            let totalFallidos = 0;
+            let batchEnProgreso = false;
+
+            // Abrir modal
+            $('#btnActualizacionMasiva').on('click', function() {
+                console.log('Abriendo modal de actualización masiva');
+                batchSkip = 0;
+                totalExitosos = 0;
+                totalFallidos = 0;
+                resetearEstadisticas();
+                $('#modalActualizacionMasiva').modal('show');
+            });
+
+            // Iniciar procesamiento
+            $('#btnIniciarBatch').on('click', function() {
+                console.log('Click en Iniciar Batch');
+                if (confirm('¿Desea iniciar la actualización masiva? Este proceso puede tardar varios minutos.')) {
+                    batchSkip = 0;
+                    totalExitosos = 0;
+                    totalFallidos = 0;
+                    $('#btnIniciarBatch').addClass('d-none');
+                    procesarBatch();
+                }
+            });
+
+            // Continuar con siguientes 10
+            $('#btnContinuarBatch').on('click', function() {
+                console.log('Click en Continuar Batch');
+                procesarBatch();
+            });
+
+            // Cerrar modal
+            $('#btnCerrar, #btnCerrarModal').on('click', function() {
+                console.log('Click en Cerrar modal');
+                if (batchEnProgreso) {
+                    if (!confirm('Hay un proceso en curso. ¿Desea cancelarlo?')) {
+                        return false;
+                    }
+                }
+                $('#modalActualizacionMasiva').modal('hide');
+                tratamientosTabla.ajax.reload();
+            });
+
+            function resetearEstadisticas() {
+                $('#progresoTexto').text('0 / 0 procesados');
+                $('#progressBar').css('width', '0%').text('0%');
+                $('#exitososCount').text('0');
+                $('#fallidosCount').text('0');
+                $('#pendientesCount').text('0');
+                $('#logResultados').html('<p class="text-muted">Presiona "Iniciar Actualización" para comenzar...</p>');
+                $('#btnIniciarBatch').removeClass('d-none');
+                $('#btnContinuarBatch').addClass('d-none');
+                $('#btnPausarBatch').addClass('d-none');
+            }
+
+            function procesarBatch() {
+                batchEnProgreso = true;
+                $('#btnContinuarBatch').prop('disabled', true).addClass('d-none');
+                $('#btnPausarBatch').removeClass('d-none');
+                $('#btnCerrar').prop('disabled', true);
+
+                agregarLog('info', `🚀 Procesando registros ${batchSkip + 1} a ${batchSkip + batchTake}...`);
+
+                $.ajax({
+                    url: '/api/admin/tratamientos/batch-generate-ia',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ skip: batchSkip, take: batchTake }),
+                    success: function(data) {
+                        console.log('Respuesta del servidor:', data);
+                        if (data.ok) {
+                            totalExitosos += data.exitosos;
+                            totalFallidos += data.fallidos;
+
+                            // Actualizar estadísticas
+                            $('#exitososCount').text(totalExitosos);
+                            $('#fallidosCount').text(totalFallidos);
+                            $('#pendientesCount').text(data.pendientes);
+
+                            // Actualizar barra de progreso
+                            const totalProcesados = totalExitosos + totalFallidos;
+                            $('#progresoTexto').text(`${totalProcesados} procesados`);
+
+                            // Mostrar resultados
+                            data.resultados.forEach(function(item) {
+                                if (item.success) {
+                                    const eiiIcon = item.relacionEII ? '🔗' : '○';
+
+                                    // ⭐ MOSTRAR TRADUCCIÓN SI EXISTE
+                                    if (item.nombreOriginal && item.nombreOriginal !== item.nombre) {
+                                        agregarLog('success', `✅ ${item.nombre} ${eiiIcon} (traducido de: ${item.nombreOriginal})`);
+                                    } else {
+                                        agregarLog('success', `✅ ${item.nombre} ${eiiIcon}`);
+                                    }
+                                } else {
+                                    agregarLog('error', `❌ ${item.nombre} - ${item.error}`);
+                                }
+                            });
+
+                            batchSkip += batchTake;
+
+                            if (data.pendientes > 0) {
+                                agregarLog('info', `✋ Lote completado. Quedan ${data.pendientes} registros pendientes.`);
+                                $('#btnContinuarBatch').prop('disabled', false).removeClass('d-none');
+                                $('#btnPausarBatch').addClass('d-none');
+                            } else {
+                                agregarLog('success', `🎉 ¡Proceso completado! Total: ${totalExitosos} exitosos, ${totalFallidos} fallidos.`);
+                                $('#btnContinuarBatch').addClass('d-none');
+                                $('#btnPausarBatch').addClass('d-none');
+                                $('#progressBar').removeClass('progress-bar-animated').addClass('bg-success').css('width', '100%').text('100%');
+                            }
+                        } else {
+                            agregarLog('error', `❌ Error: ${data.error}`);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error en batch:', error, xhr.responseText);
+                        agregarLog('error', `❌ Error al procesar lote: ${xhr.responseJSON?.error || error}`);
+                        $('#btnContinuarBatch').prop('disabled', false).removeClass('d-none');
+                        $('#btnPausarBatch').addClass('d-none');
+                    },
+                    complete: function() {
+                        batchEnProgreso = false;
+                        $('#btnCerrar').prop('disabled', false);
+                    }
+                });
+            }
+
+            function agregarLog(tipo, mensaje) {
+                const timestamp = new Date().toLocaleTimeString();
+                let clase = '';
+                switch(tipo) {
+                    case 'success': clase = 'text-success'; break;
+                    case 'error': clase = 'text-danger'; break;
+                    case 'info': clase = 'text-primary'; break;
+                }
+
+                const logEntry = `<p class="${clase} mb-1"><small>[${timestamp}]</small> ${mensaje}</p>`;
+                $('#logResultados').append(logEntry);
+                $('#logResultados').scrollTop($('#logResultados')[0].scrollHeight);
+            }
         });
     </script>
 }

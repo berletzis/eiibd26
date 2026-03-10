@@ -166,37 +166,61 @@ namespace eiibd26.Pages.Contenidos
                     (c.ContenidoTextoL ?? "").Contains(searchTerm));
             }
 
-            // --- Build IDs subquery and apply filters (AND across types) ---
+            // --- Build IDs subquery and apply filters (OR across all types) ---
             IQueryable<int> idsQuery = baseQuery.Select(c => c.Id);
 
-            if (FilterConditionIds != null && FilterConditionIds.Any())
+            // Si hay filtros, usar OR para combinar resultados de diferentes tipos
+            if ((FilterConditionIds != null && FilterConditionIds.Any()) ||
+                (FilterSintomaIds != null && FilterSintomaIds.Any()) ||
+                (FilterTratamientoIds != null && FilterTratamientoIds.Any()))
             {
-                var condContentIds = _db.ContenidoCondiciones
-                    .AsNoTracking()
-                    .Where(rel => !rel.Borrado && FilterConditionIds.Contains(rel.CondicionId))
-                    .Select(rel => rel.ContenidoId)
-                    .Distinct();
-                idsQuery = idsQuery.Where(id => condContentIds.Contains(id));
-            }
+                // Crear un conjunto de IDs que cumplan con CUALQUIER filtro (OR)
+                var filteredIds = new HashSet<int>();
 
-            if (FilterSintomaIds != null && FilterSintomaIds.Any())
-            {
-                var sintContentIds = _db.ContenidoSintomas
-                    .AsNoTracking()
-                    .Where(rel => !rel.Borrado && FilterSintomaIds.Contains(rel.SintomaId))
-                    .Select(rel => rel.ContenidoId)
-                    .Distinct();
-                idsQuery = idsQuery.Where(id => sintContentIds.Contains(id));
-            }
+                // Agregar IDs de contenidos que coincidan con Condiciones seleccionadas
+                if (FilterConditionIds != null && FilterConditionIds.Any())
+                {
+                    var condContentIds = await _db.ContenidoCondiciones
+                        .AsNoTracking()
+                        .Where(rel => !rel.Borrado && FilterConditionIds.Contains(rel.CondicionId))
+                        .Select(rel => rel.ContenidoId)
+                        .Distinct()
+                        .ToListAsync();
 
-            if (FilterTratamientoIds != null && FilterTratamientoIds.Any())
-            {
-                var tratContentIds = _db.ContenidoTratamientos
-                    .AsNoTracking()
-                    .Where(rel => !rel.Borrado && FilterTratamientoIds.Contains(rel.TratamientoId))
-                    .Select(rel => rel.ContenidoId)
-                    .Distinct();
-                idsQuery = idsQuery.Where(id => tratContentIds.Contains(id));
+                    foreach (var id in condContentIds)
+                        filteredIds.Add(id);
+                }
+
+                // Agregar IDs de contenidos que coincidan con Síntomas seleccionados
+                if (FilterSintomaIds != null && FilterSintomaIds.Any())
+                {
+                    var sintContentIds = await _db.ContenidoSintomas
+                        .AsNoTracking()
+                        .Where(rel => !rel.Borrado && FilterSintomaIds.Contains(rel.SintomaId))
+                        .Select(rel => rel.ContenidoId)
+                        .Distinct()
+                        .ToListAsync();
+
+                    foreach (var id in sintContentIds)
+                        filteredIds.Add(id);
+                }
+
+                // Agregar IDs de contenidos que coincidan con Tratamientos seleccionados
+                if (FilterTratamientoIds != null && FilterTratamientoIds.Any())
+                {
+                    var tratContentIds = await _db.ContenidoTratamientos
+                        .AsNoTracking()
+                        .Where(rel => !rel.Borrado && FilterTratamientoIds.Contains(rel.TratamientoId))
+                        .Select(rel => rel.ContenidoId)
+                        .Distinct()
+                        .ToListAsync();
+
+                    foreach (var id in tratContentIds)
+                        filteredIds.Add(id);
+                }
+
+                // Aplicar el filtro: solo incluir contenidos que están en el conjunto filteredIds
+                idsQuery = idsQuery.Where(id => filteredIds.Contains(id));
             }
 
             // --- Compute totals and load page of contents ---
