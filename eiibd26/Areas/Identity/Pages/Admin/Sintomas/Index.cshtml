@@ -325,19 +325,42 @@
                     <input type="text" class="form-control" id="editSintoma_nombre" name="nombre" required>
                 </div>
 
-                <div class="mb-3">
-                    <label for="editSintoma_idPadre" class="form-label">ID Padre (vacío si es padre)</label>
-                    <input type="number" class="form-control" id="editSintoma_idPadre" name="idPadre">
-                </div>
-
-                <div class="mb-3">
-                    <label for="editSintoma_idIdioma" class="form-label">ID Idioma</label>
-                    <input type="number" class="form-control" id="editSintoma_idIdioma" name="idIdioma" required>
-                </div>
-
-                <div class="mb-3">
-                    <label for="editSintoma_icono" class="form-label">Ícono</label>
-                    <input type="text" class="form-control" id="editSintoma_icono" name="icono">
+                <!-- Otros campos colapsados -->
+                <div class="accordion accordion-flush mb-3" id="acordeonOtrosSintoma">
+                    <div class="accordion-item border rounded">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed py-2 px-3"
+                                    type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#otrosCamposSintoma"
+                                    aria-expanded="false"
+                                    style="background:#f9fafb;font-size:.875rem;">
+                                <i class="bi bi-three-dots me-2 text-muted"></i>
+                                <span class="text-muted">Otros campos</span>
+                            </button>
+                        </h2>
+                        <div id="otrosCamposSintoma" class="accordion-collapse collapse">
+                            <div class="accordion-body py-2 px-3">
+                                <div class="row g-2">
+                                    <div class="col-4">
+                                        <label class="form-label small mb-1">ID Padre</label>
+                                        <input type="number" class="form-control form-control-sm"
+                                               id="editSintoma_idPadre" name="idPadre">
+                                    </div>
+                                    <div class="col-4">
+                                        <label class="form-label small mb-1">ID Idioma</label>
+                                        <input type="number" class="form-control form-control-sm"
+                                               id="editSintoma_idIdioma" name="idIdioma">
+                                    </div>
+                                    <div class="col-4">
+                                        <label class="form-label small mb-1">Ícono</label>
+                                        <input type="text" class="form-control form-control-sm"
+                                               id="editSintoma_icono" name="icono">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- ===== NUEVO: DESCRIPCIÓN IA ===== -->
@@ -403,12 +426,52 @@
                     <small class="text-muted">Esta información la determina la IA automáticamente</small>
                 </div>
 
-                <div class="mb-3">
-                    <label for="editSintoma_eliminado" class="form-label">Estado</label>
-                    <select class="form-select" id="editSintoma_eliminado" name="eliminado">
-                        <option value="false">Activo</option>
-                        <option value="true">Eliminado</option>
-                    </select>
+                <!-- ===== BLOQUE GLOSARIO ===== -->
+                <div class="card mb-3 border-0" id="editSintoma_glosarioBlock" style="display:none;">
+                    <div class="card-header text-white py-2 rounded-top"
+                         style="background:linear-gradient(135deg,#3b82f6,#6366f1);">
+                        <i class="bi bi-journal-medical me-1"></i>
+                        <span class="fw-semibold">Glosario Médico</span>
+                        <small class="ms-2 opacity-75" id="editSintoma_glosarioTermId"></small>
+                    </div>
+                    <div class="card-body p-3" style="background:#f8faff;">
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <p class="text-muted mb-1" style="font-size:.75rem;">Sugerido por NINA:</p>
+                                <div id="editSintoma_nivelIA"><span class="text-muted small fst-italic">No determinado</span></div>
+                            </div>
+                            <div class="col-6">
+                                <p class="text-muted mb-1" style="font-size:.75rem;">Confirmado (admin):</p>
+                                <div id="editSintoma_nivelConfirmado"><span class="text-muted small fst-italic">Sin confirmar</span></div>
+                            </div>
+                        </div>
+                        <div id="editSintoma_reasoningBlock" class="mb-3 p-2 rounded"
+                             style="background:#fff;border:1px solid #e0e7ff;display:none;">
+                            <p class="mb-1" style="font-size:.72rem;color:#6366f1;">
+                                <i class="bi bi-robot me-1"></i><strong>Razonamiento NINA:</strong>
+                            </p>
+                            <p class="mb-0 small" id="editSintoma_reasoning"></p>
+                        </div>
+                        <hr class="my-2">
+                        <p class="fw-semibold mb-2" style="font-size:.8rem;">
+                            <i class="bi bi-people me-1"></i> Historial de validaciones:
+                        </p>
+                        <div id="editSintoma_validaciones">
+                            <p class="text-muted small mb-0 fst-italic">Sin validaciones registradas</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Activo / Eliminado -->
+                <div class="mb-3 d-flex align-items-center gap-2 p-2 rounded border">
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" role="switch"
+                               id="editSintoma_activo" style="cursor:pointer;">
+                        <label class="form-check-label fw-semibold" for="editSintoma_activo">
+                            Registro activo
+                        </label>
+                    </div>
+                    <small class="text-muted">(desmarcar = eliminar registro)</small>
                 </div>
 
                 <div class="alert alert-success d-none" id="msgEditSintomaSuccess">
@@ -529,6 +592,56 @@
     <script>
         let sintomasTabla;
         let hijosSintPorPadre = {};
+
+        // ===== HELPERS GLOSARIO SINTOMAS =====
+        function nivelBadgeSint(level) {
+            if (!level && level !== 0) return '<span class="text-muted small fst-italic">—</span>';
+            const map = { 1: ['\uD83D\uDFE2', 'Directa', 'success'], 2: ['\uD83D\uDFE1', 'Indirecta', 'warning'], 3: ['\uD83D\uDD35', 'Secundaria', 'info'] };
+            const [icon, label, color] = map[level] || ['\u26AA', 'Desconocido', 'secondary'];
+            return `<span class="badge bg-${color}">${icon} ${label}</span>`;
+        }
+
+        function renderValidacionesSint(validations) {
+            if (!validations || validations.length === 0)
+                return '<p class="text-muted small mb-0 fst-italic">Sin validaciones registradas</p>';
+            const typeLabels = { 1: 'Descripci\u00f3n', 2: 'Relaci\u00f3n' };
+            return validations.map(v => {
+                const date = new Date(v.createdAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: '2-digit' });
+                const typeLabel = typeLabels[v.validationType] || 'Validaci\u00f3n';
+                const levelHtml = v.relationTypeId ? nivelBadgeSint(v.relationTypeId) : '';
+                const commentHtml = v.comment ? `<p class="mb-0 small text-dark mt-1">&ldquo;${v.comment}&rdquo;</p>` : '';
+                return `<div class="d-flex gap-2 align-items-start mb-2 p-2 rounded" style="background:#fff;border:1px solid #e5e7eb;">
+                    <i class="bi bi-person-circle text-secondary flex-shrink-0 mt-1" aria-label="privado" title="privado" style="font-size:1.1rem;"></i>
+                    <div class="flex-grow-1">
+                        <div class="d-flex flex-wrap gap-1 align-items-center mb-1">
+                            <span class="fw-semibold small">${v.userDisplay}</span>
+                            <span class="badge bg-secondary" style="font-size:.65rem;">${typeLabel}</span>
+                            ${levelHtml}
+                            <small class="text-muted ms-auto">${date}</small>
+                        </div>
+                        ${commentHtml}
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function cargarGlosarioSintoma(id) {
+            $('#editSintoma_glosarioBlock').hide();
+            $.get('/api/admin/sintomas/' + id + '/glossary', function (g) {
+                if (!g || !g.ok || !g.hasGlossaryTerm) return;
+                $('#editSintoma_glosarioTermId').text('#' + g.glossaryTermId);
+                $('#editSintoma_nivelIA').html(nivelBadgeSint(g.nivelSugerido));
+                $('#editSintoma_nivelConfirmado').html(nivelBadgeSint(g.nivelConfirmado));
+                if (g.aiReasoning) {
+                    $('#editSintoma_reasoning').text(g.aiReasoning);
+                    $('#editSintoma_reasoningBlock').show();
+                } else {
+                    $('#editSintoma_reasoningBlock').hide();
+                }
+                $('#editSintoma_validaciones').html(renderValidacionesSint(g.validations));
+                $('#editSintoma_glosarioBlock').show();
+            });
+        }
 
         function actualizarDiccionarioHijosSintomas(data) {
             hijosSintPorPadre = {};
@@ -694,11 +807,12 @@
                         $('#editSintoma_noRelacionEIIContainer').show();
                     }
 
-                    $('#editSintoma_eliminado').val(data.eliminado ? "true" : "false");
+                    $('#editSintoma_activo').prop('checked', !data.eliminado);
                     $('#msgEditSintomaSuccess').addClass('d-none');
 
                     // Mostrar panel lateral
                     $('#panelEditarSintoma').addClass('active');
+                    cargarGlosarioSintoma(data.id);
 
                     // ⭐ NUEVO: Recalcular DataTable después de abrir el panel
                     setTimeout(function() {
@@ -774,6 +888,8 @@
 
                             // Recargar el grid para mostrar el checkmark de ValidadoIA
                             sintomasTabla.ajax.reload(null, false);
+                            const sid = $('#editSintoma_id').val();
+                            if (sid) cargarGlosarioSintoma(parseInt(sid));
                         } else {
                             alert('Error: ' + (data.error || 'No se pudo generar la descripción'));
                         }
@@ -802,7 +918,7 @@
                     idPadre: $('#editSintoma_idPadre').val() ? parseInt($('#editSintoma_idPadre').val()) : null,
                     idIdioma: parseInt($('#editSintoma_idIdioma').val()),
                     icono: $('#editSintoma_icono').val(),
-                    eliminado: $('#editSintoma_eliminado').val() === "true",
+                    eliminado: !$('#editSintoma_activo').is(':checked'),
                     descripcionIA: $('#editSintoma_descripcionIA').val(),
                     validadoHumano: $('#editSintoma_validadoHumano').is(':checked')
                 };

@@ -1,4 +1,5 @@
 using eiibd26.Configuration;
+using eiibd26.Models.Glossary;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Collections;
@@ -50,8 +51,16 @@ IMPORTANTE: Responde en texto plano, SIN usar markdown (sin **, sin *, sin #).
 
 Formato de respuesta al final:
 RELACIÓN EII: [SÍ o NO]
+NIVEL RELACIÓN EII: [SOLO si respondiste SÍ → escribe exactamente una de estas palabras: Directa, Indirecta o Secundaria. Si respondiste NO, escribe 'No aplica']
 EXPLICACIÓN EII: [Si respondiste SÍ, explica la relación en 1-2 frases. Si respondiste NO, escribe 'No aplica']
+RAZONAMIENTO GLOSARIO: [Frase clínica breve (máx 200 caracteres) para mostrar en el glosario. Si NO hay relación, escribe 'No aplica']
 FUENTES: [SOLO si tienes certeza de fuentes específicas, menciónalas. Si no estás seguro, escribe 'No especificadas']
+
+Guía de niveles (solo para NIVEL RELACIÓN EII):
+- Directa: síntoma que aparece como manifestación directa o extraintestinal documentada de la EII.
+- Indirecta: síntoma frecuente en EII pero no exclusivo ni patognomónico.
+- Secundaria: síntoma que aparece como consecuencia de tratamientos o complicaciones de la EII.
+Si hay duda → elige Indirecta.
 
 Cuando describas la relación con EII:
 -NO expliques mecanismos biológicos.
@@ -92,8 +101,16 @@ IMPORTANTE: Responde en texto plano, SIN usar markdown (sin **, sin *, sin #).
 Formato de respuesta al final:
 NOMBRE ESPAÑOL: [Nombre del tratamiento en español. Si ya está en español, escribe el mismo nombre]
 RELACIÓN EII: [SÍ o NO]
+NIVEL RELACIÓN EII: [SOLO si respondiste SÍ → escribe exactamente una de estas palabras: Directa, Indirecta o Secundaria. Si respondiste NO, escribe 'No aplica']
 EXPLICACIÓN EII: [Si respondiste SÍ, explica la relación en 1-2 frases. Si respondiste NO, escribe 'No aplica']
+RAZONAMIENTO GLOSARIO: [Frase clínica breve (máx 200 caracteres) para mostrar en el glosario. Si NO hay relación, escribe 'No aplica']
 FUENTES: [SOLO si tienes certeza de fuentes específicas, menciónalas. Si no estás seguro, escribe 'No especificadas']
+
+Guía de niveles (solo para NIVEL RELACIÓN EII):
+- Directa: tratamiento aprobado o indicado específicamente para la EII.
+- Indirecta: tratamiento frecuentemente usado en EII pero no exclusivo (ej: analgésicos, antidiarreicos).
+- Secundaria: tratamiento que se usa para manejar efectos secundarios o complicaciones del tratamiento de EII.
+Si hay duda → elige Indirecta.
 
 Cuando describas la relación con EII:
 -NO expliques mecanismos biológicos.
@@ -311,10 +328,48 @@ Cuando describas la relación con EII:
             _logger.LogInformation("Resultado del parsing - RelacionEII: {RelacionEII}, Explicación: {Explicacion}, Fuentes: {Fuentes}, NombreTraducido: {Nombre}", 
                 relacionEII, explicacionEII, fuentes, nombreTraducido ?? "No proporcionado");
 
-            // Guardar la explicación, fuentes y nombre traducido en propiedades temporales
+            // ⭐ Extraer NIVEL RELACIÓN EII
+            var matchNivel = Regex.Match(fullText, @"\*?\*?NIVEL RELACIÓN EII:\*?\*?\s*(Directa|Indirecta|Secundaria)", RegexOptions.IgnoreCase);
+            MedicalRelationType? nivelRelacion = null;
+            if (matchNivel.Success && relacionEII)
+            {
+                nivelRelacion = matchNivel.Groups[1].Value.Trim().ToLowerInvariant() switch
+                {
+                    "directa"   => MedicalRelationType.Directa,
+                    "indirecta" => MedicalRelationType.Indirecta,
+                    "secundaria" => MedicalRelationType.Secundaria,
+                    _ => null
+                };
+                _logger.LogInformation("Nivel relación EII encontrado: {Nivel}", nivelRelacion);
+            }
+            // Si RelacionEII=true pero nivel no encontrado → default Indirecta
+            else if (relacionEII)
+            {
+                nivelRelacion = MedicalRelationType.Indirecta;
+                _logger.LogWarning("No se encontró NIVEL RELACIÓN EII, usando Indirecta por defecto");
+            }
+
+            // ⭐ Extraer RAZONAMIENTO GLOSARIO
+            var matchRazonamiento = Regex.Match(fullText, @"\*?\*?RAZONAMIENTO GLOSARIO:\*?\*?\s*(.+?)(?=\r?\n|$)", RegexOptions.IgnoreCase);
+            string? razonamiento = null;
+            if (matchRazonamiento.Success)
+            {
+                var raw = matchRazonamiento.Groups[1].Value.Trim()
+                    .Replace("**", "").Replace("*", "").Trim();
+                if (!string.IsNullOrWhiteSpace(raw) &&
+                    !raw.Equals("No aplica", StringComparison.OrdinalIgnoreCase))
+                {
+                    razonamiento = raw.Length > 500 ? raw[..500] : raw;
+                    _logger.LogInformation("Razonamiento glosario encontrado: {Razonamiento}", razonamiento);
+                }
+            }
+
+            // Guardar la explicación, fuentes, nombre traducido, nivel y razonamiento
             _lastExplicacionEII = explicacionEII;
-            _lastFuentes = fuentes;
+            _lastFuentes        = fuentes;
             _lastNombreTraducido = nombreTraducido;
+            _lastNivelRelacion  = nivelRelacion;
+            _lastRazonamiento   = razonamiento;
 
             return (descripcion, relacionEII);
         }
@@ -323,6 +378,11 @@ Cuando describas la relación con EII:
         private string _lastExplicacionEII = "";
         private string _lastFuentes = "";
         private string? _lastNombreTraducido = null;
+        private MedicalRelationType? _lastNivelRelacion = null;
+        private string? _lastRazonamiento = null;
+
+        public MedicalRelationType? UltimoNivelRelacion => _lastNivelRelacion;
+        public string? UltimoRazonamiento => _lastRazonamiento;
 
         private string BuildSintomaSystemPrompt()
         {

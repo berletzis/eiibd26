@@ -211,6 +211,7 @@ builder.Services.AddScoped<eiibd26.Services.AI.ISintomasTratamientosAiService, e
 // ⭐ GLOSSARY MODULE: Servicios para navegación médica desacoplada
 builder.Services.AddScoped<eiibd26.Services.Glossary.Adapters.IMedicalDataAdapter, eiibd26.Services.Glossary.Adapters.MedicalDataAdapter>();
 builder.Services.AddScoped<eiibd26.Services.Glossary.IGlossaryService, eiibd26.Services.Glossary.GlossaryService>();
+builder.Services.AddScoped<eiibd26.Services.Community.ICommunityExperienceService, eiibd26.Services.Community.CommunityExperienceService>();
 
 // Register HttpClient for Anthropic API
 builder.Services.AddHttpClient("AnthropicClient", (serviceProvider, client) =>

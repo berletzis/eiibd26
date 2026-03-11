@@ -66,6 +66,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     // ⭐ GLOSSARY MODULE (Desacoplado - solo índice de navegación)
     public DbSet<eiibd26.Models.Glossary.GlossaryTerm> GlossaryTerms { get; set; }
     public DbSet<eiibd26.Models.Glossary.GlossaryTermMedicalLink> GlossaryTermMedicalLinks { get; set; }
+    public DbSet<eiibd26.Models.Glossary.GlossaryValidation> GlossaryValidations { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -330,6 +331,27 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
              .WithMany()
              .HasForeignKey(ar => ar.UserId)
              .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ⭐ GLOSSARY VALIDATION: validaciones humanas acumulativas
+        builder.Entity<eiibd26.Models.Glossary.GlossaryValidation>(b =>
+        {
+            b.ToTable("GlossaryValidation");
+            b.HasKey(v => v.Id);
+            b.HasIndex(v => v.GlossaryTermId);
+            b.HasIndex(v => v.UserId);
+            // Garantiza: un usuario vota una sola vez por tipo+nivel
+            b.HasIndex(v => new { v.GlossaryTermId, v.UserId, v.ValidationType, v.MedicalRelationTypeId })
+             .IsUnique()
+             .HasFilter("[MedicalRelationTypeId] IS NOT NULL");
+            // Garantiza: una sola validación de descripción por usuario (ValidationType=1, relación NULL)
+            b.HasIndex(v => new { v.GlossaryTermId, v.UserId, v.ValidationType })
+             .IsUnique()
+             .HasFilter("[MedicalRelationTypeId] IS NULL");
+            b.HasOne(v => v.GlossaryTerm)
+             .WithMany(t => t.Validaciones)
+             .HasForeignKey(v => v.GlossaryTermId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
     }
 

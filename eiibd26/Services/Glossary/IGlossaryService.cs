@@ -18,14 +18,12 @@ namespace eiibd26.Services.Glossary
         /// Obtiene lista de términos por tipo (para índice A-Z)
         /// </summary>
         /// <param name="tipo">Tipo de término (Sintoma o Tratamiento)</param>
-        /// <returns>Lista de términos agrupables por letra</returns>
         Task<List<GlossaryTermDto>> GetTermsByTypeAsync(GlossaryTermType tipo);
 
         /// <summary>
         /// Obtiene detalle completo de un término por slug
         /// </summary>
         /// <param name="slug">Slug del término (ej: "fatiga")</param>
-        /// <returns>Detalle del término con definición médica y artículos relacionados</returns>
         Task<GlossaryTermDetailDto?> GetTermBySlugAsync(string slug);
 
         /// <summary>
@@ -41,5 +39,29 @@ namespace eiibd26.Services.Glossary
         /// <param name="termName">Nombre del término</param>
         /// <param name="maxResults">Máximo de resultados</param>
         Task<List<RelatedContentDto>> GetRelatedContentsAsync(string termName, int maxResults = 10);
+
+        // ===== VALIDACIÓN HUMANA =====
+
+        /// <summary>
+        /// Registra una validación humana sobre un término.
+        /// Un usuario solo puede votar una vez por tipo/nivel.
+        /// </summary>
+        /// <param name="termId">ID del término</param>
+        /// <param name="userId">ID del usuario validador</param>
+        /// <param name="validationType">Tipo de validación</param>
+        /// <param name="relationTypeId">Nivel de relación (solo para RelationValidation)</param>
+        /// <param name="comment">Comentario clínico opcional</param>
+        /// <returns>True si se registró exitosamente; false si ya existía esa validación</returns>
+        Task<bool> AddValidationAsync(
+            int termId,
+            string userId,
+            GlossaryValidationType validationType,
+            MedicalRelationType? relationTypeId,
+            string? comment);
+
+        /// <summary>
+        /// Obtiene los conteos de badges de confianza para un término
+        /// </summary>
+        Task<GlossaryValidationCountsDto> GetValidationCountsAsync(int termId);
     }
 }

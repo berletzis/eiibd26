@@ -1,5 +1,6 @@
 using eiibd26.Data;
 using eiibd26.Models;
+using eiibd26.Models.Glossary;
 using eiibd26.Services.AI;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -55,21 +56,26 @@ namespace eiibd26.Controllers
                 sintoma.ValidadoIA = true;
                 sintoma.RelacionEII = relacionEII;
                 sintoma.RelacionEIIDescripcion = _aiService.UltimaExplicacionEII;
-                sintoma.Fuentes = _aiService.UltimasFuentes; // ⭐ NUEVO: GUARDAR FUENTES
+                sintoma.Fuentes = _aiService.UltimasFuentes;
                 sintoma.FechaActualizacionIA = DateTime.UtcNow;
                 sintoma.fechaModificado = DateTime.Now;
 
                 await _db.SaveChangesAsync(cancellationToken);
 
+                // Propagar nivel de relación y razonamiento al GlossaryTerm vinculado
+                await PropagateToGlossaryTermAsync(sintomaId: id, cancellationToken);
+
                 _logger.LogInformation("Descripción IA guardada exitosamente para síntoma {Id}", id);
 
-                return Ok(new 
-                { 
-                    ok = true, 
+                return Ok(new
+                {
+                    ok = true,
                     descripcion,
                     relacionEII,
-                    relacionEIITexto = sintoma.RelacionEIIDescripcion,
-                    fuentes = sintoma.Fuentes // ⭐ AGREGAR FUENTES
+                    relacionEIITexto      = sintoma.RelacionEIIDescripcion,
+                    nivelRelacion         = _aiService.UltimoNivelRelacion?.ToString(),
+                    razonamiento          = _aiService.UltimoRazonamiento,
+                    fuentes               = sintoma.Fuentes
                 });
             }
             catch (Exception ex)
@@ -107,8 +113,121 @@ namespace eiibd26.Controllers
                 validadoHumano = sintoma.ValidadoHumano,
                 relacionEII = sintoma.RelacionEII,
                 relacionEIIDescripcion = sintoma.RelacionEIIDescripcion ?? "",
-                fuentes = sintoma.Fuentes ?? "" // ⭐ AGREGAR FUENTES
+                fuentes = sintoma.Fuentes ?? ""
             });
+        }
+
+        /// <summary>
+        /// Datos del GlossaryTerm vinculado al síntoma: niveles de relación y validaciones.
+        /// GET /api/admin/sintomas/{id}/glossary
+        /// </summary>
+        [HttpGet("{id}/glossary")]
+        public async Task<IActionResult> GetGlossaryData(int id, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var link = await _db.GlossaryTermMedicalLinks
+                    .AsNoTracking()
+                    .Where(l => l.SintomaId == id)
+                    .Select(l => new { l.GlossaryTermId })
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                if (link == null)
+                    return Ok(new { ok = true, hasGlossaryTerm = false });
+
+                // Columnas nuevas — cargar con degradación elegante si aún no existen en BD
+                int? nivelSugerido  = null;
+                int? nivelConfirmado = null;
+                string? aiReasoning = null;
+                bool createdByAI    = true;
+                try
+                {
+                    var term = await _db.GlossaryTerms
+                        .AsNoTracking()
+                        .Where(t => t.Id == link.GlossaryTermId)
+                        .Select(t => new
+                        {
+                            t.CreatedByAI,
+                            SuggestedId  = t.MedicalRelationSuggestedId.HasValue ? (int?)t.MedicalRelationSuggestedId : null,
+                            ConfirmedId  = t.MedicalRelationTypeId.HasValue      ? (int?)t.MedicalRelationTypeId      : null,
+                            t.AiReasoning
+                        })
+                        .FirstOrDefaultAsync(cancellationToken);
+                    if (term != null)
+                    {
+                        createdByAI     = term.CreatedByAI;
+                        nivelSugerido   = term.SuggestedId;
+                        nivelConfirmado = term.ConfirmedId;
+                        aiReasoning     = term.AiReasoning;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Columnas nuevas no disponibles aún (GlossaryTerm {Id})", link.GlossaryTermId);
+                }
+
+                // Historial de validaciones
+                var validations = new List<object>();
+                try
+                {
+                    var raw = await _db.GlossaryValidations
+                        .AsNoTracking()
+                        .Where(v => v.GlossaryTermId == link.GlossaryTermId && v.Approved)
+                        .OrderByDescending(v => v.CreatedAt)
+                        .Select(v => new
+                        {
+                            v.UserId,
+                            ValidationType = (int)v.ValidationType,
+                            RelationTypeId = v.MedicalRelationTypeId.HasValue ? (int?)v.MedicalRelationTypeId : null,
+                            v.Comment,
+                            v.CreatedAt
+                        })
+                        .ToListAsync(cancellationToken);
+
+                    var userGuids = raw
+                        .Select(v => v.UserId)
+                        .Distinct()
+                        .Where(uid => Guid.TryParse(uid, out _))
+                        .Select(Guid.Parse)
+                        .ToList();
+
+                    var nameDict = await _db.Users
+                        .AsNoTracking()
+                        .Where(u => userGuids.Contains(u.Id))
+                        .Select(u => new { Id = u.Id.ToString(), Display = u.UserName ?? u.Email ?? "Usuario" })
+                        .ToDictionaryAsync(u => u.Id.ToLowerInvariant(), u => u.Display, cancellationToken);
+
+                    validations = raw.Select(v => (object)new
+                    {
+                        userDisplay    = nameDict.TryGetValue(v.UserId.ToLowerInvariant(), out var n) ? n : "Usuario",
+                        validationType = v.ValidationType,
+                        relationTypeId = v.RelationTypeId,
+                        comment        = v.Comment,
+                        createdAt      = v.CreatedAt
+                    }).ToList();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "GlossaryValidation no disponible aún (término {Id})", link.GlossaryTermId);
+                }
+
+                return Ok(new
+                {
+                    ok              = true,
+                    hasGlossaryTerm = true,
+                    glossaryTermId  = link.GlossaryTermId,
+                    createdByAI,
+                    nivelSugerido,
+                    nivelConfirmado,
+                    aiReasoning,
+                    validations
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener datos de glosario para síntoma {Id}", id);
+                return Ok(new { ok = true, hasGlossaryTerm = false });
+            }
         }
 
         /// <summary>
@@ -193,6 +312,9 @@ namespace eiibd26.Controllers
 
                         await _db.SaveChangesAsync(cancellationToken);
 
+                        // Also propagate nivel + razonamiento for batch items
+                        await PropagateToGlossaryTermAsync(sintomaId: sintoma.id, cancellationToken);
+
                         resultados.Add(new BatchResultItem
                         {
                             Id = sintoma.id,
@@ -237,6 +359,39 @@ namespace eiibd26.Controllers
             {
                 _logger.LogError(ex, "Error en procesamiento batch de síntomas");
                 return StatusCode(500, new { ok = false, error = "Error en procesamiento: " + ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Busca el GlossaryTerm vinculado al síntoma y actualiza nivel + razonamiento de NINA.
+        /// </summary>
+        private async Task PropagateToGlossaryTermAsync(int sintomaId, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var link = await _db.GlossaryTermMedicalLinks
+                    .Include(l => l.GlossaryTerm)
+                    .FirstOrDefaultAsync(l => l.SintomaId == sintomaId, cancellationToken);
+
+                if (link?.GlossaryTerm == null)
+                    return;
+
+                link.GlossaryTerm.MedicalRelationSuggestedId = _aiService.UltimoNivelRelacion;
+                link.GlossaryTerm.AiReasoning                = _aiService.UltimoRazonamiento;
+                link.GlossaryTerm.CreatedByAI                = true;
+                link.GlossaryTerm.FechaActualizacion         = DateTime.UtcNow;
+
+                await _db.SaveChangesAsync(cancellationToken);
+
+                _logger.LogInformation(
+                    "GlossaryTerm {TermId} actualizado: nivel={Nivel}, razonamiento={Razonamiento}",
+                    link.GlossaryTerm.Id,
+                    _aiService.UltimoNivelRelacion,
+                    _aiService.UltimoRazonamiento);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudo propagar nivel/razonamiento al GlossaryTerm para síntoma {Id}", sintomaId);
             }
         }
 

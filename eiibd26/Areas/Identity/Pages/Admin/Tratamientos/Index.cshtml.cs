@@ -62,7 +62,10 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
                 idPadre = t.idPadre,
                 idIdioma = t.idIdioma,
                 Eliminado = t.Eliminado,
-                icono = t.icono ?? string.Empty
+                icono = t.icono ?? string.Empty,
+                ValidadoIA = t.ValidadoIA,
+                ValidadoHumano = t.ValidadoHumano,
+                RelacionEII = t.RelacionEII
             });
 
             // 1. Ejecutar la query y traer datos a memoria
@@ -93,7 +96,10 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
                         idPadre = t.idPadre,
                         idIdioma = t.idIdioma,
                         Eliminado = t.Eliminado,
-                        icono = t.icono
+                        icono = t.icono,
+                        ValidadoIA = t.ValidadoIA,
+                        ValidadoHumano = t.ValidadoHumano,
+                        RelacionEII = t.RelacionEII
                     })
                     .ToListAsync();
             }
@@ -110,7 +116,10 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
                     idPadre = padre.idPadre,
                     idIdioma = padre.idIdioma,
                     icono = padre.icono,
-                    eliminado = padre.Eliminado
+                    eliminado = padre.Eliminado,
+                    validadoIA = padre.ValidadoIA,
+                    validadoHumano = padre.ValidadoHumano,
+                    relacionEII = padre.RelacionEII
                 });
 
                 var hijos = hijosConPadre
@@ -128,7 +137,10 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
                         idPadre = h.idPadre,
                         idIdioma = h.idIdioma,
                         icono = h.icono,
-                        eliminado = h.Eliminado
+                        eliminado = h.Eliminado,
+                        validadoIA = h.ValidadoIA,
+                        validadoHumano = h.ValidadoHumano,
+                        relacionEII = h.RelacionEII
                     });
                 }
             }

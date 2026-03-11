@@ -47,7 +47,33 @@ namespace eiibd26.Models.Glossary
         /// </summary>
         public DateTime? FechaActualizacion { get; set; }
 
+        // ===== IA + VALIDACIÓN MÉDICA =====
+
+        /// <summary>
+        /// Nivel de relación con EII sugerido por NINA (IA)
+        /// </summary>
+        public MedicalRelationType? MedicalRelationSuggestedId { get; set; }
+
+        /// <summary>
+        /// Nivel de relación con EII confirmado manualmente (admin)
+        /// </summary>
+        public MedicalRelationType? MedicalRelationTypeId { get; set; }
+
+        /// <summary>
+        /// Razonamiento clínico breve generado por la IA
+        /// </summary>
+        [MaxLength(1000)]
+        public string? AiReasoning { get; set; }
+
+        /// <summary>
+        /// Indica si el contenido fue generado por NINA (IA)
+        /// </summary>
+        public bool CreatedByAI { get; set; } = true;
+
         // ⭐ RELACIÓN OPCIONAL CON DATOS MÉDICOS (a través de adapter)
         public virtual GlossaryTermMedicalLink? MedicalLink { get; set; }
+
+        /// <summary>Validaciones humanas acumulativas</summary>
+        public virtual ICollection<GlossaryValidation> Validaciones { get; set; } = new List<GlossaryValidation>();
     }
 }

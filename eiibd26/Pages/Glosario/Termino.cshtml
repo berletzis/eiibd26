@@ -9,7 +9,6 @@
     {
         ViewData["Title"] = Model.Term.Nombre + " - Glosario Médico";
 
-        // Descripción para SEO (máximo 160 caracteres)
         var descripcionIA = Model.Term.DefinicionMedica?.DescripcionIA;
         if (!string.IsNullOrWhiteSpace(descripcionIA))
         {
@@ -23,9 +22,181 @@
     }
 }
 
+@section Styles {
+    <link rel="stylesheet" href="~/css/detalle.css" asp-append-version="true" />
+    <style>
+        .termino-badge-nina {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: .7rem;
+            font-weight: 600;
+            padding: 3px 9px;
+            border-radius: 999px;
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+            line-height: 1.4;
+            vertical-align: middle;
+        }
+        .termino-badge-validado {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: .7rem;
+            font-weight: 600;
+            padding: 3px 9px;
+            border-radius: 999px;
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+            line-height: 1.4;
+            vertical-align: middle;
+        }
+        .termino-tipo-pill {
+            display: inline-flex;
+            align-items: center;
+            font-size: .72rem;
+            font-weight: 600;
+            padding: 2px 10px;
+            border-radius: 999px;
+            letter-spacing: .02em;
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+        /* Título + pill en la misma línea */
+        .termino-title-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 4px;
+        }
+        .termino-title-row h1 {
+            margin: 0;
+        }
+        /* Header card Definición */
+        .def-medica-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .def-medica-header h2 {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 700;
+        }
+        /* Acordeón EII limpio (sin fondos de color) */
+        .eii-accordion .accordion-item {
+            border: none;
+            border-bottom: 1px solid #e5e7eb;
+            background: transparent;
+        }
+        .eii-accordion .accordion-item:last-child {
+            border-bottom: none;
+        }
+        .eii-accordion .accordion-button {
+            background: transparent !important;
+            box-shadow: none !important;
+            font-size: .9rem;
+            padding: 10px 0;
+            color: #1f2937;
+        }
+        .eii-accordion .accordion-button:not(.collapsed) {
+            color: #1f2937;
+        }
+        .eii-accordion .accordion-button::after {
+            filter: none;
+        }
+        .eii-accordion .accordion-body {
+            padding: 4px 0 12px 0;
+        }
+        .eii-nivel-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+        .eii-count-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 22px;
+            height: 22px;
+            border-radius: 999px;
+            font-size: .72rem;
+            font-weight: 700;
+            padding: 0 6px;
+        }
+        /* Experiencias: grid de mini-cards */
+        .exp-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+        }
+        .exp-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 12px;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            transition: box-shadow .15s;
+        }
+        .exp-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,.08);
+        }
+        .exp-card-top {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .exp-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1px solid #e5e7eb;
+            flex-shrink: 0;
+        }
+        .exp-avatar-placeholder {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: #94a3b8;
+            font-size: .85rem;
+        }
+        .exp-mood-img {
+            width: 22px;
+            height: 22px;
+            object-fit: contain;
+        }
+        .exp-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: .62rem;
+            font-weight: 500;
+            padding: 2px 7px;
+            border-radius: 999px;
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+        }
+    </style>
+}
+
 @if (Model.Term == null)
 {
-    <div class="container py-5">
+    <div class="conte-detail">
         <div class="alert alert-warning">
             <i class="bi bi-exclamation-triangle"></i>
             <strong>Término no encontrado</strong>
@@ -38,51 +209,78 @@
 }
 else
 {
-    var tipoClase = Model.Term.TipoTermino == eiibd26.Models.Glossary.GlossaryTermType.Sintoma ? "primary" : "success";
-    var tipoIcono = Model.Term.TipoTermino == eiibd26.Models.Glossary.GlossaryTermType.Sintoma ? "heart-pulse" : "prescription2";
+    var isSintoma = Model.Term.TipoTermino == eiibd26.Models.Glossary.GlossaryTermType.Sintoma;
+    var tipoLabel = isSintoma ? "Síntoma" : "Tratamiento";
+    var tipoColor = isSintoma ? "#7c3aed" : "#059669";
+    var tipoColorBg = isSintoma ? "#f3e8ff" : "#d1fae5";
+    var tipoBorder = isSintoma ? "#c4b5fd" : "#6ee7b7";
+    var counts = Model.Term.ValidationCounts;
 
-    <div class="container py-5">
-        <!-- Breadcrumb -->
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="/">Inicio</a></li>
-                <li class="breadcrumb-item"><a href="/Glosario">Glosario</a></li>
-                <li class="breadcrumb-item">
-                    <a href="/Glosario/@(Model.Term.TipoTermino == eiibd26.Models.Glossary.GlossaryTermType.Sintoma ? "Sintomas" : "Tratamientos")">
-                        @(Model.Term.TipoTermino == eiibd26.Models.Glossary.GlossaryTermType.Sintoma ? "Síntomas" : "Tratamientos")
-                    </a>
-                </li>
-                <li class="breadcrumb-item active">@Model.Term.Nombre</li>
-            </ol>
+    <div class="conte-detail">
+
+        <!-- Feedback validación -->
+        @if (Model.ValidationMessage != null)
+        {
+            <div class="alert @(Model.ValidationSuccess ? "alert-success" : "alert-warning") alert-dismissible fade show mb-3" role="alert">
+                <i class="bi bi-@(Model.ValidationSuccess ? "check-circle" : "exclamation-circle")"></i>
+                @Model.ValidationMessage
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        }
+
+        <!-- Breadcrumb al estilo detalle.css -->
+        <nav class="breadcrumbs" aria-label="breadcrumb">
+            <a href="/">Inicio</a>
+            <span class="sep">›</span>
+            <a href="/Glosario">Glosario</a>
+            <span class="sep">›</span>
+            <a href="/Glosario/@(isSintoma ? "Sintomas" : "Tratamientos")">@(isSintoma ? "Síntomas" : "Tratamientos")</a>
+            <span class="sep">›</span>
+            <span>@Model.Term.Nombre</span>
         </nav>
 
-        <!-- Header del término -->
-        <div class="row mb-4">
-            <div class="col">
-                <div class="d-flex align-items-center mb-3">
-                    <i class="bi bi-@tipoIcono display-3 text-@tipoClase me-3"></i>
-                    <div>
-                        <span class="badge bg-@tipoClase mb-2">
-                            @(Model.Term.TipoTermino == eiibd26.Models.Glossary.GlossaryTermType.Sintoma ? "Síntoma" : "Tratamiento")
-                        </span>
-                        <h1 class="display-4 fw-bold mb-0">@Model.Term.Nombre</h1>
-                    </div>
-                </div>
+        <!-- Título con pill inline -->
+        <div class="page-title">
+            <div class="termino-title-row">
+                <h1 class="@(isSintoma ? "sintomas-title" : "")">@Model.Term.Nombre</h1>
+                <span class="termino-tipo-pill"
+                      style="background:@tipoColorBg;color:@tipoColor;border:1px solid @tipoBorder;">
+                    @tipoLabel
+                </span>
             </div>
         </div>
 
-        <div class="row">
-            <!-- Columna principal -->
-            <div class="col-lg-8">
+        <!-- Grid principal: columna + sidebar -->
+        <div class="detail-grid">
+
+            <!-- ===== COLUMNA PRINCIPAL ===== -->
+            <div class="content-panel">
+                @{
+                    var allLevels = new[]
+                    {
+                        eiibd26.Models.Glossary.MedicalRelationType.Directa,
+                        eiibd26.Models.Glossary.MedicalRelationType.Indirecta,
+                        eiibd26.Models.Glossary.MedicalRelationType.Secundaria
+                    };
+                }
+
                 <!-- Definición médica -->
                 @if (Model.Term.DefinicionMedica != null)
                 {
-                    <div class="card shadow-sm mb-4">
-                        <div class="card-header bg-@tipoClase text-white">
-                            <h2 class="h5 mb-0">
-                                <i class="bi bi-file-medical"></i> Definición Médica
-                            </h2>
+                    <div class="def-medica-header mb-2">
+                        <h2 style="font-size:1rem;font-weight:700;margin:0;">Definición Médica</h2>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:auto;">
+                            @if (counts.CreatedByAI)
+                            {
+                                <span class="termino-badge-nina" title="Contenido generado por NINA (IA)">🤖 NINA (IA)</span>
+                            }
+                            @if (counts.MeaningValidationCount > 0)
+                            {
+                                <span class="termino-badge-validado" title="Validaciones de descripción aprobadas">✔ Validado (@counts.MeaningValidationCount)</span>
+                            }
                         </div>
+                    </div>
+                    <div class="card shadow-sm mb-4">
                         <div class="card-body">
                             @if (!string.IsNullOrWhiteSpace(Model.Term.DefinicionMedica.DescripcionIA))
                             {
@@ -92,30 +290,91 @@ else
                             }
                             else
                             {
-                                <p class="text-muted mb-0">
-                                    <i class="bi bi-info-circle"></i>
-                                    Definición pendiente de generar.
-                                </p>
+                                <p class="text-muted mb-0"><i class="bi bi-info-circle"></i> Definición pendiente de generar.</p>
                             }
+                        </div>
+                    </div><!-- /card definicion -->
 
-                            <!-- Relación con EII -->
-                            @if (Model.Term.DefinicionMedica.RelacionEII && !string.IsNullOrWhiteSpace(Model.Term.DefinicionMedica.RelacionEIIDescripcion))
-                            {
-                                <div class="alert alert-info mt-3 mb-0">
-                                    <h6 class="alert-heading">
-                                        <i class="bi bi-link-45deg"></i> Relación con EII
-                                    </h6>
-                                    <p class="mb-0">@Model.Term.DefinicionMedica.RelacionEIIDescripcion</p>
-                                    
-                                    @if (!string.IsNullOrWhiteSpace(Model.Term.DefinicionMedica.Fuentes))
+                    <!-- Relación con EII — card separado -->
+                    <h2 class="mb-2" style="font-size:1rem;font-weight:700;">Relación con EII</h2>
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-body py-2 px-3">
+                            <div class="accordion accordion-flush eii-accordion" id="relEII-@Model.Term.Id">
+                                @foreach (var level in allLevels)
+                                {
+                                    var lvlConsensus = counts.RelationConsensus.FirstOrDefault(r => r.RelationType == level);
+                                    var lvlCount     = lvlConsensus?.Count ?? 0;
+                                    var isAiLevel    = counts.RelationSuggested == level;
+                                    var isTop        = lvlConsensus?.IsTopConsensus ?? false;
+                                    var expandFirst  = isTop || (lvlCount == 0 && isAiLevel);
+
+                                    var (dotColor, label) = level switch
                                     {
-                                        <hr class="my-2">
-                                        <small class="text-muted">
-                                            <i class="bi bi-book"></i> <strong>Fuentes:</strong> @Model.Term.DefinicionMedica.Fuentes
-                                        </small>
-                                    }
-                                </div>
-                            }
+                                        eiibd26.Models.Glossary.MedicalRelationType.Directa   => ("#22c55e", "Directa"),
+                                        eiibd26.Models.Glossary.MedicalRelationType.Indirecta => ("#eab308", "Indirecta"),
+                                        _                                                       => ("#3b82f6", "Secundaria")
+                                    };
+                                    var collapseId = $"rel-{Model.Term.Id}-{(int)level}";
+
+                                    <div class="accordion-item">
+                                        <h3 class="accordion-header m-0">
+                                            <button class="accordion-button @(expandFirst ? "" : "collapsed")"
+                                                    type="button"
+                                                    data-bs-toggle="collapse"
+                                                    data-bs-target="#@collapseId"
+                                                    aria-expanded="@(expandFirst ? "true" : "false")">
+                                                <!-- Bullet de color -->
+                                                <span class="eii-nivel-dot me-2" style="background:@dotColor;"></span>
+                                                <span class="@(isTop ? "fw-bold" : "")">@label</span>
+                                                @if (isAiLevel)
+                                                {
+                                                    <span class="termino-badge-nina ms-2" style="font-size:.6rem;">🤖 IA</span>
+                                                }
+                                                <!-- Count inline junto al label -->
+                                                <span class="eii-count-badge ms-2
+                                                    @(lvlCount > 0 ? "" : "")"
+                                                    style="background:@(lvlCount > 0 ? dotColor + "22" : "#f1f5f9");
+                                                           color:@(lvlCount > 0 ? dotColor : "#94a3b8");
+                                                           border:1px solid @(lvlCount > 0 ? dotColor + "55" : "#e2e8f0");">
+                                                    @lvlCount
+                                                </span>
+                                            </button>
+                                        </h3>
+                                        <div id="@collapseId"
+                                             class="accordion-collapse collapse @(expandFirst ? "show" : "")"
+                                             data-bs-parent="#relEII-@Model.Term.Id">
+                                            <div class="accordion-body">
+                                                @if (isAiLevel && !string.IsNullOrWhiteSpace(counts.AiReasoning))
+                                                {
+                                                    <div class="d-flex gap-2 align-items-start p-2 rounded mb-2"
+                                                         style="background:#f8fafc;">
+                                                        <span style="font-size:1rem;">🤖</span>
+                                                        <div class="small">
+                                                            <span class="fw-semibold text-secondary">NINA (IA)</span>
+                                                            <p class="mb-0 text-dark">@counts.AiReasoning</p>
+                                                        </div>
+                                                    </div>
+                                                }
+                                                @if (lvlConsensus?.Comments.Any() == true)
+                                                {
+                                                    @foreach (var comment in lvlConsensus.Comments)
+                                                    {
+                                                        <div class="d-flex gap-2 align-items-start p-2 rounded mb-2"
+                                                             style="background:#f8fafc;">
+                                                            <i class="bi bi-person-circle text-secondary mt-1" style="font-size:1rem;"></i>
+                                                            <p class="mb-0 small text-dark">@comment</p>
+                                                        </div>
+                                                    }
+                                                }
+                                                else if (!isAiLevel || string.IsNullOrWhiteSpace(counts.AiReasoning))
+                                                {
+                                                    <p class="mb-0 small text-muted fst-italic">Sin comentarios clínicos aún para este nivel.</p>
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
                         </div>
                     </div>
                 }
@@ -130,36 +389,29 @@ else
                 <!-- Artículos relacionados -->
                 @if (Model.Term.ArticulosRelacionados.Any())
                 {
+                    <h2 class="mb-2" style="font-size:1rem;font-weight:700;">Artículos Relacionados</h2>
                     <div class="card shadow-sm mb-4">
-                        <div class="card-header">
-                            <h2 class="h5 mb-0">
-                                <i class="bi bi-newspaper"></i> Artículos Relacionados
-                            </h2>
-                        </div>
                         <div class="card-body">
                             <div class="row g-3">
                                 @foreach (var articulo in Model.Term.ArticulosRelacionados)
                                 {
                                     <div class="col-md-6">
-                                        <div class="card h-100 border-0 shadow-sm hover-card">
+                                        <div class="card h-100 border-0 shadow-sm">
                                             @if (!string.IsNullOrWhiteSpace(articulo.ImagenDestacada))
                                             {
-                                                <img src="@articulo.ImagenDestacada" 
-                                                     class="card-img-top" 
+                                                <img src="@articulo.ImagenDestacada"
+                                                     class="card-img-top"
                                                      alt="@articulo.Titulo"
-                                                     style="height: 150px; object-fit: cover;">
+                                                     loading="lazy" decoding="async"
+                                                     style="height:140px;object-fit:cover;">
                                             }
                                             <div class="card-body">
                                                 <h6 class="card-title">
-                                                    <a href="/Contenidos/@articulo.Slug" class="text-decoration-none text-dark">
-                                                        @articulo.Titulo
-                                                    </a>
+                                                    <a href="/Contenidos/@articulo.Slug" class="text-decoration-none text-dark">@articulo.Titulo</a>
                                                 </h6>
                                                 @if (!string.IsNullOrWhiteSpace(articulo.Resumen))
                                                 {
-                                                    <p class="card-text small text-muted">
-                                                        @articulo.Resumen
-                                                    </p>
+                                                    <p class="card-text small text-muted">@articulo.Resumen</p>
                                                 }
                                                 @if (articulo.FechaPublicacion.HasValue)
                                                 {
@@ -176,72 +428,199 @@ else
                     </div>
                 }
 
-                <!-- Placeholder Comunidad (futuro) -->
-                <div class="card shadow-sm mb-4 border-dashed">
-                    <div class="card-body text-center py-5">
-                        <i class="bi bi-people display-1 text-muted mb-3"></i>
-                        <h3 class="text-muted">Experiencias de la Comunidad</h3>
-                        <p class="text-muted">
-                            Próximamente podrás compartir y leer experiencias de otras personas con este término.
+                <!-- ===== EXPERIENCIAS DE LA COMUNIDAD ===== -->
+                @{
+                    var experiencias = Model.Term.ExperienciasComunidad;
+                    var hayExperiencias = experiencias.Any();
+                    var urlEstadoAnimo = "/Identity/Usuario/UsuarioEstadoAnimo";
+                }
+                <div class="def-medica-header mb-2">
+                    <h2 style="font-size:1rem;font-weight:700;margin:0;">Experiencias de la Comunidad</h2>
+                    @if (hayExperiencias)
+                    {
+                        <span class="eii-count-badge ms-2"
+                              style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;">
+                            @experiencias.Count
+                        </span>
+                    }
+                </div>
+                <div class="card shadow-sm mb-4">
+                    @if (hayExperiencias)
+                    {
+                        <div class="card-body">
+                            <div class="exp-grid">
+                                @foreach (var exp in experiencias)
+                                {
+                                    <div class="exp-card">
+                                        <!-- Avatar + nombre + fecha -->
+                                        <div class="exp-card-top">
+                                            @if (!string.IsNullOrWhiteSpace(exp.AvatarUrl))
+                                            {
+                                                if (!string.IsNullOrWhiteSpace(exp.UserSlug))
+                                                {
+                                                    <a href="/u/@exp.UserSlug" title="Ver perfil">
+                                                        <img src="@exp.AvatarUrl" alt="@exp.AliasUsuario"
+                                                             class="exp-avatar" loading="lazy" decoding="async">
+                                                    </a>
+                                                }
+                                                else
+                                                {
+                                                    <img src="@exp.AvatarUrl" alt="@exp.AliasUsuario"
+                                                         class="exp-avatar" loading="lazy" decoding="async">
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <div class="exp-avatar-placeholder">
+                                                    <i class="bi bi-person"></i>
+                                                </div>
+                                            }
+                                            <div class="min-w-0">
+                                                @if (!string.IsNullOrWhiteSpace(exp.UserSlug))
+                                                {
+                                                    <a href="/u/@exp.UserSlug"
+                                                       class="fw-semibold text-decoration-none text-dark d-block"
+                                                       style="font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                                        @exp.AliasUsuario
+                                                    </a>
+                                                }
+                                                else
+                                                {
+                                                    <span class="fw-semibold d-block"
+                                                          style="font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                                        @exp.AliasUsuario
+                                                    </span>
+                                                }
+                                                <span class="text-muted" style="font-size:.68rem;">@exp.FechaRelativa</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Cápsulas: mood SVG + contextos, mismo tamaño -->
+                                        <div class="d-flex flex-wrap gap-1 align-items-center">
+                                            <img src="@exp.MoodIconUrl" alt="@exp.EstadoMoodNombre"
+                                                 title="@exp.EstadoMoodNombre"
+                                                 class="exp-mood-img">
+                                            @if (!string.IsNullOrWhiteSpace(exp.CondicionNombre))
+                                            {
+                                                <span class="exp-tag">🩺 @exp.CondicionNombre</span>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(exp.SintomaContextoNombre))
+                                            {
+                                                <span class="exp-tag">⚡ @exp.SintomaContextoNombre</span>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(exp.TratamientoContextoNombre))
+                                            {
+                                                <span class="exp-tag">💊 @exp.TratamientoContextoNombre</span>
+                                            }
+                                        </div>
+
+                                        <!-- Texto -->
+                                        @if (!string.IsNullOrWhiteSpace(exp.TextoPreview))
+                                        {
+                                            <p class="mb-0 text-secondary lh-sm" style="font-size:.78rem;">@exp.TextoPreview</p>
+                                        }
+                                        else
+                                        {
+                                            <p class="mb-0 text-muted fst-italic" style="font-size:.78rem;">
+                                                Se sintió <strong>@exp.EstadoMoodNombre.ToLower()</strong>.
+                                            </p>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                        <div class="card-footer bg-transparent text-end py-2">
+                            <a href="@urlEstadoAnimo" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-plus-circle me-1"></i> Agregar mi estado de ánimo
+                            </a>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="card-body text-center py-4">
+                            <p class="text-muted small mb-3">Próximamente podrás compartir y leer experiencias de otras personas con este término.</p>
+                            <a href="@urlEstadoAnimo" class="btn btn-primary btn-sm">
+                                <i class="bi bi-plus-circle me-1"></i> Agregar mi estado de ánimo
+                            </a>
+                        </div>
+                    }
+                </div>
+
+            </div><!-- /content-panel -->
+
+            <!-- ===== SIDEBAR ===== -->
+            <div class="right-panel">
+
+                <!-- Relación con EII (sidebar) -->
+                @if (counts.RelationConsensus.Any() || counts.RelationSuggested.HasValue)
+                {
+                    <div class="sidebar-section sidebar-static mb-3">
+                        <div class="sidebar-section-header-static">
+                            <span class="sidebar-section-title">Relación con EII</span>
+                        </div>
+                        <div class="sidebar-section-content-static">
+                            @if (counts.RelationConsensus.Any())
+                            {
+                                <p class="small text-muted mb-2">Consenso médico:</p>
+                                @foreach (var item in counts.RelationConsensus.OrderByDescending(i => i.Count))
+                                {
+                                    var (icon, label, bg) = item.RelationType switch
+                                    {
+                                        eiibd26.Models.Glossary.MedicalRelationType.Directa   => ("🟢","Directa",  "success"),
+                                        eiibd26.Models.Glossary.MedicalRelationType.Indirecta => ("🟡","Indirecta","warning"),
+                                        _                                                       => ("🔵","Secundaria","info")
+                                    };
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="@(item.IsTopConsensus ? "fw-bold" : "") small">@icon @label</span>
+                                        <span class="badge bg-@bg text-dark">@item.Count</span>
+                                    </div>
+                                }
+                            }
+                            else if (counts.RelationSuggested.HasValue)
+                            {
+                                var (icon, label) = counts.RelationSuggested.Value switch
+                                {
+                                    eiibd26.Models.Glossary.MedicalRelationType.Directa   => ("🟢","Directa"),
+                                    eiibd26.Models.Glossary.MedicalRelationType.Indirecta => ("🟡","Indirecta"),
+                                    _                                                       => ("🔵","Secundaria")
+                                };
+                                <p class="small text-muted mb-1">Sugerido por NINA (IA):</p>
+                                <p class="mb-0 small">@icon @label <small class="text-muted">(pendiente validación)</small></p>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <!-- Navegación del glosario -->
+                <div class="sidebar-section sidebar-static mb-3">
+                    <div class="sidebar-section-header-static">
+                        <span class="sidebar-section-title">Navegación</span>
+                    </div>
+                    <div class="sidebar-section-content-static">
+                        <div class="d-flex flex-column gap-1">
+                            <a href="/Glosario" class="small text-decoration-none py-1">Volver al Glosario</a>
+                            <a href="/Glosario/Sintomas" class="small text-decoration-none py-1">Ver todos los Síntomas</a>
+                            <a href="/Glosario/Tratamientos" class="small text-decoration-none py-1">Ver todos los Tratamientos</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Aviso importante -->
+                <div class="sidebar-section sidebar-static">
+                    <div class="sidebar-section-header-static">
+                        <span class="sidebar-section-title" style="color:#92400e;">Aviso Importante</span>
+                    </div>
+                    <div class="sidebar-section-content-static">
+                        <p class="small text-muted mb-0">
+                            Esta información es educativa y no reemplaza el consejo de un
+                            médico profesional. <strong>Siempre consulta con tu médico</strong>
+                            sobre tu condición y tratamiento.
                         </p>
                     </div>
                 </div>
-            </div>
 
-            <!-- Sidebar -->
-            <div class="col-lg-4">
-                <!-- Navegación rápida -->
-                <div class="card shadow-sm mb-4">
-                    <div class="card-header bg-light">
-                        <h6 class="mb-0">
-                            <i class="bi bi-compass"></i> Navegación
-                        </h6>
-                    </div>
-                    <div class="list-group list-group-flush">
-                        <a href="/Glosario" class="list-group-item list-group-item-action">
-                            <i class="bi bi-house"></i> Volver al Glosario
-                        </a>
-                        <a href="/Glosario/Sintomas" class="list-group-item list-group-item-action">
-                            <i class="bi bi-heart-pulse"></i> Ver todos los Síntomas
-                        </a>
-                        <a href="/Glosario/Tratamientos" class="list-group-item list-group-item-action">
-                            <i class="bi bi-prescription2"></i> Ver todos los Tratamientos
-                        </a>
-                    </div>
-                </div>
+                </div><!-- /right-panel -->
 
-                <!-- Disclaimer -->
-                <div class="card shadow-sm border-warning">
-                    <div class="card-body">
-                        <h6 class="text-warning">
-                            <i class="bi bi-exclamation-triangle-fill"></i> Aviso Importante
-                        </h6>
-                        <small class="text-muted">
-                            Esta información es educativa y no reemplaza el consejo médico profesional. 
-                            Siempre consulta con tu médico sobre tu condición y tratamiento.
-                        </small>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-}
-
-@section Styles {
-    <style>
-        .hover-card {
-            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-        }
-        .hover-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
-        }
-        .medical-definition {
-            font-size: 1.05rem;
-            line-height: 1.7;
-        }
-        .border-dashed {
-            border-style: dashed !important;
-        }
-    </style>
+        </div><!-- /detail-grid -->
+    </div><!-- /conte-detail -->
 }

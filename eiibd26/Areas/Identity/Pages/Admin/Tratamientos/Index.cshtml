@@ -325,19 +325,42 @@
                     <input type="text" class="form-control" id="editTratamiento_nombre" name="nombre" required>
                 </div>
 
-                <div class="mb-3">
-                    <label for="editTratamiento_idPadre" class="form-label">ID Padre (vacío si es padre)</label>
-                    <input type="number" class="form-control" id="editTratamiento_idPadre" name="idPadre">
-                </div>
-
-                <div class="mb-3">
-                    <label for="editTratamiento_idIdioma" class="form-label">ID Idioma</label>
-                    <input type="number" class="form-control" id="editTratamiento_idIdioma" name="idIdioma" required>
-                </div>
-
-                <div class="mb-3">
-                    <label for="editTratamiento_icono" class="form-label">Ícono</label>
-                    <input type="text" class="form-control" id="editTratamiento_icono" name="icono">
+                <!-- Otros campos colapsados -->
+                <div class="accordion accordion-flush mb-3" id="acordeonOtrosTratamiento">
+                    <div class="accordion-item border rounded">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed py-2 px-3"
+                                    type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#otrosCamposTratamiento"
+                                    aria-expanded="false"
+                                    style="background:#f9fafb;font-size:.875rem;">
+                                <i class="bi bi-three-dots me-2 text-muted"></i>
+                                <span class="text-muted">Otros campos</span>
+                            </button>
+                        </h2>
+                        <div id="otrosCamposTratamiento" class="accordion-collapse collapse">
+                            <div class="accordion-body py-2 px-3">
+                                <div class="row g-2">
+                                    <div class="col-4">
+                                        <label class="form-label small mb-1">ID Padre</label>
+                                        <input type="number" class="form-control form-control-sm"
+                                               id="editTratamiento_idPadre" name="idPadre">
+                                    </div>
+                                    <div class="col-4">
+                                        <label class="form-label small mb-1">ID Idioma</label>
+                                        <input type="number" class="form-control form-control-sm"
+                                               id="editTratamiento_idIdioma" name="idIdioma">
+                                    </div>
+                                    <div class="col-4">
+                                        <label class="form-label small mb-1">Ícono</label>
+                                        <input type="text" class="form-control form-control-sm"
+                                               id="editTratamiento_icono" name="icono">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- ===== NUEVO: DESCRIPCIÓN IA ===== -->
@@ -403,12 +426,52 @@
                     <small class="text-muted">Esta información la determina la IA automáticamente</small>
                 </div>
 
-                <div class="mb-3">
-                    <label for="editTratamiento_eliminado" class="form-label">Estado</label>
-                    <select class="form-select" id="editTratamiento_eliminado" name="eliminado">
-                        <option value="false">Activo</option>
-                        <option value="true">Eliminado</option>
-                    </select>
+                <!-- ===== BLOQUE GLOSARIO ===== -->
+                <div class="card mb-3 border-0" id="editTratamiento_glosarioBlock" style="display:none;">
+                    <div class="card-header text-white py-2 rounded-top"
+                         style="background:linear-gradient(135deg,#10b981,#059669);">
+                        <i class="bi bi-journal-medical me-1"></i>
+                        <span class="fw-semibold">Glosario Médico</span>
+                        <small class="ms-2 opacity-75" id="editTratamiento_glosarioTermId"></small>
+                    </div>
+                    <div class="card-body p-3" style="background:#f0fdf4;">
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <p class="text-muted mb-1" style="font-size:.75rem;">Sugerido por NINA:</p>
+                                <div id="editTratamiento_nivelIA"><span class="text-muted small fst-italic">No determinado</span></div>
+                            </div>
+                            <div class="col-6">
+                                <p class="text-muted mb-1" style="font-size:.75rem;">Confirmado (admin):</p>
+                                <div id="editTratamiento_nivelConfirmado"><span class="text-muted small fst-italic">Sin confirmar</span></div>
+                            </div>
+                        </div>
+                        <div id="editTratamiento_reasoningBlock" class="mb-3 p-2 rounded"
+                             style="background:#fff;border:1px solid #bbf7d0;display:none;">
+                            <p class="mb-1" style="font-size:.72rem;color:#059669;">
+                                <i class="bi bi-robot me-1"></i><strong>Razonamiento NINA:</strong>
+                            </p>
+                            <p class="mb-0 small" id="editTratamiento_reasoning"></p>
+                        </div>
+                        <hr class="my-2">
+                        <p class="fw-semibold mb-2" style="font-size:.8rem;">
+                            <i class="bi bi-people me-1"></i> Historial de validaciones:
+                        </p>
+                        <div id="editTratamiento_validaciones">
+                            <p class="text-muted small mb-0 fst-italic">Sin validaciones registradas</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Activo / Eliminado -->
+                <div class="mb-3 d-flex align-items-center gap-2 p-2 rounded border">
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" role="switch"
+                               id="editTratamiento_activo" style="cursor:pointer;">
+                        <label class="form-check-label fw-semibold" for="editTratamiento_activo">
+                            Registro activo
+                        </label>
+                    </div>
+                    <small class="text-muted">(desmarcar = eliminar registro)</small>
                 </div>
 
                 <div class="alert alert-success d-none" id="msgEditTratamientoSuccess">
@@ -525,6 +588,56 @@
     <script>
         let tratamientosTabla;
         let hijosTratPorPadre = {};
+
+        // ===== HELPERS GLOSARIO TRATAMIENTOS =====
+        function nivelBadgeTrat(level) {
+            if (!level && level !== 0) return '<span class="text-muted small fst-italic">—</span>';
+            const map = { 1: ['\uD83D\uDFE2', 'Directa', 'success'], 2: ['\uD83D\uDFE1', 'Indirecta', 'warning'], 3: ['\uD83D\uDD35', 'Secundaria', 'info'] };
+            const [icon, label, color] = map[level] || ['\u26AA', 'Desconocido', 'secondary'];
+            return `<span class="badge bg-${color}">${icon} ${label}</span>`;
+        }
+
+        function renderValidacionesTrat(validations) {
+            if (!validations || validations.length === 0)
+                return '<p class="text-muted small mb-0 fst-italic">Sin validaciones registradas</p>';
+            const typeLabels = { 1: 'Descripci\u00f3n', 2: 'Relaci\u00f3n' };
+            return validations.map(v => {
+                const date = new Date(v.createdAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: '2-digit' });
+                const typeLabel = typeLabels[v.validationType] || 'Validaci\u00f3n';
+                const levelHtml = v.relationTypeId ? nivelBadgeTrat(v.relationTypeId) : '';
+                const commentHtml = v.comment ? `<p class="mb-0 small text-dark mt-1">&ldquo;${v.comment}&rdquo;</p>` : '';
+                return `<div class="d-flex gap-2 align-items-start mb-2 p-2 rounded" style="background:#fff;border:1px solid #e5e7eb;">
+                    <i class="bi bi-person-circle text-secondary flex-shrink-0 mt-1" aria-label="privado" title="privado" style="font-size:1.1rem;"></i>
+                    <div class="flex-grow-1">
+                        <div class="d-flex flex-wrap gap-1 align-items-center mb-1">
+                            <span class="fw-semibold small">${v.userDisplay}</span>
+                            <span class="badge bg-secondary" style="font-size:.65rem;">${typeLabel}</span>
+                            ${levelHtml}
+                            <small class="text-muted ms-auto">${date}</small>
+                        </div>
+                        ${commentHtml}
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function cargarGlosarioTratamiento(id) {
+            $('#editTratamiento_glosarioBlock').hide();
+            $.get('/api/admin/tratamientos/' + id + '/glossary', function (g) {
+                if (!g || !g.ok || !g.hasGlossaryTerm) return;
+                $('#editTratamiento_glosarioTermId').text('#' + g.glossaryTermId);
+                $('#editTratamiento_nivelIA').html(nivelBadgeTrat(g.nivelSugerido));
+                $('#editTratamiento_nivelConfirmado').html(nivelBadgeTrat(g.nivelConfirmado));
+                if (g.aiReasoning) {
+                    $('#editTratamiento_reasoning').text(g.aiReasoning);
+                    $('#editTratamiento_reasoningBlock').show();
+                } else {
+                    $('#editTratamiento_reasoningBlock').hide();
+                }
+                $('#editTratamiento_validaciones').html(renderValidacionesTrat(g.validations));
+                $('#editTratamiento_glosarioBlock').show();
+            });
+        }
 
         function actualizarDiccionarioHijosTratamientos(data) {
             hijosTratPorPadre = {};
@@ -689,11 +802,12 @@
                         $('#editTratamiento_noRelacionEIIContainer').show();
                     }
 
-                    $('#editTratamiento_eliminado').val(data.eliminado ? "true" : "false");
+                    $('#editTratamiento_activo').prop('checked', !data.eliminado);
                     $('#msgEditTratamientoSuccess').addClass('d-none');
 
                     // Mostrar panel lateral
                     $('#panelEditarTratamiento').addClass('active');
+                    cargarGlosarioTratamiento(data.id);
 
                     // ⭐ NUEVO: Recalcular DataTable después de abrir el panel
                     setTimeout(function() {
@@ -782,6 +896,8 @@
 
                             // Recargar el grid para mostrar el checkmark de ValidadoIA
                             tratamientosTabla.ajax.reload(null, false);
+                            const tid = $('#editTratamiento_id').val();
+                            if (tid) cargarGlosarioTratamiento(parseInt(tid));
                         } else {
                             alert('Error: ' + (data.error || 'No se pudo generar la descripción'));
                         }
@@ -810,7 +926,7 @@
                     idPadre: $('#editTratamiento_idPadre').val() ? parseInt($('#editTratamiento_idPadre').val()) : null,
                     idIdioma: parseInt($('#editTratamiento_idIdioma').val()),
                     icono: $('#editTratamiento_icono').val(),
-                    eliminado: $('#editTratamiento_eliminado').val() === "true",
+                    eliminado: !$('#editTratamiento_activo').is(':checked'),
                     descripcionIA: $('#editTratamiento_descripcionIA').val(),
                     validadoHumano: $('#editTratamiento_validadoHumano').is(':checked')
                 };
