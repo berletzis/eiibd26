@@ -9,36 +9,29 @@
     <!-- Header -->
     <div class="row mb-4">
         <div class="col">
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb">
+            <h1 class="display-5 fw-bold text-dark" style="color:#000;margin-bottom:0;">
+                Tratamientos
+                <span class="badge bg-light text-dark ms-2" style="font-weight:600;font-size:.9rem;">@Model.Terminos.Count</span>
+            </h1>
+            <nav aria-label="breadcrumb" class="mt-2">
+                <ol class="breadcrumb mb-2">
                     <li class="breadcrumb-item"><a href="/">Inicio</a></li>
                     <li class="breadcrumb-item"><a href="/Glosario">Glosario</a></li>
                     <li class="breadcrumb-item active">Tratamientos</li>
                 </ol>
             </nav>
-            
-            <h1 class="display-5 fw-bold text-success">
-                <i class="bi bi-prescription2"></i> Tratamientos
-            </h1>
-            <p class="lead text-muted">
-                @Model.Terminos.Count tratamientos en el glosario
-            </p>
         </div>
     </div>
 
     @if (Model.Terminos.Any())
     {
         <!-- Navegación alfabética -->
-        <div class="card shadow-sm mb-4">
-            <div class="card-body">
-                <div class="d-flex flex-wrap gap-2 justify-content-center">
-                    @foreach (var letra in Model.LetrasDisponibles)
-                    {
-                        <a href="#letra-@letra" class="btn btn-outline-success btn-sm">
-                            @letra
-                        </a>
-                    }
-                </div>
+        <div class="alphabet-nav mb-4">
+            <div class="d-flex flex-wrap gap-2 justify-content-center">
+                @foreach (var letra in Model.LetrasDisponibles)
+                {
+                    <a href="#letra-@letra" class="alphabet-letter alphabet-letter-success">@letra</a>
+                }
             </div>
         </div>
 
@@ -46,22 +39,20 @@
         @foreach (var grupo in Model.TerminosAgrupados)
         {
             <div class="mb-5" id="letra-@grupo.Key">
-                <h2 class="border-bottom pb-2 mb-3 text-success">
-                    @grupo.Key
+                <h2 class="border-bottom pb-2 mb-3">
+                    <span class="text-purple">@grupo.Key</span>
                 </h2>
                 <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
                     @foreach (var termino in grupo)
                     {
                         <div class="col">
-                            <div class="card h-100 shadow-sm hover-card">
-                                <div class="card-body">
-                                    <h5 class="card-title">
-                                        <a href="/Termino/@termino.Slug" class="text-decoration-none text-dark">
-                                            @termino.Nombre
-                                        </a>
-                                    </h5>
-                                </div>
-                            </div>
+                            <article class="se-card h-100">
+                                <a href="/Termino/@termino.Slug" class="text-decoration-none text-reset d-flex flex-column h-100">
+                                    <div class="se-card-body">
+                                        <h5 class="se-card-title">@termino.Nombre</h5>
+                                    </div>
+                                </a>
+                            </article>
                         </div>
                     }
                 </div>
@@ -87,14 +78,27 @@
 </div>
 
 @section Styles {
+    <link rel="stylesheet" href="~/css/contenidos-cards.css" asp-append-version="true" />
     <style>
-        .hover-card {
-            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        /* keep small compatibility tweaks */
+        /* Ensure alphabet letters are large and styled on this page as well */
+        .alphabet-letter {
+            font-size: 2rem !important;
+            text-decoration: none !important;
+            display: inline-block !important;
+            min-width: 48px !important;
+            height: 48px !important;
+            line-height: 48px !important;
+            padding: 0 10px !important;
+            border-radius: 8px !important;
+            color: #6d28d9 !important;
+            background: transparent !important;
+            cursor: pointer !important;
+            font-weight: 700 !important;
         }
-        .hover-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
-        }
+        .alphabet-letter:hover { background: #f3e8ff !important; color: #5b21b6 !important; }
+        .alphabet-letter:active, .alphabet-letter.active { background: #e9d5ff !important; color: #6d28d9 !important; }
+        .alphabet-letter:focus { outline: 3px solid rgba(124,58,237,0.18) !important; outline-offset: 3px !important; }
     </style>
 }
 

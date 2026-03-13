@@ -231,6 +231,108 @@
                 font-size: .85rem;
                 margin: 0;
             }
+        /* ===== User profile cards (copied from Mapa/Index for consistency) ===== */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            width: 100%;
+            box-sizing: border-box;
+            padding: 0;
+            margin: 0;
+            justify-items: stretch;
+        }
+
+        .user-card {
+            padding: 12px;
+            background: #fff;
+            border: 1px solid #eef2f7;
+            border-radius: 8px;
+            min-height: 140px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+        }
+
+        .user-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border-color: #764ba2;
+        }
+
+        .user-card-main {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .user-avatar {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            overflow: hidden;
+            background: #f3f6fa;
+            flex: 0 0 72px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            border: 3px solid #764ba2;
+        }
+
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            border-radius: 50%;
+        }
+
+        .user-info {
+            flex: 1 1 auto;
+        }
+
+        .user-name {
+            font-weight: 400;
+            color: #0f172a;
+            margin-bottom: 2px;
+            font-size: 0.95rem;
+            line-height: 1.2;
+        }
+
+        .user-meta {
+            color: #6b7280;
+            font-size: 0.85rem;
+            font-weight: 400;
+            line-height: 1.2;
+        }
+
+        .user-card-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: auto;
+            gap: 8px;
+        }
+
+        .user-card-mood-icon {
+            width: 24px;
+            height: 24px;
+        }
+
+        @@media (max-width: 1200px) {
+            .cards-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @@media (max-width: 576px) {
+            .cards-grid {
+                grid-template-columns: repeat(1, 1fr);
+            }
+            .user-avatar { width: 60px; height: 60px; flex: 0 0 60px; border-width:2px; }
+        }
 
         
 
@@ -474,7 +576,7 @@ else
                     var hayExperiencias = experiencias.Any();
                     var urlEstadoAnimo = "/Identity/Usuario/UsuarioEstadoAnimo";
                 }
-                <div class="contenido">
+                <div class="contenido" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
                     <h2 style="margin:0;">Comunidad</h2>
                     @if (hayExperiencias)
                     {
@@ -484,107 +586,66 @@ else
                         </span>
                     }
                 </div>
-                <div class="card shadow-sm mb-4">
-                    @if (hayExperiencias)
-                    {
-                        <div class="card-body contenido-html">
-                            <div class="exp-grid">
-                                @foreach (var exp in experiencias)
-                                {
-                                    <div class="exp-card">
-                                        <!-- Avatar + nombre + fecha -->
-                                        <div class="exp-card-top">
-                                            @if (!string.IsNullOrWhiteSpace(exp.AvatarUrl))
-                                            {
-                                                if (!string.IsNullOrWhiteSpace(exp.UserSlug))
-                                                {
-                                                    <a href="/u/@exp.UserSlug" title="Ver perfil">
-                                                        <img src="@exp.AvatarUrl" alt="@exp.AliasUsuario"
-                                                             class="exp-avatar" loading="lazy" decoding="async">
-                                                    </a>
-                                                }
-                                                else
-                                                {
-                                                    <img src="@exp.AvatarUrl" alt="@exp.AliasUsuario"
-                                                         class="exp-avatar" loading="lazy" decoding="async">
-                                                }
-                                            }
-                                            else
-                                            {
-                                                <div class="exp-avatar-placeholder">
-                                                    <i class="bi bi-person"></i>
-                                                </div>
-                                            }
-                                            <div class="min-w-0">
-                                                @if (!string.IsNullOrWhiteSpace(exp.UserSlug))
-                                                {
-                                                    <a href="/u/@exp.UserSlug"
-                                                           class="fw-semibold text-decoration-none text-dark d-block"
-                                                           style="font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                                                        @exp.AliasUsuario
-                                                    </a>
-                                                }
-                                                else
-                                                {
-                                                    <span class="fw-semibold d-block"
-                                                          style="font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                                                        @exp.AliasUsuario
-                                                    </span>
-                                                }
-                                                <span class="text-muted" style="font-size:.68rem;">@exp.FechaRelativa</span>
-                                            </div>
-                                        </div>
-
-                                        <!-- Cápsulas: mood SVG + contextos, mismo tamaño -->
-                                        <div class="d-flex flex-wrap gap-1 align-items-center">
-                                            <img src="@exp.MoodIconUrl" alt="@exp.EstadoMoodNombre"
-                                                 title="@exp.EstadoMoodNombre"
-                                                 class="exp-mood-img">
-                                            @if (!string.IsNullOrWhiteSpace(exp.CondicionNombre))
-                                            {
-                                                <span class="exp-tag">🩺 @exp.CondicionNombre</span>
-                                            }
-                                            @if (!string.IsNullOrWhiteSpace(exp.SintomaContextoNombre))
-                                            {
-                                                <span class="exp-tag">⚡ @exp.SintomaContextoNombre</span>
-                                            }
-                                            @if (!string.IsNullOrWhiteSpace(exp.TratamientoContextoNombre))
-                                            {
-                                                <span class="exp-tag">💊 @exp.TratamientoContextoNombre</span>
-                                            }
-                                        </div>
-
-                                        <!-- Texto -->
-                                        @if (!string.IsNullOrWhiteSpace(exp.TextoPreview))
+                @if (hayExperiencias)
+                {
+                    <div class="cards-grid">
+                        @foreach (var exp in experiencias)
+                        {
+                            <div class="card user-card h-100">
+                                <div class="user-card-main">
+                                    <div class="user-avatar">
+                                        @if (!string.IsNullOrWhiteSpace(exp.AvatarUrl))
                                         {
-                                            <p class="mb-0 text-secondary lh-sm" style="font-size:.78rem;">@exp.TextoPreview</p>
+                                            <img src="@exp.AvatarUrl" alt="@exp.AliasUsuario" loading="lazy" decoding="async" />
                                         }
                                         else
                                         {
-                                            <p class="mb-0 text-muted fst-italic" style="font-size:.78rem;">
-                                                Se sintió <strong>@exp.EstadoMoodNombre.ToLower()</strong>.
-                                            </p>
+                                            <i class="bi bi-person" style="font-size:2.2rem;color:#bdbdbd;"></i>
                                         }
                                     </div>
-                                }
+                                    <div class="user-info">
+                                        <div class="user-name">@exp.AliasUsuario</div>
+                                        <div class="user-meta">@exp.FechaRelativa</div>
+                                        @if (!string.IsNullOrWhiteSpace(exp.CondicionNombre))
+                                        {
+                                            <div class="user-meta">🩺 @exp.CondicionNombre</div>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(exp.SintomaContextoNombre))
+                                        {
+                                            <div class="user-meta">⚡ @exp.SintomaContextoNombre</div>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(exp.TratamientoContextoNombre))
+                                        {
+                                            <div class="user-meta">💊 @exp.TratamientoContextoNombre</div>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="user-card-bottom">
+                                    <div class="user-card-mood-text">
+                                        @if (!string.IsNullOrWhiteSpace(exp.TextoPreview))
+                                        {
+                                            @exp.TextoPreview
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted fst-italic">Se sintió <strong>@exp.EstadoMoodNombre.ToLower()</strong>.</span>
+                                        }
+                                    </div>
+                                    <img src="@exp.MoodIconUrl" alt="@exp.EstadoMoodNombre" title="@exp.EstadoMoodNombre" class="user-card-mood-icon" />
+                                </div>
                             </div>
-                        </div>
-                        <div class="card-footer bg-transparent text-end py-2">
-                            <a href="@urlEstadoAnimo" class="btn btn-outline-primary btn-sm">
-                                <i class="bi bi-plus-circle me-1"></i> Agregar mi estado de ánimo
-                            </a>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="card-body text-center py-4">
-                            <p class="text-muted small mb-3">Próximamente podrás compartir y leer experiencias de otras personas con este término.</p>
-                            <a href="@urlEstadoAnimo" class="btn btn-primary btn-sm">
-                                <i class="bi bi-plus-circle me-1"></i> Agregar mi estado de ánimo
-                            </a>
-                        </div>
-                    }
-                </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-4">
+                        <p class="text-muted small mb-3">Próximamente podrás compartir y leer experiencias de otras personas con este término.</p>
+                        <a href="@urlEstadoAnimo" class="btn btn-primary btn-sm">
+                            <i class="bi bi-plus-circle me-1"></i> Agregar mi estado de ánimo
+                        </a>
+                    </div>
+                }
 
             </div><!-- /content-panel -->
             <!-- ===== SIDEBAR ===== -->
