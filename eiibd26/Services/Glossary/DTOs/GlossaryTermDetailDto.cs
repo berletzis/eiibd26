@@ -33,6 +33,11 @@ namespace eiibd26.Services.Glossary.DTOs
         public List<RelatedContentDto> ArticulosRelacionados { get; set; } = new();
 
         /// <summary>
+        /// Preguntas relacionadas (top N) para este término
+        /// </summary>
+        public List<RelatedQuestionDto> PreguntasRelacionadas { get; set; } = new();
+
+        /// <summary>
         /// Conteos de badges de confianza (IA + validaciones humanas)
         /// </summary>
         public GlossaryValidationCountsDto ValidationCounts { get; set; } = new();

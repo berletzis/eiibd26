@@ -16,18 +16,21 @@ namespace eiibd26.Services.Glossary
         private readonly ApplicationDbContext _db;
         private readonly IMedicalDataAdapter _medicalAdapter;
         private readonly ICommunityExperienceService _community;
+        private readonly Microsoft.Extensions.Caching.Memory.IMemoryCache _cache;
         private readonly ILogger<GlossaryService> _logger;
 
         public GlossaryService(
             ApplicationDbContext db,
             IMedicalDataAdapter medicalAdapter,
             ICommunityExperienceService community,
-            ILogger<GlossaryService> logger)
+            ILogger<GlossaryService> logger,
+            Microsoft.Extensions.Caching.Memory.IMemoryCache cache)
         {
             _db             = db;
             _medicalAdapter = medicalAdapter;
             _community      = community;
             _logger         = logger;
+            _cache          = cache;
         }
 
         /// <summary>
@@ -141,12 +144,23 @@ namespace eiibd26.Services.Glossary
 
                 // 3. Buscar artículos relacionados del CMS
                 detail.ArticulosRelacionados = await GetRelatedContentsAsync(term.Nombre, 10);
+                // Cargar preguntas relacionadas (top 5)
+                if (term.MedicalLinkSintomaId.HasValue)
+                {
+                    detail.PreguntasRelacionadas = await GetRelatedQuestionsAsync(term.MedicalLinkSintomaId.Value, null, 5);
+                }
+                else if (term.MedicalLinkTratamientoId.HasValue)
+                {
+                    detail.PreguntasRelacionadas = await GetRelatedQuestionsAsync(null, term.MedicalLinkTratamientoId.Value, 5);
+                }
 
                 // 4. Experiencias de la comunidad (READ-ONLY)
                 if (term.MedicalLinkSintomaId.HasValue)
                     detail.ExperienciasComunidad = await _community.GetRecentExperiencesBySymptomAsync(term.MedicalLinkSintomaId.Value);
                 else if (term.MedicalLinkTratamientoId.HasValue)
                     detail.ExperienciasComunidad = await _community.GetRecentExperiencesByTreatmentAsync(term.MedicalLinkTratamientoId.Value);
+
+                // 5. Top terms by quality are not loaded here (index page uses separate endpoint)
 
                 return detail;
             }
@@ -237,6 +251,22 @@ namespace eiibd26.Services.Glossary
                 _logger.LogInformation(
                     "Validación registrada: término {TermId}, usuario {UserId}, tipo {Type}",
                     termId, userId, validationType);
+                // Invalidate top lists cache so UI reflects new human validations immediately
+                try
+                {
+                    var keys = new[]
+                    {
+                        $"glossary:top:{GlossaryTermType.Sintoma}:20",
+                        $"glossary:top:{GlossaryTermType.Tratamiento}:20"
+                    };
+                    foreach (var k in keys)
+                        _cache.Remove(k);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "No se pudo invalidar cache de top glossary lists");
+                }
+
                 return true;
             }
             catch (Exception ex)
@@ -392,6 +422,145 @@ namespace eiibd26.Services.Glossary
             {
                 _logger.LogError(ex, "Error al obtener contenidos relacionados con '{TermName}'", termName);
                 return new List<RelatedContentDto>();
+            }
+        }
+
+        public async Task<List<GlossaryTermSummaryDto>> GetTopTermsByQualityAsync(GlossaryTermType type, int limit = 20, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                // Key parts: type, limit
+                // Build base query
+                var termsQuery = _db.GlossaryTerms.AsNoTracking()
+                    .Where(gt => gt.TipoTermino == type && gt.Activo)
+                    .Select(gt => new
+                    {
+                        gt.Id,
+                        gt.Nombre,
+                        gt.Slug,
+                        gt.FechaActualizacion,
+                        gt.CreatedByAI,
+                        MedicalLinkSintomaId = gt.MedicalLink != null ? gt.MedicalLink.SintomaId : null,
+                        MedicalLinkTratamientoId = gt.MedicalLink != null ? gt.MedicalLink.TratamientoId : null
+                    });
+
+                // Filter: prefer terms with human meaning validation, but also include
+                // terms that are marked ValidadoHumano in the linked sintomas/tratamientos tables.
+                // This makes selection more permissive so items that lack a RelationValidation
+                // yet are marked by editors in the medical tables still surface in the Top lists.
+                var filtered = termsQuery.Where(t =>
+                    // Has at least one approved meaning validation
+                    _db.GlossaryValidations.Any(v => v.GlossaryTermId == t.Id
+                                                     && v.ValidationType == GlossaryValidationType.MeaningValidation
+                                                     && v.Approved)
+                    // OR linked sintoma is validated by human
+                    || (t.MedicalLinkSintomaId != null && _db.Set<Models.sintomas>().Any(s => s.id == t.MedicalLinkSintomaId && s.ValidadoHumano && !s.Eliminado))
+                    // OR linked tratamiento is validated by human
+                    || (t.MedicalLinkTratamientoId != null && _db.Set<Models.tratamientos>().Any(tr => tr.id == t.MedicalLinkTratamientoId && tr.ValidadoHumano && !tr.Eliminado))
+                );
+
+                var projected = filtered.Select(t => new GlossaryTermSummaryDto
+                {
+                    Id = t.Id,
+                    Nombre = t.Nombre,
+                    Slug = t.Slug,
+                    ShortDescription = null, // adapter-driven, keep null to avoid external calls in bulk
+                    LastHumanUpdateDate = _db.GlossaryValidations.Where(v => v.GlossaryTermId == t.Id && v.Approved)
+                                              .Max(v => (DateTime?)v.CreatedAt),
+                    Views = 0, // if there's a Views column use it here
+                    IsValidated = true,
+                    IsReviewedByHuman = true,
+                    HasRelationBadge = t.MedicalLinkSintomaId != null || t.MedicalLinkTratamientoId != null,
+                    RelationDirectCount = _db.GlossaryValidations.Count(v => v.GlossaryTermId == t.Id && v.ValidationType == GlossaryValidationType.RelationValidation && v.MedicalRelationTypeId == MedicalRelationType.Directa && v.Approved),
+                    RelationIndirectCount = _db.GlossaryValidations.Count(v => v.GlossaryTermId == t.Id && v.ValidationType == GlossaryValidationType.RelationValidation && v.MedicalRelationTypeId == MedicalRelationType.Indirecta && v.Approved),
+                    RelationSecondaryCount = _db.GlossaryValidations.Count(v => v.GlossaryTermId == t.Id && v.ValidationType == GlossaryValidationType.RelationValidation && v.MedicalRelationTypeId == MedicalRelationType.Secundaria && v.Approved)
+                });
+
+                var ordered = projected
+                    .OrderByDescending(x => x.LastHumanUpdateDate)
+                    .ThenByDescending(x => x.Views)
+                    .ThenBy(x => x.Nombre)
+                    .Take(limit);
+
+                // Cache result for 10 minutes
+                var cacheKey = $"glossary:top:{type}:{limit}";
+                if (_cache.TryGetValue(cacheKey, out var cachedObj) && cachedObj is List<GlossaryTermSummaryDto> cachedList)
+                {
+                    _logger.LogInformation("GetTopTermsByQualityAsync: cache hit for {Key} returning {Count} items", cacheKey, cachedList.Count);
+                    return cachedList;
+                }
+
+                var list = await ordered.ToListAsync(cancellationToken);
+                _logger.LogInformation("GetTopTermsByQualityAsync: DB returned {Count} items for type {Type}", list.Count, type);
+                // Create cache entry
+                using (var entry = _cache.CreateEntry(cacheKey))
+                {
+                    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10);
+                    entry.Value = list;
+                }
+
+                return list;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener top terms by quality for {Type}", type);
+                return new List<GlossaryTermSummaryDto>();
+            }
+        }
+
+        /// <summary>
+        /// Obtiene preguntas relacionadas (top N) asociadas a un síntoma o tratamiento.
+        /// </summary>
+        public async Task<List<RelatedQuestionDto>> GetRelatedQuestionsAsync(int? symptomId, int? treatmentId, int maxResults = 5)
+        {
+            try
+            {
+                if (!symptomId.HasValue && !treatmentId.HasValue)
+                    return new List<RelatedQuestionDto>();
+
+                IQueryable<Models.Pregunta> q = _db.Preguntas.AsNoTracking().Where(p => !p.Eliminado);
+
+                if (symptomId.HasValue)
+                {
+                    q = from p in _db.Preguntas
+                        join ps in _db.PreguntaSintomas on p.Id equals ps.PreguntaId
+                        where ps.SintomaId == symptomId.Value && !p.Eliminado
+                        select p;
+                }
+                else if (treatmentId.HasValue)
+                {
+                    q = from p in _db.Preguntas
+                        join pt in _db.PreguntaTratamientos on p.Id equals pt.PreguntaId
+                        where pt.TratamientoId == treatmentId.Value && !p.Eliminado
+                        select p;
+                }
+
+                var result = await q
+                    .Select(p => new
+                    {
+                        p.Id,
+                        p.Titulo,
+                        p.Slug,
+                        Score = _db.Votos.Where(v => v.EntidadTipo == "pregunta" && v.EntidadId == p.Id && !v.Eliminado).Select(v => (int?)v.Valor).Sum() ?? 0,
+                        p.FechaCreacion
+                    })
+                    .OrderByDescending(x => x.Score)
+                    .ThenByDescending(x => x.FechaCreacion)
+                    .Take(maxResults)
+                    .ToListAsync();
+
+                return result.Select(x => new RelatedQuestionDto
+                {
+                    Id = x.Id,
+                    Titulo = x.Titulo ?? "",
+                    Slug = x.Slug ?? "",
+                    Score = x.Score
+                }).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener preguntas relacionadas");
+                return new List<RelatedQuestionDto>();
             }
         }
     }

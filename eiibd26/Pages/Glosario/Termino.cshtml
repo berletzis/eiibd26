@@ -576,6 +576,8 @@ else
                     var hayExperiencias = experiencias.Any();
                     var urlEstadoAnimo = "/Identity/Usuario/UsuarioEstadoAnimo";
                 }
+
+                @* Related cards moved to sidebar *@
                 <div class="contenido" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
                     <h2 style="margin:0;">Comunidad</h2>
                     @if (hayExperiencias)
@@ -779,6 +781,68 @@ else
                             <a href="/Glosario/Sintomas" class="small text-decoration-none py-1">Ver todos los Síntomas</a>
                             <a href="/Glosario/Tratamientos" class="small text-decoration-none py-1">Ver todos los Tratamientos</a>
                         </div>
+                    </div>
+                </div>
+
+                <!-- New: Preguntas relacionadas (sidebar card) -->
+                <div class="sidebar-section sidebar-static mb-3">
+                    <div class="sidebar-section-header-static">
+                        <span class="sidebar-section-title">Preguntas relacionadas</span>
+                    </div>
+                    <div class="sidebar-section-content-static">
+                        @if (Model.Term.PreguntasRelacionadas != null && Model.Term.PreguntasRelacionadas.Any())
+                        {
+                            <ul class="list-unstyled mb-0">
+                                @foreach (var q in Model.Term.PreguntasRelacionadas.Take(5))
+                                {
+                                    <li class="py-2 border-bottom">
+                                        <a href="/Preguntas/@q.Slug" class="text-decoration-none text-dark">
+                                            <div class="small fw-medium">@q.Titulo</div>
+                                        </a>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p class="text-muted small mb-0">No se encontraron preguntas relacionadas.</p>
+                        }
+                    </div>
+                </div>
+
+                <!-- New: Contenidos relacionados (sidebar card) -->
+                <div class="sidebar-section sidebar-static mb-3">
+                    <div class="sidebar-section-header-static">
+                        <span class="sidebar-section-title">Artículos Relacionados</span>
+                    </div>
+                    <div class="sidebar-section-content-static">
+                        @if (Model.Term.ArticulosRelacionados != null && Model.Term.ArticulosRelacionados.Any())
+                        {
+                            <ul class="list-unstyled mb-0">
+                                @foreach (var c in Model.Term.ArticulosRelacionados.Take(5))
+                                {
+                                    <li class="py-2 border-bottom d-flex gap-2">
+                                        @if (!string.IsNullOrWhiteSpace(c.ImagenDestacada))
+                                        {
+                                            <img src="@c.ImagenDestacada" alt="@c.Titulo" style="width:64px;height:48px;object-fit:cover;border-radius:6px;" loading="lazy" decoding="async" />
+                                        }
+                                        <div>
+                                            <a href="/Contenidos/@c.Slug" class="text-decoration-none text-dark">
+                                                <div class="small fw-medium">@c.Titulo</div>
+                                            </a>
+                                            @if (c.FechaPublicacion.HasValue)
+                                            {
+                                                <small class="text-muted">@c.FechaPublicacion.Value.ToString("dd MMM yyyy")</small>
+                                            }
+                                        </div>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p class="text-muted small mb-0">No se encontraron contenidos relacionados.</p>
+                        }
                     </div>
                 </div>
 

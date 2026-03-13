@@ -18,12 +18,17 @@ namespace eiibd26.Pages.Glosario
         }
 
         public GlossaryHomeDto Home { get; set; } = new();
+        public List<GlossaryTermSummaryDto> TopSymptoms { get; set; } = new();
+        public List<GlossaryTermSummaryDto> TopTreatments { get; set; } = new();
 
         public async Task OnGetAsync()
         {
             try
             {
                 Home = await _glossaryService.GetGlossaryHomeAsync();
+                // Load top lists (quality filtered)
+                TopSymptoms = await _glossaryService.GetTopTermsByQualityAsync(Models.Glossary.GlossaryTermType.Sintoma, 20);
+                TopTreatments = await _glossaryService.GetTopTermsByQualityAsync(Models.Glossary.GlossaryTermType.Tratamiento, 20);
             }
             catch (Exception ex)
             {

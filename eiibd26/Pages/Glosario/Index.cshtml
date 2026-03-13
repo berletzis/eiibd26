@@ -9,7 +9,7 @@
     <div class="row">
         <div class="col-lg-8 mx-auto text-center mb-5">
             <h1 class="display-4 fw-bold text-primary">
-                <i class="bi bi-book"></i> Glosario Médico
+                Guía de síntomas y tratamientos
             </h1>
             <p class="lead text-muted">
                 Encuentra definiciones claras de síntomas y tratamientos relacionados con la Enfermedad Inflamatoria Intestinal.
@@ -39,63 +39,87 @@
         </div>
     </div>
 
-    <!-- Accesos rápidos -->
-    <div class="row">
-        <div class="col-md-6 mb-4">
-            <div class="card shadow-sm hover-lift">
-                <div class="card-body p-4">
-                    <div class="d-flex align-items-center mb-3">
-                        <i class="bi bi-heart-pulse fs-1 text-primary me-3"></i>
-                        <h3 class="mb-0">Síntomas</h3>
-                    </div>
-                    <p class="text-muted mb-4">
-                        Consulta síntomas comunes y cómo pueden sentirse las personas que viven con EII.
-                    </p>
-                    <a href="/Glosario/Sintomas" class="btn btn-primary btn-lg w-100">
-                        <i class="bi bi-arrow-right-circle"></i> Ver todos los síntomas
-                    </a>
-                </div>
-            </div>
+    <!-- Top lists: Síntomas y Tratamientos -->
+    <!-- Duplicate se-card top-lists block removed. Only Contenidos-style block remains below. -->
+    <!-- Top lists: Síntomas y Tratamientos (Contenidos style) -->
+    <div class="conte-page">
+        <div class="se-header">
+            <div class="se-page-title">Guía de síntomas y tratamientos</div>
+            <p class="text-muted">Contenido validado y revisado por profesionales. Explora los términos más confiables.</p>
         </div>
-        
-        <div class="col-md-6 mb-4">
-            <div class="card shadow-sm hover-lift">
-                <div class="card-body p-4">
-                    <div class="d-flex align-items-center mb-3">
-                        <i class="bi bi-prescription2 fs-1 text-success me-3"></i>
-                        <h3 class="mb-0">Tratamientos</h3>
-                    </div>
-                    <p class="text-muted mb-4">
-                        Descubre opciones de tratamiento explicadas en lenguaje sencillo.
-                    </p>
-                    <a href="/Glosario/Tratamientos" class="btn btn-success btn-lg w-100">
-                        <i class="bi bi-arrow-right-circle"></i> Ver todos los tratamientos
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Buscador (opcional - fase futura) -->
-    <div class="row mt-5">
-        <div class="col-lg-8 mx-auto">
-            <div class="card shadow-sm">
-                <div class="card-body p-4">
-                    <h4 class="mb-3">
-                        <i class="bi bi-search"></i> Buscar término
-                    </h4>
-                    <form method="get" action="/Glosario/Buscar">
-                        <div class="input-group input-group-lg">
-                            <input type="text" 
-                                   name="q" 
-                                   class="form-control" 
-                                   placeholder="Ej: fatiga, infliximab, dolor abdominal..."
-                                   required>
-                            <button class="btn btn-primary" type="submit">
-                                <i class="bi bi-search"></i> Buscar
-                            </button>
-                        </div>
-                    </form>
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <h3 class="se-card-title">Síntomas (Top 20)</h3>
+                @if (Model.TopSymptoms != null && Model.TopSymptoms.Any())
+                {
+                    <div class="items-container">
+                        @foreach (var item in Model.TopSymptoms)
+                        {
+                            <div class="blog-card">
+                                <div class="content d-flex align-items-center justify-content-between">
+                                    <div class="flex-fill me-3">
+                                        <a href="/Termino/@item.Slug" class="text-decoration-none text-dark">
+                                            <div class="blog-title">@item.Nombre</div>
+                                            @if (!string.IsNullOrWhiteSpace(item.ShortDescription))
+                                            {
+                                                <div class="text-muted small">@item.ShortDescription</div>
+                                            }
+                                        </a>
+                                    </div>
+                                    <div class="relation-badges d-flex align-items-center">
+                                        <span class="relation-badge relation-badge--direct" title="Directa" aria-label="Directa: @item.RelationDirectCount">@item.RelationDirectCount</span>
+                                        <span class="relation-badge relation-badge--indirect" title="Indirecta" aria-label="Indirecta: @item.RelationIndirectCount">@item.RelationIndirectCount</span>
+                                        <span class="relation-badge relation-badge--secondary" title="Secundaria" aria-label="Secundaria: @item.RelationSecondaryCount">@item.RelationSecondaryCount</span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted">No hay síntomas validados para mostrar.</p>
+                }
+                <div class="mt-3 text-end">
+                    <a href="/Glosario/Sintomas" class="btn btn-outline-primary btn-sm">Ver todos →</a>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4">
+                <h3 class="se-card-title">Tratamientos (Top 20)</h3>
+                @if (Model.TopTreatments != null && Model.TopTreatments.Any())
+                {
+                    <div class="items-container">
+                        @foreach (var item in Model.TopTreatments)
+                        {
+                            <div class="blog-card">
+                                <div class="content d-flex align-items-center justify-content-between">
+                                    <div class="flex-fill me-3">
+                                        <a href="/Termino/@item.Slug" class="text-decoration-none text-dark">
+                                            <div class="blog-title">@item.Nombre</div>
+                                            @if (!string.IsNullOrWhiteSpace(item.ShortDescription))
+                                            {
+                                                <div class="text-muted small">@item.ShortDescription</div>
+                                            }
+                                        </a>
+                                    </div>
+                                    <div class="relation-badges d-flex align-items-center">
+                                        <span class="relation-badge relation-badge--direct" title="Directa" aria-label="Directa: @item.RelationDirectCount">@item.RelationDirectCount</span>
+                                        <span class="relation-badge relation-badge--indirect" title="Indirecta" aria-label="Indirecta: @item.RelationIndirectCount">@item.RelationIndirectCount</span>
+                                        <span class="relation-badge relation-badge--secondary" title="Secundaria" aria-label="Secundaria: @item.RelationSecondaryCount">@item.RelationSecondaryCount</span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted">No hay tratamientos validados para mostrar.</p>
+                }
+                <div class="mt-3 text-end">
+                    <a href="/Glosario/Tratamientos" class="btn btn-outline-success btn-sm">Ver todos →</a>
                 </div>
             </div>
         </div>
@@ -103,6 +127,7 @@
 </div>
 
 @section Styles {
+    <link rel="stylesheet" href="~/css/contenidos-cards.css" asp-append-version="true" />
     <style>
         .hover-lift {
             transition: transform 0.2s ease-in-out;
@@ -110,5 +135,25 @@
         .hover-lift:hover {
             transform: translateY(-5px);
         }
+        /* Relation badges */
+        .relation-badges { gap: 8px; }
+        .relation-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            color: #fff;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-left: 6px;
+        }
+        .relation-badge--direct { background: #16a34a; } /* green */
+        .relation-badge--indirect { background: #eab308; } /* yellow */
+        .relation-badge--secondary { background: #2563eb; } /* blue */
+        /* Ensure the badges stay on one line and not wrap the item title */
+        .se-card .list-unstyled li { white-space: nowrap; }
+        .se-card .list-unstyled li .me-3 { overflow: hidden; text-overflow: ellipsis; }
     </style>
 }

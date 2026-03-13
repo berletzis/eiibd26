@@ -63,5 +63,16 @@ namespace eiibd26.Services.Glossary
         /// Obtiene los conteos de badges de confianza para un término
         /// </summary>
         Task<GlossaryValidationCountsDto> GetValidationCountsAsync(int termId);
+
+        /// <summary>
+        /// Obtiene los top términos filtrados por calidad (validación humana y nivel actualizado).
+        /// Devuelve una lista de resúmenes (Id, Nombre, Slug, ShortDescription, LastHumanUpdateDate, Views, Badges).
+        /// </summary>
+        Task<List<GlossaryTermSummaryDto>> GetTopTermsByQualityAsync(GlossaryTermType type, int limit = 20, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Obtiene preguntas relacionadas (top N) asociadas a un síntoma o tratamiento.
+        /// </summary>
+        Task<List<RelatedQuestionDto>> GetRelatedQuestionsAsync(int? symptomId, int? treatmentId, int maxResults = 5);
     }
 }
