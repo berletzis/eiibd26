@@ -322,26 +322,26 @@
             letter-spacing: 0.01em;
         }
 
-        /* ===== AI TOGGLE STYLES ===== */
+        /* ===== AI TOGGLE STYLES (ENHANCED WITH PURPLE THEME) ===== */
         .ai-answer-toggle-wrapper {
             margin: 1.5rem 0;
             background: white;
-            border: 1px solid #e5e7eb;
+            border: 2px solid #7c3aed;
             border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 2px 8px rgba(124, 58, 237, 0.15);
             transition: all 0.3s ease;
         }
 
         .ai-answer-toggle-wrapper:hover {
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            border-color: #d1d5db;
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);
+            border-color: #6d28d9;
         }
 
         .ai-toggle-header {
-            padding: 0.65rem 1.25rem;
-            background: #f9fafb;
-            border-bottom: 1px solid #e5e7eb;
+            padding: 1rem 1.25rem;
+            background: #ffffff;
+            border-bottom: none;
             cursor: pointer;
             display: flex;
             justify-content: space-between;
@@ -351,7 +351,7 @@
         }
 
         .ai-toggle-header:hover {
-            background: #f3f4f6;
+            background: #faf5ff;
         }
 
         .ai-toggle-header:active {
@@ -359,22 +359,25 @@
         }
 
         .ai-toggle-badge {
-            color: #374151;
-            font-size: 0.95rem;
-            font-weight: 500;
-            letter-spacing: 0.01em;
+            font-size: 1.05rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
             display: flex;
             align-items: center;
             gap: 8px;
         }
 
         .ai-toggle-icon {
-            color: #6b7280;
+            color: #7c3aed;
             font-size: 1.2rem;
             transition: transform 0.3s ease;
         }
 
-        .ai-toggle-open .ai-toggle-icon {
+        /* Only rotate when fully expanded, not when partially open */
+        .ai-answer-toggle-wrapper.ai-toggle-expanded .ai-toggle-icon {
             transform: rotate(180deg);
         }
 
@@ -382,10 +385,29 @@
             max-height: 0;
             overflow: hidden;
             transition: max-height 0.4s ease;
+            position: relative;
+            background: #ffffff;
         }
 
-        .ai-toggle-open .ai-toggle-content {
-            max-height: 5000px;
+        .ai-answer-toggle-wrapper.ai-toggle-open .ai-toggle-content {
+            max-height: 250px; /* Show only ~1/3 of content initially */
+        }
+
+        .ai-answer-toggle-wrapper.ai-toggle-expanded .ai-toggle-content {
+            max-height: 5000px; /* Full height when expanded */
+        }
+
+        /* Gradient overlay when partially collapsed */
+        .ai-answer-toggle-wrapper.ai-toggle-open:not(.ai-toggle-expanded) .ai-toggle-content::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 100px;
+            background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.95) 60%, rgba(255,255,255,1) 100%);
+            pointer-events: none;
+            z-index: 1;
         }
 
         .ai-answer-toggle-wrapper .se-answer {
@@ -840,10 +862,7 @@
                 @* ===== Toggle de Respuesta IA ===== *@
                 @if (Model.RespuestaIA != null)
                 {
-                    var shouldBeOpen = Model.TotalRespuestasHumanas < 3;
-                    var toggleClass = shouldBeOpen ? "ai-toggle-open" : "ai-toggle-closed";
-
-                    <div class="ai-answer-toggle-wrapper @toggleClass" id="aiAnswerToggle">
+                    <div class="ai-answer-toggle-wrapper ai-toggle-open" id="aiAnswerToggle">
                         <div class="ai-toggle-header" onclick="toggleAiAnswer()">
                             <span class="ai-toggle-badge">
                                 🤖 Respuesta de NINA
@@ -1495,15 +1514,23 @@
             document.addEventListener('DOMContentLoaded', initLazyAvatars);
             if (document.readyState === 'interactive' || document.readyState === 'complete') initLazyAvatars();
 
-            // ===== NUEVO: AI ANSWER TOGGLE =====
+            // ===== AI ANSWER TOGGLE (WITH PARTIAL EXPAND) =====
             window.toggleAiAnswer = function() {
                 const wrapper = document.getElementById('aiAnswerToggle');
                 if (!wrapper) return;
 
-                if (wrapper.classList.contains('ai-toggle-open')) {
+                // If fully expanded, close it
+                if (wrapper.classList.contains('ai-toggle-expanded')) {
+                    wrapper.classList.remove('ai-toggle-expanded');
                     wrapper.classList.remove('ai-toggle-open');
                     wrapper.classList.add('ai-toggle-closed');
-                } else {
+                }
+                // If partially open, expand fully
+                else if (wrapper.classList.contains('ai-toggle-open')) {
+                    wrapper.classList.add('ai-toggle-expanded');
+                }
+                // If closed, open partially
+                else {
                     wrapper.classList.remove('ai-toggle-closed');
                     wrapper.classList.add('ai-toggle-open');
                 }
