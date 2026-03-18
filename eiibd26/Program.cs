@@ -29,7 +29,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
             errorNumbersToAdd: null);
 
         // ===== PERFORMANCE: Optimizaciones adicionales =====
-        sqlOptions.CommandTimeout(30); // Timeout explícito de 30 segundos
+        sqlOptions.CommandTimeout(120); // Remote SQL Server needs longer timeout without proper indexes
         sqlOptions.MaxBatchSize(100); // Optimizar batch inserts/updates
     }));
 

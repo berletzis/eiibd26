@@ -87,7 +87,7 @@ namespace eiibd26.Services
             }
             else
             {
-                _logger.LogDebug("✓ No hay notificaciones programadas pendientes");
+                _logger.LogDebug("No pending scheduled notifications");
             }
         }
     }

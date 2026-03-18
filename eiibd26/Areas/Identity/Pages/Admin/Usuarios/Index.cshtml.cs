@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios // <-- namespace corregido si usas Areas
 {
     [Authorize(Roles = "Administrador")]
+    [IgnoreAntiforgeryToken]
     public class UsuariosIndexModel : PageModel
     {
         private readonly UserManager<ApplicationUser> _userManager;
@@ -26,26 +27,32 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios // <-- namespace corregido
 
         public void OnGet() { }
 
-        [IgnoreAntiforgeryToken]
-        [Authorize(Roles = "Administrador")]
-        public async Task<IActionResult> OnGetGridDataAsync()
+        private string Param(string key)
+            => Request.HasFormContentType && Request.Form.ContainsKey(key)
+                ? Request.Form[key].ToString()
+                : Request.Query[key].ToString();
+
+        public Task<IActionResult> OnPostGridDataAsync()
+            => GridDataCoreAsync();
+
+        public Task<IActionResult> OnGetGridDataAsync()
+            => GridDataCoreAsync();
+
+        private async Task<IActionResult> GridDataCoreAsync()
         {
-            // DataTables params (they come as query string)
-            var draw = int.TryParse(Request.Query["draw"], out var dVal) ? dVal : 1;
-            var start = int.TryParse(Request.Query["start"], out var sVal) ? sVal : 0;
-            var length = int.TryParse(Request.Query["length"], out var lVal) ? lVal : 10;
-            var searchValue = Request.Query["search[value]"].ToString();
+            var draw = int.TryParse(Param("draw"), out var dVal) ? dVal : 1;
+            var start = int.TryParse(Param("start"), out var sVal) ? sVal : 0;
+            var length = int.TryParse(Param("length"), out var lVal) ? lVal : 10;
+            var searchValue = Param("search[value]");
 
-            // ⭐ NUEVO: Filtros personalizados
-            var filterHash = Request.Query["filterHash"].ToString();
-            var filterLockout = Request.Query["filterLockout"].ToString();
-            var filterCondicion = Request.Query["filterCondicion"].ToString();
-            var filterPais = Request.Query["filterPais"].ToString();
-            var filterScoring = Request.Query["filterScoring"].ToString(); // ⭐ NUEVO: Filtro por scoring
+            var filterHash = Param("filterHash");
+            var filterLockout = Param("filterLockout");
+            var filterCondicion = Param("filterCondicion");
+            var filterPais = Param("filterPais");
+            var filterScoring = Param("filterScoring");
 
-            // Ordering
-            var orderColumn = Request.Query["order[0][column]"].ToString();
-            var orderDir = Request.Query["order[0][dir]"].ToString();
+            var orderColumn = Param("order[0][column]");
+            var orderDir = Param("order[0][dir]");
 
             // Field names in JS columns[] must be same order!
             string[] columnNames = { "email", "userName", "nombre", "avatar", "fechaRegistro", "condicion", "pais", "hashIsValid", "isLockedOut" };

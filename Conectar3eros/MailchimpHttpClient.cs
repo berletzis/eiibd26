@@ -15,8 +15,8 @@ namespace Conectar3eros
     public partial class MailchimpHttpClient : Form
     {
         private readonly HttpClient _httpClient;
-        private readonly string _apiKey = "b27fac605d783f080c1bc6e6a87a71c0-us2"; // Cambia por tu API key
-        private readonly string _audienceId = "260f19078a"; // Cambia por tu Audience ID
+        private readonly string _apiKey = "SET_YOUR_MAILCHIMP_API_KEY_HERE"; // Set via config or environment
+        private readonly string _audienceId = "SET_YOUR_AUDIENCE_ID_HERE"; // Set via config or environment
         private readonly string _defaultCsvPath = @"D:\mailchimp_emails.csv";
 
         public MailchimpHttpClient()

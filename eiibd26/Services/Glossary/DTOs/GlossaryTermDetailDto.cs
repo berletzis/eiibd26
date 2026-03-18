@@ -46,5 +46,11 @@ namespace eiibd26.Services.Glossary.DTOs
         /// Experiencias recientes de la comunidad (READ-ONLY de EstadoAnimoUsuario)
         /// </summary>
         public List<CommunityExperienceDto> ExperienciasComunidad { get; set; } = new();
+
+        /// <summary>
+        /// Cantidad total de usuarios que tienen este síntoma/tratamiento en su perfil
+        /// (tabla sintomasUsuario / tratamientoUsuario). Usado para mostrar "15 usuarios · mostrando 5".
+        /// </summary>
+        public int RelatedUsersCount { get; set; } = 0;
     }
 }

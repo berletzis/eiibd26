@@ -130,6 +130,31 @@ namespace eiibd26.Services.Glossary
                     ValidationCounts = await GetValidationCountsAsync(term.Id)
                 };
 
+                // Calcular la cantidad total de usuarios relacionados (sintomasUsuario / tratamientoUsuario)
+                try
+                {
+                    int relatedCount = 0;
+                    if (detail.SintomaId.HasValue)
+                    {
+                        relatedCount = await _db.sintomasUsuario
+                            .AsNoTracking()
+                            .CountAsync(su => su.idSintoma == detail.SintomaId && !su.Eliminado);
+                    }
+                    else if (detail.TratamientoId.HasValue)
+                    {
+                        relatedCount = await _db.tratamientoUsuario
+                            .AsNoTracking()
+                            .CountAsync(tu => tu.idTratamiento == detail.TratamientoId && !tu.Eliminado);
+                    }
+
+                    detail.RelatedUsersCount = relatedCount;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "No se pudo calcular RelatedUsersCount para término {TermId}", term.Id);
+                    detail.RelatedUsersCount = 0;
+                }
+
                 // 2. Leer definición médica a través del adapter (desacoplado)
                 if (term.MedicalLinkSintomaId.HasValue)
                 {
@@ -429,8 +454,15 @@ namespace eiibd26.Services.Glossary
         {
             try
             {
-                // Key parts: type, limit
-                // Build base query
+                // Cache first — avoid hitting DB if we already have results
+                var cacheKey = $"glossary:top:{type}:{limit}";
+                if (_cache.TryGetValue(cacheKey, out var cachedObj) && cachedObj is List<GlossaryTermSummaryDto> cachedList)
+                {
+                    _logger.LogInformation("GetTopTermsByQualityAsync: cache hit for {Key} returning {Count} items", cacheKey, cachedList.Count);
+                    return cachedList;
+                }
+
+                // Base query: active terms of the requested type
                 var termsQuery = _db.GlossaryTerms.AsNoTracking()
                     .Where(gt => gt.TipoTermino == type && gt.Activo)
                     .Select(gt => new
@@ -439,60 +471,59 @@ namespace eiibd26.Services.Glossary
                         gt.Nombre,
                         gt.Slug,
                         gt.FechaActualizacion,
-                        gt.CreatedByAI,
-                        MedicalLinkSintomaId = gt.MedicalLink != null ? gt.MedicalLink.SintomaId : null,
-                        MedicalLinkTratamientoId = gt.MedicalLink != null ? gt.MedicalLink.TratamientoId : null
+                        MedicalLinkSintomaId = gt.MedicalLink != null ? gt.MedicalLink.SintomaId : (int?)null,
+                        MedicalLinkTratamientoId = gt.MedicalLink != null ? gt.MedicalLink.TratamientoId : (int?)null
                     });
 
-                // Filter: prefer terms with human meaning validation, but also include
-                // terms that are marked ValidadoHumano in the linked sintomas/tratamientos tables.
-                // This makes selection more permissive so items that lack a RelationValidation
-                // yet are marked by editors in the medical tables still surface in the Top lists.
+                // Filter: only terms whose linked sintoma/tratamiento has RelacionEII == true
+                // AND that also have at least one user relation (sintomasUsuario / tratamientoUsuario).
+                // Esto asegura que, dado que no tenemos estadísticas de usuario para un TOP real,
+                // solo mostramos términos que efectivamente están relacionados con usuarios.
                 var filtered = termsQuery.Where(t =>
-                    // Has at least one approved meaning validation
-                    _db.GlossaryValidations.Any(v => v.GlossaryTermId == t.Id
-                                                     && v.ValidationType == GlossaryValidationType.MeaningValidation
-                                                     && v.Approved)
-                    // OR linked sintoma is validated by human
-                    || (t.MedicalLinkSintomaId != null && _db.Set<Models.sintomas>().Any(s => s.id == t.MedicalLinkSintomaId && s.ValidadoHumano && !s.Eliminado))
-                    // OR linked tratamiento is validated by human
-                    || (t.MedicalLinkTratamientoId != null && _db.Set<Models.tratamientos>().Any(tr => tr.id == t.MedicalLinkTratamientoId && tr.ValidadoHumano && !tr.Eliminado))
+                    (
+                        t.MedicalLinkSintomaId != null
+                        && _db.sintomas.Any(s => s.id == t.MedicalLinkSintomaId && s.RelacionEII && !s.Eliminado)
+                        && _db.sintomasUsuario.Any(su => su.idSintoma == t.MedicalLinkSintomaId && !su.Eliminado)
+                    )
+                    || (
+                        t.MedicalLinkTratamientoId != null
+                        && _db.tratamientos.Any(tr => tr.id == t.MedicalLinkTratamientoId && tr.RelacionEII && !tr.Eliminado)
+                        && _db.tratamientoUsuario.Any(tu => tu.idTratamiento == t.MedicalLinkTratamientoId && !tu.Eliminado)
+                    )
                 );
 
+                // Project with user relationship count + validation badges
                 var projected = filtered.Select(t => new GlossaryTermSummaryDto
                 {
                     Id = t.Id,
                     Nombre = t.Nombre,
                     Slug = t.Slug,
-                    ShortDescription = null, // adapter-driven, keep null to avoid external calls in bulk
-                    LastHumanUpdateDate = _db.GlossaryValidations.Where(v => v.GlossaryTermId == t.Id && v.Approved)
-                                              .Max(v => (DateTime?)v.CreatedAt),
-                    Views = 0, // if there's a Views column use it here
+                    ShortDescription = null,
+                    LastHumanUpdateDate = _db.GlossaryValidations
+                        .Where(v => v.GlossaryTermId == t.Id && v.Approved)
+                        .Max(v => (DateTime?)v.CreatedAt),
+                    Views = 0,
                     IsValidated = true,
                     IsReviewedByHuman = true,
-                    HasRelationBadge = t.MedicalLinkSintomaId != null || t.MedicalLinkTratamientoId != null,
+                    HasRelationBadge = true,
+                    // Count distinct users who have this symptom/treatment in their profile
+                    UserRelationCount = type == GlossaryTermType.Sintoma
+                        ? _db.sintomasUsuario.Count(su => su.idSintoma == t.MedicalLinkSintomaId && !su.Eliminado)
+                        : _db.tratamientoUsuario.Count(tu => tu.idTratamiento == t.MedicalLinkTratamientoId && !tu.Eliminado),
                     RelationDirectCount = _db.GlossaryValidations.Count(v => v.GlossaryTermId == t.Id && v.ValidationType == GlossaryValidationType.RelationValidation && v.MedicalRelationTypeId == MedicalRelationType.Directa && v.Approved),
                     RelationIndirectCount = _db.GlossaryValidations.Count(v => v.GlossaryTermId == t.Id && v.ValidationType == GlossaryValidationType.RelationValidation && v.MedicalRelationTypeId == MedicalRelationType.Indirecta && v.Approved),
                     RelationSecondaryCount = _db.GlossaryValidations.Count(v => v.GlossaryTermId == t.Id && v.ValidationType == GlossaryValidationType.RelationValidation && v.MedicalRelationTypeId == MedicalRelationType.Secundaria && v.Approved)
                 });
 
+                // Order by most user relationships first, then by name
                 var ordered = projected
-                    .OrderByDescending(x => x.LastHumanUpdateDate)
-                    .ThenByDescending(x => x.Views)
+                    .OrderByDescending(x => x.UserRelationCount)
                     .ThenBy(x => x.Nombre)
                     .Take(limit);
 
-                // Cache result for 10 minutes
-                var cacheKey = $"glossary:top:{type}:{limit}";
-                if (_cache.TryGetValue(cacheKey, out var cachedObj) && cachedObj is List<GlossaryTermSummaryDto> cachedList)
-                {
-                    _logger.LogInformation("GetTopTermsByQualityAsync: cache hit for {Key} returning {Count} items", cacheKey, cachedList.Count);
-                    return cachedList;
-                }
-
                 var list = await ordered.ToListAsync(cancellationToken);
                 _logger.LogInformation("GetTopTermsByQualityAsync: DB returned {Count} items for type {Type}", list.Count, type);
-                // Create cache entry
+
                 using (var entry = _cache.CreateEntry(cacheKey))
                 {
                     entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10);

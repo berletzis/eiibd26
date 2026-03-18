@@ -19,7 +19,7 @@ public class ScrapingWorker : BackgroundService
     // Lista blanca de hosts permitidos
     private static readonly string[] AllowedHosts = new[]
     {
-        "funeiicocom/"   // TODO: añade más dominios si quieres
+        "funeiico.com/"
     };
 
     public ScrapingWorker(ILogger<ScrapingWorker> logger, IServiceProvider serviceProvider)
@@ -36,10 +36,10 @@ public class ScrapingWorker : BackgroundService
         var db = scope.ServiceProvider.GetRequiredService<Eiibd26Context>();
 
         // 1. Configuración del sitio y profundidad
-        var baseUrl = "https://funeiico.com/";   // TODO: dominio base
-        var startUrl = "https://funeiico.com/"; // TODO: URL de inicio
-        var maxDepth = 10;                          // profundidad máxima (0=solo home)
-        var maxPages = 3000;                        // límite de páginas por ejecución
+        var baseUrl = "https://funeiico.com/";
+        var startUrl = "https://funeiico.com/";
+        var maxDepth = 10;
+        var maxPages = 3000;
 
         try
         {

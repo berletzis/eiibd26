@@ -1,3 +1,4 @@
+using eiibd26.Filters;
 using eiibd26.Services.AI;
 using eiibd26.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -7,10 +8,12 @@ using Microsoft.Extensions.Logging;
 namespace eiibd26.Controllers
 {
     /// <summary>
-    /// Controlador de diagnóstico simple para verificar NINA Router
+    /// Controlador de diagnóstico para verificar NINA Router.
+    /// Restricted to Development environment only.
     /// </summary>
     [ApiController]
     [Route("api/diagnostico-nina")]
+    [DevelopmentOnly]
     [Authorize(Roles = "Administrador")]
     public class DiagnosticoNinaController : ControllerBase
     {
@@ -74,9 +77,7 @@ namespace eiibd26.Controllers
                 return StatusCode(500, new
                 {
                     ok = false,
-                    error = ex.Message,
-                    stackTrace = ex.StackTrace,
-                    innerError = ex.InnerException?.Message
+                    error = "Error en diagnóstico"
                 });
             }
         }

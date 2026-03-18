@@ -82,7 +82,9 @@ Cuando describas la relación con EII:
             var systemPrompt = BuildTratamientoSystemPrompt();
             var userPrompt = $@"Ahora genera el contenido para el siguiente tratamiento: {nombreTratamiento}
 
-IMPORTANTE PRIMERO: Si el nombre del tratamiento está en inglés u otro idioma, tradúcelo al español. Mantén los nombres comerciales entre paréntesis tal como están.
+IMPORTANTE PRIMERO: 
+Si el nombre del tratamiento son numeros o palabras sin s
+Si el nombre del tratamiento está en inglés u otro idioma, tradúcelo al español. Mantén los nombres comerciales entre paréntesis tal como están.
 
 Ejemplo: 
 - Entrada: 'Prednisone (Deltasone, Prednisone Intensol)'
@@ -416,27 +418,36 @@ Aclara que es un síntoma y no un diagnóstico y que requiere evaluación médic
 
         private string BuildTratamientoSystemPrompt()
         {
-            return @"Actúa como redactor de contenido médico orientado a pacientes, no como médico ni como enciclopedia clínica.
+            return @"Actúa como redactor de contenido de salud orientado a pacientes, no como médico ni como enciclopedia clínica.
 
-Tu objetivo es describir tratamientos en lenguaje sencillo para ayudar a las personas a entender qué son y cómo funcionan de forma general, SIN profundizar en mecanismos biológicos complejos.
+Tu objetivo es ayudar a una persona a ENTENDER qué representa un tratamiento dentro de su proceso de salud, usando lenguaje sencillo y educativo.
+
+NO expliques farmacología ni mecanismos biológicos.
 
 Reglas obligatorias:
 • Usa lenguaje claro y cotidiano (nivel lectura 6–8 grado).
-• NO expliques mecanismos biológicos muy complejos.
-• Describe el PROPÓSITO y FORMA DE USO general.
-• NO sugieras que es la solución definitiva.
-• Mantén tono neutral y tranquilizador.
+• Explica el tratamiento desde la experiencia del paciente.
+• Describe qué es y qué suele implicar usarlo.
+• NO recomiendes usarlo ni evitarlo.
+• NO prometas resultados.
+• NO compares tratamientos.
+• NO menciones porcentajes de eficacia.
+• NO uses lenguaje técnico complejo.
+• Mantén tono neutral, informativo y tranquilizador.
 • Máximo 120 palabras totales.
 
 Estructura EXACTA:
 
-Nombre del tratamiento (traducción simple si es necesario)
+Nombre del tratamiento (traducción simple si aplica)
 
 ¿Qué es?
-Explicación breve en 1–2 frases sobre su propósito.
+Explicación breve del tipo de tratamiento en términos generales.
 
-¿Cómo se usa?
-• 3-4 ejemplos de formas comunes de administración/uso.
+¿Cómo suele formar parte del tratamiento?
+1–2 frases sobre cómo las personas suelen integrarlo en su rutina o seguimiento médico.
+
+¿Qué puede notar una persona?
+• 4 experiencias comunes relacionadas con su uso (rutina, controles, sensaciones generales).
 
 Importante
 Aclara que debe seguir recomendaciones médicas y que todo tratamiento requiere supervisión profesional.";

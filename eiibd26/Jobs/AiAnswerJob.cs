@@ -2,7 +2,6 @@ using eiibd26.Configuration;
 using eiibd26.Data;
 using eiibd26.Models;
 using eiibd26.Services.AI;
-// using Hangfire; // TODO: Uncomment after installing Hangfire packages
 using Markdig;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -44,13 +43,12 @@ namespace eiibd26.Jobs
         /// </summary>
         /// <param name="preguntaId">ID de la pregunta</param>
         /// <param name="cancellationToken">Token de cancelación para operaciones asíncronas</param>
-        // [AutomaticRetry(Attempts = 2, DelaysInSeconds = new[] { 60, 300 })] // TODO: Uncomment after Hangfire
         public async Task ProcesarPreguntaAsync(Guid preguntaId, CancellationToken cancellationToken = default)
         {
             var startTime = DateTimeOffset.UtcNow;
             _logger.LogInformation(
-                "🎯 [AI Job] INICIADO para PreguntaId={PreguntaId}, Timestamp={Timestamp}",
-                preguntaId, startTime);
+                "[AI Job] Started for PreguntaId={PreguntaId}",
+                preguntaId);
 
             try
             {
@@ -58,16 +56,13 @@ namespace eiibd26.Jobs
                 cancellationToken.ThrowIfCancellationRequested();
 
                 // 1. Verificar si el servicio está habilitado
-                _logger.LogInformation("🔍 [AI Job] Verificando si servicio está habilitado...");
                 if (!_config.Enabled)
                 {
-                    _logger.LogWarning("⚠️ [AI Job] Servicio de IA deshabilitado, saltando pregunta {PreguntaId}", preguntaId);
+                    _logger.LogWarning("[AI Job] Service disabled, skipping pregunta {PreguntaId}", preguntaId);
                     return;
                 }
-                _logger.LogInformation("✅ [AI Job] Servicio habilitado");
 
                 // 2. Cargar la pregunta CON sus relaciones para contexto
-                _logger.LogInformation("🔍 [AI Job] Cargando pregunta desde BD...");
                 var pregunta = await _db.Preguntas
                     .Include(p => p.Respuestas)
                     .Include(p => p.PreguntaCondiciones).ThenInclude(pc => pc.Condicion)
@@ -77,45 +72,35 @@ namespace eiibd26.Jobs
 
                 if (pregunta == null)
                 {
-                    _logger.LogWarning("❌ [AI Job] Pregunta {PreguntaId} no encontrada o eliminada", preguntaId);
+                    _logger.LogWarning("[AI Job] Pregunta {PreguntaId} not found or deleted", preguntaId);
                     return;
                 }
 
                 _logger.LogInformation(
-                    "✅ [AI Job] Pregunta cargada: Título='{Titulo}', Cuerpo length={CuerpoLength}, Condiciones={CondCount}, Síntomas={SintCount}, Tratamientos={TratCount}",
-                    pregunta.Titulo ?? "[SIN TÍTULO]",
-                    pregunta.Cuerpo?.Length ?? 0,
+                    "[AI Job] Pregunta loaded: {PreguntaId}, Condiciones={CondCount}, Sintomas={SintCount}, Tratamientos={TratCount}",
+                    preguntaId,
                     pregunta.PreguntaCondiciones?.Count ?? 0,
                     pregunta.PreguntaSintomas?.Count ?? 0,
                     pregunta.PreguntaTratamientos?.Count ?? 0);
 
-                _logger.LogInformation(
-                    "📄 [AI Job] Contenido de la pregunta:\n  Título: '{Titulo}'\n  Cuerpo: '{Cuerpo}'",
-                    pregunta.Titulo ?? "[VACÍO]",
-                    string.IsNullOrWhiteSpace(pregunta.Cuerpo) ? "[VACÍO]" : 
-                        (pregunta.Cuerpo.Length > 200 ? pregunta.Cuerpo.Substring(0, 200) + "..." : pregunta.Cuerpo));
-
                 // 3. Verificar si ya tiene respuesta de IA
-                _logger.LogInformation("🔍 [AI Job] Verificando si ya tiene respuesta IA...");
                 if (pregunta.TieneRespuestaIA)
                 {
-                    _logger.LogInformation("⚠️ [AI Job] Pregunta {PreguntaId} ya tiene respuesta de IA, saltando", preguntaId);
+                    _logger.LogInformation("[AI Job] Pregunta {PreguntaId} already has AI response, skipping", preguntaId);
                     return;
                 }
 
                 // 4. Verificar si ya tiene respuestas humanas
                 var respuestasHumanas = pregunta.Respuestas.Count(r => !r.Eliminado && !r.EsIA);
-                _logger.LogInformation("🔍 [AI Job] Respuestas humanas existentes: {Count}", respuestasHumanas);
                 if (respuestasHumanas > 0)
                 {
                     _logger.LogInformation(
-                        "⚠️ [AI Job] Pregunta {PreguntaId} ya tiene {Count} respuestas humanas, no se generará respuesta de IA",
+                        "[AI Job] Pregunta {PreguntaId} has {Count} human responses, skipping AI generation",
                         preguntaId, respuestasHumanas);
                     return;
                 }
 
-                // 5. ⭐ NUEVO: Buscar preguntas similares con respuesta IA existente
-                _logger.LogInformation("🔎 [AI Job] Buscando preguntas similares para reutilizar respuestas...");
+                // 5. Buscar preguntas similares con respuesta IA existente
                 var respuestaSimilar = await _similarQuestionDetector.BuscarRespuestaSimilarAsync(
                     pregunta, 
                     umbralSimilitud: 0.80, // 80% de similitud requerida
@@ -126,9 +111,8 @@ namespace eiibd26.Jobs
 
                 if (respuestaSimilar != null)
                 {
-                    // ✅ Se encontró pregunta similar, reutilizar respuesta
                     _logger.LogInformation(
-                        "♻️ [AI Job] REUTILIZANDO respuesta de pregunta similar (RespuestaId={RespuestaId}). NO se llamará a Claude API.",
+                        "[AI Job] Reusing response from similar question (RespuestaId={RespuestaId})",
                         respuestaSimilar.Id);
 
                     contenidoFinal = respuestaSimilar.Cuerpo;
@@ -142,52 +126,41 @@ namespace eiibd26.Jobs
                 }
                 else
                 {
-                    // ❌ No se encontró pregunta similar, generar nueva respuesta con IA
-                    _logger.LogInformation("🆕 [AI Job] No se encontró pregunta similar. Generando respuesta nueva con Claude API...");
+                    _logger.LogInformation("[AI Job] No similar question found, generating new response for {PreguntaId}", preguntaId);
 
                     // 6. Generar respuesta de IA CON CONTEXTO de relaciones
                     cancellationToken.ThrowIfCancellationRequested();
 
                     var generationStart = DateTimeOffset.UtcNow;
-                    _logger.LogInformation("🤖 [AI Job] Llamando a Claude API para generar respuesta...");
 
                     // Construir contexto dinámico con las relaciones de la pregunta
                     var contextoDinamico = BuildContextoFromRelaciones(pregunta);
 
-                    if (!string.IsNullOrWhiteSpace(contextoDinamico))
-                    {
-                        _logger.LogInformation("📋 [AI Job] Contexto dinámico construido: {Contexto}", contextoDinamico);
-                    }
-
                     var contenidoGenerado = await _aiAnswerService.GenerarRespuestaAsync(pregunta, cancellationToken, contextoDinamico);
 
                     var generationTime = (DateTimeOffset.UtcNow - generationStart).TotalSeconds;
-                    var estimatedTokens = contenidoGenerado.Length / 4; // Rough estimate: 1 token ≈ 4 chars
 
                     _logger.LogInformation(
-                        "✅ [AI Job] Respuesta generada en {Duration:F2}s, ~{Tokens} tokens",
-                        generationTime, estimatedTokens);
+                        "[AI Job] Response generated in {Duration:F2}s",
+                        generationTime);
 
                     // 7. Validar seguridad del contenido
-                    _logger.LogInformation("🛡️ [AI Job] Validando seguridad del contenido...");
                     bool safetyPassed = _aiSafetyService.ValidarContenido(contenidoGenerado);
 
                     if (safetyPassed)
                     {
                         contenidoFinal = _aiSafetyService.AgregarDisclaimer(contenidoGenerado);
-                        _logger.LogInformation("✅ [AI Job] Validación de seguridad APROBADA");
                     }
                     else
                     {
                         contenidoFinal = _aiSafetyService.ObtenerRespuestaFallback();
-                        _logger.LogWarning("⚠️ [AI Job] Validación de seguridad RECHAZADA, usando fallback");
+                        _logger.LogWarning("[AI Job] Safety validation failed for pregunta {PreguntaId}, using fallback", preguntaId);
                     }
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
 
                 // 8. Crear la respuesta en la base de datos
-                _logger.LogInformation("💾 [AI Job] Guardando respuesta en BD...");
 
                 string cuerpoHtml;
                 if (esReutilizada)
@@ -207,7 +180,6 @@ namespace eiibd26.Jobs
                     // Normalizar el HTML para consistencia visual
                     cuerpoHtml = NormalizarHtmlRespuesta(cuerpoHtml);
 
-                    _logger.LogInformation("✅ [AI Job] HTML normalizado generado ({Length} chars)", cuerpoHtml.Length);
                 }
 
                 var respuestaIA = new Respuesta
@@ -240,14 +212,14 @@ namespace eiibd26.Jobs
                     var totalTime = (DateTimeOffset.UtcNow - startTime).TotalSeconds;
 
                     _logger.LogInformation(
-                        "🎉 [AI Job] COMPLETADO EXITOSAMENTE en {TotalTime:F2}s: PreguntaId={PreguntaId}, RespuestaId={RespuestaId}, Tipo={Tipo}",
-                        totalTime, preguntaId, respuestaIA.Id, esReutilizada ? "♻️ REUTILIZADA" : "🆕 NUEVA");
+                        "[AI Job] Completed: PreguntaId={PreguntaId}, RespuestaId={RespuestaId}, Reused={Reused}, Duration={TotalTime:F2}s",
+                        preguntaId, respuestaIA.Id, esReutilizada, totalTime);
                 }
                 catch (DbUpdateException dbEx) when (dbEx.InnerException?.Message?.Contains("UX_Respuestas_OneAIAnswerPerQuestion") == true)
                 {
                     // Duplicate AI answer detected by database constraint
                     _logger.LogWarning(
-                        "⚠️ [AI Job] Respuesta duplicada bloqueada por BD: PreguntaId={PreguntaId}. Otro worker ya creó la respuesta.",
+                        "[AI Job] Duplicate response blocked by DB constraint: PreguntaId={PreguntaId}",
                         preguntaId);
 
                     // This is NOT an error - it's the constraint working correctly
@@ -262,29 +234,29 @@ namespace eiibd26.Jobs
                 if (isTimeout)
                 {
                     _logger.LogError(
-                        "⏰ [AI Job] TIMEOUT: PreguntaId={PreguntaId}",
+                        "[AI Job] Timeout: PreguntaId={PreguntaId}",
                         preguntaId);
                 }
                 else
                 {
                     _logger.LogWarning(
-                        "🛑 [AI Job] CANCELADO: PreguntaId={PreguntaId}, Razón={Reason}",
-                        preguntaId, ex.Message);
+                        "[AI Job] Cancelled: PreguntaId={PreguntaId}",
+                        preguntaId);
                 }
                 throw; // Let Hangfire handle cancellation/retry
             }
             catch (HttpRequestException ex)
             {
                 _logger.LogError(ex,
-                    "❌ [AI Job] ERROR DE RED: PreguntaId={PreguntaId}, Error={Error}",
-                    preguntaId, ex.Message);
-                throw; // Permitir retry de Hangfire
+                    "[AI Job] Network error: PreguntaId={PreguntaId}",
+                    preguntaId);
+                throw;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex,
-                    "❌ [AI Job] FALLÓ: PreguntaId={PreguntaId}, Error={Error}",
-                    preguntaId, ex.Message);
+                    "[AI Job] Failed: PreguntaId={PreguntaId}",
+                    preguntaId);
                 // No hacer throw para evitar reintentos infinitos en errores desconocidos
             }
         }

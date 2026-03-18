@@ -36,12 +36,24 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
 
         public void OnGet() { }
 
-        public async Task<IActionResult> OnGetGridDataAsync(bool mostrarEliminados = false)
+        /// <summary>POST shim so DataTables can send column metadata in the body instead of the query string, avoiding the IIS 2048-char query string limit.</summary>
+        public Task<IActionResult> OnPostGridDataAsync(bool mostrarEliminados = false)
+            => GridDataCoreAsync(mostrarEliminados);
+
+        public Task<IActionResult> OnGetGridDataAsync(bool mostrarEliminados = false)
+            => GridDataCoreAsync(mostrarEliminados);
+
+        private string Param(string key)
+            => Request.HasFormContentType && Request.Form.ContainsKey(key)
+                ? Request.Form[key].ToString()
+                : Request.Query[key].ToString();
+
+        private async Task<IActionResult> GridDataCoreAsync(bool mostrarEliminados = false)
         {
-            var draw = int.TryParse(Request.Query["draw"], out var dVal) ? dVal : 1;
-            var start = int.TryParse(Request.Query["start"], out var sVal) ? sVal : 0;
-            var length = int.TryParse(Request.Query["length"], out var lVal) ? lVal : 10;
-            var searchValue = Request.Query["search[value]"].ToString();
+            var draw = int.TryParse(Param("draw"), out var dVal) ? dVal : 1;
+            var start = int.TryParse(Param("start"), out var sVal) ? sVal : 0;
+            var length = int.TryParse(Param("length"), out var lVal) ? lVal : 10;
+            var searchValue = Param("search[value]");
 
             // Filtrar en EF Core ANTES de Select (en SQL)
             var baseQuery = _db.sintomas

@@ -86,53 +86,31 @@ namespace eiibd26.Controllers
                 await _db.SaveChangesAsync();
 
                 _logger.LogInformation(
-                    "✅ [CONTROLLER] Pregunta creada {PreguntaId} con slug '{Slug}'", 
+                    "Pregunta creada {PreguntaId} con slug '{Slug}'", 
                     pregunta.Id, pregunta.Slug);
 
-                // ===== ENCOLAR JOB DE IA EN SEGUNDO PLANO =====
-                // TODO: Descomentar después de instalar Hangfire packages
-                // _backgroundJobClient.Enqueue<eiibd26.Jobs.AiAnswerJob>(
-                //     job => job.ProcesarPreguntaAsync(pregunta.Id));
-
-                // SOLUCIÓN TEMPORAL: Ejecutar el job directamente en Fire-and-Forget
-                // Esto funciona SIN Hangfire pero no es ideal para producción
-                _logger.LogInformation("🚀 [CONTROLLER] Job de IA programado para pregunta {PreguntaId} (delay: 3 segundos)...", pregunta.Id);
-
+                // Fire-and-forget AI answer generation
                 var preguntaIdCapture = pregunta.Id;
 
-                // Usar Task.Factory.StartNew con LongRunning para asegurar un thread separado
                 Task.Factory.StartNew(async () =>
                 {
                     try
                     {
-                        // ⏱️ Delay de 3 segundos para no saturar y dar tiempo a ver "Procesando..."
-                        _logger.LogInformation("⏱️ [TASK.RUN] Esperando 3 segundos antes de procesar pregunta {PreguntaId}...", preguntaIdCapture);
                         await Task.Delay(3000);
 
-                        _logger.LogInformation("⚡ [TASK.RUN] Iniciando procesamiento de IA para pregunta {PreguntaId}", preguntaIdCapture);
-                        _logger.LogInformation("⚡ [TASK.RUN] Creando scope para AiAnswerJob...");
-
                         using var scope = _serviceProvider.CreateScope();
-                        _logger.LogInformation("⚡ [TASK.RUN] Scope creado exitosamente");
-
                         var aiJob = scope.ServiceProvider.GetRequiredService<eiibd26.Jobs.AiAnswerJob>();
-                        _logger.LogInformation("✅ [TASK.RUN] AiAnswerJob obtenido del DI, tipo: {Type}", aiJob.GetType().FullName);
-
-                        _logger.LogInformation("✅ [TASK.RUN] Ejecutando ProcesarPreguntaAsync para {PreguntaId}...", preguntaIdCapture);
                         await aiJob.ProcesarPreguntaAsync(preguntaIdCapture);
 
-                        _logger.LogInformation("✅ [TASK.RUN] Job de IA completado exitosamente para pregunta {PreguntaId}", preguntaIdCapture);
+                        _logger.LogInformation("AI job completed for pregunta {PreguntaId}", preguntaIdCapture);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "❌ [TASK.RUN] ERROR CRÍTICO ejecutando job de IA para pregunta {PreguntaId}: {Message}\nStackTrace: {StackTrace}", 
-                            preguntaIdCapture, ex.Message, ex.StackTrace);
+                        _logger.LogError(ex, "Error executing AI job for pregunta {PreguntaId}", preguntaIdCapture);
                     }
                 }, TaskCreationOptions.LongRunning).Unwrap();
 
-                _logger.LogInformation(
-                    "✅ [CONTROLLER] Job de IA encolado exitosamente. Retornando respuesta al cliente.", 
-                    pregunta.Id);
+                _logger.LogInformation("AI job enqueued for pregunta {PreguntaId}", pregunta.Id);
                 // =============================================
 
                 return Ok(new { ok = true, id = pregunta.Id, slug = pregunta.Slug });

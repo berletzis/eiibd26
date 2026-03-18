@@ -11,6 +11,8 @@ namespace eiibd26.Services.Glossary.DTOs
         public bool IsValidated { get; init; }
         public bool IsReviewedByHuman { get; init; }
         public bool HasRelationBadge { get; init; }
+        /// <summary>Cantidad de usuarios que tienen este síntoma/tratamiento en su perfil</summary>
+        public int UserRelationCount { get; init; }
         // Counts for relation levels
         public int RelationDirectCount { get; init; }
         public int RelationIndirectCount { get; init; }

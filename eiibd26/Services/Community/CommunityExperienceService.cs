@@ -47,15 +47,26 @@ namespace eiibd26.Services.Community
 
             try
             {
-                // Traer todos los candidatos para deduplicar en memoria (evitar N+1 y cast issues)
-                // EF traduce (int)(enum) correctamente cuando está en Select directamente
-                var raw = await _db.EstadoAnimoUsuario
+                // Obtener todas las relaciones usuario->sintoma (ej. usuarios que tienen el síntoma en su perfil)
+                var relaciones = await _db.sintomasUsuario
+                    .AsNoTracking()
+                    .Where(su => su.idSintoma == symptomId && !su.Eliminado)
+                    .Select(su => new { su.id, su.idUsuario, su.fechaCreado })
+                    .ToListAsync(cancellationToken);
+
+                if (relaciones.Count == 0)
+                    return new List<CommunityExperienceDto>();
+
+                var relationIds = relaciones.Select(r => r.id).ToList();
+                var userIds = relaciones.Select(r => r.idUsuario).Distinct().ToList();
+
+                // Traer los estados de ánimo asociados a estas relaciones (si existen)
+                var estados = await _db.EstadoAnimoUsuario
                     .AsNoTracking()
                     .Where(e => !e.Eliminado
+                        && userIds.Contains(e.IdUsuario)
                         && e.IdSintomaUsuario != null
-                        && e.SintomaUsuario != null
-                        && e.SintomaUsuario.idSintoma == symptomId
-                        && !e.SintomaUsuario.Eliminado)
+                        && relationIds.Contains(e.IdSintomaUsuario.Value))
                     .OrderByDescending(e => e.FechaRegistro)
                     .Select(e => new RawEntry
                     {
@@ -72,10 +83,37 @@ namespace eiibd26.Services.Community
                     })
                     .ToListAsync(cancellationToken);
 
-                // Un solo registro por usuario: el más reciente (ya viene ordenado DESC)
-                var deduped = raw
+                // Por usuario, quedarnos con el registro más reciente (si existe)
+                var latestByUser = estados
                     .GroupBy(e => e.IdUsuario)
                     .Select(g => g.First())
+                    .ToDictionary(r => r.IdUsuario, r => r);
+
+                // Para usuarios sin estado, construir un RawEntry sintético usando la fecha de creación de la relación
+                var missingUsers = userIds.Where(uid => !latestByUser.ContainsKey(uid)).ToList();
+                var synthetic = new List<RawEntry>();
+                foreach (var uid in missingUsers)
+                {
+                    var rel = relaciones.FirstOrDefault(r => r.idUsuario == uid);
+                    if (rel == null) continue;
+                    synthetic.Add(new RawEntry
+                    {
+                        EstadoMood = (int)EstadoAnimoEnum.Neutral, // valor por defecto
+                        Texto = null,
+                        FechaRegistro = rel.fechaCreado,
+                        IdUsuario = rel.idUsuario,
+                        CondicionNombre = null,
+                        SintomaNombre = null,
+                        TratamientoNombre = null
+                    });
+                }
+
+                // Combinar: estados más recientes primero, luego sintéticos. Limitar a maxResults.
+                var deduped = estados
+                    .GroupBy(e => e.IdUsuario)
+                    .Select(g => g.First())
+                    .Concat(synthetic)
+                    .OrderByDescending(r => r.FechaRegistro)
                     .Take(maxResults)
                     .ToList();
 
@@ -101,13 +139,25 @@ namespace eiibd26.Services.Community
 
             try
             {
-                var raw = await _db.EstadoAnimoUsuario
+                // Obtener todas las relaciones usuario->tratamiento
+                var relaciones = await _db.tratamientoUsuario
+                    .AsNoTracking()
+                    .Where(tu => tu.idTratamiento == treatmentId && !tu.Eliminado)
+                    .Select(tu => new { tu.id, tu.idUsuario, tu.fechaCreado, TratamientoNombre = tu.Tratamiento != null ? tu.Tratamiento.nombre : null })
+                    .ToListAsync(cancellationToken);
+
+                if (relaciones.Count == 0)
+                    return new List<CommunityExperienceDto>();
+
+                var relationIds = relaciones.Select(r => r.id).ToList();
+                var userIds = relaciones.Select(r => r.idUsuario).Distinct().ToList();
+
+                var estados = await _db.EstadoAnimoUsuario
                     .AsNoTracking()
                     .Where(e => !e.Eliminado
+                        && userIds.Contains(e.IdUsuario)
                         && e.IdTratamientoUsuario != null
-                        && e.TratamientoUsuario != null
-                        && e.TratamientoUsuario.idTratamiento == treatmentId
-                        && !e.TratamientoUsuario.Eliminado)
+                        && relationIds.Contains(e.IdTratamientoUsuario.Value))
                     .OrderByDescending(e => e.FechaRegistro)
                     .Select(e => new RawEntry
                     {
@@ -124,10 +174,34 @@ namespace eiibd26.Services.Community
                     })
                     .ToListAsync(cancellationToken);
 
-                // Un solo registro por usuario: el más reciente
-                var deduped = raw
+                var latestByUser = estados
                     .GroupBy(e => e.IdUsuario)
                     .Select(g => g.First())
+                    .ToDictionary(r => r.IdUsuario, r => r);
+
+                var missingUsers = userIds.Where(uid => !latestByUser.ContainsKey(uid)).ToList();
+                var synthetic = new List<RawEntry>();
+                foreach (var uid in missingUsers)
+                {
+                    var rel = relaciones.FirstOrDefault(r => r.idUsuario == uid);
+                    if (rel == null) continue;
+                    synthetic.Add(new RawEntry
+                    {
+                        EstadoMood = (int)EstadoAnimoEnum.Neutral,
+                        Texto = null,
+                        FechaRegistro = rel.fechaCreado,
+                        IdUsuario = rel.idUsuario,
+                        CondicionNombre = null,
+                        SintomaNombre = null,
+                        TratamientoNombre = rel.TratamientoNombre
+                    });
+                }
+
+                var deduped = estados
+                    .GroupBy(e => e.IdUsuario)
+                    .Select(g => g.First())
+                    .Concat(synthetic)
+                    .OrderByDescending(r => r.FechaRegistro)
                     .Take(maxResults)
                     .ToList();
 

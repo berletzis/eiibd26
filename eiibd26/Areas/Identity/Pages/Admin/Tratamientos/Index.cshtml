@@ -505,7 +505,19 @@
                 <div class="alert alert-info">
                     <i class="bi bi-info-circle-fill"></i>
                     <strong>Este proceso generará descripciones IA automáticamente</strong>
-                    <p class="mb-0 mt-2">Se procesarán 10 registros a la vez. Puedes pausar en cualquier momento.</p>
+                    <p class="mb-0 mt-2">Procesa registros en lotes. Selecciona cuántos registros procesar en total y el sistema hará sub-lotes de 10 con pausa entre cada sub-lote para evitar saturación.</p>
+                    <div class="mt-2">
+                        <label class="form-label small mb-1">Registros a procesar:</label>
+                        <select id="selectBatchSize" class="form-select form-select-sm" style="width:120px;display:inline-block;">
+                            <option value="10">10</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="250">250</option>
+                            <option value="500">500</option>
+                            <option value="1000">1000</option>
+                        </select>
+                        <small class="text-muted ms-2">Sub-lotes de 10, pausa 5s entre cada sub-lote</small>
+                    </div>
                 </div>
 
                 <!-- Progreso -->
@@ -659,11 +671,10 @@
                 scrollCollapse: true,
                 ajax: {
                     url: '@Url.Page(null, "GridData")',
-                    type: 'GET',
-                    cache: false, // ⭐ NO CACHEAR RESPUESTAS
+                    type: 'POST',
+                    cache: false,
                     data: function (d) {
                         d.mostrarEliminados = $('#switchEliminadosTratamientos').is(':checked');
-                        d.timestamp = new Date().getTime(); // ⭐ AGREGAR TIMESTAMP PARA EVITAR CACHE
                     },
                     dataSrc: function (json) {
                         console.log('Datos recibidos del servidor:', json);
@@ -1013,10 +1024,15 @@
 
             // ⭐⭐⭐ ACTUALIZACIÓN MASIVA CON IA ⭐⭐⭐
             let batchSkip = 0;
-            let batchTake = 10;
+            let batchRequestedTotal = 10; // total records user wants to process in this run
+            let batchRequestedRemaining = 0;
+            const batchChunk = 10; // sub-lote de 10
+            const delayMsBetweenChunks = 5000; // 5 segundos
+            let chunkTimeoutId = null;
             let totalExitosos = 0;
             let totalFallidos = 0;
             let batchEnProgreso = false;
+            let batchPaused = false;
 
             // Abrir modal
             $('#btnActualizacionMasiva').on('click', function() {
@@ -1031,19 +1047,49 @@
             // Iniciar procesamiento
             $('#btnIniciarBatch').on('click', function() {
                 console.log('Click en Iniciar Batch');
-                if (confirm('¿Desea iniciar la actualización masiva? Este proceso puede tardar varios minutos.')) {
-                    batchSkip = 0;
-                    totalExitosos = 0;
-                    totalFallidos = 0;
-                    $('#btnIniciarBatch').addClass('d-none');
-                    procesarBatch();
+                if (!confirm('¿Desea iniciar la actualización masiva? Este proceso puede tardar varios minutos.')) return;
+
+                // Leer selección del combo
+                batchRequestedTotal = parseInt($('#selectBatchSize').val() || '10', 10);
+                batchRequestedRemaining = batchRequestedTotal;
+                batchSkip = 0;
+                totalExitosos = 0;
+                totalFallidos = 0;
+                batchPaused = false;
+                $('#btnIniciarBatch').addClass('d-none');
+                $('#btnPausarBatch').removeClass('d-none').prop('disabled', false);
+                $('#btnContinuarBatch').addClass('d-none');
+                procesarBatchChunk();
+            });
+
+            // Continuar (cuando estaba pausado o se desea procesar siguientes lotes en DB)
+            $('#btnContinuarBatch').on('click', function() {
+                console.log('Click en Continuar Batch');
+                if (batchRequestedRemaining > 0) {
+                    // continuar procesando lo que quedó seleccionado
+                    batchPaused = false;
+                    $('#btnContinuarBatch').addClass('d-none');
+                    $('#btnPausarBatch').removeClass('d-none').prop('disabled', false);
+                    procesarBatchChunk();
+                } else {
+                    // procesar siguientes del DB (comportamiento legacy)
+                    batchRequestedRemaining = batchChunk;
+                    $('#btnContinuarBatch').addClass('d-none');
+                    procesarBatchChunk();
                 }
             });
 
-            // Continuar con siguientes 10
-            $('#btnContinuarBatch').on('click', function() {
-                console.log('Click en Continuar Batch');
-                procesarBatch();
+            // Pausar
+            $('#btnPausarBatch').on('click', function() {
+                console.log('Click en Pausar Batch');
+                batchPaused = true;
+                if (chunkTimeoutId) {
+                    clearTimeout(chunkTimeoutId);
+                    chunkTimeoutId = null;
+                }
+                $('#btnPausarBatch').addClass('d-none');
+                $('#btnContinuarBatch').removeClass('d-none').prop('disabled', false);
+                agregarLog('info', '⏸️ Proceso en pausa por el usuario');
             });
 
             // Cerrar modal
@@ -1054,6 +1100,8 @@
                         return false;
                     }
                 }
+                batchPaused = true;
+                if (chunkTimeoutId) { clearTimeout(chunkTimeoutId); chunkTimeoutId = null; }
                 $('#modalActualizacionMasiva').modal('hide');
                 tratamientosTabla.ajax.reload();
             });
@@ -1070,40 +1118,52 @@
                 $('#btnPausarBatch').addClass('d-none');
             }
 
-            function procesarBatch() {
+            function procesarBatchChunk() {
+                if (batchPaused) {
+                    batchEnProgreso = false;
+                    return;
+                }
+
                 batchEnProgreso = true;
                 $('#btnContinuarBatch').prop('disabled', true).addClass('d-none');
                 $('#btnPausarBatch').removeClass('d-none');
                 $('#btnCerrar').prop('disabled', true);
 
-                agregarLog('info', `🚀 Procesando registros ${batchSkip + 1} a ${batchSkip + batchTake}...`);
+                // take = mínimo entre chunk y lo que queda solicitado
+                const takeNow = Math.min(batchChunk, batchRequestedRemaining > 0 ? batchRequestedRemaining : batchChunk);
+                agregarLog('info', `🚀 Procesando registros ${batchSkip + 1} a ${batchSkip + takeNow}...`);
 
                 $.ajax({
                     url: '/api/admin/tratamientos/batch-generate-ia',
                     type: 'POST',
                     contentType: 'application/json',
-                    data: JSON.stringify({ skip: batchSkip, take: batchTake }),
+                    data: JSON.stringify({ skip: batchSkip, take: takeNow }),
                     success: function(data) {
                         console.log('Respuesta del servidor:', data);
                         if (data.ok) {
-                            totalExitosos += data.exitosos;
-                            totalFallidos += data.fallidos;
+                            const processed = data.procesados || (data.resultados ? data.resultados.length : 0);
+                            totalExitosos += data.exitosos || 0;
+                            totalFallidos += data.fallidos || 0;
 
                             // Actualizar estadísticas
                             $('#exitososCount').text(totalExitosos);
                             $('#fallidosCount').text(totalFallidos);
                             $('#pendientesCount').text(data.pendientes);
 
-                            // Actualizar barra de progreso
+                            // Actualizar barra de progreso y texto (procesados / solicitados)
                             const totalProcesados = totalExitosos + totalFallidos;
-                            $('#progresoTexto').text(`${totalProcesados} procesados`);
+                            if (batchRequestedTotal > 0) {
+                                $('#progresoTexto').text(`${totalProcesados} / ${batchRequestedTotal} procesados`);
+                                const pct = Math.min(100, Math.round((totalProcesados / batchRequestedTotal) * 100));
+                                $('#progressBar').css('width', pct + '%').text(pct + '%');
+                            } else {
+                                $('#progresoTexto').text(`${totalProcesados} procesados`);
+                            }
 
                             // Mostrar resultados
-                            data.resultados.forEach(function(item) {
+                            (data.resultados || []).forEach(function(item) {
                                 if (item.success) {
                                     const eiiIcon = item.relacionEII ? '🔗' : '○';
-
-                                    // ⭐ MOSTRAR TRADUCCIÓN SI EXISTE
                                     if (item.nombreOriginal && item.nombreOriginal !== item.nombre) {
                                         agregarLog('success', `✅ ${item.nombre} ${eiiIcon} (traducido de: ${item.nombreOriginal})`);
                                     } else {
@@ -1114,10 +1174,24 @@
                                 }
                             });
 
-                            batchSkip += batchTake;
+                            batchSkip += processed;
 
-                            if (data.pendientes > 0) {
-                                agregarLog('info', `✋ Lote completado. Quedan ${data.pendientes} registros pendientes.`);
+                            // Reducir contador solicitado (si aplica)
+                            if (batchRequestedRemaining > 0) {
+                                batchRequestedRemaining -= processed;
+                            }
+
+                            if (batchRequestedRemaining > 0) {
+                                // aún faltan sub-lotes por procesar en esta ejecución
+                                agregarLog('info', `✋ Sub-lote completado. Quedan ${batchRequestedRemaining} registros de los ${batchRequestedTotal} solicitados.`);
+                                // esperar y ejecutar siguiente sub-lote (guardable/cancelable)
+                                chunkTimeoutId = setTimeout(function() {
+                                    if (!batchPaused) procesarBatchChunk();
+                                    chunkTimeoutId = null;
+                                }, delayMsBetweenChunks);
+                            } else if (data.pendientes > 0) {
+                                // completamos lo solicitado, pero hay más en la BD
+                                agregarLog('info', `✋ Lote completo. Quedan ${data.pendientes} registros pendientes en la BD.`);
                                 $('#btnContinuarBatch').prop('disabled', false).removeClass('d-none');
                                 $('#btnPausarBatch').addClass('d-none');
                             } else {

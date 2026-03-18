@@ -1,0 +1,120 @@
+@page
+@model eiibd26.Areas.Identity.Pages.Admin.Notifications.SubscripcionesModel
+@{
+    ViewData["Title"] = "Suscripciones Push";
+}
+
+<div class="container-fluid py-4">
+    <h1 class="h3 mb-4">Suscripciones Push</h1>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5>Total en DB</h5>
+                    <h2>@Model.TotalSubscriptions</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5>Activas</h5>
+                    <h2 class="text-success">@Model.ActiveSubscriptions</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5>Inactivas</h5>
+                    <h2 class="text-danger">@Model.InactiveSubscriptions</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.Subscriptions.Any())
+    {
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Todas las Suscripciones</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Email</th>
+                                <th>Endpoint</th>
+                                <th>Estado</th>
+                                <th>Creado</th>
+                                <th>Último uso</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var sub in Model.Subscriptions)
+                            {
+                                <tr class="@(sub.IsActive ? "" : "table-secondary")">
+                                    <td>
+                                        @if (sub.User != null)
+                                        {
+                                            <span>@sub.User.UserName</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">Usuario no encontrado</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (sub.User != null)
+                                        {
+                                            <small>@sub.User.Email</small>
+                                        }
+                                    </td>
+                                    <td><small class="text-muted">@sub.Endpoint.Substring(0, Math.Min(50, sub.Endpoint.Length))...</small></td>
+                                    <td>
+                                        @if (sub.IsActive)
+                                        {
+                                            <span class="badge bg-success">Activa</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">Inactiva</span>
+                                        }
+                                    </td>
+                                    <td><small>@sub.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</small></td>
+                                    <td>
+                                        @if (sub.LastUsed.HasValue)
+                                        {
+                                            <small>@sub.LastUsed.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</small>
+                                        }
+                                        else
+                                        {
+                                            <small class="text-muted">Nunca</small>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i>
+            <strong>No hay suscripciones en la base de datos</strong>
+            <p class="mb-0">Los usuarios necesitan:</p>
+            <ol class="mb-0">
+                <li>Instalar la PWA</li>
+                <li>Estar autenticados</li>
+                <li>Dar permiso de notificaciones</li>
+                <li>Hacer clic en "Activar notificaciones" en su dashboard</li>
+            </ol>
+        </div>
+    }
+</div>

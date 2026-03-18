@@ -6,6 +6,7 @@ using eiibd26.Data;
 using eiibd26.Models;
 using System.Collections.Generic;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 
 namespace eiibd26.Pages.Home
 {
@@ -13,11 +14,13 @@ namespace eiibd26.Pages.Home
     {
         private readonly ApplicationDbContext _db;
         private readonly IMemoryCache _cache;
+        private readonly ILogger<IndexModel> _logger;
 
-        public IndexModel(ApplicationDbContext db, IMemoryCache cache)
+        public IndexModel(ApplicationDbContext db, IMemoryCache cache, ILogger<IndexModel> logger)
         {
             _db = db;
             _cache = cache;
+            _logger = logger;
         }
 
         public HeroViewModel Hero { get; set; } = new HeroViewModel();
@@ -57,7 +60,6 @@ namespace eiibd26.Pages.Home
 
                 var items = await _db.Contenidos
                     .AsNoTracking()
-                    .Include(c => c.AutorPerfil)
                     .Where(c => !c.Eliminado && (c.EstadoPublicacion ?? 0) == 1)
                     .OrderByDescending(c => c.FechaCreado)
                     .Take(pageSize)
@@ -82,49 +84,56 @@ namespace eiibd26.Pages.Home
 
                 list.Items = items;
 
-                // Batch load related metadata for the items shown (so home initial page shows metadata)
+                // Metadata is supplementary – page renders fine without it
                 var contentIds = list.Items.Select(i => i.Id).ToList();
                 if (contentIds.Any())
                 {
-                    var conds = await _db.ContenidoCondiciones
-                        .AsNoTracking()
-                        .Where(r => contentIds.Contains(r.ContenidoId) && !r.Borrado)
-                        .Join(_db.condiciones.AsNoTracking(), rel => rel.CondicionId, c => c.id, (rel, c) => new { rel.ContenidoId, Name = c.nombre })
-                        .ToListAsync();
-
-                    var condsByContent = conds.GroupBy(x => x.ContenidoId).ToDictionary(g => g.Key, g => g.Select(x => x.Name).Distinct().ToList());
-
-                    var snts = await _db.ContenidoSintomas
-                        .AsNoTracking()
-                        .Where(r => contentIds.Contains(r.ContenidoId) && !r.Borrado)
-                        .Join(_db.sintomas.AsNoTracking(), rel => rel.SintomaId, s => s.id, (rel, s) => new { rel.ContenidoId, Name = s.nombre })
-                        .ToListAsync();
-
-                    var sntsByContent = snts.GroupBy(x => x.ContenidoId).ToDictionary(g => g.Key, g => g.Select(x => x.Name).Distinct().ToList());
-
-                    var trts = await _db.ContenidoTratamientos
-                        .AsNoTracking()
-                        .Where(r => contentIds.Contains(r.ContenidoId) && !r.Borrado)
-                        .Join(_db.tratamientos.AsNoTracking(), rel => rel.TratamientoId, t => t.id, (rel, t) => new { rel.ContenidoId, Name = t.nombre })
-                        .ToListAsync();
-
-                    var trtsByContent = trts.GroupBy(x => x.ContenidoId).ToDictionary(g => g.Key, g => g.Select(x => x.Name).Distinct().ToList());
-
-                    var qCounts = await _db.ContenidosPreguntasRelacion
-                        .AsNoTracking()
-                        .Where(r => contentIds.Contains(r.ContenidoId) && !r.Borrado)
-                        .GroupBy(r => r.ContenidoId)
-                        .Select(g => new { ContentId = g.Key, Count = g.Select(x => x.PreguntaId).Distinct().Count() })
-                        .ToListAsync();
-
-                    var qCountsDict = qCounts.ToDictionary(x => x.ContentId, x => x.Count);
-
-                    foreach (var it in list.Items)
+                    try
                     {
-                        if (condsByContent.TryGetValue(it.Id, out var lc)) it.Conditions = lc;
-                        if (sntsByContent.TryGetValue(it.Id, out var ls)) it.Symptoms = ls;
-                        if (trtsByContent.TryGetValue(it.Id, out var lt)) it.Treatments = lt;
-                        if (qCountsDict.TryGetValue(it.Id, out var qc)) it.RelatedQuestionsCount = qc;
+                        var conds = await _db.ContenidoCondiciones
+                            .AsNoTracking()
+                            .Where(r => contentIds.Contains(r.ContenidoId) && !r.Borrado)
+                            .Join(_db.condiciones.AsNoTracking(), rel => rel.CondicionId, c => c.id, (rel, c) => new { rel.ContenidoId, Name = c.nombre })
+                            .ToListAsync();
+
+                        var condsByContent = conds.GroupBy(x => x.ContenidoId).ToDictionary(g => g.Key, g => g.Select(x => x.Name).Distinct().ToList());
+
+                        var snts = await _db.ContenidoSintomas
+                            .AsNoTracking()
+                            .Where(r => contentIds.Contains(r.ContenidoId) && !r.Borrado)
+                            .Join(_db.sintomas.AsNoTracking(), rel => rel.SintomaId, s => s.id, (rel, s) => new { rel.ContenidoId, Name = s.nombre })
+                            .ToListAsync();
+
+                        var sntsByContent = snts.GroupBy(x => x.ContenidoId).ToDictionary(g => g.Key, g => g.Select(x => x.Name).Distinct().ToList());
+
+                        var trts = await _db.ContenidoTratamientos
+                            .AsNoTracking()
+                            .Where(r => contentIds.Contains(r.ContenidoId) && !r.Borrado)
+                            .Join(_db.tratamientos.AsNoTracking(), rel => rel.TratamientoId, t => t.id, (rel, t) => new { rel.ContenidoId, Name = t.nombre })
+                            .ToListAsync();
+
+                        var trtsByContent = trts.GroupBy(x => x.ContenidoId).ToDictionary(g => g.Key, g => g.Select(x => x.Name).Distinct().ToList());
+
+                        var qCounts = await _db.ContenidosPreguntasRelacion
+                            .AsNoTracking()
+                            .Where(r => contentIds.Contains(r.ContenidoId) && !r.Borrado)
+                            .GroupBy(r => r.ContenidoId)
+                            .Select(g => new { ContentId = g.Key, Count = g.Select(x => x.PreguntaId).Distinct().Count() })
+                            .ToListAsync();
+
+                        var qCountsDict = qCounts.ToDictionary(x => x.ContentId, x => x.Count);
+
+                        foreach (var it in list.Items)
+                        {
+                            if (condsByContent.TryGetValue(it.Id, out var lc)) it.Conditions = lc;
+                            if (sntsByContent.TryGetValue(it.Id, out var ls)) it.Symptoms = ls;
+                            if (trtsByContent.TryGetValue(it.Id, out var lt)) it.Treatments = lt;
+                            if (qCountsDict.TryGetValue(it.Id, out var qc)) it.RelatedQuestionsCount = qc;
+                        }
+                    }
+                    catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == -2)
+                    {
+                        _logger.LogWarning("Home page metadata queries timed out – serving articles without tags");
                     }
                 }
 
@@ -143,7 +152,6 @@ namespace eiibd26.Pages.Home
 
                     var list = await _db.Contenidos
                         .AsNoTracking()
-                        .Include(c => c.AutorPerfil)
                         .Where(c => !c.Eliminado && (c.EstadoPublicacion ?? 0) == estadoPublicacion)
                         .OrderByDescending(c => c.FechaCreado)
                         .Take(take)
@@ -186,7 +194,6 @@ namespace eiibd26.Pages.Home
 
                 var extras = await _db.Contenidos
                     .AsNoTracking()
-                    .Include(c => c.AutorPerfil)
                     .Where(c => !c.Eliminado && (c.EstadoPublicacion ?? 0) == 1 && !excludedIds.Contains(c.Id))
                     .OrderByDescending(c => c.FechaCreado)
                     .Take(need)
