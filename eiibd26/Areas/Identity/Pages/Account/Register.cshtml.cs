@@ -281,7 +281,10 @@ namespace eiibd26.Areas.Identity.Pages.Account
                 // ✅ NUEVO: Marcar que es un registro nuevo
                 TempData["IsNewRegistration"] = true;
 
-                // ✅ ACTUALIZADO: Redirigir SIEMPRE a Manage/Index después del registro
+                // Redirigir al returnUrl si es local y válido, si no al perfil
+                if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+                    return LocalRedirect(returnUrl);
+
                 return RedirectToPage("/Account/Manage/Index", new { area = "Identity" });
             }
             catch (Exception ex)

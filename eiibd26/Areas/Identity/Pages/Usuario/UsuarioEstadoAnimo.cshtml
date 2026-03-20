@@ -393,92 +393,14 @@
     </div>
     <div id="moodCards" class="mood-card-panel"></div>
 
-    <!-- Modal: Registrar Mood -->
-    <div class="modal fade" tabindex="-1" id="moodModal">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <form id="moodForm">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Registrar Mood</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div id="alertMoodAdded" class="alert alert-success alert-mood-added" style="display:none"></div>
-                        <div class="mb-3">
-                            <label class="form-label">Selecciona tu estado de ánimo:</label>
-                            <div id="moodOptionsBtns" class="d-flex gap-2"></div>
-                            <input type="hidden" id="moodSelected" name="estadoMood">
-                        </div>
-                        <div class="mb-3">
-                            <label for="moodText" class="form-label">Reflexión breve (opcional):</label>
-                            <textarea id="moodText" name="texto" class="form-control" maxlength="100" rows="2"></textarea>
-                        </div>
-                        
-                        <!-- CONDICIÓN CUSTOM SELECT -->
-                        <div class="mb-3">
-                            <label class="form-label">Relacionar a condición (opcional):</label>
-                            <div class="custom-select-wrapper" data-field="condicion">
-                                <div class="custom-select-display" tabindex="0">Seleccionar...</div>
-                                <div class="custom-select-dropdown">
-                                    <input type="text" class="custom-select-search" placeholder="Buscar...">
-                                    <div class="custom-select-options"></div>
-                                </div>
-                                <input type="hidden" id="condicionSelectedId" name="condicionUsuarioId">
-                            </div>
-                        </div>
-
-                        <!-- SÍNTOMA CUSTOM SELECT -->
-                        <div class="mb-3">
-                            <label class="form-label">Relacionar a síntoma (opcional):</label>
-                            <div class="custom-select-wrapper" data-field="sintoma">
-                                <div class="custom-select-display" tabindex="0">Seleccionar...</div>
-                                <div class="custom-select-dropdown">
-                                    <input type="text" class="custom-select-search" placeholder="Buscar...">
-                                    <div class="custom-select-options"></div>
-                                </div>
-                                <input type="hidden" id="sintomaSelectedId" name="sintomaUsuarioId">
-                            </div>
-                        </div>
-
-                        <!-- TRATAMIENTO CUSTOM SELECT -->
-                        <div class="mb-3">
-                            <label class="form-label">Relacionar a tratamiento (opcional):</label>
-                            <div class="custom-select-wrapper" data-field="tratamiento">
-                                <div class="custom-select-display" tabindex="0">Seleccionar...</div>
-                                <div class="custom-select-dropdown">
-                                    <input type="text" class="custom-select-search" placeholder="Buscar...">
-                                    <div class="custom-select-options"></div>
-                                </div>
-                                <input type="hidden" id="tratamientoSelectedId" name="tratamientoUsuarioId">
-                            </div>
-                        </div>
-
-                    </div>
-                    <div class="modal-footer">
-                        <button id="btnSaveMood" type="submit" class="se-btn se-btn-primary" style="font-size:28px; border-radius:50%;"><i class="bi bi-check"></i></button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
+    @* Reuse partial modal to avoid duplication *@
+    @await Html.PartialAsync("~/Views/Shared/_EstadoAnimoModal.cshtml")
 </div>
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        const moodOpts = [
-        { val: 5, label: "Muy bien", color: "#38D6C1", img: "/img/muybien.svg" },
-        { val: 4, label: "Bien", color: "#B3F1E9", img: "/img/bien.svg" },
-        { val: 3, label: "Neutral", color: "#FEE019", img: "/img/neutral.svg" },
-        { val: 2, label: "Mal", color: "#D8B4F8", img: "/img/mal.svg" },
-        { val: 1, label: "Muy mal", color: "#9B5DE5", img: "/img/muymal.svg" }
-        ];
-
         const DAY_MS = 24 * 60 * 60 * 1000;
-
-        let condicionesData = [];
-        let sintomasData = [];
-        let tratamientosData = [];
 
         function moodNumFromStr(val){
         if (typeof val === 'number') return val >= 1 && val <= 5 ? val : null;
@@ -599,131 +521,8 @@
         return Object.keys(byDay).map(k => byDay[k]);
         }
 
-        // =====================
-        // CUSTOM SELECT LOGIC
-        // =====================
-        function initCustomSelect(wrapper, dataArray, hiddenInputId) {
-        const display = wrapper.querySelector('.custom-select-display');
-        const dropdown = wrapper.querySelector('.custom-select-dropdown');
-        const searchInput = wrapper.querySelector('.custom-select-search');
-        const optionsContainer = wrapper.querySelector('.custom-select-options');
-        const hiddenInput = document.getElementById(hiddenInputId);
-
-        let allOptions = dataArray;
-        let selectedId = null;
-
-        function renderOptions(filteredData) {
-        optionsContainer.innerHTML = '';
-        if (filteredData.length === 0) {
-        optionsContainer.innerHTML = '<div class="custom-select-no-results">Sin resultados</div>';
-        return;
-        }
-        filteredData.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'custom-select-option';
-        if (item.id === selectedId) div.classList.add('selected');
-        div.textContent = item.nombre;
-        div.dataset.id = item.id;
-        div.dataset.nombre = item.nombre;
-        div.addEventListener('click', function() {
-        selectedId = item.id;
-        hiddenInput.value = item.id;
-        display.textContent = item.nombre;
-        closeDropdown();
-        });
-        optionsContainer.appendChild(div);
-        });
-        }
-
-        function openDropdown() {
-        dropdown.classList.add('show');
-        display.classList.add('active');
-        searchInput.value = '';
-        renderOptions(allOptions);
-        searchInput.focus();
-        }
-
-        function closeDropdown() {
-        dropdown.classList.remove('show');
-        display.classList.remove('active');
-        }
-
-        display.addEventListener('click', function(e) {
-        e.stopPropagation();
-        if (dropdown.classList.contains('show')) {
-        closeDropdown();
-        } else {
-        document.querySelectorAll('.custom-select-dropdown.show').forEach(d => {
-        d.classList.remove('show');
-        d.previousElementSibling.classList.remove('active');
-        });
-        openDropdown();
-        }
-        });
-
-        searchInput.addEventListener('input', function() {
-        const query = this.value.toLowerCase().trim();
-        const filtered = allOptions.filter(item => item.nombre.toLowerCase().includes(query));
-        renderOptions(filtered);
-        });
-
-        searchInput.addEventListener('click', function(e) {
-        e.stopPropagation();
-        });
-
-        document.addEventListener('click', function(e) {
-        if (!wrapper.contains(e.target)) {
-        closeDropdown();
-        }
-        });
-
-        wrapper.resetSelect = function() {
-        selectedId = null;
-        hiddenInput.value = '';
-        display.textContent = 'Seleccionar...';
-        };
-        }
-
-        async function cargarCondicionesUsuario() {
-        try {
-        let resp = await fetch("/api/EstadoAnimoUsuario/condiciones-usuario", { cache: "no-store" });
-        condicionesData = await resp.json();
-        } catch (e) {
-        condicionesData = [];
-        }
-        }
-
-        async function cargarSintomasUsuario() {
-        try {
-        let resp = await fetch("/api/EstadoAnimoUsuario/sintomas-usuario", { cache: "no-store" });
-        sintomasData = await resp.json();
-        } catch (e) {
-        sintomasData = [];
-        }
-        }
-
-        async function cargarTratamientosUsuario() {
-        try {
-        let resp = await fetch("/api/EstadoAnimoUsuario/tratamientos-usuario", { cache: "no-store" });
-        tratamientosData = await resp.json();
-        } catch (e) {
-        tratamientosData = [];
-        }
-        }
-
         document.addEventListener("DOMContentLoaded", async function(){
-        await cargarCondicionesUsuario();
-        await cargarSintomasUsuario();
-        await cargarTratamientosUsuario();
         await cargarHistorialEstadoAnimo();
-
-        const condicionWrapper = document.querySelector('[data-field="condicion"]');
-        const sintomaWrapper = document.querySelector('[data-field="sintoma"]');
-        const tratamientoWrapper = document.querySelector('[data-field="tratamiento"]');
-
-        initCustomSelect(condicionWrapper, condicionesData, 'condicionSelectedId');
-        initCustomSelect(sintomaWrapper, sintomasData, 'sintomaSelectedId');
-        initCustomSelect(tratamientoWrapper, tratamientosData, 'tratamientoSelectedId');
 
         document.querySelectorAll('.mood-filter-btn').forEach(btn => {
         btn.addEventListener('click', function () {
@@ -733,62 +532,9 @@
         });
         });
 
-        document.getElementById("btnAbrirMood").addEventListener("click", function(){
-        document.getElementById("alertMoodAdded").style.display = "none";
-        document.getElementById("moodForm").reset();
-        condicionWrapper.resetSelect();
-        sintomaWrapper.resetSelect();
-        tratamientoWrapper.resetSelect();
-        var modalEl = document.getElementById("moodModal");
-        var modaObj = bootstrap.Modal.getOrCreateInstance(modalEl);
-        modaObj.show();
+        document.getElementById("moodModal")?.addEventListener('hidden.bs.modal', function () {
+        document.getElementById("btnAbrirMood")?.focus();
         });
-
-        renderMoodOptionsBtns();
-
-        document.getElementById("moodModal").addEventListener('hidden.bs.modal', function () {
-        document.getElementById("btnAbrirMood").focus();
-        });
-
-        document.getElementById("moodForm").addEventListener("submit", async function(e){
-        e.preventDefault();
-        const moodSelected = document.getElementById("moodSelected").value;
-        if (!moodSelected || ![1,2,3,4,5].includes(parseInt(moodSelected))) {
-        mostrarLeyendaModal("Selecciona tu estado de ánimo por favor.", true);
-        return;
-        }
-        const moodText = document.getElementById("moodText").value || "";
-        const condicionUsuarioId = document.getElementById("condicionSelectedId").value || "";
-        const sintomaUsuarioId = document.getElementById("sintomaSelectedId").value || "";
-        const tratamientoUsuarioId = document.getElementById("tratamientoSelectedId").value || "";
-
-        const formData = new FormData();
-        formData.append("mood", moodSelected);
-        formData.append("texto", moodText);
-        if (condicionUsuarioId) formData.append("condicionUsuarioId", condicionUsuarioId);
-        if (sintomaUsuarioId) formData.append("sintomaUsuarioId", sintomaUsuarioId);
-        if (tratamientoUsuarioId) formData.append("tratamientoUsuarioId", tratamientoUsuarioId);
-
-        try {
-        let resp = await fetch("/api/EstadoAnimoUsuario/nuevo", {
-        method: "POST",
-        body: formData
-        });
-        if(resp.ok){
-        mostrarLeyendaModal("¡Estado de ánimo agregado correctamente!", false);
-        setTimeout(()=>{
-        bootstrap.Modal.getOrCreateInstance(document.getElementById("moodModal")).hide();
-        document.getElementById("alertMoodAdded").style.display = "none";
-        document.getElementById("moodForm").reset();
-        }, 1100);
-        await cargarHistorialEstadoAnimo();
-        try { window.dispatchEvent(new CustomEvent('mood:added', { detail: { source: 'fullpage' } })); } catch(e){}
-        } else {
-        mostrarLeyendaModal("Error al agregar estado de ánimo. Código: " + resp.status, true);
-        }
-        }catch(e){
-        mostrarLeyendaModal("Ocurrió un error de red.", true);
-        }
         });
 
         window.addEventListener('mood:added', async function(e){
@@ -796,31 +542,6 @@
         const activeBtn = document.querySelector('.mood-filter-btn.active');
         if (activeBtn) aplicarFiltroMood(activeBtn.dataset.filter || '1m');
         });
-        });
-
-        function mostrarLeyendaModal(msg, error){
-        const leyenda = document.getElementById("alertMoodAdded");
-        leyenda.textContent = msg;
-        leyenda.className = error ? "alert alert-danger alert-mood-added" : "alert alert-success alert-mood-added";
-        leyenda.style.display = "block";
-        }
-
-        function renderMoodOptionsBtns(){
-        const container = document.getElementById("moodOptionsBtns");
-        container.innerHTML = "";
-        moodOpts.forEach(o=>{
-        let btn=document.createElement("button");
-        btn.type="button";
-        btn.className=`btn btn-outline-secondary mood-btn-option`;
-        btn.innerHTML = `<img src="${o.img}" alt="${o.label}" style="width:25px;vertical-align:middle;margin-right:6px;"> <span>${o.label}</span>`;
-        btn.onclick=function(){
-        document.getElementById("moodSelected").value = o.val;
-        container.querySelectorAll(".mood-btn-option").forEach(b=>b.classList.remove("active"));
-        btn.classList.add("active");
-        };
-        container.appendChild(btn);
-        });
-        }
 
         async function cargarHistorialEstadoAnimo(){
         try {

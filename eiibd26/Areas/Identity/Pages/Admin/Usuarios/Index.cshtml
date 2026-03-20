@@ -265,6 +265,38 @@
     </div>
 </div>
 
+<!-- Modal Enviar Correo -->
+<div class="modal fade" id="modalEnviarCorreo" tabindex="-1" aria-labelledby="modalEnviarCorreoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:14px;border:none;box-shadow:0 4px 32px rgba(70,80,120,0.13);">
+            <div class="modal-header" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:14px 14px 0 0;">
+                <h5 class="modal-title text-white fw-semibold" id="modalEnviarCorreoLabel"><i class="bi bi-envelope-fill me-2"></i>Enviar correo al usuario</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted mb-3" style="font-size:.95rem;">Se enviará un correo con enlace de configuración de contraseña.</p>
+                <div class="mb-3">
+                    <label class="form-label text-muted" style="font-size:.85rem;font-weight:600;">NOMBRE</label>
+                    <input type="text" id="modalNombre" class="form-control" readonly />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted" style="font-size:.85rem;font-weight:600;">CORREO ELECTRÓNICO</label>
+                    <input type="text" id="modalCorreo" class="form-control" readonly />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted" style="font-size:.85rem;font-weight:600;">CONDICIÓN</label>
+                    <input type="text" id="modalCondicion" class="form-control" readonly />
+                </div>
+                <div id="modalEnviarStatus" class="alert d-none mt-3 mb-0" role="alert"></div>
+            </div>
+            <div class="modal-footer" style="border-top:1px solid #eee;">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btnConfirmarEnvio" class="btn btn-primary"><i class="bi bi-send me-1"></i>Enviar correo</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
@@ -412,8 +444,18 @@
                     {
                         data: 'id',
                         orderable: false,
-                        render: function(data){
-                            return `<a class='btn btn-sm btn-action-user' href='/Identity/Admin/Usuarios/Detalles/${data}'><i class="bi bi-person-lines-fill me-1"></i>Detalles</a>`;
+                        render: function(data, type, row){
+                            var nombre = (row.nombre || '').replace(/'/g, "&#39;");
+                            var correo = (row.email || '').replace(/'/g, "&#39;");
+                            var condicion = (row.condicion || '').replace(/'/g, "&#39;");
+                            return `<a class='btn btn-sm btn-action-user' href='/Identity/Admin/Usuarios/Detalles/${data}'><i class="bi bi-person-lines-fill me-1"></i>Detalles</a>` +
+                                `<button class='btn btn-sm btn-action-user btn-enviar-correo ms-1' ` +
+                                    `data-userid='${data}' ` +
+                                    `data-nombre='${nombre}' ` +
+                                    `data-correo='${correo}' ` +
+                                    `data-condicion='${condicion}'>` +
+                                    `<i class="bi bi-envelope me-1"></i>Enviar correo` +
+                                `</button>`;
                         }
                     }
                 ],
@@ -509,6 +551,60 @@
                     .catch(function (err) {
                         $btn.prop('disabled', false).text('Generar SLUGs vacíos');
                         $('#fillSlugsStatus').show().text('Error: ' + err);
+                    });
+            });
+
+            // Enviar correo — abrir modal con datos de la fila
+            $(document).on('click', '.btn-enviar-correo', function () {
+                var $btn = $(this);
+                $('#modalNombre').val($btn.data('nombre') || 'Sin nombre');
+                $('#modalCorreo').val($btn.data('correo') || '');
+                $('#modalCondicion').val($btn.data('condicion') || 'Sin condición');
+                $('#modalEnviarStatus').addClass('d-none').text('');
+                $('#btnConfirmarEnvio')
+                    .prop('disabled', false)
+                    .html('<i class="bi bi-send me-1"></i>Enviar correo')
+                    .data('userid', $btn.data('userid'));
+                var modal = new bootstrap.Modal(document.getElementById('modalEnviarCorreo'));
+                modal.show();
+            });
+
+            // Confirmar envío desde el modal
+            $('#btnConfirmarEnvio').on('click', function () {
+                var $btn = $(this);
+                var userId = $btn.data('userid');
+                if (!userId) return;
+
+                $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Enviando...');
+                $('#modalEnviarStatus').addClass('d-none').text('');
+
+                fetch(window.location.pathname + '?handler=EnviarCorreo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: userId })
+                })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (data && data.success) {
+                            $('#modalEnviarStatus')
+                                .removeClass('d-none alert-danger')
+                                .addClass('alert-success')
+                                .html('<i class="bi bi-check-circle me-1"></i>Correo enviado correctamente.');
+                            $btn.prop('disabled', true).html('<i class="bi bi-check me-1"></i>Enviado');
+                        } else {
+                            $('#modalEnviarStatus')
+                                .removeClass('d-none alert-success')
+                                .addClass('alert-danger')
+                                .html('<i class="bi bi-exclamation-triangle me-1"></i>' + (data.error || 'Error al enviar el correo.'));
+                            $btn.prop('disabled', false).html('<i class="bi bi-send me-1"></i>Enviar correo');
+                        }
+                    })
+                    .catch(function (err) {
+                        $('#modalEnviarStatus')
+                            .removeClass('d-none alert-success')
+                            .addClass('alert-danger')
+                            .html('<i class="bi bi-exclamation-triangle me-1"></i>Error de conexión. Intenta de nuevo.');
+                        $btn.prop('disabled', false).html('<i class="bi bi-send me-1"></i>Enviar correo');
                     });
             });
         });

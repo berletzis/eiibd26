@@ -5,7 +5,7 @@
     {
         ViewData["Title"] = "Término no encontrado";
     }
-    else
+
     {
         ViewData["Title"] = Model.Term.Nombre + " - Glosario Médico";
 
@@ -333,11 +333,53 @@
             }
             .user-avatar { width: 60px; height: 60px; flex: 0 0 60px; border-width:2px; }
         }
+            /* CTA login comunidad */
+            .comunidad-login-cta {
+                background: #f8f8fc;
+                border: 1px solid #e0dff5;
+                border-radius: 12px;
+                padding: 20px 24px;
+                margin-top: 8px;
+            }
+            .comunidad-login-cta__icon {
+                font-size: 1.4rem;
+                color: #7c3aed;
+                vertical-align: middle;
+                margin-right: 8px;
+            }
+            .comunidad-login-cta__msg {
+                margin-bottom: 16px;
+                font-size: .95rem;
+                color: #374151;
+            }
+            .comunidad-login-cta__btns {
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+            }
+            .btn-purple {
+                background: #7c3aed;
+                color: #fff;
+                border: 1px solid #7c3aed;
+            }
+            .btn-purple:hover, .btn-purple:focus {
+                background: #6d28d9;
+                border-color: #6d28d9;
+                color: #fff;
+            }
+            .btn-outline-purple {
+                background: transparent;
+                color: #7c3aed;
+                border: 1px solid #7c3aed;
+            }
+            .btn-outline-purple:hover, .btn-outline-purple:focus {
+                background: #f3eeff;
+                color: #6d28d9;
+                border-color: #6d28d9;
+            }
 
-        
-
-    </style>
-}
+        </style>
+    }
 
 @if (Model.Term == null)
 {
@@ -577,8 +619,8 @@ else
                     var urlEstadoAnimo = "/Identity/Usuario/UsuarioEstadoAnimo";
                 }
 
-                @* Related cards moved to sidebar *@
-                <div class="contenido" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                @* Comunidad header *@
+                <div class="contenido" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
                     <h2 style="margin:0;">Comunidad</h2>
                     @{
                         var totalRelated = Model.Term.RelatedUsersCount;
@@ -588,7 +630,7 @@ else
                     {
                         <span class="eii-count-badge ms-2"
                               style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;">
-                            @totalRelated usuarios · mostrando @showing
+                            @totalRelated usuarios &middot; mostrando @showing
                         </span>
                     }
                     else if (hayExperiencias)
@@ -598,10 +640,39 @@ else
                             mostrando @experiencias.Count
                         </span>
                     }
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <button type="button" id="btnAgregarMiMood" class="btn btn-outline-purple btn-sm ms-auto"
+                                data-tipo="@(isSintoma ? "sintoma" : "tratamiento")"
+                                data-id="@(isSintoma ? (Model.Term.SintomaId.HasValue ? Model.Term.SintomaId.Value.ToString() : "") : (Model.Term.TratamientoId.HasValue ? Model.Term.TratamientoId.Value.ToString() : ""))"
+                                data-name="@System.Text.Encodings.Web.HtmlEncoder.Default.Encode(Model.Term.Nombre)">
+                            <i class="bi bi-plus-lg me-1"></i> Agregar
+                        </button>
+                    }
                 </div>
-                @if (hayExperiencias)
+                @if (User.Identity?.IsAuthenticated != true)
                 {
-                    <div class="cards-grid">
+                    <div class="comunidad-login-cta">
+                        <p class="comunidad-login-cta__msg">
+                            <i class="bi bi-unlock comunidad-login-cta__icon"></i>
+                            Inicia sesi&oacute;n para ver y participar en las respuestas de la comunidad.
+                        </p>
+                        @{
+                            var currentUrl = $"{HttpContext.Request.Path}{HttpContext.Request.QueryString}";
+                        }
+                        <div class="comunidad-login-cta__btns">
+                            <a href="/Identity/Account/Register?returnUrl=@Uri.EscapeDataString(currentUrl)" class="btn btn-purple btn-sm">
+                                <i class="bi bi-person-plus me-1"></i> Crear cuenta gratis
+                            </a>
+                            <a href="/Identity/Account/Login?returnUrl=@Uri.EscapeDataString(currentUrl)" class="btn btn-outline-purple btn-sm">
+                                <i class="bi bi-box-arrow-in-right me-1"></i> Iniciar sesi&oacute;n
+                            </a>
+                        </div>
+                    </div>
+                }
+                else if (hayExperiencias)
+                {
+                    <div class="cards-grid" id="comunidadGrid">
                         @foreach (var exp in experiencias)
                         {
                             <div class="card user-card h-100">
@@ -652,13 +723,81 @@ else
                 }
                 else
                 {
-                    <div class="text-center py-4">
-                        <p class="text-muted small mb-3">Próximamente podrás compartir y leer experiencias de otras personas con este término.</p>
-                        <a href="@urlEstadoAnimo" class="btn btn-primary btn-sm">
-                            <i class="bi bi-plus-circle me-1"></i> Agregar mi estado de ánimo
-                        </a>
+                    <div id="sinExperienciasMsg" class="text-center py-3">
+                        <p class="text-muted small mb-0">S&eacute; el primero en compartir tu experiencia con este t&eacute;rmino.</p>
                     </div>
+                    <div class="cards-grid" id="comunidadGrid"></div>
                 }
+
+                @* Modal siempre disponible para usuarios autenticados *@
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    @await Html.PartialAsync("~/Views/Shared/_EstadoAnimoModal.cshtml")
+                }
+                <script>
+                (function () {
+                    var MOOD_ICONS = { 1: '/img/muymal.svg', 2: '/img/mal.svg', 3: '/img/neutral.svg', 4: '/img/bien.svg', 5: '/img/muybien.svg' };
+                    var MOOD_LABELS = { 1: 'Muy mal', 2: 'Mal', 3: 'Neutral', 4: 'Bien', 5: 'Muy bien' };
+
+                    var btn = document.getElementById('btnAgregarMiMood');
+                    if (btn) {
+                        btn.addEventListener('click', function () {
+                            try {
+                                openEstadoAnimoModal({ tipo: btn.dataset.tipo || null, id: btn.dataset.id ? parseInt(btn.dataset.id, 10) : null, name: btn.dataset.name || null });
+                            } catch (e) { console.error(e); }
+                        });
+                    }
+
+                    window.addEventListener('mood:added', function (e) {
+                        var d = e.detail || {};
+                        var msgEl = document.getElementById('sinExperienciasMsg');
+                        if (msgEl) msgEl.style.display = 'none';
+                        var grid = document.getElementById('comunidadGrid');
+                        if (!grid) return;
+
+                        var moodNum = d.estadoMood || 3;
+                        var moodLabel = MOOD_LABELS[moodNum] || d.estadoMoodNombre || 'Neutral';
+                        var moodIcon = MOOD_ICONS[moodNum] || '/img/neutral.svg';
+
+                        var contextMeta = '';
+                        if (d.ctxTipo === 'sintoma' && d.sintomaNombre) {
+                            contextMeta += '<div class="user-meta">&#x26A1; ' + esc(d.sintomaNombre) + '</div>';
+                        } else if (d.ctxTipo === 'tratamiento' && d.tratamientoNombre) {
+                            contextMeta += '<div class="user-meta">&#x1F48A; ' + esc(d.tratamientoNombre) + '</div>';
+                        }
+                        if (d.condicionNombre) {
+                            contextMeta = '<div class="user-meta">&#x1FA7A; ' + esc(d.condicionNombre) + '</div>' + contextMeta;
+                        }
+
+                        var textoHtml = d.texto
+                            ? '<span>' + esc(d.texto.substring(0, 160)) + '</span>'
+                            : '<span class="text-muted fst-italic">Se sinti\u00F3 <strong>' + esc(moodLabel.toLowerCase()) + '</strong>.</span>';
+
+                        var card = document.createElement('div');
+                        card.className = 'card user-card h-100';
+                        card.innerHTML =
+                            '<div class="user-card-main">' +
+                              '<div class="user-avatar"><i class="bi bi-person" style="font-size:2.2rem;color:#bdbdbd;"></i></div>' +
+                              '<div class="user-info">' +
+                                '<div class="user-name">T\u00FA</div>' +
+                                '<div class="user-meta">ahora mismo</div>' +
+                                contextMeta +
+                              '</div>' +
+                            '</div>' +
+                            '<div class="user-card-bottom">' +
+                              '<div class="user-card-mood-text">' + textoHtml + '</div>' +
+                              '<img src="' + moodIcon + '" alt="' + esc(moodLabel) + '" title="' + esc(moodLabel) + '" class="user-card-mood-icon" />' +
+                            '</div>';
+
+                        grid.insertBefore(card, grid.firstChild);
+                    });
+
+                    function esc(s) {
+                        if (!s) return '';
+                        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    }
+                })();
+                </script>
 
             </div><!-- /content-panel -->
             <!-- ===== SIDEBAR ===== -->

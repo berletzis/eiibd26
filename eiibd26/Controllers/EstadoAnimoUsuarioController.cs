@@ -59,7 +59,7 @@ namespace eiibd26.Controllers
             var condiciones = await _db.condicionUsuario
                 .Where(x => x.idUsuario == guid && !x.Eliminado)
                 .Include(x => x.Condicion)
-                .Select(x => new { id = x.id, nombre = x.Condicion.nombre })
+                .Select(x => new { id = x.id, idCondicion = x.idCondicion, nombre = x.Condicion.nombre })
                 .ToListAsync();
 
             return Ok(condiciones);
@@ -75,7 +75,7 @@ namespace eiibd26.Controllers
             var sintomas = await _db.sintomasUsuario
                 .Where(x => x.idUsuario == guid && !x.Eliminado)
                 .Include(x => x.Sintoma)
-                .Select(x => new { id = x.id, nombre = x.Sintoma.nombre })
+                .Select(x => new { id = x.id, idSintoma = x.idSintoma, nombre = x.Sintoma.nombre })
                 .ToListAsync();
 
             return Ok(sintomas);
@@ -91,7 +91,7 @@ namespace eiibd26.Controllers
             var tratamientos = await _db.tratamientoUsuario
                 .Where(x => x.idUsuario == guid && !x.Eliminado)
                 .Include(x => x.Tratamiento)
-                .Select(x => new { id = x.id, nombre = x.Tratamiento.nombre })
+                .Select(x => new { id = x.id, idTratamiento = x.idTratamiento, nombre = x.Tratamiento.nombre })
                 .ToListAsync();
 
             return Ok(tratamientos);

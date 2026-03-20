@@ -1,0 +1,463 @@
+@* Partial: Reutilizable modal de Estado de Ánimo para UI y registro rápido *@
+@* Se extrae desde Areas/Identity/Pages/Usuario/UsuarioEstadoAnimo.cshtml *@
+<div class="modal fade" tabindex="-1" id="moodModal">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="moodForm">
+                <div class="modal-header py-2 px-3">
+                    <h6 class="modal-title mb-0">Agregar estado de &aacute;nimo</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body px-3 py-2">
+                    <div id="alertMoodAdded" class="alert alert-mood-added py-2 mb-2" style="display:none"></div>
+
+                    <!-- Estado de ánimo -->
+                    <div class="mb-2">
+                        <label class="form-label small mb-1">Selecciona tu estado</label>
+                        <div id="moodOptionsBtns" class="d-flex flex-wrap gap-1"></div>
+                        <input type="hidden" id="moodSelected" name="estadoMood">
+                    </div>
+
+                    <!-- Reflexión -->
+                    <div class="mb-2">
+                        <label for="moodText" class="form-label small mb-1">Reflexi&oacute;n (opcional)</label>
+                        <textarea id="moodText" name="texto" class="form-control form-control-sm" maxlength="100" rows="2"></textarea>
+                    </div>
+
+                    <!-- CONDICIÓN -->
+                    <div class="mb-2">
+                        <label class="form-label small mb-1">Relacionar a condici&oacute;n (opcional):</label>
+                        <select id="selectCondicion" class="form-select form-select-sm">
+                            <option value="">Seleccionar...</option>
+                        </select>
+                        <input type="hidden" id="condicionSelectedId" name="condicionUsuarioId">
+                    </div>
+
+                    <!-- SÍNTOMA -->
+                    <div class="mb-2">
+                        <label class="form-label small mb-1">Relacionar a s&iacute;ntoma (opcional):</label>
+                        <div class="d-flex gap-1 align-items-center">
+                            <select id="selectSintoma" class="form-select form-select-sm flex-grow-1">
+                                <option value="">Seleccionar...</option>
+                            </select>
+                            <button type="button" class="btn btn-sm btn-outline-success d-none flex-shrink-0" id="btnAddSintoma" title="Agregar s&iacute;ntoma a mi perfil">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                        <div id="quickAddSintomaRow" class="mt-1 d-none">
+                            <div class="input-group input-group-sm">
+                                <input type="text" id="quickAddSintomaName" class="form-control form-control-sm" readonly>
+                                <input type="hidden" id="quickAddSintomaId">
+                                <button type="button" class="btn btn-success btn-sm" id="btnConfirmAddSintoma">
+                                    <i class="bi bi-check-lg"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted">Se agregar&aacute; a tu perfil y quedar&aacute; seleccionado.</small>
+                        </div>
+                        <input type="hidden" id="sintomaSelectedId" name="sintomaUsuarioId">
+                    </div>
+
+                    <!-- TRATAMIENTO -->
+                    <div class="mb-1">
+                        <label class="form-label small mb-1">Relacionar a tratamiento (opcional):</label>
+                        <div class="d-flex gap-1 align-items-center">
+                            <select id="selectTratamiento" class="form-select form-select-sm flex-grow-1">
+                                <option value="">Seleccionar...</option>
+                            </select>
+                            <button type="button" class="btn btn-sm btn-outline-success d-none flex-shrink-0" id="btnAddTratamiento" title="Agregar tratamiento a mi perfil">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                        <div id="quickAddTratamientoRow" class="mt-1 d-none">
+                            <div class="input-group input-group-sm">
+                                <input type="text" id="quickAddTratamientoName" class="form-control form-control-sm" readonly>
+                                <input type="hidden" id="quickAddTratamientoId">
+                                <button type="button" class="btn btn-success btn-sm" id="btnConfirmAddTratamiento">
+                                    <i class="bi bi-check-lg"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted">Se agregar&aacute; a tu perfil y quedar&aacute; seleccionado.</small>
+                        </div>
+                        <input type="hidden" id="tratamientoSelectedId" name="tratamientoUsuarioId">
+                    </div>
+
+                </div>
+                <div class="modal-footer py-2 px-3 justify-content-end">
+                    <button id="btnSaveMood" type="submit" class="btn btn-primary rounded-circle d-flex align-items-center justify-content-center"
+                            style="width:44px;height:44px;font-size:1.2rem;padding:0;">
+                        <i class="bi bi-check"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    #moodModal .mood-btn-option { padding:4px 10px; font-size:.8rem; }
+    #moodModal .mood-btn-option img { width:20px; height:20px; }
+    #moodModal .mood-btn-option.active { background:#6f42c1; border-color:#6f42c1; color:#fff; }
+</style>
+
+<script>
+(function(){
+    'use strict';
+
+    const MOOD_OPTS = [
+        { val: 5, label: "Muy bien", img: "/img/muybien.svg" },
+        { val: 4, label: "Bien",     img: "/img/bien.svg" },
+        { val: 3, label: "Neutral",  img: "/img/neutral.svg" },
+        { val: 2, label: "Mal",      img: "/img/mal.svg" },
+        { val: 1, label: "Muy mal",  img: "/img/muymal.svg" }
+    ];
+
+    // ---- State ----
+    let condicionesData   = [];
+    let sintomasData      = [];
+    let tratamientosData  = [];
+    let selectedCondicionId   = null;
+    let selectedSintomaId     = null;   // sintomasUsuario.id
+    let selectedTratamientoId = null;   // tratamientoUsuario.id
+    // Context term passed by caller (from Glosario page)
+    let ctxTipo  = null;   // 'sintoma' | 'tratamiento' | null
+    let ctxRawId = null;   // sintomas.id / tratamientos.id (master table id)
+    let ctxName  = null;
+
+    // ---- Data loading ----
+    async function cargarDatos() {
+        try {
+            const [rc, rs, rt] = await Promise.all([
+                fetch("/api/EstadoAnimoUsuario/condiciones-usuario",  { cache: "no-store" }),
+                fetch("/api/EstadoAnimoUsuario/sintomas-usuario",     { cache: "no-store" }),
+                fetch("/api/EstadoAnimoUsuario/tratamientos-usuario", { cache: "no-store" })
+            ]);
+            condicionesData  = rc.ok ? await rc.json() : [];
+            sintomasData     = rs.ok ? await rs.json() : [];
+            tratamientosData = rt.ok ? await rt.json() : [];
+        } catch(e) {
+            condicionesData = sintomasData = tratamientosData = [];
+        }
+        // expose globally for backwards-compat
+        window.condicionesData  = condicionesData;
+        window.sintomasData     = sintomasData;
+        window.tratamientosData = tratamientosData;
+    }
+
+    async function recargarSintomas() {
+        try {
+            const r = await fetch("/api/EstadoAnimoUsuario/sintomas-usuario", { cache: "no-store" });
+            sintomasData = r.ok ? await r.json() : [];
+            window.sintomasData = sintomasData;
+        } catch(e) { sintomasData = []; }
+    }
+
+    async function recargarTratamientos() {
+        try {
+            const r = await fetch("/api/EstadoAnimoUsuario/tratamientos-usuario", { cache: "no-store" });
+            tratamientosData = r.ok ? await r.json() : [];
+            window.tratamientosData = tratamientosData;
+        } catch(e) { tratamientosData = []; }
+    }
+
+    // ---- Select populators ----
+    function populateSelect(selectId, data, selectedId) {
+        const sel = document.getElementById(selectId);
+        if (!sel) return;
+        const prev = sel.value;
+        sel.innerHTML = '<option value="">Seleccionar...</option>';
+        data.forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item.id;
+            opt.textContent = item.nombre;
+            if (item.id === selectedId) opt.selected = true;
+            sel.appendChild(opt);
+        });
+        // restore previous selection if still valid
+        if (!selectedId && prev) sel.value = prev;
+    }
+
+    function renderAllLists() {
+        populateSelect('selectCondicion',   condicionesData,  selectedCondicionId);
+        populateSelect('selectSintoma',     sintomasData,     selectedSintomaId);
+        populateSelect('selectTratamiento', tratamientosData, selectedTratamientoId);
+    }
+
+    // ---- Quick-add row ----
+    function showQuickAddRow(tipo) {
+        if (tipo === 'sintoma') {
+            document.getElementById('quickAddSintomaName').value = ctxName || '';
+            document.getElementById('quickAddSintomaId').value   = ctxRawId || '';
+            document.getElementById('quickAddSintomaRow').classList.remove('d-none');
+        } else if (tipo === 'tratamiento') {
+            document.getElementById('quickAddTratamientoName').value = ctxName || '';
+            document.getElementById('quickAddTratamientoId').value   = ctxRawId || '';
+            document.getElementById('quickAddTratamientoRow').classList.remove('d-none');
+        }
+    }
+
+    function hideQuickAddRow(tipo) {
+        if (tipo === 'sintoma') {
+            document.getElementById('quickAddSintomaRow')?.classList.add('d-none');
+        } else if (tipo === 'tratamiento') {
+            document.getElementById('quickAddTratamientoRow')?.classList.add('d-none');
+        }
+    }
+
+    // ---- Context term: shows "+" if term not in user list, auto-selects if present ----
+    function applyContextTerm() {
+        document.getElementById('btnAddSintoma')?.classList.add('d-none');
+        document.getElementById('btnAddTratamiento')?.classList.add('d-none');
+        hideQuickAddRow('sintoma');
+        hideQuickAddRow('tratamiento');
+
+        if (!ctxTipo || !ctxRawId) return;
+
+        if (ctxTipo === 'sintoma') {
+            const found = sintomasData.find(x => x.idSintoma == ctxRawId);
+            if (found) {
+                selectedSintomaId = found.id;
+                document.getElementById('sintomaSelectedId').value = found.id;
+                const sel = document.getElementById('selectSintoma');
+                if (sel) sel.value = found.id;
+            } else {
+                document.getElementById('btnAddSintoma')?.classList.remove('d-none');
+            }
+        } else if (ctxTipo === 'tratamiento') {
+            const found = tratamientosData.find(x => x.idTratamiento == ctxRawId);
+            if (found) {
+                selectedTratamientoId = found.id;
+                document.getElementById('tratamientoSelectedId').value = found.id;
+                const sel = document.getElementById('selectTratamiento');
+                if (sel) sel.value = found.id;
+            } else {
+                document.getElementById('btnAddTratamiento')?.classList.remove('d-none');
+            }
+        }
+    }
+
+    // ---- Mood buttons ----
+    function renderMoodBtns() {
+        const c = document.getElementById('moodOptionsBtns');
+        if (!c) return;
+        c.innerHTML = '';
+        MOOD_OPTS.forEach(o => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-outline-secondary mood-btn-option';
+            btn.innerHTML = '<img src="' + o.img + '" alt="' + o.label + '" width="24" height="24" loading="lazy" decoding="async" style="vertical-align:middle;margin-right:5px;"> ' + o.label;
+            btn.addEventListener('click', function(){
+                c.querySelectorAll('.mood-btn-option').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById('moodSelected').value = o.val;
+            });
+            c.appendChild(btn);
+        });
+    }
+
+    // ---- Alert ----
+    function mostrarLeyenda(msg, esError) {
+        const el = document.getElementById('alertMoodAdded');
+        if (!el) return;
+        el.textContent = msg;
+        el.className = esError ? 'alert alert-danger alert-mood-added' : 'alert alert-success alert-mood-added';
+        el.style.display = 'block';
+    }
+
+    // ---- Reset ----
+    function resetModal() {
+        selectedCondicionId   = null;
+        selectedSintomaId     = null;
+        selectedTratamientoId = null;
+        ctxTipo  = null;
+        ctxRawId = null;
+        ctxName  = null;
+        const selC = document.getElementById('selectCondicion');   if (selC) selC.value = '';
+        const selS = document.getElementById('selectSintoma');     if (selS) selS.value = '';
+        const selT = document.getElementById('selectTratamiento'); if (selT) selT.value = '';
+        document.getElementById('condicionSelectedId').value   = '';
+        document.getElementById('sintomaSelectedId').value     = '';
+        document.getElementById('tratamientoSelectedId').value = '';
+        document.getElementById('moodSelected').value = '';
+        document.getElementById('moodText').value = '';
+        const alertEl = document.getElementById('alertMoodAdded');
+        if (alertEl) alertEl.style.display = 'none';
+        document.getElementById('moodOptionsBtns')?.querySelectorAll('.mood-btn-option').forEach(b => b.classList.remove('active'));
+        document.getElementById('btnAddSintoma')?.classList.add('d-none');
+        document.getElementById('btnAddTratamiento')?.classList.add('d-none');
+        hideQuickAddRow('sintoma');
+        hideQuickAddRow('tratamiento');
+    }
+
+    // ---- Public API ----
+    window.openEstadoAnimoModal = async function(opts) {
+        try {
+            resetModal();
+            ctxTipo  = opts?.tipo  || null;
+            ctxRawId = opts?.id    != null ? parseInt(opts.id) : null;
+            ctxName  = opts?.name  || null;
+
+            await cargarDatos();
+            applyContextTerm();
+            renderAllLists();
+
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('moodModal')).show();
+        } catch(e) { console.error('openEstadoAnimoModal error', e); }
+    };
+
+    // ---- Init on DOMContentLoaded ----
+    document.addEventListener('DOMContentLoaded', async function(){
+        renderMoodBtns();
+
+        // Initial data load
+        await cargarDatos();
+        renderAllLists();
+
+        // Wire select change → sync hidden inputs
+        document.getElementById('selectCondicion')?.addEventListener('change', function(){
+            selectedCondicionId = this.value ? parseInt(this.value) : null;
+            document.getElementById('condicionSelectedId').value = this.value || '';
+        });
+        document.getElementById('selectSintoma')?.addEventListener('change', function(){
+            selectedSintomaId = this.value ? parseInt(this.value) : null;
+            document.getElementById('sintomaSelectedId').value = this.value || '';
+        });
+        document.getElementById('selectTratamiento')?.addEventListener('change', function(){
+            selectedTratamientoId = this.value ? parseInt(this.value) : null;
+            document.getElementById('tratamientoSelectedId').value = this.value || '';
+        });
+
+        // "+" buttons toggle quick-add row
+        document.getElementById('btnAddSintoma')?.addEventListener('click', function(){
+            showQuickAddRow('sintoma');
+        });
+        document.getElementById('btnAddTratamiento')?.addEventListener('click', function(){
+            showQuickAddRow('tratamiento');
+        });
+
+        // Confirm add sintoma
+        document.getElementById('btnConfirmAddSintoma')?.addEventListener('click', async function(){
+            const rawId = parseInt(document.getElementById('quickAddSintomaId').value);
+            if (!rawId) return;
+            const btn = this;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+            try {
+                const fd = new FormData();
+                fd.append('sintomaId', rawId);
+                const resp = await fetch('/Identity/Usuario/UsuarioSintomas?handler=AgregarSintoma', { method: 'POST', body: fd });
+                if (!resp.ok) throw new Error('Error ' + resp.status);
+                await recargarSintomas();
+                const found = sintomasData.find(x => x.idSintoma == rawId);
+                if (found) {
+                    selectedSintomaId = found.id;
+                    document.getElementById('sintomaSelectedId').value = found.id;
+                }
+                renderAllLists();
+                const selS = document.getElementById('selectSintoma');
+                if (selS && found) selS.value = found.id;
+                hideQuickAddRow('sintoma');
+                document.getElementById('btnAddSintoma')?.classList.add('d-none');
+            } catch(e) {
+                mostrarLeyenda('No se pudo agregar el síntoma: ' + e.message, true);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-lg"></i> Agregar a mis síntomas';
+            }
+        });
+
+        // Confirm add tratamiento
+        document.getElementById('btnConfirmAddTratamiento')?.addEventListener('click', async function(){
+            const rawId = parseInt(document.getElementById('quickAddTratamientoId').value);
+            if (!rawId) return;
+            const btn = this;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+            try {
+                const fd = new FormData();
+                fd.append('tratamientoId', rawId);
+                const resp = await fetch('/Identity/Usuario/UsuarioTratamientos?handler=AgregarTratamiento', { method: 'POST', body: fd });
+                if (!resp.ok) throw new Error('Error ' + resp.status);
+                await recargarTratamientos();
+                const found = tratamientosData.find(x => x.idTratamiento == rawId);
+                if (found) {
+                    selectedTratamientoId = found.id;
+                    document.getElementById('tratamientoSelectedId').value = found.id;
+                }
+                renderAllLists();
+                const selT = document.getElementById('selectTratamiento');
+                if (selT && found) selT.value = found.id;
+                hideQuickAddRow('tratamiento');
+                document.getElementById('btnAddTratamiento')?.classList.add('d-none');
+            } catch(e) {
+                mostrarLeyenda('No se pudo agregar el tratamiento: ' + e.message, true);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-lg"></i> Agregar a mis tratamientos';
+            }
+        });
+
+        // Wire btnAbrirMood on full Estado de Animo page
+        document.getElementById('btnAbrirMood')?.addEventListener('click', function(){
+            window.openEstadoAnimoModal({});
+        });
+
+        // Form submit
+        document.getElementById('moodForm')?.addEventListener('submit', async function(e){
+            e.preventDefault();
+            const mood = document.getElementById('moodSelected').value;
+            if (!mood || ![1,2,3,4,5].includes(parseInt(mood))) {
+                mostrarLeyenda('Selecciona tu estado de ánimo.', true);
+                return;
+            }
+            const btnSave = document.getElementById('btnSaveMood');
+            btnSave.disabled = true;
+            try {
+                const fd = new FormData();
+                fd.append('mood', mood);
+                const texto = document.getElementById('moodText').value || '';
+                if (texto) fd.append('texto', texto);
+                const condId  = document.getElementById('condicionSelectedId').value;
+                const sintId  = document.getElementById('sintomaSelectedId').value;
+                const tratId  = document.getElementById('tratamientoSelectedId').value;
+                if (condId) fd.append('condicionUsuarioId',   condId);
+                if (sintId) fd.append('sintomaUsuarioId',     sintId);
+                if (tratId) fd.append('tratamientoUsuarioId', tratId);
+
+                const resp = await fetch('/api/EstadoAnimoUsuario/nuevo', { method: 'POST', body: fd });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    mostrarLeyenda('¡Estado de ánimo guardado!', false);
+                    setTimeout(function(){
+                        bootstrap.Modal.getOrCreateInstance(document.getElementById('moodModal')).hide();
+                        try {
+                            window.dispatchEvent(new CustomEvent('mood:added', {
+                                detail: {
+                                    source: 'quick',
+                                    ctxTipo: ctxTipo,
+                                    ctxName: ctxName,
+                                    estadoMood: parseInt(data.estadoMood ?? data.EstadoMood),
+                                    estadoMoodNombre: data.estadoMoodNombre ?? data.EstadoMoodNombre ?? '',
+                                    texto: data.texto ?? data.Texto ?? null,
+                                    condicionNombre: data.condicion?.nombre ?? data.Condicion?.Nombre ?? null,
+                                    sintomaNombre: data.sintoma?.nombre ?? data.Sintoma?.Nombre ?? null,
+                                    tratamientoNombre: data.tratamiento?.nombre ?? data.Tratamiento?.Nombre ?? null
+                                }
+                            }));
+                        } catch(_){}
+                    }, 1000);
+                } else {
+                    mostrarLeyenda('Error al guardar. Código: ' + resp.status, true);
+                }
+            } catch(e) {
+                mostrarLeyenda('Error de red: ' + e.message, true);
+            } finally {
+                btnSave.disabled = false;
+            }
+        });
+    });
+
+    // No-op for legacy callers
+    window.initCustomSelect = function(){};
+
+})();
+</script>

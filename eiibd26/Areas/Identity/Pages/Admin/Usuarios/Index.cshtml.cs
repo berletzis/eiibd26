@@ -7,6 +7,9 @@ using Microsoft.EntityFrameworkCore;
 using eiibd26.Models;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Text;
+using Microsoft.AspNetCore.WebUtilities;
+using eiibd26.Services;
 
 namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios // <-- namespace corregido si usas Areas
 {
@@ -17,12 +20,14 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios // <-- namespace corregido
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ApplicationDbContext _db;
         private readonly ILogger<UsuariosIndexModel> _logger;
+        private readonly SendGridEmailSender _emailSender;
 
-        public UsuariosIndexModel(UserManager<ApplicationUser> userManager, ApplicationDbContext db, ILogger<UsuariosIndexModel> logger)
+        public UsuariosIndexModel(UserManager<ApplicationUser> userManager, ApplicationDbContext db, ILogger<UsuariosIndexModel> logger, SendGridEmailSender emailSender)
         {
             _userManager = userManager;
             _db = db;
             _logger = logger;
+            _emailSender = emailSender;
         }
 
         public void OnGet() { }
@@ -544,6 +549,89 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios // <-- namespace corregido
                 _logger.LogError(ex, "Error obteniendo estadísticas de usuarios con scoring");
                 return new JsonResult(new { total = 0, perfilesCompletos = 0, perfilesBasicos = 0, perfilesMinimos = 0 });
             }
+        }
+
+        public record EnviarCorreoInput(string UserId);
+
+        /// <summary>
+        /// Sends a password reset email to the user using the SendGrid Dynamic Template.
+        /// </summary>
+        public async Task<IActionResult> OnPostEnviarCorreoAsync([FromBody] EnviarCorreoInput input)
+        {
+            if (input is null || string.IsNullOrWhiteSpace(input.UserId))
+                return new JsonResult(new { success = false, error = "userId requerido." }) { StatusCode = 400 };
+
+            if (!Guid.TryParse(input.UserId, out var userId))
+                return new JsonResult(new { success = false, error = "userId inválido." }) { StatusCode = 400 };
+
+            var user = await _userManager.FindByIdAsync(input.UserId);
+            if (user is null)
+                return new JsonResult(new { success = false, error = "Usuario no encontrado." }) { StatusCode = 404 };
+
+            // Obtener nombre del perfil y condición desde la DB
+            var perfil = await _db.Perfil.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.idUser == userId);
+
+            var condUsuario = await _db.condicionUsuario
+                .Where(cu => !cu.Eliminado && cu.idUsuario == userId)
+                .OrderByDescending(cu => cu.fechaInicio ?? cu.fechaCreado)
+                .FirstOrDefaultAsync();
+
+            string nombreCondicion = null;
+            if (condUsuario?.idCondicion.HasValue == true)
+            {
+                var condicion = await _db.condiciones
+                    .AsNoTracking()
+                    .Where(c => !c.Eliminado && c.id == condUsuario.idCondicion.Value)
+                    .Select(c => new { c.nombre, c.idPadre })
+                    .FirstOrDefaultAsync();
+
+                if (condicion is not null)
+                {
+                    if (condicion.idPadre.HasValue)
+                    {
+                        var padre = await _db.condiciones
+                            .AsNoTracking()
+                            .Where(c => c.id == condicion.idPadre.Value)
+                            .Select(c => c.nombre)
+                            .FirstOrDefaultAsync();
+                        nombreCondicion = padre ?? condicion.nombre;
+                    }
+                    else
+                    {
+                        nombreCondicion = condicion.nombre;
+                    }
+                }
+            }
+
+            // Generar token de reseteo con Identity
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+
+            // Construir enlace de reseteo
+            var resetLink = Url.Page(
+                "/Account/ResetPassword",
+                pageHandler: null,
+                values: new { area = "Identity", code = encodedToken, email = user.Email },
+                protocol: Request.Scheme);
+
+            var templateData = new
+            {
+                nombre = perfil?.Nombre ?? user.UserName,
+                correo = user.Email,
+                condicion = nombreCondicion ?? "Sin condición registrada",
+                reset_link = resetLink
+            };
+
+            await _emailSender.SendDynamicTemplateAsync(
+                user.Email,
+                templateId: "d-3304c970e0164cbdaa14bfeff2369920",
+                templateData: templateData,
+                categories: new[] { "EIIBD" });
+
+            _logger.LogInformation("Correo de reseteo enviado al usuario {Email} por administrador.", user.Email);
+
+            return new JsonResult(new { success = true });
         }
     }
 }

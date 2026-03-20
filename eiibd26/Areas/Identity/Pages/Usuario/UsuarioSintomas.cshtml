@@ -61,7 +61,7 @@
                                 </span>
                             <form method="post" class="form-editar-fecha" data-id="@sint.Id" asp-page-handler="EditarFechaInicio">
                                 <div class="crm-input-group" style="column-gap:3px;">
-                                        
+                                    <input type="hidden" name="sintId" value="@sint.Id" />
                                     <input type="date"
                                            class="crm-input-date fecha-inicio"
                                            style="width:150px; min-width:140px; max-width:170px;"
@@ -418,14 +418,22 @@
                 });
                 form.addEventListener('submit', async function (ev) {
                     ev.preventDefault();
+                    input.disabled = false;
                     let formData = new FormData(form);
-                    let resp = await fetch('?handler=EditarFechaInicio', { method: "POST", body: formData });
-                    if (resp.ok) {
-                        valorOriginal = input.value;
-                        input.disabled = true;
-                        btnEdit.classList.remove('d-none');
-                        btnSave.classList.add('d-none');
-                        btnCancel.classList.add('d-none');
+                    try {
+                        let resp = await fetch(form.action, { method: "POST", body: formData });
+                        if (resp.ok) {
+                            valorOriginal = input.value;
+                            input.disabled = true;
+                            btnEdit.classList.remove('d-none');
+                            btnSave.classList.add('d-none');
+                            btnCancel.classList.add('d-none');
+                        } else {
+                            let data = await resp.json().catch(() => ({}));
+                            alert('Error al guardar: ' + (data.mensaje || resp.status));
+                        }
+                    } catch (err) {
+                        alert('Error de red al guardar la fecha.');
                     }
                 });
             });

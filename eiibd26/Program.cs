@@ -183,7 +183,8 @@ builder.Services.AddHsts(options =>
     options.Preload = true;
 });
 
-builder.Services.AddTransient<IEmailSender, SendGridEmailSender>();
+builder.Services.AddTransient<SendGridEmailSender>();
+builder.Services.AddTransient<IEmailSender>(sp => sp.GetRequiredService<SendGridEmailSender>());
 builder.Services.AddTransient<ISmsSender, TwilioSmsSender>();
 
 // PWA Push Notifications
