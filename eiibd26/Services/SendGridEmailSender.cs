@@ -27,7 +27,7 @@ namespace eiibd26.Services
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             _sendGridApiKey = _configuration["SendGrid:ApiKey"];
-            _fromEmail = _configuration["SendGrid:FromEmail"] ?? "no-reply@tudominio.com";
+            _fromEmail = _configuration["SendGrid:FromEmail"] ?? "no-reply@eiibd.com";
             _fromName = _configuration["SendGrid:FromName"] ?? "eiibd26";
 
             // Leer categorías por defecto: preferimos una lista en config (array), si no, leemos CSV
