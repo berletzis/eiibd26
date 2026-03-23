@@ -63,6 +63,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     // Article Ratings
     public DbSet<ArticleRating> ArticleRatings { get; set; }
 
+    // Glossary Term Ratings
+    public DbSet<eiibd26.Models.Glossary.GlossaryTermRating> GlossaryTermRatings { get; set; }
+
     // ⭐ GLOSSARY MODULE (Desacoplado - solo índice de navegación)
     public DbSet<eiibd26.Models.Glossary.GlossaryTerm> GlossaryTerms { get; set; }
     public DbSet<eiibd26.Models.Glossary.GlossaryTermMedicalLink> GlossaryTermMedicalLinks { get; set; }
@@ -330,6 +333,26 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
             b.HasOne(ar => ar.User)
              .WithMany()
              .HasForeignKey(ar => ar.UserId)
+             .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // GlossaryTermRating configuration
+        builder.Entity<eiibd26.Models.Glossary.GlossaryTermRating>(b =>
+        {
+            b.ToTable("GlossaryTermRatings");
+            b.HasKey(r => r.Id);
+            b.HasIndex(r => r.TermId);
+            b.HasIndex(r => r.UserId);
+            b.HasIndex(r => new { r.UserId, r.TermId })
+             .IsUnique()
+             .HasFilter("[UserId] IS NOT NULL");
+            b.HasOne(r => r.Term)
+             .WithMany()
+             .HasForeignKey(r => r.TermId)
+             .OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(r => r.User)
+             .WithMany()
+             .HasForeignKey(r => r.UserId)
              .OnDelete(DeleteBehavior.SetNull);
         });
 

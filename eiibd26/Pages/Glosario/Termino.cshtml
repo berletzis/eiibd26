@@ -802,6 +802,39 @@ else
             </div><!-- /content-panel -->
             <!-- ===== SIDEBAR ===== -->
             <div class="right-panel">
+                <!-- ===== CALIFICAR TÉRMINO (TOP del sidebar, siempre visible) ===== -->
+                <div class="sidebar-section sidebar-static mb-3">
+                    <div class="sidebar-section-header-static">
+                        <span class="sidebar-section-title">Calificar término</span>
+                    </div>
+                    <div class="sidebar-section-content-static">
+                        <div class="article-rating" id="glossaryRating" data-term-id="@Model.Term.Id">
+                            <div class="rating-buttons">
+                                @if (User.Identity?.IsAuthenticated == true)
+                                {
+                                    <button type="button" class="rating-btn rating-like" data-rating="like" title="Me fue útil">
+                                        <i class="bi bi-hand-thumbs-up"></i>
+                                        <span class="rating-text">Me fue útil</span>
+                                        <span class="rating-count" id="glossaryLikeCount">...</span>
+                                    </button>
+                                    <button type="button" class="rating-btn rating-dislike" data-rating="dislike" title="No me fue útil">
+                                        <i class="bi bi-hand-thumbs-down"></i>
+                                        <span class="rating-text">No me fue útil</span>
+                                        <span class="rating-count" id="glossaryDislikeCount">...</span>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <div class="rating-login-hint">
+                                        <a href="/Identity/Account/Login?returnUrl=@Uri.EscapeDataString(HttpContext.Request.Path + HttpContext.Request.QueryString)">Inicia sesión</a> para calificar este término
+                                    </div>
+                                }
+                            </div>
+                            <div class="rating-message" id="glossaryRatingMessage" style="display: none;"></div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Aviso importante -->
                 <div class="aviso-termino-box">
 
@@ -1002,4 +1035,91 @@ else
 
         </div><!-- /detail-grid -->
     </div><!-- /conte-detail -->
+}
+
+@section Scripts {
+    <script>
+        // ===== GLOSSARY TERM RATING SYSTEM =====
+        (function () {
+            const ratingContainer = document.getElementById('glossaryRating');
+            if (!ratingContainer) return;
+
+            const termId = ratingContainer.getAttribute('data-term-id');
+            const likeBtn = ratingContainer.querySelector('.rating-like');
+            const dislikeBtn = ratingContainer.querySelector('.rating-dislike');
+            const likeCount = document.getElementById('glossaryLikeCount');
+            const dislikeCount = document.getElementById('glossaryDislikeCount');
+            const ratingMessage = document.getElementById('glossaryRatingMessage');
+
+            async function loadRatingState() {
+                try {
+                    const response = await fetch(`/api/glossary/${termId}/rating`);
+                    const data = await response.json();
+                    if (data.ok && data.estadisticas) {
+                        if (likeCount) likeCount.textContent = data.estadisticas.likes || 0;
+                        if (dislikeCount) dislikeCount.textContent = data.estadisticas.dislikes || 0;
+                        if (data.ratingUsuario) {
+                            const tipo = data.ratingUsuario.tipo;
+                            if (tipo === 'like' && likeBtn) likeBtn.classList.add('active');
+                            else if (tipo === 'dislike' && dislikeBtn) dislikeBtn.classList.add('active');
+                        }
+                    }
+                } catch {
+                    if (likeCount) likeCount.textContent = '0';
+                    if (dislikeCount) dislikeCount.textContent = '0';
+                }
+            }
+
+            async function sendRating(ratingType) {
+                try {
+                    showMessage('Guardando...', 'info');
+                    const response = await fetch(`/api/glossary/${termId}/rating`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ratingType })
+                    });
+                    const data = await response.json();
+                    if (data.ok) {
+                        if (data.estadisticas) {
+                            if (likeCount) likeCount.textContent = data.estadisticas.likes || 0;
+                            if (dislikeCount) dislikeCount.textContent = data.estadisticas.dislikes || 0;
+                        }
+                        if (likeBtn) likeBtn.classList.toggle('active', ratingType === 'like');
+                        if (dislikeBtn) dislikeBtn.classList.toggle('active', ratingType === 'dislike');
+                        showMessage('✅ ¡Gracias por tu opinión!', 'success');
+                        setTimeout(() => hideMessage(), 3000);
+                    } else {
+                        showMessage('❌ ' + (data.error || 'Error al guardar'), 'error');
+                    }
+                } catch {
+                    showMessage('❌ Error de conexión', 'error');
+                }
+            }
+
+            if (likeBtn) {
+                likeBtn.addEventListener('click', function () {
+                    if (likeBtn.classList.contains('active')) return;
+                    sendRating('like');
+                });
+            }
+            if (dislikeBtn) {
+                dislikeBtn.addEventListener('click', function () {
+                    if (dislikeBtn.classList.contains('active')) return;
+                    sendRating('dislike');
+                });
+            }
+
+            function showMessage(text, type) {
+                if (!ratingMessage) return;
+                ratingMessage.textContent = text;
+                ratingMessage.className = 'rating-message ' + (type || 'info');
+                ratingMessage.style.display = 'block';
+            }
+            function hideMessage() {
+                if (ratingMessage) ratingMessage.style.display = 'none';
+            }
+
+            loadRatingState();
+        })();
+    </script>
 }
