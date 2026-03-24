@@ -14,10 +14,23 @@ using System.Text;
 using System.Diagnostics;
 using System.Net;
 
+// Global startup exception handler — writes the full exception to stdout/stderr
+// so it appears in the IIS stdout log (.\logs\stdout_*.log) before the 500.30 page.
+try
+{
+
 var builder = WebApplication.CreateBuilder(args);
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+// Validate connection string early — empty string is as bad as null in production.
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    Console.Error.WriteLine("[STARTUP] FATAL: ConnectionStrings:DefaultConnection is missing or empty.");
+    Console.Error.WriteLine("[STARTUP] Set it in appsettings.Production.json on the server. See SECRETS.md.");
+    throw new InvalidOperationException(
+        "Connection string 'DefaultConnection' not found or empty. " +
+        "Set ConnectionStrings:DefaultConnection in appsettings.Production.json on the server.");
+}
 
 // Configuración de DbContext con resiliencia de errores transitorios
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -61,12 +74,25 @@ builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
 
 // ⭐ NUEVO: Persistir Data Protection Keys (para tokens de reseteo de contraseña)
 var dataProtectionPath = Path.Combine(builder.Environment.ContentRootPath, "DataProtectionKeys");
-Directory.CreateDirectory(dataProtectionPath); // Crear si no existe
+var dataProtectionReady = false;
+try
+{
+    Directory.CreateDirectory(dataProtectionPath);
+    dataProtectionReady = true;
+}
+catch (Exception dpEx)
+{
+    Console.Error.WriteLine($"[STARTUP WARNING] Cannot create DataProtectionKeys directory at '{dataProtectionPath}': {dpEx.Message}");
+    Console.Error.WriteLine("[STARTUP WARNING] Data Protection will use in-memory keys (tokens lost on restart). " +
+                            "Grant write permissions to the app pool identity on the site folder to fix this.");
+}
 
-builder.Services.AddDataProtection()
-    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath))
+var dpBuilder = builder.Services.AddDataProtection()
     .SetApplicationName("eiibd26")
-    .SetDefaultKeyLifetime(TimeSpan.FromDays(90)); // Keys duran 90 días
+    .SetDefaultKeyLifetime(TimeSpan.FromDays(90));
+
+if (dataProtectionReady)
+    dpBuilder.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath));
 
 // Configurar tiempo de vida de tokens de reseteo de contraseña
 builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
@@ -237,7 +263,7 @@ builder.Services.AddHttpClient("AnthropicClient", (serviceProvider, client) =>
     if (!string.IsNullOrWhiteSpace(config.AnthropicApiKey))
     {
         client.DefaultRequestHeaders.Add("x-api-key", config.AnthropicApiKey);
-        logger.LogInformation("🔧 [HTTP CLIENT] API Key configurado (primeros 10 chars): {ApiKeyPrefix}...", config.AnthropicApiKey.Substring(0, Math.Min(10, config.AnthropicApiKey.Length)));
+        logger.LogInformation("🔧 [HTTP CLIENT] API Key configurado (masked): {ApiKeyMasked}", eiibd26.Security.SecretsValidator.Mask(config.AnthropicApiKey));
     }
     else
     {
@@ -285,6 +311,14 @@ if (aiConfig != null)
 // ===== END AI ANSWER SERVICES =====
 
 var app = builder.Build();
+
+// ===== SECRETS VALIDATION =====
+// Fails the app in Production if any critical secret is missing.
+// Logs a warning in Development to allow incremental onboarding.
+eiibd26.Security.SecretsValidator.ValidateOrThrow(
+    app.Services.GetRequiredService<IConfiguration>(),
+    app.Environment,
+    app.Services.GetRequiredService<ILogger<Program>>());
 
 // Diagnostic middleware: on local requests or when query `showException=1` is present,
 // return exception details in the response to aid debugging without enabling global Development env.
@@ -792,5 +826,18 @@ app.MapGet("/robots.txt", async ctx =>
 app.MapControllers();
 app.MapRazorPages();
 
-
 app.Run();
+
+} // end try
+catch (Exception ex)
+{
+    // Write the full exception to stdout so it appears in the IIS stdout log.
+    // This is the only reliable way to diagnose HTTP 500.30 on IIS/ASP.NET Core Module.
+    Console.Error.WriteLine("==========================================================");
+    Console.Error.WriteLine("[STARTUP FATAL] Application failed to start.");
+    Console.Error.WriteLine($"[STARTUP FATAL] {ex.GetType().FullName}: {ex.Message}");
+    Console.Error.WriteLine("[STARTUP FATAL] Stack trace:");
+    Console.Error.WriteLine(ex.ToString());
+    Console.Error.WriteLine("==========================================================");
+    throw; // re-throw so the process exits with a non-zero code (IIS sees the failure)
+}
