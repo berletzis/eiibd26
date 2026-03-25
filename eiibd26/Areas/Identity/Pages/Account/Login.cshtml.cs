@@ -39,6 +39,7 @@ namespace eiibd26.Areas.Identity.Pages.Account
         public IList<AuthenticationScheme> ExternalLogins { get; set; }
 
         public string ReturnUrl { get; set; }
+        public string QueryString { get; set; }
 
         [TempData]
         public string ErrorMessage { get; set; }
@@ -65,6 +66,8 @@ namespace eiibd26.Areas.Identity.Pages.Account
             // DEBUG: volcar TODOS los query params que llegan
             var allParams = string.Join(" | ", Request.Query.Select(kv => $"{kv.Key}={kv.Value}"));
             ReturnUrl = "DEBUG_PARAMS:[" + allParams + "]  RAW_URL:[" + Request.QueryString + "]";
+            // Exponer ReturnUrl y QueryString para la vista
+            QueryString = Request.QueryString.HasValue ? Request.QueryString.Value : "";
 
             // Leer returnUrl del query string (case-insensitive)
             var returnUrl = Request.Query["returnUrl"].FirstOrDefault()
