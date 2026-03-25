@@ -60,27 +60,35 @@ namespace eiibd26.Areas.Identity.Pages.Account
             public bool RememberMe { get; set; }
         }
 
-        public async Task<IActionResult> OnGetAsync(string returnUrl = null)
+        public async Task<IActionResult> OnGetAsync()
         {
-            // Si el usuario ya está autenticado, redirigir a la página de inicio o al returnUrl
+            // DEBUG: volcar TODOS los query params que llegan
+            var allParams = string.Join(" | ", Request.Query.Select(kv => $"{kv.Key}={kv.Value}"));
+            ReturnUrl = "DEBUG_PARAMS:[" + allParams + "]  RAW_URL:[" + Request.QueryString + "]";
+
+            // Leer returnUrl del query string (case-insensitive)
+            var returnUrl = Request.Query["returnUrl"].FirstOrDefault()
+                         ?? Request.Query["ReturnUrl"].FirstOrDefault();
+
+            // Normalizar si viene URL-encoded
+            if (!string.IsNullOrEmpty(returnUrl) && returnUrl.Contains('%'))
+            {
+                try { returnUrl = Uri.UnescapeDataString(returnUrl); } catch { returnUrl = null; }
+            }
+
+            ReturnUrl = string.IsNullOrEmpty(returnUrl) ? Url.Content("~/") : returnUrl;
+
+            // Si el usuario ya está autenticado, redirigir
             if (User.Identity?.IsAuthenticated == true)
             {
-                // Validar returnUrl
                 if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
-                {
                     return LocalRedirect(returnUrl);
-                }
 
-                // Por defecto ir al Dashboard
                 return RedirectToPage("/Usuario/Dashboard", new { area = "Identity" });
             }
 
             if (!string.IsNullOrEmpty(ErrorMessage))
-            {
                 ModelState.AddModelError(string.Empty, ErrorMessage);
-            }
-
-            ReturnUrl = returnUrl ?? Url.Content("~/");
 
             // Clear the existing external cookie to ensure a clean login process
             await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
@@ -90,23 +98,28 @@ namespace eiibd26.Areas.Identity.Pages.Account
             return Page();
         }
 
-        public async Task<IActionResult> OnPostAsync(string returnUrl = null)
+        public async Task<IActionResult> OnPostAsync()
         {
             ExternalLogins = (await _signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
 
-            // ✅ CORREGIDO: Filtrar returnUrl no deseados
-            if (!string.IsNullOrEmpty(returnUrl))
+            // Leer ReturnUrl del form body (el hidden field lo envía con nombre "ReturnUrl")
+            var returnUrl = Request.Form["ReturnUrl"].FirstOrDefault();
+
+            // Normalizar si viene URL-encoded
+            if (!string.IsNullOrEmpty(returnUrl) && returnUrl.Contains('%'))
             {
-                // Rechazar returnUrl si apunta a Logout, Login, Register, etc.
-                var invalidPaths = new[] { "/logout", "/login", "/register", "/account/logout", "/account/login" };
-                if (invalidPaths.Any(p => returnUrl.Contains(p, StringComparison.OrdinalIgnoreCase)))
-                {
-                    returnUrl = null;
-                }
+                try { returnUrl = Uri.UnescapeDataString(returnUrl); } catch { returnUrl = null; }
             }
 
-            // Si no hay returnUrl válido, usar Dashboard por defecto
-            returnUrl ??= Url.Content("~/Identity/Usuario/Dashboard");
+            // Rechazar si apunta a rutas de autenticación
+            if (!string.IsNullOrEmpty(returnUrl))
+            {
+                var invalidPaths = new[] { "/logout", "/login", "/register", "/account/logout", "/account/login" };
+                if (invalidPaths.Any(p => returnUrl.Contains(p, StringComparison.OrdinalIgnoreCase)))
+                    returnUrl = null;
+            }
+
+            _logger.LogDebug("OnPostAsync ReturnUrl='{ReturnUrl}'", returnUrl);
 
             if (ModelState.IsValid)
             {
@@ -128,15 +141,11 @@ namespace eiibd26.Areas.Identity.Pages.Account
 
                 if (result.Succeeded)
                 {
-                    _logger.LogInformation("Usuario {Email} inició sesión correctamente.", Input.Email);
+                    _logger.LogInformation("Usuario {Email} inició sesión. ReturnUrl='{ReturnUrl}'", Input.Email, returnUrl);
 
-                    // ✅ Validar que returnUrl sea local y seguro
                     if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
-                    {
                         return LocalRedirect(returnUrl);
-                    }
 
-                    // ✅ Por defecto, ir al Dashboard
                     return RedirectToPage("/Usuario/Dashboard", new { area = "Identity" });
                 }
                 if (result.RequiresTwoFactor)

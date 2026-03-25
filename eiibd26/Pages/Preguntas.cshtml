@@ -294,6 +294,35 @@
         }
     </div>
 
+    @* ===== AVISO PASIVO (no autenticado) ===== *@
+    @if (!User.Identity.IsAuthenticated)
+    {
+        <div class="vote-auth-notice" id="voteAuthNotice" role="note" aria-live="polite">
+            
+            <span class="vote-auth-notice__text">Participa votando y compartiendo experiencias.
+                <strong>Necesitas iniciar sesión para interactuar.</strong></span>
+            <span class="vote-auth-notice__actions">
+                <a href="/Identity/Account/Login?returnUrl=@Uri.EscapeDataString(HttpContext.Request.Path + HttpContext.Request.QueryString)" class="btn-auth-notice-login">Iniciar sesión</a>
+                <a href="/Identity/Account/Register" class="btn-auth-notice-register">Crear cuenta</a>
+            </span>
+        </div>
+    }
+
+    @* ===== MODAL DE AUTENTICACIÓN ===== *@
+    <div id="voteAuthModal" class="vote-auth-modal" role="dialog" aria-modal="true" aria-labelledby="voteAuthModalTitle" style="display:none;">
+        <div class="vote-auth-modal__backdrop" id="voteAuthModalBackdrop"></div>
+        <div class="vote-auth-modal__box">
+            <button class="vote-auth-modal__close" id="voteAuthModalClose" aria-label="Cerrar">&times;</button>
+            <div class="vote-auth-modal__icon">🔒</div>
+            <h2 class="vote-auth-modal__title" id="voteAuthModalTitle">Inicia sesión para votar</h2>
+            <p class="vote-auth-modal__desc">Tu voto se registrará automáticamente al iniciar sesión.</p>
+            <div class="vote-auth-modal__btns">
+                <a id="voteAuthModalLoginBtn" href="/Identity/Account/Login?returnUrl=@Uri.EscapeDataString(HttpContext.Request.Path + HttpContext.Request.QueryString)" class="btn-modal-login">Iniciar sesión</a>
+                <a href="/Identity/Account/Register?returnUrl=@Uri.EscapeDataString(HttpContext.Request.Path + HttpContext.Request.QueryString)" class="btn-modal-register">Crear cuenta</a>
+            </div>
+        </div>
+    </div>
+
     <div class="qp-wrapper-flex">
         @if (!Model.Preguntas.Any())
         {
@@ -314,23 +343,33 @@
                         // Lógica correcta: deshabilitar solo el botón usado, habilitar el opuesto
                         var disableUp = q.UsuarioVoto == 1;    // Deshabilitar upvote solo si ya votó upvote
                         var disableDown = (q.Score <= 0) || (q.UsuarioVoto == -1);  // Deshabilitar downvote si score=0 o ya votó downvote
+                        var detailUrl = !string.IsNullOrWhiteSpace(q.Slug)
+                            ? $"/Preguntas/{q.Slug}"
+                            : $"/Preguntas/Detalles?id={q.Id}";
                         <article class="se-item"
                                  role="listitem"
                                  data-id="@q.Id"
                                  data-authenticated="@authAttr"
                                  data-is-mine="@isMineAttr"
                                  data-user-vote="@q.UsuarioVoto"
-                                 data-score="@q.Score">
+                                 data-score="@q.Score"
+                                 data-detail-url="@detailUrl">
                             <div class="se-stats">
                                 <div class="se-vote" aria-label="Votación">
                                     @if (!User.Identity.IsAuthenticated || q.EsMia)
                                     {
-                                        <button class="se-vote-btn se-vote-up" type="button" disabled title="@(q.EsMia ? "No puedes votar tu propia pregunta" : "Inicia sesión para votar")">
-                                            ▲
+                                        <button class="se-vote-btn se-vote-up" type="button"
+                                                data-id="@q.Id" data-dir="up"
+                                                title="@(q.EsMia ? "No puedes votar tu propia pregunta" : "Inicia sesión para votar")"
+                                                aria-label="Like"
+                                                @(q.EsMia ? "disabled" : null)>
                                         </button>
                                         <div class="se-votes-count" id="score-@q.Id">@q.Score</div>
-                                        <button class="se-vote-btn se-vote-down" type="button" disabled title="@(q.EsMia ? "No puedes votar tu propia pregunta" : "Inicia sesión para votar")">
-                                            ▼
+                                        <button class="se-vote-btn se-vote-down" type="button"
+                                                data-id="@q.Id" data-dir="down"
+                                                title="@(q.EsMia ? "No puedes votar tu propia pregunta" : "Inicia sesión para votar")"
+                                                aria-label="Dislike"
+                                                @(q.EsMia ? "disabled" : null)>
                                         </button>
                                     }
                                     else
@@ -342,9 +381,8 @@
                                                 data-dir="up"
                                                 type="button"
                                                 title="+1"
-                                                aria-label="Votar +1"
+                                                aria-label="Like"
                                                 @(disableUp ? "disabled" : null)>
-                                            ▲
                                         </button>
                                         <div class="se-votes-count" id="score-@q.Id">@q.Score</div>
                                         <button class="se-vote-btn se-vote-down @downActive"
@@ -352,9 +390,8 @@
                                                 data-dir="down"
                                                 type="button"
                                                 title="-1"
-                                                aria-label="Votar -1"
+                                                aria-label="Dislike"
                                                 @(disableDown ? "disabled" : null)>
-                                            ▼
                                         </button>
                                     }
                                 </div>
@@ -481,6 +518,13 @@
                                         </div>
                                     }
                                 </div>
+                            </div>
+                            @* Invitación post-voto inline (se muestra solo tras votar en esta sesión) *@
+                            <div class="se-share-invite" id="se-share-invite-@q.Id" style="display:none;" role="status" aria-live="polite" data-pregunta-id="@q.Id" data-detail-url="@detailUrl">
+                                <span class="se-share-invite__text">Muchas personas viven esto de forma distinta.
+                                    <em>Si quieres, cuéntanos cómo fue tu experiencia.</em></span>
+                                <button type="button" class="btn-share-experience se-share-invite__btn">Compartir experiencia</button>
+                                <button type="button" class="btn-share-dismiss se-share-invite__close" aria-label="Cerrar">&times;</button>
                             </div>
                         </article>
                     }
@@ -628,7 +672,138 @@
                 });
             }
 
-            // Voting (sin cambios)
+            // ===== AUTH MODAL =====
+            (function () {
+                const modal    = document.getElementById('voteAuthModal');
+                const backdrop = document.getElementById('voteAuthModalBackdrop');
+                const closeBtn = document.getElementById('voteAuthModalClose');
+                const loginBtn = document.getElementById('voteAuthModalLoginBtn');
+                if (!modal) return;
+
+                function openModal(preguntaId, dir) {
+                    // Guardar contexto completo: volver a Index con scroll restaurado
+                    const indexUrl = window.location.pathname + window.location.search;
+                    const scrollY  = window.scrollY || window.pageYOffset;
+                    sessionStorage.setItem('pendingVoteAction', JSON.stringify({
+                        action: 'vote', preguntaId, voteType: dir,
+                        returnUrl: indexUrl,
+                        source: 'index',
+                        scrollY: scrollY
+                    }));
+                    // ReturnUrl apunta de vuelta a Index (no a Detalles)
+                    loginBtn.href = '/Identity/Account/Login?returnUrl=' + encodeURIComponent(indexUrl);
+                    modal.style.display = 'flex';
+                    closeBtn.focus();
+                }
+
+                function closeModal() { modal.style.display = 'none'; }
+
+                closeBtn.addEventListener('click', closeModal);
+                backdrop.addEventListener('click', closeModal);
+                document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+                window._openVoteAuthModal = openModal;
+            })();
+
+            // ===== RESTORE VOTO PENDIENTE DESDE INDEX (post-login) =====
+            (function () {
+                const isAuth = @(User.Identity.IsAuthenticated ? "true" : "false");
+                if (!isAuth) return;
+                const raw = sessionStorage.getItem('pendingVoteAction');
+                if (!raw) return;
+                let pending;
+                try { pending = JSON.parse(raw); } catch (e) { sessionStorage.removeItem('pendingVoteAction'); return; }
+                if (!pending || pending.action !== 'vote' || pending.source !== 'index') return;
+                sessionStorage.removeItem('pendingVoteAction');
+
+                const preguntaId = String(pending.preguntaId);
+                const dir        = pending.voteType;
+                const scrollY    = pending.scrollY || 0;
+
+                setTimeout(async function () {
+                    // Restaurar scroll primero
+                    window.scrollTo({ top: scrollY, behavior: 'instant' });
+
+                    const article = document.querySelector('.se-item[data-id="' + preguntaId + '"]');
+                    if (!article) return;
+
+                    const upBtn   = article.querySelector('.se-vote-up');
+                    const downBtn = article.querySelector('.se-vote-down');
+                    if (upBtn)   upBtn.disabled   = true;
+                    if (downBtn) downBtn.disabled = true;
+
+                    const valor = dir === 'up' ? 1 : -1;
+
+                    try {
+                        const res = await fetch('/api/preguntas/' + preguntaId + '/votar', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ valor })
+                        });
+                        if (!res.ok) {
+                            if (upBtn)   upBtn.disabled   = false;
+                            if (downBtn) downBtn.disabled = false;
+                            return;
+                        }
+                        const j = await res.json();
+
+                        const newScore    = j.score    !== undefined ? parseInt(j.score, 10)    : parseInt(article.getAttribute('data-score') || '0', 10);
+                        const newUserVote = j.userVote !== undefined ? parseInt(j.userVote, 10) : 0;
+
+                        const scoreEl = document.getElementById('score-' + preguntaId);
+                        if (scoreEl) scoreEl.textContent = String(newScore);
+                        article.setAttribute('data-score',     String(newScore));
+                        article.setAttribute('data-user-vote', String(newUserVote));
+
+                        if (upBtn)   { upBtn.classList.toggle('active',   newUserVote === 1);  upBtn.disabled   = newUserVote === 1; }
+                        if (downBtn) { downBtn.classList.toggle('active', newUserVote === -1); downBtn.disabled = (newScore <= 0) || (newUserVote === -1); }
+
+                        // Mostrar invitación inline y ajustar scroll para que sea visible
+                        _showIndexShareInvitation(preguntaId);
+
+                    } catch (err) {
+                        console.error('[VoteRestore/Index]', err);
+                        if (upBtn)   upBtn.disabled   = false;
+                        if (downBtn) downBtn.disabled = false;
+                    }
+                }, 150);
+            })();
+
+            // ===== POST-VOTE SHARE INVITATION (inline por artículo) =====
+            function _showIndexShareInvitation(preguntaId) {
+                const invite = document.getElementById('se-share-invite-' + preguntaId);
+                if (!invite) return;
+                invite.style.display = 'flex';
+                // Scroll suave al artículo para que la invitación sea visible
+                const article = invite.closest('.se-item');
+                if (article) {
+                    setTimeout(() => article.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
+                }
+            }
+
+            // Delegación de eventos para botones de la invitación inline
+            document.addEventListener('click', function (e) {
+                // Botón "Compartir experiencia"
+                const shareBtn = e.target.closest('.se-share-invite__btn');
+                if (shareBtn) {
+                    const invite = shareBtn.closest('.se-share-invite');
+                    if (!invite) return;
+                    const detailUrl = invite.getAttribute('data-detail-url') || '/Preguntas/Detalles?id=' + invite.getAttribute('data-pregunta-id');
+                    invite.style.display = 'none';
+                    // Ir a Detalles y hacer scroll+focus al textarea de respuesta
+                    window.location.href = detailUrl + (detailUrl.includes('?') ? '&' : '?') + '_focusReply=1';
+                    return;
+                }
+                // Botón "Cerrar"
+                const dismissBtn = e.target.closest('.se-share-invite__close');
+                if (dismissBtn) {
+                    const invite = dismissBtn.closest('.se-share-invite');
+                    if (invite) invite.style.display = 'none';
+                    return;
+                }
+            });
+
+            // Voting (sin cambios en lógica backend)
             document.addEventListener('click', async function (e) {
                 const btn = e.target.closest('.se-vote-btn');
                 if (!btn) return;
@@ -640,27 +815,21 @@
                 const id = article.getAttribute('data-id');
                 if (!id) return;
 
-                if (!isAuth) { 
-                    const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
-                    if (confirm('Inicia sesión para votar. ¿Ir a login?')) {
-                        window.location.href = '/Identity/Account/Login?returnUrl=' + returnUrl;
-                    }
-                    return; 
+                if (!isAuth) {
+                    const dir = btn.getAttribute('data-dir');
+                    if (window._openVoteAuthModal) window._openVoteAuthModal(id, dir);
+                    return;
                 }
                 if (isMine) { alert('No puedes votar tu propia pregunta.'); return; }
 
                 const dir = btn.getAttribute('data-dir');
                 const currentScore = parseInt(article.getAttribute('data-score') || '0', 10);
-                const currentUserVote = parseInt(article.getAttribute('data-user-vote') || '0', 10);
 
-                // Validación: no permitir downvote si score ya es 0 o negativo
-                if (dir === 'down' && currentScore <= 0) {
-                    return;
-                }
+                if (dir === 'down' && currentScore <= 0) { return; }
 
-                const upBtn = article.querySelector('.se-vote-up');
+                const upBtn   = article.querySelector('.se-vote-up');
                 const downBtn = article.querySelector('.se-vote-down');
-                if (upBtn) upBtn.disabled = true;
+                if (upBtn)   upBtn.disabled   = true;
                 if (downBtn) downBtn.disabled = true;
 
                 const valor = dir === 'up' ? 1 : -1;
@@ -671,38 +840,31 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ valor })
                     });
-                    if (!res.ok) {
-                        alert('Error al votar');
-                        return;
-                    }
+                    if (!res.ok) { alert('Error al votar'); return; }
                     const j = await res.json();
+
+                    const newScore    = (j.score     !== undefined) ? parseInt(j.score, 10)    : currentScore;
+                    const newUserVote = (j.userVote  !== undefined) ? parseInt(j.userVote, 10) : 0;
+
                     const scoreEl = document.getElementById('score-' + id);
-
-                    // Usar score del servidor (siempre confiable)
-                    const newScore = (j.score !== undefined) ? parseInt(j.score, 10) : currentScore;
-                    const newUserVote = (j.userVote !== undefined) ? parseInt(j.userVote, 10) : 0;
-
                     if (scoreEl) scoreEl.textContent = String(newScore);
-                    article.setAttribute('data-score', String(newScore));
+                    article.setAttribute('data-score',     String(newScore));
                     article.setAttribute('data-user-vote', String(newUserVote));
 
-                    if (upBtn) {
-                        if (newUserVote === 1) upBtn.classList.add('active'); else upBtn.classList.remove('active');
-                        upBtn.disabled = newUserVote === 1;  // Deshabilitar solo si votó upvote
-                    }
-                    if (downBtn) {
-                        if (newUserVote === -1) downBtn.classList.add('active'); else downBtn.classList.remove('active');
-                        downBtn.disabled = (newScore <= 0) || (newUserVote === -1);  // Deshabilitar si score=0 o votó downvote
-                    }
+                    if (upBtn)   { upBtn.classList.toggle('active',   newUserVote === 1);  upBtn.disabled   = newUserVote === 1; }
+                    if (downBtn) { downBtn.classList.toggle('active', newUserVote === -1); downBtn.disabled = (newScore <= 0) || (newUserVote === -1); }
+
+                    // Mostrar invitación inline dentro del artículo
+                    _showIndexShareInvitation(id);
+
                 } catch (err) {
                     console.error(err);
                     alert('Error de red al votar');
                 } finally {
-                    // Re-habilitar botones según estado actual
-                    const finalScore = parseInt(article.getAttribute('data-score') || '0', 10);
+                    const finalScore    = parseInt(article.getAttribute('data-score')     || '0', 10);
                     const finalUserVote = parseInt(article.getAttribute('data-user-vote') || '0', 10);
-                    if (upBtn) upBtn.disabled = finalUserVote === 1;  // Deshabilitar solo si votó upvote
-                    if (downBtn) downBtn.disabled = (finalScore <= 0) || (finalUserVote === -1);  // Deshabilitar si score=0 o votó downvote
+                    if (upBtn)   upBtn.disabled   = finalUserVote === 1;
+                    if (downBtn) downBtn.disabled = (finalScore <= 0) || (finalUserVote === -1);
                 }
             });
         })();

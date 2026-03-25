@@ -79,9 +79,18 @@ namespace eiibd26.Areas.Identity.Pages.Account
             public int? CondicionPadreId { get; set; }
         }
 
-        public async Task OnGetAsync(string returnUrl = null)
+        public async Task OnGetAsync()
         {
-            ReturnUrl = returnUrl ?? Url.Content("~/Usuario/UsuarioPerfil");
+            var returnUrl = Request.Query["returnUrl"].FirstOrDefault()
+                         ?? Request.Query["ReturnUrl"].FirstOrDefault();
+
+            if (!string.IsNullOrEmpty(returnUrl) && returnUrl.Contains('%'))
+            {
+                try { returnUrl = Uri.UnescapeDataString(returnUrl); } catch { returnUrl = null; }
+            }
+
+            ReturnUrl = string.IsNullOrEmpty(returnUrl) ? Url.Content("~/") : returnUrl;
+
             await PopulatePaisesAsync();
             await PopulateCondicionesPadreAsync();
         }
@@ -122,9 +131,18 @@ namespace eiibd26.Areas.Identity.Pages.Account
             }
         }
 
-        public async Task<IActionResult> OnPostAsync(string returnUrl = null)
+        public async Task<IActionResult> OnPostAsync()
         {
-            returnUrl = returnUrl ?? Url.Content("~/");
+            // Leer ReturnUrl del form body
+            var returnUrl = Request.Form["ReturnUrl"].FirstOrDefault();
+
+            if (!string.IsNullOrEmpty(returnUrl) && returnUrl.Contains('%'))
+            {
+                try { returnUrl = Uri.UnescapeDataString(returnUrl); } catch { returnUrl = null; }
+            }
+
+            if (string.IsNullOrEmpty(returnUrl))
+                returnUrl = Url.Content("~/");
 
             // Re-populate selects in case of validation failure
             await PopulatePaisesAsync();
@@ -161,7 +179,7 @@ namespace eiibd26.Areas.Identity.Pages.Account
                 var callbackUrl = Url.Page(
                     "/Account/ConfirmEmail",
                     pageHandler: null,
-                    values: new { area = "Identity", userId = user.Id, code = code, returnUrl = returnUrl },
+                    values: new { area = "Identity", userId = user.Id, code = code, returnUrl = ReturnUrl },
                     protocol: Request.Scheme);
 
                 var emailBody = $@"
