@@ -186,24 +186,55 @@
     </style>
 }
 
+    <style>
+        .circle-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 2px solid #bcbcbc;
+            background: #fff;
+            color: #bcbcbc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            transition: box-shadow .15s, border-color .15s;
+            box-shadow: 0 1px 6px #e6e8ef77;
+            padding: 0;
+        }
+        .circle-btn:hover, .circle-btn:focus, .circle-btn:active {
+            background: #f7f0ff !important;
+            border-color: #9B5DE5 !important;
+            color: #9B5DE5 !important;
+            box-shadow: 0 2px 10px #e6e8ef77 !important;
+        }
+        .circle-btn i {
+            color: #bcbcbc !important;
+            font-size: 28px;
+            transition: color .15s;
+        }
+        .circle-btn:hover i, .circle-btn:focus i, .circle-btn:active i {
+            color: #bcbcbc !important;
+        }
+    </style>
+
 <form id="__afForm" style="display:none;">@Html.AntiForgeryToken()</form>
 
 <div class="container py-4">
-    <h1 class="se-page-title">Mis Preguntas</h1>
     <div class="qp-wrapper-flex">
-        <div class="crm-card">
+        <div class="crm-card" style="background:#f7f9fd !important; border-radius:18px; box-shadow:0 2px 12px rgb(180 193 239 / 12%); border:none; padding:1.15rem 1rem 1rem 1rem;">
             <div class="d-flex flex-wrap justify-content-between align-items-center">
                 <div>
-                    <div class="text-muted mb-2">Lista de tus preguntas y aquellas en las que has participado..</div>
+                    <div class="mb-2 fs-4" style="font-weight:600; color:#172849;">Mis Preguntas</div>
+                    <div class="crm-label" style="font-size:1.05rem; color:#888ca0; font-weight:400;">Lista de tus preguntas y aquellas en las que has participado..</div>
                 </div>
                 <div class="d-inline-flex align-items-center">
-                    <a class="se-btn se-btn-primary me-0" style="font-size:28px;"
-                       href="~/Identity/Usuario/UusuarioPreguntaDetalle">
+                    <a class="circle-btn me-0" href="~/Identity/Usuario/UusuarioPreguntaDetalle" title="Ver preguntas">
                         <i class="bi bi-question"></i>
                     </a>
                     <button id="btnModalPregunta" type="button"
-                            class="se-btn se-btn-primary ms-1"
-                            data-bs-toggle="modal" data-bs-target="#preguntaModal">
+                            class="circle-btn ms-1"
+                            data-bs-toggle="modal" data-bs-target="#preguntaModal" title="Agregar pregunta rápida">
                         <i class="btn-icon alert-light bi bi-lightning"></i>
                     </button>
                 </div>
@@ -582,36 +613,7 @@
     </div>
 </div>
 
-<!-- Modal nueva pregunta rápida -->
-<div class="modal fade" id="preguntaModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content">
-            <form id="preguntaForm" method="post" asp-page-handler="CrearPregunta">
-                @Html.AntiForgeryToken()
-                <div class="modal-header">
-                    <h5 class="modal-title">Publicar nueva pregunta</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="alertPregunta" style="display:none" class="alert"></div>
-                    <div class="mb-3">
-                        <label class="form-label">Título</label>
-                        <input name="titulo" id="preguntaTitulo" class="form-control" maxlength="180" required />
-                        <div class="form-text text-muted">Máx. 180 caracteres</div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Cuerpo</label>
-                        <textarea name="cuerpo" id="preguntaCuerpo" class="form-control" rows="6" maxlength="2000" required placeholder="Describe tu pregunta con detalle: ¿Qué síntomas tienes? ¿Cuándo empezaron? ¿Qué tratamiento sigues? Cuanto más información proporciones, mejores respuestas recibirás de la comunidad y la IA."></textarea>
-                        <div class="form-text text-muted">Máx. 2000 caracteres. Mínimo 20 caracteres recomendado.</div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button id="btnSavePregunta" type="submit" class="se-btn se-btn-primary" style="font-size:28px;"><i class="bi bi-check"></i></button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+@await Html.PartialAsync("_ModalCrearPregunta")
 
 <!-- Modal confirmar eliminación (sin botón "Cancelar"; cierre con la X en la esquina superior derecha) -->
 <div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
@@ -768,70 +770,7 @@
                 modal?.show();
             });
 
-            const preguntaForm = document.getElementById('preguntaForm');
-            const alertPregunta = document.getElementById('alertPregunta');
-            preguntaForm?.addEventListener('submit', async e => {
-                e.preventDefault();
-
-                // Obtener valores
-                const titulo = document.getElementById('preguntaTitulo')?.value?.trim();
-                const cuerpo = document.getElementById('preguntaCuerpo')?.value?.trim();
-
-                // Validación: campos obligatorios
-                if (!titulo || !cuerpo) {
-                    showAlert('Por favor completa el título y la descripción de tu pregunta.', true);
-                    return;
-                }
-
-                // Validación: el cuerpo debe ser diferente al título
-                if (titulo.toLowerCase() === cuerpo.toLowerCase()) {
-                    showAlert('⚠️ La descripción debe ser diferente al título. Por favor, explica más detalles sobre tu pregunta para que la comunidad y la IA puedan ayudarte mejor.', true);
-                    return;
-                }
-
-                // Validación: mínimo 20 caracteres en el cuerpo
-                if (cuerpo.length < 20) {
-                    showAlert('⚠️ Por favor, describe tu pregunta con más detalle (mínimo 20 caracteres). Esto ayudará a obtener mejores respuestas.', true);
-                    return;
-                }
-
-                const fd = new FormData(preguntaForm);
-                const btn = document.getElementById('btnSavePregunta');
-                if (btn) btn.disabled = true;
-                showAlert('📤 Publicando tu pregunta...', false);
-                try {
-                    const resp = await fetch(preguntaForm.action || '?handler=CrearPregunta', {
-                        method: 'POST',
-                        body: fd
-                    });
-                    if (!resp.ok) {
-                        const t = await resp.text();
-                        showAlert('Error al publicar: ' + t, true);
-                        return;
-                    }
-                    const j = await resp.json();
-                    if (j.ok) {
-                        showAlert('✅ Pregunta publicada correctamente. La IA está procesando tu pregunta...', false);
-                        setTimeout(() => location.reload(), 1200);
-                    } else {
-                        showAlert('Error: ' + (j.error || 'desconocido'), true);
-                    }
-                } catch (ex) {
-                    console.error(ex);
-                    showAlert('Error de red', true);
-                } finally {
-                    if (btn) btn.disabled = false;
-                }
-            });
-
-            function showAlert(msg, isErr) {
-                if (!alertPregunta) return;
-                alertPregunta.textContent = msg;
-                alertPregunta.className = 'alert ' + (isErr ? 'alert-danger' : 'alert-success');
-                alertPregunta.style.display = 'block';
-            }
-
-            document.getElementById('confirmDeleteBtn')?.addEventListener('click', async () => {
+            document.getElementById('confirmDeleteBtn')
                 if (!pendingDelete) return;
                 const btn = document.getElementById('confirmDeleteBtn');
                 if (btn) btn.disabled = true;

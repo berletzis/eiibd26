@@ -1,0 +1,110 @@
+@* Partial: Modal nueva pregunta rápida — reutilizable desde cualquier página *@
+
+<!-- Modal nueva pregunta rápida -->
+<style>
+    /* Solución: solo el modal scrollea, no el body */
+    #preguntaModal .modal-dialog {
+        max-width: 600px;
+        margin: 1.75rem auto;
+    }
+    #preguntaModal .modal-content {
+        max-height: 90vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    #preguntaModal .modal-body {
+        overflow-y: auto;
+        max-height: 60vh;
+    }
+</style>
+<div class="modal fade" id="preguntaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <form id="preguntaForm" method="post" action="/Identity/Usuario/usuarioPreguntasRespuestas?handler=CrearPregunta">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title">Publicar nueva pregunta</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="alertPregunta" style="display:none" class="alert"></div>
+                    <div class="mb-3">
+                        <label class="form-label">Título</label>
+                        <input name="titulo" id="preguntaTitulo" class="form-control" maxlength="180" required />
+                        <div class="form-text text-muted">Máx. 180 caracteres</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Cuerpo</label>
+                        <textarea name="cuerpo" id="preguntaCuerpo" class="form-control" rows="6" maxlength="2000" required placeholder="Describe tu pregunta con detalle: ¿Qué síntomas tienes? ¿Cuándo empezaron? ¿Qué tratamiento sigues? Cuanto más información proporciones, mejores respuestas recibirás de la comunidad y la IA."></textarea>
+                        <div class="form-text text-muted">Máx. 2000 caracteres. Mínimo 20 caracteres recomendado.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="btnSavePregunta" type="submit" class="se-btn se-btn-primary" style="font-size:28px;"><i class="bi bi-check"></i></button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        var preguntaForm = document.getElementById('preguntaForm');
+        if (!preguntaForm) return;
+
+        preguntaForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            var alertEl = document.getElementById('alertPregunta');
+            var titulo = document.getElementById('preguntaTitulo')?.value?.trim();
+            var cuerpo = document.getElementById('preguntaCuerpo')?.value?.trim();
+
+            function showAlert(msg, isErr) {
+                if (!alertEl) return;
+                alertEl.textContent = msg;
+                alertEl.className = 'alert ' + (isErr ? 'alert-danger' : 'alert-success');
+                alertEl.style.display = 'block';
+            }
+
+            if (!titulo || !cuerpo) {
+                showAlert('Por favor completa el título y la descripción de tu pregunta.', true);
+                return;
+            }
+            if (titulo.toLowerCase() === cuerpo.toLowerCase()) {
+                showAlert('⚠️ La descripción debe ser diferente al título. Por favor, explica más detalles sobre tu pregunta para que la comunidad y la IA puedan ayudarte mejor.', true);
+                return;
+            }
+            if (cuerpo.length < 20) {
+                showAlert('⚠️ Por favor, describe tu pregunta con más detalle (mínimo 20 caracteres). Esto ayudará a obtener mejores respuestas.', true);
+                return;
+            }
+
+            var fd = new FormData(preguntaForm);
+            var btn = document.getElementById('btnSavePregunta');
+            if (btn) btn.disabled = true;
+            showAlert('📤 Publicando tu pregunta...', false);
+
+            try {
+                var resp = await fetch(preguntaForm.action, { method: 'POST', body: fd });
+                if (!resp.ok) {
+                    var t = await resp.text();
+                    showAlert('Error al publicar: ' + t, true);
+                    return;
+                }
+                var j = await resp.json();
+                if (j.ok) {
+                    showAlert('✅ Pregunta publicada correctamente. La IA está procesando tu pregunta...', false);
+                    setTimeout(() => location.reload(), 1200);
+                } else {
+                    showAlert('Error: ' + (j.error || 'desconocido'), true);
+                }
+            } catch (ex) {
+                console.error(ex);
+                showAlert('Error de red', true);
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        });
+    })();
+</script>
