@@ -7,17 +7,7 @@
 
 <main class="conte-page" role="main" aria-label="Glosario médico">
     <div class="container py-4">
-        @if (!User.Identity.IsAuthenticated)
-        {
-            <div class="vote-auth-notice" role="note" aria-live="polite">
-                <span class="vote-auth-notice__icon">📋</span>
-                <span class="vote-auth-notice__text">Inicia sesión para registrar tus síntomas y tratamientos en tu perfil.</span>
-                <span class="vote-auth-notice__actions">
-                    <a href="/Identity/Account/Login?ReturnUrl=@Uri.EscapeDataString(HttpContext.Request.Path + HttpContext.Request.QueryString)" class="btn-auth-notice-login">Iniciar sesión</a>
-                    <a href="/Identity/Account/Register?ReturnUrl=@Uri.EscapeDataString(HttpContext.Request.Path + HttpContext.Request.QueryString)" class="btn-auth-notice-register">Crear cuenta</a>
-                </span>
-            </div>
-        }
+
         <h1 class="se-page-title">Guía de síntomas y tratamientos</h1>
         <p class="lead text-muted text-center mb-4">Explora los términos más confiables relacionados con la Enfermedad Inflamatoria Intestinal.</p>
 
@@ -30,13 +20,16 @@
             </div>
 
             <div class="col-md-4 mb-3">
-                <div class="card h-100 shadow-sm">
-                    <div class="card-body p-4">
-                                                            
-                        <h3 class="mb-0 me-2 display-5 fw-bold" style="font-size: 1.5rem;">
+                <div class="eii-index-toggle-card" style="--eii-border: #764ba2;">
+                    <div class="eii-index-toggle-header" onclick="toggleIndexCard('eiicard-directa', this)" role="button" tabindex="0"
+                         onkeydown="if(event.key==='Enter'||event.key===' ')toggleIndexCard('eiicard-directa',this)">
+                        <h3 class="eii-index-toggle-title">
                             <span class="relation-circle relation-circle--direct me-2"></span>
-                            Relación Directa   
+                            Relación Directa
                         </h3>
+                        <i class="bi bi-chevron-down eii-index-toggle-icon"></i>
+                    </div>
+                    <div class="eii-index-toggle-body partial-open" id="eiicard-directa">
                         <p class="text-muted small mb-3">El síntoma o tratamiento forma parte frecuente o característica de la experiencia de la EII o de su actividad intestinal principal.</p>
                         <p class="text-purple small mb-2">Está directamente vinculado a la enfermedad en sí.</p>
                         <p class="text-muted small mb-0">Es algo que muchas personas con EII pueden experimentar como parte de la enfermedad.</p>
@@ -45,12 +38,16 @@
             </div>
 
             <div class="col-md-4 mb-3">
-                <div class="card h-100 shadow-sm">
-                    <div class="card-body p-4">
-                              <h3 class="mb-0 me-2 display-5 fw-bold" style="font-size: 1.5rem;">
+                <div class="eii-index-toggle-card" style="--eii-border: #eab308;">
+                    <div class="eii-index-toggle-header" onclick="toggleIndexCard('eiicard-indirecta', this)" role="button" tabindex="0"
+                         onkeydown="if(event.key==='Enter'||event.key===' ')toggleIndexCard('eiicard-indirecta',this)">
+                        <h3 class="eii-index-toggle-title">
                             <span class="relation-circle relation-circle--indirect me-2"></span>
                             Relación Indirecta
                         </h3>
+                        <i class="bi bi-chevron-down eii-index-toggle-icon"></i>
+                    </div>
+                    <div class="eii-index-toggle-body partial-open" id="eiicard-indirecta">
                         <p class="text-muted small mb-3">No es un síntoma central de la EII, pero puede aparecer asociado a vivir con la enfermedad, sus brotes o su impacto general.</p>
                         <p class="text-purple small mb-2">Relación contextual o asociada.</p>
                         <p class="text-muted small mb-0">Algunas personas con EII lo experimentan, aunque no es exclusivo de la enfermedad.</p>
@@ -59,12 +56,16 @@
             </div>
 
             <div class="col-md-4 mb-3">
-                <div class="card h-100 shadow-sm">
-                    <div class="card-body p-4">
-                                        <h3 class="mb-0 me-2 display-5 fw-bold" style="font-size: 1.5rem;">
+                <div class="eii-index-toggle-card" style="--eii-border: #6b7280;">
+                    <div class="eii-index-toggle-header" onclick="toggleIndexCard('eiicard-secundaria', this)" role="button" tabindex="0"
+                         onkeydown="if(event.key==='Enter'||event.key===' ')toggleIndexCard('eiicard-secundaria',this)">
+                        <h3 class="eii-index-toggle-title">
                             <span class="relation-circle relation-circle--secondary me-2"></span>
-                             Relación Secundaria
+                            Relación Secundaria
                         </h3>
+                        <i class="bi bi-chevron-down eii-index-toggle-icon"></i>
+                    </div>
+                    <div class="eii-index-toggle-body partial-open" id="eiicard-secundaria">
                         <p class="text-muted small mb-3">El síntoma o tratamiento aparece como consecuencia indirecta del tratamiento, complicaciones o efectos alrededor de la EII, no por la enfermedad intestinal en sí.</p>
                         <p class="text-purple small mb-2">Resultado colateral o coexistente.</p>
                         <p class="text-muted small mb-0">Puede ocurrir debido a tratamientos, efectos secundarios o situaciones relacionadas con la EII.</p>
@@ -225,6 +226,81 @@
             color: #764ba2 !important;
         }
 
+        /* ===== EII INDEX TOGGLE CARDS ===== */
+        .eii-index-toggle-card {
+            border: 1.5px solid var(--eii-border, #e5e7eb);
+            border-radius: 12px;
+            background: #fff;
+        }
+
+        .eii-index-toggle-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 16px;
+            cursor: pointer;
+            user-select: none;
+            gap: 8px;
+        }
+
+        .eii-index-toggle-header:hover {
+            background: rgba(0, 0, 0, .02);
+        }
+
+        .eii-index-toggle-title {
+            display: flex;
+            align-items: center;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin: 0;
+            color: var(--color-heading, #0f1419);
+        }
+
+        .eii-index-toggle-icon {
+            font-size: .9rem;
+            color: #536471;
+            transition: transform 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .eii-index-toggle-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            padding: 0 16px;
+        }
+
+        .eii-index-toggle-body.partial-open {
+            max-height: 72px;
+            overflow: hidden;
+            position: relative;
+            padding: 0 16px 12px 16px;
+            border-radius: 0 0 10px 10px;
+        }
+
+        .eii-index-toggle-body.partial-open::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: linear-gradient(to bottom, transparent, #fff);
+            pointer-events: none;
+            border-radius: 0 0 10px 10px;
+        }
+
+        .eii-index-toggle-body.open {
+            max-height: 600px;
+            overflow: visible;
+            padding: 0 16px 16px 16px;
+            border-radius: 0 0 10px 10px;
+        }
+
+        .eii-index-toggle-body.open::after {
+            display: none;
+        }
+
         /* Ensure the badges stay on one line and not wrap the item title */
         .se-card .list-unstyled li { white-space: nowrap; }
         .se-card .list-unstyled li .me-3 { overflow: hidden; text-overflow: ellipsis; }
@@ -233,4 +309,26 @@
     color: darkviolet;
         }
     </style>
+}
+
+@section Scripts {
+    <script>
+        function toggleIndexCard(contentId, header) {
+            var body = document.getElementById(contentId);
+            if (!body) return;
+            var icon = header.querySelector('.eii-index-toggle-icon');
+            if (body.classList.contains('partial-open')) {
+                body.classList.remove('partial-open');
+                body.classList.add('open');
+                if (icon) icon.style.transform = 'rotate(180deg)';
+            } else if (body.classList.contains('open')) {
+                body.classList.remove('open');
+                body.classList.add('partial-open');
+                if (icon) icon.style.transform = 'rotate(0deg)';
+            } else {
+                body.classList.add('open');
+                if (icon) icon.style.transform = 'rotate(180deg)';
+            }
+        }
+    </script>
 }

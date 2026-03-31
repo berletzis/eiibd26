@@ -410,6 +410,21 @@
                 </div>
             }
 
+            @* Índice inline: visible solo en responsive, aparece sobre el breadcrumb *@
+            <div class="article-index-inline article-index-sidebar" id="articleIndexInline" role="navigation" aria-label="Índice del artículo">
+                <div class="sidebar-section-header" onclick="toggleSidebarSection('articleIndexContentInline')">
+                    <h4 class="sidebar-section-title">
+                        <i class="bi bi-list-ul"></i> En este artículo
+                    </h4>
+                    <i class="bi bi-chevron-down sidebar-section-icon"></i>
+                </div>
+                <div class="sidebar-section-content partial-open" id="articleIndexContentInline">
+                    <ul class="article-index-list" id="articleIndexListInline">
+                        @* Clonado dinámicamente desde articleIndexList *@
+                    </ul>
+                </div>
+            </div>
+
             @* Breadcrumb: Home -> category parents -> category (all links) -> current content title (plain) *@
             <nav class="breadcrumbs" aria-label="breadcrumbs">
                 <a href="@Url.Content("~/")">Inicio</a>
@@ -546,7 +561,7 @@
             }
         </article>
         <aside class="right-panel" aria-labelledby="related-heading">
-            @* ===== ÍNDICE AUTOMÁTICO DE SECCIONES (ARRIBA DEL SIDEBAR) ===== *@
+            @* ===== ÍNDICE AUTOMÁTICO DE SECCIONES (ARRIBA DEL SIDEBAR, solo desktop) ===== *@
             <div class="article-index-sidebar" id="articleIndex" role="navigation" aria-label="Índice del artículo">
                 <div class="sidebar-section-header" onclick="toggleSidebarSection('articleIndexContent')">
                     <h4 class="sidebar-section-title">
@@ -989,6 +1004,30 @@
             indexItems.forEach(({ li }) => indexList.appendChild(li));
 
             console.log('[TOC] Generated', indexItems.length, 'index links');
+
+            // ===== INLINE INDEX (mobile): clone items into the inline TOC above breadcrumb =====
+            const inlineList = document.getElementById('articleIndexListInline');
+            const inlineContainer = document.getElementById('articleIndexInline');
+            if (inlineList && inlineContainer) {
+                if (indexItems.length < 3) {
+                    inlineContainer.style.display = 'none';
+                } else {
+                    indexItems.forEach(({ li }) => {
+                        const clone = li.cloneNode(true);
+                        // Wire scroll on cloned links
+                        clone.querySelector('a')?.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            const targetId = e.currentTarget.getAttribute('href').substring(1);
+                            const targetEl = document.getElementById(targetId);
+                            if (targetEl) {
+                                const offset = 100;
+                                window.scrollTo({ top: targetEl.getBoundingClientRect().top + window.pageYOffset - offset, behavior: 'smooth' });
+                            }
+                        });
+                        inlineList.appendChild(clone);
+                    });
+                }
+            }
 
             // ===== STEP 3: Mobile accordion toggle =====
             if (indexToggle && indexContent) {

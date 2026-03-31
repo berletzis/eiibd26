@@ -17,6 +17,7 @@ namespace eiibd26.Services.Glossary
         private readonly IMedicalDataAdapter _medicalAdapter;
         private readonly ICommunityExperienceService _community;
         private readonly Microsoft.Extensions.Caching.Memory.IMemoryCache _cache;
+        private readonly Microsoft.AspNetCore.Hosting.IWebHostEnvironment _env;
         private readonly ILogger<GlossaryService> _logger;
 
         public GlossaryService(
@@ -24,13 +25,15 @@ namespace eiibd26.Services.Glossary
             IMedicalDataAdapter medicalAdapter,
             ICommunityExperienceService community,
             ILogger<GlossaryService> logger,
-            Microsoft.Extensions.Caching.Memory.IMemoryCache cache)
+            Microsoft.Extensions.Caching.Memory.IMemoryCache cache,
+            Microsoft.AspNetCore.Hosting.IWebHostEnvironment env)
         {
             _db             = db;
             _medicalAdapter = medicalAdapter;
             _community      = community;
             _logger         = logger;
             _cache          = cache;
+            _env            = env;
         }
 
         /// <summary>
@@ -38,13 +41,21 @@ namespace eiibd26.Services.Glossary
         /// </summary>
         public async Task<GlossaryHomeDto> GetGlossaryHomeAsync()
         {
+            // AUDITORÍA: Antes de modificar
+            // - Handler: Pages/Glosario/Index.OnGetAsync
+            // - ViewModel: GlossaryHomeDto (TotalSintomas, TotalTratamientos)
+            // Observación: Contaje debe provenir de las tablas reales de síntomas/tratamientos
+            // aplicando filtros de soft-delete (Eliminado) y no depender de colecciones parciales.
             try
             {
-                var totalSintomas = await _db.GlossaryTerms
-                    .CountAsync(gt => gt.TipoTermino == GlossaryTermType.Sintoma && gt.Activo);
+                // Contar desde las tablas reales aplicando filtros lógicos (Excluir eliminados)
+                var totalSintomas = await _db.sintomas
+                    .AsNoTracking()
+                    .CountAsync(s => !s.Eliminado);
 
-                var totalTratamientos = await _db.GlossaryTerms
-                    .CountAsync(gt => gt.TipoTermino == GlossaryTermType.Tratamiento && gt.Activo);
+                var totalTratamientos = await _db.tratamientos
+                    .AsNoTracking()
+                    .CountAsync(t => !t.Eliminado);
 
                 return new GlossaryHomeDto
                 {
@@ -454,12 +465,16 @@ namespace eiibd26.Services.Glossary
         {
             try
             {
-                // Cache first — avoid hitting DB if we already have results
+                // Cache first — only enabled in Production to avoid stale dev data during development
                 var cacheKey = $"glossary:top:{type}:{limit}";
-                if (_cache.TryGetValue(cacheKey, out var cachedObj) && cachedObj is List<GlossaryTermSummaryDto> cachedList)
+                var useCache = _env != null && _env.IsProduction();
+                if (useCache)
                 {
-                    _logger.LogInformation("GetTopTermsByQualityAsync: cache hit for {Key} returning {Count} items", cacheKey, cachedList.Count);
-                    return cachedList;
+                    if (_cache.TryGetValue(cacheKey, out var cachedObj) && cachedObj is List<GlossaryTermSummaryDto> cachedList)
+                    {
+                        _logger.LogInformation("GetTopTermsByQualityAsync: cache hit for {Key} returning {Count} items", cacheKey, cachedList.Count);
+                        return cachedList;
+                    }
                 }
 
                 // Base query: active terms of the requested type
@@ -472,7 +487,9 @@ namespace eiibd26.Services.Glossary
                         gt.Slug,
                         gt.FechaActualizacion,
                         MedicalLinkSintomaId = gt.MedicalLink != null ? gt.MedicalLink.SintomaId : (int?)null,
-                        MedicalLinkTratamientoId = gt.MedicalLink != null ? gt.MedicalLink.TratamientoId : (int?)null
+                        MedicalLinkTratamientoId = gt.MedicalLink != null ? gt.MedicalLink.TratamientoId : (int?)null,
+                        // Sugerencia de NINA: se suma +1 al círculo del tipo sugerido
+                        MedicalRelationSuggestedId = gt.MedicalRelationSuggestedId
                     });
 
                 // Filter: only terms whose linked sintoma/tratamiento has RelacionEII == true
@@ -506,13 +523,16 @@ namespace eiibd26.Services.Glossary
                     IsValidated = true,
                     IsReviewedByHuman = true,
                     HasRelationBadge = true,
-                    // Count distinct users who have this symptom/treatment in their profile
+                    // Count distinct users who have this symptom/treatment in their profile (mejor indicador de relaciones reales)
                     UserRelationCount = type == GlossaryTermType.Sintoma
-                        ? _db.sintomasUsuario.Count(su => su.idSintoma == t.MedicalLinkSintomaId && !su.Eliminado)
-                        : _db.tratamientoUsuario.Count(tu => tu.idTratamiento == t.MedicalLinkTratamientoId && !tu.Eliminado),
-                    RelationDirectCount = _db.GlossaryValidations.Count(v => v.GlossaryTermId == t.Id && v.ValidationType == GlossaryValidationType.RelationValidation && v.MedicalRelationTypeId == MedicalRelationType.Directa && v.Approved),
-                    RelationIndirectCount = _db.GlossaryValidations.Count(v => v.GlossaryTermId == t.Id && v.ValidationType == GlossaryValidationType.RelationValidation && v.MedicalRelationTypeId == MedicalRelationType.Indirecta && v.Approved),
+                        ? _db.sintomasUsuario.Where(su => su.idSintoma == t.MedicalLinkSintomaId && !su.Eliminado).Select(su => su.idUsuario).Distinct().Count()
+                        : _db.tratamientoUsuario.Where(tu => tu.idTratamiento == t.MedicalLinkTratamientoId && !tu.Eliminado).Select(tu => tu.idUsuario).Distinct().Count(),
+                    RelationDirectCount = _db.GlossaryValidations.Count(v => v.GlossaryTermId == t.Id && v.ValidationType == GlossaryValidationType.RelationValidation && v.MedicalRelationTypeId == MedicalRelationType.Directa && v.Approved)
+                        + (t.MedicalRelationSuggestedId == MedicalRelationType.Directa ? 1 : 0),
+                    RelationIndirectCount = _db.GlossaryValidations.Count(v => v.GlossaryTermId == t.Id && v.ValidationType == GlossaryValidationType.RelationValidation && v.MedicalRelationTypeId == MedicalRelationType.Indirecta && v.Approved)
+                        + (t.MedicalRelationSuggestedId == MedicalRelationType.Indirecta ? 1 : 0),
                     RelationSecondaryCount = _db.GlossaryValidations.Count(v => v.GlossaryTermId == t.Id && v.ValidationType == GlossaryValidationType.RelationValidation && v.MedicalRelationTypeId == MedicalRelationType.Secundaria && v.Approved)
+                        + (t.MedicalRelationSuggestedId == MedicalRelationType.Secundaria ? 1 : 0)
                 });
 
                 // Order by most user relationships first, then by name
@@ -524,10 +544,13 @@ namespace eiibd26.Services.Glossary
                 var list = await ordered.ToListAsync(cancellationToken);
                 _logger.LogInformation("GetTopTermsByQualityAsync: DB returned {Count} items for type {Type}", list.Count, type);
 
-                using (var entry = _cache.CreateEntry(cacheKey))
+                if (useCache)
                 {
-                    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10);
-                    entry.Value = list;
+                    using (var entry = _cache.CreateEntry(cacheKey))
+                    {
+                        entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10);
+                        entry.Value = list;
+                    }
                 }
 
                 return list;

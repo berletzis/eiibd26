@@ -93,34 +93,88 @@
                 font-weight: 700;
             }
 
-        .eii-accordion .accordion-item {
-            border: none;
-            border-bottom: 1px solid #e5e7eb;
-            background: transparent;
+        /* ===== EII TOGGLE CARDS — Relación con EII ===== */
+        .eii-toggle-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
 
-            .eii-accordion .accordion-item:last-child {
-                border-bottom: none;
-            }
+        .eii-toggle-card {
+            border: 1.5px solid var(--eii-border, #e5e7eb);
+            border-radius: 12px;
+            background: #fff;
+        }
 
-        .eii-accordion .accordion-button {
-            background: transparent !important;
-            box-shadow: none !important;
+        .eii-toggle-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            cursor: pointer;
+            user-select: none;
+            gap: 8px;
+        }
+
+        .eii-toggle-header:hover {
+            background: rgba(0,0,0,.02);
+        }
+
+        .eii-toggle-header-left {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 4px;
             font-size: .9rem;
-            padding: 10px 0;
             color: #1f2937;
         }
 
-            .eii-accordion .accordion-button:not(.collapsed) {
-                color: #1f2937;
-            }
+        .eii-toggle-icon {
+            font-size: .9rem;
+            color: #536471;
+            transition: transform 0.2s ease;
+            flex-shrink: 0;
+        }
 
-            .eii-accordion .accordion-button::after {
-                filter: none;
-            }
+        /* Body: collapsed por defecto (0 height) */
+        .eii-toggle-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            padding: 0 16px;
+        }
 
-        .eii-accordion .accordion-body {
-            padding: 4px 0 12px 0;
+        /* Partial-open: ~1/3 visible con fade */
+        .eii-toggle-body.partial-open {
+            max-height: 90px;
+            overflow: hidden;
+            position: relative;
+            padding: 0 16px 12px 16px;
+            border-radius: 0 0 10px 10px;
+        }
+
+        .eii-toggle-body.partial-open::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 48px;
+            background: linear-gradient(to bottom, transparent, #fff);
+            pointer-events: none;
+            border-radius: 0 0 10px 10px;
+        }
+
+        /* Fully open */
+        .eii-toggle-body.open {
+            max-height: 2000px;
+            overflow: visible;
+            padding: 0 16px 14px 16px;
+            border-radius: 0 0 10px 10px;
+        }
+
+        .eii-toggle-body.open::after {
+            display: none;
         }
 
         .eii-nivel-dot {
@@ -455,7 +509,7 @@ else
                 @if (Model.Term.DefinicionMedica != null)
                 {
                     <div class="card shadow-sm mb-4">
-                        <div class="card-body contenido-html" style="position:relative;">
+                        <div class="card-body" style="position:relative;">
                             <div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:2px;">
                                 @if (counts.CreatedByAI)
                                 {
@@ -479,88 +533,85 @@ else
                             }
                         </div>
                     </div><!-- /card definicion -->
+                    <!-- Aviso importante — solo visible en responsive (el sidebar lo oculta en desktop) -->
+                    <div class="aviso-termino-inline aviso-termino-box mb-4">
+                        <p class="aviso-title mb-2">Aviso Importante</p>
+                        <p class="aviso-text">
+                            Esta información es educativa y no reemplaza el consejo de un
+                            médico profesional. <strong>Siempre consulta con tu médico</strong>
+                            sobre tu condición y tratamiento.
+                        </p>
+                    </div>
                     <!-- Relación con EII — card separado -->
                     <div class="contenido"><h2>Relación con EII</h2></div>
-                    <div class="mb-4">
-                        <div class="py-2 px-3 contenido-html">
-                            <div class="accordion accordion-flush eii-accordion" id="relEII-@Model.Term.Id">
-                                @foreach (var level in allLevels)
-                                {
-                                    var lvlConsensus = counts.RelationConsensus.FirstOrDefault(r => r.RelationType == level);
-                                    var lvlCount = lvlConsensus?.Count ?? 0;
-                                    var isAiLevel = counts.RelationSuggested == level;
-                                    var isTop = lvlConsensus?.IsTopConsensus ?? false;
-                                    var expandFirst = isTop || (lvlCount == 0 && isAiLevel);
+                    <div class="mb-4 eii-toggle-cards">
+                        @foreach (var level in allLevels)
+                        {
+                            var lvlConsensus = counts.RelationConsensus.FirstOrDefault(r => r.RelationType == level);
+                            var lvlCount = lvlConsensus?.Count ?? 0;
+                            var isAiLevel = counts.RelationSuggested == level;
+                            var isTop = lvlConsensus?.IsTopConsensus ?? false;
 
-                                    var (dotColor, label) = level switch
-                                    {
-                                        eiibd26.Models.Glossary.MedicalRelationType.Directa => ("#764ba2", "Directa"),
-                                        eiibd26.Models.Glossary.MedicalRelationType.Indirecta => ("#eab308", "Indirecta"),
-                                        _ => ("#6b7280", "Secundaria")
-                                    };
-                                    var collapseId = $"rel-{Model.Term.Id}-{(int)level}";
+                            var (borderColor, label) = level switch
+                            {
+                                eiibd26.Models.Glossary.MedicalRelationType.Directa   => ("#764ba2", "Directa"),
+                                eiibd26.Models.Glossary.MedicalRelationType.Indirecta => ("#eab308", "Indirecta"),
+                                _ => ("#6b7280", "Secundaria")
+                            };
+                            var cardId = $"eiicard-{Model.Term.Id}-{(int)level}";
 
-                                    <div class="accordion-item">
-                                        <h3 class="accordion-header m-0">
-                                            <button class="accordion-button @(expandFirst ? "" : "collapsed")"
-                                                    type="button"
-                                                    data-bs-toggle="collapse"
-                                                    data-bs-target="#@collapseId"
-                                                    aria-expanded="@(expandFirst ? "true" : "false")">
-                                                <!-- Bullet de color -->
-                                                <span class="eii-nivel-dot me-2" style="background:@dotColor;"></span>
-                                                <span class="@(isTop ? "fw-bold" : "")">@label</span>
-                                                @if (isAiLevel)
-                                                {
-                                                    <span class="termino-badge-nina ms-2" style="font-size:.6rem;">🤖 IA</span>
-                                                }
-                                                <!-- Count inline junto al label -->
-                                                <span class="eii-count-badge ms-2
-                                                    @(lvlCount > 0 ? "" : "")"
-                                                      style="background:@(lvlCount > 0 ? dotColor + "22" : "#f1f5f9");
-                                                    color:@(lvlCount > 0 ? dotColor : "#94a3b8");
-                                                    border:1px solid @(lvlCount > 0 ? dotColor + "55" : "#e2e8f0");">
-                                                    @lvlCount
-                                                </span>
-                                            </button>
-                                        </h3>
-                                        <div id="@collapseId"
-                                             class="accordion-collapse collapse @(expandFirst ? "show" : "")"
-                                             data-bs-parent="#relEII-@Model.Term.Id">
-                                            <div class="accordion-body">
-                                                @if (isAiLevel && !string.IsNullOrWhiteSpace(counts.AiReasoning))
-                                                {
-                                                    <div class="d-flex gap-2 align-items-start p-2 rounded mb-2"
-                                                         style="background:#f8fafc;">
-                                                        <span style="font-size:1rem;">🤖</span>
-                                                        <div class="small">
-                                                            <span class="fw-semibold text-secondary">NINA (IA)</span>
-                                                            <p class="mb-0 text-dark">@counts.AiReasoning</p>
-                                                        </div>
-                                                    </div>
-                                                }
-                                                @if (lvlConsensus?.Comments.Any() == true)
-                                                {
-                                                    @foreach (var comment in lvlConsensus.Comments)
-                                                    {
-                                                        <div class="d-flex gap-2 align-items-start p-2 rounded mb-2"
-                                                             style="background:#f8fafc;">
-                                                            <i class="bi bi-person-circle text-secondary mt-1" style="font-size:1rem;"></i>
-                                                            <p class="mb-0 small text-dark">@comment</p>
-                                                        </div>
-                                                    }
-                                                }
-                                                else if (!isAiLevel || string.IsNullOrWhiteSpace(counts.AiReasoning))
-                                                {
-                                                    <p class="mb-0 small text-muted fst-italic">Sin comentarios clínicos aún para este nivel.</p>
-                                                }
-                                            </div>
-
-                                        </div>
+                            <div class="eii-toggle-card" style="--eii-border: @borderColor;">
+                                <!-- Header / toggle -->
+                                <div class="eii-toggle-header" onclick="toggleEiiCard('@cardId', this)" role="button" tabindex="0"
+                                     onkeydown="if(event.key==='Enter'||event.key===' ')toggleEiiCard('@cardId',this)">
+                                    <div class="eii-toggle-header-left">
+                                        <span class="eii-nivel-dot me-2" style="background:@borderColor;"></span>
+                                        <span class="@(isTop ? "fw-bold" : "")">@label</span>
+                                        @if (isAiLevel)
+                                        {
+                                            <span class="termino-badge-nina ms-2" style="font-size:.6rem;">🤖 IA</span>
+                                        }
+                                        <span class="eii-count-badge ms-2"
+                                              style="background:@(lvlCount > 0 ? borderColor + "22" : "#f1f5f9");
+                                                     color:@(lvlCount > 0 ? borderColor : "#94a3b8");
+                                                     border:1px solid @(lvlCount > 0 ? borderColor + "55" : "#e2e8f0");">
+                                            @lvlCount
+                                        </span>
                                     </div>
-                                }
+                                    <i class="bi bi-chevron-down eii-toggle-icon"></i>
+                                </div>
+                                <!-- Body: partial-open por defecto -->
+                                <div class="eii-toggle-body partial-open" id="@cardId"
+                                     style="--eii-fade: @borderColor;">
+                                    @if (isAiLevel && !string.IsNullOrWhiteSpace(counts.AiReasoning))
+                                    {
+                                        <div class="d-flex gap-2 align-items-start p-2 rounded mb-2"
+                                             style="background:#f8fafc;">
+                                            <span style="font-size:1rem;">🤖</span>
+                                            <div class="small">
+                                                <span class="fw-semibold text-secondary">NINA (IA)</span>
+                                                <p class="mb-0 text-dark">@counts.AiReasoning</p>
+                                            </div>
+                                        </div>
+                                    }
+                                    @if (lvlConsensus?.Comments.Any() == true)
+                                    {
+                                        @foreach (var comment in lvlConsensus.Comments)
+                                        {
+                                            <div class="d-flex gap-2 align-items-start p-2 rounded mb-2"
+                                                 style="background:#f8fafc;">
+                                                <i class="bi bi-person-circle text-secondary mt-1" style="font-size:1rem;"></i>
+                                                <p class="mb-0 small text-dark">@comment</p>
+                                            </div>
+                                        }
+                                    }
+                                    else if (!isAiLevel || string.IsNullOrWhiteSpace(counts.AiReasoning))
+                                    {
+                                        <p class="mb-0 small text-muted fst-italic">Sin comentarios clínicos aún para este nivel.</p>
+                                    }
+                                </div>
                             </div>
-                        </div>
+                        }
                     </div>
                 }
                 else
@@ -576,7 +627,7 @@ else
                 {
                     <div class="contenido-html mb-2"><h2>Artículos Relacionados</h2></div>
                     <div class="card shadow-sm mb-4">
-                        <div class="card-body contenido-html">
+                        <div class="card-body">
                             <div class="row g-3">
                                 @foreach (var articulo in Model.Term.ArticulosRelacionados)
                                 {
@@ -1039,6 +1090,26 @@ else
 
 @section Scripts {
     <script>
+        // ===== EII TOGGLE CARDS =====
+        function toggleEiiCard(contentId, header) {
+            const body = document.getElementById(contentId);
+            if (!body) return;
+
+            const icon = header.querySelector('.eii-toggle-icon');
+            if (body.classList.contains('partial-open')) {
+                body.classList.remove('partial-open');
+                body.classList.add('open');
+                if (icon) icon.style.transform = 'rotate(180deg)';
+            } else if (body.classList.contains('open')) {
+                body.classList.remove('open');
+                body.classList.add('partial-open');
+                if (icon) icon.style.transform = 'rotate(0deg)';
+            } else {
+                body.classList.add('open');
+                if (icon) icon.style.transform = 'rotate(180deg)';
+            }
+        }
+
         // ===== GLOSSARY TERM RATING SYSTEM =====
         (function () {
             const ratingContainer = document.getElementById('glossaryRating');
