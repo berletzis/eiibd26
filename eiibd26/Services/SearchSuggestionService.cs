@@ -263,7 +263,8 @@ namespace eiibd26.Services
                 matchingRespuestas.AddRange(matches);
             }
 
-            var grouped = matchingRespuestas
+            // Agrupar y limitar a las 5 más relevantes ANTES de ir a la BD por datos de pregunta
+            var top5 = matchingRespuestas
                 .GroupBy(r => r.Id)
                 .Select(g => new
                 {
@@ -274,20 +275,29 @@ namespace eiibd26.Services
                 .ThenByDescending(x => x.Respuesta.Puntuacion)
                 .ThenByDescending(x => x.Respuesta.FechaCreacion)
                 .Take(5)
-                .Select(x => new SuggestionRespuesta
+                .ToList();
+
+            // Un solo query para obtener títulos y slugs de las preguntas involucradas (evita N+1)
+            var preguntaIds = top5.Select(x => x.Respuesta.PreguntaId).Distinct().ToList();
+            var preguntasInfo = await _db.Preguntas
+                .AsNoTracking()
+                .Where(p => preguntaIds.Contains(p.Id))
+                .Select(p => new { p.Id, p.Titulo, p.Slug })
+                .ToDictionaryAsync(p => p.Id, cancellationToken);
+
+            var grouped = top5
+                .Select(x =>
                 {
-                    Id = x.Respuesta.Id,
-                    PreguntaId = x.Respuesta.PreguntaId,
-                    Cuerpo = x.Respuesta.Cuerpo,
-                    Puntuacion = x.Respuesta.Puntuacion,
-                    PreguntaTitulo = _db.Preguntas
-                        .Where(p => p.Id == x.Respuesta.PreguntaId)
-                        .Select(p => p.Titulo)
-                        .FirstOrDefault(),
-                    PreguntaSlug = _db.Preguntas
-                        .Where(p => p.Id == x.Respuesta.PreguntaId)
-                        .Select(p => p.Slug)
-                        .FirstOrDefault()
+                    preguntasInfo.TryGetValue(x.Respuesta.PreguntaId, out var pInfo);
+                    return new SuggestionRespuesta
+                    {
+                        Id = x.Respuesta.Id,
+                        PreguntaId = x.Respuesta.PreguntaId,
+                        Cuerpo = x.Respuesta.Cuerpo,
+                        Puntuacion = x.Respuesta.Puntuacion,
+                        PreguntaTitulo = pInfo?.Titulo,
+                        PreguntaSlug = pInfo?.Slug
+                    };
                 })
                 .ToList();
 

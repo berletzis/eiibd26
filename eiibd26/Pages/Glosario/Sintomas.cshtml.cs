@@ -1,6 +1,7 @@
 using eiibd26.Models.Glossary;
 using eiibd26.Services.Glossary;
 using eiibd26.Services.Glossary.DTOs;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace eiibd26.Pages.Glosario
@@ -19,13 +20,20 @@ namespace eiibd26.Pages.Glosario
         }
 
         public List<GlossaryTermDto> Terminos { get; set; } = new();
-        
+
+        /// <summary>Filtro de nivel de relación con EII (null = todos)</summary>
+        [BindProperty(SupportsGet = true)]
+        public MedicalRelationType? NivelFiltro { get; set; }
+
         /// <summary>
-        /// Términos agrupados por letra inicial
+        /// Términos filtrados por nivel EII y agrupados por letra inicial
         /// </summary>
         public IEnumerable<IGrouping<char, GlossaryTermDto>> TerminosAgrupados =>
-            Terminos.GroupBy(t => t.LetraInicial)
-                   .OrderBy(g => g.Key);
+            (NivelFiltro.HasValue
+                ? Terminos.Where(t => t.NivelRelacion == NivelFiltro)
+                : Terminos)
+            .GroupBy(t => t.LetraInicial)
+            .OrderBy(g => g.Key);
 
         /// <summary>
         /// Letras que tienen términos (para navegación)

@@ -48,6 +48,11 @@
     <!-- ===== PWA META TAGS ===== -->
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#764ba2" />
+    <style>
+        :root {
+            --brand-color: #7c3aed;
+        }
+    </style>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="EIIBD" />
@@ -117,7 +122,7 @@
             width: 260px;
             min-width: 220px;
             max-width: 320px;
-            border-right: 0;
+            border-right: 1px solid #ececec;
         }
 
         /* Keep offcanvas sidebar full height for scroll if big */
@@ -232,13 +237,14 @@
                     // Should we show the sidebar?
                     var isAuthenticated = User?.Identity?.IsAuthenticated ?? false;
 
-                    // Hide sidebar for Home, Preguntas, Contenidos, Mapa
+                    // Hide sidebar for Home, Preguntas, Contenidos, Mapa, and public profile pages
                     var isHomePage = currentPageNorm.StartsWith("/home");
                     var isPreguntasPage = currentPageNorm.StartsWith("/preguntas");
                     var iscontenidosPage = currentPageNorm.StartsWith("/contenidos");
                     var isMapaPage = currentPageNorm.StartsWith("/mapa");
                     var isGlosarioPage = currentPageNorm.StartsWith("/glosario") || currentPageNorm.StartsWith("/termino");
-                    var showSidebar = isAuthenticated && !isHomePage && !isPreguntasPage && !iscontenidosPage && !isMapaPage && !isGlosarioPage;
+                    var isPublicProfilePage = currentPageNorm.StartsWith("/u/") || currentPageNorm == "/u";
+                    var showSidebar = isAuthenticated && !isHomePage && !isPreguntasPage && !iscontenidosPage && !isMapaPage && !isGlosarioPage && !isPublicProfilePage;
                 }
 
                 <div class="row g-0 flex-nowrap">
@@ -263,22 +269,11 @@
                             </main>
                         </div>
 
-                        @* Offcanvas sidebar used only on small screens (md-) *@
-                        <div class="offcanvas offcanvas-start offcanvas-sidebar d-md-none" tabindex="-1" id="sidebarOffcanvas" aria-labelledby="sidebarOffcanvasLabel">
-                            <div class="offcanvas-header">
-                                <h5 class="offcanvas-title" id="sidebarOffcanvasLabel">Menú</h5>
-                                <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
-                            </div>
-                            <div class="offcanvas-body p-0">
-                                @* reuse the same partial inside offcanvas *@
-                                @await Html.PartialAsync("Shared/_SidebarMenu")
-                            </div>
-                        </div>
                     }
                     else
                     {
                         @* No sidebar: render a single full-width main column *@
-                        <div class="col-12 ps-3">
+                        <div class="col-12 p-0">
                             <main role="main" class="pb-3">
                                 @RenderBody()
                             </main>
@@ -291,6 +286,20 @@
         @* Insert the footer partial *@
         @await Html.PartialAsync("/Pages/Shared/_Footer.cshtml")
     </div>
+
+    @* Offcanvas sidebar: siempre disponible para usuarios autenticados (usado por el botón flotante en todas las páginas) *@
+    @if (isAuthenticated)
+    {
+        <div class="offcanvas offcanvas-start offcanvas-sidebar" tabindex="-1" id="sidebarOffcanvas" aria-labelledby="sidebarOffcanvasLabel">
+            <div class="offcanvas-header">
+                <h5 class="offcanvas-title" id="sidebarOffcanvasLabel">Menú</h5>
+                <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+            </div>
+            <div class="offcanvas-body p-0">
+                @await Html.PartialAsync("Shared/_SidebarMenu")
+            </div>
+        </div>
+    }
 
     <!-- Small-screen floating toggle (optional UX helper) -->
     @if (showSidebar)

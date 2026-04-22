@@ -11,7 +11,12 @@ namespace eiibd26.Services.Glossary.DTOs
         public string Nombre { get; set; } = "";
         public string Slug { get; set; } = "";
         public GlossaryTermType TipoTermino { get; set; }
-        
+
+        /// <summary>
+        /// Nivel de relación con la EII (confirmado por admin, o sugerido por IA si no hay confirmado)
+        /// </summary>
+        public MedicalRelationType? NivelRelacion { get; set; }
+
         /// <summary>
         /// Primera letra para agrupar alfabéticamente
         /// </summary>

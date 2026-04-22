@@ -11,14 +11,12 @@ using System.Collections.Generic;
 namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 {
     //[Authorize(Roles = "Administrador")]
-    [IgnoreAntiforgeryToken]
     public class IndexModel : PageModel
     {
         private readonly ApplicationDbContext _db;
 
         public IndexModel(ApplicationDbContext db)
         {
-            System.Diagnostics.Debug.WriteLine("*** Constructor Contenidos/IndexModel ejecutado ***");
             _db = db;
         }
 
@@ -103,10 +101,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
         public async Task<IActionResult> OnPostEditarContenidoAsync()
         {
-            System.Diagnostics.Debug.WriteLine("========= ENTRA AL HANDLER EditarContenido ==========");
-            var formDebug = string.Join(", ", Request.Form.Select(f => $"{f.Key}={f.Value}"));
-            System.Diagnostics.Debug.WriteLine("Request.Form: " + formDebug);
-
             if (string.IsNullOrWhiteSpace(Request.Form["id"]))
                 return BadRequest(new { success = false, message = "ID inválido" });
 
@@ -152,11 +146,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
         public async Task<IActionResult> OnPostRestaurarContenidoAsync()
         {
-            var ct = Request.ContentType;
-            System.Diagnostics.Debug.WriteLine("Content-Type received: " + ct);
-            var formDebug = string.Join(", ", Request.Form.Select(f => $"{f.Key}={f.Value}"));
-            System.Diagnostics.Debug.WriteLine("Request.Form: " + formDebug);
-
             if (!Request.HasFormContentType || string.IsNullOrWhiteSpace(Request.Form["id"]))
                 return BadRequest(new { success = false, message = "ID inválido" });
 

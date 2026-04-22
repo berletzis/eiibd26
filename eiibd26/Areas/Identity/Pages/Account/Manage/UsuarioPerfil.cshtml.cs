@@ -57,21 +57,18 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
 
         public async Task<IActionResult> OnGetAsync(Guid? id = null)
         {
+            // Always resolve the profile from the authenticated user's claim.
+            // The 'id' parameter is intentionally ignored to prevent IDOR.
+            var current = GetUserIdGuid();
+            if (current == null)
+                return RedirectToPage("/Account/Login", new { area = "Identity" });
+            id = current.Value;
+
             var missingFields = new List<string>();
             ViewData["ActivePage"] = ManageNavPages.UsuarioPerfil;
             try
             {
                 await PopulatePaisesAsync();
-
-                if (!id.HasValue)
-                {
-                    var current = GetUserIdGuid();
-                    if (current == null)
-                    {
-                        return RedirectToPage("/Account/Login", new { area = "Identity" });
-                    }
-                    id = current.Value;
-                }
 
                 try
                 {
@@ -245,9 +242,9 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                         var final110 = Path.Combine(uploadsRoot, "avatar-110.png");
                         var final64 = Path.Combine(uploadsRoot, "avatar-64.png");
 
-                        try { if (System.IO.File.Exists(final256)) System.IO.File.Delete(final256); } catch { }
-                        try { if (System.IO.File.Exists(final110)) System.IO.File.Delete(final110); } catch { }
-                        try { if (System.IO.File.Exists(final64)) System.IO.File.Delete(final64); } catch { }
+                        try { if (System.IO.File.Exists(final256)) System.IO.File.Delete(final256); } catch (Exception ex) { _logger.LogWarning(ex, "No se pudo eliminar avatar previo: {File}", final256); }
+                        try { if (System.IO.File.Exists(final110)) System.IO.File.Delete(final110); } catch (Exception ex) { _logger.LogWarning(ex, "No se pudo eliminar avatar previo: {File}", final110); }
+                        try { if (System.IO.File.Exists(final64)) System.IO.File.Delete(final64); } catch (Exception ex) { _logger.LogWarning(ex, "No se pudo eliminar avatar previo: {File}", final64); }
 
                         System.IO.File.Move(tmp256, final256);
                         System.IO.File.Move(tmp110, final110);
@@ -285,7 +282,7 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                 }
                 finally
                 {
-                    try { if (System.IO.File.Exists(tempFile)) System.IO.File.Delete(tempFile); } catch { }
+                    try { if (System.IO.File.Exists(tempFile)) System.IO.File.Delete(tempFile); } catch (Exception ex) { _logger.LogWarning(ex, "No se pudo eliminar archivo temporal de avatar: {File}", tempFile); }
                 }
             }
             catch (Exception ex)
@@ -328,7 +325,7 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                             if (System.IO.File.Exists(fullPath))
                                 System.IO.File.Delete(fullPath);
                         }
-                        catch { }
+                        catch (Exception ex) { _logger.LogWarning(ex, "No se pudo eliminar archivo de avatar: {File}", f); }
                     }
                 }
 
@@ -460,6 +457,7 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             Perfil.PermitirTelefonoReal = FormBool("Perfil.PermitirTelefonoReal");
             Perfil.PermitirCorreoNoticias = FormBool("Perfil.PermitirCorreoNoticias");
             Perfil.PermitirMostrarPais = FormBool("Perfil.PermitirMostrarPais");
+            Perfil.PermitirCompartirDatosMedicos = FormBool("Perfil.PermitirCompartirDatosMedicos");
             Perfil.AceptoPP = FormBool("Perfil.AceptoPP");
 
             // LOG DEBUG
@@ -550,6 +548,7 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                     existing.PermitirTelefonoReal = Perfil.PermitirTelefonoReal;
                     existing.PermitirCorreoNoticias = Perfil.PermitirCorreoNoticias;
                     existing.PermitirMostrarPais = Perfil.PermitirMostrarPais;
+                    existing.PermitirCompartirDatosMedicos = Perfil.PermitirCompartirDatosMedicos;
                     existing.AceptoPP = Perfil.AceptoPP; // ← CRÍTICO
                     existing.FechaModificado = DateTime.UtcNow;
                     existing.UsuarioModificacion = GetUserIdGuid();

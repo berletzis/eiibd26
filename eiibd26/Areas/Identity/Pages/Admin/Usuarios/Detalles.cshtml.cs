@@ -12,7 +12,6 @@ using System.Linq;
 namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios
 {
     [Authorize(Roles = "Administrador")]
-    [IgnoreAntiforgeryToken]
     public class DetallesModel : PageModel
     {
         private readonly ApplicationDbContext _db;

@@ -206,6 +206,17 @@
 
 @section Scripts {
     <script>
+        // Helper: obtiene el token antiforgery para enviarlo en cada POST fetch
+        function getAntiforgeryToken() {
+            const el = document.querySelector('input[name="__RequestVerificationToken"]');
+            return el ? el.value : '';
+        }
+        function addAntiforgeryToken(formData) {
+            const token = getAntiforgeryToken();
+            if (token) formData.append('__RequestVerificationToken', token);
+            return formData;
+        }
+
         // --- Autocomplete para tratamientos ---
         const urlAutocomplete = "/api/tratamientos/autocomplete";
         // token to ignore stale responses when user types fast
@@ -265,6 +276,7 @@
             }
             let formData = new FormData();
             formData.append('tratamientoId', id);
+            addAntiforgeryToken(formData);
             let resp = await fetch('?handler=AgregarTratamiento', { method: "POST", body: formData });
             if (resp.ok) location.reload();
             else {
@@ -300,6 +312,7 @@
                 ev.preventDefault();
                 input.disabled = false;
                 let formData = new FormData(form);
+                addAntiforgeryToken(formData);
                 try {
                     let resp = await fetch(form.action, { method: "POST", body: formData });
                     if (resp.ok) {
@@ -332,6 +345,7 @@
                 if (confirm('¿Estás seguro de eliminar "' + nombre + '"? Esta acción no se puede deshacer.')) {
                     let formData = new FormData();
                     formData.append('tratId', tratid);
+                    addAntiforgeryToken(formData);
                     fetch('?handler=EliminarTratamiento', { method: "POST", body: formData })
                         .then(resp => resp.ok ? location.reload() : resp.json().then(d => alert(d.mensaje || "Error eliminando tratamiento")));
                 }
@@ -378,6 +392,7 @@
             let formData = new FormData();
             formData.append('tratamientoId', tratid);
             sintids.forEach(id => formData.append('sintomaUsuarioIds', id));
+            addAntiforgeryToken(formData);
             const resp = await fetch('?handler=AsociarSintomas', { method: 'POST', body: formData });
             if (resp.ok) location.reload();
             else alert("Error al guardar.");
@@ -392,6 +407,7 @@
                     let formData = new FormData();
                     formData.append('tratamientoId', tratid);
                     formData.append('sintomaUsuarioId', sintid);
+                    addAntiforgeryToken(formData);
                     fetch('?handler=QuitarRelacionSintoma', { method: 'POST', body: formData })
                         .then(resp => resp.ok ? location.reload() : alert("Error al quitar"));
                 }
@@ -434,6 +450,7 @@
             let formData = new FormData();
             formData.append('tratamientoId', tratid);
             condids.forEach(id => formData.append('condicionUsuarioIds', id));
+            addAntiforgeryToken(formData);
             const resp = await fetch('?handler=AsociarCondiciones', { method: 'POST', body: formData });
             if (resp.ok) location.reload();
             else alert("Error al guardar.");
@@ -448,6 +465,7 @@
                     let formData = new FormData();
                     formData.append('tratamientoId', tratid);
                     formData.append('condicionUsuarioId', condid);
+                    addAntiforgeryToken(formData);
                     fetch('?handler=QuitarRelacionCondicion', { method: 'POST', body: formData })
                         .then(resp => resp.ok ? location.reload() : alert("Error al quitar"));
                 }

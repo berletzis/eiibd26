@@ -44,6 +44,12 @@
         <label class="form-label">Imagen Desktop (versión para escritorio)</label>
         <input class="form-control" type="file" asp-for="UploadedImageDesktop" id="uploadedImageDesktop" accept="image/*" />
         <small class="form-text text-muted">Tipos: .jpg .jpeg .png .gif .webp — Máx 5 MB</small>
+        <div class="alert alert-info py-1 px-2 mt-1 small mb-0">
+            <i class="bi bi-info-circle"></i> Medida oficial recomendada: <strong>1340 × 480 px</strong>
+        </div>
+        <div id="warnDesktop" class="alert alert-warning py-1 px-2 mt-1 small mb-0 d-none">
+            <i class="bi bi-exclamation-triangle-fill"></i> <strong>Advertencia:</strong> La imagen seleccionada no cumple con la medida oficial (1340 × 480 px). Se mostrará pero puede verse distorsionada o recortada en el sitio.
+        </div>
 
         <input type="hidden" asp-for="RemoveImageDesktop" id="RemoveImageDesktop" />
 
@@ -98,6 +104,12 @@
         <label class="form-label">Imagen Mobile (versión para teléfonos)</label>
         <input class="form-control" type="file" asp-for="UploadedImageMobile" id="uploadedImageMobile" accept="image/*" />
         <small class="form-text text-muted">Tipos: .jpg .jpeg .png .gif .webp — Máx 5 MB</small>
+        <div class="alert alert-info py-1 px-2 mt-1 small mb-0">
+            <i class="bi bi-info-circle"></i> Medida oficial recomendada: <strong>390 × 220 px</strong>
+        </div>
+        <div id="warnMobile" class="alert alert-warning py-1 px-2 mt-1 small mb-0 d-none">
+            <i class="bi bi-exclamation-triangle-fill"></i> <strong>Advertencia:</strong> La imagen seleccionada no cumple con la medida oficial (390 × 220 px). Se mostrará pero puede verse distorsionada o recortada en dispositivos móviles.
+        </div>
 
         <input type="hidden" asp-for="RemoveImageMobile" id="RemoveImageMobile" />
 
@@ -197,12 +209,13 @@
             setupRemove('btnRemoveMobile', 'uploadedImageMobile', 'previewMobile', 'RemoveImageMobile', 'metadataMobile');
 
             // Previews for newly selected files and show metadata
-            function attachPreviewWithMeta(inputId, previewContainerId, noPreviewId, imgId, metadataId) {
+            function attachPreviewWithMeta(inputId, previewContainerId, noPreviewId, imgId, metadataId, expectedW, expectedH, warnId) {
                 const input = document.getElementById(inputId);
                 const previewContainer = document.getElementById(previewContainerId);
                 const noPreview = document.getElementById(noPreviewId);
                 const currentPreview = document.getElementById(imgId);
                 const metadataEl = document.getElementById(metadataId);
+                const warnEl = document.getElementById(warnId);
 
                 if (!input) return;
                 input.addEventListener('change', function () {
@@ -243,6 +256,16 @@
                             metadataEl.textContent = `Archivo: ${f.name} · Ext: ${ext} · Tamaño: ${sizeText}`;
                         }
 
+                        // Check dimensions against official spec
+                        if (warnEl && expectedW && expectedH) {
+                            const tmpImg = new Image();
+                            tmpImg.onload = function () {
+                                const matches = (tmpImg.naturalWidth === expectedW && tmpImg.naturalHeight === expectedH);
+                                warnEl.classList.toggle('d-none', matches);
+                            };
+                            tmpImg.src = e.target.result;
+                        }
+
                         // When user selects a new file, clear the remove flag
                         const hidden = document.getElementById(removeHiddenIdFor(inputId));
                         if (hidden) hidden.value = 'false';
@@ -263,8 +286,8 @@
                 return bytes + ' B';
             }
 
-            attachPreviewWithMeta('uploadedImageDesktop', 'previewDesktop', 'noPreviewDesktop', 'currentPreviewDesktop', 'metadataDesktop');
-            attachPreviewWithMeta('uploadedImageMobile', 'previewMobile', 'noPreviewMobile', 'currentPreviewMobile', 'metadataMobile');
+            attachPreviewWithMeta('uploadedImageDesktop', 'previewDesktop', 'noPreviewDesktop', 'currentPreviewDesktop', 'metadataDesktop', 1340, 480, 'warnDesktop');
+            attachPreviewWithMeta('uploadedImageMobile', 'previewMobile', 'noPreviewMobile', 'currentPreviewMobile', 'metadataMobile', 390, 220, 'warnMobile');
         })();
     </script>
     <partial name="_ValidationScriptsPartial" />

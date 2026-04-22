@@ -64,6 +64,7 @@ namespace eiibd26.Models
         public bool? PermitirTelefonoReal { get; set; } // Permitir utilizar teléfono para saber si soy real
         public bool? PermitirCorreoNoticias { get; set; } // Permitir enviarme correos de notificaciones o noticias
         public bool? PermitirMostrarPais { get; set; } // Permitir que otros usuarios vean de qué país soy
+        public bool? PermitirCompartirDatosMedicos { get; set; } // Permitir que otros usuarios vean mis condiciones, síntomas, tratamientos y seguimiento
 
         [ForeignKey(nameof(idUser))]
         public virtual ApplicationUser Usuario { get; set; }

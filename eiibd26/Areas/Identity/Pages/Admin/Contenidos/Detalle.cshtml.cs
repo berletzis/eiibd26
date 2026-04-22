@@ -754,7 +754,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     .ToListAsync();
                 AllCondiciones = condRaw.Select(c => (c.id, c.nombre ?? string.Empty, c.idPadre)).ToList();
             }
-            catch { AllCondiciones = new(); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Error cargando condiciones para lookup"); AllCondiciones = new(); }
 
             try
             {
@@ -765,7 +765,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     .ToListAsync();
                 AllSintomas = sintRaw.Select(s => (s.id, s.nombre ?? string.Empty)).ToList();
             }
-            catch { AllSintomas = new(); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Error cargando síntomas para lookup"); AllSintomas = new(); }
 
             try
             {
@@ -776,7 +776,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     .ToListAsync();
                 AllTratamientos = tratRaw.Select(t => (t.id, t.nombre ?? string.Empty)).ToList();
             }
-            catch { AllTratamientos = new(); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Error cargando tratamientos para lookup"); AllTratamientos = new(); }
         }
 
         private async Task LoadManualListsAsync()
@@ -990,7 +990,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     .ToListAsync();
                 PaisesLista = raw.Select(r => (r.PaisCodigo, r.PaisNombre)).ToList();
             }
-            catch { PaisesLista = new(); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Error cargando países para lookup"); PaisesLista = new(); }
         }
 
         private async Task LoadAuthorsAsync()
@@ -1033,7 +1033,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     .OrderBy(x => x.name)
                     .ToList();
             }
-            catch { AdminAuthors = new(); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Error cargando autores admin para lookup"); AdminAuthors = new(); }
         }
 
         private void BuildSubcategories()

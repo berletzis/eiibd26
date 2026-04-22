@@ -24,13 +24,11 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
         public bool RelacionEII { get; set; }
     }
 
-    [IgnoreAntiforgeryToken]
     public class IndexModel : PageModel
     {
         private readonly ApplicationDbContext _db;
         public IndexModel(ApplicationDbContext db)
         {
-            System.Diagnostics.Debug.WriteLine("*** Constructor IndexModel Tratamientos ejecutado ***");
             _db = db;
         }
 
@@ -190,10 +188,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
 
         public async Task<IActionResult> OnPostEditarTratamientoAsync()
         {
-            System.Diagnostics.Debug.WriteLine("========= ENTRA AL HANDLER EditarTratamiento ==========");
-            var formDebug = string.Join(", ", Request.Form.Select(f => $"{f.Key}={f.Value}"));
-            System.Diagnostics.Debug.WriteLine("Request.Form: " + formDebug);
-
             if (string.IsNullOrWhiteSpace(Request.Form["id"]))
                 return BadRequest(new { success = false, message = "ID inválido" });
 
@@ -248,11 +242,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
 
         public async Task<IActionResult> OnPostRestaurarTratamientoAsync()
         {
-            var ct = Request.ContentType;
-            System.Diagnostics.Debug.WriteLine("Content-Type received: " + ct);
-            var formDebug = string.Join(", ", Request.Form.Select(f => $"{f.Key}={f.Value}"));
-            System.Diagnostics.Debug.WriteLine("Request.Form: " + formDebug);
-
             if (!Request.HasFormContentType || string.IsNullOrWhiteSpace(Request.Form["id"]))
                 return BadRequest(new { success = false, message = "ID inválido" });
             var id = int.Parse(Request.Form["id"]);

@@ -9,7 +9,6 @@ using System.Threading.Tasks;
 
 namespace eiibd26.Areas.Identity.Pages.Usuario
 {
-    [IgnoreAntiforgeryToken]
     public class UsuarioSintomasModel : PageModel
     {
         private readonly ApplicationDbContext _db;

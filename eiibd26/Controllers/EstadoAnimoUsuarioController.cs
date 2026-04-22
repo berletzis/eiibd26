@@ -9,7 +9,6 @@ using System.Collections.Generic;
 
 namespace eiibd26.Controllers
 {
-    [IgnoreAntiforgeryToken]
     [ApiController]
     [Authorize]
     [Route("api/[controller]")]
@@ -28,6 +27,7 @@ namespace eiibd26.Controllers
             var registros = await _db.EstadoAnimoUsuario
                 .Where(x => x.IdUsuario == guid && !x.Eliminado)
                 .OrderByDescending(x => x.FechaRegistro)
+                .Take(200)
                 .Include(x => x.CondicionUsuario).ThenInclude(c => c.Condicion)
                 .Include(x => x.SintomaUsuario).ThenInclude(su => su.Sintoma)
                 .Include(x => x.TratamientoUsuario).ThenInclude(tu => tu.Tratamiento)
@@ -231,7 +231,8 @@ namespace eiibd26.Controllers
             if (userId == null) return Unauthorized();
             if (!Guid.TryParse(userId, out var guid)) return Unauthorized();
 
-            var fechaDesde = DateTime.UtcNow.AddMonths(-meses.Value);
+            var mesesSeguro = Math.Clamp(meses ?? 1, 1, 24);
+            var fechaDesde = DateTime.UtcNow.AddMonths(-mesesSeguro);
 
             var entidades = await _db.EstadoAnimoUsuario
                 .Where(x => x.IdUsuario == guid && !x.Eliminado && x.FechaRegistro >= fechaDesde)

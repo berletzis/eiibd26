@@ -86,7 +86,8 @@ namespace eiibd26.Services.Glossary
                         Id = gt.Id,
                         Nombre = gt.Nombre,
                         Slug = gt.Slug,
-                        TipoTermino = gt.TipoTermino
+                        TipoTermino = gt.TipoTermino,
+                        NivelRelacion = gt.MedicalRelationTypeId ?? gt.MedicalRelationSuggestedId
                     })
                     .ToListAsync();
 

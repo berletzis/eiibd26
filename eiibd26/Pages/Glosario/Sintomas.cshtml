@@ -36,6 +36,32 @@
 
     @if (Model.Terminos.Any())
     {
+        <!-- Filtro por nivel de relación EII -->
+        <div class="eii-nivel-filter mb-3">
+            <div class="d-flex flex-wrap gap-2 align-items-center justify-content-center">
+                <button type="button" class="btn-nivel-eii active" data-nivel="todos">
+                    <span class="nivel-dot" style="background:#6c757d;"></span> Todos
+                    <span class="nivel-count">(@Model.Terminos.Count)</span>
+                </button>
+                <button type="button" class="btn-nivel-eii" data-nivel="1">
+                    <span class="nivel-dot" style="background:#7c3aed;"></span> Directa
+                    <span class="nivel-count">(@Model.Terminos.Count(t => t.NivelRelacion == eiibd26.Models.Glossary.MedicalRelationType.Directa))</span>
+                </button>
+                <button type="button" class="btn-nivel-eii" data-nivel="2">
+                    <span class="nivel-dot" style="background:#c4b5fd;"></span> Indirecta
+                    <span class="nivel-count">(@Model.Terminos.Count(t => t.NivelRelacion == eiibd26.Models.Glossary.MedicalRelationType.Indirecta))</span>
+                </button>
+                <button type="button" class="btn-nivel-eii" data-nivel="3">
+                    <span class="nivel-dot" style="background:#d1d5db;"></span> Secundaria
+                    <span class="nivel-count">(@Model.Terminos.Count(t => t.NivelRelacion == eiibd26.Models.Glossary.MedicalRelationType.Secundaria))</span>
+                </button>
+                <button type="button" class="btn-nivel-eii" data-nivel="sin">
+                    <span class="nivel-dot" style="background:#ced4da; border:1px solid #adb5bd;"></span> Sin clasificar
+                    <span class="nivel-count">(@Model.Terminos.Count(t => t.NivelRelacion == null))</span>
+                </button>
+            </div>
+        </div>
+
         <!-- Navegación alfabética -->
         <div class="alphabet-nav mb-4">
             <div class="d-flex flex-wrap gap-2 justify-content-center">
@@ -49,18 +75,39 @@
         <!-- Lista agrupada por letra -->
         @foreach (var grupo in Model.TerminosAgrupados)
         {
-            <div class="mb-5" id="letra-@grupo.Key">
+            <div class="mb-5 letra-grupo" id="letra-@grupo.Key">
                 <h2 class="border-bottom pb-2 mb-3">
                     <span class="text-purple">@grupo.Key</span>
                 </h2>
                 <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
                     @foreach (var termino in grupo)
                     {
-                        <div class="col">
+                        <div class="col termino-item" data-nivel="@(termino.NivelRelacion.HasValue ? ((int)termino.NivelRelacion!).ToString() : "sin")">
                             <article class="se-card h-100">
                                 <a href="/Termino/@termino.Slug" class="text-decoration-none text-reset d-flex flex-column h-100">
-                                    <div class="se-card-body">
-                                        <h5 class="se-card-title">@termino.Nombre</h5>
+                                    <div class="se-card-body se-card-body--row">
+                                        <h5 class="se-card-title mb-0">@termino.Nombre</h5>
+                                        @{
+                                            var dotColor = termino.NivelRelacion.HasValue
+                                                ? termino.NivelRelacion.Value switch
+                                                {
+                                                    eiibd26.Models.Glossary.MedicalRelationType.Directa    => "#7c3aed",
+                                                    eiibd26.Models.Glossary.MedicalRelationType.Indirecta  => "#c4b5fd",
+                                                    eiibd26.Models.Glossary.MedicalRelationType.Secundaria => "#d1d5db",
+                                                    _ => "#ced4da"
+                                                }
+                                                : "#ced4da";
+                                            var dotTitle = termino.NivelRelacion.HasValue
+                                                ? termino.NivelRelacion.Value switch
+                                                {
+                                                    eiibd26.Models.Glossary.MedicalRelationType.Directa    => "Relación directa con EII",
+                                                    eiibd26.Models.Glossary.MedicalRelationType.Indirecta  => "Relación indirecta con EII",
+                                                    eiibd26.Models.Glossary.MedicalRelationType.Secundaria => "Relación secundaria con EII",
+                                                    _ => "Sin clasificar"
+                                                }
+                                                : "Sin clasificar";
+                                        }
+                                        <span class="nivel-dot-card" style="background:@dotColor;" title="@dotTitle" aria-label="@dotTitle"></span>
                                     </div>
                                 </a>
                             </article>
@@ -114,6 +161,43 @@
         .alphabet-letter:hover { background: #f3e8ff !important; color: #5b21b6 !important; }
         .alphabet-letter:active, .alphabet-letter.active { background: #e9d5ff !important; color: #6d28d9 !important; }
         .alphabet-letter:focus { outline: 3px solid rgba(124,58,237,0.18) !important; outline-offset: 3px !important; }
+
+        /* ── Filtro EII ── */
+        .eii-nivel-filter { border-top: 1px solid #f0e8ff; border-bottom: 1px solid #f0e8ff; padding: .6rem 0; }
+        .btn-nivel-eii {
+            display: inline-flex; align-items: center; gap: .4rem;
+            padding: .35rem .85rem; border-radius: 999px;
+            border: 1.5px solid #e2d9f3; background: #fff;
+            font-size: .85rem; font-weight: 500; color: #374151;
+            cursor: pointer; transition: border-color .15s, background .15s;
+        }
+        .btn-nivel-eii:hover { border-color: #7c3aed; background: #f5f0ff; }
+        .btn-nivel-eii.active { border-color: #7c3aed; background: #ede9fe; color: #5b21b6; font-weight: 600; }
+        .nivel-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+        .nivel-count { font-size: .78rem; opacity: .7; }
+        /* fila horizontal dentro del card: nombre + punto al final */
+        .se-card-body--row {
+            flex-direction: row !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            gap: .5rem !important;
+        }
+        .se-card-body--row .se-card-title {
+            margin: 0;
+            flex: 1;
+            min-width: 0;          /* permite truncar texto largo */
+        }
+        /* punto circular de nivel en la tarjeta */
+        .nivel-dot-card {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        /* grupo de letra oculto cuando todos sus hijos están ocultos */
+        .letra-grupo.hidden { display: none; }
+        .termino-item.hidden { display: none; }
     </style>
 }
 
@@ -129,5 +213,31 @@
                 }
             });
         });
+
+        // Filtro EII sin recarga
+        (function () {
+            const btns = document.querySelectorAll('.btn-nivel-eii');
+            btns.forEach(btn => {
+                btn.addEventListener('click', function () {
+                    btns.forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    const nivel = this.dataset.nivel;
+                    filtrar(nivel);
+                });
+            });
+
+            function filtrar(nivel) {
+                const items = document.querySelectorAll('.termino-item');
+                items.forEach(item => {
+                    const match = nivel === 'todos' || item.dataset.nivel === nivel;
+                    item.classList.toggle('hidden', !match);
+                });
+                // ocultar grupos de letra que quedaron sin hijos visibles
+                document.querySelectorAll('.letra-grupo').forEach(grupo => {
+                    const visible = grupo.querySelectorAll('.termino-item:not(.hidden)').length > 0;
+                    grupo.classList.toggle('hidden', !visible);
+                });
+            }
+        })();
     </script>
 }

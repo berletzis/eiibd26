@@ -224,8 +224,159 @@
 
 <main>
     <section class="home-hero">
+        <partial name="~/Pages/Shared/heroinicio.cshtml" />
+    </section>
+    
+    
+    <!-- MAP PARTIAL INSERTION -->
+    <section class="row-small" aria-label="Mapa de usuarios">
+        <div id="usersMapRoot">Cargando mapa…</div>
+
+        <script>
+                    (function () {
+                        fetch('@Url.Page("/Home/UsersMapPartial")', { credentials: 'same-origin' })
+                            .then(function (r) {
+                                if (!r.ok) throw new Error('Error fetching UsersMapPartial: ' + r.status);
+                                return r.text();
+                            })
+                            .then(function (html) {
+                                var root = document.getElementById('usersMapRoot');
+                                if (!root) return;
+                                var temp = document.createElement('div');
+                                temp.innerHTML = html;
+
+                                var scripts = Array.prototype.slice.call(temp.querySelectorAll('script'));
+                                var externalScripts = scripts.filter(function (s) { return s.src && s.src.trim().length > 0; });
+                                var inlineScripts = scripts.filter(function (s) { return !s.src || s.src.trim().length === 0; });
+
+                                scripts.forEach(function (s) { if (s.parentNode) s.parentNode.removeChild(s); });
+
+                                root.innerHTML = temp.innerHTML;
+
+                                // Improved sequential loader: fetch scripts first to validate they are JS (avoid executing HTML/empty responses)
+                                function loadExternalSequentially(sources) {
+                                    return sources.reduce(function (prev, scriptTag) {
+                                        return prev.then(function () {
+                                            return new Promise(function (resolve) {
+                                                var src = scriptTag.src;
+                                                if (!src) return resolve();
+
+                                                // Try fetching the script to validate content-type and avoid executing non-JS responses
+                                                fetch(src, { credentials: 'same-origin', cache: 'no-cache' }).then(function (resp) {
+                                                    if (!resp.ok) {
+                                                        console.warn('Script fetch failed, falling back to tag:', src, resp.status);
+                                                        // Fallback: append script tag so browser can attempt to load/execute (for cross-origin without CORS)
+                                                        var s = document.createElement('script');
+                                                        s.src = src; s.async = false;
+                                                        s.onload = resolve;
+                                                        s.onerror = function () { console.error('Failed to load script (tag fallback): ' + src); resolve(); };
+                                                        document.body.appendChild(s);
+                                                        return;
+                                                    }
+
+                                                    var ct = (resp.headers.get('content-type') || '').toLowerCase();
+                                                    if (ct.indexOf('javascript') === -1 && ct.indexOf('text/') === -1 && ct.indexOf('application/') === -1) {
+                                                        console.warn('Script response content-type not javascript, skipping execution:', src, ct);
+                                                        return resolve();
+                                                    }
+
+                                                    return resp.text().then(function (text) {
+                                                        // Basic sanity: if response contains '<!DOCTYPE' or '<html' it's not JS
+                                                        var bodySample = (text || '').trim().slice(0, 200).toLowerCase();
+                                                        if (!text || bodySample.indexOf('<!doctype') !== -1 || bodySample.indexOf('<html') !== -1) {
+                                                            console.warn('Script appears to be HTML or empty; skipping:', src);
+                                                            return resolve();
+                                                        }
+
+                                                        try {
+                                                            var blob = new Blob([text], { type: 'application/javascript' });
+                                                            var url = URL.createObjectURL(blob);
+                                                            var s = document.createElement('script');
+                                                            s.src = url; s.async = false;
+                                                            s.onload = function () { try { URL.revokeObjectURL(url); } catch (e) {} ; resolve(); };
+                                                            s.onerror = function () { try { URL.revokeObjectURL(url); } catch (e) {} ; console.error('Failed executing script blob:', src); resolve(); };
+                                                            document.body.appendChild(s);
+                                                        } catch (e) {
+                                                            console.error('Error creating blob for script', src, e);
+                                                            // fallback to tag append
+                                                            var s2 = document.createElement('script');
+                                                            s2.src = src; s2.async = false;
+                                                            s2.onload = resolve;
+                                                            s2.onerror = function () { console.error('Failed to load script (fallback append): ' + src); resolve(); };
+                                                            document.body.appendChild(s2);
+                                                        }
+                                                    }).catch(function (err) {
+                                                        console.warn('Error reading script response, appending tag fallback:', src, err);
+                                                        var s = document.createElement('script');
+                                                        s.src = src; s.async = false;
+                                                        s.onload = resolve;
+                                                        s.onerror = function () { console.error('Failed to load script (fallback after read error): ' + src); resolve(); };
+                                                        document.body.appendChild(s);
+                                                    });
+                                                }).catch(function (err) {
+                                                    // Network/CORS error; fallback to tag so browser can attempt loading
+                                                    console.warn('Fetch for script failed (network/CORS), appending tag fallback:', src, err);
+                                                    var s = document.createElement('script');
+                                                    s.src = src; s.async = false;
+                                                    s.onload = resolve;
+                                                    s.onerror = function () { console.error('Failed to load script (tag fallback after fetch error): ' + src); resolve(); };
+                                                    document.body.appendChild(s);
+                                                });
+                                            });
+                                        });
+                                    }, Promise.resolve());
+                                }
+
+                                loadExternalSequentially(externalScripts).then(function () {
+                                    inlineScripts.forEach(function (oldScript) {
+                                        try {
+                                            var s = document.createElement('script');
+                                            if (oldScript.type) s.type = oldScript.type;
+                                            var code = oldScript.textContent || oldScript.innerText || '';
+                                            if (!code || code.trim().length === 0) return;
+                                            // Basic sanity check: skip if looks like HTML
+                                            var sample = code.trim().slice(0, 200).toLowerCase();
+                                            if (sample.indexOf('<!doctype') !== -1 || sample.indexOf('<html') !== -1) {
+                                                console.warn('Skipping inline script that appears to contain HTML from partial.');
+                                                return;
+                                            }
+                                            // Append as text node to avoid issues with s.text assignment in some browsers
+                                            s.appendChild(document.createTextNode(code));
+                                            document.body.appendChild(s);
+                                            // Optionally remove to avoid clutter
+                                            try { document.body.removeChild(s); } catch (e) { /* ignore */ }
+                                        } catch (e) {
+                                            console.error('Error executing inline script from partial:', e);
+                                        }
+                                    });
+                                });
+                            })
+                            .catch(function (err) {
+                                console.error('Error cargando UsersMapPartial:', err);
+                                var root = document.getElementById('usersMapRoot');
+                                if (root) root.textContent = 'Error al cargar el mapa.';
+                            });
+                    })();
+        </script>
+    </section>
+
+    <!-- TABS [QUÉ PUEDES HACER AQUÍ]  -->
+    @await Html.PartialAsync("~/Pages/Shared/IniciaAhora.cshtml")
+
+    
+    <!-- Populares -->
+@*     <section class="row-small" aria-label="Populares">
+        <div class="section-title">Populares</div>
+        <div class="items-container featured-1043">
+            <partial name="~/Pages/Shared/_BlogItems.cshtml" model="Model.Featured1043?.Take(9)" />
+        </div>
+    </section>
+ *@
+    
+    <section class="home-hero">
         <partial name="~/Pages/Shared/HeroPartial.cshtml" />
     </section>
+
     <!-- Destacados -->
     <section class="row-small" aria-label="Destacados">
         <div class="section-title">Destacados</div>
@@ -234,147 +385,7 @@
         </div>
     </section>
 
-    @* Populares rendered below *@
-
-    <!-- MAP PARTIAL INSERTION -->
-    <section class="row-small" aria-label="Mapa de usuarios">
-        <div id="usersMapRoot">Cargando mapa…</div>
-
-        <script>
-            (function () {
-                fetch('@Url.Page("/Home/UsersMapPartial")', { credentials: 'same-origin' })
-                    .then(function (r) {
-                        if (!r.ok) throw new Error('Error fetching UsersMapPartial: ' + r.status);
-                        return r.text();
-                    })
-                    .then(function (html) {
-                        var root = document.getElementById('usersMapRoot');
-                        if (!root) return;
-                        var temp = document.createElement('div');
-                        temp.innerHTML = html;
-
-                        var scripts = Array.prototype.slice.call(temp.querySelectorAll('script'));
-                        var externalScripts = scripts.filter(function (s) { return s.src && s.src.trim().length > 0; });
-                        var inlineScripts = scripts.filter(function (s) { return !s.src || s.src.trim().length === 0; });
-
-                        scripts.forEach(function (s) { if (s.parentNode) s.parentNode.removeChild(s); });
-
-                        root.innerHTML = temp.innerHTML;
-
-                        // Improved sequential loader: fetch scripts first to validate they are JS (avoid executing HTML/empty responses)
-                        function loadExternalSequentially(sources) {
-                            return sources.reduce(function (prev, scriptTag) {
-                                return prev.then(function () {
-                                    return new Promise(function (resolve) {
-                                        var src = scriptTag.src;
-                                        if (!src) return resolve();
-
-                                        // Try fetching the script to validate content-type and avoid executing non-JS responses
-                                        fetch(src, { credentials: 'same-origin', cache: 'no-cache' }).then(function (resp) {
-                                            if (!resp.ok) {
-                                                console.warn('Script fetch failed, falling back to tag:', src, resp.status);
-                                                // Fallback: append script tag so browser can attempt to load/execute (for cross-origin without CORS)
-                                                var s = document.createElement('script');
-                                                s.src = src; s.async = false;
-                                                s.onload = resolve;
-                                                s.onerror = function () { console.error('Failed to load script (tag fallback): ' + src); resolve(); };
-                                                document.body.appendChild(s);
-                                                return;
-                                            }
-
-                                            var ct = (resp.headers.get('content-type') || '').toLowerCase();
-                                            if (ct.indexOf('javascript') === -1 && ct.indexOf('text/') === -1 && ct.indexOf('application/') === -1) {
-                                                console.warn('Script response content-type not javascript, skipping execution:', src, ct);
-                                                return resolve();
-                                            }
-
-                                            return resp.text().then(function (text) {
-                                                // Basic sanity: if response contains '<!DOCTYPE' or '<html' it's not JS
-                                                var bodySample = (text || '').trim().slice(0, 200).toLowerCase();
-                                                if (!text || bodySample.indexOf('<!doctype') !== -1 || bodySample.indexOf('<html') !== -1) {
-                                                    console.warn('Script appears to be HTML or empty; skipping:', src);
-                                                    return resolve();
-                                                }
-
-                                                try {
-                                                    var blob = new Blob([text], { type: 'application/javascript' });
-                                                    var url = URL.createObjectURL(blob);
-                                                    var s = document.createElement('script');
-                                                    s.src = url; s.async = false;
-                                                    s.onload = function () { try { URL.revokeObjectURL(url); } catch (e) {} ; resolve(); };
-                                                    s.onerror = function () { try { URL.revokeObjectURL(url); } catch (e) {} ; console.error('Failed executing script blob:', src); resolve(); };
-                                                    document.body.appendChild(s);
-                                                } catch (e) {
-                                                    console.error('Error creating blob for script', src, e);
-                                                    // fallback to tag append
-                                                    var s2 = document.createElement('script');
-                                                    s2.src = src; s2.async = false;
-                                                    s2.onload = resolve;
-                                                    s2.onerror = function () { console.error('Failed to load script (fallback append): ' + src); resolve(); };
-                                                    document.body.appendChild(s2);
-                                                }
-                                            }).catch(function (err) {
-                                                console.warn('Error reading script response, appending tag fallback:', src, err);
-                                                var s = document.createElement('script');
-                                                s.src = src; s.async = false;
-                                                s.onload = resolve;
-                                                s.onerror = function () { console.error('Failed to load script (fallback after read error): ' + src); resolve(); };
-                                                document.body.appendChild(s);
-                                            });
-                                        }).catch(function (err) {
-                                            // Network/CORS error; fallback to tag so browser can attempt loading
-                                            console.warn('Fetch for script failed (network/CORS), appending tag fallback:', src, err);
-                                            var s = document.createElement('script');
-                                            s.src = src; s.async = false;
-                                            s.onload = resolve;
-                                            s.onerror = function () { console.error('Failed to load script (tag fallback after fetch error): ' + src); resolve(); };
-                                            document.body.appendChild(s);
-                                        });
-                                    });
-                                });
-                            }, Promise.resolve());
-                        }
-
-                        loadExternalSequentially(externalScripts).then(function () {
-                            inlineScripts.forEach(function (oldScript) {
-                                try {
-                                    var s = document.createElement('script');
-                                    if (oldScript.type) s.type = oldScript.type;
-                                    var code = oldScript.textContent || oldScript.innerText || '';
-                                    if (!code || code.trim().length === 0) return;
-                                    // Basic sanity check: skip if looks like HTML
-                                    var sample = code.trim().slice(0, 200).toLowerCase();
-                                    if (sample.indexOf('<!doctype') !== -1 || sample.indexOf('<html') !== -1) {
-                                        console.warn('Skipping inline script that appears to contain HTML from partial.');
-                                        return;
-                                    }
-                                    // Append as text node to avoid issues with s.text assignment in some browsers
-                                    s.appendChild(document.createTextNode(code));
-                                    document.body.appendChild(s);
-                                    // Optionally remove to avoid clutter
-                                    try { document.body.removeChild(s); } catch (e) { /* ignore */ }
-                                } catch (e) {
-                                    console.error('Error executing inline script from partial:', e);
-                                }
-                            });
-                        });
-                    })
-                    .catch(function (err) {
-                        console.error('Error cargando UsersMapPartial:', err);
-                        var root = document.getElementById('usersMapRoot');
-                        if (root) root.textContent = 'Error al cargar el mapa.';
-                    });
-            })();
-        </script>
-    </section>
-
-    <!-- Populares -->
-    <section class="row-small" aria-label="Populares">
-        <div class="section-title">Populares</div>
-        <div class="items-container featured-1043">
-            <partial name="~/Pages/Shared/_BlogItems.cshtml" model="Model.Featured1043?.Take(9)" />
-        </div>
-    </section>
+    
 
 
 </main>

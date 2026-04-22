@@ -12,25 +12,21 @@ using System.Threading.Tasks;
 namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 {
     //[Authorize(Roles = "Administrador")]
-    [IgnoreAntiforgeryToken]
     public class ContenidosModel : PageModel
     {
         private readonly ApplicationDbContext _db;
 
         public ContenidosModel(ApplicationDbContext db)
         {
-            System.Diagnostics.Debug.WriteLine("*** Constructor ContenidosModel ejecutado ***");
             _db = db;
         }
 
         public void OnGet()
         {
-            System.Diagnostics.Debug.WriteLine("*** OnGet() ContenidosModel ejecutado ***");
         }
 
         public async Task<IActionResult> OnPostGridData()
         {
-            System.Diagnostics.Debug.WriteLine("========= ENTRA AL HANDLER GridData (POST) ==========");
 
             var draw = int.TryParse(Request.Form["draw"], out var dVal) ? dVal : 1;
             var start = int.TryParse(Request.Form["start"], out var sVal) ? sVal : 0;
@@ -47,8 +43,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             bool mostrarBorradores = mostrarBorradoresStr.Equals("true", StringComparison.OrdinalIgnoreCase)
                 || mostrarBorradoresStr == "1"
                 || mostrarBorradoresStr.Equals("on", StringComparison.OrdinalIgnoreCase);
-
-            System.Diagnostics.Debug.WriteLine($"[GridData POST] mostrarEliminados={mostrarEliminados}, mostrarBorradores={mostrarBorradores}");
 
             // ✅ Si mostrar eliminados, ignorar el filtro global
             IQueryable<Contenido> query = mostrarEliminados
@@ -213,7 +207,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
             // recordsFiltered must be the total count after applying filters (before paging)
             var recordsFiltered = allItems.Count;
-            System.Diagnostics.Debug.WriteLine($"[GridData POST] Registros filtrados: {recordsFiltered} (paginados devueltos: {finalData.Count}) Eliminados en página: {finalData.Count(d => d.eliminado)} TotalDB: {recordsTotal}");
 
             return new JsonResult(new
             {
@@ -245,10 +238,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
         public async Task<IActionResult> OnPostEditarContenido()
         {
-            System.Diagnostics.Debug.WriteLine("========= ENTRA AL HANDLER EditarContenido ==========");
-            var formDebug = string.Join(", ", Request.Form.Select(f => $"{f.Key}={f.Value}"));
-            System.Diagnostics.Debug.WriteLine("Request.Form: " + formDebug);
-
             if (string.IsNullOrWhiteSpace(Request.Form["id"]))
                 return BadRequest(new { success = false, message = "ID inválido" });
 
@@ -374,8 +363,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
         public async Task<IActionResult> OnPostEliminarContenido()
         {
-            System.Diagnostics.Debug.WriteLine("========= ENTRA AL HANDLER EliminarContenido ==========");
-
             if (!Request.HasFormContentType || string.IsNullOrWhiteSpace(Request.Form["id"]))
                 return BadRequest(new { success = false, message = "ID inválido" });
 
@@ -389,20 +376,11 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             c.FechaModificado = DateTime.UtcNow;
             await _db.SaveChangesAsync();
 
-            System.Diagnostics.Debug.WriteLine($"✅ Contenido {id} eliminado correctamente");
-
             return new JsonResult(new { success = true });
         }
 
         public async Task<IActionResult> OnPostRestaurarContenido()
         {
-            System.Diagnostics.Debug.WriteLine("========= ENTRA AL HANDLER RestaurarContenido ==========");
-
-            var ct = Request.ContentType;
-            System.Diagnostics.Debug.WriteLine("Content-Type received: " + ct);
-            var formDebug = string.Join(", ", Request.Form.Select(f => $"{f.Key}={f.Value}"));
-            System.Diagnostics.Debug.WriteLine("Request.Form: " + formDebug);
-
             if (!Request.HasFormContentType || string.IsNullOrWhiteSpace(Request.Form["id"]))
                 return BadRequest(new { success = false, message = "ID inválido" });
 
@@ -415,8 +393,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             c.Eliminado = false;
             c.FechaModificado = DateTime.UtcNow;
             await _db.SaveChangesAsync();
-
-            System.Diagnostics.Debug.WriteLine($"✅ Contenido {id} restaurado correctamente");
 
             return new JsonResult(new { success = true });
         }

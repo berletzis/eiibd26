@@ -1,0 +1,526 @@
+@{
+    Layout = null;
+    bool isAuth = User?.Identity?.IsAuthenticated == true;
+}
+
+@if (!isAuth)
+{
+<style>
+    /* ===== HeroInicio — split layout ===== */
+    .hi {
+        max-width: 1340px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        min-height: 320px;
+        border-bottom: 1px solid #e8eaec;
+        overflow: hidden;
+    }
+
+    /* ---- Left: copy column ---- */
+    .hi__copy {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        padding: 2rem 2rem 2rem 1.5rem;
+    }
+
+    .hi__eyebrow {
+        display: inline-block;
+        align-self: center;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #764ba2;
+        letter-spacing: 0.03em;
+        margin-bottom: 1.25rem;
+        padding: 0.22rem 0.8rem;
+        border: 1.5px solid #c6b8e0;
+        border-radius: 50px;
+        background: #f9f5ff;
+    }
+
+    .hi__headline {
+        font-size: clamp(1.85rem, 3.2vw, 2.65rem);
+        font-weight: 800;
+        color: #1f2b2f;
+        line-height: 1.16;
+        margin: 0 0 1.1rem;
+        letter-spacing: -0.025em;
+    }
+
+    .hi__sub {
+        font-size: 1rem;
+        color: #546a70;
+        line-height: 1.7;
+        max-width: 480px;
+        margin: 0 auto 2rem;
+        font-weight: 400;
+    }
+
+    .hi__actions {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-bottom: 2rem;
+    }
+
+    .hi__btn-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.7rem 1.55rem;
+        border-radius: 8px;
+        font-size: 0.93rem;
+        font-weight: 700;
+        text-decoration: none;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #fff;
+        border: 2px solid transparent;
+        box-shadow: 0 4px 16px rgba(118, 75, 162, 0.28);
+        transition: box-shadow 0.2s, transform 0.15s;
+    }
+
+    .hi__btn-primary:hover,
+    .hi__btn-primary:focus {
+        color: #fff;
+        text-decoration: none;
+        box-shadow: 0 6px 22px rgba(118, 75, 162, 0.44);
+        transform: translateY(-1px);
+    }
+
+    .hi__btn-secondary {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.68rem 1.45rem;
+        border-radius: 8px;
+        font-size: 0.93rem;
+        font-weight: 600;
+        text-decoration: none;
+        background: #fff;
+        color: #1f2b2f;
+        border: 2px solid #d1d9de;
+        transition: border-color 0.2s, color 0.2s;
+    }
+
+    .hi__btn-secondary:hover,
+    .hi__btn-secondary:focus {
+        border-color: #764ba2;
+        color: #764ba2;
+        text-decoration: none;
+    }
+
+    /* ---- Stats bar ---- */
+    .hi__stats {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 2rem;
+        flex-wrap: wrap;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e8eaec;
+    }
+
+    .hi__stat-value {
+        display: block;
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: #1f2b2f;
+        line-height: 1.2;
+    }
+
+    .hi__stat-label {
+        font-size: 0.8rem;
+        color: #546a70;
+    }
+
+    /* ---- Right: image panel ---- */
+    .hi__visual {
+        position: relative;
+        @* background: #ede9f6; *@
+        overflow: hidden;
+        min-height: 320px;
+    }
+
+    .hi__photo {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        object-position: center bottom;
+        display: block;
+    }
+
+    /* panel derecho sin overlay — la imagen tiene fondo transparente */
+
+    .hi__badge {
+        position: absolute;
+        bottom: 1.4rem;
+        right: 1.4rem;
+        z-index: 2;
+        background: #fff;
+        border-radius: 10px;
+        padding: 0.65rem 1rem;
+        box-shadow: 0 4px 18px rgba(0,0,0,0.15);
+        text-align: center;
+        min-width: 148px;
+    }
+
+    .hi__badge-title {
+        display: block;
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #1f2b2f;
+        letter-spacing: 0.01em;
+    }
+
+    .hi__badge-sub {
+        display: block;
+        font-size: 0.75rem;
+        color: #764ba2;
+        font-weight: 500;
+        margin-top: 0.15rem;
+    }
+
+    /* ---- Responsive ---- */
+    @@media (max-width: 767.98px) {
+        .hi {
+            grid-template-columns: 1fr;
+            min-height: unset;
+        }
+
+        .hi__copy {
+            padding: 2.5rem 1.25rem 2rem;
+        }
+
+        .hi__visual {
+            height: 300px;
+        }
+
+        .hi__actions {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .hi__btn-primary,
+        .hi__btn-secondary {
+            justify-content: center;
+        }
+
+        .hi__stats {
+            gap: 1.25rem;
+        }
+    }
+</style>
+
+<section class="hi" aria-labelledby="hi-headline">
+
+    <!-- LEFT: copy -->
+    <div class="hi__copy">
+        <span class="hi__eyebrow">Plataforma para pacientes con EII en Latinoamérica</span>
+
+        <h1 class="hi__headline" id="hi-headline">
+            Vivir con EII no debería ser tan solitario.
+        </h1>
+
+        <p class="hi__sub">
+            Construí EIIBD porque yo también recibí ese diagnóstico y no encontré un lugar en español donde encontrar respuestas, registrar mis síntomas y conectar con otros que lo entienden.
+        </p>
+
+        <div class="hi__actions">
+            <a href="/Identity/Account/Register" class="hi__btn-primary">
+                <i class="bi bi-person-plus-fill"></i> Crea tu cuenta gratis
+            </a>
+            <a href="/Identity/Account/Login" class="hi__btn-secondary">
+                <i class="bi bi-box-arrow-in-right"></i> Ya tengo cuenta
+            </a>
+        </div>
+
+        <div class="hi__stats" aria-label="Datos de la plataforma">
+            <div>
+                <span class="hi__stat-value">+700</span>
+                <span class="hi__stat-label">pacientes en LATAM</span>
+            </div>
+            <div>
+                <span class="hi__stat-value">100%</span>
+                <span class="hi__stat-label">en español</span>
+            </div>
+            <div>
+                <span class="hi__stat-value">Gratis</span>
+                <span class="hi__stat-label">siempre</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT: founder photo panel -->
+    <div class="hi__visual">
+        <img src="/img/fundadorBerletzis.png"
+             onerror="this.style.display='none'"
+             alt="Fundador de EIIBD"
+             class="hi__photo"
+             width="470" height="380"
+             loading="lazy" decoding="async" fetchpriority="low" />
+
+        <div class="hi__badge">
+            <span class="hi__badge-title">Fundador · EIIBD.com</span>
+                <span class="hi__badge-sub">Paciente con Colitis Ulcerativa <br /> <a href="/u/berletzis" target="_blank">Ver mi Perfil Publico </a></span>
+        </div>
+    </div>
+
+</section>
+}
+
+@if (isAuth)
+{
+<style>
+    /* ===== HeroAnimo — hero para usuario autenticado ===== */
+    .ha {
+        max-width: 1340px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        min-height: 200px;
+        border-bottom: 1px solid #e8eaec;
+        overflow: hidden;
+    }
+
+    /* ---- Left: copy ---- */
+    .ha__copy {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        padding: 2rem 2rem 2rem 1.5rem;
+    }
+
+    .ha__eyebrow {
+        display: inline-block;
+        align-self: center;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #764ba2;
+        letter-spacing: 0.03em;
+        margin-bottom: 1rem;
+        padding: 0.2rem 0.75rem;
+        border: 1.5px solid #c6b8e0;
+        border-radius: 50px;
+        background: #f9f5ff;
+    }
+
+    .ha__headline {
+        font-size: clamp(1.35rem, 2.5vw, 2rem);
+        font-weight: 800;
+        color: #1f2b2f;
+        line-height: 1.2;
+        margin: 0 0 0.6rem;
+        letter-spacing: -0.02em;
+    }
+
+    .ha__sub {
+        font-size: 0.93rem;
+        color: #546a70;
+        line-height: 1.6;
+        margin: 0 0 1.5rem;
+    }
+
+    .ha__btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        align-self: center;
+        padding: 0.6rem 1.4rem;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        text-decoration: none;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #fff;
+        border: none;
+        box-shadow: 0 3px 12px rgba(118,75,162,0.28);
+        transition: box-shadow 0.2s, transform 0.15s;
+    }
+
+    .ha__btn:hover, .ha__btn:focus {
+        color: #fff;
+        text-decoration: none;
+        box-shadow: 0 5px 18px rgba(118,75,162,0.42);
+        transform: translateY(-1px);
+    }
+
+    /* ---- Right: mood panel ---- */
+    .ha__moods {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 1.5rem 1.5rem 1.5rem 1rem;
+        background: #f9f5ff;
+    }
+
+    .ha__mood-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.6rem 0.75rem;
+        border-radius: 12px;
+        border: 2px solid transparent;
+        background: #fff;
+        cursor: pointer;
+        text-decoration: none;
+        transition: border-color 0.18s, transform 0.15s, box-shadow 0.18s;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+    }
+
+    .ha__mood-btn:hover, .ha__mood-btn:focus {
+        border-color: #764ba2;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 14px rgba(118,75,162,0.18);
+    }
+
+    .ha__mood-img {
+        width: 44px;
+        height: 44px;
+    }
+
+    .ha__mood-label {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #546a70;
+        white-space: nowrap;
+    }
+
+    @@media (max-width: 767.98px) {
+        .ha {
+            grid-template-columns: 1fr;
+        }
+
+        .ha__copy {
+            padding: 2rem 1.25rem 1rem;
+        }
+
+        .ha__eyebrow {
+            align-self: center;
+        }
+
+        .ha__moods {
+            padding: 1rem 1rem 1.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .ha__btn {
+            align-self: center;
+        }
+
+        .ha__copy {
+            text-align: center;
+        }
+    }
+</style>
+
+<section class="ha" aria-labelledby="ha-headline" id="ha-hero">
+    <!-- LEFT: recordatorio -->
+    <div class="ha__copy">
+        <span class="ha__eyebrow"><i class="bi bi-heart-pulse-fill me-1"></i> Tu salud de hoy</span>
+        <h2 class="ha__headline" id="ha-headline">¿Cómo te sientes hoy?</h2>
+        <p class="ha__sub">Registrar tu estado de ánimo toma solo unos segundos. Cada registro ayuda a entender mejor cómo vives con EII.</p>
+        <div id="ha-feedback" style="display:none; margin-bottom:0.75rem; font-size:0.88rem; font-weight:600; color:#764ba2;"></div>
+        <a href="/Identity/Usuario/UsuarioEstadoAnimo" class="ha__btn">
+            <i class="bi bi-plus-circle-fill"></i> Ver mis registros
+        </a>
+    </div>
+
+    <!-- RIGHT: iconos de estado de ánimo -->
+    <div class="ha__moods" role="group" aria-label="Selecciona tu estado de ánimo">
+        <button type="button" class="ha__mood-btn" data-mood="5" title="Muy bien">
+            <img class="ha__mood-img" src="/img/muybien.svg" alt="Muy bien" loading="lazy" decoding="async" />
+            <span class="ha__mood-label">Muy bien</span>
+        </button>
+        <button type="button" class="ha__mood-btn" data-mood="4" title="Bien">
+            <img class="ha__mood-img" src="/img/bien.svg" alt="Bien" loading="lazy" decoding="async" />
+            <span class="ha__mood-label">Bien</span>
+        </button>
+        <button type="button" class="ha__mood-btn" data-mood="3" title="Neutral">
+            <img class="ha__mood-img" src="/img/neutral.svg" alt="Neutral" loading="lazy" decoding="async" />
+            <span class="ha__mood-label">Neutral</span>
+        </button>
+        <button type="button" class="ha__mood-btn" data-mood="2" title="Mal">
+            <img class="ha__mood-img" src="/img/mal.svg" alt="Mal" loading="lazy" decoding="async" />
+            <span class="ha__mood-label">Mal</span>
+        </button>
+        <button type="button" class="ha__mood-btn" data-mood="1" title="Muy mal">
+            <img class="ha__mood-img" src="/img/muymal.svg" alt="Muy mal" loading="lazy" decoding="async" />
+            <span class="ha__mood-label">Muy mal</span>
+        </button>
+    </div>
+</section>
+
+<script>
+(function () {
+    const moodLabels = { 5: 'Muy bien', 4: 'Bien', 3: 'Neutral', 2: 'Mal', 1: 'Muy mal' };
+
+    async function getPrimeraCondicion() {
+        try {
+            const r = await fetch('/api/EstadoAnimoUsuario/condiciones-usuario', { cache: 'no-store' });
+            if (!r.ok) return null;
+            const data = await r.json();
+            return Array.isArray(data) && data.length > 0 ? data[0].id : null;
+        } catch { return null; }
+    }
+
+    async function guardarMood(moodNum) {
+        const feedback = document.getElementById('ha-feedback');
+        const btns = document.querySelectorAll('.ha__mood-btn');
+
+        btns.forEach(b => { b.disabled = true; b.style.opacity = '0.6'; });
+        feedback.style.display = 'block';
+        feedback.style.color = '#764ba2';
+        feedback.textContent = 'Guardando…';
+
+        const condicionId = await getPrimeraCondicion();
+
+        const form = new FormData();
+        form.append('mood', String(moodNum));
+        if (condicionId) form.append('condicionUsuarioId', String(condicionId));
+
+        try {
+            const r = await fetch('/api/EstadoAnimoUsuario/nuevo', { method: 'POST', body: form });
+            if (r.ok) {
+                const label = moodLabels[moodNum] || moodNum;
+                feedback.style.color = '#059669';
+                feedback.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> ¡Registrado como <strong>${label}</strong>!`;
+                // Marcar el botón seleccionado
+                btns.forEach(b => {
+                    b.style.opacity = '1';
+                    if (parseInt(b.dataset.mood) === moodNum) {
+                        b.style.borderColor = '#764ba2';
+                        b.style.background = '#f9f5ff';
+                    }
+                });
+                // Disparar evento por si el modal lo escucha
+                window.dispatchEvent(new CustomEvent('mood:added'));
+            } else {
+                throw new Error('Error al guardar');
+            }
+        } catch {
+            feedback.style.color = '#dc2626';
+            feedback.textContent = 'No se pudo guardar. Intenta de nuevo.';
+            btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+        }
+    }
+
+    document.querySelectorAll('.ha__mood-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const mood = parseInt(this.dataset.mood);
+            if (!isNaN(mood)) guardarMood(mood);
+        });
+    });
+})();
+</script>
+}

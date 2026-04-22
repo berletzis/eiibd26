@@ -72,85 +72,98 @@ namespace eiibd26.Pages.u
                 }
 
                 // Cargar últimas 3 condiciones
-                var condiciones = await _db.condicionUsuario
-                    .AsNoTracking()
-                    .Where(c => c.idUsuario == perfil.idUser && !c.Eliminado)
-                    .Include(c => c.Condicion)
-                    .OrderByDescending(c => c.fechaCreado)
-                    .Take(3)
-                    .Select(c => new InfoClinicaVm
-                    {
-                        Nombre = c.Condicion.nombre ?? "Sin nombre",
-                        Icono = c.Condicion.icono,
-                        FechaInicio = c.fechaInicio,
-                        EdadDiagnostico = null // computed below once we have perfil.FechaDeNacimiento
-                    })
-                    .ToListAsync();
+                // V-003: Only load and expose medical data when the user explicitly opted in.
+                var comparteDatosMedicos = perfil.PermitirCompartirDatosMedicos == true;
+
+                var condiciones = comparteDatosMedicos
+                    ? await _db.condicionUsuario
+                        .AsNoTracking()
+                        .Where(c => c.idUsuario == perfil.idUser && !c.Eliminado)
+                        .Include(c => c.Condicion)
+                        .OrderByDescending(c => c.fechaCreado)
+                        .Take(3)
+                        .Select(c => new InfoClinicaVm
+                        {
+                            Nombre = c.Condicion.nombre ?? "Sin nombre",
+                            Icono = c.Condicion.icono,
+                            FechaInicio = c.fechaInicio,
+                            EdadDiagnostico = null // computed below once we have perfil.FechaDeNacimiento
+                        })
+                        .ToListAsync()
+                    : new List<InfoClinicaVm>();
 
                 // Cargar últimos 3 síntomas (ya no se mostrarán en grid, solo para badge principal)
-                var sintomas = await _db.sintomasUsuario
-                    .AsNoTracking()
-                    .Where(s => s.idUsuario == perfil.idUser && !s.Eliminado)
-                    .Include(s => s.Sintoma)
-                    .OrderByDescending(s => s.fechaCreado)
-                    .Take(3)
-                    .Select(s => new InfoClinicaVm
-                    {
-                        Nombre = s.Sintoma.nombre ?? "Sin nombre",
-                        Icono = s.Sintoma.icono,
-                        FechaInicio = s.fechaInicio
-                    })
-                    .ToListAsync();
+                var sintomas = comparteDatosMedicos
+                    ? await _db.sintomasUsuario
+                        .AsNoTracking()
+                        .Where(s => s.idUsuario == perfil.idUser && !s.Eliminado)
+                        .Include(s => s.Sintoma)
+                        .OrderByDescending(s => s.fechaCreado)
+                        .Take(3)
+                        .Select(s => new InfoClinicaVm
+                        {
+                            Nombre = s.Sintoma.nombre ?? "Sin nombre",
+                            Icono = s.Sintoma.icono,
+                            FechaInicio = s.fechaInicio
+                        })
+                        .ToListAsync()
+                    : new List<InfoClinicaVm>();
 
                 // Cargar últimos 3 tratamientos
-                var tratamientos = await _db.tratamientoUsuario
-                    .AsNoTracking()
-                    .Where(t => t.idUsuario == perfil.idUser && !t.Eliminado)
-                    .Include(t => t.Tratamiento)
-                    .OrderByDescending(t => t.fechaCreado)
-                    .Take(3)
-                    .Select(t => new InfoClinicaVm
-                    {
-                        Nombre = t.Tratamiento.nombre ?? "Sin nombre",
-                        Icono = t.Tratamiento.icono,
-                        FechaInicio = t.fechaInicio
-                    })
-                    .ToListAsync();
+                var tratamientos = comparteDatosMedicos
+                    ? await _db.tratamientoUsuario
+                        .AsNoTracking()
+                        .Where(t => t.idUsuario == perfil.idUser && !t.Eliminado)
+                        .Include(t => t.Tratamiento)
+                        .OrderByDescending(t => t.fechaCreado)
+                        .Take(3)
+                        .Select(t => new InfoClinicaVm
+                        {
+                            Nombre = t.Tratamiento.nombre ?? "Sin nombre",
+                            Icono = t.Tratamiento.icono,
+                            FechaInicio = t.fechaInicio
+                        })
+                        .ToListAsync()
+                    : new List<InfoClinicaVm>();
 
                 // ✅ NUEVO: Cargar TOP 10 Tracking de Síntomas
-                var trackingSintomas = await _db.TrackingSintomaUsuario
-                    .AsNoTracking()
-                    .Where(t => t.IdUsuario == perfil.idUser)
-                    .Include(t => t.SintomaUsuario).ThenInclude(s => s.Sintoma)
-                    .OrderByDescending(t => t.Fecha)
-                    .Take(10)
-                    .Select(t => new TrackingSintomaVm
-                    {
-                        SintomaNombre = t.SintomaUsuario.Sintoma.nombre ?? "Sin nombre",
-                        Estado = t.Estado,
-                        Fecha = t.Fecha
-                    })
-                    .ToListAsync();
+                var trackingSintomas = comparteDatosMedicos
+                    ? await _db.TrackingSintomaUsuario
+                        .AsNoTracking()
+                        .Where(t => t.IdUsuario == perfil.idUser)
+                        .Include(t => t.SintomaUsuario).ThenInclude(s => s.Sintoma)
+                        .OrderByDescending(t => t.Fecha)
+                        .Take(10)
+                        .Select(t => new TrackingSintomaVm
+                        {
+                            SintomaNombre = t.SintomaUsuario.Sintoma.nombre ?? "Sin nombre",
+                            Estado = t.Estado,
+                            Fecha = t.Fecha
+                        })
+                        .ToListAsync()
+                    : new List<TrackingSintomaVm>();
 
                 // Cargar TOP 10 estados de ánimo
-                var estadosAnimo = await _db.EstadoAnimoUsuario
-                    .AsNoTracking()
-                    .Where(e => e.IdUsuario == perfil.idUser && !e.Eliminado)
-                    .Include(e => e.CondicionUsuario).ThenInclude(c => c.Condicion)
-                    .Include(e => e.SintomaUsuario).ThenInclude(s => s.Sintoma)
-                    .Include(e => e.TratamientoUsuario).ThenInclude(t => t.Tratamiento)
-                    .OrderByDescending(e => e.FechaRegistro)
-                    .Take(10)
-                    .Select(e => new EstadoAnimoVm
-                    {
-                        Estado = (int)e.EstadoMood,
-                        Texto = e.Texto,
-                        FechaRegistro = e.FechaRegistro,
-                        CondicionNombre = e.CondicionUsuario != null ? e.CondicionUsuario.Condicion.nombre : null,
-                        SintomaNombre = e.SintomaUsuario != null ? e.SintomaUsuario.Sintoma.nombre : null,
-                        TratamientoNombre = e.TratamientoUsuario != null ? e.TratamientoUsuario.Tratamiento.nombre : null
-                    })
-                    .ToListAsync();
+                var estadosAnimo = comparteDatosMedicos
+                    ? await _db.EstadoAnimoUsuario
+                        .AsNoTracking()
+                        .Where(e => e.IdUsuario == perfil.idUser && !e.Eliminado)
+                        .Include(e => e.CondicionUsuario).ThenInclude(c => c.Condicion)
+                        .Include(e => e.SintomaUsuario).ThenInclude(s => s.Sintoma)
+                        .Include(e => e.TratamientoUsuario).ThenInclude(t => t.Tratamiento)
+                        .OrderByDescending(e => e.FechaRegistro)
+                        .Take(10)
+                        .Select(e => new EstadoAnimoVm
+                        {
+                            Estado = (int)e.EstadoMood,
+                            Texto = e.Texto,
+                            FechaRegistro = e.FechaRegistro,
+                            CondicionNombre = e.CondicionUsuario != null ? e.CondicionUsuario.Condicion.nombre : null,
+                            SintomaNombre = e.SintomaUsuario != null ? e.SintomaUsuario.Sintoma.nombre : null,
+                            TratamientoNombre = e.TratamientoUsuario != null ? e.TratamientoUsuario.Tratamiento.nombre : null
+                        })
+                        .ToListAsync()
+                    : new List<EstadoAnimoVm>();
 
                 PerfilPublico = new PerfilPublicoVm
                 {
@@ -165,6 +178,7 @@ namespace eiibd26.Pages.u
                     EdadAproximada = CalcularEdad(perfil.FechaDeNacimiento),
                     UbicacionTexto = perfil.PermitirMostrarPais == true ? ObtenerUbicacion(perfil) : null,
                     MostrarUbicacion = perfil.PermitirMostrarPais == true,
+                    MostrarDatosMedicos = comparteDatosMedicos,
                     FechaRegistro = fechaRegistro,
                     Condiciones = condiciones,
                     Sintomas = sintomas, // Ya no se usa en el grid
@@ -256,6 +270,7 @@ namespace eiibd26.Pages.u
         public string UbicacionTexto { get; set; }
         public bool MostrarUbicacion { get; set; }
         public DateTime FechaRegistro { get; set; }
+        public bool MostrarDatosMedicos { get; set; }
 
         // Información clínica
         public List<InfoClinicaVm> Condiciones { get; set; } = new List<InfoClinicaVm>();

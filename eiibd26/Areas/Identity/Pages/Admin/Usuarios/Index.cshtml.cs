@@ -14,7 +14,6 @@ using eiibd26.Services;
 namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios // <-- namespace corregido si usas Areas
 {
     [Authorize(Roles = "Administrador")]
-    [IgnoreAntiforgeryToken]
     public class UsuariosIndexModel : PageModel
     {
         private readonly UserManager<ApplicationUser> _userManager;
@@ -421,7 +420,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios // <-- namespace corregido
         }
 
         // ⭐ NUEVO: Obtener condiciones padre para filtro
-        [IgnoreAntiforgeryToken]
         [Authorize(Roles = "Administrador")]
         public async Task<IActionResult> OnGetCondicionesPadreAsync()
         {
@@ -435,7 +433,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios // <-- namespace corregido
         }
 
         // ⭐ NUEVO: Obtener países para filtro
-        [IgnoreAntiforgeryToken]
         [Authorize(Roles = "Administrador")]
         public async Task<IActionResult> OnGetPaisesAsync()
         {
@@ -450,7 +447,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios // <-- namespace corregido
         }
 
         // ⭐ NUEVO: Obtener estadísticas basadas en SCORING de perfiles (igual que Mapa)
-        [IgnoreAntiforgeryToken]
         [Authorize(Roles = "Administrador")]
         public async Task<IActionResult> OnGetEstadisticasAsync()
         {

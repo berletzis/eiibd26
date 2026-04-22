@@ -8,7 +8,6 @@ using System;
 namespace eiibd26.Areas.Identity.Pages.Admin.Condiciones
 {
     //[Authorize(Roles = "Administrador")]
-    [IgnoreAntiforgeryToken] // Apply here to the PageModel, not to handler methods
     public class IndexModel : PageModel
     {
 

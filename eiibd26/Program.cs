@@ -320,8 +320,8 @@ eiibd26.Security.SecretsValidator.ValidateOrThrow(
     app.Environment,
     app.Services.GetRequiredService<ILogger<Program>>());
 
-// Diagnostic middleware: on local requests or when query `showException=1` is present,
-// return exception details in the response to aid debugging without enabling global Development env.
+// Diagnostic middleware: logs unhandled exceptions with a RequestId for tracing.
+// Stack traces are never written to the HTTP response.
 app.Use(async (context, next) =>
 {
     try
@@ -333,24 +333,6 @@ app.Use(async (context, next) =>
         var logger = context.RequestServices.GetService(typeof(ILogger<Program>)) as ILogger;
         var requestId = Activity.Current?.Id ?? context.TraceIdentifier;
         try { logger?.LogError(ex, "Unhandled exception (RequestId={RequestId})", requestId); } catch { }
-
-        bool isLocal = false;
-        try
-        {
-            var ip = context.Connection.RemoteIpAddress;
-            if (ip != null && (IPAddress.IsLoopback(ip) || ip.ToString() == "::1")) isLocal = true;
-        }
-        catch { }
-
-        if (isLocal || (context.Request.Query.TryGetValue("showException", out var v) && v == "1") || context.Request.Headers["X-Debug"] == "1")
-        {
-            context.Response.StatusCode = 500;
-            context.Response.ContentType = "text/plain; charset=utf-8";
-            await context.Response.WriteAsync($"RequestId: {requestId}\n\n{ex}");
-            return;
-        }
-
-        // rethrow to let existing exception handler middleware process it in production
         throw;
     }
 });

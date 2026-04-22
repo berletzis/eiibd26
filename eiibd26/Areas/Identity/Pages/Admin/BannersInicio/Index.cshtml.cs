@@ -13,7 +13,6 @@ using Microsoft.Extensions.Logging;
 namespace eiibd26.Areas.Identity.Pages.Admin.BannersInicio
 {
     [Authorize(Roles = "Administrador")]
-    [IgnoreAntiforgeryToken]
     public class IndexModel : PageModel
     {
         private readonly ApplicationDbContext _db;

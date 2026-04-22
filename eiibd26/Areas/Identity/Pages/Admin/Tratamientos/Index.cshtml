@@ -593,6 +593,7 @@
 </div>
 
 @section Scripts {
+    <div style="display:none">@Html.AntiForgeryToken()</div>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
@@ -664,6 +665,14 @@
         }
 
         $(function () {
+            $.ajaxSetup({
+                beforeSend: function(xhr, settings) {
+                    if (settings.type === 'POST' || settings.type === 'PUT' || settings.type === 'DELETE') {
+                        xhr.setRequestHeader('RequestVerificationToken',
+                            $('input[name="__RequestVerificationToken"]').val());
+                    }
+                }
+            });
             tratamientosTabla = $('#tratamientosGrid').DataTable({
                 processing: true,
                 serverSide: true,
