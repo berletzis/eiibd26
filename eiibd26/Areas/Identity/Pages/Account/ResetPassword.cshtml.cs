@@ -107,7 +107,7 @@ namespace eiibd26.Areas.Identity.Pages.Account
             {
                 _logger.LogWarning("⚠️ [ResetPassword] Usuario no encontrado: {Email}", Input.Email);
                 // Don't reveal that the user does not exist
-                return RedirectToPage("./ResetPasswordConfirmation");
+                return RedirectToPage("/Usuario/Dashboard", new { area = "Identity" });
             }
 
             try
@@ -131,7 +131,7 @@ namespace eiibd26.Areas.Identity.Pages.Account
                 if (result.Succeeded)
                 {
                     _logger.LogInformation("✅ [ResetPassword] Contraseña reseteada exitosamente para: {Email}", Input.Email);
-                    return RedirectToPage("./ResetPasswordConfirmation");
+                    return RedirectToPage("/Usuario/Dashboard", new { area = "Identity" });
                 }
 
                 foreach (var error in result.Errors)

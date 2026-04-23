@@ -5,13 +5,16 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using eiibd26.Models;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Text;
 using Microsoft.AspNetCore.WebUtilities;
 using eiibd26.Services;
+using Microsoft.Extensions.Configuration;
 
-namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios // <-- namespace corregido si usas Areas
+namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios
 {
     [Authorize(Roles = "Administrador")]
     public class UsuariosIndexModel : PageModel
@@ -20,13 +23,15 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios // <-- namespace corregido
         private readonly ApplicationDbContext _db;
         private readonly ILogger<UsuariosIndexModel> _logger;
         private readonly SendGridEmailSender _emailSender;
+        private readonly IConfiguration _configuration;
 
-        public UsuariosIndexModel(UserManager<ApplicationUser> userManager, ApplicationDbContext db, ILogger<UsuariosIndexModel> logger, SendGridEmailSender emailSender)
+        public UsuariosIndexModel(UserManager<ApplicationUser> userManager, ApplicationDbContext db, ILogger<UsuariosIndexModel> logger, SendGridEmailSender emailSender, IConfiguration configuration)
         {
             _userManager = userManager;
             _db = db;
             _logger = logger;
             _emailSender = emailSender;
+            _configuration = configuration;
         }
 
         public void OnGet() { }
@@ -69,16 +74,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios // <-- namespace corregido
                 usersQuery = usersQuery.Where(u => u.Email.Contains(searchValue) || u.UserName.Contains(searchValue));
             }
 
-            // ⭐ NUEVO: Aplicar filtros personalizados
-            if (!string.IsNullOrWhiteSpace(filterHash))
-            {
-                bool hashValid = filterHash == "true";
-                usersQuery = usersQuery.Where(u => 
-                    (hashValid && u.PasswordHash != null && u.PasswordHash.Length >= 50 && u.PasswordHash.StartsWith("AQAAAA")) ||
-                    (!hashValid && (u.PasswordHash == null || u.PasswordHash.Length < 50 || !u.PasswordHash.StartsWith("AQAAAA")))
-                );
-            }
-
+            // Aplicar filtros personalizados
             if (!string.IsNullOrWhiteSpace(filterLockout))
             {
                 bool isLocked = filterLockout == "true";
@@ -243,7 +239,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios // <-- namespace corregido
                                 avatar = perfil != null ? perfil.Avatar : null,
                                 fechaRegistro = perfil != null ? perfil.FechaCreacion : (DateTime?)null,
                                 pais = perfil != null ? perfil.NombrePais : null,
-                                hashIsValid = u.PasswordHash != null && u.PasswordHash.Length >= 50 && u.PasswordHash.StartsWith("AQAAAA"),
+                                hashIsValid = true,
                                 isLockedOut = u.LockoutEnd.HasValue && u.LockoutEnd.Value > DateTimeOffset.UtcNow
                             };
 
@@ -351,13 +347,24 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios // <-- namespace corregido
                     }
                 }
 
+                // Normalizar avatar: URL absoluta → tal cual; ruta relativa sin / → prefijo uploads; vacío/default → null
+                string avatarUrl = null;
+                if (!string.IsNullOrWhiteSpace(u.avatar))
+                {
+                    var av = u.avatar.Trim();
+                    if (av.StartsWith("http://") || av.StartsWith("https://") || av.StartsWith("/"))
+                        avatarUrl = av;
+                    else if (!av.Equals("sinPerfil.png", StringComparison.OrdinalIgnoreCase))
+                        avatarUrl = "/uploads/avatars/" + av;
+                }
+
                 return new
                 {
                     u.id,
                     u.email,
                     u.userName,
                     u.nombre,
-                    u.avatar,
+                    avatar = avatarUrl,
                     u.fechaRegistro,
                     condicion = nombreCondicion,
                     u.pais,
@@ -374,12 +381,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios // <-- namespace corregido
                 data = paged
             });
         }
-
-        // Ya no se usa IsHashValid, pero lo dejo si lo necesitas en el futuro.
-        private static bool IsHashValid(string hash) =>
-            !string.IsNullOrEmpty(hash)
-            && hash.Length >= 50
-            && hash.StartsWith("AQAAAA");
 
         public async Task<IActionResult> OnPostFillMissingSlugsAsync()
         {
@@ -547,7 +548,18 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios // <-- namespace corregido
             }
         }
 
-        public record EnviarCorreoInput(string UserId);
+        public record EnviarCorreoInput(string UserId, string TemplateId);
+
+        /// <summary>
+        /// Returns the list of SendGrid templates configured in appsettings (SendGrid:Templates).
+        /// </summary>
+        public IActionResult OnGetTemplatesCorreo()
+        {
+            var templates = _configuration.GetSection("SendGrid:Templates")
+                .Get<List<SendGridTemplateInfo>>()
+                ?? new List<SendGridTemplateInfo>();
+            return new JsonResult(templates);
+        }
 
         /// <summary>
         /// Sends a password reset email to the user using the SendGrid Dynamic Template.
@@ -619,9 +631,12 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios // <-- namespace corregido
                 reset_link = resetLink
             };
 
+            const string defaultTemplateId = "d-3304c970e0164cbdaa14bfeff2369920";
+            var selectedTemplateId = !string.IsNullOrWhiteSpace(input.TemplateId) ? input.TemplateId : defaultTemplateId;
+
             await _emailSender.SendDynamicTemplateAsync(
                 user.Email,
-                templateId: "d-3304c970e0164cbdaa14bfeff2369920",
+                templateId: selectedTemplateId,
                 templateData: templateData,
                 categories: new[] { "EIIBD" });
 
@@ -629,5 +644,243 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios // <-- namespace corregido
 
             return new JsonResult(new { success = true });
         }
+
+        // ──────────────────────────────────────────────────────────────────────
+        // CAMPAÑA POR FASES
+        // ──────────────────────────────────────────────────────────────────────
+
+        public record CampanaEnviarPruebaInput(string Email, string TemplateId);
+
+        /// <summary>
+        /// Envía un correo de prueba con el template seleccionado al correo especificado.
+        /// No registra en EmailCampanaLog ni afecta los contadores de elegibilidad.
+        /// </summary>
+        [IgnoreAntiforgeryToken]
+        public async Task<IActionResult> OnPostCampanaEnviarPruebaAsync([FromBody] CampanaEnviarPruebaInput input)
+        {
+            if (input is null || string.IsNullOrWhiteSpace(input.Email))
+                return new JsonResult(new { success = false, error = "Correo requerido." }) { StatusCode = 400 };
+
+            if (string.IsNullOrWhiteSpace(input.TemplateId) || input.TemplateId.Contains("AQUI"))
+                return new JsonResult(new { success = false, error = "Selecciona un template válido." }) { StatusCode = 400 };
+
+            var templates = _configuration.GetSection("SendGrid:Templates").Get<List<SendGridTemplateInfo>>() ?? new();
+            var template = templates.FirstOrDefault(t => t.Id == input.TemplateId);
+            if (template is null)
+                return new JsonResult(new { success = false, error = "Template no encontrado en configuración." }) { StatusCode = 400 };
+
+            try
+            {
+                var templateData = new
+                {
+                    nombre = "Usuario de prueba",
+                    correo = input.Email,
+                    reset_link = Url.Page("/Account/ResetPassword", pageHandler: null,
+                        values: new { area = "Identity", code = "TEST", email = input.Email },
+                        protocol: Request.Scheme),
+                    fase = template.Fase
+                };
+
+                await _emailSender.SendDynamicTemplateAsync(
+                    input.Email,
+                    templateId: template.Id,
+                    templateData: templateData,
+                    categories: new[] { "EIIBD", "Prueba" });
+
+                _logger.LogInformation("Correo de prueba template '{Template}' enviado a {Email}.", template.Nombre, input.Email);
+                return new JsonResult(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error enviando correo de prueba template '{Template}' a {Email}.", template.Nombre, input.Email);
+                return new JsonResult(new { success = false, error = ex.Message }) { StatusCode = 500 };
+            }
+        }
+
+        /// <summary>
+        /// Resumen de cuántos usuarios están en cada fase de la campaña.
+        /// </summary>
+        public async Task<IActionResult> OnGetCampanaResumenAsync()
+        {
+            var totalUsuarios = await _userManager.Users.CountAsync();
+
+            // IDs de usuarios que ya recibieron exitosamente cada fase
+            var conFase1 = await _db.EmailCampanaLogs
+                .Where(l => l.Fase == 1 && l.Exito)
+                .Select(l => l.UserId)
+                .Distinct()
+                .CountAsync();
+
+            var conFase2 = await _db.EmailCampanaLogs
+                .Where(l => l.Fase == 2 && l.Exito)
+                .Select(l => l.UserId)
+                .Distinct()
+                .CountAsync();
+
+            var conFase3 = await _db.EmailCampanaLogs
+                .Where(l => l.Fase == 3 && l.Exito)
+                .Select(l => l.UserId)
+                .Distinct()
+                .CountAsync();
+
+            // Elegibles por fase
+            var elegiblesFase1 = totalUsuarios - conFase1;
+            var elegiblesFase2 = conFase1 - conFase2;
+            var elegiblesFase3 = conFase2 - conFase3;
+
+            return new JsonResult(new
+            {
+                totalUsuarios,
+                conFase1,
+                conFase2,
+                conFase3,
+                elegiblesFase1 = Math.Max(0, elegiblesFase1),
+                elegiblesFase2 = Math.Max(0, elegiblesFase2),
+                elegiblesFase3 = Math.Max(0, elegiblesFase3),
+                completados = conFase3
+            });
+        }
+
+        public record CampanaEnviarInput(int Fase);
+
+        /// <summary>
+        /// Envía un batch de hasta 10 correos a usuarios elegibles de la fase indicada.
+        /// Registra cada intento en EmailCampanaLog. Devuelve resultados individuales.
+        /// </summary>
+        [IgnoreAntiforgeryToken]
+        public async Task<IActionResult> OnPostCampanaEnviarBatchAsync([FromBody] CampanaEnviarInput input)
+        {
+            if (input is null || input.Fase < 1 || input.Fase > 3)
+                return new JsonResult(new { success = false, error = "Fase inválida. Debe ser 1, 2 o 3." }) { StatusCode = 400 };
+
+            // Obtener template de la fase
+            var templates = _configuration.GetSection("SendGrid:Templates").Get<List<SendGridTemplateInfo>>() ?? new();
+            var template = templates.FirstOrDefault(t => t.Fase == input.Fase);
+            if (template is null || string.IsNullOrWhiteSpace(template.Id) || template.Id.Contains("AQUI"))
+                return new JsonResult(new { success = false, error = $"No hay template configurado para la fase {input.Fase}. Actualiza appsettings.json con el ID real de SendGrid." }) { StatusCode = 400 };
+
+            // Calcular elegibles según la fase
+            // Fase 1: no tienen registro exitoso en fase 1
+            // Fase 2: tienen fase 1 exitosa, no tienen fase 2 exitosa
+            // Fase 3: tienen fase 2 exitosa, no tienen fase 3 exitosa
+            var usuariosConFaseAnterior = input.Fase == 1
+                ? new HashSet<Guid>(_userManager.Users.Select(u => u.Id))   // todos son candidatos
+                : await _db.EmailCampanaLogs
+                    .Where(l => l.Fase == (input.Fase - 1) && l.Exito)
+                    .Select(l => l.UserId)
+                    .ToListAsync()
+                    .ContinueWith(t => new HashSet<Guid>(t.Result));
+
+            var yaRecibieronEstaFase = await _db.EmailCampanaLogs
+                .Where(l => l.Fase == input.Fase && l.Exito)
+                .Select(l => l.UserId)
+                .ToListAsync()
+                .ContinueWith(t => new HashSet<Guid>(t.Result));
+
+            IQueryable<ApplicationUser> elegiblesQuery;
+            if (input.Fase == 1)
+            {
+                // Todos los usuarios que NO recibieron fase 1
+                var sinFase1 = await _db.EmailCampanaLogs
+                    .Where(l => l.Fase == 1 && l.Exito)
+                    .Select(l => l.UserId)
+                    .ToListAsync();
+                var sinFase1Set = new HashSet<Guid>(sinFase1);
+                elegiblesQuery = _userManager.Users.Where(u => !sinFase1Set.Contains(u.Id));
+            }
+            else
+            {
+                elegiblesQuery = _userManager.Users
+                    .Where(u => usuariosConFaseAnterior.Contains(u.Id) && !yaRecibieronEstaFase.Contains(u.Id));
+            }
+
+            var elegibles = await elegiblesQuery
+                .OrderBy(u => u.Email)
+                .Take(10)
+                .Select(u => new { u.Id, u.Email, u.UserName })
+                .ToListAsync();
+
+            if (elegibles.Count == 0)
+                return new JsonResult(new { success = true, procesados = 0, resultados = Array.Empty<object>(), mensaje = "No hay usuarios elegibles para esta fase." });
+
+            var resultados = new List<object>();
+
+            foreach (var u in elegibles)
+            {
+                var log = new EmailCampanaLog
+                {
+                    UserId = u.Id,
+                    Fase = input.Fase,
+                    TemplateId = template.Id,
+                    FechaEnvio = DateTime.UtcNow,
+                    Exito = false
+                };
+
+                try
+                {
+                    // Generar token de reset para incluir en el email si aplica
+                    var user = await _userManager.FindByIdAsync(u.Id.ToString());
+                    var perfil = await _db.Perfil.AsNoTracking().FirstOrDefaultAsync(p => p.idUser == u.Id);
+
+                    var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+                    var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+                    var resetLink = Url.Page(
+                        "/Account/ResetPassword",
+                        pageHandler: null,
+                        values: new { area = "Identity", code = encodedToken, email = u.Email },
+                        protocol: Request.Scheme);
+
+                    var templateData = new
+                    {
+                        nombre = perfil?.Nombre ?? u.UserName,
+                        correo = u.Email,
+                        reset_link = resetLink,
+                        fase = input.Fase
+                    };
+
+                    await _emailSender.SendDynamicTemplateAsync(
+                        u.Email,
+                        templateId: template.Id,
+                        templateData: templateData,
+                        categories: new[] { "EIIBD", $"Campana-Fase{input.Fase}" });
+
+                    log.Exito = true;
+                    resultados.Add(new { email = u.Email, exito = true, error = (string)null });
+                }
+                catch (Exception ex)
+                {
+                    log.Error = ex.Message.Length > 500 ? ex.Message[..500] : ex.Message;
+                    resultados.Add(new { email = u.Email, exito = false, error = log.Error });
+                    _logger.LogError(ex, "Error enviando campaña fase {Fase} a {Email}", input.Fase, u.Email);
+                }
+                finally
+                {
+                    _db.EmailCampanaLogs.Add(log);
+                }
+            }
+
+            await _db.SaveChangesAsync();
+
+            var exitosos = resultados.Count(r => (bool)r.GetType().GetProperty("exito").GetValue(r));
+            _logger.LogInformation("Campaña fase {Fase}: {Exitosos}/{Total} enviados exitosamente.", input.Fase, exitosos, resultados.Count);
+
+            return new JsonResult(new
+            {
+                success = true,
+                procesados = resultados.Count,
+                exitosos,
+                fallidos = resultados.Count - exitosos,
+                resultados
+            });
+        }
+    }
+
+    public sealed record SendGridTemplateInfo
+    {
+        public string Id { get; init; } = string.Empty;
+        public string Nombre { get; init; } = string.Empty;
+        public string Descripcion { get; init; } = string.Empty;
+        /// <summary>0 = uso general, 1-3 = fase de campaña</summary>
+        public int Fase { get; init; }
     }
 }

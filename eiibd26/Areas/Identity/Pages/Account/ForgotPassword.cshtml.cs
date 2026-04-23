@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+ï»¿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 #nullable disable
 
@@ -56,10 +56,10 @@ namespace eiibd26.Areas.Identity.Pages.Account
             if (ModelState.IsValid)
             {
                 var user = await _userManager.FindByEmailAsync(Input.Email);
-                if (user == null || !(await _userManager.IsEmailConfirmedAsync(user)))
+                if (user == null)
                 {
-                    // Don't reveal that the user does not exist or is not confirmed
-                    return RedirectToPage("./ForgotPasswordConfirmation");
+                    // Don't reveal that the user does not exist
+                    return RedirectToPage("/Usuario/Dashboard", new { area = "Identity" });
                 }
 
                 // For more information on how to enable account confirmation and password reset please
@@ -69,7 +69,7 @@ namespace eiibd26.Areas.Identity.Pages.Account
                 var callbackUrl = Url.Page(
                     "/Account/ResetPassword",
                     pageHandler: null,
-                    values: new { area = "Identity", code },
+                    values: new { area = "Identity", code, email = Input.Email },
                     protocol: Request.Scheme);
 
                 // HTML email template profesional
@@ -87,26 +87,26 @@ namespace eiibd26.Areas.Identity.Pages.Account
                 <table width=""600"" cellpadding=""0"" cellspacing=""0"" style=""background-color: #ffffff; border-radius: 12px; box-shadow: 0 2px 16px rgba(0,0,0,0.1);"">
                     <tr>
                         <td style=""background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 12px 12px 0 0;"">
-                            <h1 style=""color: #ffffff; margin: 0; font-size: 28px;"">?? EIIBD</h1>
+                            <h1 style=""color: #ffffff; margin: 0; font-size: 28px;"">EIIBD</h1>
                             <p style=""color: #ffffff; margin: 10px 0 0 0; font-size: 16px;"">Comunidad EII</p>
                         </td>
                     </tr>
                     <tr>
                         <td style=""padding: 40px 30px;"">
-                            <h2 style=""color: #14253f; margin: 0 0 20px 0; font-size: 24px;"">Recuperación de Contraseña</h2>
+                            <h2 style=""color: #14253f; margin: 0 0 20px 0; font-size: 24px;"">RecuperaciÃ³n de ContraseÃ±a</h2>
                             <p style=""color: #555; line-height: 1.6; margin: 0 0 20px 0; font-size: 16px;"">Hola,</p>
                             <p style=""color: #555; line-height: 1.6; margin: 0 0 20px 0; font-size: 16px;"">
-                                Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en EIIBD.
+                                Hemos recibido una solicitud para restablecer la contraseÃ±a de tu cuenta en EIIBD.
                             </p>
                             <p style=""color: #555; line-height: 1.6; margin: 0 0 30px 0; font-size: 16px;"">
-                                Para establecer una nueva contraseña, haz clic en el siguiente botón:
+                                Para establecer una nueva contraseÃ±a, haz clic en el siguiente botÃ³n:
                             </p>
                             <table width=""100%"" cellpadding=""0"" cellspacing=""0"">
                                 <tr>
                                     <td align=""center"" style=""padding: 0 0 30px 0;"">
                                         <a href=""{HtmlEncoder.Default.Encode(callbackUrl)}"" 
                                            style=""display: inline-block; padding: 16px 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;"">
-                                            Restablecer Contraseña
+                                            Restablecer ContraseÃ±a
                                         </a>
                                     </td>
                                 </tr>
@@ -122,9 +122,9 @@ namespace eiibd26.Areas.Identity.Pages.Account
                                     ?? <strong>Importante:</strong>
                                 </p>
                                 <ul style=""color: #888; line-height: 1.8; margin: 0; font-size: 13px; padding-left: 20px;"">
-                                    <li>Este enlace expirará en 24 horas</li>
+                                    <li>Este enlace expirarÃ¡ en 24 horas</li>
                                     <li>Si no solicitaste este cambio, ignora este correo</li>
-                                    <li>Tu contraseña actual seguirá válida hasta que la cambies</li>
+                                    <li>Tu contraseÃ±a actual seguirÃ¡ vÃ¡lida hasta que la cambies</li>
                                 </ul>
                             </div>
                         </td>
@@ -132,10 +132,10 @@ namespace eiibd26.Areas.Identity.Pages.Account
                     <tr>
                         <td style=""background-color: #f5f7fb; padding: 30px; text-align: center; border-radius: 0 0 12px 12px;"">
                             <p style=""color: #888; margin: 0 0 10px 0; font-size: 13px;"">
-                                ¿Necesitas ayuda? Responde este correo
+                                Â¿Necesitas ayuda? Responde este correo
                             </p>
                             <p style=""color: #aaa; margin: 0; font-size: 12px;"">
-                                © 2024 EIIBD - Comunidad de apoyo para pacientes con EII
+                                Â© 2024 EIIBD - Comunidad de apoyo para pacientes con EII
                             </p>
                         </td>
                     </tr>
@@ -148,10 +148,10 @@ namespace eiibd26.Areas.Identity.Pages.Account
 
                 await _emailSender.SendEmailAsync(
                     Input.Email,
-                    "?? Restablece tu contraseña - EIIBD",
+                    "Restablece tu contraseÃ±a - EIIBD",
                     emailBody);
 
-                return RedirectToPage("./ForgotPasswordConfirmation");
+                return RedirectToPage("/Usuario/Dashboard", new { area = "Identity" });
             }
 
             return Page();

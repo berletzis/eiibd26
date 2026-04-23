@@ -1,4 +1,4 @@
-using eiibd26.Models;
+Ôªøusing eiibd26.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
@@ -98,7 +98,7 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             EmailConfirmed = await _userManager.IsEmailConfirmedAsync(user);
             if (EmailConfirmed)
             {
-                StatusMessage = "Tu correo ya est· confirmado. No es necesario reenviar el correo.";
+                StatusMessage = "Tu correo ya est√° confirmado. No es necesario reenviar el correo.";
                 return RedirectToPage();
             }
 
@@ -126,7 +126,7 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                 {
                     IsRateLimited = true;
                     RateLimitRemainingSeconds = (int)Math.Ceiling((expiresAt - now).TotalSeconds);
-                    ModelState.AddModelError(string.Empty, $"Has solicitado un reenvÌo recientemente. Intenta de nuevo en {RateLimitRemainingSeconds} segundos.");
+                    ModelState.AddModelError(string.Empty, $"Has solicitado un reenv√≠o recientemente. Intenta de nuevo en {RateLimitRemainingSeconds} segundos.");
                     return Page();
                 }
                 else
@@ -149,8 +149,8 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                     protocol: Request.Scheme);
 
                 // Send email (the IEmailSender implementation is used)
-                var emailBody = $"Por favor confirma tu correo haciendo clic <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>aquÌ</a>.";
-                await _emailSender.SendEmailAsync(user.Email, "ConfirmaciÛn de correo", emailBody);
+                var emailBody = $"<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body>Por favor confirma tu correo haciendo <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clic aqu√≠</a>.</body></html>";
+                await _emailSender.SendEmailAsync(user.Email, "Confirmaci√≥n de correo", emailBody);
 
                 // Set rate-limit marker in cache
                 var expiration = DateTimeOffset.UtcNow.AddSeconds(RateLimitSeconds);
@@ -159,15 +159,15 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                     AbsoluteExpiration = expiration
                 });
 
-                _logger.LogInformation("Se reenviar· correo de confirmaciÛn a user {UserId}", user.Id);
+                _logger.LogInformation("Se reenviar√° correo de confirmaci√≥n a user {UserId}", user.Id);
 
-                StatusMessage = "Se ha enviado un correo de confirmaciÛn. Revisa tu bandeja de entrada.";
+                StatusMessage = "Se ha enviado un correo de confirmaci√≥n. Revisa tu bandeja de entrada.";
                 return RedirectToPage();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error al reenviar correo de confirmaciÛn para user {UserId}", user.Id);
-                ModelState.AddModelError(string.Empty, "OcurriÛ un error al intentar reenviar el correo. Intenta m·s tarde.");
+                _logger.LogError(ex, "Error al reenviar correo de confirmaci√≥n para user {UserId}", user.Id);
+                ModelState.AddModelError(string.Empty, "Ocurri√≥ un error al intentar reenviar el correo. Intenta m√°s tarde.");
                 return Page();
             }
         }

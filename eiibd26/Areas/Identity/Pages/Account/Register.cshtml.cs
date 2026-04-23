@@ -182,11 +182,13 @@ namespace eiibd26.Areas.Identity.Pages.Account
                     values: new { area = "Identity", userId = user.Id, code = code, returnUrl = ReturnUrl },
                     protocol: Request.Scheme);
 
-                var emailBody = $@"
-            <h2>Bienvenido a eiibd</h2>
-            <p>Por favor confirma tu cuenta haciendo <a href='{System.Text.Encodings.Web.HtmlEncoder.Default.Encode(callbackUrl)}'>clic aquí</a>.</p>
-            <p>Si no creaste esta cuenta, ignora este mensaje.</p>
-        ";
+                var emailBody = $@"<!DOCTYPE html>
+<html><head><meta charset=""utf-8""></head>
+<body>
+    <h2>Bienvenido a eiibd</h2>
+    <p>Por favor confirma tu cuenta haciendo <a href='{System.Text.Encodings.Web.HtmlEncoder.Default.Encode(callbackUrl)}'>clic aquí</a>.</p>
+    <p>Si no creaste esta cuenta, ignora este mensaje.</p>
+</body></html>";
 
                 await _emailSender.SendEmailAsync(Input.Email, "Confirma tu correo electrónico", emailBody);
 
@@ -303,7 +305,7 @@ namespace eiibd26.Areas.Identity.Pages.Account
                 if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
                     return LocalRedirect(returnUrl);
 
-                return RedirectToPage("/Account/Manage/Index", new { area = "Identity" });
+                return RedirectToPage("/Usuario/Dashboard", new { area = "Identity" });
             }
             catch (Exception ex)
             {

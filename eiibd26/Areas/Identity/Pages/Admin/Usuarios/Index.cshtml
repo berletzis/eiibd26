@@ -168,9 +168,12 @@
     <meta name="csrf-token" content="@Antiforgery.GetAndStoreTokens(HttpContext).RequestToken" />
     <div class="d-flex align-items-center mb-3">
         <h2 class="crm-title-admin mb-0">Usuarios registrados</h2>
-        <div class="ms-3">
+        <div class="ms-3 d-flex gap-2 align-items-center">
             <button id="btnFillUserSlugs" class="btn btn-sm btn-primary">Generar SLUGs vacíos</button>
             <span id="fillSlugsStatus" class="ms-2 text-muted" style="display:none"></span>
+            <button id="btnAbrirCampana" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-envelope-paper me-1"></i>Campaña de reactivación
+            </button>
         </div>
     </div>
 
@@ -208,12 +211,10 @@
         <input type="hidden" id="filterScoring" value="" />
 
         <div class="row g-3 align-items-center">
-            <div class="col-md-2">
+            <div class="col-md-2" style="display:none;">
                 <label class="form-label mb-1" style="font-size:0.9rem;font-weight:500;color:#555;">Filtrar por Hash:</label>
                 <select id="filterHash" class="form-select form-select-sm">
                     <option value="">Todos</option>
-                    <option value="true">✅ Hash Válido</option>
-                    <option value="false">❌ Hash Inválido</option>
                 </select>
             </div>
             <div class="col-md-2">
@@ -287,6 +288,12 @@
                     <label class="form-label text-muted" style="font-size:.85rem;font-weight:600;">CONDICIÓN</label>
                     <input type="text" id="modalCondicion" class="form-control" readonly />
                 </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted" style="font-size:.85rem;font-weight:600;">TEMPLATE DE CORREO</label>
+                    <div id="modalTemplatesContainer">
+                        <div class="text-center py-2"><span class="spinner-border spinner-border-sm text-secondary"></span> <span class="text-muted" style="font-size:.85rem;">Cargando templates...</span></div>
+                    </div>
+                </div>
                 <div id="modalEnviarStatus" class="alert d-none mt-3 mb-0" role="alert"></div>
             </div>
             <div class="modal-footer" style="border-top:1px solid #eee;">
@@ -297,11 +304,117 @@
     </div>
 </div>
 
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- Modal Campaña por Fases                                    -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalCampana" tabindex="-1" aria-labelledby="modalCampanaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="border-radius:14px;border:none;box-shadow:0 4px 32px rgba(70,80,120,0.13);">
+            <div class="modal-header" style="background:linear-gradient(135deg,#1a7abf 0%,#0d4f7c 100%);border-radius:14px 14px 0 0;">
+                <h5 class="modal-title text-white fw-semibold" id="modalCampanaLabel">
+                    <i class="bi bi-envelope-paper-fill me-2"></i>Campaña de reactivación por fases
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-4">
+
+                <!-- Resumen de fases -->
+                <div class="mb-4">
+                    <h6 class="fw-semibold mb-3 text-muted" style="font-size:.85rem;letter-spacing:.05em;">ESTADO ACTUAL DE LA CAMPAÑA</h6>
+                    <div id="campanaResumen" class="text-center py-3">
+                        <span class="spinner-border spinner-border-sm text-secondary"></span>
+                        <span class="text-muted ms-2" style="font-size:.85rem;">Cargando...</span>
+                    </div>
+                </div>
+
+                <hr class="my-3" />
+
+                <!-- Selector de fase -->
+                <h6 class="fw-semibold mb-3 text-muted" style="font-size:.85rem;letter-spacing:.05em;">SELECCIONA LA FASE A ENVIAR (BATCH DE 10)</h6>
+                <div class="row g-2 mb-3" id="campanaFaseSelector">
+                    <div class="col-md-4">
+                        <div class="form-check p-3 border rounded campana-fase-card" style="cursor:pointer;background:#f0f7ff;">
+                            <input class="form-check-input" type="radio" name="campanaFase" id="fase1Radio" value="1" checked>
+                            <label class="form-check-label w-100" for="fase1Radio" style="cursor:pointer;">
+                                <span class="fw-semibold d-block" style="font-size:.9rem;"><i class="bi bi-1-circle me-1 text-primary"></i>Fase 1 — Reactivación</span>
+                                <span class="text-muted d-block" style="font-size:.78rem;">Primer contacto. Sin pedir datos.</span>
+                                <span class="badge bg-primary mt-1" id="badgeFase1">— elegibles</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check p-3 border rounded campana-fase-card" style="cursor:pointer;background:#f0fff4;">
+                            <input class="form-check-input" type="radio" name="campanaFase" id="fase2Radio" value="2">
+                            <label class="form-check-label w-100" for="fase2Radio" style="cursor:pointer;">
+                                <span class="fw-semibold d-block" style="font-size:.9rem;"><i class="bi bi-2-circle me-1 text-success"></i>Fase 2 — Activación</span>
+                                <span class="text-muted d-block" style="font-size:.78rem;">Acceso listo. Invitar a entrar.</span>
+                                <span class="badge bg-success mt-1" id="badgeFase2">— elegibles</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check p-3 border rounded campana-fase-card" style="cursor:pointer;background:#fff8f0;">
+                            <input class="form-check-input" type="radio" name="campanaFase" id="fase3Radio" value="3">
+                            <label class="form-check-label w-100" for="fase3Radio" style="cursor:pointer;">
+                                <span class="fw-semibold d-block" style="font-size:.9rem;"><i class="bi bi-3-circle me-1 text-warning"></i>Fase 3 — Recordatorio</span>
+                                <span class="text-muted d-block" style="font-size:.78rem;">Fricción honesta. Último aviso.</span>
+                                <span class="badge bg-warning text-dark mt-1" id="badgeFase3">— elegibles</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Aviso de template no configurado -->
+                <div id="campanaTemplateAviso" class="alert alert-warning d-none py-2" style="font-size:.85rem;">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    <span id="campanaTemplateAvisoText"></span>
+                </div>
+
+                <!-- Log de resultados -->
+                <div id="campanaLogContainer" class="d-none mt-3">
+                    <h6 class="fw-semibold mb-2 text-muted" style="font-size:.85rem;letter-spacing:.05em;">RESULTADO DEL BATCH</h6>
+                    <div id="campanaLog" class="border rounded p-2" style="max-height:200px;overflow-y:auto;background:#f8f9ff;font-size:.82rem;font-family:monospace;"></div>
+                    <div id="campanaResumenBatch" class="mt-2 fw-semibold" style="font-size:.88rem;"></div>
+                </div>
+
+                <div id="campanaStatus" class="alert d-none mt-3 mb-0" role="alert"></div>
+            </div>
+            <div class="modal-footer flex-column align-items-stretch" style="border-top:1px solid #eee;gap:.5rem;">
+                <div class="d-flex align-items-center flex-wrap gap-2 w-100" style="background:#f8fff8;border:1px solid #c3e6cb;border-radius:.375rem;padding:.5rem .75rem;">
+                    <span class="text-muted fw-semibold" style="font-size:.8rem;white-space:nowrap;">Prueba:</span>
+                    <select id="campanaTemplatePrueba" class="form-select form-select-sm" style="max-width:220px;">
+                        <option value="">Cargando templates...</option>
+                    </select>
+                    <input type="email" id="campanaCorreoPrueba" class="form-control form-control-sm" placeholder="correo@prueba.com" style="max-width:230px;" />
+                    <button type="button" id="btnEnviarPrueba" class="btn btn-sm btn-outline-success text-nowrap">
+                        <i class="bi bi-envelope-check me-1"></i>Enviar correo de prueba
+                    </button>
+                    <div id="campanaPruebaStatus" style="font-size:.82rem;"></div>
+                </div>
+                <div class="d-flex justify-content-end gap-2 w-100">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" id="btnEnviarBatch" class="btn btn-primary">
+                        <i class="bi bi-send me-1"></i>Enviar batch de 10
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
     <script>
+        function avatarError(img) {
+            var span = document.createElement('span');
+            span.className = 'user-avatar-sm d-inline-flex align-items-center justify-content-center bg-secondary bg-opacity-10 rounded-circle';
+            span.style.cssText = 'width:36px;height:36px;';
+            span.innerHTML = '<i class="bi bi-person-fill text-secondary" style="font-size:1.2rem;"></i>';
+            img.parentNode.replaceChild(span, img);
+        }
+
         $(function() {
             // ⭐ NUEVO: Cargar estadísticas basadas en SCORING de perfiles
             function loadStats() {
@@ -380,12 +493,8 @@
                         data: 'avatar',
                         orderable: false,
                         render: function(data) {
-                            if (!data || data === '/img/sinPerfil.png') {
-                                return '<img src="/img/sinPerfil.png" class="user-avatar-sm" alt="Avatar" />';
-                            }
-                            // Si el avatar empieza con /, es ruta absoluta
-                            var avatarUrl = data.startsWith('/') ? data : '/uploads/avatars/' + data;
-                            return `<img src="${avatarUrl}" class="user-avatar-sm" alt="Avatar" onerror="this.src='/img/sinPerfil.png'" />`;
+                            if (!data) return '<span class="user-avatar-sm d-inline-flex align-items-center justify-content-center bg-secondary bg-opacity-10 rounded-circle" style="width:36px;height:36px;"><i class="bi bi-person-fill text-secondary" style="font-size:1.2rem;"></i></span>';
+                            return '<img src="' + data + '" class="user-avatar-sm" alt="Avatar" style="width:36px;height:36px;object-fit:cover;border-radius:50%;" loading="lazy" decoding="async" onerror="avatarError(this)" />';
                         }
                     },
                     {
@@ -425,11 +534,9 @@
                     },
                     {
                         data: 'hashIsValid',
-                        orderable: true,
-                        render: function (data) {
-                            return data
-                                ? `<span class="badge bg-success">Sí</span>`
-                                : `<span class="badge bg-danger">NO</span>`;
+                        orderable: false,
+                        render: function () {
+                            return `<span class="badge badge-grid-gray">Usar "Olvidé contraseña"</span>`;
                         }
                     },
                     {
@@ -562,9 +669,39 @@
                 $('#modalCondicion').val($btn.data('condicion') || 'Sin condición');
                 $('#modalEnviarStatus').addClass('d-none').text('');
                 $('#btnConfirmarEnvio')
-                    .prop('disabled', false)
+                    .prop('disabled', true)
                     .html('<i class="bi bi-send me-1"></i>Enviar correo')
                     .data('userid', $btn.data('userid'));
+
+                // Cargar templates desde el servidor
+                $('#modalTemplatesContainer').html('<div class="text-center py-2"><span class="spinner-border spinner-border-sm text-secondary"></span> <span class="text-muted" style="font-size:.85rem;">Cargando templates...</span></div>');
+
+                fetch(window.location.pathname + '?handler=TemplatesCorreo')
+                    .then(function (r) { return r.json(); })
+                    .then(function (templates) {
+                        if (!templates || templates.length === 0) {
+                            $('#modalTemplatesContainer').html('<p class="text-muted" style="font-size:.85rem;">No hay templates configurados.</p>');
+                            $('#btnConfirmarEnvio').prop('disabled', false);
+                            return;
+                        }
+                        var html = '';
+                        templates.forEach(function (t, i) {
+                            var checked = i === 0 ? 'checked' : '';
+                            html += '<div class="form-check mb-2 p-3 border rounded" style="cursor:pointer;background:#f8f9ff;">' +
+                                '<input class="form-check-input" type="radio" name="templateRadio" id="tpl_' + i + '" value="' + t.id + '" ' + checked + '>' +
+                                '<label class="form-check-label w-100" for="tpl_' + i + '" style="cursor:pointer;">' +
+                                '<span class="fw-semibold d-block" style="font-size:.9rem;">' + $('<span>').text(t.nombre).html() + '</span>' +
+                                '<span class="text-muted d-block" style="font-size:.8rem;">' + $('<span>').text(t.descripcion).html() + '</span>' +
+                                '</label></div>';
+                        });
+                        $('#modalTemplatesContainer').html(html);
+                        $('#btnConfirmarEnvio').prop('disabled', false);
+                    })
+                    .catch(function () {
+                        $('#modalTemplatesContainer').html('<p class="text-danger" style="font-size:.85rem;">Error al cargar templates.</p>');
+                        $('#btnConfirmarEnvio').prop('disabled', false);
+                    });
+
                 var modal = new bootstrap.Modal(document.getElementById('modalEnviarCorreo'));
                 modal.show();
             });
@@ -578,10 +715,15 @@
                 $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Enviando...');
                 $('#modalEnviarStatus').addClass('d-none').text('');
 
+                var selectedTemplateId = $('input[name="templateRadio"]:checked').val() || '';
+
                 fetch(window.location.pathname + '?handler=EnviarCorreo', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: userId })
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': $('meta[name="csrf-token"]').attr('content') || ''
+                    },
+                    body: JSON.stringify({ userId: userId, templateId: selectedTemplateId })
                 })
                     .then(function (r) { return r.json(); })
                     .then(function (data) {
@@ -606,6 +748,186 @@
                             .html('<i class="bi bi-exclamation-triangle me-1"></i>Error de conexión. Intenta de nuevo.');
                         $btn.prop('disabled', false).html('<i class="bi bi-send me-1"></i>Enviar correo');
                     });
+            });
+
+            // ──────────────────────────────────────────────────────────────────
+            // CAMPAÑA POR FASES
+            // ──────────────────────────────────────────────────────────────────
+
+            var campanaResumenData = null;
+
+            function cargarCampanaResumen() {
+                $('#campanaResumen').html('<span class="spinner-border spinner-border-sm text-secondary"></span><span class="text-muted ms-2" style="font-size:.85rem;">Cargando...</span>');
+                fetch(window.location.pathname + '?handler=CampanaResumen')
+                    .then(function(r) { return r.json(); })
+                    .then(function(d) {
+                        campanaResumenData = d;
+                        $('#badgeFase1').text(d.elegiblesFase1 + ' elegibles');
+                        $('#badgeFase2').text(d.elegiblesFase2 + ' elegibles');
+                        $('#badgeFase3').text(d.elegiblesFase3 + ' elegibles');
+                        $('#campanaResumen').html(
+                            '<div class="row text-center g-2">' +
+                            '<div class="col">' +
+                                '<div class="border rounded p-2" style="background:#f8f9ff;">' +
+                                '<div class="fw-bold text-primary" style="font-size:1.4rem;">' + d.totalUsuarios + '</div>' +
+                                '<div class="text-muted" style="font-size:.78rem;">Total usuarios</div></div></div>' +
+                            '<div class="col">' +
+                                '<div class="border rounded p-2" style="background:#f0f7ff;">' +
+                                '<div class="fw-bold text-primary" style="font-size:1.4rem;">' + d.conFase1 + '</div>' +
+                                '<div class="text-muted" style="font-size:.78rem;">Recibieron F1</div></div></div>' +
+                            '<div class="col">' +
+                                '<div class="border rounded p-2" style="background:#f0fff4;">' +
+                                '<div class="fw-bold text-success" style="font-size:1.4rem;">' + d.conFase2 + '</div>' +
+                                '<div class="text-muted" style="font-size:.78rem;">Recibieron F2</div></div></div>' +
+                            '<div class="col">' +
+                                '<div class="border rounded p-2" style="background:#fff8f0;">' +
+                                '<div class="fw-bold text-warning" style="font-size:1.4rem;">' + d.conFase3 + '</div>' +
+                                '<div class="text-muted" style="font-size:.78rem;">Recibieron F3</div></div></div>' +
+                            '<div class="col">' +
+                                '<div class="border rounded p-2" style="background:#f0fdf0;">' +
+                                '<div class="fw-bold text-success" style="font-size:1.4rem;">' + d.completados + '</div>' +
+                                '<div class="text-muted" style="font-size:.78rem;">Completados</div></div></div>' +
+                            '</div>'
+                        );
+                    })
+                    .catch(function() {
+                        $('#campanaResumen').html('<span class="text-danger" style="font-size:.85rem;">Error al cargar resumen.</span>');
+                    });
+            }
+
+            $('#btnAbrirCampana').on('click', function() {
+                $('#campanaLogContainer').addClass('d-none');
+                $('#campanaLog').html('');
+                $('#campanaResumenBatch').html('');
+                $('#campanaStatus').addClass('d-none');
+                $('#campanaTemplateAviso').addClass('d-none');
+                $('#btnEnviarBatch').prop('disabled', false).html('<i class="bi bi-send me-1"></i>Enviar batch de 10');
+                // Poblar select de templates para prueba
+                $('#campanaTemplatePrueba').html('<option value="">Cargando...</option>').prop('disabled', true);
+                fetch(window.location.pathname + '?handler=TemplatesCorreo')
+                    .then(function(r) { return r.json(); })
+                    .then(function(templates) {
+                        var opts = '<option value="">-- Selecciona template --</option>';
+                        if (templates && templates.length) {
+                            templates.forEach(function(t) {
+                                var label = t.nombre + (t.fase > 0 ? ' (Fase ' + t.fase + ')' : '');
+                                opts += '<option value="' + t.id + '">' + label + '</option>';
+                            });
+                        }
+                        $('#campanaTemplatePrueba').html(opts).prop('disabled', false);
+                    })
+                    .catch(function() {
+                        $('#campanaTemplatePrueba').html('<option value="">Error al cargar</option>').prop('disabled', false);
+                    });
+                cargarCampanaResumen();
+                new bootstrap.Modal(document.getElementById('modalCampana')).show();
+            });
+
+            $('#btnEnviarBatch').on('click', function() {
+                var fase = parseInt($('input[name="campanaFase"]:checked').val());
+                var $btn = $(this);
+                $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Enviando...');
+                $('#campanaStatus').addClass('d-none');
+                $('#campanaTemplateAviso').addClass('d-none');
+                $('#campanaLogContainer').addClass('d-none');
+                $('#campanaLog').html('');
+
+                fetch(window.location.pathname + '?handler=CampanaEnviarBatch', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': $('meta[name="csrf-token"]').attr('content') || ''
+                    },
+                    body: JSON.stringify({ fase: fase })
+                })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        $btn.prop('disabled', false).html('<i class="bi bi-send me-1"></i>Enviar batch de 10');
+                        if (!data.success) {
+                            $('#campanaTemplateAviso').removeClass('d-none');
+                            $('#campanaTemplateAvisoText').text(data.error || 'Error desconocido.');
+                            return;
+                        }
+                        if (data.procesados === 0) {
+                            $('#campanaStatus')
+                                .removeClass('d-none alert-danger').addClass('alert-info')
+                                .html('<i class="bi bi-info-circle me-1"></i>' + (data.mensaje || 'No hay usuarios elegibles para esta fase.'));
+                            cargarCampanaResumen();
+                            return;
+                        }
+                        // Mostrar log
+                        var logHtml = '';
+                        data.resultados.forEach(function(r) {
+                            var icon = r.exito
+                                ? '<i class="bi bi-check-circle-fill text-success me-1"></i>'
+                                : '<i class="bi bi-x-circle-fill text-danger me-1"></i>';
+                            var err = r.error ? ' <span class="text-danger">— ' + $('<span>').text(r.error).html() + '</span>' : '';
+                            logHtml += '<div>' + icon + $('<span>').text(r.email).html() + err + '</div>';
+                        });
+                        $('#campanaLog').html(logHtml);
+                        $('#campanaResumenBatch').html(
+                            '<span class="text-success"><i class="bi bi-check-circle me-1"></i>' + data.exitosos + ' enviados</span>' +
+                            (data.fallidos > 0 ? ' &nbsp; <span class="text-danger"><i class="bi bi-x-circle me-1"></i>' + data.fallidos + ' fallidos</span>' : '')
+                        );
+                        $('#campanaLogContainer').removeClass('d-none');
+                        cargarCampanaResumen();
+                    })
+                    .catch(function() {
+                        $btn.prop('disabled', false).html('<i class="bi bi-send me-1"></i>Enviar batch de 10');
+                        $('#campanaStatus')
+                            .removeClass('d-none alert-success alert-info').addClass('alert-danger')
+                            .html('<i class="bi bi-exclamation-triangle me-1"></i>Error de conexión. Intenta de nuevo.');
+                    });
+            });
+
+        });
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.getElementById('btnEnviarPrueba').addEventListener('click', function () {
+                var emailInput = document.getElementById('campanaCorreoPrueba');
+                var email = emailInput.value.trim();
+                var templateSelect = document.getElementById('campanaTemplatePrueba');
+                var templateId = templateSelect ? templateSelect.value : '';
+                var statusEl = document.getElementById('campanaPruebaStatus');
+                var btn = this;
+
+                if (!templateId) {
+                    statusEl.innerHTML = '<span class="text-warning">Selecciona un template.</span>';
+                    return;
+                }
+                if (!emailInput.checkValidity() || !email) {
+                    statusEl.innerHTML = '<span class="text-danger">Ingresa un correo válido.</span>';
+                    return;
+                }
+
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando...';
+                statusEl.innerHTML = '';
+
+                var token = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+                fetch(window.location.pathname + '?handler=CampanaEnviarPrueba', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+                    body: JSON.stringify({ email: email, templateId: templateId })
+                })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-envelope-check me-1"></i>Enviar correo de prueba';
+                    if (data.success) {
+                        statusEl.innerHTML = '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Enviado</span>';
+                    } else {
+                        var msg = document.createElement('span');
+                        msg.textContent = data.error || 'Error';
+                        statusEl.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>' + msg.textContent + '</span>';
+                    }
+                })
+                .catch(function () {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-envelope-check me-1"></i>Enviar correo de prueba';
+                    statusEl.innerHTML = '<span class="text-danger">Error de conexión.</span>';
+                });
             });
         });
     </script>

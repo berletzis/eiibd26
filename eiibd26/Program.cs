@@ -97,7 +97,7 @@ if (dataProtectionReady)
 // Configurar tiempo de vida de tokens de reseteo de contraseña
 builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
 {
-    options.TokenLifespan = TimeSpan.FromDays(1); // 24 horas
+    options.TokenLifespan = TimeSpan.FromDays(3); // 24 horas
 });
 
 // Cookie configuration (seguridad mejorada)

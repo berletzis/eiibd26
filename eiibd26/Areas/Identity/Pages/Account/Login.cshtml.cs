@@ -129,16 +129,6 @@ namespace eiibd26.Areas.Identity.Pages.Account
                 // Busca el usuario por correo
                 var user = await _userManager.FindByEmailAsync(Input.Email);
 
-                if (user != null && IsHashInvalid(user.PasswordHash))
-                {
-                    // Mensaje por seguridad
-                    ResetPasswordMessage = "Por seguridad debes realizar el cambio de contraseña.";
-                    var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-                    var tokenBytes = Encoding.UTF8.GetBytes(token);
-                    var encodedToken = WebEncoders.Base64UrlEncode(tokenBytes);
-                    return RedirectToPage("./ResetPassword", new { email = Input.Email, code = encodedToken });
-                }
-
                 // ✅ SEGURIDAD: Habilitar lockout para protección contra fuerza bruta
                 var result = await _signInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: true);
 
@@ -171,12 +161,5 @@ namespace eiibd26.Areas.Identity.Pages.Account
             return Page();
         }
 
-        // Lógica auxiliar para detectar hash inválido
-        private bool IsHashInvalid(string passwordHash)
-        {
-            return string.IsNullOrEmpty(passwordHash)
-                || passwordHash.Length < 50 // Los hashes Identity .NET normalmente tienen 60+
-                || !passwordHash.StartsWith("AQAAAA"); // Prefijo típico de Identity
         }
-    }
 }

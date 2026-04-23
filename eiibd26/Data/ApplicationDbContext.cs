@@ -68,6 +68,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
 
     // ⭐ GLOSSARY MODULE (Desacoplado - solo índice de navegación)
     public DbSet<eiibd26.Models.Glossary.GlossaryTerm> GlossaryTerms { get; set; }
+
+    // Campañas de email por fases
+    public DbSet<EmailCampanaLog> EmailCampanaLogs { get; set; }
     public DbSet<eiibd26.Models.Glossary.GlossaryTermMedicalLink> GlossaryTermMedicalLinks { get; set; }
     public DbSet<eiibd26.Models.Glossary.GlossaryValidation> GlossaryValidations { get; set; }
 
@@ -375,6 +378,16 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
              .WithMany(t => t.Validaciones)
              .HasForeignKey(v => v.GlossaryTermId)
              .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // EmailCampanaLog: índice para evitar duplicados exitosos (UserId, Fase) y acelerar consultas
+        builder.Entity<EmailCampanaLog>(b =>
+        {
+            b.ToTable("EmailCampanaLog");
+            b.HasIndex(e => new { e.UserId, e.Fase, e.Exito })
+             .HasDatabaseName("IX_EmailCampanaLog_UserId_Fase_Exito");
+            b.HasIndex(e => e.FechaEnvio)
+             .HasDatabaseName("IX_EmailCampanaLog_FechaEnvio");
         });
     }
 
