@@ -63,10 +63,6 @@ namespace eiibd26.Areas.Identity.Pages.Account
 
         public async Task<IActionResult> OnGetAsync()
         {
-            // DEBUG: volcar TODOS los query params que llegan
-            var allParams = string.Join(" | ", Request.Query.Select(kv => $"{kv.Key}={kv.Value}"));
-            ReturnUrl = "DEBUG_PARAMS:[" + allParams + "]  RAW_URL:[" + Request.QueryString + "]";
-            // Exponer ReturnUrl y QueryString para la vista
             QueryString = Request.QueryString.HasValue ? Request.QueryString.Value : "";
 
             // Leer returnUrl del query string (case-insensitive)
@@ -83,12 +79,7 @@ namespace eiibd26.Areas.Identity.Pages.Account
 
             // Si el usuario ya está autenticado, redirigir
             if (User.Identity?.IsAuthenticated == true)
-            {
-                if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
-                    return LocalRedirect(returnUrl);
-
-                return RedirectToPage("/Usuario/Dashboard", new { area = "Identity" });
-            }
+                return LocalRedirect("/Identity/Usuario/Dashboard");
 
             if (!string.IsNullOrEmpty(ErrorMessage))
                 ModelState.AddModelError(string.Empty, ErrorMessage);
@@ -136,10 +127,16 @@ namespace eiibd26.Areas.Identity.Pages.Account
                 {
                     _logger.LogInformation("Usuario {Email} inició sesión. ReturnUrl='{ReturnUrl}'", Input.Email, returnUrl);
 
-                    if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
-                        return LocalRedirect(returnUrl);
+                    const string dashboardUrl = "/Identity/Usuario/Dashboard";
 
-                    return RedirectToPage("/Usuario/Dashboard", new { area = "Identity" });
+                    // Solo respetar ReturnUrl si apunta a una ruta protegida de Identity (no rutas públicas como /Home)
+                    var esReturnUrlValido = !string.IsNullOrEmpty(returnUrl)
+                        && Url.IsLocalUrl(returnUrl)
+                        && returnUrl.StartsWith("/Identity/", StringComparison.OrdinalIgnoreCase)
+                        && !returnUrl.StartsWith("/Identity/Account/Login", StringComparison.OrdinalIgnoreCase)
+                        && !returnUrl.StartsWith("/Identity/Account/Logout", StringComparison.OrdinalIgnoreCase);
+
+                    return LocalRedirect(esReturnUrlValido ? returnUrl : dashboardUrl);
                 }
                 if (result.RequiresTwoFactor)
                 {

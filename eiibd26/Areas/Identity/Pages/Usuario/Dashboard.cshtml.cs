@@ -1,5 +1,7 @@
 ﻿using eiibd26.Data;
+using eiibd26.DTOs.Export;
 using eiibd26.Models;
+using eiibd26.Services.Analytics;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -17,7 +19,13 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
     public class DashboardModel : PageModel
     {
         private readonly ApplicationDbContext _db;
-        public DashboardModel(ApplicationDbContext db) => _db = db;
+        private readonly IHealthStatsService _healthStats;
+
+        public DashboardModel(ApplicationDbContext db, IHealthStatsService healthStats)
+        {
+            _db = db;
+            _healthStats = healthStats;
+        }
 
         // VM que la vista y el partial consumirán
         public DashboardViewModel VM { get; set; } = new DashboardViewModel();
@@ -28,15 +36,19 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             if (string.IsNullOrWhiteSpace(userIdClaim)) return;
             if (!Guid.TryParse(userIdClaim, out var userGuid)) return;
 
+            // Período del dashboard: últimos 7 días (alineado con charts y comparable con PDF)
+            var hasta = DateTime.Today;
+            var desde = hasta.AddDays(-6);
+
             // ---------- Moods ----------
             var moods = await _db.EstadoAnimoUsuario
-                .Where(x => x.IdUsuario == userGuid)
+                .Where(x => x.IdUsuario == userGuid && !x.Eliminado)
+                .Where(x => x.FechaRegistro >= desde && x.FechaRegistro <= hasta)
                 .OrderByDescending(x => x.FechaRegistro)
-                .Take(50)
                 .Select(x => new MoodPoint
                 {
                     Fecha = x.FechaRegistro,
-                    Estado = (int)x.EstadoMood,  // ✅ Cast explícito
+                    Estado = (int)x.EstadoMood,
                     Texto = x.Texto,
                     RelacionNombre = x.CondicionUsuario != null ? x.CondicionUsuario.Condicion.nombre :
                                     (x.SintomaUsuario != null ? x.SintomaUsuario.Sintoma.nombre : null)
@@ -75,6 +87,9 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 .Include(s => s.Sintoma)
                 .ToListAsync();
 
+            // Declared here so the analytics block below can access them without new queries
+            var bySint = new Dictionary<int, List<TrackingSintomaUsuario>>();
+
             if (sintomasUsuarioList == null || !sintomasUsuarioList.Any())
             {
                 VM.TopSintomas = new List<SymptomTopItem>();
@@ -83,16 +98,16 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             {
                 var sintomaUsuarioIds = sintomasUsuarioList.Select(s => s.id).ToList();
 
-                // Ventana: ayer + hoy
-                var startDate = DateTime.Today.AddDays(-1).Date; // inicio de ayer 00:00
-                var endDate = DateTime.Today.AddDays(1).Date.AddTicks(-1); // fin de hoy
+                // Ventana: últimos 7 días (alineado con período del dashboard)
+                var startDate = desde;
+                var endDate   = hasta.AddDays(1).AddTicks(-1); // hasta fin del día
 
                 // Trackings del usuario en ese rango
                 var trackings = await _db.TrackingSintomaUsuario
                     .Where(t => t.IdUsuario == userGuid && sintomaUsuarioIds.Contains(t.IdSintomaUsuario) && t.Fecha >= startDate && t.Fecha <= endDate)
                     .ToListAsync();
 
-                var bySint = trackings
+                bySint = trackings
                     .GroupBy(t => t.IdSintomaUsuario)
                     .ToDictionary(g => g.Key, g => g.ToList());
 
@@ -276,6 +291,33 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             {
                 // No bloquear flujo por errores aquí
             }
+
+            // ---------- Health Stats (sin nuevas queries) ----------
+            var estadosExport = moods
+                .Select(m => new EstadoAnimoExportDto
+                {
+                    FechaRegistro    = m.Fecha,
+                    EstadoMood       = m.Estado,
+                    EstadoMoodNombre = ((eiibd26.Models.EstadoAnimoEnum)m.Estado).ToString()
+                })
+                .ToList();
+
+            // Agrupar trackings ya cargados por síntoma, mapeando a SintomaExportDto
+            var sintomasExport = (sintomasUsuarioList ?? [])
+                .Select(s => new SintomaExportDto
+                {
+                    NombreSintoma = s.Sintoma?.nombre ?? string.Empty,
+                    Trackings = (bySint.TryGetValue(s.id, out var tList) ? tList : [])
+                        .Select(t => new TrackingSintomaExportDto
+                        {
+                            Fecha  = t.Fecha,
+                            Estado = t.Estado ?? string.Empty
+                        })
+                        .ToList()
+                })
+                .ToList();
+
+            VM.HealthStats = _healthStats.Calcular(estadosExport, sintomasExport);
         }
 
         public async Task<IActionResult> OnPostTrackSintomaMatriz()

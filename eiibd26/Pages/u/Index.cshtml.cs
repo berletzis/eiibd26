@@ -230,11 +230,11 @@ namespace eiibd26.Pages.u
 
         private int? CalcularEdad(DateTime? fechaNacimiento)
         {
-            if (!fechaNacimiento.HasValue || fechaNacimiento.Value > DateTime.Now)
+            if (!fechaNacimiento.HasValue || fechaNacimiento.Value > DateTime.Today)
                 return null;
 
-            var edad = DateTime.Now.Year - fechaNacimiento.Value.Year;
-            if (DateTime.Now < fechaNacimiento.Value.AddYears(edad))
+            var edad = DateTime.Today.Year - fechaNacimiento.Value.Year;
+            if (DateTime.Today < fechaNacimiento.Value.AddYears(edad))
                 edad--;
 
             return edad > 0 && edad < 120 ? edad : null;

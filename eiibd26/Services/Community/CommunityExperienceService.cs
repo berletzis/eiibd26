@@ -306,13 +306,20 @@ namespace eiibd26.Services.Community
 
         private static string ToRelativeTime(DateTime fecha, DateTime now)
         {
+            // fecha proviene de FechaRegistro (SQL Server, DateTimeKind.Unspecified).
+            // Se trata como hora local y se convierte a UTC para comparar con now (UTC).
+            // Si en el futuro FechaRegistro se almacena explícitamente en UTC,
+            // eliminar el .ToUniversalTime() de aquí.
+            const double DiasPorMes  = 30.44;
+            const double DiasPorAnio = 365.25;
+
             var diff = now - fecha.ToUniversalTime();
-            return diff.TotalMinutes < 60  ? $"hace {(int)diff.TotalMinutes} min"
-                 : diff.TotalHours   < 24  ? $"hace {(int)diff.TotalHours} h"
-                 : diff.TotalDays    < 7   ? $"hace {(int)diff.TotalDays} días"
-                 : diff.TotalDays    < 30  ? $"hace {(int)(diff.TotalDays / 7)} sem."
-                 : diff.TotalDays    < 365 ? $"hace {(int)(diff.TotalDays / 30)} meses"
-                 : $"hace {(int)(diff.TotalDays / 365)} años";
+            return diff.TotalMinutes < 60   ? $"hace {(int)diff.TotalMinutes} min"
+                 : diff.TotalHours   < 24   ? $"hace {(int)diff.TotalHours} h"
+                 : diff.TotalDays    < 7    ? $"hace {(int)diff.TotalDays} días"
+                 : diff.TotalDays    < 30   ? $"hace {(int)(diff.TotalDays / 7)} sem."
+                 : diff.TotalDays    < 365  ? $"hace {(int)(diff.TotalDays / DiasPorMes)} meses"
+                 : $"hace {(int)(diff.TotalDays / DiasPorAnio)} años";
         }
 
         private static string BuildAlias(string? nombre)

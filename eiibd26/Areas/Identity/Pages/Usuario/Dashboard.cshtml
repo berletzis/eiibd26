@@ -132,8 +132,103 @@
                     @await Html.PartialAsync("_TopRespuestasUsuario", Model.VM)
                 </div>
             </div>
+
+            <div>
+                <div class="card p-3" id="cardResumenMedico">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
+                        <div>
+                            <div class="dashboard-col1-title">
+                                Mi Salud en un Vistazo
+                            </div>
+                            <div class="small-muted" style="font-size:.85rem;">Exporta tu historial médico en PDF para llevar a consulta.</div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <a href="#" class="btn btn-sm btn-outline-primary btn-export-pdf" data-meses="1">
+                            <i class="bi bi-download me-1"></i>Último mes
+                        </a>
+                        <a href="#" class="btn btn-sm btn-outline-primary btn-export-pdf" data-meses="3">
+                            <i class="bi bi-download me-1"></i>Últimos 3 meses
+                        </a>
+                        <a href="#" class="btn btn-sm btn-outline-primary btn-export-pdf" data-meses="6">
+                            <i class="bi bi-download me-1"></i>Últimos 6 meses
+                        </a>
+                    </div>
+
+                    <hr class="my-2" />
+
+                    <div class="small-muted mb-1" style="font-size:.85rem;">Rango personalizado</div>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <input type="date" id="resumenDesde" class="form-control form-control-sm" style="max-width:150px;" />
+                        <span class="text-muted" style="font-size:.85rem;">al</span>
+                        <input type="date" id="resumenHasta" class="form-control form-control-sm" style="max-width:150px;" />
+                        <button type="button" id="btnExportarPersonalizado" class="btn btn-sm btn-primary">
+                            <i class="bi bi-file-earmark-pdf me-1"></i>Exportar
+                        </button>
+                        <span id="resumenExportError" class="text-danger" style="font-size:.8rem;display:none;"></span>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </main>
+
+<script>
+(function () {
+    var baseUrl = '/Identity/Usuario/ResumenMedico';
+
+    function buildUrl(desde, hasta) {
+        return baseUrl + '?desde=' + encodeURIComponent(desde) + '&hasta=' + encodeURIComponent(hasta);
+    }
+
+    function toInputDate(d) {
+        var mm = String(d.getMonth() + 1).padStart(2, '0');
+        var dd = String(d.getDate()).padStart(2, '0');
+        return d.getFullYear() + '-' + mm + '-' + dd;
+    }
+
+    document.querySelectorAll('.btn-export-pdf').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            var meses = parseInt(btn.dataset.meses) || 1;
+            var hasta = new Date();
+            var desde = new Date();
+            desde.setMonth(desde.getMonth() - meses);
+            window.open(buildUrl(toInputDate(desde), toInputDate(hasta)), '_blank');
+        });
+    });
+
+    var hoyEl = document.getElementById('resumenHasta');
+    var desdeEl = document.getElementById('resumenDesde');
+    if (hoyEl && desdeEl) {
+        var hoy = new Date();
+        var hace1mes = new Date(); hace1mes.setMonth(hace1mes.getMonth() - 1);
+        hoyEl.value = toInputDate(hoy);
+        desdeEl.value = toInputDate(hace1mes);
+    }
+
+    var btnPersonalizado = document.getElementById('btnExportarPersonalizado');
+    var errSpan = document.getElementById('resumenExportError');
+    if (btnPersonalizado) {
+        btnPersonalizado.addEventListener('click', function () {
+            errSpan.style.display = 'none';
+            var desde = desdeEl.value;
+            var hasta = hoyEl.value;
+            if (!desde || !hasta) {
+                errSpan.textContent = 'Selecciona ambas fechas.';
+                errSpan.style.display = 'inline';
+                return;
+            }
+            if (desde > hasta) {
+                errSpan.textContent = 'La fecha inicio debe ser menor o igual a la fecha fin.';
+                errSpan.style.display = 'inline';
+                return;
+            }
+            window.open(buildUrl(desde, hasta), '_blank');
+        });
+    }
+})();
+</script>
 
 @await Html.PartialAsync("_ModalCrearPregunta")

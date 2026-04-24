@@ -240,6 +240,14 @@ builder.Services.AddScoped<eiibd26.Services.Glossary.Adapters.IMedicalDataAdapte
 builder.Services.AddScoped<eiibd26.Services.Glossary.IGlossaryService, eiibd26.Services.Glossary.GlossaryService>();
 builder.Services.AddScoped<eiibd26.Services.Community.ICommunityExperienceService, eiibd26.Services.Community.CommunityExperienceService>();
 
+// ── Analytics: Estadísticas de Salud ───────────────────────────────────────
+builder.Services.AddScoped<eiibd26.Services.Analytics.IHealthStatsService, eiibd26.Services.Analytics.HealthStatsService>();
+
+// ── Export: Resumen Médico PDF ──────────────────────────────────────────────
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+builder.Services.AddScoped<eiibd26.Services.Export.IMedicalSummaryService, eiibd26.Services.Export.MedicalSummaryService>();
+builder.Services.AddScoped<eiibd26.Services.Export.Pdf.IPdfGeneratorService, eiibd26.Services.Export.Pdf.PdfGeneratorService>();
+
 // Register HttpClient for Anthropic API
 builder.Services.AddHttpClient("AnthropicClient", (serviceProvider, client) =>
 {

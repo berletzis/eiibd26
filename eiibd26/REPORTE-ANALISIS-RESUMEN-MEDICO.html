@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Reporte de Análisis — Resumen Médico PDF</title>
+<style>
+  body { font-family: Segoe UI, Arial, sans-serif; max-width: 960px; margin: 32px auto; padding: 0 24px; color: #1a1a2e; background: #f8f9fb; }
+  h1 { color: #172849; border-bottom: 3px solid #4f8ef7; padding-bottom: 10px; }
+  h2 { color: #2a4a8a; margin-top: 36px; border-left: 4px solid #4f8ef7; padding-left: 12px; }
+  h3 { color: #34567a; margin-top: 24px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 20px 0; font-size: .93rem; }
+  th { background: #2a4a8a; color: #fff; padding: 8px 12px; text-align: left; }
+  td { border: 1px solid #d0d8e8; padding: 7px 12px; vertical-align: top; }
+  tr:nth-child(even) td { background: #eef2fb; }
+  code, pre { background: #1e1e2e; color: #cdd6f4; padding: 2px 7px; border-radius: 4px; font-size: .89rem; }
+  pre { display: block; padding: 14px 18px; overflow-x: auto; margin: 10px 0; line-height: 1.6; }
+  .badge-ok   { background:#d4edda; color:#155724; padding:2px 8px; border-radius:12px; font-size:.82rem; font-weight:600; }
+  .badge-warn { background:#fff3cd; color:#856404; padding:2px 8px; border-radius:12px; font-size:.82rem; font-weight:600; }
+  .badge-risk { background:#f8d7da; color:#721c24; padding:2px 8px; border-radius:12px; font-size:.82rem; font-weight:600; }
+  .section-box { background:#fff; border:1px solid #d0d8e8; border-radius:8px; padding:20px 24px; margin-bottom:24px; box-shadow:0 2px 8px #0001; }
+  .highlight { background:#fffbe6; border-left:4px solid #f0ad4e; padding:10px 16px; border-radius:4px; margin:10px 0; }
+  ul li { margin-bottom: 5px; }
+</style>
+</head>
+<body>
+
+<h1>📋 Reporte de Análisis — Módulo "Resumen Médico" (PDF)</h1>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>1. Inventario de Servicios / Fuentes de Datos Existentes</h2>
+
+<div class="section-box">
+<h3>Perfil del usuario</h3>
+<table>
+  <tr><th>Fuente</th><th>Archivo</th><th>Método de acceso</th></tr>
+  <tr><td><code>Perfil</code> (EF model)</td><td>Models/Perfil.cs</td><td><code>_db.Perfil.FirstOrDefaultAsync(p => p.idUser == userId)</code></td></tr>
+  <tr><td><code>condicionUsuario</code> + <code>condiciones</code></td><td>Models/condicionUsuario.cs</td><td>Join directo EF — ya usado en Dashboard.cshtml.cs, UsuarioSintomas.cshtml.cs, UsuarioTratamientos.cshtml.cs</td></tr>
+</table>
+<p><strong>Campos disponibles en <code>Perfil</code>:</strong> <code>Nombre</code>, <code>Apellidos</code>, <code>FechaDeNacimiento</code>, <code>Genero</code>, <code>NombreCiudad</code>, <code>NombrePais</code>, <code>AcercaDe</code>, <code>UltimaActividad</code>.</p>
+<div class="highlight">⚠️ No existe un servicio de aplicación dedicado. El acceso es directo a <code>ApplicationDbContext</code> desde cada PageModel o Controller.</div>
+</div>
+
+<div class="section-box">
+<h3>Estado de ánimo</h3>
+<table>
+  <tr><th>Fuente</th><th>Archivo</th><th>Método de acceso</th></tr>
+  <tr><td><code>EstadoAnimoUsuario</code></td><td>Models/EstadoAnimoUsuario.cs</td><td><code>_db.EstadoAnimoUsuario.Where(x => x.IdUsuario == guid &amp;&amp; !x.Eliminado)</code></td></tr>
+  <tr><td>Enum <code>EstadoAnimoEnum</code></td><td>mismo archivo</td><td>MuyMal=1 … MuyBien=5</td></tr>
+  <tr><td>Lógica de listado</td><td>Controllers/EstadoAnimoUsuarioController.cs → <code>Historico()</code></td><td>Retorna hasta 200 registros con relaciones opcionales</td></tr>
+</table>
+<div class="highlight">⚠️ <code>Historico()</code> es el único punto que proyecta el historial completo. No existe un servicio de aplicación que encapsule esta lógica — está incrustada en el controller.</div>
+</div>
+
+<div class="section-box">
+<h3>Síntomas</h3>
+<table>
+  <tr><th>Fuente</th><th>Archivo</th><th>Método de acceso</th></tr>
+  <tr><td><code>sintomasUsuario</code> + <code>sintomas</code></td><td>Models/sintomasUsuario.cs</td><td>Join EF con filtro <code>!Eliminado</code> y rango de fechas por <code>fechaInicio</code></td></tr>
+  <tr><td><code>TrackingSintomaUsuario</code></td><td>Models/TrackingSintomaUsuario.cs</td><td><code>Estado</code> = Ninguno / Leve / Moderado / Severo; relación por <code>IdSintomaUsuario</code> y <code>Fecha</code></td></tr>
+  <tr><td>Lógica de listado</td><td>Areas/Identity/Pages/Usuario/UsuarioSintomas.cshtml.cs → <code>OnGetAsync()</code></td><td>Sin parámetro de rango de fechas actualmente</td></tr>
+</table>
+<div class="highlight">⚠️ La query en UsuarioSintomas.cshtml.cs NO acepta rango de fechas. El nuevo servicio hará su propia proyección acotada — esto no duplica lógica de negocio, solo aplica un filtro adicional.</div>
+</div>
+
+<div class="section-box">
+<h3>Tratamientos</h3>
+<table>
+  <tr><th>Fuente</th><th>Archivo</th><th>Método de acceso</th></tr>
+  <tr><td><code>tratamientoUsuario</code> + <code>tratamientos</code></td><td>Models/tratamientoUsuario.cs</td><td>Join EF con filtro <code>!Eliminado</code>, <code>fechaInicio</code> disponible</td></tr>
+  <tr><td>Relaciones N:M</td><td>TratamientoCondicionUsuario, TratamientoSintomaUsuario</td><td>Disponibles para enriquecer el PDF si se desea</td></tr>
+</table>
+</div>
+
+<div class="section-box">
+<h3>Condiciones</h3>
+<table>
+  <tr><th>Fuente</th><th>Archivo</th><th>Acceso</th></tr>
+  <tr><td><code>condicionUsuario</code> + <code>condiciones</code></td><td>Models/condicionUsuario.cs</td><td>Join EF, <code>fechaInicio</code> disponible</td></tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>2. Mapeo: Datos disponibles → Bloques del PDF</h2>
+
+<div class="section-box">
+<table>
+  <tr><th>Bloque PDF</th><th>Datos disponibles</th><th>Filtrable por fecha</th></tr>
+  <tr><td><strong>Header</strong> — nombre, fecha generación</td><td><code>Perfil.Nombre</code>, <code>Perfil.Apellidos</code>, <code>DateTime.Now</code></td><td>N/A</td></tr>
+  <tr><td><strong>Bloque 1 — Perfil</strong></td><td>Nombre, Genero, FechaDeNacimiento, NombrePais, NombreCiudad, AcercaDe</td><td>N/A</td></tr>
+  <tr><td><strong>Bloque 1 — Condición</strong></td><td><code>condicionUsuario.fechaInicio</code>, <code>condiciones.nombre</code></td><td><span class="badge-ok">✅ por fechaInicio</span></td></tr>
+  <tr><td><strong>Bloque 1 — Tratamientos base</strong></td><td><code>tratamientoUsuario.fechaInicio</code>, <code>tratamientos.nombre</code></td><td><span class="badge-ok">✅</span></td></tr>
+  <tr><td><strong>Bloque 2 — Estado de ánimo</strong></td><td><code>EstadoAnimoUsuario.FechaRegistro</code>, <code>EstadoMood</code> (enum), <code>Texto</code></td><td><span class="badge-ok">✅ por FechaRegistro</span></td></tr>
+  <tr><td><strong>Bloque 3 — Síntomas</strong></td><td><code>sintomasUsuario.fechaInicio</code>, <code>sintomas.nombre</code></td><td><span class="badge-ok">✅</span></td></tr>
+  <tr><td><strong>Bloque 3 — Tracking síntomas</strong></td><td><code>TrackingSintomaUsuario.Fecha</code>, <code>Estado</code> (texto)</td><td><span class="badge-ok">✅ por Fecha</span></td></tr>
+  <tr><td><strong>Bloque 4 — Tratamientos</strong></td><td><code>tratamientoUsuario.fechaInicio</code>, <code>tratamientos.nombre</code></td><td><span class="badge-ok">✅</span></td></tr>
+  <tr><td><strong>Footer</strong></td><td>Número de página, <code>DateTime.Now</code></td><td>N/A</td></tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>3. Arquitectura Propuesta</h2>
+
+<div class="section-box">
+<h3>Flujo de ejecución</h3>
+<pre>
+UI (Dashboard card)
+  → GET /Identity/Usuario/ResumenMedico?desde=&amp;hasta=
+    → ResumenMedicoModel (PageModel, nuevo)
+      → MedicalSummaryService.GenerarAsync(userId, desde, hasta)
+          → ApplicationDbContext (queries directas con rango de fechas)
+          → Construye MedicalSummaryDto
+      → PdfGeneratorService.GenerarPdf(MedicalSummaryDto)
+          → byte[] PDF en memoria
+      → FileContentResult("application/pdf")
+</pre>
+
+<h3>Estructura de archivos nuevos</h3>
+<pre>
+Services/
+  Export/
+    IMedicalSummaryService.cs
+    MedicalSummaryService.cs
+    Pdf/
+      IPdfGeneratorService.cs
+      PdfGeneratorService.cs
+
+DTOs/
+  Export/
+    MedicalSummaryDto.cs
+    PerfilExportDto.cs
+    EstadoAnimoExportDto.cs
+    SintomaExportDto.cs
+    TrackingSintomaExportDto.cs
+    TratamientoExportDto.cs
+    CondicionExportDto.cs
+
+Areas/Identity/Pages/Usuario/
+  ResumenMedico.cshtml
+  ResumenMedico.cshtml.cs
+</pre>
+
+<h3>Registro en DI (Program.cs) — solo 2 líneas nuevas</h3>
+<pre>
+builder.Services.AddScoped&lt;IMedicalSummaryService, MedicalSummaryService&gt;();
+builder.Services.AddScoped&lt;IPdfGeneratorService, PdfGeneratorService&gt;();
+</pre>
+
+<h3>Archivos a modificar (mínimo)</h3>
+<table>
+  <tr><th>Archivo</th><th>Cambio</th></tr>
+  <tr><td>Areas/Identity/Pages/Usuario/Dashboard.cshtml</td><td>Agregar card "Resumen Médico"</td></tr>
+  <tr><td>Program.cs</td><td>Registrar 2 servicios en DI</td></tr>
+  <tr><td>eiibd26.csproj</td><td>Agregar 1 PackageReference (QuestPDF o PdfSharpCore)</td></tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>4. Decisión Técnica Crítica — Librería PDF</h2>
+
+<div class="section-box">
+<div class="highlight">⚠️ No hay ninguna librería PDF instalada actualmente en eiibd26.csproj.</div>
+<table>
+  <tr><th>Librería</th><th>Licencia</th><th>Pros</th><th>Contras</th></tr>
+  <tr>
+    <td><strong>QuestPDF</strong> ⭐ Recomendado</td>
+    <td>Comunitaria gratuita (&lt; $1M USD ingresos)</td>
+    <td>API fluente declarativa, tablas, secciones, header/footer nativos. La más limpia para este caso.</td>
+    <td>Requiere declarar <code>QuestPDF.Settings.License = LicenseType.Community</code></td>
+  </tr>
+  <tr>
+    <td><strong>PdfSharpCore</strong></td>
+    <td>MIT (sin restricciones)</td>
+    <td>Sin restricciones de licencia</td>
+    <td>API de bajo nivel, más verbosa, sin layout automático</td>
+  </tr>
+  <tr>
+    <td><strong>iText7 Community</strong></td>
+    <td>AGPL</td>
+    <td>Muy completo</td>
+    <td>AGPL puede ser restrictiva en producto comercial</td>
+  </tr>
+  <tr>
+    <td><strong>Syncfusion</strong></td>
+    <td>Comercial / gratis comunidad</td>
+    <td>Muy pulido</td>
+    <td>Requiere licencia comercial en producción</td>
+  </tr>
+</table>
+
+<p><strong>Recomendación:</strong> <span class="badge-ok">QuestPDF</span> — API declarativa por secciones, perfecta para header / bloques / footer numerados. <br>
+PackageReference a agregar: <code>&lt;PackageReference Include="QuestPDF" Version="2024.10.4" /&gt;</code></p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>5. Riesgos Identificados</h2>
+
+<div class="section-box">
+<table>
+  <tr><th>Riesgo</th><th>Severidad</th><th>Mitigación</th></tr>
+  <tr>
+    <td>Rangos de fechas grandes (6 meses × múltiples tablas)</td>
+    <td><span class="badge-warn">Media</span></td>
+    <td>Proyectar solo columnas necesarias; límite configurable (ej. 500 registros por sección). Nota en el PDF si se truncó.</td>
+  </tr>
+  <tr>
+    <td>Licencia QuestPDF</td>
+    <td><span class="badge-ok">Baja</span></td>
+    <td>Confirmar ingresos del producto. Alternativa: PdfSharpCore (MIT).</td>
+  </tr>
+  <tr>
+    <td>Usuario sin datos en el período</td>
+    <td><span class="badge-ok">Baja</span></td>
+    <td>El DTO maneja listas vacías; el PDF genera secciones con "Sin registros en el período".</td>
+  </tr>
+  <tr>
+    <td><code>fechaInicio</code> de síntomas/tratamientos vs rango temporal</td>
+    <td><span class="badge-warn">Media</span></td>
+    <td><strong>Decisión pendiente de validación:</strong> ¿filtrar por <code>fechaInicio</code> del registro del usuario, o por fecha del tracking (<code>TrackingSintomaUsuario.Fecha</code>)?</td>
+  </tr>
+  <tr>
+    <td>Zona horaria inconsistente en BD</td>
+    <td><span class="badge-ok">Baja</span></td>
+    <td>Mostrar fechas tal como están en la DB sin conversiones, para no introducir inconsistencias.</td>
+  </tr>
+  <tr>
+    <td>Seguridad del endpoint de descarga</td>
+    <td><span class="badge-ok">Baja</span></td>
+    <td>La nueva página usa <code>[Authorize]</code>. El userId se lee siempre de <code>User.FindFirst(ClaimTypes.NameIdentifier)</code>, nunca de un parámetro HTTP.</td>
+  </tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>6. Posibles Cuellos de Botella</h2>
+
+<div class="section-box">
+<ul>
+  <li><strong>TrackingSintomaUsuario</strong> puede crecer rápido si el usuario registra seguimiento diario. Con 6 meses: ~180 registros por síntoma. Mitigación: <code>.Take(limit)</code> configurable.</li>
+  <li><strong>Generación del PDF en memoria</strong> es síncrona en QuestPDF. Para documentos &gt;5 páginas densas puede sentirse lento. En fase actual no requiere background; se puede añadir después si es necesario.</li>
+</ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>✅ Checklist de Validación Previa a Implementación</h2>
+
+<div class="section-box">
+<table>
+  <tr><th>#</th><th>Pregunta</th><th>Opciones</th></tr>
+  <tr>
+    <td>1</td>
+    <td>Librería PDF a utilizar</td>
+    <td><span class="badge-ok">QuestPDF (recomendado)</span> &nbsp; | &nbsp; PdfSharpCore (MIT, sin restricciones) &nbsp; | &nbsp; Otra</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td>Criterio de filtrado de síntomas y tratamientos</td>
+    <td>Por <code>fechaInicio</code> del registro del usuario &nbsp; | &nbsp; Por fecha del tracking (<code>TrackingSintomaUsuario.Fecha</code>)</td>
+  </tr>
+</table>
+<p>Una vez confirmados estos dos puntos, se procede con la implementación completa.</p>
+</div>
+
+</body>
+</html>

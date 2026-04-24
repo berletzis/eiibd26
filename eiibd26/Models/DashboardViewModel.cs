@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using eiibd26.DTOs.Analytics;
 
 namespace eiibd26.Models
 {
@@ -27,6 +28,9 @@ namespace eiibd26.Models
         // del usuario y por tanto debe actualizarse.
         public bool NeedsDiagnosisDateUpdate { get; set; } = false;
         public int DiagnosisUpdatesCount { get; set; } = 0;
+
+        /// <summary>Estadísticas del período (últimos 7 días). Puede ser null si no hay datos.</summary>
+        public HealthStatsDto? HealthStats { get; set; }
     }
 
     public class MoodPoint

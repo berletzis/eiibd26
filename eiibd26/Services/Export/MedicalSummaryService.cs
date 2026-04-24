@@ -1,0 +1,188 @@
+using eiibd26.DTOs.Export;
+using Microsoft.EntityFrameworkCore;
+
+namespace eiibd26.Services.Export;
+
+public sealed class MedicalSummaryService : IMedicalSummaryService
+{
+    private const int Limit = 500;
+
+    private readonly ApplicationDbContext _db;
+    private readonly ILogger<MedicalSummaryService> _logger;
+
+    public MedicalSummaryService(ApplicationDbContext db, ILogger<MedicalSummaryService> logger)
+    {
+        _db = db;
+        _logger = logger;
+    }
+
+    public async Task<MedicalSummaryDto> GenerarAsync(Guid userId, DateTime desde, DateTime hasta, CancellationToken ct = default)
+    {
+        if (desde > hasta)
+            throw new ArgumentException("La fecha de inicio no puede ser mayor a la fecha de fin.");
+
+        _logger.LogInformation("Generando resumen médico para usuario {UserId} desde {Desde:d} hasta {Hasta:d}.", userId, desde, hasta);
+
+        var perfil       = await ObtenerPerfilAsync(userId, ct);
+        var condiciones  = await ObtenerCondicionesAsync(userId, ct);
+        var estados      = await ObtenerEstadosAnimoAsync(userId, desde, hasta, ct);
+        var sintomas     = await ObtenerSintomasConTrackingAsync(userId, desde, hasta, ct);
+        var tratamientos = await ObtenerTratamientosAsync(userId, desde, hasta, ct);
+
+        bool truncado = estados.Count >= Limit
+                     || sintomas.Sum(s => s.Trackings.Count) >= Limit
+                     || tratamientos.Count >= Limit;
+
+        return new MedicalSummaryDto
+        {
+            Perfil           = perfil,
+            Condiciones      = condiciones,
+            EstadosAnimo     = estados,
+            Sintomas         = sintomas,
+            Tratamientos     = tratamientos,
+            Desde            = desde,
+            Hasta            = hasta,
+            FechaGeneracion  = DateTime.Now,
+            DatosTruncados   = truncado,
+            LimiteAplicado   = Limit
+        };
+    }
+
+    // ── Perfil ────────────────────────────────────────────────────────────────
+
+    private async Task<PerfilExportDto> ObtenerPerfilAsync(Guid userId, CancellationToken ct)
+    {
+        var perfil = await _db.Perfil
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.idUser == userId, ct);
+
+        if (perfil is null) return new PerfilExportDto();
+
+        return new PerfilExportDto
+        {
+            NombreCompleto    = $"{perfil.Nombre} {perfil.Apellidos}".Trim(),
+            Genero            = perfil.Genero,
+            FechaDeNacimiento = perfil.FechaDeNacimiento,
+            NombreCiudad      = perfil.NombreCiudad,
+            NombrePais        = perfil.NombrePais,
+            AcercaDe          = perfil.AcercaDe
+        };
+    }
+
+    // ── Condiciones ───────────────────────────────────────────────────────────
+
+    private async Task<List<CondicionExportDto>> ObtenerCondicionesAsync(Guid userId, CancellationToken ct)
+    {
+        return await _db.condicionUsuario
+            .AsNoTracking()
+            .Where(c => c.idUsuario == userId && !c.Eliminado)
+            .Include(c => c.Condicion)
+            .OrderBy(c => c.fechaInicio)
+            .Select(c => new CondicionExportDto
+            {
+                Nombre      = c.Condicion.nombre,
+                FechaInicio = c.fechaInicio
+            })
+            .ToListAsync(ct);
+    }
+
+    // ── Estado de ánimo ───────────────────────────────────────────────────────
+
+    private async Task<List<EstadoAnimoExportDto>> ObtenerEstadosAnimoAsync(
+        Guid userId, DateTime desde, DateTime hasta, CancellationToken ct)
+    {
+        return await _db.EstadoAnimoUsuario
+            .AsNoTracking()
+            .Where(x => x.IdUsuario == userId && !x.Eliminado)
+            .Where(x => x.FechaRegistro >= desde && x.FechaRegistro <= hasta)
+            .OrderBy(x => x.FechaRegistro)
+            .Take(Limit)
+            .Select(x => new EstadoAnimoExportDto
+            {
+                FechaRegistro    = x.FechaRegistro,
+                EstadoMood       = (int)x.EstadoMood,
+                EstadoMoodNombre = x.EstadoMood.ToString(),
+                Texto            = x.Texto
+            })
+            .ToListAsync(ct);
+    }
+
+    // ── Síntomas con tracking ─────────────────────────────────────────────────
+
+    private async Task<List<SintomaExportDto>> ObtenerSintomasConTrackingAsync(
+        Guid userId, DateTime desde, DateTime hasta, CancellationToken ct)
+    {
+        // Obtener los trackings del período
+        var trackings = await _db.TrackingSintomaUsuario
+            .AsNoTracking()
+            .Where(t => t.IdUsuario == userId)
+            .Where(t => t.Fecha >= desde && t.Fecha <= hasta)
+            .Include(t => t.SintomaUsuario)
+                .ThenInclude(su => su.Sintoma)
+            .OrderBy(t => t.Fecha)
+            .Take(Limit)
+            .ToListAsync(ct);
+
+        // Obtener IDs de sintomasUsuario involucrados
+        var idsSintomasUsuario = trackings
+            .Where(t => t.SintomaUsuario != null)
+            .Select(t => t.IdSintomaUsuario)
+            .Distinct()
+            .ToList();
+
+        // Cargar tratamientos asociados a esos síntomas
+        var tratamientosPorSintoma = await _db.TratamientoSintomaUsuario
+            .AsNoTracking()
+            .Where(ts => ts.IdSintomaUsuario != null && idsSintomasUsuario.Contains(ts.IdSintomaUsuario.Value))
+            .Include(ts => ts.TratamientoUsuario)
+                .ThenInclude(tu => tu.Tratamiento)
+            .ToListAsync(ct);
+
+        var mapaTratamientos = tratamientosPorSintoma
+            .Where(ts => ts.TratamientoUsuario?.Tratamiento != null)
+            .GroupBy(ts => ts.IdSintomaUsuario!.Value)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(ts => ts.TratamientoUsuario!.Tratamiento!.nombre)
+                       .Distinct()
+                       .OrderBy(n => n)
+                       .ToList());
+
+        // Agrupar por síntoma
+        return trackings
+            .Where(t => t.SintomaUsuario?.Sintoma != null)
+            .GroupBy(t => new { t.IdSintomaUsuario, NombreSintoma = t.SintomaUsuario!.Sintoma!.nombre })
+            .Select(g => new SintomaExportDto
+            {
+                NombreSintoma = g.Key.NombreSintoma,
+                Tratamientos  = mapaTratamientos.TryGetValue(g.Key.IdSintomaUsuario, out var trts) ? trts : [],
+                Trackings     = g.Select(t => new TrackingSintomaExportDto
+                {
+                    Fecha  = t.Fecha,
+                    Estado = t.Estado
+                }).OrderBy(x => x.Fecha).ToList()
+            })
+            .OrderBy(s => s.NombreSintoma)
+            .ToList();
+    }
+
+    // ── Tratamientos ──────────────────────────────────────────────────────────
+
+    private async Task<List<TratamientoExportDto>> ObtenerTratamientosAsync(
+        Guid userId, DateTime desde, DateTime hasta, CancellationToken ct)
+    {
+        return await _db.tratamientoUsuario
+            .AsNoTracking()
+            .Where(t => t.idUsuario == userId && !t.Eliminado)
+            .Where(t => t.fechaInicio <= hasta)
+            .Include(t => t.Tratamiento)
+            .OrderBy(t => t.fechaInicio)
+            .Take(Limit)
+            .Select(t => new TratamientoExportDto
+            {
+                Nombre      = t.Tratamiento.nombre,
+                FechaInicio = t.fechaInicio
+            })
+            .ToListAsync(ct);
+    }
+}
