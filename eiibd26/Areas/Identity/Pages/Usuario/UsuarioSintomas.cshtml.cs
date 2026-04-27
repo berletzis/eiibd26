@@ -1,5 +1,8 @@
+using eiibd26.DTOs.Analytics;
+using eiibd26.DTOs.Export;
 using eiibd26.DTOs.Tracking;
 using eiibd26.Models;
+using eiibd26.Services.Analytics;
 using eiibd26.Services.Tracking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,12 +20,17 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
     {
         private readonly ApplicationDbContext _db;
         private readonly ITrackingSintomaService _trackingService;
+        private readonly IHealthStatsService _healthStats;
 
-        public UsuarioSintomasModel(ApplicationDbContext db, ITrackingSintomaService trackingService)
+        public UsuarioSintomasModel(ApplicationDbContext db, ITrackingSintomaService trackingService, IHealthStatsService healthStats)
         {
             _db = db;
             _trackingService = trackingService;
+            _healthStats = healthStats;
         }
+
+        /// <summary>Tendencia por síntoma, clave = NombreSintoma.Trim(). Sin datos = "Sin datos suficientes".</summary>
+        public Dictionary<string, SymptomTrendDto> TendenciasPorSintoma { get; private set; } = new(StringComparer.OrdinalIgnoreCase);
 
         public List<SintomaConDatos> MisSintomas { get; set; } = new();
         public List<CondicionUsuarioSimple> MisCondicionesSimplificadas { get; set; } = new();
@@ -164,6 +172,33 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             FrecuenciasCatalog = await _db.FrecuenciaSintomaCatalog
                 .OrderBy(f => f.Orden)
                 .ToListAsync();
+
+            // Calcular tendencias usando trackings ya en memoria (60 días) — sin nueva query
+            var sintomasExport = MapearSintomasExport(
+                sintomasUsuario.Select(su => (su.id, su.nombre)).ToList(), trackings);
+            var stats = _healthStats.Calcular([], sintomasExport);
+            TendenciasPorSintoma = stats.Symptoms.PorSintoma
+                .ToDictionary(t => t.NombreSintoma.Trim(), t => t, StringComparer.OrdinalIgnoreCase);
+        }
+
+        private static List<SintomaExportDto> MapearSintomasExport(
+            List<(int id, string nombre)> sintomas,
+            List<TrackingSintomaUsuario> trackings)
+        {
+            return sintomas.Select(su => new SintomaExportDto
+            {
+                NombreSintoma = su.nombre,
+                Tratamientos  = [],
+                Trackings     = trackings
+                    .Where(t => t.IdSintomaUsuario == su.id)
+                    .OrderBy(t => t.Fecha)
+                    .Select(t => new TrackingSintomaExportDto
+                    {
+                        Fecha  = t.Fecha,
+                        Estado = t.Estado ?? string.Empty,
+                        Dolor  = t.Dolor
+                    }).ToList()
+            }).ToList();
         }
 
         public async Task<IActionResult> OnPostAgregarSintomaAsync(int sintomaId)

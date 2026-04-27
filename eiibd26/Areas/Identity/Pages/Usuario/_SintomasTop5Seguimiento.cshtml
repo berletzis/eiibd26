@@ -132,11 +132,11 @@
             padding-left: .4rem;
             padding-right: .4rem;
         }
-            /* En móvil ocultamos Ayer y Condición; sólo se ve Síntoma + Hoy */
-            .sintomas-top5 thead th:nth-child(2),
-            .sintomas-top5 tbody td:nth-child(2),
-            .sintomas-top5 thead th:nth-child(4),
-            .sintomas-top5 tbody td:nth-child(4) {
+            /* En móvil ocultamos Ayer y Condición; sólo se ve Síntoma + Tendencia + Hoy */
+            .sintomas-top5 thead th:nth-child(3),
+            .sintomas-top5 tbody td:nth-child(3),
+            .sintomas-top5 thead th:nth-child(5),
+            .sintomas-top5 tbody td:nth-child(5) {
                 display: none !important;
             }
 
@@ -188,15 +188,26 @@
 </style>
 
 <div id="sintomasTop5Root" class="sintomas-top5">
-    <div class="dashboard-col1-title">Síntomas (últimos 7 días)</div>
+    <div class="dashboard-col1-title">Síntomas </div>
     <div class="small-muted" style="font-size:.9rem;">Ordenados por mayor seguimiento en el período.</div>
     @if (Model.HealthStats != null && Model.HealthStats.Symptoms.TotalRegistros > 0)
     {
-        <div class="small-muted mt-1" style="font-size:.85rem;">
-            <strong>@Model.HealthStats.Symptoms.Tendencia</strong>
-            — @Model.HealthStats.Symptoms.TotalRegistros registro@(Model.HealthStats.Symptoms.TotalRegistros == 1 ? "" : "s")
+@*         var dashGlobalTend = Model.HealthStats.Symptoms.Tendencia;
+        var (dashGlobalIcon, dashGlobalColor) = dashGlobalTend switch
+        {
+            "Empeorando" => ("🔴", "#dc3545"),
+            "Mejorando"  => ("🟢", "#198754"),
+            "Estable"    => ("⚪️",  "#6c757d"),
+            _            => ("—",  "#adb5bd")
+        };
+        <div class="small-muted mt-1" style="font-size:.82rem; color:#666;">📊 Tendencia general</div>
+        <div class="mt-1 mb-2" style="font-size:.9rem; font-weight:600; color:@dashGlobalColor;">
+            @dashGlobalIcon @dashGlobalTend
+            <span style="font-weight:400; color:#888; font-size:.8rem;">
+                — @Model.HealthStats.Symptoms.TotalRegistros registro@(Model.HealthStats.Symptoms.TotalRegistros == 1 ? "" : "s")
+            </span>
         </div>
-    }
+        }
     else if (Model.HealthStats != null)
     {
         <div class="small-muted mt-1" style="font-size:.85rem;">Sin seguimiento en los últimos 7 días</div>
@@ -219,13 +230,18 @@
                 </span>
             }
         </div>
+        *@
+    } 
+    @{
+        var tendDict = (Model.HealthStats?.Symptoms?.PorSintoma ?? new List<eiibd26.DTOs.Analytics.SymptomTrendDto>())
+            .ToDictionary(t => t.NombreSintoma, t => t, StringComparer.OrdinalIgnoreCase);
     }
-
     <div class="table-responsive">
         <table class="table table-sm table-borderless align-middle">
             <thead>
                 <tr>
                     <th class="text-start sintoma-col">Síntoma</th>
+                    <th class="text-start" style="min-width:90px; font-size:.82rem;">Tendencia</th>
                     <th class="text-center date-col">
                         @ayer.ToString("dd/MM")
                         <small class="text-muted">@ayer.ToString("ddd")</small>
@@ -243,7 +259,7 @@
                 @if (!top.Any())
                 {
                     <tr>
-                        <td colspan="4" class="empty-msg">No hay síntomas para mostrar.</td>
+                        <td colspan="5" class="empty-msg">No hay síntomas para mostrar.</td>
                     </tr>
                 }
                 else
@@ -262,8 +278,23 @@
 
                         <tr>
                             <td class="text-start sintoma-col">@s.Nombre</td>
+                            @{
+                                var hasTrend = tendDict.TryGetValue(s.Nombre?.Trim() ?? "", out var rowTrend);
+                                var (rowTendIcon, rowTendColor) = hasTrend ? rowTrend!.Tendencia switch
+                                {
+                                    "Empeorando" => ("🔴", "#dc3545"),
+                                    "Mejorando"  => ("🟢", "#198754"),
+                                    "Estable"    => ("⚪️",  "#6c757d"),
+                                    _            => ("—",  "#adb5bd")
+                                } : ("—", "#adb5bd");
+                                var rowTendShort = hasTrend && rowTrend!.Tendencia == "Sin datos suficientes" ? "Sin datos" : (hasTrend ? rowTrend!.Tendencia : "Sin datos");
+                            }
+                            <td style="font-size:.82rem; color:@rowTendColor; white-space:nowrap;"
+                                title="Basado en la evolución del síntoma durante el período (no solo el último día)">
+                                @rowTendIcon @rowTendShort
+                            </td>
 
-                            <td class="text-center date-col" data-sintid="@sintId" data-dia="@keyAyer" data-nombre="@s.Nombre" data-tipo="@s.TipoSintoma"
+                            <td class="text-center date-col"
                                 data-dolor="@(trackAyer?.Dolor?.ToString() ?? "")"
                                 data-sangrado="@(trackAyer?.TieneSangrado.HasValue == true ? (trackAyer.TieneSangrado.Value ? "true" : "false") : "")"
                                 data-frecuencia="@(trackAyer?.FrecuenciaId?.ToString() ?? "")">

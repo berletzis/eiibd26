@@ -255,6 +255,8 @@
                 <thead>
                     <tr>
                         <th class="bg-light text-nowrap">Síntoma</th>
+                        <th class="bg-light text-nowrap" style="min-width:110px;"
+                            title="Basado en la evolución del síntoma durante el período (no solo el último día)">Tendencia</th>
                         @foreach (var dia in diasSemana)
                         {
                             var esHoy = (dia.Date == hoy.Date);
@@ -280,6 +282,21 @@
                     {
                         <tr>
                             <td class="text-start" style="vertical-align: middle;">@sint.Nombre</td>
+                            @{
+                                Model.TendenciasPorSintoma.TryGetValue(sint.Nombre.Trim(), out var trend);
+                                var tendTxt   = trend?.Tendencia ?? "Sin datos suficientes";
+                                var (tendIcon, tendColor, tendShort) = tendTxt switch
+                                {
+                                    "Empeorando" => ("🔴", "#dc3545", "Empeorando"),
+                                    "Mejorando"  => ("🟢", "#198754", "Mejorando"),
+                                    "Estable"    => ("⚪️",  "#6c757d", "Estable"),
+                                    _            => ("—",    "#adb5bd", "Sin datos")
+                                };
+                            }
+                            <td class="text-nowrap" style="color:@tendColor; font-weight:600; font-size:.85rem;"
+                                title="Basado en la evolución del síntoma durante el período (no solo el último día)">
+                                @tendIcon @tendShort
+                            </td>
                             @foreach (var dia in diasSemana)
                             {
                                 var key = dia.ToString("yyyy-MM-dd");

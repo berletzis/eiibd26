@@ -60,48 +60,70 @@ public sealed class HealthStatsService : IHealthStatsService
 
     private static SymptomStatsDto CalcularSintomas(List<SintomaExportDto> sintomas)
     {
-        // Aplanar todos los trackings de todos los síntomas, ordenados por fecha
-        var trackings = sintomas
-            .SelectMany(s => s.Trackings)
-            .OrderBy(t => t.Fecha)
+        if (sintomas.Count == 0)
+            return new SymptomStatsDto { TotalRegistros = 0, Tendencia = "Sin datos suficientes", PorSintoma = [] };
+
+        var totalRegistros = sintomas.Sum(s => s.Trackings.Count);
+
+        // Calcular tendencia individual por síntoma (sin mezclar series)
+        var porSintoma = sintomas
+            .Select(s => new SymptomTrendDto(
+                NombreSintoma: s.NombreSintoma,
+                Tendencia:     CalcularTendenciaIndividual(s.Trackings),
+                TotalRegistros: s.Trackings.Count))
+            .OrderBy(t => t.NombreSintoma)
             .ToList();
 
-        var total = trackings.Count;
+        // Tendencia global: peor caso
+        string tendenciaGlobal;
+        if (porSintoma.Any(t => t.Tendencia == "Empeorando"))
+            tendenciaGlobal = "Empeorando";
+        else if (porSintoma.Any(t => t.Tendencia == "Mejorando"))
+            tendenciaGlobal = "Mejorando";
+        else if (porSintoma.All(t => t.Tendencia == "Sin datos suficientes"))
+            tendenciaGlobal = "Sin datos suficientes";
+        else
+            tendenciaGlobal = "Estable";
 
-        if (total < 2)
-            return new SymptomStatsDto { TotalRegistros = total, Tendencia = "Sin datos suficientes" };
+        return new SymptomStatsDto
+        {
+            TotalRegistros = totalRegistros,
+            Tendencia      = tendenciaGlobal,
+            PorSintoma     = porSintoma
+        };
+    }
 
-        // Excluir estados no reconocidos antes de calcular
+    /// <summary>
+    /// Aplica regresión OLS sobre los trackings de un único síntoma.
+    /// Retorna "Sin datos suficientes" si hay menos de 2 puntos reconocidos.
+    /// </summary>
+    private static string CalcularTendenciaIndividual(List<TrackingSintomaExportDto> trackings)
+    {
         var valores = trackings
+            .OrderBy(t => t.Fecha)
             .Select(t => ValorEstado(t.Estado))
             .Where(v => v >= 0)
             .ToList();
 
         if (valores.Count < 2)
-            return new SymptomStatsDto { TotalRegistros = total, Tendencia = "Sin datos suficientes" };
+            return "Sin datos suficientes";
 
-        // Pendiente OLS: slope = (N·Σxy - Σx·Σy) / (N·Σx² - (Σx)²)
-        // x = índice 0..N-1, y = valor ordinal del estado
-        int n      = valores.Count;
+        int n       = valores.Count;
         double sumX  = n * (n - 1) / 2.0;
         double sumX2 = (n - 1) * (double)n * (2 * n - 1) / 6.0;
         double sumY  = valores.Sum();
         double sumXY = valores.Select((y, i) => i * (double)y).Sum();
 
         double denominador = n * sumX2 - sumX * sumX;
-
-        // denominador == 0 solo si n <= 1, ya cubierto arriba
-        double pendiente = (n * sumXY - sumX * sumY) / denominador;
+        double pendiente   = (n * sumXY - sumX * sumY) / denominador;
 
         const double Umbral = 0.05;
-        var tendencia = pendiente switch
+        return pendiente switch
         {
             >  Umbral => "Empeorando",
             < -Umbral => "Mejorando",
             _         => "Estable"
         };
-
-        return new SymptomStatsDto { TotalRegistros = total, Tendencia = tendencia };
     }
 
     /// <summary>Convierte el string Estado a valor numérico. Devuelve -1 si es desconocido.</summary>

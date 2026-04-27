@@ -166,6 +166,21 @@
                                             <span>Sin seguimiento</span>
                                         }
                                     </div>
+                                    @{
+                                        Model.TendenciasPorSintoma.TryGetValue(sint.Nombre.Trim(), out var sintTrend);
+                                        var sintTendTxt = sintTrend?.Tendencia ?? "Sin datos suficientes";
+                                        var (sintTendIcon, sintTendColor, sintTendShort) = sintTendTxt switch
+                                        {
+                                            "Empeorando" => ("🔴", "#dc3545", "Empeorando"),
+                                            "Mejorando"  => ("🟢", "#198754", "Mejorando"),
+                                            "Estable"    => ("⚪️",  "#6c757d", "Estable"),
+                                            _            => ("—",  "#adb5bd", "Sin datos")
+                                        };
+                                    }
+                                    <div style="margin-top:6px;" title="Basado en la evolución del síntoma durante el período (no solo el último día)">
+                                        <span style="font-size:.85em; color:#666;">Tendencia</span><br />
+                                        <strong style="color:@sintTendColor; font-size:.9em;">@sintTendIcon @sintTendShort</strong>
+                                    </div>
                                 </div>
                             <button type="button" class="btn-track-sintoma" 
                                     data-id="@sint.Id"

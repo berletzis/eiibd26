@@ -357,10 +357,25 @@ public sealed class PdfGeneratorService : IPdfGeneratorService
                 });
                 body.Item().Text(t =>
                 {
-                    t.Span("Tendencia de síntomas: ").Bold().FontSize(TamFuente).FontColor(GrisMedio);
+                    t.Span("Tendencia general: ").Bold().FontSize(TamFuente).FontColor(GrisMedio);
                     t.Span($"{stats.Symptoms.Tendencia} ({stats.Symptoms.TotalRegistros} registros)")
                         .FontSize(TamFuente).FontColor(GrisOscuro);
                 });
+
+                if (stats.Symptoms.PorSintoma.Count > 0)
+                {
+                    body.Item().PaddingTop(4).Text("Tendencia por síntoma:")
+                        .Bold().FontSize(TamFuente).FontColor(GrisMedio);
+
+                    foreach (var trend in stats.Symptoms.PorSintoma)
+                    {
+                        body.Item().PaddingLeft(12).Text(t =>
+                        {
+                            t.Span($"– {trend.NombreSintoma}: ").FontSize(TamFuente).FontColor(GrisOscuro);
+                            t.Span(trend.Tendencia).FontSize(TamFuente).FontColor(GrisOscuro);
+                        });
+                    }
+                }
             });
         });
     }
