@@ -27,6 +27,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             public int Id { get; set; }
             public string Nombre { get; set; }
             public DateTime FechaInicio { get; set; }
+            public bool EsPrincipal { get; set; }
             public List<RelSimple> Sintomas { get; set; } = new();
             public List<RelSimple> Condiciones { get; set; } = new();
             public int SintomasCount => Sintomas?.Count ?? 0;
@@ -80,6 +81,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                                      {
                                          Id = tu.id,
                                          Nombre = t.nombre,
+                                         EsPrincipal = tu.EsPrincipal,
                                          FechaInicio = tu.fechaInicio >= new DateTime(1753, 1, 1) ? tu.fechaInicio : tu.fechaCreado,
                                          Sintomas = (
                                              from rel in _db.TratamientoSintomaUsuario
@@ -297,6 +299,34 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 return new JsonResult(new { ok = true });
             }
             return new JsonResult(new { ok = false });
+        }
+
+        /// <summary>Marca/desmarca un tratamiento del usuario como principal (solo uno puede estar activo).</summary>
+        public async Task<IActionResult> OnPostTogglePrincipalTratamientoAsync(int tratId)
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
+            var userGuid = Guid.Parse(userId);
+
+            var objetivo = await _db.tratamientoUsuario
+                .FirstOrDefaultAsync(x => x.id == tratId && x.idUsuario == userGuid && !x.Eliminado);
+            if (objetivo == null) return NotFound();
+
+            var nuevoValor = !objetivo.EsPrincipal;
+
+            if (nuevoValor)
+            {
+                var otros = await _db.tratamientoUsuario
+                    .Where(x => x.idUsuario == userGuid && !x.Eliminado && x.EsPrincipal && x.id != tratId)
+                    .ToListAsync();
+                foreach (var o in otros) o.EsPrincipal = false;
+            }
+
+            objetivo.EsPrincipal = nuevoValor;
+            objetivo.fechaModificado = DateTime.Now;
+            await _db.SaveChangesAsync();
+
+            return new JsonResult(new { ok = true, esPrincipal = nuevoValor });
         }
     }
 }

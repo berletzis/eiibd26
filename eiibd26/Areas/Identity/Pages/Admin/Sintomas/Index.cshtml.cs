@@ -22,6 +22,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
         public bool ValidadoIA { get; set; }
         public bool ValidadoHumano { get; set; }
         public bool RelacionEII { get; set; }
+        public int TipoSintoma { get; set; }
     }
 
     public class IndexModel : PageModel
@@ -75,7 +76,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
                 icono = s.icono ?? string.Empty,
                 ValidadoIA = s.ValidadoIA,
                 ValidadoHumano = s.ValidadoHumano,
-                RelacionEII = s.RelacionEII
+                RelacionEII = s.RelacionEII,
+                TipoSintoma = s.TipoSintoma
             });
 
             // 1. Ejecutar la query y traer datos a memoria
@@ -109,7 +111,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
                         icono = s.icono ?? string.Empty,
                         ValidadoIA = s.ValidadoIA,
                         ValidadoHumano = s.ValidadoHumano,
-                        RelacionEII = s.RelacionEII
+                        RelacionEII = s.RelacionEII,
+                        TipoSintoma = s.TipoSintoma
                     })
                     .ToListAsync();
             }
@@ -129,7 +132,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
                     eliminado = padre.Eliminado,
                     validadoIA = padre.ValidadoIA,
                     validadoHumano = padre.ValidadoHumano,
-                    relacionEII = padre.RelacionEII
+                    relacionEII = padre.RelacionEII,
+                    tipoSintoma = padre.TipoSintoma
                 });
 
                 var hijos = hijosConPadre
@@ -150,7 +154,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
                         eliminado = h.Eliminado,
                         validadoIA = h.ValidadoIA,
                         validadoHumano = h.ValidadoHumano,
-                        relacionEII = h.RelacionEII
+                        relacionEII = h.RelacionEII,
+                        tipoSintoma = h.TipoSintoma
                     });
                 }
             }
@@ -188,7 +193,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
                     idPadre = s.idPadre,
                     idIdioma = s.idIdioma,
                     icono = s.icono ?? string.Empty,
-                    eliminado = s.Eliminado
+                    eliminado = s.Eliminado,
+                    tipoSintoma = s.TipoSintoma
                 });
             }
             catch (Exception ex)
@@ -220,6 +226,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
             sintoma.idIdioma = idIdioma;
             sintoma.icono = icono;
             sintoma.Eliminado = eliminado;
+            if (int.TryParse(Request.Form["tipoSintoma"], out var tipoSintomaParsed))
+                sintoma.TipoSintoma = Math.Clamp(tipoSintomaParsed, 0, 2);
             sintoma.fechaModificado = DateTime.Now;
 
             await _db.SaveChangesAsync();

@@ -16,6 +16,9 @@ namespace eiibd26.Models
     public DateTime fechaCreado { get; set; }
     public bool Eliminado { get; set; }
 
+    /// <summary>Indica si este es el tratamiento principal del usuario.</summary>
+    public bool EsPrincipal { get; set; }
+
     [ForeignKey(nameof(IdCondicion))]
     public virtual condiciones Condicion { get; set; }
     [ForeignKey(nameof(idTratamiento))]

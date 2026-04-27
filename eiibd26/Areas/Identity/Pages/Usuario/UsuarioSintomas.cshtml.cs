@@ -1,4 +1,7 @@
+using eiibd26.DTOs.Tracking;
 using eiibd26.Models;
+using eiibd26.Services.Tracking;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -9,24 +12,30 @@ using System.Threading.Tasks;
 
 namespace eiibd26.Areas.Identity.Pages.Usuario
 {
+    [Authorize]
     public class UsuarioSintomasModel : PageModel
     {
         private readonly ApplicationDbContext _db;
+        private readonly ITrackingSintomaService _trackingService;
 
-        public UsuarioSintomasModel(ApplicationDbContext db)
+        public UsuarioSintomasModel(ApplicationDbContext db, ITrackingSintomaService trackingService)
         {
             _db = db;
+            _trackingService = trackingService;
         }
 
         public List<SintomaConDatos> MisSintomas { get; set; } = new();
         public List<CondicionUsuarioSimple> MisCondicionesSimplificadas { get; set; } = new();
         public List<TratamientoUsuarioSimple> MisTratamientosSimplificados { get; set; } = new();
+        public List<FrecuenciaSintomaCatalog> FrecuenciasCatalog { get; set; } = new();
 
         public class SintomaConDatos
         {
             public int Id { get; set; }
             public string Nombre { get; set; }
             public DateTime FechaInicio { get; set; }
+            public bool EsPrincipal { get; set; }
+            public int TipoSintoma { get; set; } = 0;
             public List<RelSimple> Condiciones { get; set; } = new();
             public List<RelSimple> Tratamientos { get; set; } = new();
             public int CondicionesCount => Condiciones?.Count ?? 0;
@@ -84,11 +93,14 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                                              su.id,
                                              su.fechaInicio,
                                              su.fechaCreado,
-                                             s.nombre
+                                             su.EsPrincipal,
+                                             s.nombre,
+                                             s.TipoSintoma
                                          }).ToListAsync();
 
+            var desde = DateTime.Today.AddDays(-60);
             var trackings = await _db.TrackingSintomaUsuario
-                .Where(t => t.IdUsuario == userIdGuid)
+                .Where(t => t.IdUsuario == userIdGuid && t.Fecha >= desde)
                 .ToListAsync();
 
             // Relaciones condiciones
@@ -96,6 +108,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 from rel in _db.SintomaCondicionUsuario
                 join cu in _db.condicionUsuario on rel.IdCondicionUsuario equals cu.id
                 join c in _db.condiciones on cu.idCondicion equals c.id
+                where cu.idUsuario == userIdGuid
                 select new
                 {
                     rel.IdSintomaUsuario,
@@ -110,6 +123,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 from rel in _db.TratamientoSintomaUsuario
                 join tu in _db.tratamientoUsuario on rel.IdTratamientoUsuario equals tu.id
                 join t in _db.tratamientos on tu.idTratamiento equals t.id
+                where tu.idUsuario == userIdGuid
                 select new
                 {
                     rel.IdSintomaUsuario,
@@ -138,12 +152,18 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 {
                     Id = su.id,
                     Nombre = su.nombre,
+                    EsPrincipal = su.EsPrincipal,
+                    TipoSintoma = su.TipoSintoma,
                     FechaInicio = su.fechaInicio >= new DateTime(1753, 1, 1) ? su.fechaInicio : su.fechaCreado,
                     Condiciones = condiciones,
                     Tratamientos = tratamientos,
                     UltimoTracking = ultimo
                 };
             }).ToList();
+
+            FrecuenciasCatalog = await _db.FrecuenciaSintomaCatalog
+                .OrderBy(f => f.Orden)
+                .ToListAsync();
         }
 
         public async Task<IActionResult> OnPostAgregarSintomaAsync(int sintomaId)
@@ -181,25 +201,28 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             }
         }
 
-        public async Task<IActionResult> OnPostTrackSintomaAsync(int sintomaUsuarioId, string estado)
+        public async Task<IActionResult> OnPostTrackSintomaAsync(int sintomaUsuarioId, string estado, int? dolor, bool? tieneSangrado, int? frecuenciaId)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (userId == null) return Unauthorized();
 
             if (string.IsNullOrWhiteSpace(estado)) return BadRequest();
 
-            var existeSintoma = await _db.sintomasUsuario.AnyAsync(x => x.id == sintomaUsuarioId && x.idUsuario == Guid.Parse(userId) && !x.Eliminado);
+            var existeSintoma = await _db.sintomasUsuario
+                .Include(su => su.Sintoma)
+                .AnyAsync(x => x.id == sintomaUsuarioId && x.idUsuario == Guid.Parse(userId) && !x.Eliminado);
             if (!existeSintoma) return BadRequest();
 
-            var tracking = new TrackingSintomaUsuario
-            {
-                IdUsuario = Guid.Parse(userId),
-                IdSintomaUsuario = sintomaUsuarioId,
-                Fecha = DateTime.Now,
-                Estado = estado
-            };
-            _db.TrackingSintomaUsuario.Add(tracking);
-            await _db.SaveChangesAsync();
+            var userGuid = Guid.Parse(userId);
+            await _trackingService.GuardarTrackingAsync(new TrackingRequestDto(
+                IdUsuario:        userGuid,
+                IdSintomaUsuario: sintomaUsuarioId,
+                Fecha:            DateTime.Today,
+                Estado:           estado,
+                Dolor:            dolor.HasValue ? Math.Clamp(dolor.Value, 0, 10) : null,
+                FrecuenciaId:     frecuenciaId > 0 ? frecuenciaId : null,
+                TieneSangrado:    tieneSangrado
+            ));
             return new JsonResult(new { ok = true });
         }
 
@@ -314,6 +337,16 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             if (sintomaUsuario == null)
                 return new JsonResult(new { ok = false, mensaje = "No se encontró el síntoma, o ya fue eliminado." }) { StatusCode = 400 };
 
+            bool tieneCondiciones = await _db.SintomaCondicionUsuario
+                .AnyAsync(x => x.IdSintomaUsuario == sintId);
+            if (tieneCondiciones)
+                return new JsonResult(new { ok = false, mensaje = "No se puede eliminar el síntoma porque tiene condiciones relacionadas. Primero quítalas." }) { StatusCode = 400 };
+
+            bool tieneTratamientos = await _db.TratamientoSintomaUsuario
+                .AnyAsync(x => x.IdSintomaUsuario == sintId);
+            if (tieneTratamientos)
+                return new JsonResult(new { ok = false, mensaje = "No se puede eliminar el síntoma porque tiene tratamientos relacionados. Primero quítalos." }) { StatusCode = 400 };
+
             sintomaUsuario.Eliminado = true;
             sintomaUsuario.fechaModificado = DateTime.Now;
             await _db.SaveChangesAsync();
@@ -337,6 +370,34 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             await _db.SaveChangesAsync();
 
             return new JsonResult(new { ok = true });
+        }
+
+        /// <summary>Marca/desmarca un síntoma del usuario como principal (solo uno puede estar activo).</summary>
+        public async Task<IActionResult> OnPostTogglePrincipalSintomaAsync(int sintId)
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
+            var userGuid = Guid.Parse(userId);
+
+            var objetivo = await _db.sintomasUsuario
+                .FirstOrDefaultAsync(x => x.id == sintId && x.idUsuario == userGuid && !x.Eliminado);
+            if (objetivo == null) return NotFound();
+
+            var nuevoValor = !objetivo.EsPrincipal;
+
+            if (nuevoValor)
+            {
+                var otros = await _db.sintomasUsuario
+                    .Where(x => x.idUsuario == userGuid && !x.Eliminado && x.EsPrincipal && x.id != sintId)
+                    .ToListAsync();
+                foreach (var o in otros) o.EsPrincipal = false;
+            }
+
+            objetivo.EsPrincipal = nuevoValor;
+            objetivo.fechaModificado = DateTime.Now;
+            await _db.SaveChangesAsync();
+
+            return new JsonResult(new { ok = true, esPrincipal = nuevoValor });
         }
     }
 }

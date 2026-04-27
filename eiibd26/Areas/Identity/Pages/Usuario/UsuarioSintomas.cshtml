@@ -44,15 +44,25 @@
                             <span class="crm-card-title">
                                 @sint.Nombre
                             </span>
-                            <button type="button" class="crm-btn crm-btn-delete btn-eliminar-sintoma"
-                                    style="border:none;background:#f3f5f8;box-shadow:none;"
-                                    data-id="@sint.Id"
-                                    data-nombre="@sint.Nombre"
-                                    data-tratamientos="@sint.TratamientosCount"
-                                    data-condiciones="@sint.CondicionesCount"
-                                    title="Eliminar síntoma">
-                                <i class="bi bi-trash3-fill"></i>
-                            </button>
+                            <div class="d-flex gap-1 align-items-center">
+                                <button type="button"
+                                        class="btn-star-sintoma crm-btn"
+                                        style="border:none;background:transparent;font-size:1.15rem;padding:0 4px;line-height:1;"
+                                        data-id="@sint.Id"
+                                        data-principal="@sint.EsPrincipal.ToString().ToLower()"
+                                        title="@(sint.EsPrincipal ? "Quitar como síntoma principal" : "Marcar como síntoma principal")">
+                                    @(sint.EsPrincipal ? "⭐" : "☆")
+                                </button>
+                                <button type="button" class="crm-btn crm-btn-delete btn-eliminar-sintoma"
+                                        style="border:none;background:#f3f5f8;box-shadow:none;"
+                                        data-id="@sint.Id"
+                                        data-nombre="@sint.Nombre"
+                                        data-tratamientos="@sint.TratamientosCount"
+                                        data-condiciones="@sint.CondicionesCount"
+                                        title="Eliminar síntoma">
+                                    <i class="bi bi-trash3-fill"></i>
+                                </button>
+                            </div>
                         </div>
                         <div class="crm-card-fecha">
                                 <span class="crm-card-label">
@@ -160,6 +170,7 @@
                             <button type="button" class="btn-track-sintoma" 
                                     data-id="@sint.Id"
                                     data-nombre="@sint.Nombre"
+                                    data-tipo="@sint.TipoSintoma"
                                     title="Registra cómo estás hoy">
                                 <i class="bi bi-clipboard-heart-fill"></i>
                             </button>
@@ -179,29 +190,16 @@
     }
 </div>
 
-<!-- MODAL TRACKING -->
-<div class="modal fade" id="modalTrackSintoma" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <form id="formTrackSintoma">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modalTrackSintomaTitle">Seguimiento</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="mensajeTrackingAgregado" class="alert alert-success py-2 px-3 small mb-2 d-none">
-                        <i class="bi bi-check-circle-fill me-1"></i> Tracking agregado
-                    </div>
-                    <div class="mb-2 fw-semibold" id="modalTrackSintomaPregunta"></div>
-                    <div id="modalTrackSintomaOpciones" class="d-flex flex-column gap-2">
-                        <!-- Se llena por JS -->
-                    </div>
-                </div>
-                <input type="hidden" name="sintomaUsuarioId" id="trackSintomaUsuarioId" />
-            </form>
-        </div>
-    </div>
-</div>
+@{
+    var trackViewData = new ViewDataDictionary(ViewData)
+    {
+        ["suffixId"]    = "Card",
+        ["handlerUrl"]  = "?handler=TrackSintoma",
+        ["includeFecha"] = false,
+        ["frecuencias"]  = Model.FrecuenciasCatalog
+    };
+}
+<partial name="_TrackingSintomaModal" view-data="trackViewData" />
 
 <!-- MODAL CONDICIONES -->
 <div class="modal fade" id="modalCondiciones" tabindex="-1" aria-hidden="true">
@@ -261,7 +259,43 @@
             return formData;
         }
 
-        document.addEventListener("DOMContentLoaded", function () {
+        // TipoSintoma: delegado al partial _TrackingSintomaModal (suffixId="Card")
+        function setupTrackingButtons() {
+            document.querySelectorAll('.btn-track-sintoma').forEach(btn => {
+                btn.onclick = function () {
+                    const sintId = this.dataset.id;
+                    const nombre = this.dataset.nombre;
+                    const tipo   = this.dataset.tipo ?? '0';
+                    if (typeof openTrackingModal_Card === 'function') {
+                        openTrackingModal_Card(sintId, nombre, tipo, '', '', '', '', '');
+                    }
+                };
+            });
+        }
+
+        // Callback: actualizar texto de seguimiento en la tarjeta al guardar
+        document.addEventListener('tracking:saved', function(ev) {
+            const { sintomaUsuarioId, estado } = ev.detail;
+            const btnTrack = document.querySelector('.btn-track-sintoma[data-id="' + sintomaUsuarioId + '"]');
+            if (btnTrack) {
+                const segEl = btnTrack.closest('.crm-card-inner')?.querySelector('.crm-seguimiento-value');
+                if (segEl) {
+                    const hoy = new Date();
+                    const fecha = hoy.getDate().toString().padStart(2,'0') + '/'
+                                + (hoy.getMonth()+1).toString().padStart(2,'0') + '/'
+                                + hoy.getFullYear();
+                    segEl.textContent = estado + ' (' + fecha + ')';
+                }
+            }
+        });
+
+        setupTrackingButtons();
+        document.addEventListener('readystatechange', function () {
+            if (document.readyState === 'complete') setupTrackingButtons();
+        });
+
+        // Resto del comportamiento de la página inicializado al cargar el DOM
+        document.addEventListener('DOMContentLoaded', function () {
             // Autocomplete buscar síntoma
             const urlAutocomplete = "/api/sintomas/autocomplete";
             document.getElementById('sintomaBuscar').addEventListener('input', async function () {
@@ -328,83 +362,29 @@
                 });
             });
 
-            // Tracking: setup always even for not tracked
-            function setupTrackingButtons() {
-                document.querySelectorAll('.btn-track-sintoma').forEach(btn => {
-                    btn.onclick = function () {
-                        document.getElementById('mensajeTrackingAgregado').classList.add("d-none");
-                        const sintId = this.dataset.id;
-                        const nombre = this.dataset.nombre;
-                        document.getElementById('modalTrackSintomaTitle').innerText = 'Seguimiento de "' + nombre + '"';
-                        document.getElementById('modalTrackSintomaPregunta').innerText = `¿Cómo está tu "${nombre}" hoy?`;
-
-                        const opcionesEstado = [
-                            { val: "Ninguno", label: "Ninguno" },
-                            { val: "Leve", label: "Leve" },
-                            { val: "Moderado", label: "Moderado" },
-                            { val: "Severo", label: "Severo" }
-                        ];
-                        let html = '';
-                        opcionesEstado.forEach(o => {
-                            html += `<button type="button" class="btn btn-outline-primary w-100 btn-opcion-tracking" data-estado="${o.val}">${o.label}</button>`;
+            // Estrella: toggle síntoma principal
+            document.querySelectorAll('.btn-star-sintoma').forEach(btn => {
+                btn.addEventListener('click', async function () {
+                    const sintId = this.dataset.id;
+                    const formData = new FormData();
+                    formData.append('sintId', sintId);
+                    addAntiforgeryToken(formData);
+                    const resp = await fetch('?handler=TogglePrincipalSintoma', { method: 'POST', body: formData });
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        // Desmarcar todas las estrellas primero
+                        document.querySelectorAll('.btn-star-sintoma').forEach(b => {
+                            b.textContent = '☆';
+                            b.dataset.principal = 'false';
+                            b.title = 'Marcar como síntoma principal';
                         });
-                        document.getElementById('modalTrackSintomaOpciones').innerHTML = html;
-                        document.getElementById('trackSintomaUsuarioId').value = sintId;
-
-                        var modalElem = document.getElementById('modalTrackSintoma');
-                        if (modalElem) {
-                            var modal = bootstrap.Modal.getOrCreateInstance(modalElem);
-                            modal.show();
+                        if (data.esPrincipal) {
+                            this.textContent = '⭐';
+                            this.dataset.principal = 'true';
+                            this.title = 'Quitar como síntoma principal';
                         }
-
-                        setTimeout(function() {
-                            document.querySelectorAll('.btn-opcion-tracking').forEach(btnOpcion => {
-                                btnOpcion.onclick = async function () {
-                                    let estado = this.dataset.estado;
-                                    let sintomaUsuarioId = document.getElementById('trackSintomaUsuarioId').value;
-                                    let formData = new FormData();
-                                    formData.append('sintomaUsuarioId', sintomaUsuarioId);
-                                    formData.append('estado', estado);
-                                    addAntiforgeryToken(formData);
-                                    let resp = await fetch('?handler=TrackSintoma', { method: 'POST', body: formData });
-                                    if (resp.ok) {
-                                        let msg = document.getElementById('mensajeTrackingAgregado');
-                                        if (msg) msg.classList.remove('d-none');
-
-                                        // Update seguimiento text inside the card without refreshing
-                                        const btnTrack = document.querySelector('.btn-track-sintoma[data-id="' + sintomaUsuarioId + '"]');
-                                        if (btnTrack) {
-                                            const cardInner = btnTrack.closest('.crm-card-inner');
-                                            if (cardInner) {
-                                                const segEl = cardInner.querySelector('.crm-seguimiento-value');
-                                                if (segEl) {
-                                                    const hoy = new Date();
-                                                    const fecha = hoy.getDate().toString().padStart(2, '0') + "/" + (hoy.getMonth() + 1).toString().padStart(2, '0') + "/" + hoy.getFullYear();
-                                                    segEl.textContent = estado + ' (' + fecha + ')';
-                                                }
-                                            }
-                                        }
-
-                                        setTimeout(() => {
-                                            var modalElemClose = document.getElementById('modalTrackSintoma');
-                                            if (modalElemClose) {
-                                                bootstrap.Modal.getOrCreateInstance(modalElemClose).hide();
-                                            }
-                                        }, 700);
-                                    } else {
-                                        alert('Error guardando seguimiento');
-                                    }
-                                };
-                            });
-                        }, 80);
-                    };
+                    }
                 });
-            }
-            setupTrackingButtons();
-            document.addEventListener("readystatechange", function () {
-                if (document.readyState === "complete") {
-                    setupTrackingButtons();
-                }
             });
 
             // Editar fecha inicio
@@ -483,9 +463,9 @@
                         html = `<div class="alert alert-info"><i class="bi bi-exclamation-circle"></i>Debes agregar primero alguna condición en la sección "Condiciones".</div>`;
                     } else {
                         let badges = document.querySelectorAll("#cond-list-" + sintid + " .crm-badge");
-                        let seleccionadas = Array.from(badges).map(b => b.childNodes[0].textContent.trim());
+                        let seleccionadas = Array.from(badges).map(b => b.querySelector('.badge-cond-del')?.dataset.condid).filter(Boolean);
                         condicionesUsuario.forEach(c => {
-                            let checked = seleccionadas.includes(c.Nombre) ? 'checked' : '';
+                            let checked = seleccionadas.includes(String(c.Id)) ? 'checked' : '';
                             html += `<div class="form-check mb-1">
                                 <input class="form-check-input" type="checkbox" name="condids" value="${c.Id}" id="chkCond${c.Id}" ${checked}/>
                                 <label class="form-check-label" for="chkCond${c.Id}">${c.Nombre}</label>

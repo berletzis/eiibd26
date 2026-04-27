@@ -295,6 +295,7 @@
                         <tr>
                             <th>Nombre</th>
                             <th>Tipo</th>
+                            <th>Tipo Seguimiento</th>
                             <th>ID Padre</th>
                             <th>Idioma</th>
                             <th><i class="bi bi-robot" title="Validado por IA"></i> IA</th>
@@ -463,6 +464,18 @@
                 </div>
 
                 <!-- Activo / Eliminado -->
+                <!-- ===== TIPO DE SÍNTOMA ===== -->
+                <div class="mb-3">
+                    <label for="editSintoma_tipoSintoma" class="form-label fw-semibold">
+                        <i class="bi bi-tag-fill text-info"></i> Tipo de síntoma
+                    </label>
+                    <select class="form-select" id="editSintoma_tipoSintoma" name="tipoSintoma">
+                        <option value="0">Subjetivo (acné, fatiga, ansiedad, dolor articular)</option>
+                        <option value="1">Medible GI (diarrea, evacuaciones, sangrado)</option>
+                    </select>
+                    <div class="form-text">Controla qué campos se capturan en el seguimiento.</div>
+                </div>
+
                 <div class="mb-3 d-flex align-items-center gap-2 p-2 rounded border">
                     <div class="form-check form-switch mb-0">
                         <input class="form-check-input" type="checkbox" role="switch"
@@ -747,6 +760,16 @@
                                 : '<span class="badge bg-secondary">No</span>';
                         }
                     },
+                    // ⭐ NUEVA COLUMNA: Tipo Seguimiento
+                    {
+                        data: 'tipoSintoma',
+                        orderable: false,
+                        render: function (data) {
+                            const labels = { 0: ['secondary', 'Subjetivo'], 1: ['info', 'Medible GI'] };
+                                const [color, label] = labels[data] || labels[0];
+                            return `<span class="badge bg-${color}">${label}</span>`;
+                        }
+                    },
                     {
                         data: 'eliminado',
                         orderable: false,
@@ -828,6 +851,7 @@
                     }
 
                     $('#editSintoma_activo').prop('checked', !data.eliminado);
+                    $('#editSintoma_tipoSintoma').val((data.tipoSintoma ?? 0).toString());
                     $('#msgEditSintomaSuccess').addClass('d-none');
 
                     // Mostrar panel lateral
@@ -940,7 +964,8 @@
                     icono: $('#editSintoma_icono').val(),
                     eliminado: !$('#editSintoma_activo').is(':checked'),
                     descripcionIA: $('#editSintoma_descripcionIA').val(),
-                    validadoHumano: $('#editSintoma_validadoHumano').is(':checked')
+                    validadoHumano: $('#editSintoma_validadoHumano').is(':checked'),
+                    tipoSintoma: parseInt($('#editSintoma_tipoSintoma').val() || '0')
                 };
 
                 $.ajax({

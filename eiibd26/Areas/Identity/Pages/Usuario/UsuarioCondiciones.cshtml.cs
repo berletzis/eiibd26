@@ -27,13 +27,13 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
         public class CondicionConDatos
         {
             public int Id { get; set; }
+            public int CondicionUsuarioId { get; set; }
             public string Nombre { get; set; }
             public DateTime FechaInicio { get; set; }
             public int TratamientosCount { get; set; }
             public int SintomasCount { get; set; }
-            // Si true, la fecha de diagnóstico coincide con la fecha de creación del perfil
-            // y el usuario debería actualizar la fecha de diagnóstico.
             public bool FechaCoincideConRegistro { get; set; }
+            public bool EsPrincipal { get; set; }
         }
 
         public class PadreCondicionGroup
@@ -61,7 +61,8 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                                      where cu.idUsuario == userIdGuid && !cu.Eliminado
                                      select new
                                      {
-                                         CondicionUsuarioId = cu.id,       // PK de condicionUsuario (usada por relaciones)
+                                         CondicionUsuarioId = cu.id,
+                                         cu.EsPrincipal,
                                          HijoId = c.id,
                                          HijoNombre = c.nombre,
                                          PadreNombre = padreJoin != null ? padreJoin.nombre : c.nombre,
@@ -117,12 +118,12 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     PadreNombre = g.Key,
                     Hijos = g.Select(h => new CondicionConDatos
                     {
-                        // Id here is the child condition id (tabla condiciones) as shown in the UI
                         Id = h.HijoId,
+                        CondicionUsuarioId = h.CondicionUsuarioId,
                         Nombre = h.HijoNombre,
+                        EsPrincipal = h.EsPrincipal,
                         FechaInicio = h.fechaInicio ?? DateTime.UtcNow,
                         FechaCoincideConRegistro = perfilCreado.HasValue && h.fechaInicio.HasValue && h.fechaInicio.Value.Date == perfilCreado.Value.Date,
-                        // counts looked up by condicionUsuarioId
                         TratamientosCount = tratCountMap.TryGetValue(h.CondicionUsuarioId, out var tc) ? tc : 0,
                         SintomasCount = sintCountMap.TryGetValue(h.CondicionUsuarioId, out var sc) ? sc : 0
                     }).ToList()
@@ -191,6 +192,34 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             }
 
             return RedirectToPage();
+        }
+
+        /// <summary>Marca/desmarca una condición del usuario como principal (solo una puede estar activa).</summary>
+        public async Task<IActionResult> OnPostTogglePrincipalCondicionAsync(int condUsuarioId)
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
+            var userGuid = Guid.Parse(userId);
+
+            var objetivo = await _db.condicionUsuario
+                .FirstOrDefaultAsync(x => x.id == condUsuarioId && x.idUsuario == userGuid && !x.Eliminado);
+            if (objetivo == null) return NotFound();
+
+            var nuevoValor = !objetivo.EsPrincipal;
+
+            if (nuevoValor)
+            {
+                var otros = await _db.condicionUsuario
+                    .Where(x => x.idUsuario == userGuid && !x.Eliminado && x.EsPrincipal && x.id != condUsuarioId)
+                    .ToListAsync();
+                foreach (var o in otros) o.EsPrincipal = false;
+            }
+
+            objetivo.EsPrincipal = nuevoValor;
+            objetivo.fechaModificado = DateTime.Now;
+            await _db.SaveChangesAsync();
+
+            return new JsonResult(new { ok = true, esPrincipal = nuevoValor });
         }
     }
 }

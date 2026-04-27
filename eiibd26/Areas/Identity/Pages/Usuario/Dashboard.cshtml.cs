@@ -1,7 +1,9 @@
 ﻿using eiibd26.Data;
 using eiibd26.DTOs.Export;
+using eiibd26.DTOs.Tracking;
 using eiibd26.Models;
 using eiibd26.Services.Analytics;
+using eiibd26.Services.Tracking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -20,11 +22,15 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
     {
         private readonly ApplicationDbContext _db;
         private readonly IHealthStatsService _healthStats;
+        private readonly IHealthInsightService _healthInsight;
+        private readonly ITrackingSintomaService _trackingService;
 
-        public DashboardModel(ApplicationDbContext db, IHealthStatsService healthStats)
+        public DashboardModel(ApplicationDbContext db, IHealthStatsService healthStats, IHealthInsightService healthInsight, ITrackingSintomaService trackingService)
         {
             _db = db;
             _healthStats = healthStats;
+            _healthInsight = healthInsight;
+            _trackingService = trackingService;
         }
 
         // VM que la vista y el partial consumirán
@@ -105,6 +111,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 // Trackings del usuario en ese rango
                 var trackings = await _db.TrackingSintomaUsuario
                     .Where(t => t.IdUsuario == userGuid && sintomaUsuarioIds.Contains(t.IdSintomaUsuario) && t.Fecha >= startDate && t.Fecha <= endDate)
+                    .Include(t => t.Frecuencia)
                     .ToListAsync();
 
                 bySint = trackings
@@ -118,22 +125,48 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     {
                         SintomaUsuarioId = s.id,
                         Nombre = s.Sintoma?.nombre ?? "(sin nombre)",
+                        TipoSintoma = s.Sintoma?.TipoSintoma ?? 0,
                         Interacciones = bySint.ContainsKey(s.id) ? bySint[s.id].Count : 0,
                         Condiciones = new List<string>(),
-                        SeguimientoPorDia = new Dictionary<string, string>()
+                        SeguimientoPorDia = new Dictionary<string, DiaTracking>()
                     };
 
                     if (bySint.ContainsKey(s.id))
                     {
-                        var groupedByDay = bySint[s.id]
+                        var tracksForSint = bySint[s.id];
+                        var groupedByDay = tracksForSint
                             .GroupBy(x => x.Fecha.Date)
                             .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.Fecha).First());
 
                         foreach (var kv in groupedByDay)
                         {
                             var fechaKey = kv.Key.ToString("yyyy-MM-dd");
-                            item.SeguimientoPorDia[fechaKey] = kv.Value.Estado ?? "";
+                            item.SeguimientoPorDia[fechaKey] = new DiaTracking
+                            {
+                                Estado        = kv.Value.Estado ?? "",
+                                Dolor         = kv.Value.Dolor,
+                                TieneSangrado = kv.Value.TieneSangrado,
+                                FrecuenciaId  = kv.Value.FrecuenciaId
+                            };
                         }
+
+                        var dolorValues = tracksForSint.Where(t => t.Dolor.HasValue).Select(t => t.Dolor!.Value).ToList();
+                        if (dolorValues.Count > 0)
+                            item.PromedioDolor = Math.Round(dolorValues.Average(), 1);
+
+                        var lastSangrado = tracksForSint
+                            .Where(t => t.TieneSangrado.HasValue)
+                            .OrderByDescending(t => t.Fecha)
+                            .FirstOrDefault();
+                        if (lastSangrado != null)
+                            item.UltimoTieneSangrado = lastSangrado.TieneSangrado;
+
+                        var lastFrecuencia = tracksForSint
+                            .Where(t => t.FrecuenciaId.HasValue && t.Frecuencia != null)
+                            .OrderByDescending(t => t.Fecha)
+                            .FirstOrDefault();
+                        if (lastFrecuencia != null)
+                            item.UltimaFrecuenciaNombre = lastFrecuencia.Frecuencia!.Nombre;
                     }
 
                     topItems.Add(item);
@@ -310,14 +343,23 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     Trackings = (bySint.TryGetValue(s.id, out var tList) ? tList : [])
                         .Select(t => new TrackingSintomaExportDto
                         {
-                            Fecha  = t.Fecha,
-                            Estado = t.Estado ?? string.Empty
+                            Fecha            = t.Fecha,
+                            Estado           = t.Estado ?? string.Empty,
+                            Dolor            = t.Dolor,
+                            TieneSangrado    = t.TieneSangrado,
+                            FrecuenciaNombre = t.Frecuencia?.Nombre
                         })
                         .ToList()
                 })
                 .ToList();
 
-            VM.HealthStats = _healthStats.Calcular(estadosExport, sintomasExport);
+            VM.HealthStats  = _healthStats.Calcular(estadosExport, sintomasExport);
+            VM.HealthInsight = _healthInsight.Analizar(sintomasExport);
+
+            VM.FrecuenciasCatalog = await _db.FrecuenciaSintomaCatalog
+                .OrderBy(f => f.Orden)
+                .AsNoTracking()
+                .ToListAsync();
         }
 
         public async Task<IActionResult> OnPostTrackSintomaMatriz()
@@ -335,45 +377,36 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
             var estado = form["estado"].ToString();
 
+            int? dolor = null;
+            if (form.ContainsKey("dolor") && int.TryParse(form["dolor"], out var dolorParsed))
+                dolor = Math.Clamp(dolorParsed, 0, 10);
+
+            int? frecuenciaId = null;
+            if (form.ContainsKey("frecuenciaId") && int.TryParse(form["frecuenciaId"], out var frecParsed) && frecParsed > 0)
+                frecuenciaId = frecParsed;
+
+            bool? tieneSangrado = null;
+            if (form.ContainsKey("tieneSangrado") && bool.TryParse(form["tieneSangrado"], out var sangradoParsed))
+                tieneSangrado = sangradoParsed;
+
             var fechaStr = form["fecha"].ToString();
             if (!DateTime.TryParseExact(fechaStr, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var fecha))
                 return BadRequest(new { success = false, error = "fecha inválida." });
 
-            var dayStart = fecha.Date;
-            var dayEnd = fecha.Date.AddDays(1).AddTicks(-1);
-
             try
             {
-                var now = DateTime.Now;
-                var timestampForRecord = fecha.Date.Add(now.TimeOfDay);
-
-                var existing = await _db.TrackingSintomaUsuario
-                    .Where(t => t.IdUsuario == userGuid && t.IdSintomaUsuario == sintomaUsuarioId && t.Fecha >= dayStart && t.Fecha <= dayEnd)
-                    .FirstOrDefaultAsync();
-
-                if (existing != null)
-                {
-                    existing.Estado = estado;
-                    existing.Fecha = timestampForRecord;
-                    _db.TrackingSintomaUsuario.Update(existing);
-                    await _db.SaveChangesAsync();
-                    return new JsonResult(new { success = true, estado = existing.Estado, fecha = existing.Fecha.ToString("yyyy-MM-dd") });
-                }
-                else
-                {
-                    var nuevo = new TrackingSintomaUsuario
-                    {
-                        IdUsuario = userGuid,
-                        IdSintomaUsuario = sintomaUsuarioId,
-                        Fecha = timestampForRecord,
-                        Estado = estado
-                    };
-                    _db.TrackingSintomaUsuario.Add(nuevo);
-                    await _db.SaveChangesAsync();
-                    return new JsonResult(new { success = true, estado = nuevo.Estado, fecha = nuevo.Fecha.ToString("yyyy-MM-dd") });
-                }
+                var resultado = await _trackingService.GuardarTrackingAsync(new TrackingRequestDto(
+                    IdUsuario:        userGuid,
+                    IdSintomaUsuario: sintomaUsuarioId,
+                    Fecha:            fecha,
+                    Estado:           estado,
+                    Dolor:            dolor,
+                    FrecuenciaId:     frecuenciaId,
+                    TieneSangrado:    tieneSangrado
+                ));
+                return new JsonResult(new { success = true, estado = resultado.Estado, fecha = resultado.Fecha.ToString("yyyy-MM-dd") });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return StatusCode(500, new { success = false, error = "Error interno al guardar." });
             }

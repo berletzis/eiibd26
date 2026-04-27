@@ -16,6 +16,9 @@ namespace eiibd26.Models
     public DateTime fechaCreado { get; set; }
     public bool Eliminado { get; set; }
 
+    /// <summary>Indica si este es el síntoma principal del usuario.</summary>
+    public bool EsPrincipal { get; set; }
+
     [ForeignKey(nameof(idSintoma))]
     public virtual sintomas Sintoma { get; set; }
     [ForeignKey(nameof(idUsuario))]

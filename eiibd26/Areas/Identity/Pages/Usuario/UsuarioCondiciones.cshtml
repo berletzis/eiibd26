@@ -44,14 +44,24 @@
                                     <span class="crm-card-title">
                                         @hijo.Nombre
                                     </span>
-                                    <button type="button" class="crm-btn crm-btn-delete btn-eliminar"
-                                            data-id="@hijo.Id"
-                                            data-nombre="@hijo.Nombre"
-                                            data-tratamientos="@hijo.TratamientosCount"
-                                            data-sintomas="@hijo.SintomasCount"
-                                            title="Eliminar condición">
-                                        <i class="bi bi-trash3-fill"></i>
-                                    </button>
+                                    <div class="d-flex gap-1 align-items-center">
+                                        <button type="button"
+                                                class="btn-star-condicion crm-btn"
+                                                style="border:none;background:transparent;font-size:1.15rem;padding:0 4px;line-height:1;"
+                                                data-id="@hijo.CondicionUsuarioId"
+                                                data-principal="@hijo.EsPrincipal.ToString().ToLower()"
+                                                title="@(hijo.EsPrincipal ? "Quitar como condición principal" : "Marcar como condición principal")">
+                                            @(hijo.EsPrincipal ? "⭐" : "☆")
+                                        </button>
+                                        <button type="button" class="crm-btn crm-btn-delete btn-eliminar"
+                                                data-id="@hijo.Id"
+                                                data-nombre="@hijo.Nombre"
+                                                data-tratamientos="@hijo.TratamientosCount"
+                                                data-sintomas="@hijo.SintomasCount"
+                                                title="Eliminar condición">
+                                            <i class="bi bi-trash3-fill"></i>
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="crm-card-group">
                                     <span class="crm-card-label"><i class="bi bi-diagram-3"></i> Grupo:</span>
@@ -268,6 +278,30 @@
         });
         document.getElementById('condicionBuscar').addEventListener('blur', function () {
             setTimeout(() => { document.getElementById('condicionSugerencias').innerHTML = ''; }, 220);
+        });
+
+        // Estrella: toggle condición principal
+        const urlTogglePrincipalCond = "/Identity/Usuario/UsuarioCondiciones?handler=TogglePrincipalCondicion";
+        document.querySelectorAll('.btn-star-condicion').forEach(btn => {
+            btn.addEventListener('click', async function () {
+                const condUsuarioId = this.dataset.id;
+                const formData = new FormData();
+                formData.append('condUsuarioId', condUsuarioId);
+                const resp = await fetch(urlTogglePrincipalCond, { method: 'POST', body: formData });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    document.querySelectorAll('.btn-star-condicion').forEach(b => {
+                        b.textContent = '☆';
+                        b.dataset.principal = 'false';
+                        b.title = 'Marcar como condición principal';
+                    });
+                    if (data.esPrincipal) {
+                        this.textContent = '⭐';
+                        this.dataset.principal = 'true';
+                        this.title = 'Quitar como condición principal';
+                    }
+                }
+            });
         });
     </script>
 }

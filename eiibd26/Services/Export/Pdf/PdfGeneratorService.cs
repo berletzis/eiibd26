@@ -16,18 +16,21 @@ public sealed class PdfGeneratorService : IPdfGeneratorService
     private const string GrisMedio      = "#666666";
     private const string GrisClaro      = "#999999";
 
-    private readonly IHealthStatsService _stats;
+    private readonly IHealthStatsService  _stats;
+    private readonly IHealthInsightService _insights;
 
-    public PdfGeneratorService(IHealthStatsService stats)
+    public PdfGeneratorService(IHealthStatsService stats, IHealthInsightService insights)
     {
-        _stats = stats;
+        _stats   = stats;
+        _insights = insights;
     }
 
     public byte[] GenerarPdf(MedicalSummaryDto data)
     {
         ArgumentNullException.ThrowIfNull(data);
 
-        var stats = _stats.Calcular(data.EstadosAnimo, data.Sintomas);
+        var stats   = _stats.Calcular(data.EstadosAnimo, data.Sintomas);
+        var insight = _insights.Analizar(data.Sintomas);
 
         return Document.Create(container =>
         {
@@ -40,7 +43,7 @@ public sealed class PdfGeneratorService : IPdfGeneratorService
                 page.DefaultTextStyle(x => x.FontSize(TamFuente).FontFamily("Arial").FontColor(GrisOscuro));
 
                 page.Header().Element(c => RenderHeader(c, data));
-                page.Content().Element(c => RenderContent(c, data, stats));
+                page.Content().Element(c => RenderContent(c, data, stats, insight));
                 page.Footer().Element(c => RenderFooter(c, data));
             });
         }).GeneratePdf();
@@ -117,7 +120,7 @@ public sealed class PdfGeneratorService : IPdfGeneratorService
 
     // ── CONTENT ───────────────────────────────────────────────────────────────
 
-    private static void RenderContent(IContainer container, MedicalSummaryDto data, HealthStatsDto stats)
+    private static void RenderContent(IContainer container, MedicalSummaryDto data, HealthStatsDto stats, HealthInsightDto insight)
     {
         container.PaddingTop(10).Column(col =>
         {
@@ -135,11 +138,17 @@ public sealed class PdfGeneratorService : IPdfGeneratorService
             col.Item().Element(c => BloqueResumenPeriodo(c, stats));
             Separador(col);
 
+            if (insight.TieneDatos)
+            {
+                col.Item().Element(c => BloqueInsights(c, insight));
+                Separador(col);
+            }
+
             // Bloques en orden: perfil, condiciones, tratamientos, síntomas, estado de ánimo
             col.Item().Element(c => BloquePerfil(c, data));
             Separador(col);
 
-            if (data.Condiciones.Count > 0 || true)
+            if (data.Condiciones.Count > 0)
             {
                 col.Item().Element(c => BloqueCondiciones(c, data));
                 Separador(col);
@@ -292,7 +301,16 @@ public sealed class PdfGeneratorService : IPdfGeneratorService
                             {
                                 var estadoTexto = string.Equals(trk.Estado, "Ninguno", StringComparison.OrdinalIgnoreCase)
                                     ? "Sin síntomas" : trk.Estado;
-                                trackings.Item().Text($"{trk.Fecha:dd/MM/yyyy} — {estadoTexto}")
+
+                                var extras = new System.Text.StringBuilder();
+                                if (trk.Dolor.HasValue)
+                                    extras.Append($" — Dolor: {trk.Dolor.Value}/10");
+                                if (!string.IsNullOrWhiteSpace(trk.FrecuenciaNombre))
+                                    extras.Append($" — Últ. frecuencia: {trk.FrecuenciaNombre}");
+                                if (trk.TieneSangrado.HasValue)
+                                    extras.Append(trk.TieneSangrado.Value ? " — Sangrado: Sí" : " — Sangrado: No");
+
+                                trackings.Item().Text($"{trk.Fecha:dd/MM/yyyy} — {estadoTexto}{extras}")
                                     .FontSize(TamFuente).FontColor(GrisOscuro);
                             }
                         });
@@ -343,6 +361,60 @@ public sealed class PdfGeneratorService : IPdfGeneratorService
                     t.Span($"{stats.Symptoms.Tendencia} ({stats.Symptoms.TotalRegistros} registros)")
                         .FontSize(TamFuente).FontColor(GrisOscuro);
                 });
+            });
+        });
+    }
+
+    // ── BLOQUE: INSIGHTS CLÍNICOS ─────────────────────────────────────────────
+
+    private static void BloqueInsights(IContainer container, HealthInsightDto insight)
+    {
+        container.ShowEntire().Column(col =>
+        {
+            col.Item().Element(c => TituloBloque(c, "Insights del Período"));
+            col.Item().PaddingTop(6).Column(body =>
+            {
+                body.Spacing(3);
+
+                if (!string.IsNullOrEmpty(insight.SintomaFrecuente))
+                {
+                    body.Item().Text(t =>
+                    {
+                        t.Span("Síntoma más frecuente: ").Bold().FontSize(TamFuente).FontColor(GrisMedio);
+                        t.Span($"{insight.SintomaFrecuente} ({insight.SintomaFrecuenteConteo} registros)")
+                            .FontSize(TamFuente).FontColor(GrisOscuro);
+                    });
+                }
+
+                if (insight.PromedioDolorGlobal.HasValue)
+                {
+                    body.Item().Text(t =>
+                    {
+                        t.Span("Promedio de dolor global: ").Bold().FontSize(TamFuente).FontColor(GrisMedio);
+                        t.Span($"{insight.PromedioDolorGlobal:0.0} / 10")
+                            .FontSize(TamFuente).FontColor(GrisOscuro);
+                    });
+                }
+
+                if (!string.IsNullOrEmpty(insight.SintomaConMayorDolor))
+                {
+                    body.Item().Text(t =>
+                    {
+                        t.Span("Síntoma con mayor dolor: ").Bold().FontSize(TamFuente).FontColor(GrisMedio);
+                        t.Span($"{insight.SintomaConMayorDolor} (promedio {insight.PromedioDolorMax:0.0} / 10)")
+                            .FontSize(TamFuente).FontColor(GrisOscuro);
+                    });
+                }
+
+                if (insight.RegistrosDolorAlto > 0)
+                {
+                    body.Item().Text(t =>
+                    {
+                        t.Span("Episodios de dolor alto (≥ 7): ").Bold().FontSize(TamFuente).FontColor(GrisMedio);
+                        t.Span(insight.RegistrosDolorAlto.ToString())
+                            .FontSize(TamFuente).FontColor(GrisOscuro);
+                    });
+                }
             });
         });
     }

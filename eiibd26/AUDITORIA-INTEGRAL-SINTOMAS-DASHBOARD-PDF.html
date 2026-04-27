@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Auditoría Integral — EIIBD Sistema de Síntomas, Dashboard y PDF</title>
+<style>
+  :root {
+    --rojo:    #c0392b;
+    --naranja: #e67e22;
+    --amarillo:#f39c12;
+    --verde:   #27ae60;
+    --azul:    #2980b9;
+    --gris:    #7f8c8d;
+    --bg:      #f9f9f9;
+    --card:    #ffffff;
+    --border:  #e0e0e0;
+    --text:    #222222;
+    --muted:   #555555;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 40px 20px;
+  }
+  .container { max-width: 960px; margin: 0 auto; }
+
+  /* HEADER */
+  .doc-header {
+    background: #1a2744;
+    color: #fff;
+    padding: 32px 36px;
+    border-radius: 10px;
+    margin-bottom: 32px;
+  }
+  .doc-header h1 { font-size: 1.7rem; font-weight: 700; margin-bottom: 6px; }
+  .doc-header .meta { font-size: .88rem; color: #aab4c8; margin-top: 8px; }
+
+  /* SECTION TITLES */
+  h2 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin: 40px 0 14px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--border);
+    color: #1a2744;
+  }
+  h3 { font-size: 1rem; font-weight: 700; margin: 18px 0 6px; color: var(--text); }
+
+  /* SUMMARY TABLE */
+  .summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 24px;
+    font-size: .92rem;
+  }
+  .summary-table th, .summary-table td {
+    border: 1px solid var(--border);
+    padding: 9px 14px;
+    text-align: left;
+  }
+  .summary-table th { background: #f0f3f8; font-weight: 600; }
+  .summary-table tr:nth-child(even) td { background: #fafafa; }
+
+  /* FINDING CARDS */
+  .finding {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 5px solid var(--gris);
+    border-radius: 7px;
+    padding: 18px 20px;
+    margin-bottom: 18px;
+  }
+  .finding.critico  { border-left-color: var(--rojo); }
+  .finding.alto     { border-left-color: var(--naranja); }
+  .finding.medio    { border-left-color: var(--amarillo); }
+  .finding.bajo     { border-left-color: var(--verde); }
+
+  .badge {
+    display: inline-block;
+    font-size: .74rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-right: 6px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .badge.critico  { background: #fdecea; color: var(--rojo); }
+  .badge.alto     { background: #fef3e8; color: var(--naranja); }
+  .badge.medio    { background: #fef9e7; color: var(--amarillo); }
+  .badge.bajo     { background: #eafaf1; color: var(--verde); }
+
+  .finding-title { font-weight: 700; font-size: 1rem; margin-bottom: 8px; }
+  .finding-meta  { font-size: .82rem; color: var(--muted); margin-bottom: 10px; }
+  .finding-meta span { font-family: monospace; background: #f0f0f0; padding: 1px 5px; border-radius: 3px; }
+
+  /* CODE BLOCKS */
+  pre {
+    background: #1e1e2e;
+    color: #cdd6f4;
+    border-radius: 6px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-size: .83rem;
+    line-height: 1.6;
+    margin: 10px 0;
+  }
+  code { font-family: 'Cascadia Code', 'Consolas', monospace; }
+
+  /* INLINE CODE */
+  p code, li code { background: #f0f0f0; padding: 1px 5px; border-radius: 3px; font-family: monospace; font-size: .88em; }
+
+  /* VALIDATION TABLE */
+  .val-table { width: 100%; border-collapse: collapse; font-size: .91rem; margin-bottom: 16px; }
+  .val-table th { background: #f0f3f8; border: 1px solid var(--border); padding: 8px 12px; font-weight: 600; }
+  .val-table td { border: 1px solid var(--border); padding: 8px 12px; vertical-align: top; }
+  .ok   { color: var(--verde); font-weight: 700; }
+  .nok  { color: var(--rojo);  font-weight: 700; }
+  .warn { color: var(--naranja); font-weight: 700; }
+
+  /* RECOMMENDATIONS */
+  .rec-table { width: 100%; border-collapse: collapse; font-size: .91rem; }
+  .rec-table th { background: #f0f3f8; border: 1px solid var(--border); padding: 8px 12px; }
+  .rec-table td { border: 1px solid var(--border); padding: 8px 12px; vertical-align: top; }
+  .p1 { background: #fdecea; color: var(--rojo);    font-weight: 700; white-space: nowrap; }
+  .p2 { background: #fef3e8; color: var(--naranja); font-weight: 700; white-space: nowrap; }
+  .p3 { background: #fef9e7; color: #b7770d;        font-weight: 700; white-space: nowrap; }
+  .p4 { background: #eafaf1; color: var(--verde);   font-weight: 700; white-space: nowrap; }
+
+  ul, ol { padding-left: 22px; }
+  ul li, ol li { margin-bottom: 5px; }
+  p { margin-bottom: 10px; }
+
+  .section-intro { color: var(--muted); font-size: .93rem; margin-bottom: 18px; }
+
+  .footer-note {
+    background: #1a2744;
+    color: #aab4c8;
+    border-radius: 8px;
+    padding: 18px 24px;
+    margin-top: 40px;
+    font-size: .88rem;
+    text-align: center;
+  }
+  .footer-note strong { color: #fff; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="doc-header">
+    <h1>🔍 Auditoría Integral — Nivel Producción + Lógica Clínica</h1>
+    <div>EIIBD · Sistema de Síntomas, Dashboard y Generación de Reporte PDF</div>
+    <div class="meta">
+      Alcance: Dashboard · Módulo de Síntomas · Seguimiento · Analytics · Exportación PDF<br/>
+      Estado: Solo análisis — sin modificaciones al código
+    </div>
+  </div>
+
+  <!-- 1. RESUMEN EJECUTIVO -->
+  <h2>1. 🧾 Resumen Ejecutivo</h2>
+  <table class="summary-table">
+    <tr><th>Dimensión</th><th>Resultado</th></tr>
+    <tr><td>¿El sistema es confiable?</td><td><strong style="color:var(--rojo)">PARCIALMENTE NO</strong></td></tr>
+    <tr><td>Nivel de riesgo general</td><td><strong style="color:var(--rojo)">🔴 ALTO</strong></td></tr>
+    <tr><td>¿Se puede confiar en las estadísticas actuales?</td><td><strong style="color:var(--rojo)">NO</strong> sin correcciones</td></tr>
+    <tr><td>¿Los datos se muestran correctamente al usuario?</td><td>Sí, pero con inconsistencias críticas</td></tr>
+    <tr><td>¿El PDF es fiel al dashboard?</td><td><strong style="color:var(--naranja)">PARCIALMENTE NO</strong> — los errores silenciosos son idénticos</td></tr>
+    <tr><td>¿Hay errores silenciosos que no lanzan excepción?</td><td><strong style="color:var(--rojo)">SÍ — al menos 2 confirmados</strong></td></tr>
+    <tr><td>¿Hay vulnerabilidades de seguridad?</td><td><strong style="color:var(--rojo)">SÍ — CSRF deshabilitado</strong></td></tr>
+  </table>
+
+  <!-- 2. HALLAZGOS CRÍTICOS -->
+  <h2>2. 🚨 Hallazgos Críticos — Alto Impacto</h2>
+  <p class="section-intro">Los siguientes hallazgos producen resultados incorrectos, silenciosos o representan riesgos de seguridad activos.</p>
+
+  <!-- C-01 -->
+  <div class="finding critico">
+    <div class="finding-title"><span class="badge critico">CRÍTICO-01</span> "Extremo" ausente del diccionario de analytics</div>
+    <div class="finding-meta">Archivo: <span>eiibd26\Services\Analytics\HealthStatsService.cs</span> · líneas 13–18</div>
+    <p><strong>Qué está mal:</strong></p>
+    <pre><code>private static readonly Dictionary&lt;string, int&gt; EstadoSintomaValor = new(...)
+{
+    ["Ninguno"]  = 0,
+    ["Leve"]     = 1,
+    ["Moderado"] = 2,
+    ["Severo"]   = 3
+    // ❌ "Extremo" FALTA
+};</code></pre>
+    <p><strong>Por qué está mal:</strong> <code>ValorEstado("Extremo")</code> devuelve <code>-1</code>. Si el primer o último tracking del período tiene estado "Extremo", la función de tendencia ejecuta:</p>
+    <pre><code>if (primero &lt; 0 || ultimo &lt; 0)
+    return new SymptomStatsDto { Tendencia = "Sin datos suficientes" };</code></pre>
+    <p><strong>Impacto real:</strong> Un usuario que está en su peor momento ("Extremo") verá <em>"Sin datos suficientes"</em> <strong>en lugar de "Empeorando"</strong> — exactamente cuando la alerta clínica es más necesaria. Este error no lanza ninguna excepción. Es completamente silencioso. El PDF también lo reproduce.</p>
+  </div>
+
+  <!-- C-02 -->
+  <div class="finding critico">
+    <div class="finding-title"><span class="badge critico">CRÍTICO-02</span> Algoritmo de tendencia clínicamente inválido</div>
+    <div class="finding-meta">Archivo: <span>eiibd26\Services\Analytics\HealthStatsService.cs</span> · líneas 68–93</div>
+    <p><strong>Qué está mal — 3 problemas anidados:</strong></p>
+    <pre><code>// Problema A: solo compara primero vs último — ignora todo lo que pasó en el medio
+var primero = ValorEstado(trackings.First().Estado);
+var ultimo  = ValorEstado(trackings.Last().Estado);
+var tendencia = ultimo.CompareTo(primero) switch { &gt; 0 =&gt; "Empeorando", ... };
+
+// Problema B: mezcla TODOS los síntomas de TODOS los tipos en una sola serie temporal
+var trackings = sintomas.SelectMany(s =&gt; s.Trackings).OrderBy(t =&gt; t.Fecha).ToList();</code></pre>
+    <ul>
+      <li><strong>Problema A:</strong> Un paciente <code>Leve → Extremo → Extremo → Extremo → Leve</code> produce <strong>"Estable"</strong>. La tendencia dice que está igual cuando pasó 5 días en estado extremo.</li>
+      <li><strong>Problema B:</strong> El primer punto puede ser de "Fatiga" (Leve) y el último de "Diarrea" (Severo). Se comparan síntomas completamente distintos. No tiene validez clínica alguna.</li>
+      <li><strong>Problema C:</strong> Este resultado aparece en el PDF y se presenta al médico como un dato analítico de valor clínico.</li>
+    </ul>
+  </div>
+
+  <!-- C-03 -->
+  <div class="finding critico">
+    <div class="finding-title"><span class="badge critico">CRÍTICO-03</span> CSRF deshabilitado en página de seguimiento matricial</div>
+    <div class="finding-meta">Archivo: <span>eiibd26\Areas\Identity\Pages\Usuario\UsuarioSintomasSeguimiento.cshtml.cs</span> · línea 12</div>
+    <pre><code>[IgnoreAntiforgeryToken]   // ❌ deshabilita protección CSRF en TODOS los handlers
+public class UsuarioSintomasSeguimientoModel : PageModel</code></pre>
+    <p><strong>Por qué está mal:</strong> La anotación a nivel de clase deshabilita la protección CSRF para <code>OnPostTrackSintomaMatrizAsync</code>. Cualquier sitio externo puede realizar un POST autenticado en nombre del usuario, insertando o sobreescribiendo registros de síntomas médicos sin que el usuario lo sepa. Un atacante puede <strong>fabricar histórico médico falso</strong>.</p>
+  </div>
+
+  <!-- C-04 -->
+  <div class="finding critico">
+    <div class="finding-title"><span class="badge critico">CRÍTICO-04</span> Queries de relaciones sin filtro de usuario (riesgo de data exposure)</div>
+    <div class="finding-meta">Archivo: <span>eiibd26\Areas\Identity\Pages\Usuario\UsuarioSintomas.cshtml.cs</span> · líneas 100–120</div>
+    <pre><code>var relacionesCondiciones = await (
+    from rel in _db.SintomaCondicionUsuario
+    join cu in _db.condicionUsuario on rel.IdCondicionUsuario equals cu.id
+    join c in _db.condiciones on cu.idCondicion equals c.id
+    // ❌ SIN WHERE — carga relaciones de TODOS los usuarios
+    select new { rel.IdSintomaUsuario, ... }
+).ToListAsync();</code></pre>
+    <p><strong>Impacto:</strong> Carga <strong>todas</strong> las relaciones síntoma-condición de todos los usuarios en memoria del servidor, filtrando en memoria después. Crece O(N_usuarios × M_relaciones). Si en algún refactor se elimina el filtro en memoria, hay data leak real. Igual para <code>relacionesTratamientos</code>.</p>
+  </div>
+
+  <!-- C-05 -->
+  <div class="finding critico">
+    <div class="finding-title"><span class="badge critico">CRÍTICO-05</span> Carga de todos los trackings históricos sin límite de fecha</div>
+    <div class="finding-meta">Archivo: <span>eiibd26\Areas\Identity\Pages\Usuario\UsuarioSintomas.cshtml.cs</span> · línea 97</div>
+    <pre><code>var trackings = await _db.TrackingSintomaUsuario
+    .Where(t => t.IdUsuario == userIdGuid)
+    .ToListAsync();  // ❌ SIN RANGO DE FECHAS — carga TODO el historial</code></pre>
+    <p><strong>Impacto:</strong> Un usuario activo con 2 años de datos cargará potencialmente miles de registros en memoria solo para mostrar "último tracking" en cada tarjeta. Degradación progresiva y silenciosa del rendimiento.</p>
+  </div>
+
+  <!-- 3. HALLAZGOS MEDIOS / BAJOS -->
+  <h2>3. ⚠️ Hallazgos Medios y Bajos</h2>
+
+  <div class="finding medio">
+    <div class="finding-title"><span class="badge medio">MEDIO-01</span> <code>|| true</code> hardcodeado en PdfGeneratorService</div>
+    <div class="finding-meta">Archivo: <span>eiibd26\Services\Export\Pdf\PdfGeneratorService.cs</span> · línea ~147</div>
+    <pre><code>if (data.Condiciones.Count &gt; 0 || true)  // siempre verdadero — condición muerta</code></pre>
+    <p>La sección "Condiciones" siempre se renderiza. Código muerto que evidencia desactivación durante desarrollo nunca restaurada.</p>
+  </div>
+
+  <div class="finding medio">
+    <div class="finding-title"><span class="badge medio">MEDIO-02</span> Comentario obsoleto — "Extremo" no documentado en el modelo</div>
+    <div class="finding-meta">Archivo: <span>eiibd26\Models\TrackingSintomaUsuario.cs</span> · línea 22</div>
+    <pre><code>public string Estado { get; set; } // "Ninguno", "Leve", "Moderado", "Severo"
+// ❌ falta "Extremo" en la documentación aunque la UI lo envía y la DB lo almacena</code></pre>
+  </div>
+
+  <div class="finding medio">
+    <div class="finding-title"><span class="badge medio">MEDIO-03</span> Comentario obsoleto <code>2=Dolor</code> en handlers de tracking</div>
+    <div class="finding-meta">Archivos: <span>UsuarioSintomas.cshtml.cs</span> línea ~213 · <span>UsuarioSintomasSeguimiento.cshtml.cs</span> línea ~131</div>
+    <pre><code>// TipoSintoma: 0=Subjetivo, 1=Medible, 2=Dolor  ← ❌ 2=Dolor fue eliminado del enum
+if (tipoSintoma != 1) { frecuenciaId = null; tieneSangrado = null; }</code></pre>
+    <p>El enum <code>TipoSintomaEnum</code> solo tiene <code>0</code> y <code>1</code>. El valor <code>2</code> fue eliminado pero permanece en comentarios, creando confusión sobre qué campos aplican a cada tipo.</p>
+  </div>
+
+  <div class="finding medio">
+    <div class="finding-title"><span class="badge medio">MEDIO-04</span> Magic date <code>1753-01-01</code> como workaround de datos corruptos</div>
+    <div class="finding-meta">Archivo: <span>UsuarioSintomas.cshtml.cs</span> · línea ~154</div>
+    <pre><code>FechaInicio = su.fechaInicio >= new DateTime(1753, 1, 1) ? su.fechaInicio : su.fechaCreado,</code></pre>
+    <p>Indica registros en la DB con <code>fechaInicio = 0001-01-01</code> (default de DateTime) que SQL Server rechaza. Hay datos corruptos en producción que no se han normalizado.</p>
+  </div>
+
+  <div class="finding medio">
+    <div class="finding-title"><span class="badge medio">MEDIO-05</span> Sin <code>[Authorize]</code> explícito en páginas de usuario</div>
+    <div class="finding-meta">Archivos: <span>UsuarioSintomasModel</span> · <span>UsuarioSintomasSeguimientoModel</span></div>
+    <p>Ninguna tiene <code>[Authorize]</code>. Dependen del check manual <code>if (userId == null) return;</code>. Si el middleware global no las cubre, un usuario no autenticado accede sin redirección.</p>
+  </div>
+
+  <div class="finding bajo">
+    <div class="finding-title"><span class="badge bajo">BAJO-01</span> Riesgo de timezone en toda la cadena de fechas</div>
+    <p>Toda la persistencia usa <code>DateTime.Now</code> / <code>DateTime.Today</code> (hora del servidor). Si el servidor está en UTC pero el usuario en UTC-6, un tracking registrado a las 11 PM del usuario se almacena como día siguiente. En un PDF médico esto es un error en los datos históricos.</p>
+  </div>
+
+  <div class="finding bajo">
+    <div class="finding-title"><span class="badge bajo">BAJO-02</span> Lógica de tracking upsert triplicada</div>
+    <p>El patrón upsert existe idéntico en 3 handlers: <code>OnPostTrackSintomaAsync</code>, <code>OnPostTrackSintomaMatrizAsync</code> (seguimiento), <code>OnPostTrackSintomaMatriz</code> (dashboard). Cualquier cambio de lógica clínica debe hacerse 3 veces con riesgo de divergencia.</p>
+  </div>
+
+  <!-- 4. VALIDACIÓN DE CÁLCULOS -->
+  <h2>4. 📊 Validación de Cálculos</h2>
+  <table class="val-table">
+    <tr>
+      <th>Pregunta</th><th>Resultado</th><th>Explicación</th>
+    </tr>
+    <tr>
+      <td>¿Los cálculos de rango de fechas son correctos?</td>
+      <td><span class="warn">PARCIAL</span></td>
+      <td><code>desde = DateTime.Today.AddDays(-6)</code>, <code>hasta</code> normalizado con <code>AddDays(1).AddTicks(-1)</code>. Matemáticamente correcto. Riesgo de timezone en producción.</td>
+    </tr>
+    <tr>
+      <td>¿El promedio de dolor es correcto?</td>
+      <td><span class="ok">SÍ</span></td>
+      <td><code>trackings.Average(x => (double)x.Dolor.Value)</code> — solo incluye registros con valor. Correcto.</td>
+    </tr>
+    <tr>
+      <td>¿La tendencia de síntomas es correcta?</td>
+      <td><span class="nok">NO</span></td>
+      <td>Compara solo primer y último punto. Mezcla todos los síntomas en una sola serie. Clínicamente inválido. "Extremo" además retorna -1 (CRÍTICO-01).</td>
+    </tr>
+    <tr>
+      <td>¿El promedio de estado de ánimo es correcto?</td>
+      <td><span class="ok">SÍ</span></td>
+      <td><code>estados.Average(e => e.EstadoMood)</code> sobre enum numérico 1–5. Correcto matemáticamente.</td>
+    </tr>
+    <tr>
+      <td>¿El síntoma más frecuente es correcto?</td>
+      <td><span class="ok">SÍ</span></td>
+      <td><code>OrderByDescending(x => x.Conteo)</code> sobre <code>Trackings.Count</code>. Correcto.</td>
+    </tr>
+    <tr>
+      <td>¿El síntoma con mayor dolor promedio es correcto?</td>
+      <td><span class="ok">SÍ</span></td>
+      <td><code>GroupBy → Average → OrderByDescending</code>. Correcto.</td>
+    </tr>
+    <tr>
+      <td>¿Los top 5 síntomas del dashboard son correctos?</td>
+      <td><span class="ok">SÍ</span></td>
+      <td><code>OrderByDescending(x => x.Interacciones).Take(5)</code>. Correcto.</td>
+    </tr>
+    <tr>
+      <td>¿El PDF incluye el período completo?</td>
+      <td><span class="ok">SÍ</span></td>
+      <td><code>Fecha >= desde && Fecha <= hasta</code> con <code>hasta</code> normalizado al final del día. Correcto.</td>
+    </tr>
+    <tr>
+      <td>¿El <code>Limit = 500</code> trunca datos sin aviso?</td>
+      <td><span class="warn">RIESGO BAJO</span></td>
+      <td>El truncado es declarado visiblemente en el PDF. 500 trackings en 7 días = ~71/día, difícil en la práctica actual.</td>
+    </tr>
+    <tr>
+      <td>¿El campo "Extremo" se calcula en analytics?</td>
+      <td><span class="nok">NO</span></td>
+      <td>No está en el diccionario <code>EstadoSintomaValor</code>. Devuelve <code>-1</code> y colapsa la tendencia a "Sin datos suficientes".</td>
+    </tr>
+  </table>
+
+  <!-- 5. VALIDACIÓN CLÍNICA -->
+  <h2>5. 🧬 Validación Clínica</h2>
+  <div class="finding alto">
+    <h3>¿Los resultados tienen sentido clínico básico?</h3>
+    <p><strong>Parcialmente.</strong></p>
+    <ul>
+      <li><strong>"Tendencia" como concepto existe pero su cálculo es inválido.</strong> Decirle a un médico "Tendencia: Mejorando" cuando el paciente tuvo 5 días en estado Severo/Extremo y solo bajó en el último día es una afirmación clínicamente engañosa.</li>
+      <li><strong>Mezclar diarrea, fatiga y dolor articular en una sola tendencia</strong> no tiene equivalente en ningún protocolo clínico de EII. Los síntomas GI (medibles) y sistémicos (subjetivos) deben analizarse separadamente.</li>
+      <li><strong>El campo "Sangrado"</strong> solo aplica a síntomas <code>TipoSintoma = 1 (Medible)</code>. La validación server-side es correcta. Coherente con el protocolo de EII.</li>
+      <li><strong>"Extremo"</strong> fue agregado correctamente al UI pero está roto en analytics. El estado más severo es el único que no genera tendencia real.</li>
+      <li><strong>El PDF no incluye el tipo de síntoma</strong> (Subjetivo vs Medible) — un médico no puede distinguir si "Dolor de cabeza" y "Sangrado rectal" se miden con la misma escala. Limitación de presentación.</li>
+    </ul>
+    <p><strong>¿Hay riesgo de malas interpretaciones?</strong> — <strong style="color:var(--rojo)">SÍ.</strong> El PDF presenta "Tendencia de síntomas: Mejorando" como un dato concreto y analítico, cuando el algoritmo detrás solo compara dos puntos arbitrarios en el tiempo, mezclando síntomas clínicamente distintos.</p>
+  </div>
+
+  <!-- 6. RIESGOS OCULTOS -->
+  <h2>6. 💣 Riesgos Ocultos en Producción</h2>
+  <ol>
+    <li><strong>CSRF activo en seguimiento matricial:</strong> Cualquier atacante puede generar registros falsos de síntomas en nombre de un usuario autenticado.</li>
+    <li><strong>Tendencia "Extremo" → "Sin datos suficientes":</strong> Un paciente en su peor momento no muestra alarma en el PDF. Si el médico usa el documento para tomar decisiones de medicación, podría subestimar la gravedad.</li>
+    <li><strong>Crecimiento de queries sin límite:</strong> Con el tiempo, <code>ToListAsync()</code> sin fecha en trackings cargará historial completo. A los 6–12 meses de uso activo, la página de síntomas se volverá lenta de manera progresiva y silenciosa.</li>
+    <li><strong>Data de todos los usuarios en memoria:</strong> Las queries de relaciones sin filtro de usuario pueden cargar datos de cientos de usuarios simultáneamente en una sola request. Riesgo de OOM o degradación general del servidor.</li>
+    <li><strong>Timezone en datos médicos:</strong> En producción con servidor en zona horaria diferente al usuario, los registros de un día pueden aparecer en el día siguiente. En un PDF médico esto genera fechas incorrectas.</li>
+  </ol>
+
+  <!-- 7. RECOMENDACIONES -->
+  <h2>7. 🛠️ Recomendaciones (sin implementar)</h2>
+  <table class="rec-table">
+    <tr>
+      <th>Prioridad</th><th>Acción</th><th>Archivo(s)</th>
+    </tr>
+    <tr>
+      <td class="p1">🔴 URGENTE</td>
+      <td>Agregar <code>"Extremo" = 4</code> al diccionario <code>EstadoSintomaValor</code></td>
+      <td><code>HealthStatsService.cs</code></td>
+    </tr>
+    <tr>
+      <td class="p1">🔴 URGENTE</td>
+      <td>Eliminar <code>[IgnoreAntiforgeryToken]</code> de la clase y ajustar el JS del partial para enviar el token correctamente</td>
+      <td><code>UsuarioSintomasSeguimiento.cshtml.cs</code></td>
+    </tr>
+    <tr>
+      <td class="p1">🔴 URGENTE</td>
+      <td>Agregar filtro <code>where rel.IdUsuario == userGuid</code> en las queries de relaciones condición/tratamiento</td>
+      <td><code>UsuarioSintomas.cshtml.cs</code></td>
+    </tr>
+    <tr>
+      <td class="p2">🟠 ALTO</td>
+      <td>Rediseñar <code>CalcularSintomas()</code> para calcular tendencia por síntoma individual (no mezclando todos) y separar síntomas GI de sistémicos</td>
+      <td><code>HealthStatsService.cs</code></td>
+    </tr>
+    <tr>
+      <td class="p2">🟠 ALTO</td>
+      <td>Agregar límite de fechas (ej. últimos 30 días) en la query de trackings de <code>OnGetAsync</code></td>
+      <td><code>UsuarioSintomas.cshtml.cs</code></td>
+    </tr>
+    <tr>
+      <td class="p3">🟡 MEDIO</td>
+      <td>Agregar <code>[Authorize]</code> explícito a las clases PageModel de usuario</td>
+      <td><code>UsuarioSintomasModel</code>, <code>UsuarioSintomasSeguimientoModel</code></td>
+    </tr>
+    <tr>
+      <td class="p3">🟡 MEDIO</td>
+      <td>Eliminar <code>|| true</code> en la condición de renderizado de condiciones en el PDF</td>
+      <td><code>PdfGeneratorService.cs</code></td>
+    </tr>
+    <tr>
+      <td class="p3">🟡 MEDIO</td>
+      <td>Actualizar comentario en <code>TrackingSintomaUsuario.Estado</code> para incluir <code>"Extremo"</code> y eliminar referencia a <code>2=Dolor</code> en handlers</td>
+      <td><code>TrackingSintomaUsuario.cs</code>, handlers de tracking</td>
+    </tr>
+    <tr>
+      <td class="p3">🟡 MEDIO</td>
+      <td>Extraer la lógica upsert de tracking a un servicio compartido <code>ITrackingSintomaService</code> para evitar triplicación</td>
+      <td>3 handlers de tracking</td>
+    </tr>
+    <tr>
+      <td class="p4">🟢 BAJO</td>
+      <td>Implementar manejo de timezone (UTC storage + conversión por preferencia del usuario)</td>
+      <td>Cadena completa de persistencia</td>
+    </tr>
+    <tr>
+      <td class="p4">🟢 BAJO</td>
+      <td>Normalizar registros con <code>fechaInicio &lt; 1753-01-01</code> en la base de datos con una migración SQL</td>
+      <td>Base de datos / migración</td>
+    </tr>
+  </table>
+
+  <!-- FOOTER -->
+  <div class="footer-note">
+    <strong>Este es el análisis completo. No se ha modificado nada.</strong><br/>
+    ¿Deseas que proceda con una propuesta de solución basada en estos hallazgos?
+  </div>
+
+</div>
+</body>
+</html>

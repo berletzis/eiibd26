@@ -40,18 +40,28 @@
                     <div class="crm-card-inner">
                         <div class="crm-card-header">
                             <span class="crm-card-title">
-                               
+
                                 @trat.Nombre
                             </span>
-                            <button type="button" class="crm-btn crm-btn-delete btn-eliminar-trat"
-                                    style="border:none;background:#f3f5f8;box-shadow:none;"
-                                    data-id="@trat.Id"
-                                    data-nombre="@trat.Nombre"
-                                    data-sintomas="@trat.SintomasCount"
-                                    data-condiciones="@trat.CondicionesCount"
-                                    title="Eliminar tratamiento">
-                                <i class="bi bi-trash3-fill"></i>
-                            </button>
+                            <div class="d-flex gap-1 align-items-center">
+                                <button type="button"
+                                        class="btn-star-trat crm-btn"
+                                        style="border:none;background:transparent;font-size:1.15rem;padding:0 4px;line-height:1;"
+                                        data-id="@trat.Id"
+                                        data-principal="@trat.EsPrincipal.ToString().ToLower()"
+                                        title="@(trat.EsPrincipal ? "Quitar como tratamiento principal" : "Marcar como tratamiento principal")">
+                                    @(trat.EsPrincipal ? "⭐" : "☆")
+                                </button>
+                                <button type="button" class="crm-btn crm-btn-delete btn-eliminar-trat"
+                                        style="border:none;background:#f3f5f8;box-shadow:none;"
+                                        data-id="@trat.Id"
+                                        data-nombre="@trat.Nombre"
+                                        data-sintomas="@trat.SintomasCount"
+                                        data-condiciones="@trat.CondicionesCount"
+                                        title="Eliminar tratamiento">
+                                    <i class="bi bi-trash3-fill"></i>
+                                </button>
+                            </div>
                         </div>
                         <div class="crm-card-fecha">
                                 <span class="crm-card-label">
@@ -468,6 +478,30 @@
                     addAntiforgeryToken(formData);
                     fetch('?handler=QuitarRelacionCondicion', { method: 'POST', body: formData })
                         .then(resp => resp.ok ? location.reload() : alert("Error al quitar"));
+                }
+            });
+        });
+
+        // Estrella: toggle tratamiento principal
+        document.querySelectorAll('.btn-star-trat').forEach(btn => {
+            btn.addEventListener('click', async function () {
+                const tratId = this.dataset.id;
+                const formData = new FormData();
+                formData.append('tratId', tratId);
+                addAntiforgeryToken(formData);
+                const resp = await fetch('?handler=TogglePrincipalTratamiento', { method: 'POST', body: formData });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    document.querySelectorAll('.btn-star-trat').forEach(b => {
+                        b.textContent = '☆';
+                        b.dataset.principal = 'false';
+                        b.title = 'Marcar como tratamiento principal';
+                    });
+                    if (data.esPrincipal) {
+                        this.textContent = '⭐';
+                        this.dataset.principal = 'true';
+                        this.title = 'Quitar como tratamiento principal';
+                    }
                 }
             });
         });

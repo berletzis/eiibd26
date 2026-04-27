@@ -201,6 +201,25 @@
     {
         <div class="small-muted mt-1" style="font-size:.85rem;">Sin seguimiento en los últimos 7 días</div>
     }
+    @if (Model.HealthInsight is { TieneDatos: true } insight)
+    {
+        <div class="d-flex flex-wrap gap-2 mt-2">
+            @if (!string.IsNullOrEmpty(insight.SintomaMayorFrecuencia) && !string.IsNullOrEmpty(insight.SintomaMayorFrecuenciaNombre))
+            {
+                <span class="badge text-bg-light border" style="font-size:.78rem;"
+                      title="Síntoma con más registros de frecuencia en el período">
+                    <i class="bi bi-clock-history me-1" aria-hidden="true"></i>@insight.SintomaMayorFrecuencia: @insight.SintomaMayorFrecuenciaNombre
+                </span>
+            }
+            @if (insight.PromedioDolorGlobal.HasValue)
+            {
+                <span class="badge text-bg-light border" style="font-size:.78rem;"
+                      title="Promedio de dolor global del período (0-10)">
+                    <i class="bi bi-activity me-1" aria-hidden="true"></i>Dolor promedio: @insight.PromedioDolorGlobal.Value.ToString("0.#")/10
+                </span>
+            }
+        </div>
+    }
 
     <div class="table-responsive">
         <table class="table table-sm table-borderless align-middle">
@@ -235,14 +254,19 @@
                         var keyAyer = KeyForDate(ayer);
                         var keyHoy = KeyForDate(hoy);
 
-                        string seguimientoAyer = s.SeguimientoPorDia != null && s.SeguimientoPorDia.ContainsKey(keyAyer) ? s.SeguimientoPorDia[keyAyer] : "";
-                        string seguimientoHoy = s.SeguimientoPorDia != null && s.SeguimientoPorDia.ContainsKey(keyHoy) ? s.SeguimientoPorDia[keyHoy] : "";
+                        string seguimientoAyer = s.SeguimientoPorDia != null && s.SeguimientoPorDia.ContainsKey(keyAyer) ? s.SeguimientoPorDia[keyAyer].Estado : "";
+                        string seguimientoHoy  = s.SeguimientoPorDia != null && s.SeguimientoPorDia.ContainsKey(keyHoy)  ? s.SeguimientoPorDia[keyHoy].Estado  : "";
+                        var trackAyer = s.SeguimientoPorDia != null && s.SeguimientoPorDia.ContainsKey(keyAyer) ? s.SeguimientoPorDia[keyAyer] : null;
+                        var trackHoy  = s.SeguimientoPorDia != null && s.SeguimientoPorDia.ContainsKey(keyHoy)  ? s.SeguimientoPorDia[keyHoy]  : null;
                         var condiciones = s.Condiciones ?? new List<string>();
 
                         <tr>
                             <td class="text-start sintoma-col">@s.Nombre</td>
 
-                            <td class="text-center date-col" data-sintid="@sintId" data-dia="@keyAyer" data-nombre="@s.Nombre">
+                            <td class="text-center date-col" data-sintid="@sintId" data-dia="@keyAyer" data-nombre="@s.Nombre" data-tipo="@s.TipoSintoma"
+                                data-dolor="@(trackAyer?.Dolor?.ToString() ?? "")"
+                                data-sangrado="@(trackAyer?.TieneSangrado.HasValue == true ? (trackAyer.TieneSangrado.Value ? "true" : "false") : "")"
+                                data-frecuencia="@(trackAyer?.FrecuenciaId?.ToString() ?? "")">
                                 @if (!string.IsNullOrEmpty(seguimientoAyer))
                                 {
                                     var color = estadoToColor(seguimientoAyer);
@@ -255,6 +279,7 @@
                                             data-sintid="@sintId"
                                             data-dia="@keyAyer"
                                             data-nombre="@s.Nombre"
+                                            data-tipo="@s.TipoSintoma"
                                             title="Agregar seguimiento (ayer)">
                                         <i class="bi bi-plus-lg" aria-hidden="true"></i>
                                         <span class="visually-hidden">Agregar seguimiento ayer</span>
@@ -262,7 +287,10 @@
                                 }
                             </td>
 
-                            <td class="text-center date-col" data-sintid="@sintId" data-dia="@keyHoy" data-nombre="@s.Nombre">
+                            <td class="text-center date-col" data-sintid="@sintId" data-dia="@keyHoy" data-nombre="@s.Nombre" data-tipo="@s.TipoSintoma"
+                                data-dolor="@(trackHoy?.Dolor?.ToString() ?? "")"
+                                data-sangrado="@(trackHoy?.TieneSangrado.HasValue == true ? (trackHoy.TieneSangrado.Value ? "true" : "false") : "")"
+                                data-frecuencia="@(trackHoy?.FrecuenciaId?.ToString() ?? "")">
                                 @if (!string.IsNullOrEmpty(seguimientoHoy))
                                 {
                                     var color = estadoToColor(seguimientoHoy);
@@ -275,6 +303,7 @@
                                             data-sintid="@sintId"
                                             data-dia="@keyHoy"
                                             data-nombre="@s.Nombre"
+                                            data-tipo="@s.TipoSintoma"
                                             title="Agregar seguimiento (hoy)">
                                         <i class="bi bi-plus-lg" aria-hidden="true"></i>
                                         <span class="visually-hidden">Agregar seguimiento hoy</span>
@@ -300,196 +329,74 @@
     </div>
 </div>
 
-<!-- Modal necesario para el JS existente -->
-<div class="modal fade" id="modalTrackingPartial" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content crm-modal-content">
-            <form id="formTrackingPartial" method="post" class="p-0">
-                @Html.AntiForgeryToken()
-                <div class="modal-header">
-                    <h5 id="tituloTrackingPartial" class="modal-title">Seguimiento de síntoma</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="mensajeTrackingPartial" class="alert alert-success py-2 px-3 small mb-2 d-none">Seguimiento agregado</div>
-                    <div id="errorTrackingPartial" class="alert alert-danger py-2 px-3 small mb-2 d-none"></div>
-                    <div class="mb-2 fw-semibold" id="preguntaTrackingPartial"></div>
-                    <div id="opcionesTrackingPartial" class="d-flex flex-column gap-2"></div>
-                </div>
-                <div class="modal-footer"></div>
-
-                <input type="hidden" id="sintomaIdTrackingPartial" name="sintomaUsuarioId" />
-                <input type="hidden" id="fechaTrackingPartial" name="fecha" />
-                <input type="hidden" id="nombreSintomaTrackingPartial" name="nombre" />
-            </form>
-        </div>
-    </div>
-</div>
+@{
+    var dashTopViewData = new ViewDataDictionary(ViewData)
+    {
+        ["suffixId"]     = "DashTop",
+        ["handlerUrl"]   = "?handler=TrackSintomaMatriz",
+        ["includeFecha"] = true,
+        ["frecuencias"]  = Model?.FrecuenciasCatalog ?? new List<eiibd26.Models.FrecuenciaSintomaCatalog>()
+    };
+}
+<partial name="_TrackingSintomaModal" view-data="dashTopViewData" />
 
 <script>
-    (function () {
-        const opcionesTracking = [
-            { val: "Ninguno", label: "Ninguno", color: "#E6E6EB" },
-            { val: "Leve", label: "Leve", color: "#B6C2D7" },
-            { val: "Moderado", label: "Moderado", color: "#FFD121" },
-            { val: "Severo", label: "Severo", color: "#FF8A65" },
-            { val: "Extremo", label: "Extremo", color: "#D32F2F" }
-        ];
+(function () {
+    const root = document.getElementById('sintomasTop5Root');
 
-        const root = document.getElementById('sintomasTop5Root');
+    function colorFor(estado) {
+        switch ((estado ?? '').toLowerCase()) {
+            case "ninguno":  return "#E6E6EB";
+            case "leve":     return "#B6C2D7";
+            case "moderado": return "#FFD121";
+            case "severo":   return "#FF8A65";
+            case "extremo":  return "#D32F2F";
+            default:         return "#E6E6EB";
+        }
+    }
 
-        function normalize(s) { return (s||"").toString().trim(); }
-        function colorFor(estado) {
-            switch (normalize(estado).toLowerCase()) {
-                case "ninguno": return "#E6E6EB";
-                case "leve": return "#B6C2D7";
-                case "moderado": return "#FFD121";
-                case "severo": return "#FF8A65";
-                case "extremo": return "#D32F2F";
-                default: return "#E6E6EB";
+    // Delegated click on add-buttons and circles
+    if (root) {
+        root.addEventListener('click', function (ev) {
+            const addBtn = ev.target.closest('.btn-agregar');
+            if (addBtn) {
+                openTrackingModal_DashTop(
+                    addBtn.dataset.sintid,
+                    addBtn.dataset.nombre,
+                    addBtn.dataset.tipo ?? '0',
+                    '', '', '', '',
+                    addBtn.dataset.dia
+                );
+                return;
             }
-        }
-
-        function getAntiForgeryToken() {
-            const f = document.getElementById('formTrackingPartial');
-            if (!f) return null;
-            const el = f.querySelector('input[name="__RequestVerificationToken"]');
-            return el ? el.value : null;
-        }
-
-        function buildOptionsHtml(current) {
-            let html = '';
-            opcionesTracking.forEach(o => {
-                const active = normalize(current).toLowerCase() === o.val.toLowerCase() ? "active" : "";
-                html += `<button type="button" class="btn btn-outline-primary w-100 btn-opcion-track-partial ${active}" data-estado="${o.val}" style="display:flex;align-items:center;gap:10px;">
-                            <span style="background:${o.color};width:18px;height:18px;border-radius:50%;display:inline-block;margin-right:8px;"></span>${o.label}
-                        </button>`;
-            });
-            return html;
-        }
-
-        function openModal(sintId, fecha, nombre, estadoActual) {
-            document.getElementById('sintomaIdTrackingPartial').value = sintId;
-            document.getElementById('fechaTrackingPartial').value = fecha;
-            document.getElementById('nombreSintomaTrackingPartial').value = nombre;
-
-            document.getElementById('errorTrackingPartial').classList.add('d-none');
-            document.getElementById('mensajeTrackingPartial').classList.add('d-none');
-
-            const fechaObj = new Date(fecha + "T12:00:00");
-            const fechaTxt = `${fechaObj.getDate().toString().padStart(2,"0")}/${(fechaObj.getMonth()+1).toString().padStart(2,"0")}/${fechaObj.getFullYear()}`;
-            document.getElementById('preguntaTrackingPartial').innerText = `¿Cómo estuvo \"${nombre}\" el ${fechaTxt}?`;
-
-            document.getElementById('opcionesTrackingPartial').innerHTML = buildOptionsHtml(estadoActual);
-
-            const opcionesContainer = document.getElementById('opcionesTrackingPartial');
-            opcionesContainer.onclick = function (ev) {
-                const btn = ev.target.closest && ev.target.closest('.btn-opcion-track-partial');
-                if (!btn) return;
-                const estado = btn.dataset.estado;
-                handleOptionSelected(estado);
-            };
-
-            var modalEl = document.getElementById('modalTrackingPartial');
-            if (!modalEl || typeof bootstrap === 'undefined') return;
-            var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-            modal.show();
-        }
-
-        function findCellsFor(sintomaUsuarioId, fecha) {
-            const selector = `[data-sintid="${sintomaUsuarioId}"][data-dia="${fecha}"]`;
-            return Array.from(document.querySelectorAll(selector));
-        }
-
-        async function handleOptionSelected(estado) {
-            const sintomaUsuarioId = document.getElementById('sintomaIdTrackingPartial').value;
-            const fechaTrack = document.getElementById('fechaTrackingPartial').value;
-            const nombreSintoma = document.getElementById('nombreSintomaTrackingPartial').value;
-
-            const cells = findCellsFor(sintomaUsuarioId, fechaTrack);
-            const prevHTML = cells.map(c => c.innerHTML);
-            const badgeHtml = `<span class="crm-circle" style="background:${colorFor(estado)}" alt="${estado}" title="${estado}"></span>`;
-
-            cells.forEach(c => {
-                c.innerHTML = badgeHtml;
-                c.onclick = function () { openModal(sintomaUsuarioId, fechaTrack, nombreSintoma, estado); };
-            });
-
-            var modalEl = document.getElementById('modalTrackingPartial');
-            if (modalEl && typeof bootstrap !== 'undefined') {
-                bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+            const circle = ev.target.closest('.crm-circle');
+            if (circle) {
+                const td = circle.closest('td');
+                if (!td) return;
+                openTrackingModal_DashTop(
+                    td.getAttribute('data-sintid'),
+                    td.getAttribute('data-nombre'),
+                    td.getAttribute('data-tipo') ?? '0',
+                    circle.getAttribute('alt') || '',
+                    td.getAttribute('data-dolor')     || '',
+                    td.getAttribute('data-sangrado')  || '',
+                    td.getAttribute('data-frecuencia') || '',
+                    td.getAttribute('data-dia')
+                );
             }
+        });
+    }
 
-            const fd = new FormData();
-            fd.append('sintomaUsuarioId', sintomaUsuarioId);
-            fd.append('estado', estado);
-            fd.append('fecha', fechaTrack);
-
-            const token = getAntiForgeryToken();
-            const headers = token ? { 'RequestVerificationToken': token } : {};
-
-            try {
-                const resp = await fetch('?handler=TrackSintomaMatriz', {
-                    method: 'POST',
-                    body: fd,
-                    headers: headers,
-                    credentials: 'same-origin'
-                });
-
-                if (!resp.ok) {
-                    cells.forEach((c,i) => c.innerHTML = prevHTML[i] || '');
-                    const errorEl = document.getElementById('errorTrackingPartial');
-                    let text = '';
-                    try { text = await resp.text(); } catch(e) {}
-                    errorEl.textContent = text ? `Error: ${text}` : 'Error guardando seguimiento';
-                    errorEl.classList.remove('d-none');
-                    setTimeout(()=> errorEl.classList.add('d-none'), 4000);
-                    return;
-                }
-
-                let json = null;
-                try { json = await resp.json().catch(()=>null); } catch(e) { json = null; }
-                if (json && json.estado) {
-                    const serverEstado = json.estado;
-                    const badgeHtml2 = `<span class="crm-circle" style="background:${colorFor(serverEstado)}" alt="${serverEstado}" title="${serverEstado}"></span>`;
-                    cells.forEach(c => {
-                        c.innerHTML = badgeHtml2;
-                        c.onclick = function () { openModal(sintomaUsuarioId, fechaTrack, nombreSintoma, serverEstado); };
-                    });
-                }
-            } catch (err) {
-                cells.forEach((c,i) => c.innerHTML = prevHTML[i] || '');
-                console.error('Network error saving seguimiento', err);
-                const errorEl = document.getElementById('errorTrackingPartial');
-                errorEl.textContent = 'Error de red al guardar seguimiento';
-                errorEl.classList.remove('d-none');
-                setTimeout(()=> errorEl.classList.add('d-none'), 4000);
-            }
-        }
-
-        if (root) {
-            root.addEventListener('click', function (ev) {
-                const target = ev.target;
-                const addBtn = target.closest ? target.closest('.btn-agregar') : null;
-                if (addBtn) {
-                    const sintId = addBtn.dataset.sintid;
-                    const fecha = addBtn.dataset.dia;
-                    const nombre = addBtn.dataset.nombre;
-                    openModal(sintId, fecha, nombre, "");
-                    return;
-                }
-                const circle = target.closest ? target.closest('.crm-circle') : null;
-                if (circle) {
-                    const td = circle.closest('td');
-                    if (!td) return;
-                    const sintId = td.getAttribute('data-sintid');
-                    const fecha = td.getAttribute('data-dia');
-                    const nombre = td.getAttribute('data-nombre');
-                    const estado = circle.getAttribute('alt') || "";
-                    openModal(sintId, fecha, nombre, estado);
-                    return;
-                }
-            });
-        }
-    })();
+    // Update cell UI after a successful save
+    document.addEventListener('tracking:saved', function (ev) {
+        const { sintomaUsuarioId, estado, fecha } = ev.detail;
+        const selector = `[data-sintid="${sintomaUsuarioId}"][data-dia="${fecha}"]`;
+        document.querySelectorAll(selector).forEach(function (td) {
+            td.innerHTML = `<span class="crm-circle"
+                                  style="background:${colorFor(estado)}"
+                                  alt="${estado}"
+                                  title="${estado}"></span>`;
+        });
+    });
+})();
 </script>

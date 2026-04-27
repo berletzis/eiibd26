@@ -119,6 +119,7 @@ public sealed class MedicalSummaryService : IMedicalSummaryService
             .Where(t => t.Fecha >= desde && t.Fecha <= hasta)
             .Include(t => t.SintomaUsuario)
                 .ThenInclude(su => su.Sintoma)
+            .Include(t => t.Frecuencia)
             .OrderBy(t => t.Fecha)
             .Take(Limit)
             .ToListAsync(ct);
@@ -158,8 +159,11 @@ public sealed class MedicalSummaryService : IMedicalSummaryService
                 Tratamientos  = mapaTratamientos.TryGetValue(g.Key.IdSintomaUsuario, out var trts) ? trts : [],
                 Trackings     = g.Select(t => new TrackingSintomaExportDto
                 {
-                    Fecha  = t.Fecha,
-                    Estado = t.Estado
+                    Fecha           = t.Fecha,
+                    Estado          = t.Estado,
+                    Dolor           = t.Dolor,
+                    TieneSangrado   = t.TieneSangrado,
+                    FrecuenciaNombre = t.Frecuencia?.Nombre
                 }).OrderBy(x => x.Fecha).ToList()
             })
             .OrderBy(s => s.NombreSintoma)

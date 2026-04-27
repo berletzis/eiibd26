@@ -1,0 +1,289 @@
+@* Partial reutilizable: modal de tracking de síntoma.
+   ViewData esperado:
+     suffixId    (string) — prefijo único para los IDs del modal (ej. "Card", "Partial")
+     handlerUrl  (string) — URL del endpoint POST (ej. "?handler=TrackSintoma")
+     includeFecha (bool)  — si true, envía el campo "fecha" al servidor (modo matriz/dashboard)
+     frecuencias (IEnumerable<FrecuenciaSintomaCatalog>) — catálogo de frecuencias
+   Evento disparado al guardar con éxito:
+     CustomEvent("tracking:saved", { detail: { sintomaUsuarioId, estado, fecha } })
+     emitido en document.
+*@
+@using eiibd26.Models
+@{
+    var suffixId    = (string)(ViewData["suffixId"]    ?? "Modal");
+    var handlerUrl  = (string)(ViewData["handlerUrl"]  ?? "?handler=TrackSintoma");
+    var includeFecha = (bool)(ViewData["includeFecha"] ?? false);
+    var frecuencias  = ViewData["frecuencias"] as IEnumerable<FrecuenciaSintomaCatalog>
+                       ?? Enumerable.Empty<FrecuenciaSintomaCatalog>();
+
+    var modalId       = $"modalTracking{suffixId}";
+    var formId        = $"formTracking{suffixId}";
+    var tituloId      = $"tituloTracking{suffixId}";
+    var mensajeOkId   = $"mensajeTrackingOk{suffixId}";
+    var mensajeErrId  = $"mensajeTrackingErr{suffixId}";
+    var preguntaId    = $"preguntaTracking{suffixId}";
+    var opcionesId    = $"opcionesTracking{suffixId}";
+    var dolorContId   = $"trackDolorCont{suffixId}";
+    var dolorRangeId  = $"trackDolor{suffixId}";
+    var dolorValorId  = $"trackDolorValor{suffixId}";
+    var sangContId    = $"trackSangCont{suffixId}";
+    var sangCheckId   = $"trackSang{suffixId}";
+    var sangLabelId   = $"trackSangLabel{suffixId}";
+    var frecContId    = $"trackFrecCont{suffixId}";
+    var frecSelId     = $"trackFrec{suffixId}";
+    var sintIdHidId   = $"sintIdHid{suffixId}";
+    var fechaHidId    = $"fechaHid{suffixId}";
+    var btnGuardarId  = $"btnGuardar{suffixId}";
+}
+
+<div class="modal fade" id="@modalId" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="@formId">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title" id="@tituloId">Seguimiento de síntoma</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="@mensajeOkId" class="alert alert-success py-2 px-3 small mb-2 d-none">
+                        <i class="bi bi-check-circle-fill me-1"></i> Seguimiento guardado
+                    </div>
+                    <div id="@mensajeErrId" class="alert alert-danger py-2 px-3 small mb-2 d-none"></div>
+                    <div class="mb-2 fw-semibold" id="@preguntaId"></div>
+                    <div id="@opcionesId" class="d-flex flex-column gap-2">
+                        <!-- Opciones generadas por JS -->
+                    </div>
+                    <!-- Dolor -->
+                    <div id="@dolorContId" class="mt-3" style="display:none;">
+                        <label class="form-label mb-1 small" for="@dolorRangeId">
+                            Dolor <span class="text-muted">(opcional)</span>
+                        </label>
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="range" class="form-range flex-grow-1" id="@dolorRangeId"
+                                   min="0" max="10" step="1" value="0" />
+                            <span id="@dolorValorId" class="fw-semibold" style="min-width:1.5rem;text-align:center;">0</span>
+                            <span class="text-muted small">/10</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted" style="font-size:.75rem;">Sin dolor</span>
+                            <span class="text-muted" style="font-size:.75rem;">Máximo</span>
+                        </div>
+                    </div>
+                    <!-- Sangrado -->
+                    <div id="@sangContId" class="mt-3 align-items-center gap-3" style="display:none;">
+                        <label class="form-label mb-0 small" for="@sangCheckId">Sangrado</label>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   id="@sangCheckId" style="width:2.5em;height:1.3em;" />
+                            <label class="form-check-label text-muted small" for="@sangCheckId" id="@sangLabelId">No</label>
+                        </div>
+                    </div>
+                    <!-- Frecuencia -->
+                    <div id="@frecContId" class="mt-3" style="display:none;">
+                        <label class="form-label mb-1 small" for="@frecSelId">
+                            Frecuencia <span class="text-muted">(opcional)</span>
+                        </label>
+                        <select id="@frecSelId" class="form-select form-select-sm">
+                            <option value="">— Sin especificar —</option>
+                            @foreach (var f in frecuencias)
+                            {
+                                <option value="@f.Id">@f.Nombre</option>
+                            }
+                        </select>
+                        <div class="form-text">Frecuencia aproximada del síntoma durante el día</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="@btnGuardarId" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Guardar
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                </div>
+                <input type="hidden" id="@sintIdHidId" />
+                <input type="hidden" id="@fechaHidId" />
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const SUFFIX       = '@suffixId';
+    const HANDLER_URL  = '@handlerUrl';
+    const WITH_FECHA   = @(includeFecha ? "true" : "false");
+
+    const OPCIONES = [
+        { val: "Ninguno",  label: "Ninguno",  color: "#E6E6EB" },
+        { val: "Leve",     label: "Leve",     color: "#B6C2D7" },
+        { val: "Moderado", label: "Moderado", color: "#FFD121" },
+        { val: "Severo",   label: "Severo",   color: "#FF8A65" },
+        { val: "Extremo",  label: "Extremo",  color: "#D32F2F" }
+    ];
+
+    function el(id)  { return document.getElementById(id); }
+
+    function getToken() {
+        const f = el('formTracking' + SUFFIX);
+        if (!f) return '';
+        const t = f.querySelector('input[name="__RequestVerificationToken"]');
+        return t ? t.value : '';
+    }
+
+    // TipoSintoma: 0=Subjetivo (Estado+Dolor), 1=Medible (Estado+Dolor+Sangrado+Frecuencia)
+    function toggleCampos(tipo) {
+        const showMedible = parseInt(tipo) === 1;
+        const dolorEl = el('trackDolorCont' + SUFFIX);
+        const sangEl  = el('trackSangCont'  + SUFFIX);
+        const frecEl  = el('trackFrecCont'  + SUFFIX);
+        if (dolorEl) dolorEl.style.display = '';          // Dolor siempre visible
+        if (sangEl)  sangEl.style.display  = showMedible ? 'flex' : 'none';
+        if (frecEl)  frecEl.style.display  = showMedible ? ''     : 'none';
+        if (!showMedible) {
+            const s = el('trackSang' + SUFFIX);
+            if (s) { s.checked = false; el('trackSangLabel' + SUFFIX).textContent = 'No'; }
+            const f = el('trackFrec' + SUFFIX);
+            if (f) f.value = '';
+        }
+    }
+
+    function buildOpciones(estadoActual) {
+        return OPCIONES.map(o => {
+            const active = (estadoActual || '').toLowerCase() === o.val.toLowerCase() ? 'active' : '';
+            return `<button type="button"
+                        class="btn btn-outline-primary w-100 btn-opcion-tsm ${active}"
+                        data-estado="${o.val}"
+                        style="display:flex;align-items:center;gap:10px;">
+                        <span style="background:${o.color};width:18px;height:18px;border-radius:50%;
+                                     display:inline-block;flex-shrink:0;"></span>${o.label}
+                    </button>`;
+        }).join('');
+    }
+
+    // API pública: abre el modal con los datos del síntoma
+    // fecha: string "yyyy-MM-dd" o vacío (para el modo "hoy" de la tarjeta)
+    window['openTrackingModal_' + SUFFIX] = function(sintId, nombre, tipo, estadoActual, dolor, sangrado, frecuencia, fecha) {
+        tipo   = tipo   || 0;
+        fecha  = fecha  || '';
+        dolor  = dolor  || '';
+        sangrado  = sangrado  || '';
+        frecuencia = frecuencia || '';
+
+        // Reset mensajes
+        el('mensajeTrackingOk'  + SUFFIX)?.classList.add('d-none');
+        el('mensajeTrackingErr' + SUFFIX)?.classList.add('d-none');
+
+        // Título y pregunta
+        const fechaObj = fecha ? new Date(fecha + 'T12:00:00') : new Date();
+        const fechaTxt = fechaObj.getDate().toString().padStart(2,'0') + '/'
+                       + (fechaObj.getMonth()+1).toString().padStart(2,'0') + '/'
+                       + fechaObj.getFullYear();
+        const verbo = fecha ? 'estuvo' : 'está';
+        el('tituloTracking'   + SUFFIX).textContent = `Seguimiento de "${nombre}"`;
+        el('preguntaTracking' + SUFFIX).textContent = `¿Cómo ${verbo} "${nombre}" ${fecha ? 'el ' + fechaTxt : 'hoy'}?`;
+
+        // Opciones
+        el('opcionesTracking' + SUFFIX).innerHTML = buildOpciones(estadoActual);
+
+        // Campos clínicos
+        toggleCampos(tipo);
+
+        // Restaurar valores guardados
+        const dolorEl = el('trackDolor' + SUFFIX);
+        if (dolorEl) {
+            const v = (dolor !== '' && dolor !== null) ? parseInt(dolor) : 0;
+            dolorEl.value = v;
+            el('trackDolorValor' + SUFFIX).textContent = v;
+        }
+        const sangEl = el('trackSang' + SUFFIX);
+        if (sangEl) {
+            const sv = sangrado === 'true';
+            sangEl.checked = sv;
+            el('trackSangLabel' + SUFFIX).textContent = sv ? 'Sí' : 'No';
+        }
+        const frecEl = el('trackFrec' + SUFFIX);
+        if (frecEl) frecEl.value = frecuencia;
+
+        // Hiddens
+        el('sintIdHid' + SUFFIX).value = sintId;
+        el('fechaHid'  + SUFFIX).value = fecha;
+
+        bootstrap.Modal.getOrCreateInstance(el('modalTracking' + SUFFIX)).show();
+    };
+
+    // Delegación de clicks en opciones
+    el('opcionesTracking' + SUFFIX)?.addEventListener('click', function(ev) {
+        const btn = ev.target.closest('.btn-opcion-tsm');
+        if (!btn) return;
+        this.querySelectorAll('.btn-opcion-tsm').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    });
+
+    // Slider dolor
+    el('trackDolor' + SUFFIX)?.addEventListener('input', function() {
+        el('trackDolorValor' + SUFFIX).textContent = this.value;
+    });
+
+    // Sangrado toggle label
+    el('trackSang' + SUFFIX)?.addEventListener('change', function() {
+        el('trackSangLabel' + SUFFIX).textContent = this.checked ? 'Sí' : 'No';
+    });
+
+    // Guardar
+    el('btnGuardar' + SUFFIX)?.addEventListener('click', async function() {
+        const activeBtn = el('opcionesTracking' + SUFFIX)?.querySelector('.btn-opcion-tsm.active');
+        if (!activeBtn) {
+            alert('Por favor selecciona un estado antes de guardar.');
+            return;
+        }
+        const estado          = activeBtn.dataset.estado;
+        const sintomaUsuarioId = el('sintIdHid' + SUFFIX).value;
+        const fecha           = el('fechaHid'   + SUFFIX).value;
+
+        const dolorCont = el('trackDolorCont' + SUFFIX);
+        const sangCont  = el('trackSangCont'  + SUFFIX);
+        const frecCont  = el('trackFrecCont'  + SUFFIX);
+
+        const fd = new FormData();
+        fd.append('sintomaUsuarioId', sintomaUsuarioId);
+        fd.append('estado', estado);
+        if (WITH_FECHA && fecha) fd.append('fecha', fecha);
+        if (dolorCont && dolorCont.style.display !== 'none')
+            fd.append('dolor', el('trackDolor' + SUFFIX)?.value ?? '0');
+        if (sangCont && sangCont.style.display !== 'none')
+            fd.append('tieneSangrado', (el('trackSang' + SUFFIX)?.checked ?? false).toString());
+        const frecVal = (frecCont && frecCont.style.display !== 'none')
+            ? (el('trackFrec' + SUFFIX)?.value || '') : '';
+        if (frecVal) fd.append('frecuenciaId', frecVal);
+        fd.append('__RequestVerificationToken', getToken());
+
+        this.disabled = true;
+        try {
+            const resp = await fetch(HANDLER_URL, { method: 'POST', body: fd });
+            this.disabled = false;
+            if (resp.ok) {
+                el('mensajeTrackingOk' + SUFFIX)?.classList.remove('d-none');
+                // Notificar a la página
+                document.dispatchEvent(new CustomEvent('tracking:saved', {
+                    detail: { sintomaUsuarioId, estado, fecha }
+                }));
+                setTimeout(() => {
+                    bootstrap.Modal.getOrCreateInstance(el('modalTracking' + SUFFIX)).hide();
+                    el('mensajeTrackingOk' + SUFFIX)?.classList.add('d-none');
+                }, 700);
+            } else {
+                const errEl = el('mensajeTrackingErr' + SUFFIX);
+                let txt = '';
+                try { txt = await resp.text(); } catch(e) {}
+                if (errEl) { errEl.textContent = txt || 'Error guardando seguimiento'; errEl.classList.remove('d-none'); }
+                setTimeout(() => errEl?.classList.add('d-none'), 4000);
+            }
+        } catch(e) {
+            this.disabled = false;
+            const errEl = el('mensajeTrackingErr' + SUFFIX);
+            if (errEl) { errEl.textContent = 'Error de red'; errEl.classList.remove('d-none'); }
+            setTimeout(() => errEl?.classList.add('d-none'), 4000);
+        }
+    });
+})();
+</script>

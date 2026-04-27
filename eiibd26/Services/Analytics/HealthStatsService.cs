@@ -15,7 +15,8 @@ public sealed class HealthStatsService : IHealthStatsService
         ["Ninguno"]  = 0,
         ["Leve"]     = 1,
         ["Moderado"] = 2,
-        ["Severo"]   = 3
+        ["Severo"]   = 3,
+        ["Extremo"]  = 4
     };
 
     public HealthStatsDto Calcular(
@@ -70,24 +71,34 @@ public sealed class HealthStatsService : IHealthStatsService
         if (total < 2)
             return new SymptomStatsDto { TotalRegistros = total, Tendencia = "Sin datos suficientes" };
 
-        // Tomar primer y último valor numérico conocido
-        var primero = ValorEstado(trackings.First().Estado);
-        var ultimo  = ValorEstado(trackings.Last().Estado);
+        // Excluir estados no reconocidos antes de calcular
+        var valores = trackings
+            .Select(t => ValorEstado(t.Estado))
+            .Where(v => v >= 0)
+            .ToList();
 
-        // Si alguno es desconocido, no se puede calcular tendencia
-        if (primero < 0 || ultimo < 0)
+        if (valores.Count < 2)
             return new SymptomStatsDto { TotalRegistros = total, Tendencia = "Sin datos suficientes" };
 
-        // Todos los valores iguales → Estable sin ambigüedad
-        var todosIguales = trackings.All(t => ValorEstado(t.Estado) == primero);
-        if (todosIguales)
-            return new SymptomStatsDto { TotalRegistros = total, Tendencia = "Estable" };
+        // Pendiente OLS: slope = (N·Σxy - Σx·Σy) / (N·Σx² - (Σx)²)
+        // x = índice 0..N-1, y = valor ordinal del estado
+        int n      = valores.Count;
+        double sumX  = n * (n - 1) / 2.0;
+        double sumX2 = (n - 1) * (double)n * (2 * n - 1) / 6.0;
+        double sumY  = valores.Sum();
+        double sumXY = valores.Select((y, i) => i * (double)y).Sum();
 
-        var tendencia = ultimo.CompareTo(primero) switch
+        double denominador = n * sumX2 - sumX * sumX;
+
+        // denominador == 0 solo si n <= 1, ya cubierto arriba
+        double pendiente = (n * sumXY - sumX * sumY) / denominador;
+
+        const double Umbral = 0.05;
+        var tendencia = pendiente switch
         {
-            > 0 => "Empeorando",
-            < 0 => "Mejorando",
-            _   => "Estable"
+            >  Umbral => "Empeorando",
+            < -Umbral => "Mejorando",
+            _         => "Estable"
         };
 
         return new SymptomStatsDto { TotalRegistros = total, Tendencia = tendencia };

@@ -26,6 +26,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<Paises> Paises { get; set; }
     public DbSet<EstadoAnimoUsuario> EstadoAnimoUsuario { get; set; }
     public DbSet<TrackingSintomaUsuario> TrackingSintomaUsuario { get; set; }
+    public DbSet<FrecuenciaSintomaCatalog> FrecuenciaSintomaCatalog { get; set; }
     public DbSet<Pregunta> Preguntas { get; set; }
     public DbSet<Respuesta> Respuestas { get; set; }
     public DbSet<Voto> Votos { get; set; }
@@ -112,6 +113,25 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
             .HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.IdUsuario).OnDelete(DeleteBehavior.Restrict);
         builder.Entity<TrackingSintomaUsuario>()
             .HasOne(x => x.SintomaUsuario).WithMany().HasForeignKey(x => x.IdSintomaUsuario).OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<TrackingSintomaUsuario>()
+            .HasOne(x => x.Frecuencia).WithMany().HasForeignKey(x => x.FrecuenciaId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+
+        // FrecuenciaSintomaCatalog — tabla catálogo con seed inmutable
+        builder.Entity<FrecuenciaSintomaCatalog>(b =>
+        {
+            b.ToTable("FrecuenciaSintomaCatalog");
+            b.HasKey(f => f.Id);
+            b.Property(f => f.Nombre).HasMaxLength(100).IsRequired();
+            b.HasData(
+                new FrecuenciaSintomaCatalog { Id = 1, Nombre = "1 vez al día",          Orden = 1 },
+                new FrecuenciaSintomaCatalog { Id = 2, Nombre = "2–3 veces al día",       Orden = 2 },
+                new FrecuenciaSintomaCatalog { Id = 3, Nombre = "4–6 veces al día",       Orden = 3 },
+                new FrecuenciaSintomaCatalog { Id = 4, Nombre = "Más de 6 veces al día",  Orden = 4 },
+                new FrecuenciaSintomaCatalog { Id = 5, Nombre = "Ocasional (no diario)",  Orden = 5 },
+                new FrecuenciaSintomaCatalog { Id = 6, Nombre = "Intermitente",            Orden = 6 },
+                new FrecuenciaSintomaCatalog { Id = 7, Nombre = "Constante",               Orden = 7 }
+            );
+        });
 
         // Pregunta
         builder.Entity<Pregunta>(b =>

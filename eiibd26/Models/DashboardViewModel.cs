@@ -31,6 +31,12 @@ namespace eiibd26.Models
 
         /// <summary>Estadísticas del período (últimos 7 días). Puede ser null si no hay datos.</summary>
         public HealthStatsDto? HealthStats { get; set; }
+
+        /// <summary>Insights clínicos del período (últimos 7 días). Puede ser null si no hay datos.</summary>
+        public HealthInsightDto? HealthInsight { get; set; }
+
+        /// <summary>Catálogo de frecuencias para los dropdowns de tracking.</summary>
+        public List<FrecuenciaSintomaCatalog> FrecuenciasCatalog { get; set; } = new();
     }
 
     public class MoodPoint
@@ -48,13 +54,29 @@ namespace eiibd26.Models
         public string Tipo { get; set; }
     }
 
+    public class DiaTracking
+    {
+        public string Estado { get; set; } = "";
+        public int? Dolor { get; set; }
+        public bool? TieneSangrado { get; set; }
+        public int? FrecuenciaId { get; set; }
+    }
+
     public class SymptomTopItem
     {
         public int SintomaUsuarioId { get; set; }
         public string Nombre { get; set; }
         public int Interacciones { get; set; }
         public List<string> Condiciones { get; set; } = new List<string>();
-        public Dictionary<string, string> SeguimientoPorDia { get; set; } = new Dictionary<string, string>();
+        public Dictionary<string, DiaTracking> SeguimientoPorDia { get; set; } = new Dictionary<string, DiaTracking>();
+        /// <summary>Promedio de dolor registrado en el período (0-10). Null si no hay registros con dolor.</summary>
+        public double? PromedioDolor { get; set; }
+        /// <summary>Indica si el último registro con sangrado informado fue positivo. Null si no hay datos.</summary>
+        public bool? UltimoTieneSangrado { get; set; }
+        /// <summary>Nombre de frecuencia del último registro que la informó. Null si ninguno la registró.</summary>
+        public string? UltimaFrecuenciaNombre { get; set; }
+        /// <summary>Tipo de síntoma del catálogo: 0=Subjetivo, 1=Medible GI, 2=Dolor.</summary>
+        public int TipoSintoma { get; set; } = 0;
     }
 
     public class QuestionItem

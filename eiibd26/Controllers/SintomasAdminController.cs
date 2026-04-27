@@ -250,6 +250,7 @@ namespace eiibd26.Controllers
             sintoma.Eliminado = request.Eliminado;
             sintoma.DescripcionIA = request.DescripcionIA;
             sintoma.ValidadoHumano = request.ValidadoHumano;
+            sintoma.TipoSintoma = Math.Clamp(request.TipoSintoma, 0, 2);
             sintoma.fechaModificado = DateTime.Now;
 
             await _db.SaveChangesAsync(cancellationToken);
@@ -404,6 +405,7 @@ namespace eiibd26.Controllers
             public bool Eliminado { get; set; }
             public string? DescripcionIA { get; set; }
             public bool ValidadoHumano { get; set; }
+            public int TipoSintoma { get; set; } = 0;
         }
 
         public class BatchGenerateRequest

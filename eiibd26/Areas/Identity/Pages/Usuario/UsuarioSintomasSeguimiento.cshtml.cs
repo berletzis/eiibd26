@@ -1,4 +1,7 @@
+using eiibd26.DTOs.Tracking;
 using eiibd26.Models;
+using eiibd26.Services.Tracking;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -9,27 +12,39 @@ using System.Threading.Tasks;
 
 namespace eiibd26.Areas.Identity.Pages.Usuario
 {
-    [IgnoreAntiforgeryToken]
+    [Authorize]
     public class UsuarioSintomasSeguimientoModel : PageModel
     {
         private readonly ApplicationDbContext _db;
+        private readonly ITrackingSintomaService _trackingService;
 
-        public UsuarioSintomasSeguimientoModel(ApplicationDbContext db)
+        public UsuarioSintomasSeguimientoModel(ApplicationDbContext db, ITrackingSintomaService trackingService)
         {
             _db = db;
+            _trackingService = trackingService;
         }
 
         public List<SintomaSeguimiento> Sintomas { get; set; } = new();
         public List<DateTime> DiasSemana { get; set; } = new();
+        public List<FrecuenciaSintomaCatalog> FrecuenciasCatalog { get; set; } = new();
         public DateTime Hoy => DateTime.Now.Date;
         public DateTime Ayer => DateTime.Now.Date.AddDays(-1);
+
+        public class DiaTracking
+        {
+            public string Estado { get; set; } = "";
+            public int? Dolor { get; set; }
+            public bool? TieneSangrado { get; set; }
+            public int? FrecuenciaId { get; set; }
+        }
 
         public class SintomaSeguimiento
         {
             public int Id { get; set; }
             public string Nombre { get; set; }
+            public int TipoSintoma { get; set; } = 0;
             public List<string> Condiciones { get; set; } = new();
-            public Dictionary<string, string> SeguimientoPorDia { get; set; } = new(); // clave: yyyy-MM-dd, valor: estado/valor
+            public Dictionary<string, DiaTracking> SeguimientoPorDia { get; set; } = new();
         }
 
         public async Task OnGetAsync()
@@ -47,7 +62,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             var sintomasUsuario = await (from su in _db.sintomasUsuario
                                          join s in _db.sintomas on su.idSintoma equals s.id
                                          where su.idUsuario == userGuid && !su.Eliminado
-                                         select new { su.id, s.nombre }).ToListAsync();
+                                         select new { su.id, s.nombre, s.TipoSintoma }).ToListAsync();
 
             // Condiciones asociadas por síntoma usuario
             var condicionesAll = await (
@@ -71,24 +86,39 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     .Where(c => c.IdSintomaUsuario == su.id)
                     .Select(c => c.Condicion).ToList();
 
-                var segPorDia = new Dictionary<string, string>();
+                var segPorDia = new Dictionary<string, DiaTracking>();
                 foreach (var dia in DiasSemana)
                 {
                     var found = trackings.FirstOrDefault(t => t.IdSintomaUsuario == su.id && t.Fecha.Date == dia.Date);
-                    segPorDia[dia.ToString("yyyy-MM-dd")] = found?.Estado ?? "";
+                    segPorDia[dia.ToString("yyyy-MM-dd")] = found != null
+                        ? new DiaTracking
+                          {
+                              Estado       = found.Estado ?? "",
+                              Dolor        = found.Dolor,
+                              TieneSangrado = found.TieneSangrado,
+                              FrecuenciaId  = found.FrecuenciaId
+                          }
+                        : new DiaTracking();
                 }
                 return new SintomaSeguimiento
                 {
                     Id = su.id,
                     Nombre = su.nombre,
+                    TipoSintoma = su.TipoSintoma,
                     Condiciones = condiciones,
                     SeguimientoPorDia = segPorDia
                 };
             }).ToList();
+
+            FrecuenciasCatalog = await _db.FrecuenciaSintomaCatalog
+                .OrderBy(f => f.Orden)
+                .AsNoTracking()
+                .ToListAsync();
         }
 
         // Handler para tracking desde la matriz, recibe fecha como texto para evitar error de formato
-        public async Task<IActionResult> OnPostTrackSintomaMatrizAsync(int sintomaUsuarioId, string estado, string fecha)
+        public async Task<IActionResult> OnPostTrackSintomaMatrizAsync(int sintomaUsuarioId, string estado, string fecha,
+            int? dolor, bool? tieneSangrado, int? frecuenciaId)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (userId == null) return Unauthorized();
@@ -99,26 +129,18 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
             DateTime fechaParseada;
             if (!DateTime.TryParse(fecha, out fechaParseada))
-                return BadRequest("Fecha inválida");
+                return BadRequest("Fecha inválida (check)");
 
-            // Si ya hay un tracking para ese día, elimínalo antes de crear uno nuevo
-            var trackingExistente = await _db.TrackingSintomaUsuario
-                .FirstOrDefaultAsync(t => t.IdSintomaUsuario == sintomaUsuarioId && t.IdUsuario == Guid.Parse(userId) && t.Fecha.Date == fechaParseada.Date);
-
-            if (trackingExistente != null)
-            {
-                _db.TrackingSintomaUsuario.Remove(trackingExistente);
-            }
-
-            var tracking = new TrackingSintomaUsuario
-            {
-                IdUsuario = Guid.Parse(userId),
-                IdSintomaUsuario = sintomaUsuarioId,
-                Fecha = fechaParseada.Date + DateTime.Now.TimeOfDay,
-                Estado = estado
-            };
-            _db.TrackingSintomaUsuario.Add(tracking);
-            await _db.SaveChangesAsync();
+            var userGuid = Guid.Parse(userId);
+            await _trackingService.GuardarTrackingAsync(new TrackingRequestDto(
+                IdUsuario:        userGuid,
+                IdSintomaUsuario: sintomaUsuarioId,
+                Fecha:            fechaParseada,
+                Estado:           estado,
+                Dolor:            dolor.HasValue ? Math.Clamp(dolor.Value, 0, 10) : null,
+                FrecuenciaId:     frecuenciaId > 0 ? frecuenciaId : null,
+                TieneSangrado:    tieneSangrado
+            ));
             return new JsonResult(new { ok = true });
         }
     }

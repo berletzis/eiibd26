@@ -285,13 +285,18 @@
                                 var key = dia.ToString("yyyy-MM-dd");
                                 var esHoy = (dia.Date == hoy.Date);
                                 var esAyer = (dia.Date == ayer.Date);
-                                var seguimiento = sint.SeguimientoPorDia.ContainsKey(key) ? sint.SeguimientoPorDia[key] : "";
+                                var diaTrack = sint.SeguimientoPorDia.ContainsKey(key) ? sint.SeguimientoPorDia[key] : new eiibd26.Areas.Identity.Pages.Usuario.UsuarioSintomasSeguimientoModel.DiaTracking();
+                                var seguimiento = diaTrack.Estado;
                                 var esFuturo = dia.Date > hoy;
                                 var cellClass = $"matrix-cell-{sint.Id}-{dia.ToString("yyyyMMdd")}";
                                 <td class="@cellClass @(esHoy || esAyer ? "bg-warning bg-opacity-25" : "") text-center"
                                     data-nombre="@sint.Nombre"
                                     data-dia="@key"
-                                    data-sintid="@sint.Id">
+                                    data-sintid="@sint.Id"
+                                    data-tipo="@sint.TipoSintoma"
+                                    data-dolor="@(diaTrack.Dolor?.ToString() ?? "")"
+                                    data-sangrado="@(diaTrack.TieneSangrado.HasValue ? (diaTrack.TieneSangrado.Value ? "true" : "false") : "")"
+                                    data-frecuencia="@(diaTrack.FrecuenciaId?.ToString() ?? "")">
                                     @if (!string.IsNullOrEmpty(seguimiento))
                                     {
                                         string color = badgeColors.ContainsKey(seguimiento) ? badgeColors[seguimiento] : "#E6E6EB";
@@ -307,6 +312,7 @@
                                                 data-sintid="@sint.Id"
                                                 data-dia="@dia.ToString("yyyy-MM-dd")"
                                                 data-nombre="@sint.Nombre"
+                                                data-tipo="@sint.TipoSintoma"
                                                 title="Agregar seguimiento"
                                                 tabindex="0">
                                             <i class="bi bi-plus-lg"></i>
@@ -335,6 +341,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="crm-modal-content modal-content">
             <form id="formTrackingMatriz">
+                @Html.AntiForgeryToken()
                 <div class="crm-modal-header modal-header">
                     <h5 class="crm-modal-title modal-title" id="tituloTrackingMatriz"></h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -347,12 +354,56 @@
                     <div id="opcionesTrackingMatriz" class="crm-tracking-opciones-btns d-flex flex-column gap-2">
                         <!-- Opciones por JS -->
                     </div>
+                    <!-- Dolor (solo TipoSintoma 1=Medible o 2=Dolor) -->
+                    <div id="trackDolorContainerMatriz" class="mt-3" style="display:none;">
+                        <label class="crm-label mb-1" for="trackDolorMatriz">
+                            Dolor <span class="text-muted small">(opcional)</span>
+                        </label>
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="range" class="form-range flex-grow-1" id="trackDolorMatriz"
+                                   min="0" max="10" step="1" value="0" />
+                            <span id="trackDolorValorMatriz" class="fw-semibold" style="min-width:1.5rem;text-align:center;">0</span>
+                            <span class="text-muted small">/10</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted" style="font-size:.75rem;">Sin dolor</span>
+                            <span class="text-muted" style="font-size:.75rem;">Máximo</span>
+                        </div>
+                    </div>
+                    <!-- Sangrado (solo TipoSintoma 1=Medible) -->
+                    <div id="trackSangradoContainerMatriz" class="mt-3 align-items-center gap-3" style="display:none;">
+                        <label class="crm-label mb-0" for="trackSangradoMatriz">Sangrado</label>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   id="trackSangradoMatriz" style="width:2.5em;height:1.3em;" />
+                            <label class="form-check-label text-muted small" for="trackSangradoMatriz" id="trackSangradoLabelMatriz">No</label>
+                        </div>
+                    </div>
+                    <!-- Frecuencia (solo TipoSintoma 1=Medible) -->
+                    <div id="trackFrecuenciaContainerMatriz" class="mt-3" style="display:none;">
+                        <label class="crm-label mb-1" for="trackFrecuenciaMatriz">
+                            Frecuencia del síntoma <span class="text-muted small">(opcional)</span>
+                        </label>
+                        <select id="trackFrecuenciaMatriz" class="form-select form-select-sm">
+                            <option value="">— Sin especificar —</option>
+                            @foreach (var f in Model.FrecuenciasCatalog)
+                            {
+                                <option value="@f.Id">@f.Nombre</option>
+                            }
+                        </select>
+                        <div class="form-text">Frecuencia aproximada del síntoma durante el día</div>
+                    </div>
                 </div>
                 <div class="crm-modal-footer modal-footer">
+                    <button type="button" id="btnGuardarTrackingMatriz" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Guardar
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 </div>
                 <input type="hidden" id="sintomaIdTrackingMatriz" />
                 <input type="hidden" id="fechaTrackingMatriz" />
                 <input type="hidden" id="nombreSintomaTrackingMatriz" />
+                <input type="hidden" id="tipoSintomaTrackingMatriz" value="0" />
             </form>
         </div>
     </div>
@@ -374,11 +425,15 @@
                     const td = circle.closest('td');
                     if (td && !td.classList.contains('disabled-edit')) {
                         td.onclick = function () {
-                            const sintId = td.getAttribute('data-sintid');
-                            const fechaTrack = td.getAttribute('data-dia');
+                            const sintId      = td.getAttribute('data-sintid');
+                            const fechaTrack  = td.getAttribute('data-dia');
                             const nombreSintoma = td.getAttribute('data-nombre');
-                            const estado = circle.getAttribute('alt');
-                            abrirModalTrackingMatriz(sintId, fechaTrack, nombreSintoma, estado);
+                            const tipo        = td.getAttribute('data-tipo') || 0;
+                            const dolor       = td.getAttribute('data-dolor') || '';
+                            const sangrado    = td.getAttribute('data-sangrado') || '';
+                            const frecuencia  = td.getAttribute('data-frecuencia') || '';
+                            const estado      = circle.getAttribute('alt');
+                            abrirModalTrackingMatriz(sintId, fechaTrack, nombreSintoma, estado, tipo, dolor, sangrado, frecuencia);
                         };
                         td.classList.add('disabled-edit');
                     }
@@ -391,65 +446,32 @@
                     trackBtns.forEach(btnOpcion => {
                         btnOpcion.disabled = false;
                         btnOpcion.style.pointerEvents = 'auto';
-                        btnOpcion.onclick = async function () {
-                            let estado = this.dataset.estado;
-                            let sintomaUsuarioId = document.getElementById('sintomaIdTrackingMatriz').value;
-                            let fechaTrack = document.getElementById('fechaTrackingMatriz').value;
-                            let nombreSintoma = document.getElementById('nombreSintomaTrackingMatriz').value;
-                            let formData = new FormData();
-                            formData.append('sintomaUsuarioId', sintomaUsuarioId);
-                            formData.append('estado', estado);
-                            formData.append('fecha', fechaTrack);
-                            trackBtns.forEach(b=>{b.disabled=true; b.style.pointerEvents='none';});
-                            let resp = await fetch('?handler=TrackSintomaMatriz', { method: 'POST', body: formData });
-                            trackBtns.forEach(b=>{b.disabled=false; b.style.pointerEvents='auto';});
-                            if (resp.ok) {
-                                let msg = document.getElementById('mensajeTrackingMatriz');
-                                msg.classList.remove('d-none');
-                                let fechaCellId = fechaTrack.replace(/-/g, "");
-                                let cellClass = '.matrix-cell-' + sintomaUsuarioId + '-' + fechaCellId;
-                                let celdas = document.querySelectorAll(cellClass);
-                                let colorMap = {
-                                    "Ninguno": "#E6E6EB",
-                                    "Leve": "#B6C2D7",
-                                    "Moderado": "#FFD121",
-                                    "Severo": "#FF8A65",
-                                    "Extremo": "#D32F2F"
-                                };
-                                let bgStyle = colorMap[estado] || "#E6E6EB";
-                                celdas.forEach(celda => {
-                                    celda.innerHTML = `<span class="crm-circle-tracking"
-                                        style="background:${bgStyle};"
-                                        alt="${estado}" title="${estado}"></span>`;
-                                    // Vuelve a añadir el evento click en el nuevo círculo para abrir el modal
-                                    celda.onclick = function() {
-                                        abrirModalTrackingMatriz(sintomaUsuarioId, fechaTrack, nombreSintoma, estado);
-                                    };
-                                });
-                                addCircleEditEvent(); // To reattach click event after update
-                                setTimeout(() => {
-                                    bootstrap.Modal.getInstance(document.getElementById('modalTrackingMatriz')).hide();
-                                }, 900);
-                            } else {
-                                msg = document.getElementById('mensajeTrackingMatriz');
-                                msg.classList.remove('d-none');
-                                msg.classList.add('alert-danger');
-                                msg.textContent = 'Error guardando seguimiento. Intenta nuevamente';
-                                setTimeout(() => {
-                                    msg.classList.add('d-none');
-                                    msg.classList.remove('alert-danger');
-                                    msg.textContent = 'Seguimiento agregado';
-                                }, 1800);
-                            }
+                        btnOpcion.onclick = function () {
+                            // Only highlight selection; actual save happens on Guardar button
+                            trackBtns.forEach(b => b.classList.remove('active'));
+                            this.classList.add('active');
                         };
                     });
                 }, 80);
             }
 
-            function abrirModalTrackingMatriz(sintId, fecha, nombreSintoma, estadoActual) {
+            // Muestra/oculta campos clínicos según TipoSintoma (0=Subjetivo: Estado+Dolor, 1=Medible: Estado+Dolor+Sangrado+Frecuencia)
+            function toggleCamposMatriz(tipo) {
+                const tipoNum = parseInt(tipo) || 0;
+                const dolorEl = document.getElementById('trackDolorContainerMatriz');
+                const sangEl  = document.getElementById('trackSangradoContainerMatriz');
+                const frecEl  = document.getElementById('trackFrecuenciaContainerMatriz');
+                dolorEl.style.display = '';
+                sangEl.style.display  = (tipoNum === 1) ? 'flex' : 'none';
+                frecEl.style.display  = (tipoNum === 1) ? '' : 'none';
+            }
+
+            function abrirModalTrackingMatriz(sintId, fecha, nombreSintoma, estadoActual, tipo, dolor, sangrado, frecuencia) {
+                tipo = tipo || 0;
                 document.getElementById('sintomaIdTrackingMatriz').value = sintId;
                 document.getElementById('fechaTrackingMatriz').value = fecha;
                 document.getElementById('nombreSintomaTrackingMatriz').value = nombreSintoma;
+                document.getElementById('tipoSintomaTrackingMatriz').value = tipo;
                 document.getElementById('mensajeTrackingMatriz').classList.add('d-none');
                 document.getElementById('mensajeTrackingMatriz').classList.remove('alert-danger');
                 document.getElementById('mensajeTrackingMatriz').textContent = 'Seguimiento agregado';
@@ -465,6 +487,22 @@
                     </button>`;
                 });
                 document.getElementById('opcionesTrackingMatriz').innerHTML = html;
+                toggleCamposMatriz(tipo);
+                // Restaurar valores guardados
+                const dolorEl = document.getElementById('trackDolorMatriz');
+                if (dolorEl) {
+                    const dolorVal = (dolor !== '' && dolor !== null && dolor !== undefined) ? parseInt(dolor) : 0;
+                    dolorEl.value = dolorVal;
+                    document.getElementById('trackDolorValorMatriz').textContent = dolorVal;
+                }
+                const sangEl = document.getElementById('trackSangradoMatriz');
+                if (sangEl) {
+                    const sangVal = sangrado === 'true';
+                    sangEl.checked = sangVal;
+                    document.getElementById('trackSangradoLabelMatriz').textContent = sangVal ? 'Sí' : 'No';
+                }
+                const frecEl = document.getElementById('trackFrecuenciaMatriz');
+                if (frecEl) frecEl.value = frecuencia || '';
                 var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTrackingMatriz'));
                 modal.show();
                 resetTrackingButtons();
@@ -475,7 +513,8 @@
                     var sintId = this.dataset.sintid;
                     var fecha = this.dataset.dia;
                     var nombreSintoma = this.dataset.nombre;
-                    abrirModalTrackingMatriz(sintId, fecha, nombreSintoma, "");
+                    var tipo = this.dataset.tipo || 0;
+                    abrirModalTrackingMatriz(sintId, fecha, nombreSintoma, "", tipo, '', '', '');
                 });
             });
 
@@ -484,6 +523,95 @@
             document.getElementById('modalTrackingMatriz').addEventListener('shown.bs.modal', function () {
                 resetTrackingButtons();
             });
+
+            // Guardar button: do POST with all current field values
+            document.getElementById('btnGuardarTrackingMatriz')?.addEventListener('click', async function () {
+                const activeBtn = document.querySelector('#opcionesTrackingMatriz .btn-opcion-track-matriz.active');
+                if (!activeBtn) {
+                    alert('Por favor selecciona un estado antes de guardar.');
+                    return;
+                }
+                const estado = activeBtn.dataset.estado;
+                const sintomaUsuarioId = document.getElementById('sintomaIdTrackingMatriz').value;
+                const fechaTrack = document.getElementById('fechaTrackingMatriz').value;
+                const nombreSintoma = document.getElementById('nombreSintomaTrackingMatriz').value;
+
+                this.disabled = true;
+                let formData = new FormData();
+                const aftToken = document.querySelector('#formTrackingMatriz input[name="__RequestVerificationToken"]')?.value;
+                if (aftToken) formData.append('__RequestVerificationToken', aftToken);
+                formData.append('sintomaUsuarioId', sintomaUsuarioId);
+                formData.append('estado', estado);
+                formData.append('fecha', fechaTrack);
+                const dolorCont = document.getElementById('trackDolorContainerMatriz');
+                const sangCont  = document.getElementById('trackSangradoContainerMatriz');
+                const frecCont  = document.getElementById('trackFrecuenciaContainerMatriz');
+                if (dolorCont && dolorCont.style.display !== 'none') {
+                    const dolorVal = document.getElementById('trackDolorMatriz')?.value;
+                    if (dolorVal !== undefined) formData.append('dolor', dolorVal);
+                }
+                if (sangCont && sangCont.style.display !== 'none') {
+                    const sangVal = document.getElementById('trackSangradoMatriz')?.checked ? 'true' : 'false';
+                    formData.append('tieneSangrado', sangVal);
+                }
+                if (frecCont && frecCont.style.display !== 'none') {
+                    const frecVal = document.getElementById('trackFrecuenciaMatriz')?.value;
+                    if (frecVal) formData.append('frecuenciaId', frecVal);
+                }
+
+                let resp = await fetch('?handler=TrackSintomaMatriz', { method: 'POST', body: formData });
+                this.disabled = false;
+                if (resp.ok) {
+                    let fechaCellId = fechaTrack.replace(/-/g, "");
+                    let cellClass = '.matrix-cell-' + sintomaUsuarioId + '-' + fechaCellId;
+                    let celdas = document.querySelectorAll(cellClass);
+                    let colorMap = {
+                        "Ninguno": "#E6E6EB", "Leve": "#B6C2D7", "Moderado": "#FFD121",
+                        "Severo": "#FF8A65", "Extremo": "#D32F2F"
+                    };
+                    let bgStyle = colorMap[estado] || "#E6E6EB";
+                    const tipoGuardado  = document.getElementById('tipoSintomaTrackingMatriz')?.value || '0';
+                    const dolorGuardado = document.getElementById('trackDolorMatriz')?.value || '';
+                    const sangGuardado  = document.getElementById('trackSangradoMatriz')?.checked ? 'true' : 'false';
+                    const frecGuardada  = document.getElementById('trackFrecuenciaMatriz')?.value || '';
+                    celdas.forEach(celda => {
+                        celda.innerHTML = `<span class="crm-circle-tracking" style="background:${bgStyle};" alt="${estado}" title="${estado}"></span>`;
+                        celda.setAttribute('data-tipo',      tipoGuardado);
+                        celda.setAttribute('data-dolor',     dolorGuardado);
+                        celda.setAttribute('data-sangrado',  sangGuardado);
+                        celda.setAttribute('data-frecuencia', frecGuardada);
+                        celda.onclick = function() {
+                            abrirModalTrackingMatriz(sintomaUsuarioId, fechaTrack, nombreSintoma, estado, tipoGuardado, dolorGuardado, sangGuardado, frecGuardada);
+                        };
+                    });
+                    addCircleEditEvent();
+                    bootstrap.Modal.getInstance(document.getElementById('modalTrackingMatriz'))?.hide();
+                } else {
+                    let msg = document.getElementById('mensajeTrackingMatriz');
+                    msg.classList.remove('d-none');
+                    msg.classList.add('alert-danger');
+                    msg.textContent = 'Error guardando seguimiento. Intenta nuevamente';
+                    setTimeout(() => {
+                        msg.classList.add('d-none');
+                        msg.classList.remove('alert-danger');
+                        msg.textContent = 'Seguimiento agregado';
+                    }, 2000);
+                }
+            });
+
+            // Slider label update
+            const dolorSlider = document.getElementById('trackDolorMatriz');
+            if (dolorSlider) {
+                dolorSlider.addEventListener('input', function() {
+                    document.getElementById('trackDolorValorMatriz').textContent = this.value;
+                });
+            }
+            const sangSwitch = document.getElementById('trackSangradoMatriz');
+            if (sangSwitch) {
+                sangSwitch.addEventListener('change', function() {
+                    document.getElementById('trackSangradoLabelMatriz').textContent = this.checked ? 'Sí' : 'No';
+                });
+            }
         });
     </script>
 }

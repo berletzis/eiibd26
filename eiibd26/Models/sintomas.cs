@@ -3,6 +3,15 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 namespace eiibd26.Models
 {
+    /// <summary>Clasifica el síntoma para determinar qué campos de tracking aplican.</summary>
+    public enum TipoSintomaEnum
+    {
+        /// <summary>Subjetivo / sistémico: acné, fatiga, ansiedad, dolor artritis. Captura Estado + Dolor.</summary>
+        Subjetivo = 0,
+        /// <summary>Medible (GI): diarrea, evacuaciones, sangrado. Captura Estado + Dolor + Frecuencia + Sangrado.</summary>
+        Medible = 1
+    }
+
     public class sintomas
     {
         [Key]
@@ -40,6 +49,14 @@ namespace eiibd26.Models
         public string? Fuentes { get; set; }
 
         public DateTime? FechaActualizacionIA { get; set; }
+
+        // ===== CLASIFICACIÓN CLÍNICA =====
+        /// <summary>
+        /// Clasifica el síntoma para controlar qué campos de tracking se muestran y validan.
+        /// 0 = Subjetivo (Estado + Dolor), 1 = Medible/GI (Estado + Dolor + Frecuencia + Sangrado).
+        /// </summary>
+        [Display(Name = "Tipo de síntoma")]
+        public int TipoSintoma { get; set; } = (int)TipoSintomaEnum.Subjetivo;
 
         // ===== CAMPOS EXISTENTES =====
         public DateTime fechaEliminado { get; set; }

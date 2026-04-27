@@ -14,7 +14,9 @@ namespace eiibd26.Models
     public DateTime fechaModificado { get; set; }
     public DateTime fechaCreado { get; set; }
     public bool Eliminado { get; set; }
-    
+
+    /// <summary>Indica si esta es la condición principal del usuario.</summary>
+    public bool EsPrincipal { get; set; }
 
         [ForeignKey(nameof(idCondicion))]
     public virtual condiciones Condicion { get; set; }
