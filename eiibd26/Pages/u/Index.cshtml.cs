@@ -257,13 +257,23 @@ namespace eiibd26.Pages.u
                             }).ToList()
                         }).ToList();
 
-                    var estadosExportDto = estadosAnimo.Select(e => new EstadoAnimoExportDto
-                    {
-                        FechaRegistro    = e.FechaRegistro,
-                        EstadoMood       = e.Estado,
-                        EstadoMoodNombre = e.TextoEstado,
-                        Texto            = e.Texto
-                    }).ToList();
+                    // Cargar TODOS los estados de ánimo del período para analytics (sin Take),
+                    // igual que MedicalSummaryService. estadosAnimo (Top 10) sigue siendo solo para UI.
+                    var estadosAnimoFull = await _db.EstadoAnimoUsuario
+                        .AsNoTracking()
+                        .Where(e => e.IdUsuario == perfil.idUser && !e.Eliminado
+                                    && e.FechaRegistro >= desde && e.FechaRegistro <= hasta)
+                        .OrderBy(e => e.FechaRegistro)
+                        .Select(e => new EstadoAnimoExportDto
+                        {
+                            FechaRegistro    = e.FechaRegistro,
+                            EstadoMood       = (int)e.EstadoMood,
+                            EstadoMoodNombre = e.EstadoMood.ToString(),
+                            Texto            = e.Texto
+                        })
+                        .ToListAsync();
+
+                    var estadosExportDto = estadosAnimoFull;
 
                     var statsDto   = _stats.Calcular(estadosExportDto, sintomasExportDto);
                     var insightDto = _insights.Analizar(sintomasExportDto);

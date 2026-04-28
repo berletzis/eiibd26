@@ -41,10 +41,8 @@ namespace eiibd26.Models
         [StringLength(100)]
         public string? Genero { get; set; }
 
-        [Required]
         [StringLength(50)]
         public string? Latitud { get; set; }
-        [Required]
         [StringLength(50)]
         public string? Longitud { get; set; }
         [StringLength(200)]

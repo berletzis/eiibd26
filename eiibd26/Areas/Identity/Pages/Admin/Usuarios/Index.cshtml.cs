@@ -528,14 +528,16 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios
 
                 var scores = await scoredQuery.ToListAsync();
 
-                var total = scores.Count;
+                var usuariosConUbicacion = scores.Count;
+                var totalUsuarios = await _userManager.Users.CountAsync();
                 var perfilesCompletos = scores.Count(x => x.score >= 180);  // 🏆 Completos
                 var perfilesBasicos = scores.Count(x => x.score >= 80 && x.score < 180);  // 📊 Básicos
                 var perfilesMínimos = scores.Count(x => x.score < 80);  // ⚠️ Mínimos
 
                 return new JsonResult(new
                 {
-                    total,
+                    totalUsuarios,
+                    usuariosConUbicacion,
                     perfilesCompletos,
                     perfilesBasicos,
                     perfilesMinimos = perfilesMínimos
@@ -786,12 +788,18 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios
                     .Select(l => l.UserId)
                     .ToListAsync();
                 var sinFase1Set = new HashSet<Guid>(sinFase1);
-                elegiblesQuery = _userManager.Users.Where(u => !sinFase1Set.Contains(u.Id));
+                elegiblesQuery = _userManager.Users
+                    .Where(u => !sinFase1Set.Contains(u.Id)
+                                && u.EmailConfirmed
+                                && u.Email != null && u.Email != "");
             }
             else
             {
                 elegiblesQuery = _userManager.Users
-                    .Where(u => usuariosConFaseAnterior.Contains(u.Id) && !yaRecibieronEstaFase.Contains(u.Id));
+                    .Where(u => usuariosConFaseAnterior.Contains(u.Id)
+                                && !yaRecibieronEstaFase.Contains(u.Id)
+                                && u.EmailConfirmed
+                                && u.Email != null && u.Email != "");
             }
 
             var elegibles = await elegiblesQuery

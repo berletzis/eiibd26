@@ -491,6 +491,13 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             // LOG DEBUG
             _logger.LogDebug("AceptoPP después de FormBool: {AceptoPP}", Perfil.AceptoPP);
 
+            // FIX-03: Normalizar strings antes de validar o persistir
+            Perfil.Nombre       = Perfil.Nombre?.Trim();
+            Perfil.Apellidos    = Perfil.Apellidos?.Trim();
+            Perfil.AcercaDe     = Perfil.AcercaDe?.Trim();
+            Perfil.NombreCiudad = Perfil.NombreCiudad?.Trim();
+            Perfil.slug         = Perfil.slug?.Trim();
+
             if (string.IsNullOrWhiteSpace(Perfil.Avatar))
             {
                 Perfil.Avatar = $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(Perfil.Nombre ?? "Usuario")}&size=110";
@@ -500,6 +507,12 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
 
             ModelState.Remove(nameof(Perfil.Usuario));
             ModelState.Remove("Perfil.Usuario");
+
+            // FIX-01: AceptoPP obligatorio
+            if (Perfil.AceptoPP != true)
+            {
+                ModelState.AddModelError("Perfil.AceptoPP", "Debes aceptar la política de privacidad para continuar.");
+            }
 
             // VALIDAR SLUG
             if (!string.IsNullOrWhiteSpace(Perfil.slug))
@@ -520,10 +533,14 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                 }
             }
 
-            if (!string.IsNullOrWhiteSpace(Perfil.NombreCiudad) &&
-                (string.IsNullOrWhiteSpace(Perfil.Latitud) || string.IsNullOrWhiteSpace(Perfil.Longitud)))
+            // FIX-02: Validar coordenadas solo cuando se informó ciudad
+            var tieneCoordenadas =
+                !string.IsNullOrWhiteSpace(Perfil.Latitud) &&
+                !string.IsNullOrWhiteSpace(Perfil.Longitud);
+
+            if (!string.IsNullOrWhiteSpace(Perfil.NombreCiudad) && !tieneCoordenadas)
             {
-                ModelState.AddModelError(nameof(Perfil.NombreCiudad), "Debes seleccionar una ciudad válida para obtener latitud/longitud.");
+                ModelState.AddModelError("Perfil.NombreCiudad", "Debes seleccionar una ciudad válida para obtener latitud/longitud.");
             }
 
             CreateSelectLists();
