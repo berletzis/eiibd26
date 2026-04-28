@@ -126,7 +126,11 @@ namespace eiibd26.Pages
             IQueryable<dynamic> orderedQ = Orden switch
             {
                 OrdenPreguntas.Recientes => pageQ.OrderByDescending(x => x.FechaCreacion),
-                OrdenPreguntas.Votadas => pageQ.OrderByDescending(x => x.Score).ThenByDescending(x => x.FechaCreacion),
+                OrdenPreguntas.Votadas =>
+                    pageQ.OrderByDescending(x =>
+                        (double)(x.Score * 2 + x.RespuestasCount) /
+                        (2.0 + EF.Functions.DateDiffDay(x.FechaCreacion, DateTime.UtcNow))
+                    ),
                 OrdenPreguntas.Activas => pageQ.OrderByDescending(x => x.UltimaRespuesta ?? x.FechaCreacion).ThenByDescending(x => x.Score),
                 _ => pageQ.OrderByDescending(x => x.UltimaRespuesta ?? x.FechaCreacion).ThenByDescending(x => x.Score)
             };

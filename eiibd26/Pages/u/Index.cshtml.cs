@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using eiibd26.Data;
 using eiibd26.Models;
+using eiibd26.Services.Analytics;
+using eiibd26.DTOs.Export;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,11 +17,16 @@ namespace eiibd26.Pages.u
     {
         private readonly ApplicationDbContext _db;
         private readonly ILogger<IndexModel> _logger;
+        private readonly IHealthStatsService _stats;
+        private readonly IHealthInsightService _insights;
 
-        public IndexModel(ApplicationDbContext db, ILogger<IndexModel> logger)
+        public IndexModel(ApplicationDbContext db, ILogger<IndexModel> logger,
+            IHealthStatsService stats, IHealthInsightService insights)
         {
             _db = db ?? throw new ArgumentNullException(nameof(db));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _stats = stats ?? throw new ArgumentNullException(nameof(stats));
+            _insights = insights ?? throw new ArgumentNullException(nameof(insights));
         }
 
         public PerfilPublicoVm PerfilPublico { get; set; }
@@ -71,9 +78,12 @@ namespace eiibd26.Pages.u
                     fechaRegistro = DateTime.UtcNow;
                 }
 
-                // Cargar últimas 3 condiciones
                 // V-003: Only load and expose medical data when the user explicitly opted in.
                 var comparteDatosMedicos = perfil.PermitirCompartirDatosMedicos == true;
+
+                // Ventana de 1 mes, igual que «Exportar 1 mes» del dashboard
+                var hasta = DateTime.UtcNow.Date.AddDays(1).AddTicks(-1); // fin del día de hoy
+                var desde = DateTime.UtcNow.Date.AddMonths(-1);
 
                 var condiciones = comparteDatosMedicos
                     ? await _db.condicionUsuario
@@ -81,25 +91,22 @@ namespace eiibd26.Pages.u
                         .Where(c => c.idUsuario == perfil.idUser && !c.Eliminado)
                         .Include(c => c.Condicion)
                         .OrderByDescending(c => c.fechaCreado)
-                        .Take(3)
                         .Select(c => new InfoClinicaVm
                         {
                             Nombre = c.Condicion.nombre ?? "Sin nombre",
                             Icono = c.Condicion.icono,
                             FechaInicio = c.fechaInicio,
-                            EdadDiagnostico = null // computed below once we have perfil.FechaDeNacimiento
+                            EdadDiagnostico = null
                         })
                         .ToListAsync()
                     : new List<InfoClinicaVm>();
 
-                // Cargar últimos 3 síntomas (ya no se mostrarán en grid, solo para badge principal)
                 var sintomas = comparteDatosMedicos
                     ? await _db.sintomasUsuario
                         .AsNoTracking()
                         .Where(s => s.idUsuario == perfil.idUser && !s.Eliminado)
                         .Include(s => s.Sintoma)
                         .OrderByDescending(s => s.fechaCreado)
-                        .Take(3)
                         .Select(s => new InfoClinicaVm
                         {
                             Nombre = s.Sintoma.nombre ?? "Sin nombre",
@@ -109,14 +116,13 @@ namespace eiibd26.Pages.u
                         .ToListAsync()
                     : new List<InfoClinicaVm>();
 
-                // Cargar últimos 3 tratamientos
+                // Cargar tratamientos
                 var tratamientos = comparteDatosMedicos
                     ? await _db.tratamientoUsuario
                         .AsNoTracking()
                         .Where(t => t.idUsuario == perfil.idUser && !t.Eliminado)
                         .Include(t => t.Tratamiento)
                         .OrderByDescending(t => t.fechaCreado)
-                        .Take(3)
                         .Select(t => new InfoClinicaVm
                         {
                             Nombre = t.Tratamiento.nombre ?? "Sin nombre",
@@ -126,28 +132,92 @@ namespace eiibd26.Pages.u
                         .ToListAsync()
                     : new List<InfoClinicaVm>();
 
-                // ✅ NUEVO: Cargar TOP 10 Tracking de Síntomas
-                var trackingSintomas = comparteDatosMedicos
-                    ? await _db.TrackingSintomaUsuario
+                // Cargar todos los trackings de síntomas con campos completos
+                List<TrackingSintomaVm> trackingSintomas;
+                List<SintomaConTrackingVm> sintomasAgrupados;
+                List<TrackingSintomaUsuario> rawTrackings = new();
+                Dictionary<int, List<string>> mapaTratamientos = new();
+
+                if (comparteDatosMedicos)
+                {
+                    rawTrackings = await _db.TrackingSintomaUsuario
                         .AsNoTracking()
-                        .Where(t => t.IdUsuario == perfil.idUser)
+                        .Where(t => t.IdUsuario == perfil.idUser && t.Fecha >= desde && t.Fecha <= hasta)
                         .Include(t => t.SintomaUsuario).ThenInclude(s => s.Sintoma)
+                        .Include(t => t.Frecuencia)
                         .OrderByDescending(t => t.Fecha)
+                        .ToListAsync();
+
+                    // Flat list (últimos 10) para el grid resumen
+                    trackingSintomas = rawTrackings
                         .Take(10)
                         .Select(t => new TrackingSintomaVm
                         {
-                            SintomaNombre = t.SintomaUsuario.Sintoma.nombre ?? "Sin nombre",
-                            Estado = t.Estado,
-                            Fecha = t.Fecha
+                            SintomaNombre    = t.SintomaUsuario?.Sintoma?.nombre ?? "Sin nombre",
+                            Estado           = t.Estado,
+                            Fecha            = t.Fecha,
+                            Dolor            = t.Dolor,
+                            TieneSangrado    = t.TieneSangrado,
+                            FrecuenciaNombre = t.Frecuencia?.Nombre
                         })
-                        .ToListAsync()
-                    : new List<TrackingSintomaVm>();
+                        .ToList();
 
-                // Cargar TOP 10 estados de ánimo
+                    // Los tratamientos se resuelven sobre todo el mes (rawTrackings completo)
+                    var idsSintomasUsuario = rawTrackings
+                        .Where(t => t.SintomaUsuario != null)
+                        .Select(t => t.IdSintomaUsuario)
+                        .Distinct()
+                        .ToList();
+
+                    var tratamientosPorSintoma = await _db.TratamientoSintomaUsuario
+                        .AsNoTracking()
+                        .Where(ts => ts.IdSintomaUsuario != null && idsSintomasUsuario.Contains(ts.IdSintomaUsuario.Value))
+                        .Include(ts => ts.TratamientoUsuario).ThenInclude(tu => tu.Tratamiento)
+                        .ToListAsync();
+
+                    mapaTratamientos = tratamientosPorSintoma
+                        .Where(ts => ts.TratamientoUsuario?.Tratamiento != null)
+                        .GroupBy(ts => ts.IdSintomaUsuario!.Value)
+                        .ToDictionary(
+                            g => g.Key,
+                            g => g.Select(ts => ts.TratamientoUsuario!.Tratamiento!.nombre)
+                                   .Distinct().OrderBy(n => n).ToList());
+
+                    // Solo los últimos 10 registros se muestran en pantalla (agrupados por síntoma)
+                    var top10Trackings = rawTrackings.Take(10).ToList();
+
+                    sintomasAgrupados = top10Trackings
+                        .Where(t => t.SintomaUsuario?.Sintoma != null)
+                        .GroupBy(t => new { t.IdSintomaUsuario, NombreSintoma = t.SintomaUsuario!.Sintoma!.nombre })
+                        .Select(g => new SintomaConTrackingVm
+                        {
+                            NombreSintoma = g.Key.NombreSintoma,
+                            Tratamientos  = mapaTratamientos.TryGetValue(g.Key.IdSintomaUsuario, out var trts) ? trts : new(),
+                            Trackings     = g.OrderByDescending(t => t.Fecha).Select(t => new TrackingSintomaVm
+                            {
+                                SintomaNombre    = g.Key.NombreSintoma,
+                                Estado           = t.Estado,
+                                Fecha            = t.Fecha,
+                                Dolor            = t.Dolor,
+                                TieneSangrado    = t.TieneSangrado,
+                                FrecuenciaNombre = t.Frecuencia?.Nombre
+                            }).ToList()
+                        })
+                        .OrderBy(s => s.NombreSintoma)
+                        .ToList();
+                }
+                else
+                {
+                    trackingSintomas = new List<TrackingSintomaVm>();
+                    sintomasAgrupados = new List<SintomaConTrackingVm>();
+                }
+
+                // Cargar estados de ánimo del último mes (mismo rango que la exportación)
                 var estadosAnimo = comparteDatosMedicos
                     ? await _db.EstadoAnimoUsuario
                         .AsNoTracking()
-                        .Where(e => e.IdUsuario == perfil.idUser && !e.Eliminado)
+                        .Where(e => e.IdUsuario == perfil.idUser && !e.Eliminado
+                                    && e.FechaRegistro >= desde && e.FechaRegistro <= hasta)
                         .Include(e => e.CondicionUsuario).ThenInclude(c => c.Condicion)
                         .Include(e => e.SintomaUsuario).ThenInclude(s => s.Sintoma)
                         .Include(e => e.TratamientoUsuario).ThenInclude(t => t.Tratamiento)
@@ -165,8 +235,63 @@ namespace eiibd26.Pages.u
                         .ToListAsync()
                     : new List<EstadoAnimoVm>();
 
+                // Calcular estadísticas e insights sobre el mes completo (rawTrackings), no solo los top-10
+                HealthResumenVm? healthResumen = null;
+                if (comparteDatosMedicos && sintomasAgrupados.Count > 0)
+                {
+                    // Reconstruir los síntomas con TODOS los trackings del mes para el motor analítico
+                    var sintomasExportDto = rawTrackings
+                        .Where(t => t.SintomaUsuario?.Sintoma != null)
+                        .GroupBy(t => new { t.IdSintomaUsuario, NombreSintoma = t.SintomaUsuario!.Sintoma!.nombre })
+                        .Select(g => new SintomaExportDto
+                        {
+                            NombreSintoma = g.Key.NombreSintoma,
+                            Tratamientos  = mapaTratamientos.TryGetValue(g.Key.IdSintomaUsuario, out var trts) ? trts : new(),
+                            Trackings     = g.OrderBy(t => t.Fecha).Select(t => new TrackingSintomaExportDto
+                            {
+                                Fecha            = t.Fecha,
+                                Estado           = t.Estado,
+                                Dolor            = t.Dolor,
+                                TieneSangrado    = t.TieneSangrado,
+                                FrecuenciaNombre = t.Frecuencia?.Nombre
+                            }).ToList()
+                        }).ToList();
+
+                    var estadosExportDto = estadosAnimo.Select(e => new EstadoAnimoExportDto
+                    {
+                        FechaRegistro    = e.FechaRegistro,
+                        EstadoMood       = e.Estado,
+                        EstadoMoodNombre = e.TextoEstado,
+                        Texto            = e.Texto
+                    }).ToList();
+
+                    var statsDto   = _stats.Calcular(estadosExportDto, sintomasExportDto);
+                    var insightDto = _insights.Analizar(sintomasExportDto);
+
+                    healthResumen = new HealthResumenVm
+                    {
+                        MoodPromedio            = statsDto.Mood.Promedio,
+                        MoodTotalRegistros      = statsDto.Mood.TotalRegistros,
+                        TendenciaGeneral        = statsDto.Symptoms.Tendencia,
+                        TendenciaTotalRegistros = statsDto.Symptoms.TotalRegistros,
+                        TendenciaPorSintoma     = statsDto.Symptoms.PorSintoma
+                                                    .Select(t => (t.NombreSintoma, t.Tendencia)).ToList(),
+                        SintomaFrecuente       = insightDto.SintomaFrecuente,
+                        SintomaFrecuenteConteo = insightDto.SintomaFrecuenteConteo,
+                        PromedioDolorGlobal    = insightDto.PromedioDolorGlobal,
+                        SintomaConMayorDolor   = insightDto.SintomaConMayorDolor,
+                        PromedioDolorMax       = insightDto.PromedioDolorMax,
+                        RegistrosDolorAlto     = insightDto.RegistrosDolorAlto,
+                        SintomaMayorFrecuencia       = insightDto.SintomaMayorFrecuencia,
+                        SintomaMayorFrecuenciaNombre = insightDto.SintomaMayorFrecuenciaNombre,
+                        TieneInsights          = insightDto.TieneDatos
+                    };
+                }
+
                 PerfilPublico = new PerfilPublicoVm
                 {
+                    Desde = desde,
+                    Hasta = hasta,
                     Slug = perfil.slug,
                     NombreCompleto = $"{perfil.Nombre} {perfil.Apellidos}".Trim(),
                     Avatar = string.IsNullOrWhiteSpace(perfil.Avatar)
@@ -184,7 +309,9 @@ namespace eiibd26.Pages.u
                     Sintomas = sintomas, // Ya no se usa en el grid
                     Tratamientos = tratamientos,
                     EstadosAnimo = estadosAnimo,
-                    TrackingSintomas = trackingSintomas // ✅ NUEVO
+                    TrackingSintomas  = trackingSintomas,
+                    SintomasAgrupados = sintomasAgrupados,
+                    HealthResumen     = healthResumen
                 };
 
                 // Compute EdadDiagnostico for condiciones using perfil.FechaDeNacimiento
@@ -272,12 +399,18 @@ namespace eiibd26.Pages.u
         public DateTime FechaRegistro { get; set; }
         public bool MostrarDatosMedicos { get; set; }
 
+        // Período de la BIO pública (siempre los últimos 30 días, igual que «Exportar 1 mes» del dashboard)
+        public DateTime Desde { get; set; }
+        public DateTime Hasta { get; set; }
+
         // Información clínica
         public List<InfoClinicaVm> Condiciones { get; set; } = new List<InfoClinicaVm>();
         public List<InfoClinicaVm> Sintomas { get; set; } = new List<InfoClinicaVm>();
         public List<InfoClinicaVm> Tratamientos { get; set; } = new List<InfoClinicaVm>();
         public List<EstadoAnimoVm> EstadosAnimo { get; set; } = new List<EstadoAnimoVm>();
         public List<TrackingSintomaVm> TrackingSintomas { get; set; } = new List<TrackingSintomaVm>(); // ✅ NUEVO
+        public List<SintomaConTrackingVm> SintomasAgrupados { get; set; } = new List<SintomaConTrackingVm>();
+        public HealthResumenVm? HealthResumen { get; set; }
     }
 
     public class InfoClinicaVm
@@ -335,6 +468,9 @@ namespace eiibd26.Pages.u
         public string SintomaNombre { get; set; }
         public string Estado { get; set; } // "Ninguno", "Leve", "Moderado", "Severo"
         public DateTime Fecha { get; set; }
+        public int? Dolor { get; set; }
+        public bool? TieneSangrado { get; set; }
+        public string? FrecuenciaNombre { get; set; }
 
         public string ColorEstado => Estado switch
         {
@@ -357,5 +493,35 @@ namespace eiibd26.Pages.u
             "Ninguno" => "bi-check-circle-fill",
             _ => "bi-circle"
         };
+    }
+
+    /// <summary>Síntoma del usuario con todos sus trackings agrupados (equivalente a SintomaExportDto del PDF).</summary>
+    public class SintomaConTrackingVm
+    {
+        public string NombreSintoma { get; set; } = string.Empty;
+        public List<string> Tratamientos { get; set; } = new();
+        public List<TrackingSintomaVm> Trackings { get; set; } = new();
+    }
+
+    /// <summary>Resumen estadístico e insights equivalente al bloque inicial del PDF.</summary>
+    public class HealthResumenVm
+    {
+        // Mood
+        public string MoodPromedio { get; set; } = string.Empty;
+        public int MoodTotalRegistros { get; set; }
+        // Tendencia síntomas
+        public string TendenciaGeneral { get; set; } = string.Empty;
+        public int TendenciaTotalRegistros { get; set; }
+        public List<(string Sintoma, string Tendencia)> TendenciaPorSintoma { get; set; } = new();
+        // Insights
+        public string? SintomaFrecuente { get; set; }
+        public int SintomaFrecuenteConteo { get; set; }
+        public double? PromedioDolorGlobal { get; set; }
+        public string? SintomaConMayorDolor { get; set; }
+        public double? PromedioDolorMax { get; set; }
+        public int RegistrosDolorAlto { get; set; }
+        public string? SintomaMayorFrecuencia { get; set; }
+        public string? SintomaMayorFrecuenciaNombre { get; set; }
+        public bool TieneInsights { get; set; }
     }
 }

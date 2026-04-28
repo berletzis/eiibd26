@@ -81,13 +81,17 @@ namespace eiibd26.Services.Glossary
                     .AsNoTracking()
                     .Where(gt => gt.TipoTermino == tipo && gt.Activo)
                     .OrderBy(gt => gt.Nombre)
+                    .Take(200)
                     .Select(gt => new GlossaryTermDto
                     {
                         Id = gt.Id,
                         Nombre = gt.Nombre,
                         Slug = gt.Slug,
                         TipoTermino = gt.TipoTermino,
-                        NivelRelacion = gt.MedicalRelationTypeId ?? gt.MedicalRelationSuggestedId
+                        // Confirmar nivel: manual > IA > valor mínimo del enum (0) para evitar null
+                        NivelRelacion = gt.MedicalRelationTypeId
+                            ?? gt.MedicalRelationSuggestedId
+                            ?? (MedicalRelationType)0
                     })
                     .ToListAsync();
 
@@ -434,11 +438,11 @@ namespace eiibd26.Services.Glossary
                 // ⚠️ READ ONLY del dominio CMS
                 var contenidos = await _db.Contenidos
                     .AsNoTracking()
-                    .Where(c => !c.Eliminado 
-                        && c.EstadoPublicacion == 1 // 1 = Publicado (ajustar según tu modelo)
-                        && (c.ContenidoTitulo.Contains(termName) || c.ContenidoTextoC.Contains(termName)))
+                    .Where(c => !c.Eliminado
+                        && c.EstadoPublicacion == 1
+                        && c.ContenidoTitulo.Contains(termName))
                     .OrderByDescending(c => c.ContenidoFechaInicio)
-                    .Take(maxResults)
+                    .Take(5)
                     .Select(c => new RelatedContentDto
                     {
                         Id = c.Id,
@@ -536,9 +540,16 @@ namespace eiibd26.Services.Glossary
                         + (t.MedicalRelationSuggestedId == MedicalRelationType.Secundaria ? 1 : 0)
                 });
 
-                // Order by most user relationships first, then by name
+                // Ranking ponderado: nivel clínico tiene prioridad sobre popularidad.
+                // Math.Sqrt no es traducible a SQL en EF Core; se usa UserRelationCount directamente.
+                // Directa(×3) > Indirecta(×2) > Secundaria(×1) + usuarios como desempate.
                 var ordered = projected
-                    .OrderByDescending(x => x.UserRelationCount)
+                    .OrderByDescending(x =>
+                        (x.RelationDirectCount * 3) +
+                        (x.RelationIndirectCount * 2) +
+                        (x.RelationSecondaryCount * 1) +
+                        x.UserRelationCount
+                    )
                     .ThenBy(x => x.Nombre)
                     .Take(limit);
 
@@ -596,7 +607,7 @@ namespace eiibd26.Services.Glossary
                         p.Id,
                         p.Titulo,
                         p.Slug,
-                        Score = _db.Votos.Where(v => v.EntidadTipo == "pregunta" && v.EntidadId == p.Id && !v.Eliminado).Select(v => (int?)v.Valor).Sum() ?? 0,
+                        Score = _db.Votos.Where(v => v.EntidadTipo == eiibd26.Controllers.VotoTipo.Pregunta && v.EntidadId == p.Id && !v.Eliminado).Select(v => (int?)v.Valor).Sum() ?? 0,
                         p.FechaCreacion
                     })
                     .OrderByDescending(x => x.Score)

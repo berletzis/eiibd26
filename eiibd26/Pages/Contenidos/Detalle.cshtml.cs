@@ -495,8 +495,9 @@ namespace eiibd26.Pages.Contenidos
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogError(ex, "Error loading related questions for content {ContentId}", entity.Id);
                 vm.ManualPreguntas = new List<ContenidoDetailViewModel.RelatedPreguntaVm>();
             }
 

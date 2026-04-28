@@ -40,6 +40,8 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
         public class SintomaConDatos
         {
             public int Id { get; set; }
+            /// <summary>ID del catálogo de síntomas (sintomas.id), usado para excluir en autocomplete.</summary>
+            public int CatalogoSintomaId { get; set; }
             public string Nombre { get; set; }
             public DateTime FechaInicio { get; set; }
             public bool EsPrincipal { get; set; }
@@ -99,6 +101,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                                          select new
                                          {
                                              su.id,
+                                             su.idSintoma,
                                              su.fechaInicio,
                                              su.fechaCreado,
                                              su.EsPrincipal,
@@ -159,6 +162,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 return new SintomaConDatos
                 {
                     Id = su.id,
+                    CatalogoSintomaId = su.idSintoma ?? 0,
                     Nombre = su.nombre,
                     EsPrincipal = su.EsPrincipal,
                     TipoSintoma = su.TipoSintoma,

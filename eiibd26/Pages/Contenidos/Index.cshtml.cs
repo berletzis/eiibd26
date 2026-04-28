@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Security.Claims;
 using eiibd26.Data;
 using eiibd26.Models;
+using eiibd26.Domain.Constants;
 
 namespace eiibd26.Pages.Contenidos
 {
@@ -71,6 +72,7 @@ namespace eiibd26.Pages.Contenidos
         {
             if (PageNumber < 1) PageNumber = 1;
             if (PageSize < 1) PageSize = 9;
+            PageSize = Math.Min(PageSize, 50);
             var skip = (PageNumber - 1) * PageSize;
 
             // Parse incoming comma-separated lists (if any) and expose them to the view
@@ -147,23 +149,19 @@ namespace eiibd26.Pages.Contenidos
             }
 
             // --- Build baseQuery for contents (apply search if any) ---
-            var allowedStatuses = new[] { 1, 2, 3 };
-
             var baseQuery = _db.Contenidos
                 .AsNoTracking()
-                .Where(c => !c.Eliminado && allowedStatuses.Contains((c.EstadoPublicacion ?? 0)));
+                .Where(c => !c.Eliminado && EstadoPublicacion.Visibles.Contains((c.EstadoPublicacion ?? 0)));
 
-            // ✅ SEARCH WITH RELEVANCE: Project data for scoring
+            // ✅ SEARCH: title and short description only (no table scan on HTML body)
             bool hasSearch = !string.IsNullOrWhiteSpace(SearchQuery);
             string searchTerm = hasSearch ? SearchQuery.Trim() : "";
 
             if (hasSearch)
             {
-                // Filter: must match in at least one field
                 baseQuery = baseQuery.Where(c =>
                     (c.ContenidoTitulo ?? "").Contains(searchTerm) ||
-                    (c.ContenidoTextoC ?? "").Contains(searchTerm) ||
-                    (c.ContenidoTextoL ?? "").Contains(searchTerm));
+                    (c.ContenidoTextoC ?? "").Contains(searchTerm));
             }
 
             // --- Build IDs subquery and apply filters (OR across all types) ---
@@ -243,7 +241,9 @@ namespace eiibd26.Pages.Contenidos
                     Excerpt = c.ContenidoTextoC ?? "",
                     ImageUrl = string.IsNullOrEmpty(c.URLImagenPrincipal)
                         ? null
-                        : ("/uploads/contenidos/" + c.URLImagenPrincipal),
+                        : (c.URLImagenPrincipal.StartsWith("http") || c.URLImagenPrincipal.StartsWith("/")
+                            ? c.URLImagenPrincipal
+                            : "/uploads/contenidos/" + c.URLImagenPrincipal),
                     // Preferir nombre del perfil cuando exista
                     Author = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.Nombre)) ? c.AutorPerfil.Nombre : (string.IsNullOrWhiteSpace(c.Autor) ? "Autor" : c.Autor),
                     AuthorImageUrl = (c.AutorPerfil != null && !string.IsNullOrWhiteSpace(c.AutorPerfil.Avatar)) ? c.AutorPerfil.Avatar : (string)null,

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -16,18 +17,21 @@ namespace eiibd26.Pages.Mapa
         private readonly ApplicationDbContext _db;
         private readonly IMemoryCache _cache;
         private readonly ILogger<IndexModel> _logger;
+        private readonly IConfiguration _config;
 
-        public IndexModel(ApplicationDbContext db, IMemoryCache cache, ILogger<IndexModel> logger)
+        public IndexModel(ApplicationDbContext db, IMemoryCache cache, ILogger<IndexModel> logger, IConfiguration config)
         {
             _db = db;
             _cache = cache;
             _logger = logger;
+            _config = config;
         }
 
         public List<(string Code, string Name)> Countries { get; set; } = new();
         public List<(int id, string nombre)> Conditions { get; set; } = new();
 
         public string UserCountry { get; set; } = "";
+        public string GoogleMapsApiKey { get; private set; } = "";
 
         public async Task OnGetAsync()
         {
@@ -105,6 +109,8 @@ namespace eiibd26.Pages.Mapa
             {
                 _logger.LogDebug(ex, "No se pudo obtener UserCountry desde perfil actual");
             }
+
+            GoogleMapsApiKey = _config["GoogleMaps:ApiKey"] ?? "";
         }
 
         public async Task<IActionResult> OnGetProfilesAsync(string country = "", int? conditionId = null, string yearsRange = "", int skip = 0, int take = 48)
@@ -156,8 +162,12 @@ namespace eiibd26.Pages.Mapa
 
                 if (!string.IsNullOrWhiteSpace(country))
                 {
-                    var cUp = country.Trim().ToUpperInvariant();
-                    basePerfil = basePerfil.Where(p => (p.NombrePais ?? "").ToUpper().Contains(cUp));
+                    // ⚠️ Perfil.NombrePais almacena el código ISO (ej: "MX"), NO el nombre del país.
+                    // Comparación directa código-a-código; no depende de la tabla Paises.
+                    var code = country.Trim().ToUpperInvariant();
+                    basePerfil = basePerfil.Where(p =>
+                        p.NombrePais == code ||
+                        p.NombrePais == code.ToUpper());
                 }
 
                 List<int> acceptedConditionIds = null;
@@ -411,5 +421,131 @@ namespace eiibd26.Pages.Mapa
                 return new JsonResult(new { total = 0, items = new object[0] });
             }
         }
+
+        /// <summary>
+        /// Devuelve la distribución de estados de ánimo para un país dado (o global).
+        /// La ubicación se infiere del perfil actual del usuario; no representa la ubicación
+        /// histórica al momento del registro del mood.
+        /// </summary>
+        public async Task<IActionResult> OnGetMoodDistributionAsync(string country = "")
+        {
+            try
+            {
+                // Roles de paciente
+                var pacienteRoleId = await _db.Roles
+                    .Where(r => r.Name == "Paciente")
+                    .Select(r => r.Id)
+                    .FirstOrDefaultAsync();
+
+                IQueryable<EstadoAnimoUsuario> moodQuery = _db.EstadoAnimoUsuario
+                    .AsNoTracking()
+                    .Where(m => !m.Eliminado);
+
+                if (pacienteRoleId != null)
+                {
+                    var patientIds = _db.UserRoles
+                        .Where(ur => ur.RoleId == pacienteRoleId)
+                        .Select(ur => ur.UserId);
+
+                    moodQuery = moodQuery.Where(m => patientIds.Contains(m.IdUsuario));
+                }
+
+                // JOIN Mood → Perfil → Paises para filtro exacto por código de país
+                var joinedQuery = moodQuery
+                    .Join(_db.Perfil,
+                        m => m.IdUsuario,
+                        p => p.idUser,
+                        (m, p) => new { m.IdUsuario, m.EstadoMood, m.FechaRegistro, p.NombrePais })
+                    // ⚠️ NombrePais contiene el código ISO (ej: "MX"); unir contra PaisCodigo.
+                    .Join(_db.Paises,
+                        mp => mp.NombrePais,
+                        pa => pa.PaisCodigo,
+                        (mp, pa) => new { mp.IdUsuario, mp.EstadoMood, mp.FechaRegistro, pa.PaisCodigo });
+
+                if (!string.IsNullOrWhiteSpace(country))
+                {
+                    // NOTE: filtro exacto por código ISO (ej: "MX")
+                    var code = country.Trim().ToUpperInvariant();
+                    joinedQuery = joinedQuery.Where(x => x.PaisCodigo == code);
+                }
+
+                // Materializar una sola vez — el set filtrado es pequeño después de GroupBy
+                var rows = await joinedQuery
+                    .Select(x => new { x.IdUsuario, x.EstadoMood, x.FechaRegistro })
+                    .ToListAsync();
+
+                var usuariosUnicos = rows.Select(x => x.IdUsuario).Distinct().Count();
+
+                // Distribución (GroupBy en memoria; rows ya está materializado y filtrado)
+                var distribution = rows
+                    .GroupBy(x => x.EstadoMood)
+                    .Select(g => new { Estado = (int)g.Key, Conteo = g.Count() })
+                    .ToList();
+
+                var total = distribution.Sum(x => x.Conteo);
+
+                var distribucion = distribution
+                    .OrderBy(x => x.Estado)
+                    .Select(x => new MoodDistributionDto
+                    {
+                        Estado = x.Estado,
+                        EstadoLabel = MoodLabel(x.Estado),
+                        Conteo = x.Conteo,
+                        Porcentaje = total == 0 ? 0 : Math.Round(x.Conteo * 100.0 / total, 1)
+                    })
+                    .ToList();
+
+                // Timeline (solo cuando hay pocos usuarios — últimos 7 días, máx 20 registros)
+                var cutoff7d = DateTime.UtcNow.AddDays(-7);
+                var timeline = usuariosUnicos <= 9
+                    ? rows
+                        .Where(x => x.FechaRegistro >= cutoff7d)
+                        .OrderByDescending(x => x.FechaRegistro)
+                        .Take(20)
+                        .Select(x => new
+                        {
+                            fecha = x.FechaRegistro.ToString("dd/MM"),
+                            estado = (int)x.EstadoMood,
+                            estadoLabel = MoodLabel((int)x.EstadoMood)
+                        })
+                        .ToList<object>()
+                    : new List<object>();
+
+                // Insight automático: estado predominante
+                var predominante = distribution
+                    .OrderByDescending(x => x.Conteo)
+                    .Select(x => MoodLabel(x.Estado))
+                    .FirstOrDefault();
+
+                var insight = predominante != null
+                    ? new { estadoPredominante = predominante }
+                    : null as object;
+
+                return new JsonResult(new { usuariosUnicos, distribucion, timeline, insight });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener distribución de mood para mapa");
+                return new JsonResult(new List<MoodDistributionDto>());
+            }
+        }
+
+        private static string MoodLabel(int estado) => estado switch
+        {
+            1 => "Muy mal",
+            2 => "Mal",
+            3 => "Neutral",
+            4 => "Bien",
+            5 => "Muy bien",
+            _ => "Desconocido"
+        };
+    }
+
+    public class MoodDistributionDto
+    {
+        public int Estado { get; set; }
+        public string EstadoLabel { get; set; }
+        public int Conteo { get; set; }
+        public double Porcentaje { get; set; }
     }
 }

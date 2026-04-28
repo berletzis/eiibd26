@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using eiibd26.Data;
+using eiibd26.Models;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -10,7 +11,7 @@ using System.Collections.Generic;
 
 namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 {
-    //[Authorize(Roles = "Administrador")]
+    [Authorize(Roles = "Administrador")]
     public class IndexModel : PageModel
     {
         private readonly ApplicationDbContext _db;
@@ -34,10 +35,25 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 || mostrarBorradoresStr.Equals("true", StringComparison.OrdinalIgnoreCase)
                 || mostrarBorradoresStr.Equals("on", StringComparison.OrdinalIgnoreCase);
 
-            var allItems = await _db.Contenidos
-                .Where(c => mostrarEliminados || !c.Eliminado)
-                .Where(c => string.IsNullOrEmpty(searchValue) || c.ContenidoTitulo.Contains(searchValue))
-                .Where(c => mostrarBorradores || c.EstadoPublicacion != 0)
+            IQueryable<Contenido> baseQuery = mostrarEliminados
+                ? _db.Contenidos.IgnoreQueryFilters()
+                : _db.Contenidos;
+
+            if (!mostrarEliminados)
+                baseQuery = baseQuery.Where(c => !c.Eliminado);
+
+            if (!mostrarBorradores)
+                baseQuery = baseQuery.Where(c => c.EstadoPublicacion != 0);
+
+            if (!string.IsNullOrEmpty(searchValue))
+                baseQuery = baseQuery.Where(c => c.ContenidoTitulo.Contains(searchValue));
+
+            var recordsTotal = await baseQuery.CountAsync();
+
+            var data = await baseQuery
+                .OrderByDescending(c => c.FechaCreado)
+                .Skip(start)
+                .Take(length)
                 .Select(c => new {
                     id = c.Id,
                     titulo = c.ContenidoTitulo,
@@ -46,30 +62,13 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     publicado = c.EstadoPublicacion,
                     fechaCreado = c.FechaCreado,
                     eliminado = c.Eliminado,
-                    imagenUrlRaw = c.URLImagenPrincipal
+                    imagenUrl = string.IsNullOrWhiteSpace(c.URLImagenPrincipal)
+                        ? (string)null
+                        : (c.URLImagenPrincipal.StartsWith("http") || c.URLImagenPrincipal.StartsWith("/")
+                            ? c.URLImagenPrincipal
+                            : "/uploads/contenidos/" + c.URLImagenPrincipal)
                 })
-                .OrderByDescending(c => c.fechaCreado)
                 .ToListAsync();
-
-            var recordsTotal = allItems.Count;
-            var data = allItems
-                .Skip(start)
-                .Take(length)
-                .Select(c => new {
-                    c.id,
-                    c.titulo,
-                    c.descripcion,
-                    c.tipo,
-                    c.publicado,
-                    c.fechaCreado,
-                    c.eliminado,
-                    imagenUrl = !string.IsNullOrWhiteSpace(c.imagenUrlRaw)
-                        ? (c.imagenUrlRaw.StartsWith("http") || c.imagenUrlRaw.StartsWith("/")
-                            ? c.imagenUrlRaw
-                            : $"/uploads/contenidos/{c.imagenUrlRaw}")
-                        : (string)null
-                })
-                .ToList();
 
             return new JsonResult(new
             {
@@ -119,7 +118,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             contenido.ContenidoTextoC = descripcion;
             contenido.IdTipo = tipo;
             contenido.EstadoPublicacion = publicado;
-            contenido.FechaModificado = DateTime.Now;
+            contenido.FechaModificado = DateTime.UtcNow;
 
             await _db.SaveChangesAsync();
 
@@ -138,7 +137,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 return new JsonResult(new { success = false, message = "Contenido no encontrado." });
 
             c.Eliminado = true;
-            c.FechaModificado = DateTime.Now;
+            c.FechaModificado = DateTime.UtcNow;
             await _db.SaveChangesAsync();
 
             return new JsonResult(new { success = true });
@@ -151,12 +150,12 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
             var id = int.Parse(Request.Form["id"]);
 
-            var c = await _db.Contenidos.FirstOrDefaultAsync(x => x.Id == id);
+            var c = await _db.Contenidos.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Id == id && x.Eliminado);
             if (c == null)
                 return new JsonResult(new { success = false, message = "Contenido no encontrado." });
 
             c.Eliminado = false;
-            c.FechaModificado = DateTime.Now;
+            c.FechaModificado = DateTime.UtcNow;
             await _db.SaveChangesAsync();
 
             return new JsonResult(new { success = true });

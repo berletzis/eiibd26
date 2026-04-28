@@ -352,7 +352,8 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     FechaCreacion = i.FechaCreacion,
                     RespuestasCount = i.RespuestasCount,
                     Score = i.Score,
-                    UsuarioVoto = votosUsuario.TryGetValue(i.Id, out var vv) ? (vv == 1 ? 1 : 0) : 0,
+                    // MEDIO-02: exponer valor canónico -1/0/+1 (no normalizar downvote a 0)
+                    UsuarioVoto = votosUsuario.TryGetValue(i.Id, out var vv) ? vv : 0,
                     EsMia = userId.Value == i.UsuarioId,
                     Condiciones = condicionesMap.TryGetValue(i.Id, out var cList) ? cList : new List<string>(),
                     Sintomas = sintomasMap.TryGetValue(i.Id, out var sList) ? sList : new List<string>(),

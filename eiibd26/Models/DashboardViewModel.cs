@@ -86,6 +86,8 @@ namespace eiibd26.Models
         public int AnswersCount { get; set; }
         public int Votes { get; set; }
         public string? Slug { get; set; }
+        /// <summary>Solo para ordenamiento con decay temporal. No se expone en la vista.</summary>
+        public DateTimeOffset FechaCreacion { get; set; }
     }
 
     public class AnswerItem

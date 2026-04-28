@@ -284,18 +284,21 @@
                             <td class="text-start" style="vertical-align: middle;">@sint.Nombre</td>
                             @{
                                 Model.TendenciasPorSintoma.TryGetValue(sint.Nombre.Trim(), out var trend);
-                                var tendTxt   = trend?.Tendencia ?? "Sin datos suficientes";
-                                var (tendIcon, tendColor, tendShort) = tendTxt switch
+                                var tendTxt = trend?.Tendencia ?? "Sin datos suficientes";
+                                var (tendDotClass, tendTextClass, tendShort) = tendTxt switch
                                 {
-                                    "Empeorando" => ("🔴", "#dc3545", "Empeorando"),
-                                    "Mejorando"  => ("🟢", "#198754", "Mejorando"),
-                                    "Estable"    => ("⚪️",  "#6c757d", "Estable"),
-                                    _            => ("—",    "#adb5bd", "Sin datos")
+                                    "Empeorando" => ("tendencia-empeorando", "text-empeorando", "Empeorando"),
+                                    "Mejorando"  => ("tendencia-mejorando",  "text-mejorando",  "Mejorando"),
+                                    "Estable"    => ("tendencia-estable",    "text-estable",    "Estable"),
+                                    _            => ("tendencia-sin",        "text-sin",        "Sin datos")
                                 };
                             }
-                            <td class="text-nowrap" style="color:@tendColor; font-weight:600; font-size:.85rem;"
+                            <td class="text-nowrap"
                                 title="Basado en la evolución del síntoma durante el período (no solo el último día)">
-                                @tendIcon @tendShort
+                                <span class="tendencia-cell">
+                                    <span class="tendencia-dot @tendDotClass"></span>
+                                    <span class="tendencia-label @tendTextClass">@tendShort</span>
+                                </span>
                             </td>
                             @foreach (var dia in diasSemana)
                             {

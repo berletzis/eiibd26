@@ -200,7 +200,7 @@ namespace eiibd26.Controllers
 
                 // Look for any existing vote (including soft-deleted)
                 var existing = await _db.Votos.FirstOrDefaultAsync(v =>
-                    v.EntidadTipo == "respuesta" && v.EntidadId == id && v.UsuarioId == userIdGuid);
+                    v.EntidadTipo == VotoTipo.Respuesta && v.EntidadId == id && v.UsuarioId == userIdGuid);
 
                 var votoEntityType = _db.Model.FindEntityType(typeof(Voto));
                 bool hasFechaCreacion = votoEntityType?.FindProperty("FechaCreacion") != null;
@@ -211,7 +211,7 @@ namespace eiibd26.Controllers
                     var voto = new Voto
                     {
                         Id = Guid.NewGuid(),
-                        EntidadTipo = "respuesta",
+                        EntidadTipo = VotoTipo.Respuesta,
                         EntidadId = id,
                         UsuarioId = userIdGuid,
                         Valor = (short)dto.Valor,
@@ -225,21 +225,35 @@ namespace eiibd26.Controllers
                     // Usuario ya votó previamente
                     if (existing.Valor == dto.Valor)
                     {
-                        // Intenta votar lo mismo (ej: +1 cuando ya votó +1)
-                        // Toggle: activo ↔ cancelado (permite re-votación flexible)
+                        // Mismo valor: toggle activo ↔ cancelado
                         existing.Eliminado = !existing.Eliminado;
                         if (hasFechaModificacion) existing.FechaModificacion = DateTimeOffset.UtcNow;
                         _db.Votos.Update(existing);
                     }
                     else
                     {
-                        // Intenta cambiar el voto (ej: -1 cuando ya votó +1)
-                        // Eliminar el voto anterior para permitir crear uno nuevo
+                        // CRÍTICO-02: cambio de dirección (ej: +1 → -1)
+                        // 1) Marcar el voto anterior como eliminado
                         existing.Eliminado = true;
                         if (hasFechaModificacion) existing.FechaModificacion = DateTimeOffset.UtcNow;
                         _db.Votos.Update(existing);
+                        // 2) Crear el nuevo voto con el nuevo valor
+                        var nuevoVoto = new Voto
+                        {
+                            Id = Guid.NewGuid(),
+                            EntidadTipo = VotoTipo.Respuesta,
+                            EntidadId = id,
+                            UsuarioId = userIdGuid,
+                            Valor = (short)dto.Valor,
+                            Eliminado = false
+                        };
+                        if (hasFechaCreacion) nuevoVoto.FechaCreacion = DateTimeOffset.UtcNow;
+                        _db.Votos.Add(nuevoVoto);
                     }
                 }
+                // NOTA (Opción B aprobada): Respuesta.Puntuacion NO se actualiza aquí.
+                // El score canónico siempre se calcula en runtime desde la tabla Votos
+                // (SUM de Valor WHERE !Eliminado). Véase VotoConstants.cs.
 
                 try
                 {
@@ -262,12 +276,12 @@ namespace eiibd26.Controllers
                 }
 
                 var score = await _db.Votos
-                    .Where(v => v.EntidadTipo == "respuesta" && v.EntidadId == id && !v.Eliminado)
+                    .Where(v => v.EntidadTipo == VotoTipo.Respuesta && v.EntidadId == id && !v.Eliminado)
                     .Select(v => (int?)v.Valor)
                     .SumAsync() ?? 0;
 
                 var votoActual = await _db.Votos
-                    .Where(v => v.EntidadTipo == "respuesta" && v.EntidadId == id && v.UsuarioId == userIdGuid)
+                    .Where(v => v.EntidadTipo == VotoTipo.Respuesta && v.EntidadId == id && v.UsuarioId == userIdGuid)
                     .OrderByDescending(v => v.FechaCreacion)
                     .FirstOrDefaultAsync();
 

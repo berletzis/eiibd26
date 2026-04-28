@@ -169,17 +169,20 @@
                                     @{
                                         Model.TendenciasPorSintoma.TryGetValue(sint.Nombre.Trim(), out var sintTrend);
                                         var sintTendTxt = sintTrend?.Tendencia ?? "Sin datos suficientes";
-                                        var (sintTendIcon, sintTendColor, sintTendShort) = sintTendTxt switch
+                                        var (sintDotClass, sintTextClass, sintTendShort) = sintTendTxt switch
                                         {
-                                            "Empeorando" => ("🔴", "#dc3545", "Empeorando"),
-                                            "Mejorando"  => ("🟢", "#198754", "Mejorando"),
-                                            "Estable"    => ("⚪️",  "#6c757d", "Estable"),
-                                            _            => ("—",  "#adb5bd", "Sin datos")
+                                            "Empeorando" => ("tendencia-empeorando", "text-empeorando", "Empeorando"),
+                                            "Mejorando"  => ("tendencia-mejorando",  "text-mejorando",  "Mejorando"),
+                                            "Estable"    => ("tendencia-estable",    "text-estable",    "Estable"),
+                                            _            => ("tendencia-sin",        "text-sin",        "Sin datos")
                                         };
                                     }
                                     <div style="margin-top:6px;" title="Basado en la evolución del síntoma durante el período (no solo el último día)">
                                         <span style="font-size:.85em; color:#666;">Tendencia</span><br />
-                                        <strong style="color:@sintTendColor; font-size:.9em;">@sintTendIcon @sintTendShort</strong>
+                                        <span class="tendencia-cell">
+                                            <span class="tendencia-dot @sintDotClass"></span>
+                                            <strong class="tendencia-label @sintTextClass">@sintTendShort</strong>
+                                        </span>
                                     </div>
                                 </div>
                             <button type="button" class="btn-track-sintoma" 
@@ -305,40 +308,41 @@
         });
 
         setupTrackingButtons();
-        document.addEventListener('readystatechange', function () {
-            if (document.readyState === 'complete') setupTrackingButtons();
+
+        // Autocomplete buscar síntoma
+        const urlAutocomplete = "/api/sintomas/autocomplete";
+        // IDs del catálogo de síntomas que el usuario ya tiene (para excluirlos del autocomplete)
+        const sintomasYaAgregados = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(Model.MisSintomas.Select(s => s.CatalogoSintomaId).ToList()));
+
+        document.getElementById('sintomaBuscar').addEventListener('input', async function () {
+            let query = this.value.trim();
+            let sugerenciasUl = document.getElementById('sintomaSugerencias');
+            sugerenciasUl.innerHTML = '';
+            document.getElementById('sintomaIdSeleccionado').value = "";
+            if (query.length < 2) return;
+            let url = urlAutocomplete + '?q=' + encodeURIComponent(query);
+            if (sintomasYaAgregados.length > 0)
+                url += '&excludeIds=' + sintomasYaAgregados.join(',');
+            let resp = await fetch(url);
+            if (!resp.ok) return;
+            let datos = await resp.json();
+            datos.forEach(item => {
+                let li = document.createElement('li');
+                li.className = 'crm-list-item list-group-item';
+                li.innerText = item.nombre;
+                li.onclick = function () {
+                    document.getElementById('sintomaBuscar').value = item.nombre;
+                    document.getElementById('sintomaIdSeleccionado').value = item.id;
+                    sugerenciasUl.innerHTML = '';
+                }
+                sugerenciasUl.appendChild(li);
+            });
+        });
+        document.getElementById('sintomaBuscar').addEventListener('blur', function () {
+            setTimeout(() => { document.getElementById('sintomaSugerencias').innerHTML = ''; }, 200);
         });
 
-        // Resto del comportamiento de la página inicializado al cargar el DOM
-        document.addEventListener('DOMContentLoaded', function () {
-            // Autocomplete buscar síntoma
-            const urlAutocomplete = "/api/sintomas/autocomplete";
-            document.getElementById('sintomaBuscar').addEventListener('input', async function () {
-                let query = this.value.trim();
-                let sugerenciasUl = document.getElementById('sintomaSugerencias');
-                sugerenciasUl.innerHTML = '';
-                document.getElementById('sintomaIdSeleccionado').value = "";
-                if (query.length < 2) return;
-                let resp = await fetch(urlAutocomplete + '?q=' + encodeURIComponent(query));
-                if (!resp.ok) return;
-                let datos = await resp.json();
-                datos.forEach(item => {
-                    let li = document.createElement('li');
-                    li.className = 'crm-list-item list-group-item';
-                    li.innerText = item.nombre;
-                    li.onclick = function () {
-                        document.getElementById('sintomaBuscar').value = item.nombre;
-                        document.getElementById('sintomaIdSeleccionado').value = item.id;
-                        sugerenciasUl.innerHTML = '';
-                    }
-                    sugerenciasUl.appendChild(li);
-                });
-            });
-            document.getElementById('sintomaBuscar').addEventListener('blur', function () {
-                setTimeout(() => { document.getElementById('sintomaSugerencias').innerHTML = ''; }, 200);
-            });
-
-            // Agregar síntoma
+        // Agregar síntoma
             document.getElementById('btnAgregarSintoma').addEventListener('click', async function () {
                 let id = document.getElementById('sintomaIdSeleccionado').value;
                 if (!id) {
@@ -563,6 +567,5 @@
                     }
                 });
             });
-        });
     </script>
 }

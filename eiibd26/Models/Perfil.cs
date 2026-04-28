@@ -50,6 +50,9 @@ namespace eiibd26.Models
         [StringLength(200)]
         public string? NombreCiudad { get; set; }
         [StringLength(200)]
+        // ⚠️ NombrePais almacena el código ISO (ej: "MX"), NO el nombre del país.
+        // Se usa para filtros y joins con la tabla Paises via PaisCodigo.
+        // No cambiar a nombre completo sin migración de datos.
         public string? NombrePais { get; set; }
         public bool? AceptoPP { get; set; }
 

@@ -208,76 +208,50 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             }
 
             // ---------- Top Preguntas del usuario (top 2 por votos) ----------
-            var preguntasUsuario = await _db.Preguntas
+            // CRÍTICO-01 + CRÍTICO-03: votos calculados inline con EntidadTipo canónico,
+            // OrderBy y Take(2) ejecutados en BD, sin carga total en memoria.
+            var preguntasVm = await _db.Preguntas
                 .Where(p => p.UsuarioId == userGuid && !p.Eliminado)
-                .Select(p => new
-                {
-                    p.Id,
-                    p.Titulo,
-                    AnswersCount = p.Respuestas.Count(r => !r.Eliminado)
-                })
-                .ToListAsync();
-
-            var preguntaIds = preguntasUsuario.Select(p => p.Id).ToList();
-            Dictionary<Guid, int> votosPreguntas = new Dictionary<Guid, int>();
-            if (preguntaIds.Any())
-            {
-                votosPreguntas = await _db.Votos
-                    .Where(v => v.EntidadTipo == "Pregunta" && preguntaIds.Contains(v.EntidadId))
-                    .GroupBy(v => v.EntidadId)
-                    .Select(g => new { Id = g.Key, Count = g.Count() })
-                    .ToDictionaryAsync(x => x.Id, x => x.Count);
-            }
-
-            var preguntasVm = preguntasUsuario
                 .Select(p => new QuestionItem
                 {
                     Id = p.Id,
                     Titulo = p.Titulo,
-                    AnswersCount = p.AnswersCount,
-                    Votes = votosPreguntas.TryGetValue(p.Id, out var cnt) ? cnt : 0
+                    AnswersCount = p.Respuestas.Count(r => !r.Eliminado),
+                    Votes = _db.Votos
+                        .Where(v => v.EntidadTipo == eiibd26.Controllers.VotoTipo.Pregunta
+                                    && v.EntidadId == p.Id
+                                    && !v.Eliminado)
+                        .Select(v => (int?)v.Valor).Sum() ?? 0,
+                    FechaCreacion = p.FechaCreacion
                 })
-                .OrderByDescending(q => q.Votes)
-                .ThenByDescending(q => q.AnswersCount)
+                .OrderByDescending(q =>
+                    (double)(q.Votes * 2 + q.AnswersCount) /
+                    (2.0 + EF.Functions.DateDiffDay(q.FechaCreacion, DateTime.UtcNow))
+                )
                 .Take(2)
-                .ToList();
+                .ToListAsync();
 
             VM.Preguntas = preguntasVm;
 
             // ---------- Top Respuestas del usuario (top 2 por votos) ----------
-            var respuestasUsuario = await _db.Respuestas
+            // CRÍTICO-01 + CRÍTICO-03: mismo patrón que preguntas.
+            var respuestasVm = await _db.Respuestas
                 .Where(r => r.UsuarioId == userGuid && !r.Eliminado)
-                .Select(r => new
-                {
-                    r.Id,
-                    r.Cuerpo,
-                    r.PreguntaId
-                })
-                .ToListAsync();
-
-            var respuestaIds = respuestasUsuario.Select(r => r.Id).ToList();
-            Dictionary<Guid, int> votosRespuestas = new Dictionary<Guid, int>();
-            if (respuestaIds.Any())
-            {
-                votosRespuestas = await _db.Votos
-                    .Where(v => v.EntidadTipo == "Respuesta" && respuestaIds.Contains(v.EntidadId))
-                    .GroupBy(v => v.EntidadId)
-                    .Select(g => new { Id = g.Key, Count = g.Count() })
-                    .ToDictionaryAsync(x => x.Id, x => x.Count);
-            }
-
-            var respuestasVm = respuestasUsuario
                 .Select(r => new AnswerItem
                 {
                     Id = r.Id,
                     Cuerpo = r.Cuerpo,
-                    Votes = votosRespuestas.TryGetValue(r.Id, out var cnt2) ? cnt2 : 0,
-                    PreguntaId = r.PreguntaId
+                    PreguntaId = r.PreguntaId,
+                    Votes = _db.Votos
+                        .Where(v => v.EntidadTipo == eiibd26.Controllers.VotoTipo.Respuesta
+                                    && v.EntidadId == r.Id
+                                    && !v.Eliminado)
+                        .Select(v => (int?)v.Valor).Sum() ?? 0
                 })
                 .OrderByDescending(a => a.Votes)
                 .ThenByDescending(a => a.Id)
                 .Take(2)
-                .ToList();
+                .ToListAsync();
 
             VM.Respuestas = respuestasVm;
 

@@ -280,18 +280,19 @@
                             <td class="text-start sintoma-col">@s.Nombre</td>
                             @{
                                 var hasTrend = tendDict.TryGetValue(s.Nombre?.Trim() ?? "", out var rowTrend);
-                                var (rowTendIcon, rowTendColor) = hasTrend ? rowTrend!.Tendencia switch
+                                var (rowDotClass, rowTextClass, rowTendShort) = hasTrend ? rowTrend!.Tendencia switch
                                 {
-                                    "Empeorando" => ("🔴", "#dc3545"),
-                                    "Mejorando"  => ("🟢", "#198754"),
-                                    "Estable"    => ("⚪️",  "#6c757d"),
-                                    _            => ("—",  "#adb5bd")
-                                } : ("—", "#adb5bd");
-                                var rowTendShort = hasTrend && rowTrend!.Tendencia == "Sin datos suficientes" ? "Sin datos" : (hasTrend ? rowTrend!.Tendencia : "Sin datos");
+                                    "Empeorando" => ("tendencia-empeorando", "text-empeorando", "Empeorando"),
+                                    "Mejorando"  => ("tendencia-mejorando",  "text-mejorando",  "Mejorando"),
+                                    "Estable"    => ("tendencia-estable",    "text-estable",    "Estable"),
+                                    _            => ("tendencia-sin",        "text-sin",        "Sin datos")
+                                } : ("tendencia-sin", "text-sin", "Sin datos");
                             }
-                            <td style="font-size:.82rem; color:@rowTendColor; white-space:nowrap;"
-                                title="Basado en la evolución del síntoma durante el período (no solo el último día)">
-                                @rowTendIcon @rowTendShort
+                            <td title="Basado en la evolución del síntoma durante el período (no solo el último día)">
+                                <span class="tendencia-cell">
+                                    <span class="tendencia-dot @rowDotClass"></span>
+                                    <span class="tendencia-label @rowTextClass">@rowTendShort</span>
+                                </span>
                             </td>
 
                             <td class="text-center date-col"

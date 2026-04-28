@@ -541,6 +541,46 @@
             font-weight: 400;
         }
 
+        .perfil-tracking-meta {
+            font-size: 0.7rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .perfil-sintoma-grupo-header {
+            font-size: 0.875rem;
+            color: #374151;
+            padding: 0.25rem 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        /* Tarjetas de resumen estadístico */
+        .perfil-resumen-stat {
+            background: white;
+            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            border: 1px solid #e5e7eb;
+            text-align: center;
+        }
+
+        .perfil-resumen-stat-label {
+            font-size: 0.7rem;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 0.25rem;
+        }
+
+        .perfil-resumen-stat-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .perfil-resumen-stat-sub {
+            font-size: 0.7rem;
+            color: #9ca3af;
+        }
+
         .perfil-no-data {
             text-align: center;
             padding: 1.5rem 1rem;
@@ -852,12 +892,16 @@
 
         @if (Model.PerfilPublico.Condiciones.Any() ||
                      Model.PerfilPublico.Tratamientos.Any() ||
-                     Model.PerfilPublico.TrackingSintomas.Any())
+                     Model.PerfilPublico.SintomasAgrupados.Any() ||
+                     Model.PerfilPublico.EstadosAnimo.Any())
         {
             <div class="perfil-section">
                 <h2 class="perfil-section-title">
                     <i class="bi bi-clipboard2-pulse-fill"></i> Mi Viaje de Salud
                 </h2>
+                <p class="perfil-section-periodo text-muted small mb-3">
+                    Período: @Model.PerfilPublico.Desde.ToString("dd MMM yyyy", new System.Globalization.CultureInfo("es-ES")) — @Model.PerfilPublico.Hasta.ToString("dd MMM yyyy", new System.Globalization.CultureInfo("es-ES"))
+                </p>
 
                 @* FILA 1: Condiciones y Tratamientos (2 columnas) *@
                 @if (Model.PerfilPublico.Condiciones.Any() || Model.PerfilPublico.Tratamientos.Any())
@@ -907,31 +951,142 @@
                     </div>
                 }
 
-                @* FILA 2: Tracking de Síntomas (ancho completo) *@
-                @if (Model.PerfilPublico.TrackingSintomas.Any())
+                @* FILA 2: Síntomas agrupados con historial de tracking *@
+                @if (Model.PerfilPublico.SintomasAgrupados.Any())
                 {
                     <div class="perfil-viaje-grid-row2">
                         <div class="perfil-viaje-card-full">
                             <div class="perfil-viaje-card-title">
-                                <i class="bi bi-thermometer-half"></i> Seguimiento de Síntomas (Últimos 10 registros)
+                                <i class="bi bi-thermometer-half"></i> Historial de Síntomas
                             </div>
-                            <div class="perfil-tracking-sintomas-grid">
-                                @foreach (var tracking in Model.PerfilPublico.TrackingSintomas)
+                            @foreach (var sintoma in Model.PerfilPublico.SintomasAgrupados)
+                            {
+                                <div class="perfil-sintoma-grupo mb-3">
+                                    <div class="perfil-sintoma-grupo-header d-flex align-items-center gap-2 fw-semibold mb-1">
+                                        <i class="bi bi-activity"></i>
+                                        <span>@sintoma.NombreSintoma</span>
+                                        @if (sintoma.Tratamientos.Any())
+                                        {
+                                            <span class="ms-2 text-muted small">
+                                                <i class="bi bi-capsule-pill"></i>
+                                                @string.Join(", ", sintoma.Tratamientos)
+                                            </span>
+                                        }
+                                    </div>
+                                    <div class="perfil-tracking-sintomas-grid">
+                                        @foreach (var tracking in sintoma.Trackings)
+                                        {
+                                            <div class="perfil-tracking-item" style="border-left-color: @tracking.ColorEstado">
+                                                <div class="perfil-tracking-header">
+                                                    <i class="bi @tracking.IconoEstado" style="color: @tracking.ColorEstado"></i>
+                                                    <span class="perfil-tracking-estado" style="color: @tracking.ColorEstado">@tracking.Estado</span>
+                                                </div>
+                                                @if (tracking.Dolor.HasValue)
+                                                {
+                                                    <div class="perfil-tracking-meta small text-muted">
+                                                        <i class="bi bi-bandaid"></i> Dolor: <strong>@tracking.Dolor/10</strong>
+                                                    </div>
+                                                }
+                                                @if (!string.IsNullOrWhiteSpace(tracking.FrecuenciaNombre))
+                                                {
+                                                    <div class="perfil-tracking-meta small text-muted">
+                                                        <i class="bi bi-arrow-repeat"></i> @tracking.FrecuenciaNombre
+                                                    </div>
+                                                }
+                                                @if (tracking.TieneSangrado == true)
+                                                {
+                                                    <div class="perfil-tracking-meta small" style="color:#ef4444">
+                                                        <i class="bi bi-droplet-fill"></i> Sangrado
+                                                    </div>
+                                                }
+                                                <div class="perfil-tracking-fecha">
+                                                    @tracking.Fecha.ToString("dd MMM yyyy", new System.Globalization.CultureInfo("es-ES"))
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @* FILA 3: Resumen estadístico e insights (equivalente al bloque inicial del PDF) *@
+                @if (Model.PerfilPublico.HealthResumen != null && Model.PerfilPublico.HealthResumen.TieneInsights)
+                {
+                    var r = Model.PerfilPublico.HealthResumen;
+                    <div class="perfil-viaje-grid-row2 mt-3">
+                        <div class="perfil-viaje-card-full">
+                            <div class="perfil-viaje-card-title">
+                                <i class="bi bi-bar-chart-line-fill"></i> Resumen del Período
+                            </div>
+                            <div class="row g-3 mb-3">
+                                @if (r.MoodTotalRegistros > 0)
                                 {
-                                    <div class="perfil-tracking-item" style="border-left-color: @tracking.ColorEstado">
-                                        <div class="perfil-tracking-header">
-                                            <i class="bi @tracking.IconoEstado" style="color: @tracking.ColorEstado"></i>
-                                            <span class="perfil-tracking-sintoma">@tracking.SintomaNombre</span>
+                                    <div class="col-6 col-md-3">
+                                        <div class="perfil-resumen-stat">
+                                            <div class="perfil-resumen-stat-label">Estado de ánimo</div>
+                                            <div class="perfil-resumen-stat-value">@r.MoodPromedio</div>
+                                            <div class="perfil-resumen-stat-sub">@r.MoodTotalRegistros registros</div>
                                         </div>
-                                        <div class="perfil-tracking-estado" style="color: @tracking.ColorEstado">
-                                            @tracking.Estado
+                                    </div>
+                                }
+                                @if (r.TendenciaTotalRegistros > 0)
+                                {
+                                    <div class="col-6 col-md-3">
+                                        <div class="perfil-resumen-stat">
+                                            <div class="perfil-resumen-stat-label">Tendencia síntomas</div>
+                                            <div class="perfil-resumen-stat-value">@r.TendenciaGeneral</div>
+                                            <div class="perfil-resumen-stat-sub">@r.TendenciaTotalRegistros registros</div>
                                         </div>
-                                        <div class="perfil-tracking-fecha">
-                                            @tracking.Fecha.ToString("dd MMM yyyy · HH:mm", new System.Globalization.CultureInfo("es-ES"))
+                                    </div>
+                                }
+                                @if (r.PromedioDolorGlobal.HasValue)
+                                {
+                                    <div class="col-6 col-md-3">
+                                        <div class="perfil-resumen-stat">
+                                            <div class="perfil-resumen-stat-label">Dolor promedio</div>
+                                            <div class="perfil-resumen-stat-value">@r.PromedioDolorGlobal.Value.ToString("0.#")/10</div>
+                                        </div>
+                                    </div>
+                                }
+                                @if (r.RegistrosDolorAlto > 0)
+                                {
+                                    <div class="col-6 col-md-3">
+                                        <div class="perfil-resumen-stat" style="border-color:#ef4444">
+                                            <div class="perfil-resumen-stat-label">Episodios dolor alto</div>
+                                            <div class="perfil-resumen-stat-value" style="color:#ef4444">@r.RegistrosDolorAlto</div>
                                         </div>
                                     </div>
                                 }
                             </div>
+                            @if (!string.IsNullOrWhiteSpace(r.SintomaFrecuente) || !string.IsNullOrWhiteSpace(r.SintomaConMayorDolor))
+                            {
+                                <div class="perfil-viaje-card-title mt-2">
+                                    <i class="bi bi-lightbulb-fill"></i> Insights
+                                </div>
+                                <ul class="list-unstyled small mb-0">
+                                    @if (!string.IsNullOrWhiteSpace(r.SintomaFrecuente))
+                                    {
+                                        <li><i class="bi bi-arrow-right-short"></i> Síntoma más frecuente: <strong>@r.SintomaFrecuente</strong> (@r.SintomaFrecuenteConteo registros)</li>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(r.SintomaConMayorDolor))
+                                    {
+                                        <li><i class="bi bi-arrow-right-short"></i> Mayor dolor en: <strong>@r.SintomaConMayorDolor</strong> (promedio @r.PromedioDolorMax?.ToString("0.#")/10)</li>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(r.SintomaMayorFrecuencia) && !string.IsNullOrWhiteSpace(r.SintomaMayorFrecuenciaNombre))
+                                    {
+                                        <li><i class="bi bi-arrow-right-short"></i> Mayor frecuencia: <strong>@r.SintomaMayorFrecuencia</strong> — @r.SintomaMayorFrecuenciaNombre</li>
+                                    }
+                                    @if (r.TendenciaPorSintoma.Any())
+                                    {
+                                        foreach (var (sintomaNombre, tendencia) in r.TendenciaPorSintoma)
+                                        {
+                                            <li><i class="bi bi-arrow-right-short"></i> <strong>@sintomaNombre</strong>: @tendencia</li>
+                                        }
+                                    }
+                                </ul>
+                            }
                         </div>
                     </div>
                 }

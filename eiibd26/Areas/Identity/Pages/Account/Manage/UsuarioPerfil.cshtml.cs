@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using SixLabors.ImageSharp;
@@ -32,13 +33,19 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
         private readonly ApplicationDbContext _db;
         private readonly ILogger<UsuarioPerfilModel> _logger;
         private readonly IWebHostEnvironment _env;
-        private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> _avatarUploadLocks = new();
+        private readonly string _googleMapsApiKey;
+        // One semaphore per userId, cleaned up after each upload.
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, SemaphoreSlim> _avatarUploadLocks = new();
 
-        public UsuarioPerfilModel(ApplicationDbContext db, ILogger<UsuarioPerfilModel> logger, IWebHostEnvironment env)
+        public string GoogleMapsApiKey => _googleMapsApiKey;
+
+        public UsuarioPerfilModel(ApplicationDbContext db, ILogger<UsuarioPerfilModel> logger,
+            IWebHostEnvironment env, IConfiguration configuration)
         {
             _db = db ?? throw new ArgumentNullException(nameof(db));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _env = env ?? throw new ArgumentNullException(nameof(env));
+            _googleMapsApiKey = configuration?["GoogleMaps:ApiKey"] ?? string.Empty;
             PaisesLista = new List<Paises>();
         }
 
@@ -85,19 +92,28 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                         .Select(p => new
                         {
                             p.idUser,
-                            Avatar = p.Avatar,
-                            Nombre = p.Nombre,
-                            Apellidos = p.Apellidos,
-                            EstoyAqui = p.EstoyAqui,
-                            Latitud = p.Latitud,
-                            Longitud = p.Longitud,
+                            p.Avatar,
+                            p.Nombre,
+                            p.Apellidos,
+                            p.EstoyAqui,
+                            p.Latitud,
+                            p.Longitud,
                             p.NombreCiudad,
                             p.NombrePais,
                             p.AceptoPP,
+                            p.AcercaDe,
+                            p.Genero,
+                            p.FechaDeNacimiento,
+                            p.imagenFondo,
+                            p.idZone,
+                            p.slug,
+                            p.PermitirTelefonoReal,
+                            p.PermitirCorreoNoticias,
+                            p.PermitirMostrarPais,
+                            p.PermitirCompartirDatosMedicos,
                             FechaCreado = (DateTime?)p.FechaCreado,
                             FechaCreacion = (DateTime?)p.FechaCreacion,
                             UltimaActividad = (DateTime?)p.UltimaActividad,
-                            p.slug
                         })
                         .AsNoTracking()
                         .FirstOrDefaultAsync();
@@ -110,20 +126,29 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                     {
                         Perfil = new Perfil
                         {
-                            idUser = perfilRow.idUser,
-                            Avatar = perfilRow.Avatar ?? $"https://ui-avatars.com/api/?name=Usuario+{perfilRow.idUser.ToString().Substring(0, 6)}&size=110",
-                            Nombre = perfilRow.Nombre ?? string.Empty,
-                            Apellidos = perfilRow.Apellidos,
-                            EstoyAqui = perfilRow.EstoyAqui,
-                            Latitud = perfilRow.Latitud ?? string.Empty,
-                            Longitud = perfilRow.Longitud ?? string.Empty,
-                            NombreCiudad = perfilRow.NombreCiudad,
-                            NombrePais = perfilRow.NombrePais,
-                            AceptoPP = perfilRow.AceptoPP,
-                            FechaCreado = perfilRow.FechaCreado ?? DateTime.UtcNow,
-                            FechaCreacion = perfilRow.FechaCreacion ?? DateTime.UtcNow,
-                            UltimaActividad = perfilRow.UltimaActividad ?? DateTime.UtcNow,
-                            slug = perfilRow.slug
+                            idUser                       = perfilRow.idUser,
+                            Avatar                       = perfilRow.Avatar ?? $"https://ui-avatars.com/api/?name=Usuario+{perfilRow.idUser.ToString().Substring(0, 6)}&size=110",
+                            Nombre                       = perfilRow.Nombre ?? string.Empty,
+                            Apellidos                    = perfilRow.Apellidos,
+                            EstoyAqui                    = perfilRow.EstoyAqui,
+                            Latitud                      = perfilRow.Latitud ?? string.Empty,
+                            Longitud                     = perfilRow.Longitud ?? string.Empty,
+                            NombreCiudad                 = perfilRow.NombreCiudad,
+                            NombrePais                   = perfilRow.NombrePais,
+                            AceptoPP                     = perfilRow.AceptoPP,
+                            AcercaDe                     = perfilRow.AcercaDe,
+                            Genero                       = perfilRow.Genero,
+                            FechaDeNacimiento            = perfilRow.FechaDeNacimiento,
+                            imagenFondo                  = perfilRow.imagenFondo,
+                            idZone                       = perfilRow.idZone,
+                            slug                         = perfilRow.slug,
+                            PermitirTelefonoReal         = perfilRow.PermitirTelefonoReal,
+                            PermitirCorreoNoticias       = perfilRow.PermitirCorreoNoticias,
+                            PermitirMostrarPais          = perfilRow.PermitirMostrarPais,
+                            PermitirCompartirDatosMedicos = perfilRow.PermitirCompartirDatosMedicos,
+                            FechaCreado                  = perfilRow.FechaCreado ?? DateTime.UtcNow,
+                            FechaCreacion                = perfilRow.FechaCreacion ?? DateTime.UtcNow,
+                            UltimaActividad              = perfilRow.UltimaActividad ?? DateTime.UtcNow,
                         };
 
                         if (perfilRow.Avatar == null) missingFields.Add(nameof(Perfil.Avatar));
@@ -298,6 +323,9 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             finally
             {
                 sem.Release();
+                // Remove the entry when no other waiter is queued so the dictionary doesn't grow unboundedly.
+                if (sem.CurrentCount == 1)
+                    _avatarUploadLocks.TryRemove(userId.Value, out _);
             }
         }
 
@@ -532,7 +560,8 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                 {
                     // ACTUALIZAR EXISTENTE
                     existing.Avatar = string.IsNullOrWhiteSpace(Perfil.Avatar) ? existing.Avatar : Perfil.Avatar;
-                    existing.imagenFondo = Perfil.imagenFondo;
+                    // imagenFondo no tiene campo en el formulario: preservar el valor existente en BD.
+                    // existing.imagenFondo = Perfil.imagenFondo; ← removed to avoid null overwrite
                     existing.Nombre = Perfil.Nombre;
                     existing.Apellidos = Perfil.Apellidos;
                     existing.FechaDeNacimiento = Perfil.FechaDeNacimiento;

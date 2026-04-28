@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 {
-    //[Authorize(Roles = "Administrador")]
+    [Authorize(Roles = "Administrador")]
     public class ContenidosModel : PageModel
     {
         private readonly ApplicationDbContext _db;
@@ -44,56 +44,32 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 || mostrarBorradoresStr == "1"
                 || mostrarBorradoresStr.Equals("on", StringComparison.OrdinalIgnoreCase);
 
-            // ✅ Si mostrar eliminados, ignorar el filtro global
-            IQueryable<Contenido> query = mostrarEliminados
-                ? _db.Contenidos.IgnoreQueryFilters()  // ✅ Ignorar filtro global para ver eliminados
-                : _db.Contenidos;
-
             // Leer filtros de categorías enviados por el cliente
             var categoriaPadreStr = Request.Form["categoriaPadre"].ToString();
             int? categoriaPadre = string.IsNullOrWhiteSpace(categoriaPadreStr) ? (int?)null : int.Parse(categoriaPadreStr);
             var categoriaHijoStr = Request.Form["categoriaHijo"].ToString();
             int? categoriaHijo = string.IsNullOrWhiteSpace(categoriaHijoStr) ? (int?)null : int.Parse(categoriaHijoStr);
 
-            // Apply explicit filters: deleted and publication (drafts) are independent
+            // ✅ Si mostrar eliminados, ignorar el filtro global
+            IQueryable<Contenido> query = mostrarEliminados
+                ? _db.Contenidos.IgnoreQueryFilters()
+                : _db.Contenidos;
+
+            // Apply explicit filters
             if (!mostrarEliminados)
-            {
                 query = query.Where(c => !c.Eliminado);
-            }
 
             if (!mostrarBorradores)
-            {
                 query = query.Where(c => c.EstadoPublicacion != null && c.EstadoPublicacion != 0);
-            }
 
-            var allItems = await query
-                .Where(c => string.IsNullOrEmpty(searchValue) ||
+            if (!string.IsNullOrEmpty(searchValue))
+                query = query.Where(c =>
                     c.ContenidoTitulo.Contains(searchValue) ||
-                    (c.ContenidoTextoC != null && c.ContenidoTextoC.Contains(searchValue)))
-                .Select(c => new {
-                    id = c.Id,
-                    titulo = c.ContenidoTitulo ?? "",
-                    descripcion = c.ContenidoTextoC ?? "",
-                    tipo = c.IdTipo ?? 0,
-                    publicado = c.EstadoPublicacion ?? 0,
-                    fechaCreado = c.FechaCreado,
-                    eliminado = c.Eliminado,
-                    imagenUrlRaw = c.URLImagenPrincipal
-                })
-                .OrderByDescending(c => c.fechaCreado)
-                .ToListAsync();
+                    (c.ContenidoTextoC != null && c.ContenidoTextoC.Contains(searchValue)));
 
-            // Aplicar filtro por categorías (si se especificó)
+            // Aplicar filtro por categorías en SQL
             if (categoriaHijo.HasValue || categoriaPadre.HasValue)
             {
-                var contentIds = allItems.Select(x => x.id).ToList();
-                var relsQuery = _db.ContenidosCategoriasRelacion
-                    .AsNoTracking()
-                    .Where(r => contentIds.Contains(r.IdContenido) && r.IdCategoria != null);
-                if (!mostrarEliminados)
-                    relsQuery = relsQuery.Where(r => !r.Borrado);
-                var rels = await relsQuery.ToListAsync();
-
                 List<int> filterCategoryIds = new();
                 if (categoriaHijo.HasValue)
                 {
@@ -101,7 +77,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 }
                 else if (categoriaPadre.HasValue)
                 {
-                    // obtener categorias que sean el padre o hijos directos del padre
                     var catIds = await _db.ContenidosCategorias
                         .AsNoTracking()
                         .Where(cc => cc.Sequence == categoriaPadre.Value || cc.CategoriaPadre == categoriaPadre.Value)
@@ -110,12 +85,43 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     filterCategoryIds.AddRange(catIds);
                 }
 
-                var allowedContentIds = rels.Where(r => r.IdCategoria.HasValue && filterCategoryIds.Contains(r.IdCategoria.Value)).Select(r => r.IdContenido).Distinct().ToHashSet();
-                allItems = allItems.Where(a => allowedContentIds.Contains(a.id)).ToList();
+                if (filterCategoryIds.Any())
+                {
+                    var relQuery = _db.ContenidosCategoriasRelacion
+                        .AsNoTracking()
+                        .Where(r => r.IdCategoria != null && filterCategoryIds.Contains(r.IdCategoria.Value));
+                    if (!mostrarEliminados)
+                        relQuery = relQuery.Where(r => !r.Borrado);
+
+                    var allowedIds = relQuery.Select(r => r.IdContenido).Distinct();
+                    query = query.Where(c => allowedIds.Contains(c.Id));
+                }
             }
 
-            // Obtener categoria hijo asignada (última) para cada contenido
-            var contentIds2 = allItems.Select(x => x.id).ToList();
+            var recordsTotal = await query.CountAsync();
+
+            var pagedItems = await query
+                .OrderByDescending(c => c.FechaCreado)
+                .Skip(start)
+                .Take(length)
+                .Select(c => new {
+                    id = c.Id,
+                    titulo = c.ContenidoTitulo ?? "",
+                    descripcion = c.ContenidoTextoC ?? "",
+                    tipo = c.IdTipo ?? 0,
+                    publicado = c.EstadoPublicacion ?? 0,
+                    fechaCreado = c.FechaCreado,
+                    eliminado = c.Eliminado,
+                    imagenUrl = string.IsNullOrWhiteSpace(c.URLImagenPrincipal)
+                        ? (string)null
+                        : (c.URLImagenPrincipal.StartsWith("http") || c.URLImagenPrincipal.StartsWith("/")
+                            ? c.URLImagenPrincipal
+                            : "/uploads/contenidos/" + c.URLImagenPrincipal)
+                })
+                .ToListAsync();
+
+            // Obtener categoria asignada para los items de la página actual
+            var contentIds2 = pagedItems.Select(x => x.id).ToList();
             var relsAllQuery = _db.ContenidosCategoriasRelacion
                 .AsNoTracking()
                 .Where(r => contentIds2.Contains(r.IdContenido) && r.IdCategoria != null);
@@ -165,29 +171,10 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 }
             }
 
-            // total records in DB (ignore query filters so info shows full total for "filtered from X total")
-            var recordsTotal = await _db.Contenidos.IgnoreQueryFilters().CountAsync();
-            var data = allItems
-                .Skip(start)
-                .Take(length)
-                .Select(c => new {
-                    c.id,
-                    c.titulo,
-                    c.descripcion,
-                    c.tipo,
-                    c.publicado,
-                    c.fechaCreado,
-                    c.eliminado,
-                    imagenUrl = !string.IsNullOrWhiteSpace(c.imagenUrlRaw)
-                        ? (c.imagenUrlRaw.StartsWith("http") || c.imagenUrlRaw.StartsWith("/")
-                            ? c.imagenUrlRaw
-                            : $"/uploads/contenidos/{c.imagenUrlRaw}")
-                        : (string)null
-                })
-                .ToList();
+            // total records in DB (same scope as the filtered query)
+            var recordsFiltered = recordsTotal;
 
-                // attach categoria names into each data row (comma-separated)
-            var finalData = data.Select(d => new {
+            var finalData = pagedItems.Select(d => new {
                 d.id,
                 d.titulo,
                 d.descripcion,
@@ -206,8 +193,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             }
 
             // recordsFiltered must be the total count after applying filters (before paging)
-            var recordsFiltered = allItems.Count;
-
             return new JsonResult(new
             {
                 draw,
@@ -386,7 +371,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
             var id = int.Parse(Request.Form["id"]);
 
-            var c = await _db.Contenidos.FirstOrDefaultAsync(x => x.Id == id);
+            var c = await _db.Contenidos.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Id == id && x.Eliminado);
             if (c == null)
                 return new JsonResult(new { success = false, message = "Contenido no encontrado." });
 

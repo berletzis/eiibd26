@@ -381,6 +381,9 @@
             }
             /* allow left column to shrink on narrower viewports (avoid forced horizontal scrolling) */
             .mapa-left { min-width: 0; padding-left: 0; padding-right: 0; }
+
+            /* Mood panel stacks below map on tablet/mobile */
+            #mood-panel { width: 100% !important; flex: 0 0 auto !important; }
         }
 
         @@media (max-width:576px) {
@@ -748,6 +751,25 @@
                 }
                 <div id="mapCanvas" role="application" aria-label="Mapa de usuarios"></div>
             </div>
+
+            @if (estaAutenticado)
+            {
+                <aside id="mood-panel" style="width:300px;flex:0 0 300px;background:#fff;border:1px solid #e6eef6;border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:12px;overflow:hidden;" aria-label="Distribución de estado de ánimo">
+                    <h6 style="margin:0;font-weight:500;color:#172849;">Estado de ánimo</h6>
+                    <small id="mood-panel-subtitle" style="color:#6b7280;line-height:1.4;">
+                        Mood de usuarios que viven en <strong id="mood-country-label">todos los países</strong> (según su perfil)
+                    </small>
+                    <div id="moodLowDataWarning" style="display:none;font-size:0.8rem;color:#b45309;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:6px 10px;line-height:1.4;">
+                        ⚠️ Basado en pocos usuarios — este resultado puede no ser representativo de la población.
+                    </div>
+                    <div id="moodInsight" style="display:none;font-size:0.8rem;color:#047857;background:#d1fae5;border:1px solid #a7f3d0;border-radius:6px;padding:6px 10px;line-height:1.4;"></div>
+                    <div id="moodChartWrapper" style="position:relative;flex:1 1 auto;min-height:180px;">
+                        <canvas id="moodChart"></canvas>
+                        <div id="moodTimeline" style="display:none;overflow-y:auto;max-height:220px;"></div>
+                        <div id="moodChartEmpty" style="display:none;text-align:center;color:#9ca3af;font-size:0.875rem;padding-top:40px;">Sin datos para este filtro</div>
+                    </div>
+                </aside>
+            }
         </div>
     </div>
 </main>
@@ -810,6 +832,7 @@
     <script>
         // NO usamos callback=initMap en la URL.
         // Cargamos Google Maps dinámicamente y llamamos initMap desde onload.
+        const googleMapsApiKey = '@Html.Raw(Model.GoogleMapsApiKey)';
         function loadGoogleMaps() {
             if (window.google && window.google.maps) {
                 // Ya cargado (por hot reload, navegación, etc.)
@@ -823,7 +846,7 @@
             if (existing) return; // ya en proceso de carga
 
             const script = document.createElement('script');
-            script.src = "https://maps.googleapis.com/maps/api/js?key=AIzaSyBUUBxDv3VvzMmdR_pf9aFOd7frbTeUWXk";
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}`;
             script.async = true;
             script.defer = true;
             script.dataset.gmaps = "1";
@@ -1239,6 +1262,7 @@
                 clearCards();
                 clearMarkers();
                 window.loadNextBatch();
+                loadMoodDistribution();
             }, DEBOUNCE_MS);
 
             if (IS_AUTHENTICATED) {
@@ -1253,6 +1277,7 @@
                     clearCards();
                     clearMarkers();
                     window.loadNextBatch();
+                    loadMoodDistribution();
                 });
 
                 ['filter_country','filter_condition','filter_years'].forEach(function(id) {
@@ -1261,10 +1286,219 @@
                 });
             }
 
+            // =============================================
+            // MOOD DISTRIBUTION (Fase 1-4) — panel adaptativo
+            // Colores oficiales alineados con Dashboard (_DashboardColumn1.cshtml)
+            // =============================================
+            let moodChart = null;
+
+            // Mapping central de colores — idéntico al Dashboard (mapColor)
+            const MOOD_COLORS = {
+                5: '#38D6C1',  // Muy bien
+                4: '#B3F1E9',  // Bien
+                3: '#FEE019',  // Neutral
+                2: '#D8B4F8',  // Mal
+                1: '#9B5DE5'   // Muy mal
+            };
+
+            function ensureChartJs(callback) {
+                if (typeof Chart !== 'undefined') { callback(); return; }
+                const s = document.createElement('script');
+                s.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+                s.onload = callback;
+                s.onerror = function () { console.error('No se pudo cargar Chart.js'); };
+                document.head.appendChild(s);
+            }
+
+            function resetMoodPanel() {
+                const canvas    = document.getElementById('moodChart');
+                const timeline  = document.getElementById('moodTimeline');
+                const emptyEl   = document.getElementById('moodChartEmpty');
+                const warningEl = document.getElementById('moodLowDataWarning');
+                const insightEl2 = document.getElementById('moodInsight');
+                if (moodChart)   { try { moodChart.destroy(); } catch (e) {} moodChart = null; }
+                if (canvas)      { canvas.style.display    = 'none'; }
+                if (timeline)    { timeline.style.display   = 'none'; timeline.innerHTML = ''; }
+                if (emptyEl)     { emptyEl.style.display    = 'none'; }
+                if (warningEl)   { warningEl.style.display  = 'none'; }
+                if (insightEl2)  { insightEl2.style.display = 'none'; insightEl2.textContent = ''; }
+            }
+
+            function showMoodEmpty() {
+                resetMoodPanel();
+                const emptyEl = document.getElementById('moodChartEmpty');
+                if (emptyEl) emptyEl.style.display = 'block';
+            }
+
+            // Dispatcher principal — elige representación según usuariosUnicos
+            function renderMoodPanel(payload) {
+                resetMoodPanel();
+                const usuariosUnicos = payload.usuariosUnicos || 0;
+                const distribucion   = payload.distribucion  || [];
+                const timeline       = payload.timeline      || [];
+                const warningEl      = document.getElementById('moodLowDataWarning');
+
+                if (usuariosUnicos === 0 || distribucion.length === 0) {
+                    showMoodEmpty(); return;
+                }
+
+                // Actualizar subtítulo según tamaño de cohorte
+                var subtitleEl   = document.getElementById('mood-panel-subtitle');
+                var countryLabel = document.getElementById('mood-country-label');
+                var countryName  = countryLabel ? countryLabel.textContent : 'este país';
+                if (subtitleEl) {
+                    if (usuariosUnicos === 1) {
+                        subtitleEl.innerHTML = 'Tu estado de ánimo reciente en <strong id="mood-country-label">' + escapeHtml(countryName) + '</strong> (según tu perfil)';
+                    } else {
+                        subtitleEl.innerHTML = 'Mood de usuarios que viven en <strong id="mood-country-label">' + escapeHtml(countryName) + '</strong> (según su perfil)';
+                    }
+                }
+
+                // Aviso de pocos datos
+                if (warningEl && usuariosUnicos < 3) {
+                    warningEl.style.display = 'block';
+                }
+
+                // Insight automático
+                var insightEl = document.getElementById('moodInsight');
+                if (insightEl && payload.insight && payload.insight.estadoPredominante) {
+                    insightEl.textContent = 'Estado predominante: ' + payload.insight.estadoPredominante;
+                    insightEl.style.display = 'block';
+                }
+
+                if (usuariosUnicos <= 3) {
+                    // 1–3 usuarios → Timeline cronológico
+                    renderTimeline(timeline);
+                } else if (usuariosUnicos <= 9) {
+                    // 4–9 usuarios → Barra
+                    ensureChartJs(function () { renderBarChart(distribucion, usuariosUnicos); });
+                } else {
+                    // 10+ usuarios → Donut
+                    ensureChartJs(function () { renderDonut(distribucion); });
+                }
+            }
+
+            function renderTimeline(items) {
+                const timelineEl = document.getElementById('moodTimeline');
+                if (!timelineEl) return;
+                if (!items || items.length === 0) { showMoodEmpty(); return; }
+
+                const rows = items.map(function (item) {
+                    const color = MOOD_COLORS[item.estado] || '#e5e7eb';
+                    return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f3f4f6;">'
+                         + '<span style="width:10px;height:10px;border-radius:50%;background:' + color + ';flex-shrink:0;display:inline-block;"></span>'
+                         + '<span style="font-size:0.8rem;color:#6b7280;flex-shrink:0;min-width:38px;">' + escapeHtml(item.fecha) + '</span>'
+                         + '<span style="font-size:0.85rem;color:#374151;font-weight:500;">' + escapeHtml(item.estadoLabel) + '</span>'
+                         + '</div>';
+                }).join('');
+
+                timelineEl.innerHTML = rows;
+                timelineEl.style.display = 'block';
+            }
+
+            function renderBarChart(distribucion, usuariosUnicos) {
+                const canvas = document.getElementById('moodChart');
+                if (!canvas) return;
+                canvas.style.display = 'block';
+
+                if (moodChart) { try { moodChart.destroy(); } catch (e) {} }
+
+                const labels = distribucion.map(function (x) { return x.estadoLabel; });
+                const values = distribucion.map(function (x) { return x.conteo; });
+                const colors = distribucion.map(function (x) { return MOOD_COLORS[x.estado] || '#e5e7eb'; });
+
+                const ctx = canvas.getContext('2d');
+                moodChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{ data: values, backgroundColor: colors, borderWidth: 1 }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (ctx) {
+                                        const d = distribucion[ctx.dataIndex];
+                                        return ' ' + d.conteo + ' usuarios (' + d.porcentaje + '%)';
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: '#f3f4f6' } },
+                            x: { ticks: { font: { size: 10 } }, grid: { display: false } }
+                        }
+                    }
+                });
+            }
+
+            function renderDonut(distribucion) {
+                const canvas = document.getElementById('moodChart');
+                if (!canvas) return;
+                canvas.style.display = 'block';
+
+                if (moodChart) { try { moodChart.destroy(); } catch (e) {} }
+
+                const labels = distribucion.map(function (x) { return x.estadoLabel + ' (' + x.conteo + ')'; });
+                const values = distribucion.map(function (x) { return x.conteo; });
+                const colors = distribucion.map(function (x) { return MOOD_COLORS[x.estado] || '#e5e7eb'; });
+
+                const ctx = canvas.getContext('2d');
+                moodChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{ data: values, backgroundColor: colors, borderWidth: 1 }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 8 } },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (ctx) {
+                                        const d = distribucion[ctx.dataIndex];
+                                        return ' ' + d.conteo + ' usuarios (' + d.porcentaje + '%)';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            async function loadMoodDistribution() {
+                if (!IS_AUTHENTICATED) return;
+                const country = document.getElementById('filter_country').value || '';
+                const label = document.getElementById('mood-country-label');
+                if (label) {
+                    const sel = document.getElementById('filter_country');
+                    const opt = sel && sel.selectedOptions && sel.selectedOptions.length ? sel.selectedOptions[0] : null;
+                    const countryName = opt && opt.text && opt.text !== '(Todos)' ? opt.text : 'todos los países';
+                    label.textContent = countryName;
+                }
+                try {
+                    const qs = country ? '&country=' + encodeURIComponent(country) : '';
+                    const res = await fetch(window.location.pathname + '?handler=MoodDistribution' + qs, { credentials: 'same-origin' });
+                    if (!res.ok) throw new Error('MoodDistribution response: ' + res.status);
+                    const payload = await res.json();
+                    renderMoodPanel(payload);
+                } catch (e) {
+                    console.error('Error cargando mood distribution', e);
+                    showMoodEmpty();
+                }
+            }
+
             cardsScroll.addEventListener('scroll', onScroll);
 
             // cargar datos y luego Google Maps
             window.loadNextBatch();
+            if (IS_AUTHENTICATED) loadMoodDistribution();
             loadGoogleMaps();
         })();
     </script>
