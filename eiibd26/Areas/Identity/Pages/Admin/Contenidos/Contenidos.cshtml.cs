@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 {
     [Authorize(Roles = "Administrador")]
+    [IgnoreAntiforgeryToken]
     public class ContenidosModel : PageModel
     {
         private readonly ApplicationDbContext _db;
@@ -60,7 +61,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 query = query.Where(c => !c.Eliminado);
 
             if (!mostrarBorradores)
-                query = query.Where(c => c.EstadoPublicacion != null && c.EstadoPublicacion != 0);
+                query = query.Where(c => c.EstadoPublicacion.HasValue && c.EstadoPublicacion != 0);
 
             if (!string.IsNullOrEmpty(searchValue))
                 query = query.Where(c =>

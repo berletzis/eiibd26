@@ -16,6 +16,7 @@ using eiibd26.Models;
 
 namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 {
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Administrador")]
     public class DetalleModel : PageModel
     {
         private readonly ApplicationDbContext _db;

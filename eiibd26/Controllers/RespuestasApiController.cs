@@ -22,17 +22,20 @@ namespace eiibd26.Controllers
         private readonly ILogger<RespuestasApiController> _logger;
         private readonly IHostEnvironment _env;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly eiibd26.Services.PushNotificationService _pushService;
 
         public RespuestasApiController(
               ApplicationDbContext db,
               ILogger<RespuestasApiController> logger,
               IHostEnvironment env,
-              UserManager<ApplicationUser> userManager)
+              UserManager<ApplicationUser> userManager,
+              eiibd26.Services.PushNotificationService pushService)
         {
             _db = db;
             _logger = logger;
             _env = env;
             _userManager = userManager;
+            _pushService = pushService;
         }
 
 
@@ -148,6 +151,12 @@ namespace eiibd26.Controllers
 
                 _db.Respuestas.Add(respuesta);
                 await _db.SaveChangesAsync();
+
+                // Notificación PUSH al autor de la pregunta (no si se responde a sí mismo)
+                if (pregunta.UsuarioId != userId)
+                {
+                    _ = EnviarPushNuevaRespuestaAsync(respuesta.Id, pregunta.UsuarioId, pregunta.Id, pregunta.Titulo);
+                }
 
                 // Devuelvo OK con el id creado (evita 500 por Location header generation)
                 return Ok(new { id = respuesta.Id });
@@ -295,6 +304,40 @@ namespace eiibd26.Controllers
                 _logger.LogError(ex, "Error al procesar VotarRespuesta id={Id}", id);
                 var detail = _env.IsDevelopment() ? ex.ToString() : "Error interno al procesar el voto.";
                 return Problem(detail: detail);
+            }
+        }
+
+        /// <summary>
+        /// Crea una PushNotification de tipo "Respuesta" y la envía únicamente al autor de la pregunta.
+        /// Se ejecuta en background para no bloquear la respuesta HTTP al cliente.
+        /// </summary>
+        private async Task EnviarPushNuevaRespuestaAsync(Guid respuestaId, Guid ownerUserId, Guid preguntaId, string preguntaTitulo)
+        {
+            try
+            {
+                var tituloCorto = preguntaTitulo.Length > 80
+                    ? preguntaTitulo[..77] + "..."
+                    : preguntaTitulo;
+
+                var notification = new eiibd26.Models.PushNotification
+                {
+                    Title = "Nueva respuesta a tu pregunta",
+                    Body = tituloCorto,
+                    Icon = "/img/icons/icon-192x192.png",
+                    Url = $"/Preguntas/Detalles/{preguntaId}",
+                    Tipo = "Respuesta",
+                    TargetUserIds = System.Text.Json.JsonSerializer.Serialize(new[] { ownerUserId })
+                };
+
+                _db.PushNotifications.Add(notification);
+                await _db.SaveChangesAsync();
+
+                await _pushService.SendNotificationToUserAsync(notification.Id, ownerUserId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error enviando push de nueva respuesta {RespuestaId} al usuario {UserId}",
+                    respuestaId, ownerUserId);
             }
         }
     }

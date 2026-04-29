@@ -38,6 +38,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Notifications
         {
             public string? TemplateType { get; set; } = "custom";
 
+            [Required(ErrorMessage = "El tipo es obligatorio")]
+            public string Tipo { get; set; } = "General";
+
             [Required(ErrorMessage = "El título es obligatorio")]
             [StringLength(100, ErrorMessage = "El título no puede exceder los 100 caracteres")]
             public string Title { get; set; } = string.Empty;
@@ -118,7 +121,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Notifications
                     Body = Input.Body,
                     Icon = string.IsNullOrWhiteSpace(Input.Icon) ? "/img/icons/icon-192x192.png" : Input.Icon,
                     Url = string.IsNullOrWhiteSpace(Input.Url) ? "/" : Input.Url,
-                    CreatedBy = createdBy
+                    CreatedBy = createdBy,
+                    Tipo = Input.Tipo
                 };
 
                 // Handle targeting
@@ -168,6 +172,20 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Notifications
                         var localDateTime = DateTime.SpecifyKind(scheduledDateTime, DateTimeKind.Local);
                         notification.ScheduledFor = new DateTimeOffset(localDateTime);
                     }
+                }
+
+                // Guarda anti-doble-POST: bloquea notificaciones idénticas creadas en los últimos 10 segundos
+                var ventana = DateTimeOffset.UtcNow.AddSeconds(-10);
+                var existe = await _db.PushNotifications.AnyAsync(n =>
+                    n.Title == notification.Title &&
+                    n.Body == notification.Body &&
+                    n.CreatedBy == notification.CreatedBy &&
+                    n.CreatedAt >= ventana);
+
+                if (existe)
+                {
+                    TempData["Error"] = "Ya se creó una notificación idéntica recientemente. Espera unos segundos antes de intentarlo de nuevo.";
+                    return RedirectToPage("Index");
                 }
 
                 _db.PushNotifications.Add(notification);
@@ -221,6 +239,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Notifications
                     Input.Body = "Comparte tu estado de ánimo con la comunidad";
                     Input.Icon = "/img/icons/icon-192x192.png";
                     Input.Url = "";
+                    Input.Tipo = "Mood";
                     break;
 
                 case "medication":
@@ -228,6 +247,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Notifications
                     Input.Body = "Recuerda tomar tu medicamento de hoy";
                     Input.Icon = "/img/icons/icon-192x192.png";
                     Input.Url = "";
+                    Input.Tipo = "Recordatorio";
                     break;
 
             }

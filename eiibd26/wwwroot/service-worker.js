@@ -167,7 +167,7 @@ async function handleNotificationAction(event) {
   try {
     // === ESTADO DE ÁNIMO ===
     if (action.startsWith('mood-')) {
-      const mood = action.replace('mood-', ''); // "bien", "normal", "mal"
+      const mood = action.replace('mood-', '');
 
       // Mapear a valores del enum (1-5)
       const moodMap = {
@@ -178,17 +178,18 @@ async function handleNotificationAction(event) {
         'muy-bien': 5
       };
 
-      const moodValue = moodMap[mood] || 3; // Default: normal
+      const moodValue = moodMap[mood] || 3;
 
-      // Usar FormData en lugar de JSON (el controlador existente usa [FromForm])
-      const formData = new FormData();
-      formData.append('mood', moodValue.toString());
-      // No agregar texto - dejar vacío cuando viene de notificación
+      // Token de un solo uso embebido en el payload (sin cookie ni sesión)
+      const moodToken = actionData?.moodToken;
+      if (!moodToken) {
+        console.warn('[SW] No moodToken in actionData — ignorando acción mood');
+        return;
+      }
 
-      const response = await fetch('/api/EstadoAnimoUsuario/nuevo', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include'
+      const params = new URLSearchParams({ token: moodToken, valor: moodValue });
+      const response = await fetch(`/api/mood/quick?${params}`, {
+        method: 'POST'
       });
 
       if (response.ok) {

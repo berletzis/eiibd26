@@ -215,6 +215,8 @@ builder.Services.AddTransient<ISmsSender, TwilioSmsSender>();
 
 // PWA Push Notifications
 builder.Services.AddScoped<eiibd26.Services.PushNotificationService>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<eiibd26.Services.IPushMoodTokenService, eiibd26.Services.PushMoodTokenService>();
 
 // Search Suggestions (sin IA)
 builder.Services.AddScoped<eiibd26.Services.SearchSuggestionService>();

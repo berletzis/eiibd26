@@ -42,9 +42,9 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             if (string.IsNullOrWhiteSpace(userIdClaim)) return;
             if (!Guid.TryParse(userIdClaim, out var userGuid)) return;
 
-            // Período del dashboard: últimos 7 días (alineado con charts y comparable con PDF)
+            // Período del dashboard: últimos 30 días (consistente con PDF "Último mes" y perfil público)
             var hasta = DateTime.Today;
-            var desde = hasta.AddDays(-6);
+            var desde = hasta.AddDays(-30);
 
             // ---------- Moods ----------
             var moods = await _db.EstadoAnimoUsuario

@@ -39,6 +39,11 @@ namespace eiibd26.Models
 
         public int TotalFailed { get; set; } = 0;
 
+        /// <summary>Tipo estructurado de notificación: Mood, Respuesta, Recordatorio, General</summary>
+        [Required]
+        [MaxLength(50)]
+        public string Tipo { get; set; } = "General";
+
         // Navigation - Especificar FK explícitamente
         [ForeignKey("CreatedBy")]
         public virtual ApplicationUser? Creator { get; set; }

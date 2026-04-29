@@ -72,6 +72,19 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Notifications
 
         public async Task<IActionResult> OnPostSendAsync(Guid id)
         {
+            var notification = await _db.PushNotifications.FindAsync(id);
+            if (notification == null)
+            {
+                TempData["Error"] = "Notificación no encontrada.";
+                return RedirectToPage();
+            }
+
+            if (notification.IsSent)
+            {
+                TempData["Error"] = "La notificación ya fue enviada y no puede reenviarse.";
+                return RedirectToPage();
+            }
+
             try
             {
                 var (sent, failed) = await _pushService.SendNotificationAsync(id);

@@ -31,8 +31,8 @@ namespace eiibd26.Controllers
             if (string.IsNullOrWhiteSpace(userIdClaim)) return Unauthorized();
             var userGuid = Guid.Parse(userIdClaim);
 
-            // 1) Moods - últimos 5 días
-            var desde = DateTime.Today.AddDays(-4); // últimos 5 días incluyendo hoy
+            // 1) Moods - últimos 30 días (consistente con PDF "Último mes" y perfil público)
+            var desde = DateTime.Today.AddDays(-30);
             var moods = await _db.EstadoAnimoUsuario
                 .Where(x => x.IdUsuario == userGuid && x.FechaRegistro >= desde && !x.Eliminado)
                 .OrderBy(x => x.FechaRegistro)
@@ -68,9 +68,9 @@ namespace eiibd26.Controllers
 
             relaciones.AddRange(tratamientosUsuario);
 
-            // 3) Top 3 síntomas por interacción (TrackingSintomaUsuario.IdSintomaUsuario)
+            // 3) Top 3 síntomas por interacción (TrackingSintomaUsuario.IdSintomaUsuario) - últimos 30 días
             var topSintomas = await _db.TrackingSintomaUsuario
-                .Where(t => t.IdUsuario == userGuid)
+                .Where(t => t.IdUsuario == userGuid && t.Fecha >= desde)
                 .GroupBy(t => t.IdSintomaUsuario)
                 .Select(g => new { IdSintomaUsuario = g.Key, Count = g.Count() })
                 .OrderByDescending(x => x.Count)
