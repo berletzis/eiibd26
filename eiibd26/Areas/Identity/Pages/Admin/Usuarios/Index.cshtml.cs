@@ -804,7 +804,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios
 
             var elegibles = await elegiblesQuery
                 .OrderBy(u => u.Email)
-                .Take(10)
+                .Take(100)
                 .Select(u => new { u.Id, u.Email, u.UserName })
                 .ToListAsync();
 

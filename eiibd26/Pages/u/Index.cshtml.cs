@@ -329,13 +329,8 @@ namespace eiibd26.Pages.u
                 {
                     foreach (var cond in PerfilPublico.Condiciones)
                     {
-                        if (cond.FechaInicio.HasValue)
-                        {
-                            var age = perfil.FechaDeNacimiento.Value;
-                            var diff = cond.FechaInicio.Value - age;
-                            var years = (int)Math.Floor(diff.TotalDays / 365.25);
-                            cond.EdadDiagnostico = years >= 0 && years < 120 ? years : (int?)null;
-                        }
+                        cond.EdadDiagnostico = Helpers.DateCalculationHelper
+                            .CalcularEdadAlDiagnostico(perfil.FechaDeNacimiento.Value, cond.FechaInicio);
                     }
                 }
 

@@ -362,24 +362,16 @@ namespace eiibd26.Pages.Mapa
                     int? yearsSinceDiagnosis = null;
                     if (o.condFechaInicio.HasValue && o.condFechaInicio.Value > minValidDate && o.condFechaInicio.Value <= now)
                     {
-                        var span = now - o.condFechaInicio.Value;
-                        if (span.TotalDays < 30.44)
-                        {
+                        var (anios, meses) = eiibd26.Helpers.DateCalculationHelper
+                            .CalcularDuracion(o.condFechaInicio.Value, DateTime.Today);
+                        yearsSinceDiagnosis = anios;
+
+                        if (anios == 0 && meses == 0)
                             diagnosisAgeText = "Menos de 1 mes";
-                            yearsSinceDiagnosis = 0;
-                        }
-                        else if (span.TotalDays < 365)
-                        {
-                            var months = (int)Math.Floor(span.TotalDays / 30.44);
-                            diagnosisAgeText = months + (months == 1 ? " mes" : " meses");
-                            yearsSinceDiagnosis = 0;
-                        }
+                        else if (anios == 0)
+                            diagnosisAgeText = meses == 1 ? "1 mes" : $"{meses} meses";
                         else
-                        {
-                            var years = (int)Math.Floor(span.TotalDays / 365.25);
-                            diagnosisAgeText = years == 1 ? "1 año" : (years + " años");
-                            yearsSinceDiagnosis = years;
-                        }
+                            diagnosisAgeText = anios == 1 ? "1 año" : $"{anios} años";
                     }
 
                     return new

@@ -81,7 +81,6 @@ namespace eiibd26.Services.Glossary
                     .AsNoTracking()
                     .Where(gt => gt.TipoTermino == tipo && gt.Activo)
                     .OrderBy(gt => gt.Nombre)
-                    .Take(200)
                     .Select(gt => new GlossaryTermDto
                     {
                         Id = gt.Id,

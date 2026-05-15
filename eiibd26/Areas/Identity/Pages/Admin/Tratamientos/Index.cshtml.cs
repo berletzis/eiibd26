@@ -212,6 +212,21 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
 
             await _db.SaveChangesAsync();
 
+            // Propagar el nombre al GlossaryTerm vinculado (si existe)
+            var link = await _db.GlossaryTermMedicalLinks
+                .FirstOrDefaultAsync(l => l.TratamientoId == id);
+            if (link != null)
+            {
+                var glossaryTerm = await _db.GlossaryTerms
+                    .FirstOrDefaultAsync(g => g.Id == link.GlossaryTermId);
+                if (glossaryTerm != null && !string.IsNullOrWhiteSpace(nombre))
+                {
+                    glossaryTerm.Nombre = nombre;
+                    glossaryTerm.FechaActualizacion = DateTime.UtcNow;
+                    await _db.SaveChangesAsync();
+                }
+            }
+
             return new JsonResult(new { success = true });
         }
 

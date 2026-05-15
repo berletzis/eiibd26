@@ -123,7 +123,7 @@ namespace eiibd26.Controllers
             foreach (var q in preguntas)
             {
                 if (string.IsNullOrWhiteSpace(q.Slug)) continue;
-                var loc = $"{hostBase}/Preguntas/{Uri.EscapeUriString(q.Slug)}";
+                var loc = $"{hostBase}/Preguntas/{Uri.EscapeDataString(q.Slug)}";
                 if (seen.Add(loc))
                 {
                     entries.Add(new UrlEntry { Loc = loc, LastMod = q.LastMod, ChangeFreq = "weekly", Priority = "0.5" });

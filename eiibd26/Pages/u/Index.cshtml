@@ -108,7 +108,8 @@
             string timeSinceDiagnosis = null;
             if (firstCond?.FechaInicio.HasValue == true)
             {
-                var years = (int)Math.Floor((DateTime.UtcNow - firstCond.FechaInicio.Value).TotalDays / 365.25);
+                var (years, _) = eiibd26.Helpers.DateCalculationHelper
+                    .CalcularDuracion(firstCond.FechaInicio.Value, DateTime.Today);
                 if (years >= 0) timeSinceDiagnosis = $"P{years}Y";
             }
 
@@ -742,31 +743,8 @@
                         @if (Model.PerfilPublico.Condiciones.Any())
                         {
                             var primeraCondicion = Model.PerfilPublico.Condiciones.First();
-                            var tiempoConCondicion = "";
-                            if (primeraCondicion.FechaInicio.HasValue)
-                            {
-                                var meses = ((DateTime.Now.Year - primeraCondicion.FechaInicio.Value.Year) * 12) +
-                                (DateTime.Now.Month - primeraCondicion.FechaInicio.Value.Month);
-                                var años = meses / 12;
-                                var mesesRestantes = meses % 12;
-
-                                if (años > 0)
-                                {
-                                    tiempoConCondicion = años == 1 ? "1 año" : $"{años} años";
-                                    if (mesesRestantes > 0)
-                                    {
-                                        tiempoConCondicion += $" y {mesesRestantes} {(mesesRestantes == 1 ? "mes" : "meses")}";
-                                    }
-                                }
-                                else if (meses > 0)
-                                {
-                                    tiempoConCondicion = meses == 1 ? "1 mes" : $"{meses} meses";
-                                }
-                                else
-                                {
-                                    tiempoConCondicion = "Reciente";
-                                }
-                            }
+                            var tiempoConCondicion = eiibd26.Helpers.DateCalculationHelper
+                                .FormatearDuracion(primeraCondicion.FechaInicio);
 
                             <div style="display:flex; flex-direction:column; align-items:flex-start; gap:0.25rem;">
                                 <div style="display:flex; align-items:center; width:100%; max-width:560px; gap:0.5rem;">
