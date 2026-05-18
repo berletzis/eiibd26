@@ -633,7 +633,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios
                 reset_link = resetLink
             };
 
-            const string defaultTemplateId = "d-3304c970e0164cbdaa14bfeff2369920";
+            var defaultTemplateId = _configuration.GetSection("SendGrid:Templates")
+                .Get<List<SendGridTemplateInfo>>()
+                ?.FirstOrDefault(t => t.Fase == 0)?.Id ?? string.Empty;
             var selectedTemplateId = !string.IsNullOrWhiteSpace(input.TemplateId) ? input.TemplateId : defaultTemplateId;
 
             await _emailSender.SendDynamicTemplateAsync(

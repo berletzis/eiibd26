@@ -15,7 +15,7 @@ namespace eiibd26.Pages.Home
         private readonly ApplicationDbContext _db;
         public UsersMapPartialModel(ApplicationDbContext db) { _db = db; }
 
-        // Países para el combobox
+        // Paï¿½ses para el combobox
         public List<(string Code, string Name)> Countries { get; set; } = new();
 
         // JSON con perfiles (para inyectar en la vista)
@@ -23,7 +23,7 @@ namespace eiibd26.Pages.Home
 
         public async Task OnGetAsync()
         {
-            // Cargar países
+            // Cargar paï¿½ses
             try
             {
                 var paises = await _db.Paises
@@ -40,16 +40,36 @@ namespace eiibd26.Pages.Home
                 Countries = new List<(string, string)>();
             }
 
-            // Cargar perfiles con lat/lng (Perfil.Latitud / Perfil.Longitud en tu modelo)
+            // Obtener el ID del rol "Paciente"
+            var pacienteRoleId = await _db.Roles
+                .Where(r => r.Name == "Paciente")
+                .Select(r => r.Id)
+                .FirstOrDefaultAsync();
+
+            if (pacienteRoleId == null)
+            {
+                ProfilesJson = "[]";
+                return;
+            }
+
+            var usersWithPacienteRole = _db.UserRoles
+                .Where(ur => ur.RoleId == pacienteRoleId)
+                .Select(ur => ur.UserId);
+
+            // Cargar perfiles con lat/lng filtrados por rol Paciente
             var raw = await _db.Perfil
                 .AsNoTracking()
-                .Where(p => !string.IsNullOrWhiteSpace(p.Latitud) && !string.IsNullOrWhiteSpace(p.Longitud))
+                .Where(p =>
+                    !string.IsNullOrWhiteSpace(p.Latitud) &&
+                    !string.IsNullOrWhiteSpace(p.Longitud) &&
+                    usersWithPacienteRole.Contains(p.idUser)
+                )
                 .Select(p => new
                 {
                     p.idUser,
                     Name = p.Nombre,
                     Country = p.NombrePais,
-                    CountryCode = p.NombrePais, // si tienes un código distinto, ajusta aquí
+                    CountryCode = p.NombrePais,
                     Latitude = p.Latitud,
                     Longitude = p.Longitud
                 })

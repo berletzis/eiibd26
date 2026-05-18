@@ -496,6 +496,7 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             Perfil.Apellidos    = Perfil.Apellidos?.Trim();
             Perfil.AcercaDe     = Perfil.AcercaDe?.Trim();
             Perfil.NombreCiudad = Perfil.NombreCiudad?.Trim();
+            Perfil.NombrePais   = Perfil.NombrePais?.Trim().ToUpperInvariant();
             Perfil.slug         = Perfil.slug?.Trim();
 
             if (string.IsNullOrWhiteSpace(Perfil.Avatar))

@@ -382,8 +382,6 @@
             /* allow left column to shrink on narrower viewports (avoid forced horizontal scrolling) */
             .mapa-left { min-width: 0; padding-left: 0; padding-right: 0; }
 
-            /* Mood panel stacks below map on tablet/mobile */
-            #mood-panel { width: 100% !important; flex: 0 0 auto !important; }
         }
 
         @@media (max-width:576px) {
@@ -432,6 +430,62 @@
             .mapa-controls { flex-direction: column; gap: 10px; }
             .mapa-controls > div { width: 100%; }
             .mapa-controls .form-select { min-width: 0 !important; width: 100% !important; }
+        }
+
+        /* ====== BANDA HORIZONTAL DE MOOD ====== */
+        .mood-band-wrap {
+            padding: 0 18px 14px 18px;
+        }
+
+        .mood-band {
+            display: flex;
+            gap: 4px;
+            height: 52px;
+            width: 100%;
+            align-items: stretch;
+        }
+
+        .mood-band-seg {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            cursor: default;
+            transition: filter 0.15s ease;
+            min-width: 0;
+        }
+
+            .mood-band-seg:first-child { border-radius: 8px 0 0 8px; }
+            .mood-band-seg:last-child  { border-radius: 0 8px 8px 0; }
+            .mood-band-seg:only-child  { border-radius: 8px; }
+            .mood-band-seg:hover       { filter: brightness(0.9); }
+
+        .mood-band-seg-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 8px;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+            pointer-events: none;
+        }
+
+        .mood-band-empty {
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #9ca3af;
+            font-size: 0.875rem;
+            background: #f9fafb;
+            border-radius: 8px;
+            border: 1px dashed #e5e7eb;
+        }
+
+        @@media (max-width: 576px) {
+            .mood-band-wrap { padding-left: 6px; padding-right: 6px; }
         }
 
         .loading-indicator {
@@ -727,6 +781,14 @@
         </div>
     </div>
 
+    @if (estaAutenticado)
+    {
+        <div class="mood-band-wrap" aria-label="Distribución de estado de ánimo">
+            <div id="moodBand" class="mood-band"></div>
+            <div id="moodBandEmpty" class="mood-band-empty" style="display:none;">Sin datos de estado de ánimo para este filtro</div>
+        </div>
+    }
+
     <div class="mapa-main-wrap">
         <div class="mapa-split" role="main">
             <aside class="mapa-left" aria-label="Listado de usuarios filtrados">
@@ -751,25 +813,6 @@
                 }
                 <div id="mapCanvas" role="application" aria-label="Mapa de usuarios"></div>
             </div>
-
-            @if (estaAutenticado)
-            {
-                <aside id="mood-panel" style="width:300px;flex:0 0 300px;background:#fff;border:1px solid #e6eef6;border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:12px;overflow:hidden;" aria-label="Distribución de estado de ánimo">
-                    <h6 style="margin:0;font-weight:500;color:#172849;">Estado de ánimo</h6>
-                    <small id="mood-panel-subtitle" style="color:#6b7280;line-height:1.4;">
-                        Mood de usuarios que viven en <strong id="mood-country-label">todos los países</strong> (según su perfil)
-                    </small>
-                    <div id="moodLowDataWarning" style="display:none;font-size:0.8rem;color:#b45309;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:6px 10px;line-height:1.4;">
-                        ⚠️ Basado en pocos usuarios — este resultado puede no ser representativo de la población.
-                    </div>
-                    <div id="moodInsight" style="display:none;font-size:0.8rem;color:#047857;background:#d1fae5;border:1px solid #a7f3d0;border-radius:6px;padding:6px 10px;line-height:1.4;"></div>
-                    <div id="moodChartWrapper" style="position:relative;flex:1 1 auto;min-height:180px;">
-                        <canvas id="moodChart"></canvas>
-                        <div id="moodTimeline" style="display:none;overflow-y:auto;max-height:220px;"></div>
-                        <div id="moodChartEmpty" style="display:none;text-align:center;color:#9ca3af;font-size:0.875rem;padding-top:40px;">Sin datos para este filtro</div>
-                    </div>
-                </aside>
-            }
         </div>
     </div>
 </main>
@@ -960,7 +1003,7 @@
                 const avatar = profile.avatar || '';
                 const id = profile.id || profile.idUser || '';
                 const src = '/img/default-avatar.png';
-                return '<img src="' + src + '" data-avatar="' + escapeHtml(avatar) + '" data-userid="' + escapeHtml(String(id)) + '" class="ums-avatar" alt="' + escapeHtml(profile.name || 'Usuario') + '" loading="lazy" />';
+                return '<img src="' + src + '" data-avatar="' + escapeHtml(avatar) + '" data-userid="' + escapeHtml(String(id)) + '" class="ums-avatar" alt="' + escapeHtml(profile.name || 'Usuario') + '" loading="lazy" onerror="this.onerror=null; this.src=\'/img/default-avatar.png\';" />';
             }
 
             // ✅ CAMBIO: Función actualizada para trabajar con valores numéricos (1-5)
@@ -981,7 +1024,7 @@
             }
 
             function buildCardHtml(p) {
-                const displayName = p.name || 'Usuario';
+                const displayName = p.name || 'Paciente con';
                 const condName = p.condicionNombre || '';
                 const userSlug = p.slug || '';
                 const profileUrl = userSlug ? '/u/' + encodeURIComponent(userSlug) : '#';
@@ -1290,8 +1333,6 @@
             // MOOD DISTRIBUTION (Fase 1-4) — panel adaptativo
             // Colores oficiales alineados con Dashboard (_DashboardColumn1.cshtml)
             // =============================================
-            let moodChart = null;
-
             // Mapping central de colores — idéntico al Dashboard (mapColor)
             const MOOD_COLORS = {
                 5: '#38D6C1',  // Muy bien
@@ -1301,196 +1342,55 @@
                 1: '#9B5DE5'   // Muy mal
             };
 
-            function ensureChartJs(callback) {
-                if (typeof Chart !== 'undefined') { callback(); return; }
-                const s = document.createElement('script');
-                s.src = 'https://cdn.jsdelivr.net/npm/chart.js';
-                s.onload = callback;
-                s.onerror = function () { console.error('No se pudo cargar Chart.js'); };
-                document.head.appendChild(s);
-            }
+            function renderBand(distribucion) {
+                const band    = document.getElementById('moodBand');
+                const emptyEl = document.getElementById('moodBandEmpty');
+                if (!band) return;
 
-            function resetMoodPanel() {
-                const canvas    = document.getElementById('moodChart');
-                const timeline  = document.getElementById('moodTimeline');
-                const emptyEl   = document.getElementById('moodChartEmpty');
-                const warningEl = document.getElementById('moodLowDataWarning');
-                const insightEl2 = document.getElementById('moodInsight');
-                if (moodChart)   { try { moodChart.destroy(); } catch (e) {} moodChart = null; }
-                if (canvas)      { canvas.style.display    = 'none'; }
-                if (timeline)    { timeline.style.display   = 'none'; timeline.innerHTML = ''; }
-                if (emptyEl)     { emptyEl.style.display    = 'none'; }
-                if (warningEl)   { warningEl.style.display  = 'none'; }
-                if (insightEl2)  { insightEl2.style.display = 'none'; insightEl2.textContent = ''; }
-            }
+                band.innerHTML = '';
 
-            function showMoodEmpty() {
-                resetMoodPanel();
-                const emptyEl = document.getElementById('moodChartEmpty');
-                if (emptyEl) emptyEl.style.display = 'block';
-            }
-
-            // Dispatcher principal — elige representación según usuariosUnicos
-            function renderMoodPanel(payload) {
-                resetMoodPanel();
-                const usuariosUnicos = payload.usuariosUnicos || 0;
-                const distribucion   = payload.distribucion  || [];
-                const timeline       = payload.timeline      || [];
-                const warningEl      = document.getElementById('moodLowDataWarning');
-
-                if (usuariosUnicos === 0 || distribucion.length === 0) {
-                    showMoodEmpty(); return;
+                if (!distribucion || distribucion.length === 0) {
+                    band.style.display = 'none';
+                    if (emptyEl) emptyEl.style.display = 'flex';
+                    return;
                 }
 
-                // Actualizar subtítulo según tamaño de cohorte
-                var subtitleEl   = document.getElementById('mood-panel-subtitle');
-                var countryLabel = document.getElementById('mood-country-label');
-                var countryName  = countryLabel ? countryLabel.textContent : 'este país';
-                if (subtitleEl) {
-                    if (usuariosUnicos === 1) {
-                        subtitleEl.innerHTML = 'Tu estado de ánimo reciente en <strong id="mood-country-label">' + escapeHtml(countryName) + '</strong> (según tu perfil)';
-                    } else {
-                        subtitleEl.innerHTML = 'Mood de usuarios que viven en <strong id="mood-country-label">' + escapeHtml(countryName) + '</strong> (según su perfil)';
+                band.style.display = 'flex';
+                if (emptyEl) emptyEl.style.display = 'none';
+
+                const lightStates = [3, 4]; // Neutral (#FEE019) y Bien (#B3F1E9) — fondo claro
+
+                distribucion.forEach(function (item) {
+                    const seg = document.createElement('div');
+                    seg.className = 'mood-band-seg';
+                    seg.style.flex = item.conteo + ' 0 0';
+                    seg.style.background = MOOD_COLORS[item.estado] || '#e5e7eb';
+                    seg.title = item.estadoLabel + ' · ' + item.conteo + ' usuarios · ' + item.porcentaje + '%';
+
+                    const label = document.createElement('span');
+                    label.className = 'mood-band-seg-label';
+                    label.textContent = item.estadoLabel + ' ' + item.porcentaje + '%';
+                    if (lightStates.includes(item.estado)) {
+                        label.style.color = '#374151';
+                        label.style.textShadow = 'none';
                     }
-                }
-
-                // Aviso de pocos datos
-                if (warningEl && usuariosUnicos < 3) {
-                    warningEl.style.display = 'block';
-                }
-
-                // Insight automático
-                var insightEl = document.getElementById('moodInsight');
-                if (insightEl && payload.insight && payload.insight.estadoPredominante) {
-                    insightEl.textContent = 'Estado predominante: ' + payload.insight.estadoPredominante;
-                    insightEl.style.display = 'block';
-                }
-
-                if (usuariosUnicos <= 3) {
-                    // 1–3 usuarios → Timeline cronológico
-                    renderTimeline(timeline);
-                } else if (usuariosUnicos <= 9) {
-                    // 4–9 usuarios → Barra
-                    ensureChartJs(function () { renderBarChart(distribucion, usuariosUnicos); });
-                } else {
-                    // 10+ usuarios → Donut
-                    ensureChartJs(function () { renderDonut(distribucion); });
-                }
-            }
-
-            function renderTimeline(items) {
-                const timelineEl = document.getElementById('moodTimeline');
-                if (!timelineEl) return;
-                if (!items || items.length === 0) { showMoodEmpty(); return; }
-
-                const rows = items.map(function (item) {
-                    const color = MOOD_COLORS[item.estado] || '#e5e7eb';
-                    return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f3f4f6;">'
-                         + '<span style="width:10px;height:10px;border-radius:50%;background:' + color + ';flex-shrink:0;display:inline-block;"></span>'
-                         + '<span style="font-size:0.8rem;color:#6b7280;flex-shrink:0;min-width:38px;">' + escapeHtml(item.fecha) + '</span>'
-                         + '<span style="font-size:0.85rem;color:#374151;font-weight:500;">' + escapeHtml(item.estadoLabel) + '</span>'
-                         + '</div>';
-                }).join('');
-
-                timelineEl.innerHTML = rows;
-                timelineEl.style.display = 'block';
-            }
-
-            function renderBarChart(distribucion, usuariosUnicos) {
-                const canvas = document.getElementById('moodChart');
-                if (!canvas) return;
-                canvas.style.display = 'block';
-
-                if (moodChart) { try { moodChart.destroy(); } catch (e) {} }
-
-                const labels = distribucion.map(function (x) { return x.estadoLabel; });
-                const values = distribucion.map(function (x) { return x.conteo; });
-                const colors = distribucion.map(function (x) { return MOOD_COLORS[x.estado] || '#e5e7eb'; });
-
-                const ctx = canvas.getContext('2d');
-                moodChart = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: labels,
-                        datasets: [{ data: values, backgroundColor: colors, borderWidth: 1 }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                callbacks: {
-                                    label: function (ctx) {
-                                        const d = distribucion[ctx.dataIndex];
-                                        return ' ' + d.conteo + ' usuarios (' + d.porcentaje + '%)';
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: '#f3f4f6' } },
-                            x: { ticks: { font: { size: 10 } }, grid: { display: false } }
-                        }
-                    }
-                });
-            }
-
-            function renderDonut(distribucion) {
-                const canvas = document.getElementById('moodChart');
-                if (!canvas) return;
-                canvas.style.display = 'block';
-
-                if (moodChart) { try { moodChart.destroy(); } catch (e) {} }
-
-                const labels = distribucion.map(function (x) { return x.estadoLabel + ' (' + x.conteo + ')'; });
-                const values = distribucion.map(function (x) { return x.conteo; });
-                const colors = distribucion.map(function (x) { return MOOD_COLORS[x.estado] || '#e5e7eb'; });
-
-                const ctx = canvas.getContext('2d');
-                moodChart = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: labels,
-                        datasets: [{ data: values, backgroundColor: colors, borderWidth: 1 }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 8 } },
-                            tooltip: {
-                                callbacks: {
-                                    label: function (ctx) {
-                                        const d = distribucion[ctx.dataIndex];
-                                        return ' ' + d.conteo + ' usuarios (' + d.porcentaje + '%)';
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    seg.appendChild(label);
+                    band.appendChild(seg);
                 });
             }
 
             async function loadMoodDistribution() {
                 if (!IS_AUTHENTICATED) return;
                 const country = document.getElementById('filter_country').value || '';
-                const label = document.getElementById('mood-country-label');
-                if (label) {
-                    const sel = document.getElementById('filter_country');
-                    const opt = sel && sel.selectedOptions && sel.selectedOptions.length ? sel.selectedOptions[0] : null;
-                    const countryName = opt && opt.text && opt.text !== '(Todos)' ? opt.text : 'todos los países';
-                    label.textContent = countryName;
-                }
                 try {
                     const qs = country ? '&country=' + encodeURIComponent(country) : '';
                     const res = await fetch(window.location.pathname + '?handler=MoodDistribution' + qs, { credentials: 'same-origin' });
                     if (!res.ok) throw new Error('MoodDistribution response: ' + res.status);
                     const payload = await res.json();
-                    renderMoodPanel(payload);
+                    renderBand(payload.distribucion || []);
                 } catch (e) {
                     console.error('Error cargando mood distribution', e);
-                    showMoodEmpty();
+                    renderBand([]);
                 }
             }
 

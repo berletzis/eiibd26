@@ -293,6 +293,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     VM.DiagnosisUpdatesCount = countMatches;
                     VM.NeedsDiagnosisDateUpdate = countMatches > 0;
                 }
+                VM.HasRealName = !string.IsNullOrWhiteSpace(perfil?.Nombre);
             }
             catch (Exception)
             {

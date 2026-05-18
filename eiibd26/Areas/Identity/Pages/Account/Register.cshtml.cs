@@ -210,7 +210,7 @@ namespace eiibd26.Areas.Identity.Pages.Account
             try
             {
                 Guid userGuid = user.Id;
-                string codigoPais = Input.PaisCodigo;
+                string codigoPais = Input.PaisCodigo?.Trim().ToUpperInvariant();
 
                 var emailLocal = (user.Email ?? "usuario").Split('@')[0];
                 if (string.IsNullOrWhiteSpace(emailLocal))

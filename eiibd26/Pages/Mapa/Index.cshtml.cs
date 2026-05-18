@@ -113,7 +113,7 @@ namespace eiibd26.Pages.Mapa
             GoogleMapsApiKey = _config["GoogleMaps:ApiKey"] ?? "";
         }
 
-        public async Task<IActionResult> OnGetProfilesAsync(string country = "", int? conditionId = null, string yearsRange = "", int skip = 0, int take = 48)
+        public async Task<IActionResult> OnGetProfilesAsync(string country = "", int? conditionId = null, string yearsRange = "", int skip = 0, int take = 100)
         {
             int version = 0;
             if (_cache != null) _cache.TryGetValue<int>("Mapa:CacheVersion", out version);
@@ -217,7 +217,8 @@ namespace eiibd26.Pages.Mapa
                         .FirstOrDefault(),
 
                     condId = (int?)_db.condicionUsuario
-                        .Where(cu => !cu.Eliminado && cu.idUsuario == p.idUser && cu.fechaInicio != null && cu.fechaInicio > minValidDate && cu.fechaInicio <= now)
+                        .Where(cu => !cu.Eliminado && cu.idUsuario == p.idUser
+                            && (cu.fechaInicio == null || (cu.fechaInicio > minValidDate && cu.fechaInicio <= now)))
                         .OrderByDescending(cu => cu.fechaInicio)
                         .Select(cu => (int?)cu.idCondicion)
                         .FirstOrDefault(),
@@ -286,7 +287,8 @@ namespace eiibd26.Pages.Mapa
                     hasAbout = (x.acercaDe != null && x.acercaDe != "") ? 1 : 0,
                     hasCity = (x.nombreCiudad != null && x.nombreCiudad != "") ? 1 : 0,
                     hasCountry = (x.country != null && x.country != "") ? 1 : 0,
-                    hasLocation = (x.lat != null && x.lat != "" && x.lng != null && x.lng != "") ? 1 : 0
+                    hasLocation = (x.lat != null && x.lat != "" && x.lng != null && x.lng != "") ? 1 : 0,
+                    hasRealName = (x.name != null && x.name != "" && x.name != "Usuario") ? 1 : 0
                 })
                 .Select(x => new
                 {
@@ -302,8 +304,9 @@ namespace eiibd26.Pages.Mapa
                     x.condId,
                     x.lastMoodDate,
                     score = (x.condFechaInicio.HasValue ? 80 : 0)
-                            + x.avatarReal * 40
-                            + x.hasLastMood * 30
+                            + x.avatarReal * 200
+                            + x.hasRealName * 25
+                            + x.hasLastMood * 175
                             + x.hasCond * 30
                             + x.hasCountry * 20
                             + x.hasLocation * 10

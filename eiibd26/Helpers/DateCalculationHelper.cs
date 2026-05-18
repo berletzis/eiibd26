@@ -63,6 +63,10 @@ namespace eiibd26.Helpers
             if (!fechaDiagnostico.HasValue)
                 return string.Empty;
 
+            // Fechas inválidas (DateTime.MinValue, año 0001, etc.) no producen duración
+            if (fechaDiagnostico.Value.Year < 1900)
+                return string.Empty;
+
             var referencia = fechaReferencia ?? DateTime.Today;
             var (anios, meses) = CalcularDuracion(fechaDiagnostico.Value, referencia);
 
