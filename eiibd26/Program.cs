@@ -21,6 +21,8 @@ try
 
     var builder = WebApplication.CreateBuilder(args);
 
+    builder.Configuration.AddJsonFile("appsettings.local.json", optional: true, reloadOnChange: true);
+
     // Validate connection string early — empty string is as bad as null in production.
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
     if (string.IsNullOrWhiteSpace(connectionString))

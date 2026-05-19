@@ -332,8 +332,10 @@ public sealed class PdfGeneratorService : IPdfGeneratorService
                 body.Spacing(3);
                 foreach (var tr in tratamientos)
                 {
-                    body.Item().Text($"{tr.Nombre} — Desde {tr.FechaInicio:dd/MM/yyyy}")
-                        .FontSize(TamFuente).FontColor(GrisOscuro);
+                    var texto = tr.FechaFin.HasValue
+                        ? $"{tr.Nombre} — Desde {tr.FechaInicio:dd/MM/yyyy} — Fin: {tr.FechaFin.Value:dd/MM/yyyy}"
+                        : $"{tr.Nombre} — Desde {tr.FechaInicio:dd/MM/yyyy}";
+                    body.Item().Text(texto).FontSize(TamFuente).FontColor(GrisOscuro);
                 }
             });
         });

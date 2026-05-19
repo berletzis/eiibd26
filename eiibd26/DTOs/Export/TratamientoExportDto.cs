@@ -4,4 +4,5 @@ public sealed class TratamientoExportDto
 {
     public string Nombre { get; init; } = string.Empty;
     public DateTime FechaInicio { get; init; }
+    public DateTime? FechaFin { get; init; }
 }

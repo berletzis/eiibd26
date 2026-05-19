@@ -127,7 +127,8 @@ namespace eiibd26.Pages.u
                         {
                             Nombre = t.Tratamiento.nombre ?? "Sin nombre",
                             Icono = t.Tratamiento.icono,
-                            FechaInicio = t.fechaInicio
+                            FechaInicio = t.fechaInicio,
+                            FechaFin = t.FechaFin
                         })
                         .ToListAsync()
                     : new List<InfoClinicaVm>();
@@ -423,6 +424,7 @@ namespace eiibd26.Pages.u
         public string Nombre { get; set; }
         public string Icono { get; set; }
         public DateTime? FechaInicio { get; set; }
+        public DateTime? FechaFin { get; set; }
         // Edad (años) al momento del diagnóstico (calculada a partir de FechaInicio y FechaDeNacimiento del perfil)
         public int? EdadDiagnostico { get; set; }
     }

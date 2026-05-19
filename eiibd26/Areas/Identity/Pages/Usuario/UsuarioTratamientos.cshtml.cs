@@ -27,6 +27,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             public int Id { get; set; }
             public string Nombre { get; set; }
             public DateTime FechaInicio { get; set; }
+            public DateTime? FechaFin { get; set; }
             public bool EsPrincipal { get; set; }
             public List<RelSimple> Sintomas { get; set; } = new();
             public List<RelSimple> Condiciones { get; set; } = new();
@@ -83,6 +84,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                                          Nombre = t.nombre,
                                          EsPrincipal = tu.EsPrincipal,
                                          FechaInicio = tu.fechaInicio >= new DateTime(1753, 1, 1) ? tu.fechaInicio : tu.fechaCreado,
+                                         FechaFin = tu.FechaFin,
                                          Sintomas = (
                                              from rel in _db.TratamientoSintomaUsuario
                                              join su in _db.sintomasUsuario on rel.IdSintomaUsuario equals su.id
@@ -165,6 +167,28 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             return BadRequest();
         }
 
+        public async Task<IActionResult> OnPostEditarFechaFinAsync(int tratId, string nuevaFechaFin = null)
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
+
+            DateTime? fechaFin = null;
+            if (!string.IsNullOrWhiteSpace(nuevaFechaFin) && DateTime.TryParse(nuevaFechaFin, out var parsed))
+                fechaFin = parsed;
+
+            var rel = await _db.tratamientoUsuario
+                .FirstOrDefaultAsync(x => x.idUsuario == Guid.Parse(userId) && x.id == tratId && !x.Eliminado);
+
+            if (rel != null)
+            {
+                rel.FechaFin = fechaFin;
+                rel.fechaModificado = DateTime.Now;
+                await _db.SaveChangesAsync();
+                return new JsonResult(new { ok = true });
+            }
+            return BadRequest();
+        }
+
         public async Task<IActionResult> OnPostEliminarTratamientoAsync(int tratId)
         {
             try
@@ -195,7 +219,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 ).AnyAsync();
 
                 if (tieneSintomas || tieneCondiciones)
-                    return new JsonResult(new { ok = false, mensaje = "Elimina primero los síntomas o condiciones asociados." }) { StatusCode = 400 };
+                    return new JsonResult(new { ok = false, mensaje = "Elimina primero los sï¿½ntomas o condiciones asociados." }) { StatusCode = 400 };
 
                 tratamiento.Eliminado = true;
                 tratamiento.fechaModificado = DateTime.Now;
@@ -209,7 +233,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             }
         }
 
-        // ---- ASOCIAR SÍNTOMAS/CODICIONES ----
+        // ---- ASOCIAR Sï¿½NTOMAS/CODICIONES ----
 
         public async Task<IActionResult> OnPostAsociarSintomasAsync(int tratamientoId, List<int> sintomaUsuarioIds)
         {

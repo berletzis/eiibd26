@@ -185,7 +185,8 @@ public sealed class MedicalSummaryService : IMedicalSummaryService
             .Select(t => new TratamientoExportDto
             {
                 Nombre      = t.Tratamiento.nombre,
-                FechaInicio = t.fechaInicio
+                FechaInicio = t.fechaInicio,
+                FechaFin    = t.FechaFin
             })
             .ToListAsync(ct);
     }

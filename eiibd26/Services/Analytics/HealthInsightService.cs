@@ -26,7 +26,7 @@ public sealed class HealthInsightService : IHealthInsightService
         // Aplanar todos los trackings con dolor registrado
         var trackingsConDolor = sintomas
             .SelectMany(s => s.Trackings
-                .Where(t => t.Dolor.HasValue)
+                .Where(t => t.Dolor.HasValue && t.Dolor.Value > 0)
                 .Select(t => new { s.NombreSintoma, t.Dolor }))
             .ToList();
 

@@ -1,0 +1,275 @@
+# eiibd26 — Memoria de Proyecto (Claude)
+
+> Fuente de verdad documental. Fecha: 2026-05-18.
+> Esta carpeta `Documentation\` es la fuente oficial de documentos del proyecto.
+
+---
+
+## Descripción General
+
+**eiibd26** es una plataforma web de salud para pacientes con enfermedades crónicas (VIH/SIDA y otras condiciones inflamatorias). Permite a pacientes registrarse, seguir síntomas, conectar con otros usuarios y obtener respuestas a preguntas médicas asistidas por IA.
+
+- **Stack:** ASP.NET Core 8 · Razor Pages + MVC · Entity Framework Core · SQL Server
+- **Deployment:** IIS en servidor Windows (Azure/hosting externo)
+- **Auth:** ASP.NET Identity con roles (`Administrador`, usuarios regulares)
+- **Email:** SendGrid
+- **SMS:** Twilio
+- **Push Notifications:** WebPush (VAPID)
+- **Exports:** QuestPDF (resúmenes médicos en PDF)
+- **Procesamiento de imágenes:** SixLabors.ImageSharp
+- **Background Jobs:** Hangfire
+- **Markdown rendering:** Markdig
+
+---
+
+## Arquitectura de Carpetas
+
+```
+eiibd26/
+├── Areas/
+│   └── Identity/
+│       └── Pages/
+│           ├── Account/          # Login, Register, ForgotPassword, etc.
+│           ├── Admin/            # Administración de Contenidos, Banners
+│           └── Usuario/          # Dashboard, Perfil, Síntomas, Estado de Ánimo
+├── Controllers/                  # API Controllers (REST + acciones de admin)
+├── DTOs/                         # Data Transfer Objects
+├── Helpers/                      # SlugHelper y otros
+├── Models/                       # Entidades EF Core
+├── Pages/
+│   ├── Contenidos/               # Blog / artículos
+│   ├── Glosario/                 # Glosario médico (síntomas, tratamientos, términos)
+│   ├── Home/                     # Index, mapa de comunidad (partial)
+│   ├── Mapa/                     # Página /Mapa completa con filtros + Google Maps
+│   ├── Preguntas/                # Detalle de pregunta
+│   └── Shared/                   # Layout, partials, menús
+├── Services/
+│   ├── AI/                       # NINA Router, Claude AI, Safety, Cache
+│   ├── Analytics/                # HealthInsight, HealthStats
+│   ├── Community/                # CommunityExperience
+│   ├── Export/                   # MedicalSummary, PDF Generator
+│   ├── Glossary/                 # GlossaryService, DTOs, Adapters
+│   └── Tracking/                 # TrackingSintoma
+└── Documentation/                # ← Fuente de verdad documental (esta carpeta)
+```
+
+---
+
+## Servicios Clave
+
+### NINA — Router de Modelos de IA
+**Archivo:** `Services/AI/NinaModelRouterService.cs`
+
+Router inteligente que decide qué modelo de Claude usar para responder preguntas médicas, optimizando costo vs. calidad:
+
+| Nivel | Modelo | Criterio |
+|-------|--------|---------|
+| ALTO RIESGO | Claude Sonnet 4.5 | Palabras clave de emergencia (sangre, fiebre, suicidio…) |
+| COMPLEJA | Claude Sonnet 4.5 | Síntomas personales, medicamentos, decisiones médicas |
+| MEDIA | Claude Haiku 3.5 | Explicaciones contextuales o comparativas |
+| SIMPLE | Modelo Base EIIBD | Preguntas informativas generales (respuestas pre-programadas) |
+
+Flujo: Detectar riesgo → Clasificar con Haiku (max 10 tokens) → Seleccionar modelo → Validar safety → Enriquecer con autoría NINA.
+
+**Modelos usados:**
+- `claude-sonnet-4.5-20250514` (premium)
+- `claude-3-5-haiku-20241022` (económico)
+
+---
+
+### Glosario Médico
+**Archivo:** `Services/Glossary/GlossaryService.cs`
+
+Orquesta datos desde dos dominios sin acoplamiento:
+- `IMedicalDataAdapter` — datos médicos (síntomas, tratamientos)
+- `ICommunityExperienceService` — experiencias de la comunidad
+- Caché en memoria con sliding/absolute expiration
+- DTOs en `Services/Glossary/DTOs/`
+
+---
+
+### Export Médico (PDF)
+**Archivos:** `Services/Export/MedicalSummaryService.cs`, `Services/Export/Pdf/PdfGeneratorService.cs`
+
+Genera resúmenes médicos personalizados:
+- Perfil del usuario
+- Condiciones registradas
+- Estados de ánimo (rango de fechas)
+- Síntomas con trackings
+- Tratamientos
+- Truncado a 500 registros por sección
+- Usa QuestPDF para renderizado
+
+---
+
+### Analytics / Health Insights
+**Archivos:** `Services/Analytics/HealthInsightService.cs`, `Services/Analytics/HealthStatsService.cs`
+
+Servicio sin acceso a DB (puro cálculo sobre DTOs ya cargados):
+- Síntoma más frecuente
+- Promedio global de dolor
+- Síntoma con mayor promedio de dolor (umbral alto = 7/10)
+- Frecuencia de síntomas
+- Se usa tanto en Dashboard como en PDF
+
+---
+
+## Cambios Acumulados (2026-05-18)
+
+### Dashboard — Overflow en móvil (2ª sesión)
+
+**Archivos:** `Areas/Identity/Pages/Usuario/Dashboard.cshtml`, `_SintomasTop5Seguimiento.cshtml`, `_DashboardNotifications.cshtml`, `_DashboardColumn1.cshtml`
+
+- `Dashboard.cshtml`: `<main>` con `overflow-x: hidden` como red de seguridad global.
+- `_SintomasTop5Seguimiento.cshtml`: En móvil (`max-width: 576px`) se occultan columnas Tendencia (nth-child 2), Ayer (3) y Condición (5). Solo quedan **Síntoma + Hoy**. `table-layout: fixed`, `min-width: 0` en todas las columnas visibles.
+- `_DashboardNotifications.cshtml`: Eliminado `white-space: nowrap` de `.notification-text` y `.notification-sub` → texto envuelve con `word-break: break-word`.
+- `_DashboardColumn1.cshtml`: `.dashboard-col1-header > div:first-child` con `min-width: 0; flex: 1 1 auto` para que el botón `+😉` no empuje el texto.
+
+### Mapa/Index — Page size (2ª sesión)
+
+- `Pages/Mapa/Index.cshtml`: `PAGE_SIZE` cambiado de `48` a `100` para autenticados. El backend ya aceptaba `take=100`.
+
+---
+
+## Páginas Modificadas Hoy (2026-05-18)
+
+### `/Mapa` — Mapa de Comunidad
+**Archivos:** `Pages/Mapa/Index.cshtml` + `Index.cshtml.cs`
+
+- Vista completa con split layout (lista de cards + Google Maps)
+- Filtros: País, Condición, Años desde diagnóstico
+- Banda de distribución de estado de ánimo (`moodBand`)
+- Carga progresiva (infinite scroll, PAGE_SIZE = 48 auth / 8 anon)
+- Autenticados: acceso completo con marcadores en mapa + clustering
+- No autenticados: preview difuminado + overlay modal con CTA de registro/login
+- Marcadores SVG personalizados con clustering (`@googlemaps/markerclusterer`)
+- Mood icons: `/img/muybien.svg`, `/img/bien.svg`, `/img/neutral.svg`, `/img/mal.svg`, `/img/muymal.svg`
+- `lastMood` se mapea como número (1–5), no como string
+
+**Page Handler `OnGetProfilesAsync`:** Devuelve `{ total, items }` JSON paginado con filtros de país/condición/años.
+**Page Handler `OnGetMoodDistributionAsync`:** Devuelve `{ distribucion: [{estado, estadoLabel, conteo, porcentaje}] }`.
+
+### `/Home` — Partial Mapa de Comunidad
+**Archivo:** `Pages/Home/UsersMapPartial.cshtml` + `UsersMapPartial.cshtml.cs`
+
+- Mapa simplificado para la página de inicio (solo filtro por país)
+- Google Maps con MarkerClusterer
+- Marcadores SVG morados (`#7c3aed`)
+- Info windows al click con nombre y país del usuario
+
+### `/Identity/Account/Register`
+**Archivo:** `Areas/Identity/Pages/Account/Register.cshtml.cs`
+
+- Registro con campos obligatorios: Email, Contraseña, País, Condición padre
+- Inyección de `IEmailSender` (SendGrid) para confirmación de correo
+
+### `UsuarioPerfil`
+**Archivo:** `Areas/Identity/Pages/Usuario/UsuarioPerfil.cshtml.cs`
+
+- Gestión del perfil de usuario
+
+### `Pages/Contenidos/Detalle.cshtml`
+- Página de detalle de artículo/contenido del blog
+
+---
+
+## Modelos Principales
+
+| Modelo | Descripción |
+|--------|-------------|
+| `ApplicationUser` | Usuario extendido con campos de perfil |
+| `ApplicationRole` | Roles personalizados |
+| `Pregunta` | Pregunta del foro con Título, Cuerpo, UsuarioId |
+| `Respuesta` | Respuesta a pregunta |
+| `condiciones` | Condición médica (VIH, EII, etc.) con relación padre/hijo |
+| `sintomas` | Catálogo de síntomas con soft-delete (`Eliminado`) |
+| `tratamientos` | Catálogo de tratamientos con soft-delete |
+| `EstadoAnimoUsuario` | Estado de ánimo registrado (1–5) |
+| `TrackingSintomaUsuario` | Seguimiento de síntoma con intensidad de dolor |
+| `Contenido` | Artículo/post del blog |
+| `Perfil` | Perfil médico extendido del usuario |
+| `Paises` | Catálogo de países con código ISO |
+| `NotificationSubscription` | Suscripción a push notifications (VAPID) |
+
+---
+
+## Controladores API
+
+| Controlador | Ruta | Función |
+|-------------|------|---------|
+| `PreguntasApiController` | `/api/preguntas` | CRUD de preguntas + NINA AI |
+| `RespuestasApiController` | `/api/respuestas` | CRUD de respuestas |
+| `SintomasApiController` | `/api/sintomas` | Catálogo de síntomas |
+| `TratamientosApiController` | `/api/tratamientos` | Catálogo de tratamientos |
+| `MoodApiController` | `/api/mood` | Estado de ánimo |
+| `PushApiController` | `/api/push` | Suscripción push notifications |
+| `DiagnosticoNinaController` | `/api/diagnostico-nina` | Test del NINA Router (solo Dev + Admin) |
+| `SearchApiController` | `/api/search` | Búsqueda de sugerencias |
+| `SitemapController` | `/sitemap.xml` | Sitemap principal |
+| `SitemapIndexController` | `/sitemap-index.xml` | Índice de sitemaps |
+| `ContenidosAdminController` | `/api/admin/contenidos` | Admin de contenidos |
+
+---
+
+## Configuración Importante
+
+### Connection String
+```json
+// appsettings.json → appsettings.Production.json (NO publicado automáticamente)
+"ConnectionStrings": {
+  "DefaultConnection": "..."
+}
+```
+
+### AI (Anthropic)
+```json
+"AiAnswer": {
+  "ApiKey": "...",
+  "BaseUrl": "https://api.anthropic.com/v1/"
+}
+```
+HttpClient registrado como `"AnthropicClient"` con la API key en headers.
+
+### Google Maps
+```json
+"GoogleMaps": {
+  "ApiKey": "..."
+}
+```
+- Key configurada en `appsettings.local.json` (dev local, en `.gitignore`) y en `appsettings.Production.json` (servidor, en `.gitignore`).
+- `Program.cs` carga `appsettings.local.json` como fuente opcional: `builder.Configuration.AddJsonFile("appsettings.local.json", optional: true, reloadOnChange: true)`
+- APIs necesarias en Google Cloud: **Maps JavaScript API** + **Geocoding API**
+- La key tiene restricciones HTTP referrer: agregar `localhost:7002/*` para dev local y el dominio de producción.
+
+### Data Protection
+- Keys persistidas en `DataProtectionKeys/` dentro del content root
+- ApplicationName: `"eiibd26"`
+- Token lifetime: 3 días
+
+### Identity
+- Requiere dígito, minúscula, mayúscula, carácter especial, mínimo 8 chars
+- Lockout: 5 intentos → 15 minutos
+- Mensajes de error en español (`SpanishIdentityErrorDescriber`)
+
+---
+
+## Notas de Despliegue
+
+- `appsettings.Production.json` se excluye del publish (`CopyToPublishDirectory: Never`)
+- `app_offline.htm` gestionado por MSDeploy
+- Retry on failure SQL: 5 intentos, máx 30s
+- Command timeout: 120s (servidor SQL remoto sin índices óptimos)
+- stdout logs en `.\logs\stdout_*.log` (IIS)
+
+---
+
+## Colores del Diseño
+
+| Variable | Valor | Uso |
+|----------|-------|-----|
+| Primary | `#764ba2` / `#7c3aed` | Botones, marcadores, acentos |
+| Mood 5 (Muy bien) | `#38D6C1` | Banda de ánimo |
+| Mood 4 (Bien) | `#B3F1E9` | Banda de ánimo |
+| Mood 3 (Neutral) | `#FEE019` | Banda de ánimo |
+| Mood 2 (Mal) | `#D8B4F8` | Banda de ánimo |
+| Mood 1 (Muy mal) | `#9B5DE5` | Banda de ánimo |
