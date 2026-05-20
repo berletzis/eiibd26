@@ -1,0 +1,218 @@
+@page "{id:int}"
+@model eiibd26.Pages.DirectorioMedicos.DetalleModel
+@using eiibd26.Models.Directorio.Enums
+@{
+    ViewData["Title"] = $"{Model.Medico!.NombreCompleto} — Directorio EII";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/directorio-medicos.css" asp-append-version="true" />
+}
+
+<div class="container py-4">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a asp-page="/DirectorioMedicos/Index">Directorio</a></li>
+            <li class="breadcrumb-item active" aria-current="page">@Model.Medico.NombreCompleto</li>
+        </ol>
+    </nav>
+
+    @if (TempData["Success"] is string success)
+    {
+        <div class="alert alert-success alert-dismissible fade show mb-3" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i>@success
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["Error"] is string error)
+    {
+        <div class="alert alert-danger alert-dismissible fade show mb-3" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>@error
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="d-flex gap-3 align-items-start">
+                        <div class="medico-card__avatar" style="width:64px;height:64px;font-size:2rem;">
+                            <i class="bi bi-person-badge-fill"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h1 class="h3 mb-1">@Model.Medico.NombreCompleto</h1>
+                            @if (!string.IsNullOrWhiteSpace(Model.Medico.Especialidad))
+                            {
+                                <p class="text-muted mb-1">@Model.Medico.Especialidad
+                                    @if (!string.IsNullOrWhiteSpace(Model.Medico.Subespecialidad))
+                                    {<span> · @Model.Medico.Subespecialidad</span>}
+                                </p>
+                            }
+                            <div class="d-flex flex-wrap gap-2 mt-2">
+                                <span class="medico-nivel-badge @(Model.Medico.NivelConfianza switch {
+                                    NivelConfianzaEnum.Identificado => "badge-nivel-0",
+                                    NivelConfianzaEnum.Confirmado   => "badge-nivel-1",
+                                    NivelConfianzaEnum.Reconocido   => "badge-nivel-2",
+                                    _                               => "badge-nivel-3"
+                                })">@Model.Medico.NivelConfianzaLabel</span>
+
+                                @if (Model.Medico.EstatusValidacion == EstatusValidacionCedula.Validado)
+                                {
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                        <i class="bi bi-patch-check-fill me-1"></i>Cédula verificada
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-light text-muted border">
+                                        <i class="bi bi-clock me-1"></i>Pendiente de verificación
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header"><h6 class="mb-0"><i class="bi bi-geo-alt me-2"></i>Ubicación</h6></div>
+                        <div class="card-body">
+                            @if (!string.IsNullOrWhiteSpace(Model.Medico.Estado))
+                            { <p class="mb-1"><strong>Estado:</strong> @Model.Medico.Estado</p> }
+                            @if (!string.IsNullOrWhiteSpace(Model.Medico.Ciudad))
+                            { <p class="mb-1"><strong>Ciudad:</strong> @Model.Medico.Ciudad</p> }
+                            @if (!string.IsNullOrWhiteSpace(Model.Medico.MunicipioAlcaldia))
+                            { <p class="mb-1"><strong>Municipio/Alcaldía:</strong> @Model.Medico.MunicipioAlcaldia</p> }
+                            @if (!string.IsNullOrWhiteSpace(Model.Medico.HospitalClinica))
+                            { <p class="mb-0"><strong>Hospital/Clínica:</strong> @Model.Medico.HospitalClinica</p> }
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header"><h6 class="mb-0"><i class="bi bi-clipboard2-pulse me-2"></i>Confirmaciones comunitarias</h6></div>
+                        <div class="card-body">
+                            <p class="mb-2">
+                                <strong>@Model.Medico.TotalPacientesUnicos</strong>
+                                paciente@(Model.Medico.TotalPacientesUnicos != 1 ? "s" : "") de la comunidad
+                                @(Model.Medico.TotalPacientesUnicos != 1 ? "han" : "ha") reportado atención.
+                            </p>
+                            @if (Model.Medico.ConfirmacionesAgregadas.Any())
+                            {
+                                <ul class="list-unstyled mb-0">
+                                    @foreach (var conf in Model.Medico.ConfirmacionesAgregadas.OrderByDescending(c => c.Total))
+                                    {
+                                        <li class="d-flex justify-content-between align-items-center py-1 border-bottom">
+                                            <span style="font-size:var(--font-size-sm);">@conf.NombreTipo</span>
+                                            <span class="badge" style="background:var(--color-primary);color:#fff;">@conf.Total</span>
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if (Model.Medico.AreasExperiencia.Any())
+            {
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header"><h6 class="mb-0"><i class="bi bi-tags me-2"></i>Áreas de experiencia EII reportadas</h6></div>
+                    <div class="card-body">
+                        <div class="d-flex flex-wrap gap-2">
+                            @foreach (var area in Model.Medico.AreasExperiencia)
+                            { <span class="se-rel-badge">@area.Nombre</span> }
+                        </div>
+                        <p class="text-muted mt-2 mb-0" style="font-size:var(--font-size-xs);">
+                            Áreas reportadas por pacientes. No implican especialización certificada.
+                        </p>
+                    </div>
+                </div>
+            }
+
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <div class="card shadow-sm mb-4 medico-confirm-card">
+                    <div class="card-header medico-confirm-card__header">
+                        <h6 class="mb-0"><i class="bi bi-person-check me-2"></i>¿Recibiste atención de este médico?</h6>
+                    </div>
+                    <div class="card-body">
+                        @if (Model.Medico.UsuarioYaConfirmo)
+                        {
+                            <p class="text-muted mb-2" style="font-size:var(--font-size-sm);">
+                                <i class="bi bi-check-circle-fill text-success me-1"></i>
+                                Ya aportaste tu experiencia. Puedes agregar más tipos de atención.
+                            </p>
+                        }
+                        <form method="post" asp-page-handler="Confirmar" class="d-flex gap-2 align-items-end flex-wrap">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" asp-for="ConfirmarVm.MedicoDirectorioId" />
+                            <div class="flex-grow-1">
+                                <label class="form-label mb-1" style="font-size:var(--font-size-sm);">Tipo de atención recibida</label>
+                                <select asp-for="ConfirmarVm.TipoConfirmacionId" class="form-select form-select-sm" required>
+                                    <option value="">Selecciona…</option>
+                                    @foreach (var tipo in Model.TiposConfirmacion)
+                                    {
+                                        var yaConfirmado = Model.Medico.TiposConfirmadosPorUsuario.Contains(tipo.Id);
+                                        if (yaConfirmado)
+                                        {
+                                            <option value="@tipo.Id" disabled>@tipo.Nombre ✓</option>
+                                        }
+                                        else
+                                        {
+                                            <option value="@tipo.Id">@tipo.Nombre</option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="bi bi-check-lg me-1"></i>Confirmar
+                            </button>
+                        </form>
+                        <p class="text-muted mt-2 mb-0" style="font-size:var(--font-size-xs);">
+                            Tu identidad no será visible públicamente. Solo el total agregado se muestra.
+                        </p>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="vote-auth-notice mb-4">
+                    <span>¿Recibiste atención de este médico?</span>
+                    <a asp-area="Identity" asp-page="/Account/Login">Inicia sesión para confirmarlo</a>
+                </div>
+            }
+
+            @if (Model.Medico.PerfilReclamable)
+            {
+                <div class="alert alert-light border mb-0" role="note">
+                    <i class="bi bi-shield-check me-2 text-muted"></i>
+                    <strong>¿Eres este profesional?</strong>
+                    Este perfil está disponible para ser reclamado por el médico titular.
+                    <a href="mailto:contacto@eiibd.com" class="ms-1">Contáctanos</a> para iniciar el proceso.
+                </div>
+            }
+        </div>
+
+        <div class="col-lg-4">
+            <div class="sidebar-section sidebar-static">
+                <h4><i class="bi bi-plus-circle me-1"></i> ¿Conoces otro médico?</h4>
+                <p style="font-size:var(--font-size-sm);">Ayuda a la comunidad EII agregando médicos con experiencia.</p>
+                <a asp-page="/DirectorioMedicos/Proponer" class="btn btn-outline-primary btn-sm w-100">
+                    Agregar médico
+                </a>
+            </div>
+            <div class="sidebar-section sidebar-static mt-3">
+                <h4><i class="bi bi-info-circle me-1"></i> Aviso</h4>
+                <p style="font-size:var(--font-size-xs); color:var(--color-text-secondary);">
+                    Este directorio es comunitario y basado en experiencias reportadas por pacientes.
+                    No constituye una recomendación médica oficial ni avala diagnósticos.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>

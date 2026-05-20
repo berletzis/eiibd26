@@ -1,0 +1,66 @@
+@model eiibd26.Models.Directorio.MedicoCardVm
+
+<article class="medico-card">
+    <div class="medico-card__header">
+        <div class="medico-card__avatar">
+            <i class="bi bi-person-badge-fill"></i>
+        </div>
+        <div class="medico-card__info">
+            <h3 class="medico-card__nombre">
+                <a asp-page="/DirectorioMedicos/Detalle" asp-route-id="@Model.Id">@Model.NombreCompleto</a>
+            </h3>
+            @if (!string.IsNullOrWhiteSpace(Model.Especialidad))
+            {
+                <p class="medico-card__especialidad">@Model.Especialidad
+                    @if (!string.IsNullOrWhiteSpace(Model.Subespecialidad))
+                    {<span class="text-muted"> · @Model.Subespecialidad</span>}
+                </p>
+            }
+        </div>
+    </div>
+
+    @{
+        var ubicacion = string.Join(", ", new[] { Model.Ciudad, Model.Estado }.Where(x => !string.IsNullOrWhiteSpace(x)));
+    }
+    @if (!string.IsNullOrWhiteSpace(ubicacion))
+    {
+        <div class="medico-card__ubicacion">
+            <i class="bi bi-geo-alt text-muted"></i>
+            <span>@ubicacion</span>
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Model.HospitalClinica))
+    {
+        <div class="medico-card__hospital text-muted">
+            <i class="bi bi-hospital"></i> @Model.HospitalClinica
+        </div>
+    }
+
+    @if (Model.AreasExperiencia.Any())
+    {
+        <div class="medico-card__areas">
+            @foreach (var area in Model.AreasExperiencia.Take(4))
+            { <span class="se-rel-badge">@area</span> }
+            @if (Model.AreasExperiencia.Count > 4)
+            { <span class="se-rel-badge text-muted">+@(Model.AreasExperiencia.Count - 4) más</span> }
+        </div>
+    }
+
+    <div class="medico-card__footer">
+        <span class="medico-nivel-badge @Model.NivelConfianzaBadgeClass">@Model.NivelConfianzaLabel</span>
+        @if (Model.TotalPacientesUnicos > 0)
+        {
+            <span class="medico-card__confirmaciones text-muted">
+                <i class="bi bi-people"></i> @Model.TotalPacientesUnicos
+                @(Model.TotalPacientesUnicos == 1 ? "paciente" : "pacientes")
+            </span>
+        }
+        @if (Model.CedulaValidada)
+        {
+            <span class="medico-cedula-validada" title="Cédula verificada">
+                <i class="bi bi-patch-check-fill"></i>
+            </span>
+        }
+    </div>
+</article>
