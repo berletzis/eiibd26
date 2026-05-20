@@ -29,6 +29,9 @@ namespace eiibd26.Models
         public bool NeedsDiagnosisDateUpdate { get; set; } = false;
         public int DiagnosisUpdatesCount { get; set; } = 0;
         public bool HasRealName { get; set; }
+        public int TotalLaboratorios { get; set; } = 0;
+        public string UltimoLaboratorio { get; set; } = "";
+        public List<LabResultDashItem> UltimosLaboratorios { get; set; } = new();
 
         /// <summary>Estadísticas del período (últimos 7 días). Puede ser null si no hay datos.</summary>
         public HealthStatsDto? HealthStats { get; set; }
@@ -98,5 +101,18 @@ namespace eiibd26.Models
         public int Votes { get; set; }
         public Guid? PreguntaId { get; set; }
         public string? Slug { get; set; }
+    }
+
+    public class LabResultDashItem
+    {
+        public int Id { get; set; }
+        public string Estudio { get; set; } = "";
+        public string Categoria { get; set; } = "";
+        public string? Resultado { get; set; }
+        public string? Unidad { get; set; }
+        public DateTime? FechaResultado { get; set; }
+        public string? Condicion { get; set; }
+        public string? Sintoma { get; set; }
+        public string? Tratamiento { get; set; }
     }
 }

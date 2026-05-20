@@ -46,6 +46,9 @@ namespace eiibd26.Models
     public decimal? PaisLat { get; set; }
     public decimal? PaisLong { get; set; }
 
+    public double? LatitudDefault { get; set; }
+    public double? LongitudDefault { get; set; }
+
     // Navegación para zonas horarias
     public virtual ICollection<ZonaHoraria> ZonasHorarias { get; set; }
 }

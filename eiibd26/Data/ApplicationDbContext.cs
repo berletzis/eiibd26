@@ -14,6 +14,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<condicionUsuario> condicionUsuario { get; set; }
     public DbSet<estudiosLab> estudiosLab { get; set; }
     public DbSet<estudiosLabUsuario> estudiosLabUsuario { get; set; }
+    public DbSet<LaboratoryType> LaboratoryTypes { get; set; }
+    public DbSet<PatientLaboratoryResult> PatientLaboratoryResults { get; set; }
+    public DbSet<LaboratoryUnitCatalog> LaboratoryUnitCatalog { get; set; }
     public DbSet<sintomas> sintomas { get; set; }
     public DbSet<sintomasUsuario> sintomasUsuario { get; set; }
     public DbSet<tratamientos> tratamientos { get; set; }
@@ -74,6 +77,13 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<EmailCampanaLog> EmailCampanaLogs { get; set; }
     public DbSet<eiibd26.Models.Glossary.GlossaryTermMedicalLink> GlossaryTermMedicalLinks { get; set; }
     public DbSet<eiibd26.Models.Glossary.GlossaryValidation> GlossaryValidations { get; set; }
+
+    // Directorio comunitario de médicos EII
+    public DbSet<eiibd26.Models.Directorio.MedicoDirectorio> MedicosDirectorio { get; set; }
+    public DbSet<eiibd26.Models.Directorio.AreaExperienciaEii> AreasExperienciaEii { get; set; }
+    public DbSet<eiibd26.Models.Directorio.MedicoExperienciaEii> MedicoExperienciaEii { get; set; }
+    public DbSet<eiibd26.Models.Directorio.TipoConfirmacion> TiposConfirmacion { get; set; }
+    public DbSet<eiibd26.Models.Directorio.ConfirmacionComunitaria> ConfirmacionesComunitarias { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -400,6 +410,65 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
              .OnDelete(DeleteBehavior.Cascade);
         });
 
+        // LaboratoryType — catálogo jerárquico
+        builder.Entity<LaboratoryType>(b =>
+        {
+            b.ToTable("LaboratoryTypes");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Slug).HasMaxLength(200);
+            b.Property(x => x.Description).HasMaxLength(500);
+            b.HasOne(x => x.Parent)
+             .WithMany(x => x.Children)
+             .HasForeignKey(x => x.ParentId)
+             .OnDelete(DeleteBehavior.Restrict);
+            b.HasQueryFilter(x => !x.Eliminado);
+        });
+
+        // LaboratoryUnitCatalog — catálogo de unidades de medida
+        builder.Entity<LaboratoryUnitCatalog>(b =>
+        {
+            b.ToTable("LaboratoryUnitCatalog");
+            b.HasKey(u => u.Id);
+            b.Property(u => u.Nombre).HasMaxLength(100).IsRequired();
+            b.Property(u => u.Abreviatura).HasMaxLength(20).IsRequired();
+        });
+
+        // PatientLaboratoryResult — resultados del paciente
+        builder.Entity<PatientLaboratoryResult>(b =>
+        {
+            b.ToTable("PatientLaboratoryResults");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.ResultValue).HasMaxLength(500);
+            b.Property(x => x.ResultUnit).HasMaxLength(50);
+            b.Property(x => x.Notes).HasMaxLength(1000);
+            b.HasOne(x => x.LaboratoryType)
+             .WithMany(x => x.Results)
+             .HasForeignKey(x => x.LaboratoryTypeId)
+             .OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.LaboratoryUnit)
+             .WithMany()
+             .HasForeignKey(x => x.LaboratoryUnitCatalogId)
+             .IsRequired(false)
+             .OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.CondicionUsuario)
+             .WithMany()
+             .HasForeignKey(x => x.CondicionUsuarioId)
+             .IsRequired(false)
+             .OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.SintomaUsuario)
+             .WithMany()
+             .HasForeignKey(x => x.SintomaUsuarioId)
+             .IsRequired(false)
+             .OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.TratamientoUsuario)
+             .WithMany()
+             .HasForeignKey(x => x.TratamientoUsuarioId)
+             .IsRequired(false)
+             .OnDelete(DeleteBehavior.Restrict);
+            b.HasQueryFilter(x => !x.Eliminado);
+        });
+
         // EmailCampanaLog: índice para evitar duplicados exitosos (UserId, Fase) y acelerar consultas
         builder.Entity<EmailCampanaLog>(b =>
         {
@@ -408,6 +477,110 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
              .HasDatabaseName("IX_EmailCampanaLog_UserId_Fase_Exito");
             b.HasIndex(e => e.FechaEnvio)
              .HasDatabaseName("IX_EmailCampanaLog_FechaEnvio");
+        });
+
+        // ── DIRECTORIO MÉDICOS EII ──────────────────────────────────────────────
+
+        builder.Entity<eiibd26.Models.Directorio.AreaExperienciaEii>(b =>
+        {
+            b.ToTable("AreaExperienciaEii");
+            b.HasKey(a => a.Id);
+            b.Property(a => a.Nombre).HasMaxLength(100).IsRequired();
+            b.Property(a => a.Descripcion).HasMaxLength(300);
+            b.HasData(
+                new eiibd26.Models.Directorio.AreaExperienciaEii { Id = 1,  Nombre = "CUCI",                   Orden = 1,  Activo = true },
+                new eiibd26.Models.Directorio.AreaExperienciaEii { Id = 2,  Nombre = "Crohn",                  Orden = 2,  Activo = true },
+                new eiibd26.Models.Directorio.AreaExperienciaEii { Id = 3,  Nombre = "Pediátrico",             Orden = 3,  Activo = true },
+                new eiibd26.Models.Directorio.AreaExperienciaEii { Id = 4,  Nombre = "Ostomías",               Orden = 4,  Activo = true },
+                new eiibd26.Models.Directorio.AreaExperienciaEii { Id = 5,  Nombre = "Biológicos",             Orden = 5,  Activo = true },
+                new eiibd26.Models.Directorio.AreaExperienciaEii { Id = 6,  Nombre = "Embarazo + EII",         Orden = 6,  Activo = true },
+                new eiibd26.Models.Directorio.AreaExperienciaEii { Id = 7,  Nombre = "Manejo de brotes",       Orden = 7,  Activo = true },
+                new eiibd26.Models.Directorio.AreaExperienciaEii { Id = 8,  Nombre = "Segunda opinión",        Orden = 8,  Activo = true },
+                new eiibd26.Models.Directorio.AreaExperienciaEii { Id = 9,  Nombre = "Cirugía",                Orden = 9,  Activo = true },
+                new eiibd26.Models.Directorio.AreaExperienciaEii { Id = 10, Nombre = "Seguimiento prolongado", Orden = 10, Activo = true }
+            );
+        });
+
+        builder.Entity<eiibd26.Models.Directorio.TipoConfirmacion>(b =>
+        {
+            b.ToTable("TipoConfirmacion");
+            b.HasKey(t => t.Id);
+            b.Property(t => t.Nombre).HasMaxLength(100).IsRequired();
+            b.Property(t => t.Descripcion).HasMaxLength(300);
+            b.HasData(
+                new eiibd26.Models.Directorio.TipoConfirmacion { Id = 1, Nombre = "Me diagnosticó",                     Orden = 1, Activo = true },
+                new eiibd26.Models.Directorio.TipoConfirmacion { Id = 2, Nombre = "Me ayudó con tratamiento biológico", Orden = 2, Activo = true },
+                new eiibd26.Models.Directorio.TipoConfirmacion { Id = 3, Nombre = "Manejo de brotes",                   Orden = 3, Activo = true },
+                new eiibd26.Models.Directorio.TipoConfirmacion { Id = 4, Nombre = "Segunda opinión",                    Orden = 4, Activo = true },
+                new eiibd26.Models.Directorio.TipoConfirmacion { Id = 5, Nombre = "Cirugía",                            Orden = 5, Activo = true },
+                new eiibd26.Models.Directorio.TipoConfirmacion { Id = 6, Nombre = "Seguimiento prolongado",             Orden = 6, Activo = true }
+            );
+        });
+
+        builder.Entity<eiibd26.Models.Directorio.MedicoDirectorio>(b =>
+        {
+            b.ToTable("MedicosDirectorio");
+            b.HasKey(m => m.Id);
+            b.Property(m => m.NombreCompleto).HasMaxLength(300).IsRequired();
+            b.Property(m => m.CedulaProfesional).HasMaxLength(20);
+            b.Property(m => m.Especialidad).HasMaxLength(200);
+            b.Property(m => m.Subespecialidad).HasMaxLength(200);
+            b.Property(m => m.Estado).HasMaxLength(100);
+            b.Property(m => m.Ciudad).HasMaxLength(100);
+            b.Property(m => m.MunicipioAlcaldia).HasMaxLength(100);
+            b.Property(m => m.HospitalClinica).HasMaxLength(300);
+            b.Property(m => m.Latitud).HasColumnType("decimal(9,6)");
+            b.Property(m => m.Longitud).HasColumnType("decimal(9,6)");
+            b.Property(m => m.EstatusValidacion).HasConversion<int>();
+            b.Property(m => m.NivelConfianza).HasConversion<int>();
+            b.Property(m => m.EstatusReclamacion).HasConversion<int>();
+            b.HasQueryFilter(m => !m.Eliminado);
+            b.HasIndex(m => m.CedulaProfesional);
+            b.HasIndex(m => new { m.Estado, m.Ciudad });
+            b.HasOne(m => m.UsuarioVinculado)
+             .WithMany()
+             .HasForeignKey(m => m.AspNetUserId)
+             .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<eiibd26.Models.Directorio.MedicoExperienciaEii>(b =>
+        {
+            b.ToTable("MedicoExperienciaEii");
+            b.HasKey(me => me.Id);
+            b.HasIndex(me => new { me.MedicoDirectorioId, me.AreaExperienciaEiiId })
+             .IsUnique()
+             .HasFilter("[Eliminado] = 0");
+            b.HasQueryFilter(me => !me.Eliminado);
+            b.HasOne(me => me.MedicoDirectorio)
+             .WithMany(m => m.AreasExperiencia)
+             .HasForeignKey(me => me.MedicoDirectorioId)
+             .OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(me => me.AreaExperienciaEii)
+             .WithMany(a => a.MedicosExperiencia)
+             .HasForeignKey(me => me.AreaExperienciaEiiId)
+             .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<eiibd26.Models.Directorio.ConfirmacionComunitaria>(b =>
+        {
+            b.ToTable("ConfirmacionComunitaria");
+            b.HasKey(c => c.Id);
+            b.HasIndex(c => new { c.MedicoDirectorioId, c.UsuarioId, c.TipoConfirmacionId })
+             .IsUnique()
+             .HasFilter("[Eliminado] = 0");
+            b.HasQueryFilter(c => !c.Eliminado);
+            b.HasOne(c => c.MedicoDirectorio)
+             .WithMany(m => m.Confirmaciones)
+             .HasForeignKey(c => c.MedicoDirectorioId)
+             .OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(c => c.TipoConfirmacion)
+             .WithMany(t => t.Confirmaciones)
+             .HasForeignKey(c => c.TipoConfirmacionId)
+             .OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(c => c.Usuario)
+             .WithMany()
+             .HasForeignKey(c => c.UsuarioId)
+             .OnDelete(DeleteBehavior.Restrict);
         });
     }
 

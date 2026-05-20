@@ -1,0 +1,282 @@
+@page
+@model eiibd26.Areas.Identity.Pages.Admin.Laboratorios.IndexModel
+
+@section Styles {
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" />
+    <style>
+        .crm-container-admin { max-width: 1320px; margin: 0 auto 30px auto; padding: 0 10px; }
+        .crm-title-admin { font-size: 2.08rem; font-weight: 600; letter-spacing: -.07em; color: #14253f; margin-bottom: .7em; }
+        .block-admin-uniform { background: #fff; border-radius: 14px; box-shadow: 0 2px 10px rgba(40,60,120,.08); padding: 30px 32px 18px; margin-bottom: 36px; border: 1px solid #dde6f1; }
+        .table-centered-admin { background: #fff; border-radius: 18px; box-shadow: 0 2px 16px rgba(70,80,120,.07); padding: 20px 22px 9px; }
+        .dt-controls-flex { max-width: 1320px; margin: 0 auto 8px; display: flex; align-items: center; justify-content: space-between; gap: 1.5em; flex-wrap: wrap; }
+        .dt-controls-left, .dt-controls-right { display: flex; align-items: center; gap: 1.5em; flex-wrap: wrap; }
+        #labGrid th { background: #eef4fa !important; color: #3d436c !important; font-weight: 600 !important; border-bottom: 2.7px solid #ddeaf7 !important; }
+        #labGrid td { background: #fff !important; border-bottom: 1.1px solid #f2f7fd !important; padding-top: 13px !important; padding-bottom: 13px !important; }
+        #labGrid tr:nth-child(even) td { background: #f9fbfc !important; }
+        .btn-action-grid { background: #f6f8fd !important; border: 0 !important; border-radius: 9px !important; box-shadow: 0 1px 6px #dae4f377; padding: 6px 15px !important; margin-right: .16em; }
+        .btn-action-edit i { color: #ffbe17 !important; }
+        .btn-action-delete i { color: #c92a2a !important; }
+        .btn-action-restore i { color: #3196fa !important; }
+        .badge-grid-gray { background: #ededed !important; color: #191919 !important; font-weight: 600; font-size: .94em; border-radius: 9px; border: 1px solid #ddd; padding: 6px 12px; }
+        .tipo-hijo { padding-left: 2em; color: #717485; }
+        .tipo-padre { font-weight: bold; }
+        .crm-modal-content { border-radius: 20px; box-shadow: 0 13px 32px #b7c3f859; }
+        .crm-modal-header { background: #f7f9fd; border-bottom: 1px solid #e5e8ef; border-radius: 20px 20px 0 0; padding: 1.1rem 1.5rem; }
+        .crm-modal-title { font-size: 1.34rem; font-weight: 600; color: #315686; }
+        .crm-modal-body { padding: 1.3rem 1.5rem; }
+        .crm-modal-footer { border-top: 1px solid #ebecf1; padding: 1rem 1.5rem; background: #f7f9fd; border-radius: 0 0 20px 20px; text-align: right; }
+        .dataTables_filter input { width: 200px; border-radius: 7px; border: 1px solid #dbe3f2; padding: .38em 1em; background: #f8fafd; margin-left: .4em; }
+        .dataTables_paginate { display: flex; justify-content: flex-end; padding: .55em .25em; }
+    </style>
+}
+
+<div class="crm-container-admin">
+    <h2 class="crm-title-admin mb-4">Laboratorios — Catálogo</h2>
+
+    <div class="block-admin-uniform mb-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center">
+            <div>
+                <div class="mb-2 fs-4">
+                    <i class="bi bi-file-earmark-medical me-2" style="font-size:1.4em;color:#3196fa;vertical-align:middle"></i>
+                    Tipos de laboratorio
+                </div>
+                <div class="text-muted mb-2">Administra el catálogo jerárquico de estudios y subcategorías.</div>
+            </div>
+            <button type="button" class="btn btn-primary" id="btnNuevoTipo">
+                <i class="bi bi-plus-lg me-1"></i> Nuevo tipo
+            </button>
+        </div>
+    </div>
+
+    <div class="dt-controls-flex">
+        <div class="dt-controls-left"><div id="gridLengthWrapper"></div></div>
+        <div class="dt-controls-right">
+            <div class="form-check form-switch d-inline-flex align-items-center">
+                <input class="form-check-input" type="checkbox" role="switch" id="switchEliminados">
+                <label class="form-check-label ms-2" for="switchEliminados">Mostrar eliminados</label>
+            </div>
+            <div id="gridSearchWrapper"></div>
+        </div>
+    </div>
+
+    <div class="table-centered-admin">
+        <table id="labGrid" class="table table-bordered table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Nombre</th>
+                    <th>Tipo</th>
+                    <th>Slug</th>
+                    <th>Activo</th>
+                    <th>Eliminado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Crear / Editar -->
+<div class="modal fade" id="modalTipo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <form id="formTipo" class="crm-modal-content modal-content">
+            <div class="crm-modal-header modal-header">
+                <h5 class="crm-modal-title modal-title" id="modalTipoLabel">Tipo de laboratorio</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="crm-modal-body modal-body">
+                <input type="hidden" id="edit_id" name="id">
+                <div class="mb-3">
+                    <label class="form-label">Nombre <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="edit_name" name="name" maxlength="200" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Padre <small class="text-muted">(vacío = categoría raíz)</small></label>
+                    <select class="form-select" id="edit_parentId" name="parentId">
+                        <option value="">— Ninguno (es padre) —</option>
+                    </select>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Slug <small class="text-muted">(opcional)</small></label>
+                        <input type="text" class="form-control" id="edit_slug" name="slug" maxlength="200">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Activo</label>
+                        <select class="form-select" id="edit_isActive" name="isActive">
+                            <option value="true">Sí</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Descripción <small class="text-muted">(opcional)</small></label>
+                    <textarea class="form-control" id="edit_description" name="description" rows="2" maxlength="500"></textarea>
+                </div>
+                <div class="mb-3" id="rowEliminado" style="display:none">
+                    <label class="form-label">¿Eliminado?</label>
+                    <select class="form-select" id="edit_eliminado" name="eliminado">
+                        <option value="false">No</option>
+                        <option value="true">Sí</option>
+                    </select>
+                </div>
+                <div class="alert alert-success d-none" id="msgSuccess">¡Guardado correctamente!</div>
+                <div class="alert alert-danger  d-none" id="msgError"></div>
+            </div>
+            <div class="crm-modal-footer modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="btnGuardarTipo">Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<div style="display:none">@Html.AntiForgeryToken()</div>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<script>
+    let tabla;
+    const urlGrid     = '@Url.Page(null, "GridData")';
+    const urlGetTipo  = '@Url.Page(null, "GetTipo")';
+    const urlGetPadres= '@Url.Page(null, "Padres")';
+    const urlCrear    = '@Url.Page(null, "CrearTipo")';
+    const urlEditar   = '@Url.Page(null, "EditarTipo")';
+    const urlEliminar = '@Url.Page(null, "EliminarTipo")';
+    const urlRestaur  = '@Url.Page(null, "RestaurarTipo")';
+    const token = $('input[name="__RequestVerificationToken"]').val();
+
+    $.ajaxSetup({ beforeSend: function(xhr, s) {
+        if (['POST','PUT','DELETE'].includes(s.type))
+            xhr.setRequestHeader('RequestVerificationToken', token);
+    }});
+
+    $(function() {
+        tabla = $('#labGrid').DataTable({
+            processing: true, serverSide: true, dom: 'lfrtip',
+            ajax: {
+                url: urlGrid, type: 'GET',
+                data: d => { d.mostrarEliminados = $('#switchEliminados').is(':checked'); }
+            },
+            columns: [
+                { data: 'name', orderable: false, render: (v, t, r) =>
+                    r.esPadre ? `<span class="tipo-padre">${v}</span>`
+                              : `<span class="tipo-hijo">— ${v}</span>` },
+                { data: 'esPadre', orderable: false, render: v =>
+                    v ? `<span class="badge badge-grid-gray">Padre</span>`
+                      : `<span class="badge badge-grid-gray">Hijo</span>` },
+                { data: 'slug', orderable: false, defaultContent: '—' },
+                { data: 'isActive', orderable: false, render: v =>
+                    v ? `<span class="badge bg-success">Sí</span>`
+                      : `<span class="badge bg-secondary">No</span>` },
+                { data: 'eliminado', orderable: false, render: v =>
+                    `<span class="badge badge-grid-gray">${v ? 'Sí' : 'No'}</span>` },
+                { data: null, orderable: false, render: (v, t, r) => {
+                    let btns = `<button class="btn btn-sm btn-action-grid btn-action-edit btn-editar" data-id="${r.id}"><i class="bi bi-pencil-square"></i> Editar</button>`;
+                    if (!r.eliminado)
+                        btns += ` <button class="btn btn-sm btn-action-grid btn-action-delete btn-borrar" data-id="${r.id}"><i class="bi bi-trash"></i> Eliminar</button>`;
+                    else
+                        btns += ` <button class="btn btn-sm btn-action-grid btn-action-restore btn-restaurar" data-id="${r.id}"><i class="bi bi-arrow-counterclockwise"></i> Restaurar</button>`;
+                    return btns;
+                }}
+            ],
+            order: [], language: { emptyTable: 'Sin tipos registrados.', search: 'Buscar:', lengthMenu: 'Mostrar _MENU_ registros' },
+            initComplete: function() {
+                $('#labGrid_length').css({display:'inline-flex','align-items':'center',margin:'0'});
+                $('#gridLengthWrapper').empty().append($('#labGrid_length').children());
+                $('#labGrid_filter').css({display:'inline-flex','align-items':'center',margin:'0'});
+                $('#gridSearchWrapper').empty().append($('#labGrid_filter').children());
+            }
+        });
+
+        $('#switchEliminados').change(() => tabla.ajax.reload());
+
+        // Abrir modal nuevo
+        $('#btnNuevoTipo').click(function() {
+            resetModal('Nuevo tipo de laboratorio', false);
+            cargarPadres(null);
+            $('#modalTipo').modal('show');
+        });
+
+        // Editar
+        $('#labGrid').on('click', '.btn-editar', function() {
+            const id = $(this).data('id');
+            $.get(urlGetTipo, { id }, function(r) {
+                resetModal('Editar tipo de laboratorio', true);
+                $('#edit_id').val(r.id);
+                $('#edit_name').val(r.name);
+                $('#edit_slug').val(r.slug || '');
+                $('#edit_description').val(r.description || '');
+                $('#edit_isActive').val(r.isActive ? 'true' : 'false');
+                $('#edit_eliminado').val(r.eliminado ? 'true' : 'false');
+                $('#rowEliminado').show();
+                cargarPadres(r.parentId);
+                $('#modalTipo').modal('show');
+            });
+        });
+
+        // Guardar (crear o editar)
+        $('#formTipo').submit(function(e) {
+            e.preventDefault();
+            const esEdicion = $('#edit_id').val() !== '';
+            const url = esEdicion ? urlEditar : urlCrear;
+            $('#msgSuccess,#msgError').addClass('d-none');
+            $('#btnGuardarTipo').prop('disabled', true).text('Guardando...');
+            $.ajax({
+                url, type: 'POST',
+                data: $(this).serialize(),
+                contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+                success: r => {
+                    if (r.success) {
+                        $('#msgSuccess').removeClass('d-none');
+                        tabla.ajax.reload(null, false);
+                        setTimeout(() => $('#modalTipo').modal('hide'), 900);
+                    } else {
+                        $('#msgError').text(r.message || 'Error.').removeClass('d-none');
+                    }
+                },
+                error: () => $('#msgError').text('Error de red.').removeClass('d-none'),
+                complete: () => $('#btnGuardarTipo').prop('disabled', false).text('Guardar')
+            });
+        });
+
+        // Eliminar
+        $('#labGrid').on('click', '.btn-borrar', function() {
+            const id = $(this).data('id');
+            if (!confirm('¿Eliminar este tipo? No se puede si tiene subcategorías o resultados activos.')) return;
+            $.ajax({ url: urlEliminar, type: 'POST', data: $.param({ id }),
+                contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+                success: r => r.success ? tabla.ajax.reload() : alert(r.message || 'Error.')
+            });
+        });
+
+        // Restaurar
+        $('#labGrid').on('click', '.btn-restaurar', function() {
+            const id = $(this).data('id');
+            if (!confirm('¿Restaurar este tipo?')) return;
+            $.ajax({ url: urlRestaur, type: 'POST', data: $.param({ id }),
+                contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+                success: r => r.success ? tabla.ajax.reload() : alert(r.message || 'Error.')
+            });
+        });
+    });
+
+    function resetModal(titulo, mostrarEliminado) {
+        $('#modalTipoLabel').text(titulo);
+        $('#edit_id,#edit_name,#edit_slug,#edit_description').val('');
+        $('#edit_isActive').val('true');
+        $('#edit_eliminado').val('false');
+        $('#rowEliminado').toggle(mostrarEliminado);
+        $('#msgSuccess,#msgError').addClass('d-none');
+    }
+
+    function cargarPadres(selectedId) {
+        $.get(urlGetPadres, function(padres) {
+            const $sel = $('#edit_parentId').empty().append('<option value="">— Ninguno (es padre) —</option>');
+            padres.forEach(p => {
+                $sel.append(`<option value="${p.id}" ${p.id == selectedId ? 'selected' : ''}>${p.name}</option>`);
+            });
+        });
+    }
+</script>
+}

@@ -23,19 +23,22 @@ namespace eiibd26.Controllers
         private readonly IHostEnvironment _env;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly eiibd26.Services.PushNotificationService _pushService;
+        private readonly IServiceScopeFactory _scopeFactory;
 
         public RespuestasApiController(
               ApplicationDbContext db,
               ILogger<RespuestasApiController> logger,
               IHostEnvironment env,
               UserManager<ApplicationUser> userManager,
-              eiibd26.Services.PushNotificationService pushService)
+              eiibd26.Services.PushNotificationService pushService,
+              IServiceScopeFactory scopeFactory)
         {
             _db = db;
             _logger = logger;
             _env = env;
             _userManager = userManager;
             _pushService = pushService;
+            _scopeFactory = scopeFactory;
         }
 
 
@@ -319,20 +322,34 @@ namespace eiibd26.Controllers
                     ? preguntaTitulo[..77] + "..."
                     : preguntaTitulo;
 
+                // Scope propio para evitar usar el DbContext del request (ya puede estar disposed)
+                using var scope = _scopeFactory.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                var pushService = scope.ServiceProvider.GetRequiredService<eiibd26.Services.PushNotificationService>();
+
+                var slug = await db.Preguntas.AsNoTracking()
+                    .Where(p => p.Id == preguntaId)
+                    .Select(p => p.Slug)
+                    .FirstOrDefaultAsync();
+
+                var url = !string.IsNullOrWhiteSpace(slug)
+                    ? $"/Preguntas/{slug}"
+                    : $"/Preguntas/Detalles?id={preguntaId}";
+
                 var notification = new eiibd26.Models.PushNotification
                 {
                     Title = "Nueva respuesta a tu pregunta",
                     Body = tituloCorto,
                     Icon = "/img/icons/icon-192x192.png",
-                    Url = $"/Preguntas/Detalles/{preguntaId}",
+                    Url = url,
                     Tipo = "Respuesta",
                     TargetUserIds = System.Text.Json.JsonSerializer.Serialize(new[] { ownerUserId })
                 };
 
-                _db.PushNotifications.Add(notification);
-                await _db.SaveChangesAsync();
+                db.PushNotifications.Add(notification);
+                await db.SaveChangesAsync();
 
-                await _pushService.SendNotificationToUserAsync(notification.Id, ownerUserId);
+                await pushService.SendNotificationToUserAsync(notification.Id, ownerUserId);
             }
             catch (Exception ex)
             {

@@ -8,6 +8,7 @@ public sealed class MedicalSummaryDto
     public List<EstadoAnimoExportDto> EstadosAnimo { get; init; } = [];
     public List<SintomaExportDto> Sintomas { get; init; } = [];
     public List<TratamientoExportDto> Tratamientos { get; init; } = [];
+    public List<LaboratoryExportDto> Laboratorios { get; init; } = [];
 
     public DateTime Desde { get; init; }
     public DateTime Hasta { get; init; }

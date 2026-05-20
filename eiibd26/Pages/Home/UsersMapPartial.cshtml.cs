@@ -82,7 +82,8 @@ namespace eiibd26.Pages.Home
                 var lngStr = (r.Longitude ?? "").Trim().Replace(',', '.');
 
                 if (double.TryParse(latStr, NumberStyles.Float, CultureInfo.InvariantCulture, out var lat)
-                 && double.TryParse(lngStr, NumberStyles.Float, CultureInfo.InvariantCulture, out var lng))
+                 && double.TryParse(lngStr, NumberStyles.Float, CultureInfo.InvariantCulture, out var lng)
+                 && !(lat == 0 && lng == 0))
                 {
                     list.Add(new
                     {

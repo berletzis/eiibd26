@@ -166,13 +166,19 @@ public sealed class PdfGeneratorService : IPdfGeneratorService
                 Separador(col);
             }
 
+            if (data.Laboratorios.Count > 0)
+            {
+                col.Item().Element(c => BloqueLaboratorios(c, data.Laboratorios));
+                Separador(col);
+            }
+
             if (data.EstadosAnimo.Count > 0)
             {
                 col.Item().Element(c => BloqueEstadosAnimo(c, data.EstadosAnimo));
                 Separador(col);
             }
 
-            if (data.EstadosAnimo.Count == 0 && data.Sintomas.Count == 0 && data.Tratamientos.Count == 0)
+            if (data.EstadosAnimo.Count == 0 && data.Sintomas.Count == 0 && data.Tratamientos.Count == 0 && data.Laboratorios.Count == 0)
             {
                 col.Item().PaddingTop(8).Text("No se encontraron registros en el período seleccionado.")
                     .FontSize(TamFuente).Italic().FontColor(GrisMedio);
@@ -253,6 +259,30 @@ public sealed class PdfGeneratorService : IPdfGeneratorService
                             : c.Nombre;
                         body.Item().Text(texto).FontSize(TamFuente).FontColor(GrisOscuro);
                     }
+                }
+            });
+        });
+    }
+
+    // ── BLOQUE: RESULTADOS DE LABORATORIO ────────────────────────────────────
+
+    private static void BloqueLaboratorios(IContainer container, List<LaboratoryExportDto> laboratorios)
+    {
+        container.ShowEntire().Column(col =>
+        {
+            col.Item().Element(c => TituloBloque(c, "Resultados de Laboratorio"));
+            col.Item().PaddingTop(6).Column(body =>
+            {
+                body.Spacing(3);
+                foreach (var lab in laboratorios)
+                {
+                    var fecha  = lab.FechaResultado.HasValue ? lab.FechaResultado.Value.ToString("dd/MM/yyyy") : "—";
+                    var unidad = string.IsNullOrWhiteSpace(lab.Unidad) ? "" : $" {lab.Unidad}";
+                    var valor  = string.IsNullOrWhiteSpace(lab.Resultado) ? "—" : $"{lab.Resultado}{unidad}";
+                    var linea  = $"{fecha}  —  {lab.Estudio} / {lab.Categoria}  —  {valor}";
+                    body.Item().Text(linea).FontSize(TamFuente).FontColor(GrisOscuro);
+                    if (!string.IsNullOrWhiteSpace(lab.Notas))
+                        body.Item().PaddingLeft(12).Text($"Notas: {lab.Notas}").FontSize(TamFuente - 1).Italic().FontColor(GrisMedio);
                 }
             });
         });

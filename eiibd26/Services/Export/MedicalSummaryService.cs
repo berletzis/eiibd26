@@ -28,6 +28,7 @@ public sealed class MedicalSummaryService : IMedicalSummaryService
         var estados      = await ObtenerEstadosAnimoAsync(userId, desde, hasta, ct);
         var sintomas     = await ObtenerSintomasConTrackingAsync(userId, desde, hasta, ct);
         var tratamientos = await ObtenerTratamientosAsync(userId, desde, hasta, ct);
+        var laboratorios = await ObtenerLaboratoriosAsync(userId, desde, hasta, ct);
 
         bool truncado = estados.Count >= Limit
                      || sintomas.Sum(s => s.Trackings.Count) >= Limit
@@ -40,6 +41,7 @@ public sealed class MedicalSummaryService : IMedicalSummaryService
             EstadosAnimo     = estados,
             Sintomas         = sintomas,
             Tratamientos     = tratamientos,
+            Laboratorios     = laboratorios,
             Desde            = desde,
             Hasta            = hasta,
             FechaGeneracion  = DateTime.Now,
@@ -171,6 +173,31 @@ public sealed class MedicalSummaryService : IMedicalSummaryService
     }
 
     // ── Tratamientos ──────────────────────────────────────────────────────────
+
+    private async Task<List<LaboratoryExportDto>> ObtenerLaboratoriosAsync(
+        Guid userId, DateTime desde, DateTime hasta, CancellationToken ct)
+    {
+        return await _db.PatientLaboratoryResults
+            .AsNoTracking()
+            .Where(r => r.PatientId == userId && !r.Eliminado)
+            .Where(r => !r.ResultDate.HasValue || (r.ResultDate >= desde && r.ResultDate <= hasta))
+            .Include(r => r.LaboratoryType).ThenInclude(t => t!.Parent)
+            .Include(r => r.LaboratoryUnit)
+            .Include(r => r.CondicionUsuario).ThenInclude(cu => cu!.Condicion)
+            .OrderByDescending(r => r.ResultDate ?? (DateTime?)r.FechaCreado)
+            .Take(Limit)
+            .Select(r => new LaboratoryExportDto
+            {
+                Estudio      = r.LaboratoryType!.Parent!.Name ?? r.LaboratoryType.Name,
+                Categoria    = r.LaboratoryType.Name,
+                Resultado    = r.ResultValue,
+                Unidad       = r.LaboratoryUnit != null ? r.LaboratoryUnit.Abreviatura : r.ResultUnit,
+                FechaResultado = r.ResultDate,
+                Notas        = r.Notes,
+                Condicion    = r.CondicionUsuario != null ? r.CondicionUsuario.Condicion.nombre : null
+            })
+            .ToListAsync(ct);
+    }
 
     private async Task<List<TratamientoExportDto>> ObtenerTratamientosAsync(
         Guid userId, DateTime desde, DateTime hasta, CancellationToken ct)

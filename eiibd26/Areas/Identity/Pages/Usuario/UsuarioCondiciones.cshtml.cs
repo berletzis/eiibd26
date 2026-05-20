@@ -48,11 +48,11 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             if (userId == null) return;
             var userIdGuid = Guid.Parse(userId);
 
-            // Trae hijo+padre y datos de vínculo (solo las asignadas de usuario).
-            // Importante: capturamos también el id de la fila en condicionUsuario (CondicionUsuarioId)
-            // porque las tablas de relación referencian esa PK, y los contadores deben agruparse por ella.
-            // Trae tanto condiciones hijas como condiciones padre (si el usuario guardó la relación
-            // apuntando a la condición padre). Para las condiciones que no tienen padre, usamos
+            // Trae hijo+padre y datos de vï¿½nculo (solo las asignadas de usuario).
+            // Importante: capturamos tambiï¿½n el id de la fila en condicionUsuario (CondicionUsuarioId)
+            // porque las tablas de relaciï¿½n referencian esa PK, y los contadores deben agruparse por ella.
+            // Trae tanto condiciones hijas como condiciones padre (si el usuario guardï¿½ la relaciï¿½n
+            // apuntando a la condiciï¿½n padre). Para las condiciones que no tienen padre, usamos
             // el propio nombre como "PadreNombre" para que se muestren en la UI.
             var condiciones = await (from cu in _db.condicionUsuario
                                      join c in _db.condiciones on cu.idCondicion equals c.id
@@ -77,12 +77,12 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
             var condUsuarioIds = condiciones.Select(x => x.CondicionUsuarioId).ToList();
 
-            // Obtener fecha de creación del perfil para comparar
+            // Obtener fecha de creaciï¿½n del perfil para comparar
             var perfil = await _db.Perfil.AsNoTracking().FirstOrDefaultAsync(p => p.idUser == userIdGuid);
             DateTime? perfilCreado = perfil?.FechaCreado ?? perfil?.FechaCreacion;
 
             // TratamientosCount: contamos TratamientoCondicionUsuario que pertenezcan al usuario,
-            // cuyo tratamientoUsuario esté activo (no eliminado) y su IdCondicionUsuario corresponda
+            // cuyo tratamientoUsuario estï¿½ activo (no eliminado) y su IdCondicionUsuario corresponda
             // a una de las filas de condicionUsuario obtenidas.
             var tratamientosCounts = await (from tcr in _db.TratamientoCondicionUsuario
                                             join tu in _db.tratamientoUsuario on tcr.IdTratamientoUsuario equals tu.id
@@ -96,7 +96,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                                             .ToListAsync();
 
             // SintomasCount: contamos SintomaCondicionUsuario que pertenezcan al usuario,
-            // cuyo sintomasUsuario esté activo (no eliminado) y su IdCondicionUsuario corresponda
+            // cuyo sintomasUsuario estï¿½ activo (no eliminado) y su IdCondicionUsuario corresponda
             // a una de las filas de condicionUsuario obtenidas.
             var sintomasCounts = await (from scr in _db.SintomaCondicionUsuario
                                         join su in _db.sintomasUsuario on scr.IdSintomaUsuario equals su.id
@@ -131,15 +131,19 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 .ToList();
         }
 
-        // Agregar condición HIJO (no permite padres)
+        // Agregar condiciï¿½n HIJO (no permite padres)
         public async Task<IActionResult> OnPostAgregarCondicionAsync(int condicionId)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (userId == null) return Unauthorized();
 
-            var condicion = await _db.condiciones.FirstOrDefaultAsync(x => x.id == condicionId);
-            if (condicion == null || condicion.idPadre == null)
-                return new JsonResult(new { ok = false, mensaje = "Debes seleccionar una condición hija." }) { StatusCode = 400 };
+            var condicion = await _db.condiciones.FirstOrDefaultAsync(x => x.id == condicionId && !x.Eliminado);
+            if (condicion == null)
+                return new JsonResult(new { ok = false, mensaje = "CondiciÃ³n no encontrada." }) { StatusCode = 400 };
+
+            var tieneHijos = await _db.condiciones.AnyAsync(x => x.idPadre == condicionId && !x.Eliminado);
+            if (tieneHijos)
+                return new JsonResult(new { ok = false, mensaje = "Debes seleccionar una condiciÃ³n especÃ­fica, no una categorÃ­a." }) { StatusCode = 400 };
 
             var yaExiste = await _db.condicionUsuario
                 .AnyAsync(x => x.idUsuario == Guid.Parse(userId) && x.idCondicion == condicionId && !x.Eliminado);
@@ -194,7 +198,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             return RedirectToPage();
         }
 
-        /// <summary>Marca/desmarca una condición del usuario como principal (solo una puede estar activa).</summary>
+        /// <summary>Marca/desmarca una condiciï¿½n del usuario como principal (solo una puede estar activa).</summary>
         public async Task<IActionResult> OnPostTogglePrincipalCondicionAsync(int condUsuarioId)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;

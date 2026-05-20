@@ -17,19 +17,30 @@ namespace eiibd26.Controllers
         {
             var pregunta = await _db.Preguntas
                 .Include(p => p.Respuestas)
-                    .ThenInclude(r => r.Pregunta)
                 .FirstOrDefaultAsync(p => p.Id == id && !p.Eliminado);
 
             if (pregunta == null)
                 return NotFound(new { ok = false, error = "Pregunta no encontrada" });
 
-            // Ordenar respuestas según prioridad AI
+            var preguntaId = pregunta.Id;
+
+            // Score calculado en runtime desde Votos (Puntuacion en el modelo es stale)
+            var scores = await _db.Votos
+                .AsNoTracking()
+                .Where(v => v.EntidadTipo == "respuesta" && !v.Eliminado &&
+                            pregunta.Respuestas.Select(r => r.Id).Contains(v.EntidadId))
+                .GroupBy(v => v.EntidadId)
+                .Select(g => new { Id = g.Key, Score = g.Select(v => (int?)v.Valor).Sum() ?? 0 })
+                .ToListAsync();
+
+            var scoreMap = scores.ToDictionary(x => x.Id, x => x.Score);
+
             var respuestas = pregunta.Respuestas
                 .Where(r => !r.Eliminado)
-                .OrderByDescending(r => r.EsAceptada)     // 1. Respuestas aceptadas primero
-                .ThenBy(r => r.EsIA)                       // 2. Humanas antes que IA
-                .ThenByDescending(r => r.Puntuacion)      // 3. Por puntuación
-                .ThenBy(r => r.FechaCreacion)             // 4. Más antiguas primero
+                .OrderByDescending(r => r.EsAceptada)
+                .ThenBy(r => r.EsIA)
+                .ThenByDescending(r => scoreMap.TryGetValue(r.Id, out var s) ? s : 0)
+                .ThenBy(r => r.FechaCreacion)
                 .Select(r => new
                 {
                     r.Id,
@@ -38,7 +49,7 @@ namespace eiibd26.Controllers
                     r.EsIA,
                     r.ModeloIA,
                     r.EsColapsada,
-                    r.Puntuacion,
+                    Score = scoreMap.TryGetValue(r.Id, out var sc) ? sc : 0,
                     r.FechaCreacion,
                     r.UsuarioId
                 })

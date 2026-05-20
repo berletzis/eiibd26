@@ -335,6 +335,37 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 .OrderBy(f => f.Orden)
                 .AsNoTracking()
                 .ToListAsync();
+
+            // Laboratorios: count y último tipo
+            var labsQuery = _db.PatientLaboratoryResults
+                .AsNoTracking()
+                .Where(r => r.PatientId == userGuid && !r.Eliminado);
+
+            VM.TotalLaboratorios = await labsQuery.CountAsync();
+
+            VM.UltimosLaboratorios = await labsQuery
+                .Include(r => r.LaboratoryType).ThenInclude(t => t!.Parent)
+                .Include(r => r.LaboratoryUnit)
+                .Include(r => r.CondicionUsuario).ThenInclude(cu => cu!.Condicion)
+                .Include(r => r.SintomaUsuario).ThenInclude(su => su!.Sintoma)
+                .Include(r => r.TratamientoUsuario).ThenInclude(tu => tu!.Tratamiento)
+                .OrderByDescending(r => r.ResultDate ?? (DateTime?)r.FechaCreado)
+                .Take(5)
+                .Select(r => new LabResultDashItem
+                {
+                    Id            = r.Id,
+                    Estudio       = r.LaboratoryType != null && r.LaboratoryType.Parent != null ? r.LaboratoryType.Parent.Name : (r.LaboratoryType != null ? r.LaboratoryType.Name : ""),
+                    Categoria     = r.LaboratoryType != null ? r.LaboratoryType.Name : "",
+                    Resultado     = r.ResultValue,
+                    Unidad        = r.LaboratoryUnit != null ? r.LaboratoryUnit.Abreviatura : r.ResultUnit,
+                    FechaResultado = r.ResultDate,
+                    Condicion     = r.CondicionUsuario != null && r.CondicionUsuario.Condicion != null ? r.CondicionUsuario.Condicion.nombre : null,
+                    Sintoma       = r.SintomaUsuario != null && r.SintomaUsuario.Sintoma != null ? r.SintomaUsuario.Sintoma.nombre : null,
+                    Tratamiento   = r.TratamientoUsuario != null && r.TratamientoUsuario.Tratamiento != null ? r.TratamientoUsuario.Tratamiento.nombre : null
+                })
+                .ToListAsync();
+
+            VM.UltimoLaboratorio = VM.UltimosLaboratorios.FirstOrDefault()?.Categoria ?? "";
         }
 
         public async Task<IActionResult> OnPostTrackSintomaMatriz()

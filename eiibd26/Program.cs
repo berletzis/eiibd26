@@ -1,5 +1,6 @@
 // Program.cs (mejorado para proteger /Identity y permitir solo páginas públicas)
 using eiibd26.Data;
+using Hangfire;
 using eiibd26.Helpers;
 using eiibd26.Models;
 using eiibd26.Services;
@@ -132,8 +133,10 @@ try
     });
 
     // Register Razor Pages and add route convention + authorization conventions
-    builder.Services.AddRazorPages()
-        .AddRazorPagesOptions(options =>
+    var razorBuilder = builder.Services.AddRazorPages();
+    if (builder.Environment.IsDevelopment())
+        razorBuilder.AddRazorRuntimeCompilation();
+    razorBuilder.AddRazorPagesOptions(options =>
         {
             // Map SEO-friendly route /Preguntas/{slug} -> /Preguntas/Detalles
             options.Conventions.AddPageRoute("/Preguntas/Detalles", "/Preguntas/{slug}");
@@ -254,6 +257,9 @@ try
     builder.Services.AddScoped<eiibd26.Services.Export.Pdf.IPdfGeneratorService, eiibd26.Services.Export.Pdf.PdfGeneratorService>();
     builder.Services.AddScoped<eiibd26.Services.Tracking.ITrackingSintomaService, eiibd26.Services.Tracking.TrackingSintomaService>();
 
+    // Directorio comunitario de médicos EII
+    builder.Services.AddScoped<eiibd26.Services.Directorio.IMedicoDirectorioService, eiibd26.Services.Directorio.MedicoDirectorioService>();
+
     // Register HttpClient for Anthropic API
     builder.Services.AddHttpClient("AnthropicClient", (serviceProvider, client) =>
     {
@@ -299,9 +305,15 @@ try
         logger.LogInformation("🔧 [HTTP CLIENT] Timeout configurado: {Timeout}s", timeout);
     });
 
-    // Register background job processor (simulated until Hangfire is added)
-    // Changed to Scoped to allow consuming ApplicationDbContext
     builder.Services.AddScoped<eiibd26.Jobs.AiAnswerJob>();
+
+    var hangfireConn = builder.Configuration.GetConnectionString("DefaultConnection");
+    builder.Services.AddHangfire(cfg => cfg
+        .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+        .UseSimpleAssemblyNameTypeSerializer()
+        .UseRecommendedSerializerSettings()
+        .UseSqlServerStorage(hangfireConn));
+    builder.Services.AddHangfireServer(opt => opt.WorkerCount = 2);
 
     // Log AI service initialization
     var logger = LoggerFactory.Create(b => b.AddConsole()).CreateLogger("Startup");
@@ -828,6 +840,11 @@ try
         sb.AppendLine(); // espacios opcionales
         sb.AppendLine($"Sitemap: {host}/sitemap.xml");
         await ctx.Response.WriteAsync(sb.ToString());
+    });
+
+    app.UseHangfireDashboard("/hangfire", new Hangfire.DashboardOptions
+    {
+        Authorization = new[] { new eiibd26.Helpers.HangfireAdminAuthFilter() }
     });
 
     app.MapControllers();

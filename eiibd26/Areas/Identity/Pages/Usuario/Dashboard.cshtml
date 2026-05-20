@@ -134,6 +134,94 @@
             </div>
 
             <div>
+                <div class="card p-3">
+                    <div class="sintomas-top5">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <div>
+                                <div class="dashboard-col1-title">Resultados de laboratorio</div>
+                                <div class="small-muted" style="font-size:.9rem;">
+                                    @if (Model.VM.TotalLaboratorios > 0)
+                                    {
+                                        <span>@Model.VM.TotalLaboratorios resultado@(Model.VM.TotalLaboratorios == 1 ? "" : "s") registrado@(Model.VM.TotalLaboratorios == 1 ? "" : "s").</span>
+                                    }
+                                    else
+                                    {
+                                        <span>Sin resultados registrados aún.</span>
+                                    }
+                                </div>
+                            </div>
+                            <a href="/Identity/Usuario/UsuarioLaboratorios" class="crm-btn crm-btn-primary btn-lg" title="Ver laboratorios">
+                                <i class="bi bi-file-earmark-medical"></i>
+                            </a>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-sm table-borderless align-middle">
+                                <thead>
+                                    <tr>
+                                        <th class="text-start sintoma-col">Estudio / Categoría</th>
+                                        <th class="text-start date-col">Resultado</th>
+                                        <th class="text-center date-col">Fecha</th>
+                                        <th class="text-start cond-col">Condición</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (!Model.VM.UltimosLaboratorios.Any())
+                                    {
+                                        <tr>
+                                            <td colspan="4" class="text-muted small" style="font-style:italic;">No hay resultados para mostrar.</td>
+                                        </tr>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var lab in Model.VM.UltimosLaboratorios)
+                                        {
+                                            <tr>
+                                                <td class="text-start sintoma-col">
+                                                    <span style="font-size:.9rem; color:#111827;">@lab.Estudio</span>
+                                                    @if (!string.IsNullOrWhiteSpace(lab.Categoria) && lab.Categoria != lab.Estudio)
+                                                    {
+                                                        <br /><small class="text-muted">@lab.Categoria</small>
+                                                    }
+                                                </td>
+                                                <td class="text-start date-col" style="font-size:.85rem;">
+                                                    @if (!string.IsNullOrWhiteSpace(lab.Resultado))
+                                                    {
+                                                        <strong>@lab.Resultado</strong>
+                                                        if (!string.IsNullOrWhiteSpace(lab.Unidad))
+                                                        {
+                                                            <small class="text-muted ms-1">@lab.Unidad</small>
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted small" style="font-style:italic;">—</span>
+                                                    }
+                                                </td>
+                                                <td class="text-center date-col" style="font-size:.85rem;">
+                                                    @(lab.FechaResultado.HasValue ? lab.FechaResultado.Value.ToString("dd/MM/yy") : "—")
+                                                </td>
+                                                <td class="wrap-condiciones cond-col">
+                                                    @if (!string.IsNullOrWhiteSpace(lab.Condicion))
+                                                    {
+                                                        @lab.Condicion
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted small">Sin Condición</span>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
                 <div class="card p-3" id="cardResumenMedico">
                     <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
                         <div>

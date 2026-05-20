@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Hangfire;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
@@ -17,16 +18,16 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
     {
         private readonly ApplicationDbContext _db;
         private readonly ILogger<UusuarioPreguntaDetalleModel> _logger;
-        private readonly IServiceProvider _serviceProvider;
+        private readonly IBackgroundJobClient _jobs;
 
         public UusuarioPreguntaDetalleModel(
-            ApplicationDbContext db, 
+            ApplicationDbContext db,
             ILogger<UusuarioPreguntaDetalleModel> logger,
-            IServiceProvider serviceProvider)
+            IBackgroundJobClient jobs)
         {
             _db = db;
             _logger = logger;
-            _serviceProvider = serviceProvider;
+            _jobs = jobs;
         }
 
         [BindProperty] public Guid? Id { get; set; }
@@ -218,7 +219,8 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     Cuerpo = Cuerpo,
                     Resuelta = false,
                     Eliminado = false,
-                    FechaCreacion = DateTimeOffset.UtcNow
+                    FechaCreacion = DateTimeOffset.UtcNow,
+                    FechaModificacion = DateTimeOffset.UtcNow
                 };
 
                 // Generate unique slug before saving
@@ -239,40 +241,8 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 await InsertRelationsAsync(nueva.Id);
                 await _db.SaveChangesAsync();
 
-                // ===== ENCOLAR JOB DE IA EN SEGUNDO PLANO (igual que el modal) =====
-                _logger.LogInformation("🚀 [UusuarioPreguntaDetalle] Iniciando Job de IA para pregunta {PreguntaId}...", nueva.Id);
-
-                var preguntaIdCapture = nueva.Id;
-
-                // Usar Task.Factory.StartNew con LongRunning para asegurar un thread separado
-                Task.Factory.StartNew(async () =>
-                {
-                    try
-                    {
-                        _logger.LogInformation("⚡ [TASK.RUN] Inicio del Task.Run para pregunta {PreguntaId}", preguntaIdCapture);
-                        _logger.LogInformation("⚡ [TASK.RUN] Creando scope para AiAnswerJob...");
-
-                        using var scope = _serviceProvider.CreateScope();
-                        _logger.LogInformation("⚡ [TASK.RUN] Scope creado exitosamente");
-
-                        var aiJob = scope.ServiceProvider.GetRequiredService<eiibd26.Jobs.AiAnswerJob>();
-                        _logger.LogInformation("✅ [TASK.RUN] AiAnswerJob obtenido del DI, tipo: {Type}", aiJob.GetType().FullName);
-
-                        _logger.LogInformation("✅ [TASK.RUN] Ejecutando ProcesarPreguntaAsync para {PreguntaId}...", preguntaIdCapture);
-                        await aiJob.ProcesarPreguntaAsync(preguntaIdCapture);
-
-                        _logger.LogInformation("✅ [TASK.RUN] Job de IA completado exitosamente para pregunta {PreguntaId}", preguntaIdCapture);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "❌ [TASK.RUN] ERROR CRÍTICO ejecutando job de IA para pregunta {PreguntaId}: {Message}\nStackTrace: {StackTrace}", 
-                            preguntaIdCapture, ex.Message, ex.StackTrace);
-                    }
-                }, TaskCreationOptions.LongRunning).Unwrap();
-
-                _logger.LogInformation(
-                    "✅ [UusuarioPreguntaDetalle] Job de IA encolado exitosamente. Retornando respuesta al cliente.");
-                // =============================================
+                _jobs.Enqueue<eiibd26.Jobs.AiAnswerJob>(job => job.ProcesarPreguntaAsync(nueva.Id));
+                _logger.LogInformation("✅ [UusuarioPreguntaDetalle] Job de IA encolado en Hangfire para pregunta {PreguntaId}.", nueva.Id);
 
                 // Guardar el slug en TempData para mostrarlo en la página
                 if (!string.IsNullOrWhiteSpace(nueva.Slug))

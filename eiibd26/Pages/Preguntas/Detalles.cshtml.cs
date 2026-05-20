@@ -418,9 +418,8 @@ namespace eiibd26.Pages.Preguntas
 
                     if (mappedTop.Count > 0)
                     {
-                        // AcceptedAnswer debe ser SOLO respuestas humanas aceptadas, no IA
-                        AcceptedAnswer = mappedTop.FirstOrDefault(x => x.EsIA == false);
-                        TopSuggestedAnswers = mappedTop.Where(x => x.EsIA == false).Skip(AcceptedAnswer != null ? 1 : 0).Take(5).ToList();
+                        AcceptedAnswer = mappedTop.FirstOrDefault(x => !x.EsIA && topAnswers.First(t => t.Id == x.Id).EsAceptada);
+                        TopSuggestedAnswers = mappedTop.Where(x => !x.EsIA && (AcceptedAnswer == null || x.Id != AcceptedAnswer.Id)).Take(5).ToList();
                     }
                 }
             }

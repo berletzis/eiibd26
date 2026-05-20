@@ -114,6 +114,32 @@ Servicio sin acceso a DB (puro cálculo sobre DTOs ya cargados):
 
 ---
 
+## Cambios Acumulados (2026-05-18) — Segunda sesión
+
+### FechaFin en tratamientoUsuario
+
+**SQL ejecutado:** `ALTER TABLE tratamientoUsuario ADD FechaFin datetime2 NULL;`
+
+- `Models/tratamientoUsuario.cs` → `DateTime? FechaFin` después de `fechaInicio`
+- `UsuarioTratamientos.cshtml.cs` → ViewModel + proyección + handler `OnPostEditarFechaFinAsync(int tratId, string nuevaFechaFin = null)` — parámetro `string` para evitar 400 con campo vacío
+- `UsuarioTratamientos.cshtml` → bloque HTML + JS handler replicando patrón fecha inicio
+- `Pages/u/Index.cshtml.cs` → `InfoClinicaVm.FechaFin` + proyección
+- `Pages/u/Index.cshtml` → muestra "Fin: MMM yyyy" en perfil público solo si HasValue
+- `DTOs/Export/TratamientoExportDto.cs` → `DateTime? FechaFin`
+- `Services/Export/MedicalSummaryService.cs` → `FechaFin = t.FechaFin` en proyección
+- `Services/Export/Pdf/PdfGeneratorService.cs` → `BloqueTratamientos` muestra "— Fin: dd/MM/yyyy" si HasValue
+
+### Fix handlers fecha — 400 en Identity
+
+Handlers de fecha usaban `fetch(form.action, ...)` + `new FormData(form)`. En Identity area esto causaba 400.
+**Fix:** `fetch('?handler=EditarFechaInicio', ...)` / `fetch('?handler=EditarFechaFin', ...)` + FormData manual. Mismo patrón que resto de handlers de la página.
+
+### Fix HealthInsightService — PromedioDolorGlobal
+
+`Services/Analytics/HealthInsightService.cs` línea 29: `.Where(t => t.Dolor.HasValue)` → `.Where(t => t.Dolor.HasValue && t.Dolor.Value > 0)`. Los registros con Dolor=0 (UI guarda 0 cuando no hay dolor) ya no distorsionan el promedio. Afecta /u/{slug} y PDF.
+
+---
+
 ## Cambios Acumulados (2026-05-18)
 
 ### Dashboard — Overflow en móvil (2ª sesión)

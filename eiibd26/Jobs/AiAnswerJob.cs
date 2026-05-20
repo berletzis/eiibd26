@@ -43,7 +43,9 @@ namespace eiibd26.Jobs
         /// </summary>
         /// <param name="preguntaId">ID de la pregunta</param>
         /// <param name="cancellationToken">Token de cancelación para operaciones asíncronas</param>
-        public async Task ProcesarPreguntaAsync(Guid preguntaId, CancellationToken cancellationToken = default)
+        public Task ProcesarPreguntaAsync(Guid preguntaId) => ProcesarPreguntaAsync(preguntaId, CancellationToken.None);
+
+        public async Task ProcesarPreguntaAsync(Guid preguntaId, CancellationToken cancellationToken)
         {
             var startTime = DateTimeOffset.UtcNow;
             _logger.LogInformation(

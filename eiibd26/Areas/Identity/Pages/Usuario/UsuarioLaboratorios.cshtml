@@ -1,0 +1,325 @@
+@page
+@model eiibd26.Areas.Identity.Pages.Usuario.UsuarioLaboratoriosModel
+@{
+    ViewData["Title"] = "Mis Laboratorios";
+    Layout = "_Layout";
+}
+
+<div class="container py-4">
+    <h1 class="crm-title mb-4">Mis Laboratorios</h1>
+
+    <div class="qp-wrapper-flex">
+        <div class="crm-card">
+            <label for="selectTipoLab" class="crm-label">
+                Selecciona el tipo de estudio para agregar un resultado.
+            </label>
+            <form id="agregarLabForm" autocomplete="off" class="crm-form-row" onsubmit="return false;">
+                <div class="crm-search-group crm-col-8">
+                    <div class="crm-search-horizontal">
+                        <select id="selectTipoLab" class="crm-input" style="min-width:240px;">
+                            <option value="">— Selecciona estudio / categoría —</option>
+                            @foreach (var t in Model.TiposHoja)
+                            {
+                                <option value="@t.Id">@t.Display</option>
+                            }
+                        </select>
+                        <button id="btnAgregarLab" class="crm-btn crm-btn-primary" type="button">
+                            <i class="bi bi-zoom-in"></i>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="condiciones-paginacion" aria-label="Resultados">
+        <span>Lista de resultados registrados</span>
+    </div>
+
+    <div class="condiciones-cards" aria-label="Resultados de laboratorio">
+        @if (Model.Resultados.Any())
+        {
+            <div class="crm-card-row">
+                @foreach (var r in Model.Resultados)
+                {
+                    <div class="crm-card-condicion">
+                        <div class="crm-card-inner">
+
+                            <div class="crm-card-header">
+                                <span class="crm-card-title">
+                                    @if (!string.IsNullOrWhiteSpace(r.ResultValue))
+                                    {
+                                        @r.ResultValue
+                                        if (!string.IsNullOrWhiteSpace(r.ResultUnit))
+                                        {
+                                            <small class="text-muted ms-1" style="font-size:.78em;">@r.ResultUnit</small>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted" style="font-style:italic;font-size:.9em;">Sin resultado aún</span>
+                                    }
+                                </span>
+                                <div class="d-flex gap-1 align-items-center">
+                                    <button type="button"
+                                            class="crm-btn crm-btn-delete btn-eliminar-resultado"
+                                            style="border:none;background:#f3f5f8;box-shadow:none;"
+                                            data-id="@r.Id"
+                                            title="Eliminar resultado">
+                                        <i class="bi bi-trash3-fill"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="crm-card-group">
+                                <span class="crm-card-label"><i class="bi bi-file-earmark-medical"></i> Estudio:</span>
+                                <span class="crm-card-value">@r.TipoPadre</span>
+                            </div>
+                            <div class="crm-card-group" style="display:flex; gap:16px; flex-wrap:wrap;">
+                                <span>
+                                    <span class="crm-card-label"><i class="bi bi-diagram-3"></i> Categoría:</span>
+                                    <span class="crm-card-value">@r.TipoNombre</span>
+                                </span>
+                                @if (!string.IsNullOrWhiteSpace(r.CondicionNombre))
+                                {
+                                    <span>
+                                        <span class="crm-card-label"><i class="bi bi-lungs"></i> Condición:</span>
+                                        <span class="crm-card-value">@r.CondicionNombre</span>
+                                    </span>
+                                }
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(r.SintomaNombre))
+                            {
+                                <div class="crm-card-group">
+                                    <span class="crm-card-label"><i class="bi bi-heartbreak"></i> Síntoma:</span>
+                                    <span class="crm-card-value">@r.SintomaNombre</span>
+                                </div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(r.TratamientoNombre))
+                            {
+                                <div class="crm-card-group">
+                                    <span class="crm-card-label"><i class="bi bi-capsule-pill"></i> Tratamiento:</span>
+                                    <span class="crm-card-value">@r.TratamientoNombre</span>
+                                </div>
+                            }
+
+                            <form method="post" class="form-editar-lab" asp-page-handler="ActualizarResultado">
+                                <input type="hidden" name="resultadoId" value="@r.Id" />
+
+                                <div class="crm-card-fecha mt-2">
+                                    <span class="crm-card-label"><i class="bi bi-clipboard-pulse"></i> Resultado / Unidad:</span>
+                                    <div style="display:flex; flex-wrap:nowrap; gap:4px; align-items:center;">
+                                        <input type="text" class="crm-input-date campo-lab" name="resultValue"
+                                               value="@(r.ResultValue ?? "")" placeholder="Resultado..."
+                                               maxlength="500" disabled style="flex:2; min-width:0;" />
+                                        <select class="crm-input-date campo-lab" name="laboratoryUnitCatalogId"
+                                                disabled style="flex:1; min-width:0; max-width:110px;">
+                                            <option value="">—</option>
+                                            @foreach (var u in Model.UnidadesMedida)
+                                            {
+                                                if (r.LaboratoryUnitCatalogId == u.Id) { <option value="@u.Id" selected>@u.Abreviatura</option> }
+                                                else { <option value="@u.Id">@u.Abreviatura</option> }
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="crm-card-fecha mt-1">
+                                    <span class="crm-card-label"><i class="bi bi-calendar2-date"></i> Fecha:</span>
+                                    <div class="crm-input-group" style="column-gap:3px;">
+                                        <input type="date" class="crm-input-date campo-lab" name="resultDate"
+                                               value="@(r.ResultDate.HasValue ? r.ResultDate.Value.ToString("yyyy-MM-dd") : "")"
+                                               disabled />
+                                    </div>
+                                </div>
+
+                                <div class="crm-card-fecha mt-1">
+                                    <span class="crm-card-label"><i class="bi bi-lungs"></i> Condición:</span>
+                                    <div class="crm-input-group" style="column-gap:3px;">
+                                        <select class="crm-input-date campo-lab" name="condicionUsuarioId" disabled
+                                                style="min-width:0; flex:1;">
+                                            <option value="">— Sin condición —</option>
+                                            @foreach (var c in Model.MisCondiciones)
+                                            {
+                                                if (r.CondicionUsuarioId == c.Id)
+                                                {
+                                                    <option value="@c.Id" selected>@c.Nombre</option>
+                                                }
+                                                else
+                                                {
+                                                    <option value="@c.Id">@c.Nombre</option>
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="crm-card-fecha mt-1">
+                                    <span class="crm-card-label"><i class="bi bi-heartbreak"></i> Síntoma:</span>
+                                    <div class="crm-input-group" style="column-gap:3px;">
+                                        <select class="crm-input-date campo-lab" name="sintomaUsuarioId" disabled style="min-width:0; flex:1;">
+                                            <option value="">— Sin síntoma —</option>
+                                            @foreach (var s in Model.MisSintomas)
+                                            {
+                                                if (r.SintomaUsuarioId == s.Id) { <option value="@s.Id" selected>@s.Nombre</option> }
+                                                else { <option value="@s.Id">@s.Nombre</option> }
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="crm-card-fecha mt-1">
+                                    <span class="crm-card-label"><i class="bi bi-capsule-pill"></i> Tratamiento:</span>
+                                    <div class="crm-input-group" style="column-gap:3px;">
+                                        <select class="crm-input-date campo-lab" name="tratamientoUsuarioId" disabled style="min-width:0; flex:1;">
+                                            <option value="">— Sin tratamiento —</option>
+                                            @foreach (var t in Model.MisTratamientos)
+                                            {
+                                                if (r.TratamientoUsuarioId == t.Id) { <option value="@t.Id" selected>@t.Nombre</option> }
+                                                else { <option value="@t.Id">@t.Nombre</option> }
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="crm-card-fecha mt-1">
+                                    <span class="crm-card-label"><i class="bi bi-chat-text"></i> Notas:</span>
+                                    <div class="crm-input-group" style="column-gap:3px;">
+                                        <input type="text" class="crm-input-date campo-lab" name="notes"
+                                               value="@(r.Notes ?? "")" placeholder="Observaciones..."
+                                               maxlength="1000" disabled />
+                                    </div>
+                                </div>
+
+                                <div class="crm-input-group mt-2" style="column-gap:3px;">
+                                    <button type="button" class="crm-btn crm-btn-secondary btn-editar-lab" style="border:none;">
+                                        Editar
+                                    </button>
+                                    <button type="submit" class="crm-btn crm-btn-success d-none btn-guardar-lab" style="border:none;">
+                                        Guardar
+                                    </button>
+                                    <button type="button" class="crm-btn crm-btn-cancel d-none btn-cancelar-lab" style="border:none;">
+                                        Cancelar
+                                    </button>
+                                </div>
+                            </form>
+
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="crm-card mb-2">
+                <div class="fw-light text-muted crm-empty">
+                    <i class="bi bi-journal-medical"></i>
+                    Aún no tienes resultados de laboratorio registrados.
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function getAntiforgeryToken() {
+            const el = document.querySelector('input[name="__RequestVerificationToken"]');
+            return el ? el.value : '';
+        }
+        function addAntiforgeryToken(formData) {
+            const token = getAntiforgeryToken();
+            if (token) formData.append('__RequestVerificationToken', token);
+            return formData;
+        }
+
+        // Agregar: solo tipo → crea el card vacío
+        document.getElementById('btnAgregarLab').addEventListener('click', async function () {
+            const tipoId = document.getElementById('selectTipoLab').value;
+            if (!tipoId) { alert('Selecciona un estudio / categoría.'); return; }
+
+            const formData = new FormData();
+            formData.append('laboratoryTypeId', tipoId);
+            addAntiforgeryToken(formData);
+
+            const resp = await fetch('?handler=AgregarResultado', { method: 'POST', body: formData });
+            if (resp.ok) location.reload();
+            else {
+                const data = await resp.json().catch(() => ({}));
+                alert(data.mensaje || 'Error al agregar.');
+            }
+        });
+
+        // Editar / Guardar / Cancelar inline por card
+        document.querySelectorAll('.form-editar-lab').forEach(form => {
+            const campos     = form.querySelectorAll('.campo-lab');
+            const btnEditar  = form.querySelector('.btn-editar-lab');
+            const btnGuardar = form.querySelector('.btn-guardar-lab');
+            const btnCancelar= form.querySelector('.btn-cancelar-lab');
+
+            const originales = {};
+            campos.forEach(c => { originales[c.name] = c.value; });
+
+            btnEditar.addEventListener('click', () => {
+                campos.forEach(c => c.disabled = false);
+                btnEditar.classList.add('d-none');
+                btnGuardar.classList.remove('d-none');
+                btnCancelar.classList.remove('d-none');
+            });
+
+            btnCancelar.addEventListener('click', () => {
+                campos.forEach(c => { c.value = originales[c.name]; c.disabled = true; });
+                btnEditar.classList.remove('d-none');
+                btnGuardar.classList.add('d-none');
+                btnCancelar.classList.add('d-none');
+            });
+
+            form.addEventListener('submit', async function (ev) {
+                ev.preventDefault();
+                campos.forEach(c => c.disabled = false);
+                const formData = new FormData(form);
+                addAntiforgeryToken(formData);
+
+                btnGuardar.disabled = true;
+                btnGuardar.textContent = 'Guardando...';
+
+                try {
+                    const resp = await fetch(form.action, { method: 'POST', body: formData });
+                    if (resp.ok) {
+                        campos.forEach(c => { originales[c.name] = c.value; c.disabled = true; });
+                        btnEditar.classList.remove('d-none');
+                        btnGuardar.classList.add('d-none');
+                        btnCancelar.classList.add('d-none');
+                    } else {
+                        alert('Error al guardar.');
+                    }
+                } catch {
+                    alert('Error de red.');
+                } finally {
+                    btnGuardar.disabled = false;
+                    btnGuardar.textContent = 'Guardar';
+                }
+            });
+        });
+
+        // Eliminar
+        document.querySelectorAll('.btn-eliminar-resultado').forEach(btn => {
+            btn.addEventListener('click', function () {
+                if (!confirm('¿Estás seguro de eliminar este resultado? Esta acción no se puede deshacer.')) return;
+                const form = document.createElement('form');
+                form.method = 'post';
+                form.action = '?handler=EliminarResultado';
+                const inp = document.createElement('input');
+                inp.type = 'hidden'; inp.name = 'resultadoId'; inp.value = this.dataset.id;
+                form.appendChild(inp);
+                document.body.appendChild(form);
+                form.submit();
+            });
+        });
+    </script>
+}
+
+@section Styles {
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" />
+    <link rel="stylesheet" href="~/css/usuario-condiciones-crm.css" asp-append-version="true" />
+}

@@ -14,7 +14,7 @@ namespace eiibd26.DTOs
 
     public class CrearRespuestaDto
     {
-        [Required]
+        [Required, MinLength(10), MaxLength(8000)]
         public string Cuerpo { get; set; }
 
         // Optional parent id for nested replies

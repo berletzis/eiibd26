@@ -17,6 +17,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace eiibd26.Areas.Identity.Pages.Account
 {
@@ -133,7 +134,6 @@ namespace eiibd26.Areas.Identity.Pages.Account
 
         public async Task<IActionResult> OnPostAsync()
         {
-            // Leer ReturnUrl del form body
             var returnUrl = Request.Form["ReturnUrl"].FirstOrDefault();
 
             if (!string.IsNullOrEmpty(returnUrl) && returnUrl.Contains('%'))
@@ -144,84 +144,57 @@ namespace eiibd26.Areas.Identity.Pages.Account
             if (string.IsNullOrEmpty(returnUrl))
                 returnUrl = Url.Content("~/");
 
-            // Re-populate selects in case of validation failure
             await PopulatePaisesAsync();
             await PopulateCondicionesPadreAsync();
 
             if (!ModelState.IsValid)
-            {
                 return Page();
+
+            // Fix #2: validar condición ANTES de crear el usuario
+            if (Input.CondicionPadreId.HasValue)
+            {
+                var exists = await _db.condiciones.AnyAsync(c => c.id == Input.CondicionPadreId.Value && !c.Eliminado);
+                if (!exists)
+                {
+                    ModelState.AddModelError("Input.CondicionPadreId", "La condición seleccionada no es válida.");
+                    return Page();
+                }
             }
 
-            // Crear el usuario en Identity (email + password)
-            var user = new ApplicationUser
-            {
-                UserName = Input.Email,
-                Email = Input.Email
-            };
+            var user = new ApplicationUser { UserName = Input.Email, Email = Input.Email };
 
             var result = await _userManager.CreateAsync(user, Input.Password);
             if (!result.Succeeded)
             {
                 foreach (var err in result.Errors)
-                {
                     ModelState.AddModelError(string.Empty, err.Description);
-                }
                 return Page();
             }
 
-            _logger.LogInformation("Usuario creado: {Email}", user.Email);
-
-            // ✅ NUEVO: Generar token y enviar email de confirmación
+            // Fix #1: todo lo que sigue en un solo try — si falla, se elimina el usuario creado
             try
             {
-                var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-                var callbackUrl = Url.Page(
-                    "/Account/ConfirmEmail",
-                    pageHandler: null,
-                    values: new { area = "Identity", userId = user.Id, code = code, returnUrl = ReturnUrl },
-                    protocol: Request.Scheme);
+                // Fix #5: NombrePais en minúsculas, consistente con Paises.PaisCodigo
+                string codigoPais = Input.PaisCodigo.Trim().ToLowerInvariant();
 
-                var emailBody = $@"<!DOCTYPE html>
-<html><head><meta charset=""utf-8""></head>
-<body>
-    <h2>Bienvenido a eiibd</h2>
-    <p>Por favor confirma tu cuenta haciendo <a href='{System.Text.Encodings.Web.HtmlEncoder.Default.Encode(callbackUrl)}'>clic aquí</a>.</p>
-    <p>Si no creaste esta cuenta, ignora este mensaje.</p>
-</body></html>";
+                var paisData = await _db.Paises
+                    .AsNoTracking()
+                    .Where(p => p.PaisCodigo == codigoPais)
+                    .Select(p => new { p.LatitudDefault, p.LongitudDefault })
+                    .FirstOrDefaultAsync();
 
-                await _emailSender.SendEmailAsync(Input.Email, "Confirma tu correo electrónico", emailBody);
-
-                _logger.LogInformation("Email de confirmación enviado a {Email}", Input.Email);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error enviando email de confirmación a {Email}", Input.Email);
-                // No interrumpimos el flujo, pero lo registramos
-            }
-
-            // Añadir claim de email (opcional)
-            await _userManager.AddClaimAsync(user, new Claim(ClaimTypes.Email, user.Email));
-
-            // Variable para guardar el slug generado
-            string slugGenerado = null;
-
-            // Crear perfil asociado con la información mínima solicitada
-            try
-            {
-                Guid userGuid = user.Id;
-                string codigoPais = Input.PaisCodigo?.Trim().ToUpperInvariant();
+                string latDefault = paisData?.LatitudDefault.HasValue == true
+                    ? paisData.LatitudDefault.Value.ToString(CultureInfo.InvariantCulture) : null;
+                string lngDefault = paisData?.LongitudDefault.HasValue == true
+                    ? paisData.LongitudDefault.Value.ToString(CultureInfo.InvariantCulture) : null;
 
                 var emailLocal = (user.Email ?? "usuario").Split('@')[0];
-                if (string.IsNullOrWhiteSpace(emailLocal))
-                    emailLocal = "usuario";
-
-                var avatarUrl = $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(emailLocal)}&size=110";
+                if (string.IsNullOrWhiteSpace(emailLocal)) emailLocal = "usuario";
 
                 var perfil = new Perfil
                 {
-                    idUser = userGuid,
-                    Avatar = avatarUrl,
+                    idUser = user.Id,
+                    Avatar = $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(emailLocal)}&size=110",
                     Titulo = string.Empty,
                     Nombre = string.Empty,
                     Apellidos = string.Empty,
@@ -231,8 +204,8 @@ namespace eiibd26.Areas.Identity.Pages.Account
                     UltimaActividad = DateTime.UtcNow,
                     slug = null,
                     Genero = null,
-                    Latitud = "0",
-                    Longitud = "0",
+                    Latitud = latDefault,
+                    Longitud = lngDefault,
                     NombreCiudad = null,
                     NombrePais = codigoPais,
                     AceptoPP = null,
@@ -248,60 +221,63 @@ namespace eiibd26.Areas.Identity.Pages.Account
 
                 try
                 {
-                    var slugCandidate = await GenerateUniqueSlugAsync(emailLocal);
-                    perfil.slug = slugCandidate;
-                    slugGenerado = slugCandidate;
+                    perfil.slug = await GenerateUniqueSlugAsync(emailLocal);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "No se pudo generar slug único automáticamente para {EmailLocal}. Dejo slug en null.", emailLocal);
-                    perfil.slug = null;
+                    _logger.LogWarning(ex, "No se pudo generar slug para {EmailLocal}.", emailLocal);
                 }
 
                 _db.Perfil.Add(perfil);
-
-                if (Input.CondicionPadreId.HasValue)
+                _db.condicionUsuario.Add(new condicionUsuario
                 {
-                    var selectedId = Input.CondicionPadreId.Value;
-
-                    // Validar que la condición seleccionada exista y no esté eliminada
-                    var exists = await _db.condiciones.AnyAsync(c => c.id == selectedId && !c.Eliminado);
-                    if (!exists)
-                    {
-                        ModelState.AddModelError("Input.CondicionPadreId", "La condición seleccionada no es válida.");
-                        // Re-popular selects y devolver la página para que el usuario corrija
-                        await PopulatePaisesAsync();
-                        await PopulateCondicionesPadreAsync();
-                        return Page();
-                    }
-
-                    var condicionUsuarioPrincipal = new condicionUsuario
-                    {
-                        idCondicion = selectedId,
-                        idUsuario = userGuid,
-                        fechaInicio = null,
-                        fechaCreado = DateTime.UtcNow,
-                        fechaModificado = DateTime.UtcNow,
-                        Eliminado = false
-                    };
-                    _db.condicionUsuario.Add(condicionUsuarioPrincipal);
-                }
+                    idCondicion = Input.CondicionPadreId.Value,
+                    idUsuario = user.Id,
+                    fechaInicio = null,
+                    fechaCreado = DateTime.UtcNow,
+                    fechaModificado = DateTime.UtcNow,
+                    Eliminado = false
+                });
 
                 await _db.SaveChangesAsync();
 
+                // Fix #1: rol y claim DESPUÉS de SaveChangesAsync
+                await _userManager.AddToRoleAsync(user, "Paciente");
+                await _userManager.AddClaimAsync(user, new Claim(ClaimTypes.Email, user.Email));
+
+                _logger.LogInformation("Usuario registrado: {Email}", user.Email);
+
+                // Email de confirmación (no bloquea el flujo si falla)
                 try
                 {
-                    await _signInManager.SignInAsync(user, isPersistent: false);
+                    var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+                    code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+                    var callbackUrl = Url.Page(
+                        "/Account/ConfirmEmail",
+                        pageHandler: null,
+                        values: new { area = "Identity", userId = user.Id, code = code, returnUrl = returnUrl }, // Fix #3: variable local
+                        protocol: Request.Scheme);
+
+                    var emailBody = $@"<!DOCTYPE html>
+<html><head><meta charset=""utf-8""></head>
+<body>
+    <h2>Bienvenido a eiibd</h2>
+    <p>Por favor confirma tu cuenta haciendo <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clic aquí</a>.</p>
+    <p>Si no creaste esta cuenta, ignora este mensaje.</p>
+</body></html>";
+
+                    await _emailSender.SendEmailAsync(Input.Email, "Confirma tu correo electrónico", emailBody);
+                    _logger.LogInformation("Email de confirmación enviado a {Email}", Input.Email);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "No se pudo iniciar sesión automáticamente para {Email}", user.Email);
+                    _logger.LogError(ex, "Error enviando email de confirmación a {Email}", Input.Email);
                 }
 
-                // ✅ NUEVO: Marcar que es un registro nuevo
+                await _signInManager.SignInAsync(user, isPersistent: false);
+
                 TempData["IsNewRegistration"] = true;
 
-                // Redirigir al returnUrl si es local y válido, si no al perfil
                 if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
                     return LocalRedirect(returnUrl);
 
@@ -309,27 +285,11 @@ namespace eiibd26.Areas.Identity.Pages.Account
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creando perfil o condicionesUsuario para el usuario {Email}", user.Email);
-            }
-
-            // Intentamos iniciar sesión
-            try
-            {
-                await _signInManager.SignInAsync(user, isPersistent: false);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "No se pudo iniciar sesión automáticamente para {Email}", user.Email);
-            }
-
-            // Redirigir
-            if (!string.IsNullOrWhiteSpace(slugGenerado))
-            {
-                return Redirect($"/u/{slugGenerado}");
-            }
-            else
-            {
-                return RedirectToPage("/Usuario/Dashboard", new { area = "Identity" });
+                // Fix #1: revertir el usuario de Identity si algo falló
+                _logger.LogError(ex, "Error completando registro para {Email}. Revirtiendo usuario.", user.Email);
+                await _userManager.DeleteAsync(user);
+                ModelState.AddModelError(string.Empty, "Ocurrió un error al completar el registro. Por favor intenta de nuevo.");
+                return Page();
             }
         }
 

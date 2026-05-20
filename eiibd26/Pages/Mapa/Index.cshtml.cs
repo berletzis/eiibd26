@@ -157,17 +157,14 @@ namespace eiibd26.Pages.Mapa
                 .Where(p =>
                     !string.IsNullOrWhiteSpace(p.Latitud) &&
                     !string.IsNullOrWhiteSpace(p.Longitud) &&
+                    p.Latitud != "0" && p.Longitud != "0" &&
                     usersWithPacienteRole.Contains(p.idUser)
                 );
 
                 if (!string.IsNullOrWhiteSpace(country))
                 {
-                    // ⚠️ Perfil.NombrePais almacena el código ISO (ej: "MX"), NO el nombre del país.
-                    // Comparación directa código-a-código; no depende de la tabla Paises.
-                    var code = country.Trim().ToUpperInvariant();
-                    basePerfil = basePerfil.Where(p =>
-                        p.NombrePais == code ||
-                        p.NombrePais == code.ToUpper());
+                    var code = country.Trim().ToLowerInvariant();
+                    basePerfil = basePerfil.Where(p => p.NombrePais == code);
                 }
 
                 List<int> acceptedConditionIds = null;

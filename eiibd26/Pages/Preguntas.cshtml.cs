@@ -123,25 +123,23 @@ namespace eiibd26.Pages
                 });
 
             // Aplicar ordenamiento según el tab seleccionado
-            IQueryable<dynamic> orderedQ = Orden switch
+            var items = Orden switch
             {
-                OrdenPreguntas.Recientes => pageQ.OrderByDescending(x => x.FechaCreacion),
-                OrdenPreguntas.Votadas =>
-                    pageQ.OrderByDescending(x =>
-                        (double)(x.Score * 2 + x.RespuestasCount) /
-                        (2.0 + EF.Functions.DateDiffDay(x.FechaCreacion, DateTime.UtcNow))
-                    ),
-                OrdenPreguntas.Activas => pageQ.OrderByDescending(x => x.UltimaRespuesta ?? x.FechaCreacion).ThenByDescending(x => x.Score),
-                _ => pageQ.OrderByDescending(x => x.UltimaRespuesta ?? x.FechaCreacion).ThenByDescending(x => x.Score)
+                OrdenPreguntas.Recientes => await pageQ
+                    .OrderByDescending(x => x.FechaCreacion)
+                    .Skip((PageNumber - 1) * PageSize).Take(PageSize).ToListAsync(),
+                OrdenPreguntas.Votadas => await pageQ
+                    .OrderByDescending(x => (double)(x.Score * 2 + x.RespuestasCount) /
+                        (2.0 + EF.Functions.DateDiffDay(x.FechaCreacion, DateTime.UtcNow)))
+                    .Skip((PageNumber - 1) * PageSize).Take(PageSize).ToListAsync(),
+                _ => await pageQ
+                    .OrderByDescending(x => x.UltimaRespuesta ?? x.FechaCreacion)
+                    .ThenByDescending(x => x.Score)
+                    .Skip((PageNumber - 1) * PageSize).Take(PageSize).ToListAsync()
             };
 
-            var items = await orderedQ
-                .Skip((PageNumber - 1) * PageSize)
-                .Take(PageSize)
-                .ToListAsync();
-
-            var preguntaIds = items.Select(i => (Guid)i.Id).ToArray();
-            var userIds = items.Select(i => (Guid)i.UsuarioId).Distinct().ToArray();
+            var preguntaIds = items.Select(i => i.Id).ToArray();
+            var userIds = items.Select(i => i.UsuarioId).Distinct().ToArray();
 
             // Fetch slugs for authors to build profile links if available
             var authorSlugs = new Dictionary<Guid, string>();
@@ -361,22 +359,22 @@ namespace eiibd26.Pages
                     Titulo = i.Titulo ?? "",
                     CuerpoPreview = BuildPreview(i.Cuerpo, 400),
                     Slug = i.Slug ?? SlugHelper.GenerateSlug(i.Titulo ?? "pregunta"), // Usar slug de BD, fallback a generado
-                    UsuarioId = (Guid)i.UsuarioId,
-                    AutorNombre = authors.TryGetValue((Guid)i.UsuarioId, out (string name, string avatar) info) ? info.name : "Usuario",
-                    AutorAvatarUrl = authors.TryGetValue((Guid)i.UsuarioId, out (string name, string avatar) info2) ? info2.avatar : "/img/avatar-placeholder.png",
+                    UsuarioId = i.UsuarioId,
+                    AutorNombre = authors.TryGetValue(i.UsuarioId, out (string name, string avatar) info) ? info.name : "Usuario",
+                    AutorAvatarUrl = authors.TryGetValue(i.UsuarioId, out (string name, string avatar) info2) ? info2.avatar : "/img/avatar-placeholder.png",
                     AutorSlug = "",
                     FechaCreacion = (DateTimeOffset)i.FechaCreacion,
                     RespuestasCount = (int)i.RespuestasCount,
                     Score = (int)i.Score,
-                    UsuarioVoto = votosUsuario.TryGetValue((Guid)i.Id, out int vv) ? vv : 0,
-                    EsMia = currentUserId.HasValue && (Guid)i.UsuarioId == currentUserId.Value,
-                    Condiciones = condByQ.TryGetValue((Guid)i.Id, out List<string> cl) ? cl : new List<string>(),
-                    Sintomas = sintByQ.TryGetValue((Guid)i.Id, out List<string> sl) ? sl : new List<string>(),
-                    Tratamientos = tratByQ.TryGetValue((Guid)i.Id, out List<string> tl) ? tl : new List<string>()
+                    UsuarioVoto = votosUsuario.TryGetValue(i.Id, out int vv) ? vv : 0,
+                    EsMia = currentUserId.HasValue && i.UsuarioId == currentUserId.Value,
+                    Condiciones = condByQ.TryGetValue(i.Id, out List<string> cl) ? cl : new List<string>(),
+                    Sintomas = sintByQ.TryGetValue(i.Id, out List<string> sl) ? sl : new List<string>(),
+                    Tratamientos = tratByQ.TryGetValue(i.Id, out List<string> tl) ? tl : new List<string>()
                 };
 
                 var respondersForQ = responderRows
-                    .Where(r => r.PreguntaId == (Guid)i.Id)
+                    .Where(r => r.PreguntaId == i.Id)
                     .Select(r => r.UsuarioId)
                     .Where(uid => uid != i.UsuarioId)
                     .Distinct()
@@ -389,7 +387,7 @@ namespace eiibd26.Pages
                 }
 
                 // assign author slug if available
-                if (authorSlugs.TryGetValue((Guid)i.UsuarioId, out string aslug)) vm.AutorSlug = aslug;
+                if (authorSlugs.TryGetValue(i.UsuarioId, out string aslug)) vm.AutorSlug = aslug;
 
                 return vm;
             }).ToList();
