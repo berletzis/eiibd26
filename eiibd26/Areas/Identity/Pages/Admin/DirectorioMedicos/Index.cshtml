@@ -1,0 +1,414 @@
+@page
+@model eiibd26.Areas.Identity.Pages.Admin.DirectorioMedicos.IndexModel
+@{
+    ViewData["Title"] = "Admin — Directorio Médicos";
+    Layout = "_Layout";
+}
+
+@section Styles {
+    <style>
+        .crm-container-admin { max-width:1600px; margin:0 auto 30px; padding:0 16px; }
+        .admin-layout-flex { display:flex; gap:20px; min-height:calc(100vh - 200px); margin-top:16px; transition:all .3s; }
+        .grid-wrapper { flex:1 1 auto; min-width:0; background:#fff; border-radius:18px; box-shadow:0 2px 16px rgba(70,80,120,.07); padding:20px; transition:all .3s; }
+        .side-panel { width:0; min-width:0; flex-shrink:0; background:#fff; border-radius:18px; box-shadow:0 2px 16px rgba(70,80,120,.07); padding:0; max-height:calc(100vh - 160px); overflow:hidden; opacity:0; transition:all .3s; position:sticky; top:20px; z-index:10; }
+        .side-panel.active { width:40%; min-width:400px; padding:22px; opacity:1; overflow-y:auto; }
+        .side-panel-header { display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #e5e7eb; padding-bottom:14px; margin-bottom:18px; }
+        .side-panel-header h3 { margin:0; font-size:1.25rem; font-weight:600; color:#14253f; }
+        .btn-close-panel { background:#f3f4f6; border:none; width:34px; height:34px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:1.1rem; color:#6b7280; }
+        .btn-close-panel:hover { background:#e5e7eb; color:#374151; }
+        .crm-title-admin { font-size:1.9rem; font-weight:600; letter-spacing:-.06em; color:#14253f; margin-bottom:0; }
+        .dt-controls-flex { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:10px; }
+        .dt-controls-left, .dt-controls-right { display:flex; align-items:center; gap:1rem; flex-wrap:wrap; }
+        .dataTables_length { display:inline-flex!important; align-items:center!important; margin:0!important; white-space:nowrap; }
+        .dataTables_length label { display:flex!important; align-items:center!important; gap:.25em; margin:0!important; white-space:nowrap; }
+        .dataTables_filter { display:inline-flex!important; align-items:center!important; margin:0!important; }
+        .dataTables_filter input { width:160px; border-radius:7px; border:1px solid #dbe3f2; padding:.32em .8em; background:#f8fafd; margin-left:.4em; }
+        #directorioGrid { width:100%!important; }
+        #directorioGrid th { background:#eef4fa!important; color:#3d436c!important; font-weight:600!important; border-bottom:2px solid #ddeaf7!important; font-size:.88em; }
+        #directorioGrid th, #directorioGrid td { border:none!important; }
+        #directorioGrid tbody td { background:#fff!important; border-bottom:1px solid #f2f7fd!important; font-size:.88em; padding:8px 6px!important; }
+        #directorioGrid tbody tr:nth-child(even) td { background:#f9fbfc!important; }
+        .dataTables_paginate { display:flex; justify-content:flex-end; padding:.5em 0; }
+        .btn-accion { background:#f6f8fd; border:0; font-weight:500; border-radius:6px; box-shadow:0 1px 4px #dae4f344; padding:3px 8px; margin-right:2px; cursor:pointer; font-size:.8rem; }
+        .btn-accion:hover { filter:brightness(.95); }
+        .btn-accion.verde i { color:#1d7e3c; } .btn-accion.rojo i { color:#c92a2a; } .btn-accion.azul i { color:#1a6fb5; } .btn-accion.ambar i { color:#b45309; }
+        .panel-section-title { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#9ca3af; margin:14px 0 6px; }
+        .field-readonly { background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; padding:5px 9px; font-size:.85rem; color:#6b7280; }
+        .badge-tri { display:inline-flex; gap:3px; flex-wrap:wrap; }
+        @@media(max-width:1100px){ .side-panel.active{ width:100%; min-width:0; position:static; max-height:none; } .admin-layout-flex{ flex-direction:column; } }
+    </style>
+}
+
+<div class="crm-container-admin">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="crm-title-admin">Directorio Médicos — Admin</h2>
+    </div>
+
+    <div class="admin-layout-flex">
+
+        <div class="grid-wrapper">
+            <div class="dt-controls-flex">
+                <div class="dt-controls-left">
+                    <div id="gridLengthWrapper"></div>
+                    <select id="filtroVerificado" class="form-select form-select-sm" style="width:200px">
+                        <option value="">Todos</option>
+                        <option value="verificado">Verificados</option>
+                        <option value="pendiente">Pendientes</option>
+                        <option value="claim">Con claim</option>
+                    </select>
+                </div>
+                <div class="dt-controls-right">
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" role="switch" id="switchEliminados">
+                        <label class="form-check-label" for="switchEliminados">Eliminados</label>
+                    </div>
+                    <div id="gridSearchWrapper"></div>
+                </div>
+            </div>
+
+            <table id="directorioGrid" class="table table-hover align-middle mb-0">
+                <thead><tr>
+                    <th>Nombre</th><th>Especialidad</th><th>Ubicación</th>
+                    <th>Nivel (badges)</th><th>Confirm.</th><th>Claim</th>
+                    <th>Fecha</th><th>Acciones</th>
+                </tr></thead>
+            </table>
+        </div>
+
+        <div class="side-panel" id="editPanel">
+            <div class="side-panel-header">
+                <h3>Editar médico</h3>
+                <button type="button" class="btn-close-panel" onclick="cerrarPanel()"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div id="panelContent"></div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <div style="display:none">@Html.AntiForgeryToken()</div>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script>
+    const googleMapsApiKey = '@Html.Raw(Model.GoogleMapsApiKey)';
+    let antiforgery = $('input[name="__RequestVerificationToken"]').val();
+    let tabla, mapsAdminLoaded = false;
+
+    function postJson(url, data) {
+        return fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'RequestVerificationToken': antiforgery },
+            body: new URLSearchParams(data)
+        }).then(r => r.json());
+    }
+
+    function triBadges(row) {
+        const comunidadOk = row.totalConfirmaciones >= 3 && row.tieneConfirmacionEII;
+        const verificadoOk = row.cedulaVerificada || row.totalConfirmaciones >= 5;
+        const reclamadoOk  = row.perfilReclamado;
+        return `<div class="badge-tri">
+            <span class="badge ${comunidadOk ? '' : 'bg-light text-secondary border'}" style="${comunidadOk ? 'background:#7c3aed;color:#fff;' : ''}"><i class="bi bi-people-fill"></i></span>
+            <span class="badge ${verificadoOk ? 'bg-primary' : 'bg-light text-secondary border'}"><i class="bi bi-patch-check"></i></span>
+            <span class="badge ${reclamadoOk ? 'bg-success' : 'bg-light text-secondary border'}"><i class="bi bi-patch-check-fill"></i></span>
+        </div>`;
+    }
+
+    $(function () {
+        tabla = $('#directorioGrid').DataTable({
+            processing: true, serverSide: true, dom: 'lfrtip',
+            ajax: {
+                url: '@Url.Page(null, "GridData")', type: 'GET',
+                data: d => { d.mostrarEliminados = $('#switchEliminados').is(':checked'); d.filtroVerificado = $('#filtroVerificado').val(); }
+            },
+            columns: [
+                { data: 'nombreCompleto', orderable: false },
+                { data: 'especialidad', orderable: false, defaultContent: '—' },
+                { data: 'ubicacion', orderable: false, defaultContent: '—' },
+                { data: null, orderable: false, render: (d, t, row) => triBadges(row) },
+                { data: 'totalConfirmaciones', orderable: true, render: d => d > 0 ? `<span class="badge bg-light text-dark border"><i class="bi bi-person-check"></i> ${d}</span>` : '<span class="text-muted">—</span>' },
+                { data: null, orderable: false, render: (d, t, row) => {
+                    if (row.perfilReclamado) return '<span class="badge bg-success-subtle text-success border">Reclamado ✓</span>';
+                    if (row.solicitudClaim) return '<span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split"></i> Pendiente</span>';
+                    return '';
+                }},
+                { data: 'fechaCreacion', orderable: false },
+                { data: null, orderable: false, render: (d, t, row) => {
+                    let b = `<button class="btn-accion azul" onclick="abrirEditar(${row.id})" title="Editar"><i class="bi bi-pencil"></i></button>`;
+                    if (row.eliminado) {
+                        b += `<button class="btn-accion verde btn-restaurar" data-id="${row.id}" title="Restaurar"><i class="bi bi-arrow-counterclockwise"></i></button>`;
+                    } else {
+                        b += row.verificado
+                            ? `<button class="btn-accion ambar btn-desverificar" data-id="${row.id}" title="Quitar verificación cédula"><i class="bi bi-patch-check-fill"></i></button>`
+                            : `<button class="btn-accion verde btn-verificar-cedula" data-id="${row.id}" title="Verificar cédula"><i class="bi bi-patch-check"></i></button>`;
+                        if (row.solicitudClaim) {
+                            b += `<button class="btn-accion verde btn-aprobar-claim" data-id="${row.id}" title="Aprobar claim"><i class="bi bi-check-circle-fill"></i></button>`;
+                            b += `<button class="btn-accion rojo btn-rechazar-claim" data-id="${row.id}" title="Rechazar claim"><i class="bi bi-x-circle-fill"></i></button>`;
+                        }
+                        b += `<button class="btn-accion rojo btn-eliminar" data-id="${row.id}" title="Eliminar"><i class="bi bi-trash"></i></button>`;
+                    }
+                    return b;
+                }}
+            ],
+            order: [],
+            language: { emptyTable:"Sin registros.", search:"Buscar:", lengthMenu:"Mostrar _MENU_", processing:"Cargando...", zeroRecords:"Sin resultados." },
+            initComplete: function () {
+                if ($('#directorioGrid_length').length) { var $l=$('#directorioGrid_length'); $l.css({display:'inline-flex','align-items':'center',margin:'0'}); $('#gridLengthWrapper').empty().append($l.children()); }
+                if ($('#directorioGrid_filter').length) { var $f=$('#directorioGrid_filter'); $f.css({display:'inline-flex','align-items':'center',margin:'0'}); $('#gridSearchWrapper').empty().append($f.children()); }
+            }
+        });
+
+        $('#switchEliminados, #filtroVerificado').on('change', () => tabla.ajax.reload());
+        $('#directorioGrid').on('click', '.btn-verificar-cedula, .btn-desverificar', function () {
+            postJson('@Url.Page(null, "VerificarCedula")', { id: $(this).data('id') }).then(r => { if (r.success) tabla.ajax.reload(null, false); });
+        });
+        $('#directorioGrid').on('click', '.btn-aprobar-claim', function () {
+            if (!confirm('¿Aprobar claim?')) return;
+            postJson('@Url.Page(null, "AprobarClaim")', { id: $(this).data('id') }).then(r => { if (r.success) tabla.ajax.reload(null, false); });
+        });
+        $('#directorioGrid').on('click', '.btn-rechazar-claim', function () {
+            if (!confirm('¿Rechazar claim?')) return;
+            postJson('@Url.Page(null, "RechazarClaim")', { id: $(this).data('id') }).then(r => { if (r.success) tabla.ajax.reload(null, false); });
+        });
+        $('#directorioGrid').on('click', '.btn-eliminar', function () {
+            if (!confirm('¿Eliminar?')) return;
+            postJson('@Url.Page(null, "Eliminar")', { id: $(this).data('id') }).then(r => { if (r.success) tabla.ajax.reload(); });
+        });
+        $('#directorioGrid').on('click', '.btn-restaurar', function () {
+            postJson('@Url.Page(null, "Restaurar")', { id: $(this).data('id') }).then(r => { if (r.success) tabla.ajax.reload(); });
+        });
+    });
+
+    function cerrarPanel() { document.getElementById('editPanel').classList.remove('active'); }
+
+    async function abrirEditar(id) {
+        document.getElementById('editPanel').classList.add('active');
+        document.getElementById('panelContent').innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary"></div></div>';
+        const resp = await fetch(`?handler=Medico&id=${id}`);
+        if (!resp.ok) { document.getElementById('panelContent').innerHTML = '<p class="text-danger p-3">Error al cargar.</p>'; return; }
+        const d = await resp.json();
+
+        // Cargar países para select
+        let paisOptions = '<option value="">Sin especificar</option>';
+        try {
+            const pr = await fetch('?handler=Paises');
+            const paises = await pr.json();
+            paisOptions += paises.map(p => `<option value="${esc(p.codigo)}" ${p.codigo === d.nombrePais || p.nombre === d.nombrePais ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('');
+        } catch(e) {}
+
+        renderPanel(d, paisOptions);
+
+        // Google Maps lazy load
+        if (!mapsAdminLoaded && googleMapsApiKey) {
+            mapsAdminLoaded = true;
+            const s = document.createElement('script');
+            s.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places`;
+            s.dataset.gmaps = '1';
+            s.onload = initAdminAutocomplete;
+            document.head.appendChild(s);
+        } else if (window.google && window.google.maps) {
+            initAdminAutocomplete();
+        }
+    }
+
+    function renderPanel(d, paisOptions) {
+        const comunidadOk = d.totalConfirmaciones >= 3 && d.tieneConfirmacionEII;
+        const verificadoOk = d.cedulaVerificada || d.totalConfirmaciones >= 5;
+        const reclamadoOk  = d.perfilReclamado;
+
+        const expHtml = (d.expContadores || []).map(e =>
+            `<div class="col-6"><div class="d-flex align-items-center gap-2 py-1">
+                <input type="checkbox" class="form-check-input" ${e.total > 0 ? 'checked' : ''} disabled />
+                <span style="font-size:.82rem;">${esc(e.nombre)}</span>
+                ${e.total > 0 ? `<span class="badge bg-light text-dark border ms-auto" style="font-size:.75rem;">${e.total}</span>` : ''}
+            </div></div>`
+        ).join('');
+
+        const confHtml = (d.confirmadores || []).length > 0
+            ? `<div class="table-responsive mt-2" id="confirmadoresContainer">
+                <table class="table table-sm table-hover align-middle mb-1">
+                    <thead class="table-light"><tr><th style="font-size:.8rem;">Email</th><th style="font-size:.8rem;">Fecha</th><th style="font-size:.8rem;">Experiencias</th></tr></thead>
+                    <tbody>${(d.confirmadores || []).map(c =>
+                        `<tr><td style="font-size:.8rem;">${esc(c.email)}</td><td style="font-size:.8rem;white-space:nowrap;">${esc(c.fecha)}</td><td style="font-size:.78rem;">${c.exps.join(', ') || '—'}</td></tr>`
+                    ).join('')}</tbody>
+                </table>
+                <small class="text-muted">Información privada — solo visible para administradores.</small>
+               </div>`
+            : '<small class="text-muted">Sin confirmaciones aún.</small>';
+
+        document.getElementById('panelContent').innerHTML = `
+<div id="msgExito" class="alert alert-success d-none mb-3">Cambios guardados.</div>
+<div id="msgError" class="alert alert-danger d-none mb-3">Error al guardar.</div>
+<input type="hidden" id="ep_id" value="${d.id}">
+
+<p class="panel-section-title">Datos profesionales</p>
+<div class="mb-2"><label class="crm-label d-block mb-1">Nombre completo <span class="text-danger">*</span></label>
+    <input type="text" id="ep_nombre" class="form-control form-control-sm" value="${esc(d.nombreCompleto)}" required></div>
+<div class="row g-2 mb-2">
+    <div class="col-6"><label class="crm-label d-block mb-1">Especialidad</label><input type="text" id="ep_especialidad" class="form-control form-control-sm" value="${esc(d.especialidad)}"></div>
+    <div class="col-6"><label class="crm-label d-block mb-1">Subespecialidad</label><input type="text" id="ep_subespecialidad" class="form-control form-control-sm" value="${esc(d.subespecialidad)}"></div>
+</div>
+<div class="mb-2"><label class="crm-label d-block mb-1">Cédula profesional</label>
+    <input type="text" id="ep_cedula" class="form-control form-control-sm" value="${esc(d.cedulaProfesional)}"></div>
+
+<p class="panel-section-title">Ubicación</p>
+<div class="row g-2 mb-2">
+    <div class="col-6"><label class="crm-label d-block mb-1">País</label>
+        <select id="admin-dir-pais-select" class="form-select form-select-sm">${paisOptions}</select></div>
+    <div class="col-6"><label class="crm-label d-block mb-1">Ciudad / Municipio</label>
+        <input type="text" id="admin-dir-ciudad-input" class="form-control form-control-sm" autocomplete="off"
+               value="${esc(d.ciudad)}" placeholder="Buscar ciudad..."></div>
+</div>
+<div class="mb-2">
+    <label class="crm-label d-block mb-1">Hospital / Clínica</label>
+    <input type="text" id="ep_hospital" class="form-control form-control-sm" value="${esc(d.hospitalClinica)}">
+</div>
+<input type="hidden" id="admin-dir-estado"   value="${esc(d.estado)}">
+<input type="hidden" id="admin-dir-latitud"  value="">
+<input type="hidden" id="admin-dir-longitud" value="">
+
+<p class="panel-section-title">Verificación</p>
+<div class="badge-tri mb-2">
+    <span class="badge ${comunidadOk ? '' : 'bg-light text-secondary border'}" style="${comunidadOk ? 'background:#7c3aed;color:#fff;' : ''}"><i class="bi bi-people-fill"></i> Comunidad</span>
+    <span class="badge ${verificadoOk ? 'bg-primary' : 'bg-light text-secondary border'}"><i class="bi bi-patch-check"></i> Verificado</span>
+    <span class="badge ${reclamadoOk ? 'bg-success' : 'bg-light text-secondary border'}"><i class="bi bi-patch-check-fill"></i> Médico</span>
+</div>
+<div class="form-check mb-1">
+    <input class="form-check-input" type="checkbox" id="ep_cedulaVerificada" ${d.cedulaVerificada ? 'checked' : ''}>
+    <label class="form-check-label crm-label" for="ep_cedulaVerificada">Cédula verificada</label>
+</div>
+${d.cedulaVerificada && d.fechaCedulaVerificada ? `<p class="text-muted small mb-2">Verificada: ${d.fechaCedulaVerificada}</p>` : ''}
+<div class="mb-2"><label class="crm-label d-block mb-1">Confirmaciones</label>
+    <div class="field-readonly">${d.totalConfirmaciones}</div></div>
+<div class="mb-2"><label class="crm-label d-block mb-1">Claim</label>
+    <div>${d.perfilReclamado ? `<span class="badge bg-success">Reclamado ✓ ${d.fechaReclamacion ? '('+d.fechaReclamacion+')' : ''}</span>`
+        : d.solicitudClaim ? `<span class="badge bg-warning text-dark">Pendiente — ${esc(d.emailClaim)}</span>
+                              <div class="d-flex gap-2 mt-1">
+                                <button class="btn btn-sm btn-success" onclick="accionClaim('AprobarClaim',${d.id})"><i class="bi bi-check-circle-fill me-1"></i>Aprobar</button>
+                                <button class="btn btn-sm btn-danger" onclick="accionClaim('RechazarClaim',${d.id})"><i class="bi bi-x-circle-fill me-1"></i>Rechazar</button>
+                              </div>`
+        : '<span class="text-muted">Sin solicitud</span>'}</div></div>
+
+<p class="panel-section-title">Experiencias EII reportadas por pacientes</p>
+<div class="row g-0" id="expEIIGrid">${expHtml}</div>
+
+<p class="panel-section-title">Estado del registro</p>
+<div class="form-check mb-2">
+    <input class="form-check-input" type="checkbox" id="ep_eliminado" ${d.eliminado ? 'checked' : ''}>
+    <label class="form-check-label crm-label" for="ep_eliminado">Eliminado (soft delete)</label>
+</div>
+<div class="row g-2 mb-2">
+    <div class="col-6"><label class="crm-label d-block mb-1">Creado</label><div class="field-readonly">${d.fechaCreacion}</div></div>
+    <div class="col-6"><label class="crm-label d-block mb-1">Propuesto por</label><div class="field-readonly">${esc(d.aportante)}</div></div>
+</div>
+
+<div class="d-flex gap-2 mt-3">
+    <button class="btn btn-primary btn-sm" onclick="guardarCambios()"><i class="bi bi-floppy me-1"></i> Guardar</button>
+    <button class="btn btn-outline-secondary btn-sm" onclick="cerrarPanel()">Cancelar</button>
+</div>
+
+<p class="panel-section-title mt-3">Pacientes que confirmaron</p>
+${confHtml}`;
+
+        // Init Google Maps si ya cargó
+        if (window.google && window.google.maps) initAdminAutocomplete();
+    }
+
+    function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    async function guardarCambios() {
+        var id = document.getElementById('ep_id')?.value;
+        if (!id) return;
+        var body = new URLSearchParams({
+            id,
+            nombreCompleto:    document.getElementById('ep_nombre').value,
+            especialidad:      document.getElementById('ep_especialidad').value,
+            subespecialidad:   document.getElementById('ep_subespecialidad').value,
+            cedulaProfesional: document.getElementById('ep_cedula').value,
+            nombrePais:        document.getElementById('admin-dir-pais-select')?.value || '',
+            ciudad:            document.getElementById('admin-dir-ciudad-input')?.value || '',
+            estado:            document.getElementById('admin-dir-estado')?.value || '',
+            hospitalClinica:   document.getElementById('ep_hospital').value,
+            cedulaVerificada:  document.getElementById('ep_cedulaVerificada').checked,
+            eliminado:         document.getElementById('ep_eliminado').checked
+        });
+        const resp = await fetch('@Url.Page(null, "Editar")', {
+            method: 'POST',
+            headers: { 'Content-Type':'application/x-www-form-urlencoded', 'RequestVerificationToken': antiforgery },
+            body
+        });
+        const r = await resp.json();
+        var ok = document.getElementById('msgExito'), err = document.getElementById('msgError');
+        if (r.ok) { ok.classList.remove('d-none'); err.classList.add('d-none'); tabla.ajax.reload(null, false); setTimeout(() => ok.classList.add('d-none'), 3000); }
+        else { err.textContent = r.message||'Error.'; err.classList.remove('d-none'); ok.classList.add('d-none'); }
+    }
+
+    async function accionClaim(handler, id) {
+        if (!confirm(handler === 'AprobarClaim' ? '¿Aprobar claim?' : '¿Rechazar claim?')) return;
+        const r = await postJson('@Url.Page(null, "X")'.replace('X', handler), { id });
+        if (r.success) { tabla.ajax.reload(null, false); await abrirEditar(id); }
+    }
+
+    // Google Maps autocomplete para el panel admin
+    window.initAdminAutocomplete = function () {
+        var input    = document.getElementById('admin-dir-ciudad-input');
+        var paisSel  = document.getElementById('admin-dir-pais-select');
+        var latEl    = document.getElementById('admin-dir-latitud');
+        var lngEl    = document.getElementById('admin-dir-longitud');
+        var estadoEl = document.getElementById('admin-dir-estado');
+
+        if (!input || !window.google || !window.google.maps || !window.google.maps.places) {
+            console.warn('[AdminMaps] Google Places no disponible o inputs no encontrados');
+            return;
+        }
+
+        // Evitar doble init en el mismo input
+        if (input.dataset.gmapsInit) return;
+        input.dataset.gmapsInit = '1';
+
+        var autocomplete = new google.maps.places.Autocomplete(input, { types: ['(cities)'] });
+
+        function getCountryCode(val) {
+            if (!val) return null;
+            var m = String(val).trim().split(/\s|-/)[0].match(/[A-Za-z]{2,3}/);
+            return m ? m[0].toLowerCase() : null;
+        }
+
+        function applyCountry() {
+            var code = getCountryCode(paisSel ? paisSel.value : '');
+            try { autocomplete.setComponentRestrictions(code ? { country: code } : {}); } catch(e) {}
+        }
+        applyCountry();
+
+        if (paisSel) {
+            paisSel.addEventListener('change', function () {
+                applyCountry();
+                input.value = '';
+                if (latEl)    latEl.value    = '';
+                if (lngEl)    lngEl.value    = '';
+                if (estadoEl) estadoEl.value = '';
+            });
+        }
+
+        autocomplete.addListener('place_changed', function () {
+            var place = autocomplete.getPlace();
+            if (place && place.geometry && place.geometry.location) {
+                if (latEl) latEl.value = place.geometry.location.lat();
+                if (lngEl) lngEl.value = place.geometry.location.lng();
+                if (estadoEl && place.address_components) {
+                    var comp = place.address_components.find(function(c) {
+                        return c.types.includes('administrative_area_level_1');
+                    });
+                    estadoEl.value = comp ? comp.long_name : '';
+                }
+            } else {
+                if (latEl)    latEl.value    = '';
+                if (lngEl)    lngEl.value    = '';
+                if (estadoEl) estadoEl.value = '';
+            }
+        });
+
+        console.log('[AdminMaps] Autocomplete inicializado correctamente');
+    };
+    </script>
+}

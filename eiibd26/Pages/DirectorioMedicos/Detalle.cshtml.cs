@@ -1,23 +1,34 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using eiibd26.Data;
 using eiibd26.Services.Directorio;
 using eiibd26.Models.Directorio;
+using eiibd26.Models.Directorio.Enums;
 
 namespace eiibd26.Pages.DirectorioMedicos;
 
 public class DetalleModel : PageModel
 {
     private readonly IMedicoDirectorioService _service;
+    private readonly ApplicationDbContext _db;
 
-    public DetalleModel(IMedicoDirectorioService service)
-        => _service = service;
+    public DetalleModel(IMedicoDirectorioService service, ApplicationDbContext db)
+    {
+        _service = service;
+        _db = db;
+    }
 
     public MedicoDetalleVm? Medico { get; set; }
     public List<TipoConfirmacion> TiposConfirmacion { get; set; } = new();
 
     [BindProperty]
     public ConfirmarAtencionVm ConfirmarVm { get; set; } = new();
+
+    // Confirmación simple (nueva tabla DirectorioMedicoConfirmacion)
+    public bool YaConfirme { get; set; }
+    public int TotalConfirmaciones { get; set; }
 
     public async Task<IActionResult> OnGetAsync(int id)
     {
@@ -27,9 +38,18 @@ public class DetalleModel : PageModel
 
         TiposConfirmacion = await _service.GetTiposConfirmacionActivosAsync();
         ConfirmarVm.MedicoDirectorioId = id;
+
+        TotalConfirmaciones = await _db.DirectorioMedicoConfirmaciones
+            .CountAsync(c => c.MedicoId == id && !c.Eliminado);
+
+        if (usuarioId.HasValue)
+            YaConfirme = await _db.DirectorioMedicoConfirmaciones
+                .AnyAsync(c => c.MedicoId == id && c.UsuarioId == usuarioId.Value && !c.Eliminado);
+
         return Page();
     }
 
+    // Handler existente para TipoConfirmacion
     public async Task<IActionResult> OnPostConfirmarAsync()
     {
         if (!User.Identity!.IsAuthenticated)
@@ -44,6 +64,87 @@ public class DetalleModel : PageModel
             : "Ya registraste este tipo de confirmación para este médico.";
 
         return RedirectToPage(new { id = ConfirmarVm.MedicoDirectorioId });
+    }
+
+    // Handler de confirmación con 10 áreas EII específicas
+    public async Task<IActionResult> OnPostConfirmarSimpleAsync(
+        int medicoId,
+        bool expCUCI, bool expCrohn, bool expPediatrico, bool expOstomias,
+        bool expBiologicos, bool expEmbarazoEII, bool expManejoBrotes,
+        bool expSegundaOpinion, bool expCirugia, bool expSeguimientoProlongado)
+    {
+        if (!User.Identity!.IsAuthenticated)
+            return RedirectToPage("/Account/Login", new { area = "Identity" });
+
+        var usuarioId = ObtenerUsuarioId()!.Value;
+
+        var existe = await _db.DirectorioMedicoConfirmaciones
+            .AnyAsync(c => c.MedicoId == medicoId && c.UsuarioId == usuarioId && !c.Eliminado);
+
+        if (existe)
+        {
+            TempData["Error"] = "Ya confirmaste a este médico anteriormente.";
+            return RedirectToPage(new { id = medicoId });
+        }
+
+        var tieneAlguna = expCUCI || expCrohn || expPediatrico || expOstomias ||
+                          expBiologicos || expEmbarazoEII || expManejoBrotes ||
+                          expSegundaOpinion || expCirugia || expSeguimientoProlongado;
+
+        _db.DirectorioMedicoConfirmaciones.Add(new DirectorioMedicoConfirmacion
+        {
+            MedicoId              = medicoId,
+            UsuarioId             = usuarioId,
+            TieneExperienciaEII   = tieneAlguna,
+            ExpCUCI               = expCUCI,
+            ExpCrohn              = expCrohn,
+            ExpPediatrico         = expPediatrico,
+            ExpOstomias           = expOstomias,
+            ExpBiologicos         = expBiologicos,
+            ExpEmbarazoEII        = expEmbarazoEII,
+            ExpManejoBrotes       = expManejoBrotes,
+            ExpSegundaOpinion     = expSegundaOpinion,
+            ExpCirugia            = expCirugia,
+            ExpSeguimientoProlongado = expSeguimientoProlongado,
+            FechaConfirmacion     = DateTime.UtcNow
+        });
+        await _db.SaveChangesAsync();
+
+        await RecalcularNivelAsync(medicoId);
+
+        TempData["Success"] = "¡Gracias! Tu confirmación ayuda a la comunidad EII.";
+        return RedirectToPage(new { id = medicoId });
+    }
+
+    private async Task RecalcularNivelAsync(int medicoId)
+    {
+        var medico = await _db.MedicosDirectorio.FindAsync(medicoId);
+        if (medico is null) return;
+
+        var total = await _db.DirectorioMedicoConfirmaciones
+            .CountAsync(c => c.MedicoId == medicoId && !c.Eliminado);
+        var tieneEII = await _db.DirectorioMedicoConfirmaciones
+            .AnyAsync(c => c.MedicoId == medicoId && !c.Eliminado &&
+                           (c.TieneExperienciaEII || c.ExpCUCI || c.ExpCrohn || c.ExpPediatrico ||
+                            c.ExpOstomias || c.ExpBiologicos || c.ExpEmbarazoEII || c.ExpManejoBrotes ||
+                            c.ExpSegundaOpinion || c.ExpCirugia || c.ExpSeguimientoProlongado));
+
+        medico.NivelConfianza = (NivelConfianzaEnum)CalcularNivelVerificacion(
+            total, tieneEII,
+            medico.CedulaVerificada,
+            medico.PerfilReclamado);
+        medico.FechaModificacion = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+    }
+
+    private static int CalcularNivelVerificacion(
+        int totalConfirmaciones, bool tieneConfirmacionEII,
+        bool cedulaVerificada, bool perfilReclamado)
+    {
+        if (perfilReclamado) return 3;
+        if (cedulaVerificada || totalConfirmaciones >= 5) return 2;
+        if (totalConfirmaciones >= 3 && tieneConfirmacionEII) return 1;
+        return 0;
     }
 
     private Guid? ObtenerUsuarioId()

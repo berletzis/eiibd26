@@ -1,0 +1,91 @@
+@page "{id:int}"
+@model eiibd26.Pages.DirectorioMedicos.ReclamarPerfilModel
+@{
+    ViewData["Title"] = "Reclamar perfil de médico";
+    Layout = "_Layout";
+}
+
+<div class="container py-4">
+
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a asp-page="/DirectorioMedicos/Index">Directorio</a></li>
+            @if (Model.Medico is not null)
+            {
+                <li class="breadcrumb-item">
+                    <a asp-page="/DirectorioMedicos/Detalle" asp-route-id="@Model.Medico.Id">@Model.Medico.NombreCompleto</a>
+                </li>
+            }
+            <li class="breadcrumb-item active">Reclamar perfil</li>
+        </ol>
+    </nav>
+
+    <h1 class="crm-title mb-2">Reclama tu perfil de médico</h1>
+    <p class="text-muted mb-4">
+        Si eres <strong>@(Model.Medico?.NombreCompleto ?? "este médico")</strong>,
+        puedes solicitar la administración de tu perfil en el directorio comunitario EII.
+    </p>
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+
+            <form method="post">
+                @Html.AntiForgeryToken()
+
+                <div class="crm-card mb-3">
+                    <h6 class="crm-label mb-3">Datos del perfil a reclamar</h6>
+
+                    <div class="mb-3">
+                        <label class="crm-label">Médico</label>
+                        <input type="text" class="crm-input" value="@Model.Medico?.NombreCompleto" readonly />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="crm-label">Email de contacto</label>
+                        <input asp-for="EmailContacto" type="email" class="crm-input"
+                               placeholder="tu@email.com" required />
+                        <div class="form-text">Te contactaremos a este email para verificar tu identidad.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="CedulaProfesionalDeclarada" class="crm-label">
+                            Cédula profesional <span class="text-danger">*</span>
+                        </label>
+                        <input asp-for="CedulaProfesionalDeclarada" class="crm-input"
+                               placeholder="Ej: 1234567" required />
+                        <span asp-validation-for="CedulaProfesionalDeclarada" class="text-danger small"></span>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" asp-for="Confirmo" id="chkConfirmo" required />
+                        <label class="form-check-label" for="chkConfirmo">
+                            Confirmo que soy <strong>@(Model.Medico?.NombreCompleto ?? "el médico indicado")</strong>
+                            y que la información es verídica.
+                        </label>
+                        <span asp-validation-for="Confirmo" class="text-danger small d-block"></span>
+                    </div>
+
+                    <div class="alert alert-info py-2" style="font-size:.875rem;">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Tu solicitud será revisada por el equipo de EIIBD.
+                        Te contactaremos al email indicado una vez verificada tu identidad.
+                    </div>
+
+                    <div class="d-flex gap-2 justify-content-end">
+                        <a asp-page="/DirectorioMedicos/Detalle" asp-route-id="@Model.Medico?.Id"
+                           class="btn btn-outline-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-primary" style="white-space:nowrap">
+                            <i class="bi bi-send me-1"></i> Enviar solicitud
+                        </button>
+                    </div>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+}

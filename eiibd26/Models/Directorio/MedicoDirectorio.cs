@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using eiibd26.Models.Directorio.Enums;
+using System;
 
 namespace eiibd26.Models.Directorio;
 
@@ -14,7 +15,7 @@ public class MedicoDirectorio
     [Display(Name = "Nombre completo")]
     public string NombreCompleto { get; set; } = string.Empty;
 
-    [MaxLength(20)]
+    [MaxLength(50)]
     [Display(Name = "Cédula profesional")]
     public string? CedulaProfesional { get; set; }
 
@@ -42,6 +43,10 @@ public class MedicoDirectorio
     [Display(Name = "Hospital o Clínica")]
     public string? HospitalClinica { get; set; }
 
+    [MaxLength(100)]
+    [Display(Name = "País")]
+    public string? NombrePais { get; set; }
+
     [Column(TypeName = "decimal(9,6)")]
     [Display(Name = "Latitud")]
     public decimal? Latitud { get; set; }
@@ -62,6 +67,31 @@ public class MedicoDirectorio
     public Guid? AspNetUserId { get; set; }
 
     public DateTimeOffset? FechaReclamacion { get; set; }
+
+    // Fecha en que el admin verificó manualmente la cédula
+    public DateTime? FechaCedulaVerificada { get; set; }
+
+    // Solicitud de claim pendiente de aprobar por admin
+    [MaxLength(200)]
+    public string? EmailSolicitudClaim { get; set; }
+
+    public DateTime? FechaSolicitudClaim { get; set; }
+
+    // ── Propiedades computadas (sin columna en BD) ──────────────────────
+    [NotMapped]
+    public bool CedulaVerificada => EstatusValidacion == EstatusValidacionCedula.Validado;
+
+    [NotMapped]
+    public bool PerfilReclamado => EstatusReclamacion == EstatusReclamacion.Reclamado;
+
+    [NotMapped]
+    public bool SolicitudClaimPendiente => EstatusReclamacion == EstatusReclamacion.EnProceso;
+
+    [NotMapped]
+    public Guid? UsuarioMedicoId => AspNetUserId;
+
+    [NotMapped]
+    public int NivelVerificacion => (int)NivelConfianza;
 
     [Display(Name = "Visible públicamente")]
     public bool VisiblePublicamente { get; set; } = true;

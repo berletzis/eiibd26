@@ -121,9 +121,13 @@ public class ProponerMedicoVm
     [Display(Name = "Subespecialidad")]
     public string? Subespecialidad { get; set; }
 
+    [MaxLength(100)]
+    [Display(Name = "País")]
+    public string? NombrePais { get; set; }
+
     [Required(ErrorMessage = "El estado es obligatorio")]
     [MaxLength(100)]
-    [Display(Name = "Estado")]
+    [Display(Name = "Ciudad / Estado")]
     public string Estado { get; set; } = string.Empty;
 
     [MaxLength(100)]
@@ -137,6 +141,12 @@ public class ProponerMedicoVm
     [MaxLength(300)]
     [Display(Name = "Hospital o Clínica")]
     public string? HospitalClinica { get; set; }
+
+    [Display(Name = "Latitud")]
+    public decimal? Latitud { get; set; }
+
+    [Display(Name = "Longitud")]
+    public decimal? Longitud { get; set; }
 
     [Display(Name = "Áreas de experiencia EII que reportas")]
     public List<int> AreasSeleccionadas { get; set; } = new();

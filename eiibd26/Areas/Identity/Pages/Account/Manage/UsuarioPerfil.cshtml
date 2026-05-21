@@ -523,7 +523,41 @@
     @section Scripts {
         <script src="~/js/avatar-card.js" asp-append-version="true"></script>
         <script src="~/js/usuario-perfil.js" asp-append-version="true"></script>
-        <script async defer src="https://maps.googleapis.com/maps/api/js?key=@Model.GoogleMapsApiKey&libraries=places&callback=initAutocomplete"></script>
+        <script>
+            (function () {
+                var apiKey = '@Html.Raw(Model.GoogleMapsApiKey)';
+                function loadMapsAndInit() {
+                    if (window.google && window.google.maps) {
+                        google.maps.importLibrary('places').then(function () {
+                            if (typeof window.initAutocomplete === 'function') window.initAutocomplete();
+                        });
+                        return;
+                    }
+                    var existing = document.querySelector('script[data-gmaps="1"]');
+                    if (existing) return;
+                    var script = document.createElement('script');
+                    script.src = 'https://maps.googleapis.com/maps/api/js?key=' + apiKey;
+                    script.async = true;
+                    script.defer = true;
+                    script.dataset.gmaps = '1';
+                    script.onload = function () {
+                        if (google.maps.importLibrary) {
+                            google.maps.importLibrary('places').then(function () {
+                                if (typeof window.initAutocomplete === 'function') window.initAutocomplete();
+                            });
+                        } else if (google.maps.places) {
+                            if (typeof window.initAutocomplete === 'function') window.initAutocomplete();
+                        }
+                    };
+                    document.head.appendChild(script);
+                }
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', loadMapsAndInit);
+                } else {
+                    loadMapsAndInit();
+                }
+            })();
+        </script>
     }
 
 </div>

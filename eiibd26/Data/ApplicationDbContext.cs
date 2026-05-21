@@ -84,6 +84,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<eiibd26.Models.Directorio.MedicoExperienciaEii> MedicoExperienciaEii { get; set; }
     public DbSet<eiibd26.Models.Directorio.TipoConfirmacion> TiposConfirmacion { get; set; }
     public DbSet<eiibd26.Models.Directorio.ConfirmacionComunitaria> ConfirmacionesComunitarias { get; set; }
+    public DbSet<eiibd26.Models.Directorio.DirectorioMedicoConfirmacion> DirectorioMedicoConfirmaciones { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
