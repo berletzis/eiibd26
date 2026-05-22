@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 
 namespace eiibd26.Areas.Identity.Pages.Usuario
 {
-    [Authorize]
+    [Authorize(Roles = "Paciente,Administrador")]
     public class UsuarioSintomasModel : PageModel
     {
         private readonly ApplicationDbContext _db;
@@ -29,7 +29,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             _healthStats = healthStats;
         }
 
-        /// <summary>Tendencia por síntoma, clave = NombreSintoma.Trim(). Sin datos = "Sin datos suficientes".</summary>
+        /// <summary>Tendencia por sï¿½ntoma, clave = NombreSintoma.Trim(). Sin datos = "Sin datos suficientes".</summary>
         public Dictionary<string, SymptomTrendDto> TendenciasPorSintoma { get; private set; } = new(StringComparer.OrdinalIgnoreCase);
 
         public List<SintomaConDatos> MisSintomas { get; set; } = new();
@@ -40,7 +40,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
         public class SintomaConDatos
         {
             public int Id { get; set; }
-            /// <summary>ID del catálogo de síntomas (sintomas.id), usado para excluir en autocomplete.</summary>
+            /// <summary>ID del catï¿½logo de sï¿½ntomas (sintomas.id), usado para excluir en autocomplete.</summary>
             public int CatalogoSintomaId { get; set; }
             public string Nombre { get; set; }
             public DateTime FechaInicio { get; set; }
@@ -73,6 +73,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
         public async Task OnGetAsync()
         {
+            if (User.IsInRole("Medico")) { Response.Redirect("/Identity/Medico/Dashboard"); return; }
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (userId == null) return;
             var userIdGuid = Guid.Parse(userId);
@@ -177,7 +178,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 .OrderBy(f => f.Orden)
                 .ToListAsync();
 
-            // Calcular tendencias usando trackings ya en memoria (60 días) — sin nueva query
+            // Calcular tendencias usando trackings ya en memoria (60 dï¿½as) ï¿½ sin nueva query
             var sintomasExport = MapearSintomasExport(
                 sintomasUsuario.Select(su => (su.id, su.nombre)).ToList(), trackings);
             var stats = _healthStats.Calcular([], sintomasExport);
@@ -214,7 +215,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
                 var sintoma = await _db.sintomas.FirstOrDefaultAsync(x => x.id == sintomaId);
                 if (sintoma == null)
-                    return new JsonResult(new { ok = false, mensaje = "Síntoma no encontrado" }) { StatusCode = 400 };
+                    return new JsonResult(new { ok = false, mensaje = "Sï¿½ntoma no encontrado" }) { StatusCode = 400 };
 
                 bool existe = await _db.sintomasUsuario.AnyAsync(x =>
                     x.idUsuario == Guid.Parse(userId) && x.idSintoma == sintomaId && !x.Eliminado);
@@ -281,7 +282,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 existentes.Where(x => !condicionUsuarioIds.Contains(x.IdCondicionUsuario))
             );
 
-            // Agrega nuevas relaciones que no existían
+            // Agrega nuevas relaciones que no existï¿½an
             foreach (var condId in condicionUsuarioIds)
             {
                 if (!existentes.Any(x => x.IdCondicionUsuario == condId))
@@ -374,17 +375,17 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 .FirstOrDefaultAsync(x => x.id == sintId && x.idUsuario == Guid.Parse(userId) && !x.Eliminado);
 
             if (sintomaUsuario == null)
-                return new JsonResult(new { ok = false, mensaje = "No se encontró el síntoma, o ya fue eliminado." }) { StatusCode = 400 };
+                return new JsonResult(new { ok = false, mensaje = "No se encontrï¿½ el sï¿½ntoma, o ya fue eliminado." }) { StatusCode = 400 };
 
             bool tieneCondiciones = await _db.SintomaCondicionUsuario
                 .AnyAsync(x => x.IdSintomaUsuario == sintId);
             if (tieneCondiciones)
-                return new JsonResult(new { ok = false, mensaje = "No se puede eliminar el síntoma porque tiene condiciones relacionadas. Primero quítalas." }) { StatusCode = 400 };
+                return new JsonResult(new { ok = false, mensaje = "No se puede eliminar el sï¿½ntoma porque tiene condiciones relacionadas. Primero quï¿½talas." }) { StatusCode = 400 };
 
             bool tieneTratamientos = await _db.TratamientoSintomaUsuario
                 .AnyAsync(x => x.IdSintomaUsuario == sintId);
             if (tieneTratamientos)
-                return new JsonResult(new { ok = false, mensaje = "No se puede eliminar el síntoma porque tiene tratamientos relacionados. Primero quítalos." }) { StatusCode = 400 };
+                return new JsonResult(new { ok = false, mensaje = "No se puede eliminar el sï¿½ntoma porque tiene tratamientos relacionados. Primero quï¿½talos." }) { StatusCode = 400 };
 
             sintomaUsuario.Eliminado = true;
             sintomaUsuario.fechaModificado = DateTime.Now;
@@ -402,7 +403,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 .FirstOrDefaultAsync(x => x.id == sintId && x.idUsuario == Guid.Parse(userId) && !x.Eliminado);
 
             if (sintomaUsuario == null)
-                return new JsonResult(new { ok = false, mensaje = "Síntoma no encontrado" }) { StatusCode = 400 };
+                return new JsonResult(new { ok = false, mensaje = "Sï¿½ntoma no encontrado" }) { StatusCode = 400 };
 
             sintomaUsuario.fechaInicio = nuevaFechaInicio;
             sintomaUsuario.fechaModificado = DateTime.Now;
@@ -411,7 +412,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             return new JsonResult(new { ok = true });
         }
 
-        /// <summary>Marca/desmarca un síntoma del usuario como principal (solo uno puede estar activo).</summary>
+        /// <summary>Marca/desmarca un sï¿½ntoma del usuario como principal (solo uno puede estar activo).</summary>
         public async Task<IActionResult> OnPostTogglePrincipalSintomaAsync(int sintId)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;

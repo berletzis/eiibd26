@@ -22,8 +22,10 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
         public static string PersonalData => "PersonalData";
         public static string TwoFactorAuthentication => "TwoFactorAuthentication";
 
-        // Añadido: nombre lógico para tu página de perfil público
+        // Aï¿½adido: nombre lï¿½gico para tu pï¿½gina de perfil pï¿½blico
         public static string UsuarioPerfil => "UsuarioPerfil";
+        public static string PerfilMedico => "PerfilMedico";
+        public static string PerfilMedicoNavClass(ViewContext viewContext) => PageNavClass(viewContext, PerfilMedico);
 
         public static string IndexNavClass(ViewContext viewContext) => PageNavClass(viewContext, Index);
         public static string EmailNavClass(ViewContext viewContext) => PageNavClass(viewContext, Email);
@@ -34,7 +36,7 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
         public static string PersonalDataNavClass(ViewContext viewContext) => PageNavClass(viewContext, PersonalData);
         public static string TwoFactorAuthenticationNavClass(ViewContext viewContext) => PageNavClass(viewContext, TwoFactorAuthentication);
 
-        // Añadido: helper para la clase active del link UsuarioPerfil
+        // Aï¿½adido: helper para la clase active del link UsuarioPerfil
         public static string UsuarioPerfilNavClass(ViewContext viewContext) => PageNavClass(viewContext, UsuarioPerfil);
 
         public static string PageNavClass(ViewContext viewContext, string page)

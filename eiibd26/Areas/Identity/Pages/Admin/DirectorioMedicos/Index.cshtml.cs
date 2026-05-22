@@ -14,13 +14,15 @@ public class IndexModel : PageModel
 {
     private readonly ApplicationDbContext _db;
     private readonly string _googleMapsApiKey;
+    private readonly eiibd26.Services.Medico.IMedicoBadgeService _badgeService;
 
     public string GoogleMapsApiKey => _googleMapsApiKey;
 
-    public IndexModel(ApplicationDbContext db, IConfiguration cfg)
+    public IndexModel(ApplicationDbContext db, IConfiguration cfg, eiibd26.Services.Medico.IMedicoBadgeService badgeService)
     {
         _db = db;
         _googleMapsApiKey = cfg["GoogleMaps:ApiKey"] ?? string.Empty;
+        _badgeService = badgeService;
     }
 
     public void OnGet() { }
@@ -161,6 +163,32 @@ public class IndexModel : PageModel
             aportante = u?.UserName ?? u?.Email;
         }
 
+        // Badges del médico
+        var catalogo = await _db.MedicosBadge.AsNoTracking()
+            .Where(b => b.Activo)
+            .OrderBy(b => b.Orden)
+            .ToListAsync();
+
+        var ganadosIds = await _db.MedicosPerfilBadge.AsNoTracking()
+            .Where(pb => pb.MedicoId == id)
+            .Select(pb => new { pb.BadgeId, pb.FechaObtenido, pb.OtorgadoPor })
+            .ToListAsync();
+
+        var badgesData = catalogo.Select(b => {
+            var ganado = ganadosIds.FirstOrDefault(g => g.BadgeId == b.Id);
+            return new {
+                id           = b.Id,
+                codigo       = b.Codigo,
+                nombre       = b.Nombre,
+                nivel        = b.Nivel,
+                icono        = b.Icono,
+                obtenido     = ganado != null,
+                fechaObtenido = ganado?.FechaObtenido.ToString("dd/MM/yyyy"),
+                otorgadoPor  = ganado?.OtorgadoPor,
+                esManual     = b.Codigo == "verificado" || b.Codigo == "creador_contenido"
+            };
+        }).ToList();
+
         return new JsonResult(new
         {
             id = m.Id, nombreCompleto = m.NombreCompleto,
@@ -179,7 +207,8 @@ public class IndexModel : PageModel
             eliminado = m.Eliminado, fechaCreacion = m.FechaCreacion.ToString("dd/MM/yyyy"),
             aportante = aportante ?? "—",
             expContadores,
-            confirmadores = confirmadoresList
+            confirmadores = confirmadoresList,
+            badges = badgesData
         });
     }
 
@@ -277,6 +306,27 @@ public class IndexModel : PageModel
         var m = await _db.MedicosDirectorio.FirstOrDefaultAsync(x => x.Id == id);
         if (m is null) return new JsonResult(new { success = false });
         m.EstatusReclamacion = EstatusReclamacion.Rechazado; m.EmailSolicitudClaim = null; m.FechaModificacion = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+        return new JsonResult(new { success = true });
+    }
+
+    public async Task<IActionResult> OnPostOtorgarBadgeAsync(int medicoId, string codigo)
+    {
+        var result = await _badgeService.OtorgarBadgeAsync(medicoId, codigo, "admin");
+        return new JsonResult(new { success = result });
+    }
+
+    public async Task<IActionResult> OnPostRevocarBadgeAsync(int medicoId, string codigo)
+    {
+        var badge = await _db.MedicosBadge.AsNoTracking()
+            .FirstOrDefaultAsync(b => b.Codigo == codigo);
+        if (badge is null) return new JsonResult(new { success = false });
+
+        var entry = await _db.MedicosPerfilBadge
+            .FirstOrDefaultAsync(pb => pb.MedicoId == medicoId && pb.BadgeId == badge.Id);
+        if (entry is null) return new JsonResult(new { success = false });
+
+        _db.MedicosPerfilBadge.Remove(entry);
         await _db.SaveChangesAsync();
         return new JsonResult(new { success = true });
     }

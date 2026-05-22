@@ -35,65 +35,48 @@
     </div>
     <p class="text-muted mb-4">Médicos identificados por pacientes con EII en México</p>
 
-    <div class="alert alert-info mb-4" role="note">
-        <i class="bi bi-info-circle me-2"></i>
-        Este directorio es construido por la comunidad EII. La información refleja experiencias
-        reportadas por pacientes y <strong>no constituye una recomendación médica oficial.</strong>
-    </div>
-
-    <form method="get" class="directorio-filtros mb-4">
-        <div class="row g-2 align-items-end">
-            <div class="col-12 col-md-4">
-                <label class="crm-label">Buscar médico</label>
-                <div class="input-group">
-                    <input type="text" name="Busqueda" value="@Model.Directorio.FiltroBusqueda"
-                           class="form-control" placeholder="Nombre, especialidad, hospital…" />
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-search"></i>
-                    </button>
+    <div class="crm-card directorio-busqueda-card mb-4">
+        <div class="directorio-aviso mb-3">
+            <i class="bi bi-info-circle"></i>
+            <span>Este directorio es construido por la comunidad EII. La información refleja experiencias reportadas por pacientes y <strong>no constituye una recomendación médica oficial.</strong></span>
+        </div>
+        <form method="get">
+            <div class="row g-2 align-items-center">
+                <div class="col-12 col-md-4">
+                    <div class="input-group">
+                        <input type="text" name="Busqueda" value="@Model.Directorio.FiltroBusqueda"
+                               class="form-control" placeholder="Nombre, especialidad, hospital..." />
+                        <button type="submit" class="btn directorio-btn-buscar">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <select name="Estado" class="form-select" onchange="this.form.submit()">
+                        <option value="">Todos los estados</option>
+                        @foreach (var e in Model.Directorio.EstadosDisponibles)
+                        {
+                            <option value="@e" selected="@(Model.Directorio.FiltroEstado == e ? "selected" : null)">@e</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <select name="AreaId" class="form-select" onchange="this.form.submit()">
+                        <option value="">Todas las áreas EII</option>
+                        @foreach (var a in Model.Directorio.AreasDisponibles)
+                        {
+                            <option value="@a.Id" selected="@(Model.Directorio.FiltroAreaId == a.Id ? "selected" : null)">@a.Nombre</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-12 col-md-2">
+                    <a asp-page="/DirectorioMedicos/Index" class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-x-lg"></i> Limpiar
+                    </a>
                 </div>
             </div>
-            <div class="col-6 col-md-3">
-                <label class="crm-label">Estado</label>
-                <select name="Estado" class="form-select" onchange="this.form.submit()">
-                    <option value="">Todos los estados</option>
-                    @foreach (var e in Model.Directorio.EstadosDisponibles)
-                    {
-                        if (Model.Directorio.FiltroEstado == e)
-                        {
-                            <option value="@e" selected>@e</option>
-                        }
-                        else
-                        {
-                            <option value="@e">@e</option>
-                        }
-                    }
-                </select>
-            </div>
-            <div class="col-6 col-md-3">
-                <label class="crm-label">Área EII</label>
-                <select name="AreaId" class="form-select" onchange="this.form.submit()">
-                    <option value="">Todas las áreas</option>
-                    @foreach (var a in Model.Directorio.AreasDisponibles)
-                    {
-                        if (Model.Directorio.FiltroAreaId == a.Id)
-                        {
-                            <option value="@a.Id" selected>@a.Nombre</option>
-                        }
-                        else
-                        {
-                            <option value="@a.Id">@a.Nombre</option>
-                        }
-                    }
-                </select>
-            </div>
-            <div class="col-12 col-md-2">
-                <a asp-page="/DirectorioMedicos/Index" class="btn btn-outline-secondary w-100">
-                    <i class="bi bi-x-lg"></i> Limpiar
-                </a>
-            </div>
-        </div>
-    </form>
+        </form>
+    </div>
 
     <div class="mb-3">
         <span class="text-muted" style="font-size: var(--font-size-sm);">
@@ -106,29 +89,10 @@
         <div class="directorio-grid">
             @foreach (var medico in Model.Directorio.Medicos)
             {
-                <div style="display:flex;flex-direction:column;">
-                    @{
-                        bool _gComunidad = medico.TotalConfirmaciones >= 3 && Model.MedicosConEII.ContainsKey(medico.Id);
-                        bool _gVerificado = medico.CedulaValidada || medico.TotalConfirmaciones >= 5;
-                        bool _gMedico     = medico.NivelConfianza == NivelConfianzaEnum.Establecido;
-                    }
-                    @await Html.PartialAsync("_MedicoCard", medico)
-
-                    @* Badges al fondo del card *@
-                    <div class="d-flex flex-wrap gap-1 px-3 py-2"
-                         style="background:#fff;border:1px solid var(--color-border,#e5e7eb);border-top:none;border-radius:0 0 .75rem .75rem;margin-top:-1px;">
-                        <span class="badge @(_gComunidad ? "" : "bg-light text-secondary border")"
-                              style="font-size:.75rem;@(_gComunidad ? "background-color:#7c3aed;color:#fff;" : "")">
-                            <i class="bi bi-people-fill"></i> Comunidad
-                        </span>
-                        <span class="badge @(_gVerificado ? "bg-primary" : "bg-light text-secondary border")" style="font-size:.75rem;">
-                            <i class="bi bi-patch-check"></i> Verificado
-                        </span>
-                        <span class="badge @(_gMedico ? "bg-success" : "bg-light text-secondary border")" style="font-size:.75rem;">
-                            <i class="bi bi-patch-check-fill"></i> Médico
-                        </span>
-                    </div>
-                </div>
+                ViewData["BadgeComunidad"] = medico.TotalConfirmaciones >= 3 && Model.MedicosConEII.ContainsKey(medico.Id);
+                ViewData["BadgeVerificado"] = medico.CedulaValidada || medico.TotalConfirmaciones >= 5;
+                ViewData["BadgeMedico"]     = medico.NivelConfianza == NivelConfianzaEnum.Establecido;
+                @await Html.PartialAsync("_MedicoCard", medico)
             }
         </div>
 

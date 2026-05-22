@@ -236,6 +236,24 @@
                </div>`
             : '<small class="text-muted">Sin confirmaciones aún.</small>';
 
+        // HTML para badges
+        const badgesHtml = (d.badges || []).map(b => {
+            const obtenidoHtml = b.obtenido
+                ? `<span class="badge bg-success-subtle text-success border">&#10003; ${esc(b.fechaObtenido || '')} &mdash; ${esc(b.otorgadoPor || '')}</span>`
+                : '<span class="text-muted small">Pendiente</span>';
+            const btnsHtml = b.esManual
+                ? (b.obtenido
+                    ? `<button class="btn btn-sm btn-outline-danger ms-auto" onclick="revocarBadge(${d.id},'${esc(b.codigo)}')">Revocar</button>`
+                    : `<button class="btn btn-sm btn-outline-primary ms-auto" onclick="otorgarBadge(${d.id},'${esc(b.codigo)}')">Otorgar</button>`)
+                : '';
+            return `<div class="d-flex align-items-center gap-2 py-1 border-bottom">
+                <i class="${esc(b.icono)}" style="font-size:1rem;color:${b.obtenido ? '#7c3aed' : '#9ca3af'};width:18px;"></i>
+                <span style="font-size:.82rem;flex:1;">${esc(b.nombre)}</span>
+                ${obtenidoHtml}
+                ${btnsHtml}
+            </div>`;
+        }).join('');
+
         document.getElementById('panelContent').innerHTML = `
 <div id="msgExito" class="alert alert-success d-none mb-3">Cambios guardados.</div>
 <div id="msgError" class="alert alert-danger d-none mb-3">Error al guardar.</div>
@@ -307,6 +325,9 @@ ${d.cedulaVerificada && d.fechaCedulaVerificada ? `<p class="text-muted small mb
     <button class="btn btn-outline-secondary btn-sm" onclick="cerrarPanel()">Cancelar</button>
 </div>
 
+<p class="panel-section-title mt-3">Badges</p>
+<div id="badgesContainer">${badgesHtml}</div>
+
 <p class="panel-section-title mt-3">Pacientes que confirmaron</p>
 ${confHtml}`;
 
@@ -347,6 +368,19 @@ ${confHtml}`;
         if (!confirm(handler === 'AprobarClaim' ? '¿Aprobar claim?' : '¿Rechazar claim?')) return;
         const r = await postJson('@Url.Page(null, "X")'.replace('X', handler), { id });
         if (r.success) { tabla.ajax.reload(null, false); await abrirEditar(id); }
+    }
+
+    async function otorgarBadge(medicoId, codigo) {
+        const r = await postJson('@Url.Page(null, "OtorgarBadge")', { medicoId, codigo });
+        if (r.success) abrirEditar(medicoId);
+        else alert('Error al otorgar badge.');
+    }
+
+    async function revocarBadge(medicoId, codigo) {
+        if (!confirm('¿Revocar este badge?')) return;
+        const r = await postJson('@Url.Page(null, "RevocarBadge")', { medicoId, codigo });
+        if (r.success) abrirEditar(medicoId);
+        else alert('Error al revocar badge.');
     }
 
     // Google Maps autocomplete para el panel admin

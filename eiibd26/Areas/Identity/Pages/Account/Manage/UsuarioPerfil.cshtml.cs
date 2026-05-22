@@ -64,6 +64,10 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
 
         public async Task<IActionResult> OnGetAsync(Guid? id = null)
         {
+            // Redirigir médicos a su propia sección de perfil
+            if (User.IsInRole("Medico"))
+                return RedirectToPage("/Account/Manage/PerfilMedico", new { area = "Identity" });
+
             // Always resolve the profile from the authenticated user's claim.
             // The 'id' parameter is intentionally ignored to prevent IDOR.
             var current = GetUserIdGuid();

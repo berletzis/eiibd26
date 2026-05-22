@@ -1,4 +1,5 @@
 using eiibd26.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +11,7 @@ using System.Threading.Tasks;
 
 namespace eiibd26.Areas.Identity.Pages.Usuario
 {
+    [Authorize(Roles = "Paciente,Administrador")]
     [IgnoreAntiforgeryToken]
     public class UsuarioCondicionesModel : PageModel
     {
@@ -44,6 +46,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
         public async Task OnGetAsync()
         {
+            if (User.IsInRole("Medico")) { Response.Redirect("/Identity/Medico/Dashboard"); return; }
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (userId == null) return;
             var userIdGuid = Guid.Parse(userId);

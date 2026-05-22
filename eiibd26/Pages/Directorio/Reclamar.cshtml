@@ -1,0 +1,66 @@
+@page "/directorio/reclamar/{medicoId:int}"
+@model eiibd26.Pages.Directorio.ReclamarModel
+@{
+    ViewData["Title"] = "Reclamar perfil de médico";
+    Layout = "_Layout";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/directorio-medicos.css" asp-append-version="true" />
+}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="crm-card">
+                <h2 class="crm-title mb-1">Reclamar perfil de médico</h2>
+                <p class="text-muted mb-4">
+                    Recibirás un enlace por correo para completar el proceso.
+                </p>
+
+                @if (TempData["Success"] is string success)
+                { <div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>@success</div> }
+                @if (TempData["Error"] is string error)
+                { <div class="alert alert-danger">@error</div> }
+
+                @if (Model.Medico is not null)
+                {
+                    <div class="d-flex gap-3 align-items-center mb-4 p-3" style="background:#f9fafb;border-radius:8px;">
+                        <div class="medico-card__avatar">
+                            <i class="bi bi-person-badge-fill"></i>
+                        </div>
+                        <div>
+                            <div class="fw-semibold">@Model.Medico.NombreCompleto</div>
+                            @if (!string.IsNullOrWhiteSpace(Model.Medico.Especialidad))
+                            { <div class="text-muted small">@Model.Medico.Especialidad</div> }
+                        </div>
+                    </div>
+
+                    <form method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" asp-for="MedicoId" />
+                        <div class="form-floating mb-3">
+                            <input asp-for="Email" type="email" class="form-control" placeholder="Tu correo electrónico" />
+                            <label asp-for="Email">Tu correo electrónico</label>
+                            <span asp-validation-for="Email" class="text-danger"></span>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-envelope me-1"></i> Enviar enlace de verificación
+                        </button>
+                    </form>
+                }
+                else
+                {
+                    <div class="alert alert-warning">Médico no encontrado.</div>
+                }
+
+                <div class="text-center mt-3">
+                    <a asp-page="/DirectorioMedicos/Detalle" asp-route-id="@Model.MedicoId"
+                       class="text-muted small">← Volver al perfil</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

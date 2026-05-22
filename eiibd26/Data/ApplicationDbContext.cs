@@ -86,6 +86,13 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<eiibd26.Models.Directorio.ConfirmacionComunitaria> ConfirmacionesComunitarias { get; set; }
     public DbSet<eiibd26.Models.Directorio.DirectorioMedicoConfirmacion> DirectorioMedicoConfirmaciones { get; set; }
 
+    // Medico Perfil System
+    public DbSet<eiibd26.Models.Medico.MedicoPerfilExtendido> MedicosPerfilExtendido { get; set; }
+    public DbSet<eiibd26.Models.Medico.MedicoBadge> MedicosBadge { get; set; }
+    public DbSet<eiibd26.Models.Medico.MedicoPerfilBadge> MedicosPerfilBadge { get; set; }
+    public DbSet<eiibd26.Models.Medico.MedicoReclamacionToken> MedicosReclamacionToken { get; set; }
+    public DbSet<eiibd26.Models.Medico.MedicoAreaEii> MedicoAreasEii { get; set; }
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -582,6 +589,76 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
              .WithMany()
              .HasForeignKey(c => c.UsuarioId)
              .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<eiibd26.Models.Medico.MedicoPerfilExtendido>(b =>
+        {
+            b.ToTable("MedicoPerfilExtendido");
+            b.HasKey(p => p.Id);
+            b.HasIndex(p => p.MedicoId).IsUnique().HasFilter("[MedicoId] IS NOT NULL");
+            b.HasIndex(p => p.Slug).IsUnique().HasFilter("[Slug] IS NOT NULL");
+            b.HasIndex(p => p.UserId);
+            b.HasOne(p => p.Medico)
+             .WithMany()
+             .HasForeignKey(p => p.MedicoId)
+             .OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(p => p.Usuario)
+             .WithMany()
+             .HasForeignKey(p => p.UserId)
+             .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<eiibd26.Models.Medico.MedicoBadge>(b =>
+        {
+            b.ToTable("MedicoBadge");
+            b.HasKey(x => x.Id);
+            b.HasIndex(x => x.Codigo).IsUnique();
+        });
+
+        builder.Entity<eiibd26.Models.Medico.MedicoPerfilBadge>(b =>
+        {
+            b.ToTable("MedicoPerfilBadge");
+            b.HasKey(x => x.Id);
+            b.HasIndex(x => new { x.MedicoId, x.BadgeId }).IsUnique();
+            b.Property(x => x.OtorgadoPor).HasMaxLength(50).IsRequired();
+            b.HasOne(x => x.Medico)
+             .WithMany()
+             .HasForeignKey(x => x.MedicoId)
+             .OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Badge)
+             .WithMany(b2 => b2.PerfilesBadges)
+             .HasForeignKey(x => x.BadgeId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<eiibd26.Models.Medico.MedicoReclamacionToken>(b =>
+        {
+            b.ToTable("MedicoReclamacionToken");
+            b.HasKey(x => x.Id);
+            b.HasIndex(x => x.Token).IsUnique();
+            b.HasIndex(x => x.MedicoId);
+            b.HasOne(x => x.Medico)
+             .WithMany()
+             .HasForeignKey(x => x.MedicoId)
+             .OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Usuario)
+             .WithMany()
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<eiibd26.Models.Medico.MedicoAreaEii>(b =>
+        {
+            b.ToTable("MedicoAreaEii");
+            b.HasKey(x => new { x.MedicoPerfilId, x.CondicionId });
+            b.HasOne(x => x.MedicoPerfil)
+             .WithMany()
+             .HasForeignKey(x => x.MedicoPerfilId)
+             .OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Condicion)
+             .WithMany()
+             .HasForeignKey(x => x.CondicionId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
     }
 

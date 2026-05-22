@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 
 namespace eiibd26.Areas.Identity.Pages.Usuario
 {
-    [Authorize]
+    [Authorize(Roles = "Paciente,Administrador")]
     public class UsuarioSintomasSeguimientoModel : PageModel
     {
         private readonly ApplicationDbContext _db;
@@ -29,7 +29,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             _healthStats = healthStats;
         }
 
-        /// <summary>Tendencia por síntoma, clave = NombreSintoma.Trim(). Sin datos = "Sin datos suficientes".</summary>
+        /// <summary>Tendencia por sï¿½ntoma, clave = NombreSintoma.Trim(). Sin datos = "Sin datos suficientes".</summary>
         public Dictionary<string, SymptomTrendDto> TendenciasPorSintoma { get; private set; } = new(StringComparer.OrdinalIgnoreCase);
 
         public List<SintomaSeguimiento> Sintomas { get; set; } = new();
@@ -57,22 +57,23 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
         public async Task OnGetAsync()
         {
+            if (User.IsInRole("Medico")) { Response.Redirect("/Identity/Medico/Dashboard"); return; }
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (userId == null) return;
             var userGuid = Guid.Parse(userId);
 
-            // 7 días: hoy y los 6 previos
+            // 7 dï¿½as: hoy y los 6 previos
             var hoy = DateTime.Now.Date;
             DiasSemana = Enumerable.Range(0, 7)
                 .Select(d => hoy.AddDays(-6 + d)).ToList();
 
-            // Síntomas del usuario
+            // Sï¿½ntomas del usuario
             var sintomasUsuario = await (from su in _db.sintomasUsuario
                                          join s in _db.sintomas on su.idSintoma equals s.id
                                          where su.idUsuario == userGuid && !su.Eliminado
                                          select new { su.id, s.nombre, s.TipoSintoma }).ToListAsync();
 
-            // Condiciones asociadas por síntoma usuario
+            // Condiciones asociadas por sï¿½ntoma usuario
             var condicionesAll = await (
                 from rel in _db.SintomaCondicionUsuario
                 join cu in _db.condicionUsuario on rel.IdCondicionUsuario equals cu.id
@@ -123,7 +124,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 .AsNoTracking()
                 .ToListAsync();
 
-            // Calcular tendencias usando trackings ya en memoria — sin nueva query
+            // Calcular tendencias usando trackings ya en memoria ï¿½ sin nueva query
             var sintomasExport = MapearSintomasExport(sintomasUsuario
                 .Select(su => (su.id, su.nombre)).ToList(), trackings);
             var stats = _healthStats.Calcular([], sintomasExport);
@@ -164,7 +165,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
             DateTime fechaParseada;
             if (!DateTime.TryParse(fecha, out fechaParseada))
-                return BadRequest("Fecha inválida (check)");
+                return BadRequest("Fecha invï¿½lida (check)");
 
             var userGuid = Guid.Parse(userId);
             await _trackingService.GuardarTrackingAsync(new TrackingRequestDto(

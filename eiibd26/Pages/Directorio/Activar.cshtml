@@ -1,0 +1,88 @@
+@page "/directorio/activar"
+@model eiibd26.Pages.Directorio.ActivarModel
+@{
+    ViewData["Title"] = "Activar perfil médico";
+    Layout = "_Layout";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/directorio-medicos.css" asp-append-version="true" />
+}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-5">
+            <div class="crm-card">
+                <h2 class="crm-title mb-3">Activar perfil médico</h2>
+
+                @if (Model.Estado == "invalid")
+                {
+                    <div class="alert alert-danger">
+                        <i class="bi bi-x-circle me-2"></i>
+                        Este enlace no es válido. Puede que haya expirado o ya fue utilizado.
+                    </div>
+                    <a asp-page="/DirectorioMedicos/Index" class="btn btn-outline-secondary">
+                        Volver al directorio
+                    </a>
+                }
+                else if (Model.Estado == "expired")
+                {
+                    <div class="alert alert-warning">
+                        <i class="bi bi-clock me-2"></i>
+                        Este enlace ha expirado.
+                    </div>
+                    <a href="/directorio/reclamar/@Model.TokenData!.MedicoId" class="btn btn-primary">
+                        Solicitar nuevo enlace
+                    </a>
+                }
+                else if (Model.Estado == "used")
+                {
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Este enlace ya fue utilizado.
+                    </div>
+                    <a asp-page="/Account/Manage/PerfilMedico" asp-area="Identity" class="btn btn-primary">
+                        Ir a mi perfil médico
+                    </a>
+                }
+                else if (Model.Estado == "vinculado")
+                {
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle me-2"></i>
+                        Tu perfil ha sido vinculado correctamente.
+                    </div>
+                    <a asp-page="/Account/Manage/PerfilMedico" asp-area="Identity" class="btn btn-primary">
+                        Completar mi perfil médico
+                    </a>
+                }
+                else if (Model.Estado == "login_requerido")
+                {
+                    <p class="text-muted mb-4">
+                        Ingresa una contraseña para crear tu cuenta con el correo
+                        <strong>@Model.TokenData!.EmailDestino</strong>.
+                    </p>
+                    <form method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" asp-for="Token" />
+                        <div asp-validation-summary="All" class="text-danger mb-3"></div>
+                        <div class="form-floating mb-3">
+                            <input asp-for="Password" type="password" class="form-control" placeholder="Contraseña" autocomplete="new-password" />
+                            <label asp-for="Password">Contraseña</label>
+                            <span asp-validation-for="Password" class="text-danger"></span>
+                        </div>
+                        <div class="form-floating mb-3">
+                            <input asp-for="ConfirmPassword" type="password" class="form-control" placeholder="Confirmar contraseña" autocomplete="new-password" />
+                            <label asp-for="ConfirmPassword">Confirmar contraseña</label>
+                            <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            Crear cuenta y activar perfil
+                        </button>
+                    </form>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

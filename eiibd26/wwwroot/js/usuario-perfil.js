@@ -82,6 +82,17 @@
                     if (ciudadErr) ciudadErr.classList.add('d-none');
                     if (latEl) latEl.value = place.geometry.location.lat();
                     if (lngEl) lngEl.value = place.geometry.location.lng();
+
+                    // Extraer solo el nombre de la localidad (no la dirección completa)
+                    var locality = null;
+                    if (place.address_components && place.address_components.length) {
+                        var localityComp = place.address_components.find(function (c) {
+                            return c.types && (c.types.indexOf('locality') !== -1 || c.types.indexOf('sublocality_level_1') !== -1);
+                        });
+                        if (localityComp) locality = localityComp.long_name;
+                    }
+                    if (!locality) locality = place.name;
+                    if (input && locality) input.value = locality;
                 } else {
                     if (latEl) latEl.value = '';
                     if (lngEl) lngEl.value = '';

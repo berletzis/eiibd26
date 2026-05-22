@@ -17,7 +17,7 @@ using System.Globalization;
 
 namespace eiibd26.Areas.Identity.Pages.Usuario
 {
-    [Authorize]
+    [Authorize(Roles = "Paciente,Administrador")]
     public class DashboardModel : PageModel
     {
         private readonly ApplicationDbContext _db;
@@ -38,6 +38,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
         public async Task OnGetAsync()
         {
+            if (User.IsInRole("Medico")) { Response.Redirect("/Identity/Medico/Dashboard"); return; }
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrWhiteSpace(userIdClaim)) return;
             if (!Guid.TryParse(userIdClaim, out var userGuid)) return;

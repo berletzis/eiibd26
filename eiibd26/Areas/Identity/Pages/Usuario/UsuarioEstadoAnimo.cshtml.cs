@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using System.Collections.Generic;
 using System.Linq;
@@ -5,13 +6,14 @@ using eiibd26.Models;
 
 namespace eiibd26.Areas.Identity.Pages.Usuario
 {
-    // DTO "local" para combo (lo puedes dejar aquí)
+    // DTO "local" para combo (lo puedes dejar aquï¿½)
     public class CondicionUsuarioViewModel
     {
         public int id { get; set; }
         public string nombre { get; set; }
     }
 
+    [Authorize(Roles = "Paciente,Administrador")]
     public class UsuarioEstadoAnimoModel : PageModel
     {
         private readonly ApplicationDbContext _db;
@@ -24,6 +26,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
         public void OnGet()
         {
+            if (User.IsInRole("Medico")) { Response.Redirect("/Identity/Medico/Dashboard"); return; }
             var userIdStr = User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (System.Guid.TryParse(userIdStr, out var userId))
             {

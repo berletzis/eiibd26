@@ -1,0 +1,326 @@
+@page
+@model eiibd26.Areas.Identity.Pages.Medico.DashboardModel
+@{
+    ViewData["Title"] = "Dashboard Médico";
+    Layout = "_Layout";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/directorio-medicos.css" asp-append-version="true" />
+    <style>
+        .dash-card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 1.25rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            height: 100%;
+        }
+        .dash-card-locked {
+            background: #f9fafb;
+            opacity: .85;
+        }
+        .dash-card-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1f2937;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            margin-bottom: .75rem;
+        }
+        .dash-lock-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #f3f4f6;
+            color: #6b7280;
+            border-radius: 999px;
+            padding: 2px 10px;
+            font-size: .78rem;
+            font-weight: 600;
+        }
+        .nivel-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #f5f3ff;
+            color: #7c3aed;
+            border: 1px solid #e9d5ff;
+            border-radius: 999px;
+            padding: 4px 14px;
+            font-size: .85rem;
+            font-weight: 600;
+        }
+        .badge-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .badge-item:last-child { border-bottom: none; }
+        .rec-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: .88rem;
+        }
+        .rec-row:last-child { border-bottom: none; }
+    </style>
+}
+
+<div class="container py-4">
+
+    @* Header *@
+    <div class="d-flex align-items-center gap-3 mb-4">
+        <img src="@(string.IsNullOrWhiteSpace(Model.FotoUrl) ? "https://ui-avatars.com/api/?name=M&size=56" : Model.FotoUrl)"
+             class="rounded-circle" width="56" height="56" style="object-fit:cover;" alt="foto" />
+        <div>
+            <h1 style="font-size:1.6rem;font-weight:300;color:#172849;margin:0;">
+                @(string.IsNullOrWhiteSpace(Model.NombreMedico) ? "Mi Dashboard" : $"Hola, {Model.NombreMedico}")
+            </h1>
+            <span class="nivel-indicator">
+                <i class="bi bi-award-fill"></i> Nivel @Model.NivelActual de 6
+            </span>
+        </div>
+    </div>
+
+    @if (!Model.TienePerfilVinculado)
+    {
+        <div class="alert alert-info mb-4">
+            <i class="bi bi-info-circle me-2"></i>
+            Tu cuenta no está vinculada a un perfil del directorio todavía.
+            <a asp-page="/DirectorioMedicos/Index" class="alert-link ms-1">Busca tu perfil</a>
+            y haz clic en "Reclamar perfil" para desbloquear todas las secciones.
+        </div>
+    }
+
+    <div class="row g-3">
+
+        @* Sección 1: Mi Perfil — Nivel ≥ 1 *@
+        <div class="col-md-6 col-lg-4">
+            @if (Model.NivelActual >= 1)
+            {
+                <div class="dash-card">
+                    <div class="dash-card-title"><i class="bi bi-person-circle text-primary"></i> Mi Perfil</div>
+                    <div class="d-flex gap-3 align-items-center mb-3">
+                        <img src="@(string.IsNullOrWhiteSpace(Model.FotoUrl) ? "https://ui-avatars.com/api/?name=M&size=48" : Model.FotoUrl)"
+                             class="rounded-circle" width="48" height="48" style="object-fit:cover;" alt="avatar" />
+                        <div>
+                            <div class="fw-semibold">@(Model.NombreMedico ?? "Sin nombre")</div>
+                            <div class="text-muted small">Médico EII</div>
+                        </div>
+                    </div>
+                    <a asp-area="Identity" asp-page="/Account/Manage/PerfilMedico" class="btn btn-outline-primary btn-sm w-100">
+                        <i class="bi bi-pencil me-1"></i> Editar mi perfil
+                    </a>
+                    @if (Model.TienePerfilVinculado && Model.MedicoDirectorioId.HasValue)
+                    {
+                        <a asp-page="/DirectorioMedicos/Detalle" asp-route-id="@Model.MedicoDirectorioId"
+                           class="btn btn-outline-secondary btn-sm w-100 mt-2">
+                            <i class="bi bi-eye me-1"></i> Ver perfil público
+                        </a>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="dash-card dash-card-locked">
+                    <div class="dash-card-title">
+                        <i class="bi bi-lock text-secondary"></i> Mi Perfil
+                        <span class="dash-lock-badge ms-auto"><i class="bi bi-lock-fill"></i> Nivel 1</span>
+                    </div>
+                    <p class="text-muted small mb-0">Reclama tu perfil del directorio para desbloquear esta sección.</p>
+                </div>
+            }
+        </div>
+
+        @* Sección 2: Mis Badges — Nivel ≥ 1 *@
+        <div class="col-md-6 col-lg-4">
+            @if (Model.NivelActual >= 1 && Model.TodosLosBadges.Any())
+            {
+                <div class="dash-card">
+                    <div class="dash-card-title"><i class="bi bi-award" style="color:#7c3aed;"></i> Mis Badges</div>
+                    @foreach (var badge in Model.TodosLosBadges)
+                    {
+                        <div class="badge-item">
+                            <i class="@badge.Icono" style="font-size:1.2rem;color:@(badge.Obtenido ? "#7c3aed" : "#9ca3af");width:22px;text-align:center;flex-shrink:0;"></i>
+                            <div>
+                                <div style="font-size:.85rem;font-weight:@(badge.Obtenido ? "600" : "400");color:@(badge.Obtenido ? "#1f2937" : "#9ca3af");">
+                                    @badge.Nombre
+                                </div>
+                                @if (!badge.Obtenido)
+                                {
+                                    <div class="text-muted" style="font-size:.72rem;">@badge.ComoObtenerlo</div>
+                                }
+                                else if (badge.FechaObtenido.HasValue)
+                                {
+                                    <div class="text-muted" style="font-size:.72rem;">@badge.FechaObtenido.Value.ToString("dd MMM yyyy")</div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="dash-card dash-card-locked">
+                    <div class="dash-card-title">
+                        <i class="bi bi-lock text-secondary"></i> Mis Badges
+                        <span class="dash-lock-badge ms-auto"><i class="bi bi-lock-fill"></i> Nivel 1</span>
+                    </div>
+                    <p class="text-muted small mb-0">Disponible al reclamar y completar tu perfil.</p>
+                </div>
+            }
+        </div>
+
+        @* Sección 3: Pacientes — conteo siempre visible, detalle Nivel ≥ 2 *@
+        <div class="col-md-6 col-lg-4">
+            @if (Model.NivelActual >= 2)
+            {
+                <div class="dash-card">
+                    <div class="dash-card-title">
+                        <i class="bi bi-people-fill" style="color:#7c3aed;"></i> Pacientes que me recomendaron
+                    </div>
+                    <div class="mb-2">
+                        <span class="fw-bold" style="font-size:1.5rem;color:#7c3aed;">@Model.TotalRecomendaciones</span>
+                        <span class="text-muted small ms-1">confirmaciones</span>
+                    </div>
+                    @if (Model.Recomendaciones.Any())
+                    {
+                        foreach (var rec in Model.Recomendaciones)
+                        {
+                            <div class="rec-row">
+                                <i class="bi bi-person-circle text-secondary" style="font-size:1.2rem;flex-shrink:0;"></i>
+                                <div class="flex-grow-1">
+                                    @if (!string.IsNullOrWhiteSpace(rec.NombrePaciente))
+                                    {
+                                        <div class="fw-semibold">@rec.NombrePaciente</div>
+                                    }
+                                    else
+                                    {
+                                        <div class="text-muted">Paciente anónimo</div>
+                                    }
+                                    <div class="text-muted" style="font-size:.75rem;">@rec.FechaConfirmacion.ToString("dd MMM yyyy")</div>
+                                    @{
+                                        var areas = new List<string>();
+                                        if (rec.ExpCUCI) areas.Add("CUCI");
+                                        if (rec.ExpCrohn) areas.Add("Crohn");
+                                        if (rec.ExpPediatrico) areas.Add("Pediátrico");
+                                        if (rec.ExpBiologicos) areas.Add("Biológicos");
+                                    }
+                                    @if (areas.Any())
+                                    {
+                                        <div class="text-muted" style="font-size:.75rem;">@string.Join(", ", areas)</div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-muted small mb-0">Aún no tienes confirmaciones de pacientes.</p>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="dash-card dash-card-locked">
+                    <div class="dash-card-title">
+                        <i class="bi bi-lock text-secondary"></i> Pacientes que me recomendaron
+                        <span class="dash-lock-badge ms-auto"><i class="bi bi-lock-fill"></i> Nivel 2</span>
+                    </div>
+                    <div class="mb-2">
+                        <span class="fw-bold" style="font-size:1.5rem;color:#9ca3af;">@Model.TotalRecomendaciones</span>
+                        <span class="text-muted small ms-1">confirmaciones</span>
+                    </div>
+                    <p class="text-muted small mb-0">Obtén el badge <strong>Verificado</strong> para ver el detalle.</p>
+                </div>
+            }
+        </div>
+
+        @* Sección 4: Q&A — Nivel ≥ 4 *@
+        <div class="col-md-6 col-lg-4">
+            @if (Model.NivelActual >= 4)
+            {
+                <div class="dash-card">
+                    <div class="dash-card-title"><i class="bi bi-chat-dots-fill" style="color:#7c3aed;"></i> Q&A Comunidad</div>
+                    <p class="text-muted small mb-3">Responde preguntas de pacientes con EII en tu área de especialidad.</p>
+                    <a href="@Model.QaUrl" class="btn btn-primary btn-sm w-100">
+                        <i class="bi bi-chat-text me-1"></i> Ver preguntas
+                    </a>
+                </div>
+            }
+            else
+            {
+                <div class="dash-card dash-card-locked">
+                    <div class="dash-card-title">
+                        <i class="bi bi-lock text-secondary"></i> Q&A Comunidad
+                        <span class="dash-lock-badge ms-auto"><i class="bi bi-lock-fill"></i> Nivel 4</span>
+                    </div>
+                    <p class="text-muted small mb-0">Disponible en Nivel 4: Participante Q&A.</p>
+                </div>
+            }
+        </div>
+
+        @* Sección 5: Validar Contenido — Nivel ≥ 5 *@
+        <div class="col-md-6 col-lg-4">
+            @if (Model.NivelActual >= 5)
+            {
+                <div class="dash-card">
+                    <div class="dash-card-title"><i class="bi bi-check-circle-fill" style="color:#7c3aed;"></i> Validar Contenido</div>
+                    <p class="text-muted small mb-3">Revisa y valida términos médicos del glosario EII.</p>
+                    <a asp-page="/Glosario/Index" class="btn btn-primary btn-sm w-100">
+                        <i class="bi bi-book me-1"></i> Ir al glosario
+                    </a>
+                </div>
+            }
+            else
+            {
+                <div class="dash-card dash-card-locked">
+                    <div class="dash-card-title">
+                        <i class="bi bi-lock text-secondary"></i> Validar Contenido
+                        <span class="dash-lock-badge ms-auto"><i class="bi bi-lock-fill"></i> Nivel 5</span>
+                    </div>
+                    <p class="text-muted small mb-0">Disponible en Nivel 5: Validador de Contenido.</p>
+                </div>
+            }
+        </div>
+
+        @* Sección 6: Crear Contenido — Nivel ≥ 6 *@
+        <div class="col-md-6 col-lg-4">
+            @if (Model.NivelActual >= 6)
+            {
+                <div class="dash-card">
+                    <div class="dash-card-title"><i class="bi bi-star-fill" style="color:#7c3aed;"></i> Crear Contenido</div>
+                    <p class="text-muted small mb-3">Propón artículos y contenido educativo sobre EII.</p>
+                    <form method="post" asp-page-handler="SolicitarContenido">
+                        @Html.AntiForgeryToken()
+                        <div class="form-floating mb-2">
+                            <input type="text" name="tituloSolicitud" class="form-control form-control-sm"
+                                   placeholder="Título del artículo" id="titulo-solicitud" required />
+                            <label for="titulo-solicitud">Título del artículo propuesto</label>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm w-100">
+                            <i class="bi bi-send me-1"></i> Enviar solicitud
+                        </button>
+                    </form>
+                </div>
+            }
+            else
+            {
+                <div class="dash-card dash-card-locked">
+                    <div class="dash-card-title">
+                        <i class="bi bi-lock text-secondary"></i> Crear Contenido
+                        <span class="dash-lock-badge ms-auto"><i class="bi bi-lock-fill"></i> Nivel 6</span>
+                    </div>
+                    <p class="text-muted small mb-0">Disponible en Nivel 6: Creador de Contenido.</p>
+                </div>
+            }
+        </div>
+
+    </div>
+</div>

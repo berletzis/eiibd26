@@ -1,0 +1,677 @@
+@page
+@model eiibd26.Areas.Identity.Pages.Account.Manage.PerfilMedicoModel
+@{
+    ViewData["Title"] = "Perfil Médico";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/avatar-card.css" />
+    <link rel="stylesheet" href="~/css/perfil.css" />
+    <style>
+        .manage-page-root {
+            padding-top: 16px;
+            padding-bottom: 24px;
+        }
+
+            .manage-page-root .manage-title {
+                font-size: 2.1rem;
+                font-weight: 300;
+                letter-spacing: -0.06em;
+                color: #172849;
+                padding-bottom: 20px;
+                margin: 0;
+            }
+
+        .manage-card {
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #eef2f7;
+            padding: 1.25rem 1.25rem 1.5rem 1.25rem;
+            box-shadow: 0 2px 10px rgba(15,23,42,0.04);
+            font-weight: 400;
+            font-size: .9rem;
+        }
+
+        .manage-nav-col {
+            border-right: 1px solid #eef2f7;
+            margin-bottom: 1rem;
+        }
+
+        @@media (max-width: 768px) {
+            .manage-nav-col {
+                border-right: none;
+                border-bottom: 1px solid #eef2f7;
+                margin-bottom: 1rem;
+                padding-bottom: .75rem;
+            }
+        }
+
+        .perfil-label {
+            font-weight: 400;
+            font-size: .9rem;
+            margin-bottom: .15rem;
+        }
+
+        .card-section-title {
+            font-size: 1.05rem;
+            font-weight: 400;
+            color: #172849;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+        }
+
+            .card-section-title i {
+                font-size: 1.1rem;
+            }
+
+        .perfil-alert {
+            font-weight: 400;
+            font-size: .9rem;
+        }
+
+        .btn, .form-check-label, .form-text, .form-text-error {
+            font-weight: 400;
+            font-size: .9rem;
+        }
+
+        .form-floating textarea.form-control {
+            height: auto;
+            min-height: 60px;
+            padding-top: 1rem;
+        }
+
+        /* Espaciado interno uniforme entre controles (líneas verdes) */
+        .perfil-field-row {
+            row-gap: .4rem; /* reduce la separación vertical entre filas de campos */
+        }
+
+        .form-group-spaced {
+            margin-bottom: .55rem; /* antes .85: menos espacio entre label/campo y siguiente grupo */
+        }
+
+        /* Separación consistente entre bloques grandes (líneas rojas) */
+        .perfil-section-block {
+            margin-bottom: 1.2rem; /* entre Avatar, ID, Datos estadísticos, Estado/Privacidad */
+        }
+
+            .perfil-section-block:last-of-type {
+                margin-bottom: 0;
+            }
+
+        /* Ajustes de altura y alineación avatar + bloque derecho */
+        .perfil-top-row {
+            align-items: stretch;
+        }
+
+        .perfil-avatar-col {
+            margin-top: -20px; /* lo subimos un poco pero menos agresivo */
+        }
+
+        .perfil-main-col .card-body {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .perfil-bloque-superior {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            gap: .6rem; /* reduce huecos internos */
+        }
+
+        .perfil-bloque-nombre {
+            margin-bottom: .1rem;
+        }
+
+        .perfil-bloque-frase {
+            margin-bottom: 0;
+        }
+
+        .perfil-bloque-slug {
+            margin-top: .35rem;
+        }
+
+        .perfil-acercade-alto {
+            min-height: 200px;
+            height: 285px;
+        }
+
+        /* Links morados, sin subrayado, font-size .9rem */
+        .manage-card a {
+            color: #764ba2;
+            text-decoration: none;
+            font-size: .9rem;
+        }
+
+            .manage-card a:hover,
+            .manage-card a:focus {
+                color: #5a2d7a;
+                text-decoration: underline;
+            }
+
+        @@media (max-width: 768px) {
+            .perfil-main-col .card-body {
+                height: auto;
+            }
+
+            .perfil-section-block {
+                margin-bottom: 1rem;
+            }
+        }
+    </style>
+}
+
+<div class="manage-page-root">
+    <div class="container py-4">
+        <h1 class="manage-title">@ViewData["Title"]</h1>
+
+        <div class="manage-card">
+            <div class="row">
+                <div class="col-md-4 manage-nav-col">
+                    <partial name="_MedicoNav" />
+                </div>
+
+                <div class="col-md-8">
+                    @{
+                        var tieneErroresModelo = !ViewData.ModelState.IsValid;
+                        var hayErrorTexto = !string.IsNullOrEmpty(Model.ErrorMessage);
+                    }
+
+                    @if (!string.IsNullOrEmpty(Model.SuccessMessage) && !tieneErroresModelo && !hayErrorTexto)
+                    {
+                        <div class="alert alert-success text-center perfil-alert" role="alert">
+                            @Model.SuccessMessage
+                        </div>
+                    }
+
+                    @if (hayErrorTexto || tieneErroresModelo)
+                    {
+                        <div class="alert alert-danger text-center perfil-alert" role="alert">
+                            @if (hayErrorTexto)
+                            {
+                                @Model.ErrorMessage
+                            }
+                            else
+                            {
+                                <span>Revisa los campos del formulario e inténtalo de nuevo.</span>
+                            }
+                        </div>
+                    }
+
+                    @if (!Model.PerfilVinculado)
+                    {
+                        <div class="alert alert-info mb-3">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Tu cuenta aún no está vinculada a un perfil del directorio.
+                            <a asp-page="/DirectorioMedicos/Index" class="alert-link ms-1">Busca tu perfil</a> y haz clic en "Reclamar perfil".
+                        </div>
+                    }
+
+                    <form method="post" enctype="multipart/form-data">
+                        @Html.AntiForgeryToken()
+
+                        @* ── Bloque 1: Foto y datos básicos ── *@
+                        <div class="row g-4 mt-2 perfil-section-block perfil-field-row">
+                            <div class="col-12">
+                            <div class="card-body">
+                                <h2 class="card-section-title mb-2"><i class="bi bi-person-circle me-1"></i> Foto y datos básicos</h2>
+                                <div class="row g-3">
+                                    <div class="col-md-3 text-center">
+                                        <div class="text-center mb-3">
+                                            <label style="cursor:pointer;" title="Cambiar foto de perfil">
+                                                <img id="medico-avatar-preview"
+                                                     src="@(string.IsNullOrWhiteSpace(Model.Input.Foto) ? "https://ui-avatars.com/api/?name=M&size=120" : Model.Input.Foto)"
+                                                     class="rounded-circle border"
+                                                     width="100" height="100" style="object-fit:cover;border-color:#e5e7eb!important;" />
+                                                <div class="text-muted small mt-1"><i class="bi bi-camera me-1"></i>Cambiar foto</div>
+                                                <input asp-for="Input.FotoFile" type="file" class="d-none" accept="image/*"
+                                                       onchange="previewMedicoAvatar(this)" />
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-9">
+                                        <div class="form-floating mb-2">
+                                            @if (Model.PerfilVinculado)
+                                            {
+                                                <input asp-for="Input.NombreCompleto" class="form-control" placeholder="Nombre completo" readonly />
+                                            }
+                                            else
+                                            {
+                                                <input asp-for="Input.NombreCompleto" class="form-control" placeholder="Nombre completo" />
+                                            }
+                                            <label asp-for="Input.NombreCompleto">Nombre completo</label>
+                                            @if (Model.PerfilVinculado)
+                                            {
+                                                <div class="form-text text-muted">Proviene del directorio EII.</div>
+                                            }
+                                        </div>
+                                        <div class="form-floating">
+                                            @if (Model.PerfilVinculado)
+                                            {
+                                                <input asp-for="Input.Especialidad" class="form-control" placeholder="Especialidad" readonly />
+                                            }
+                                            else
+                                            {
+                                                <input asp-for="Input.Especialidad" class="form-control" placeholder="Especialidad" />
+                                            }
+                                            <label asp-for="Input.Especialidad">Especialidad</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            </div>
+                        </div>
+
+                        @* ── Bloque 2: Información profesional ── *@
+                        <div class="row g-4 mt-2 perfil-section-block perfil-field-row">
+                            <div class="col-12">
+                            <div class="card-body">
+                                <h2 class="card-section-title mb-2"><i class="bi bi-clipboard2-pulse me-1"></i> Información profesional</h2>
+
+                                <label class="perfil-label mb-2">Áreas EII en las que tienes experiencia</label>
+                                <div class="row g-1 mb-3">
+                                    @foreach (var area in Model.AreasEiiDisponibles)
+                                    {
+                                        <div class="col-6 col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox"
+                                                       name="AreasEiiSeleccionadas"
+                                                       value="@area.Value"
+                                                       id="area-@area.Value"
+                                                       @(Model.AreasSeleccionadas.Contains(int.Parse(area.Value)) ? "checked" : "") />
+                                                <label class="form-check-label" for="area-@area.Value">@area.Text</label>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+
+                                <label class="perfil-label mb-1">Hospital(es) donde atiendes</label>
+                                <div id="hospitales-container" class="mb-2">
+                                    @{
+                                        var hospitalesCount = Math.Max(1, Model.Input.Hospitales.Count);
+                                    }
+                                    @for (int i = 0; i < hospitalesCount; i++)
+                                    {
+                                        <div class="input-group mb-1 hospital-row">
+                                            <input type="text" name="Input.Hospitales" class="form-control form-control-sm"
+                                                   placeholder="Nombre del hospital o clínica"
+                                                   value="@(i < Model.Input.Hospitales.Count ? Model.Input.Hospitales[i] : "")" />
+                                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                                    onclick="this.closest('.hospital-row').remove()">✕</button>
+                                        </div>
+                                    }
+                                </div>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-add-hospital">
+                                    <i class="bi bi-plus-sm"></i> Agregar hospital
+                                </button>
+
+                                <div class="form-floating mt-3">
+                                    <textarea asp-for="Input.HorariosAtencion" class="form-control" placeholder="Horarios"
+                                              style="height:80px;"></textarea>
+                                    <label asp-for="Input.HorariosAtencion">Horarios de atención</label>
+                                </div>
+                            </div>
+                            </div>
+                        </div>
+
+                        @* ── Bloque 3: Ubicación ── *@
+                        <div class="perfil-section-block">
+                            <div class="card-body">
+                                <h2 class="card-section-title mb-3"><i class="bi bi-geo-alt me-1"></i> Ubicación</h2>
+
+                                @* Sub-sección A: referencia de la comunidad (readonly) *@
+                                @if (!string.IsNullOrWhiteSpace(Model.ComunidadCiudad) || !string.IsNullOrWhiteSpace(Model.ComunidadEstado))
+                                {
+                                    <div class="mb-3 p-2 rounded" style="background:#f9fafb;border:1px solid #e5e7eb;">
+                                        <small class="text-muted d-block mb-1 fw-semibold">Registrado por la comunidad</small>
+                                        <input type="text" class="form-control form-control-sm" disabled
+                                               value="@(string.Join(", ", new[]{ Model.ComunidadCiudad, Model.ComunidadEstado }.Where(s => !string.IsNullOrWhiteSpace(s))))" />
+                                    </div>
+                                }
+
+                                @* Sub-sección B: ubicación oficial editable *@
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <select asp-for="Input.PaisCodigo" asp-items="Model.PaisesSelectList" class="form-select">
+                                                <option value="">Selecciona país...</option>
+                                            </select>
+                                            <label asp-for="Input.PaisCodigo">País</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input asp-for="Input.Ciudad" class="form-control" id="ciudad-input"
+                                                   autocomplete="off" placeholder="Ciudad" />
+                                            <label asp-for="Input.Ciudad">Ciudad</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <input asp-for="Input.Latitud" type="hidden" id="latitud-input" />
+                                <input asp-for="Input.Longitud" type="hidden" id="longitud-input" />
+                            </div>
+                        </div>
+
+                        @* ── Bloque 4: Contacto y redes ── *@
+                        <div class="perfil-section-block">
+                            <div class="card-body">
+                                <h2 class="card-section-title mb-3"><i class="bi bi-link-45deg me-1"></i> Contacto y redes</h2>
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input asp-for="Input.SitioWeb" class="form-control" placeholder="Sitio web" />
+                                            <label asp-for="Input.SitioWeb">Sitio web</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input asp-for="Input.Telefono" class="form-control" placeholder="Teléfono" />
+                                            <label asp-for="Input.Telefono">Teléfono</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input asp-for="Input.Instagram" class="form-control" placeholder="Instagram" />
+                                            <label asp-for="Input.Instagram"><i class="bi bi-instagram"></i> Instagram</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input asp-for="Input.LinkedIn" class="form-control" placeholder="LinkedIn" />
+                                            <label asp-for="Input.LinkedIn"><i class="bi bi-linkedin"></i> LinkedIn</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        @* ── Bloque 5: Biografía ── *@
+                        <div class="perfil-section-block">
+                            <div class="card-body">
+                                <h2 class="card-section-title mb-3"><i class="bi bi-file-person me-1"></i> Acerca de mí</h2>
+                                <div class="form-floating">
+                                    <textarea asp-for="Input.Biografia" class="form-control" placeholder="Biografía"
+                                              style="height:120px;"></textarea>
+                                    <label asp-for="Input.Biografia">Biografía / Presentación profesional</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        @* ── Bloque 6: URL pública / Slug ── *@
+                        <div class="perfil-section-block">
+                            <div class="card-body">
+                                <h2 class="card-section-title mb-3"><i class="bi bi-link me-1"></i> Tu URL pública</h2>
+                                <p class="text-muted small mb-2">
+                                    Tu perfil: <code>https://eiibd.com/medicos/<strong id="slug-preview">@(Model.Input.Slug ?? "tu-slug")</strong></code>
+                                </p>
+                                <div class="input-group">
+                                    <span class="input-group-text text-muted" style="font-size:.85rem;">/medicos/</span>
+                                    <input asp-for="Input.Slug" class="form-control" placeholder="tu-slug"
+                                           id="slug-input" oninput="previewSlug(this.value)" />
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="checkSlug()">
+                                        Verificar
+                                    </button>
+                                </div>
+                                <span asp-validation-for="Input.Slug" class="text-danger small"></span>
+                                <div id="slug-status" class="small mt-1"></div>
+                                <div class="mt-2">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="generateSlug()">
+                                        Sugerir slug
+                                    </button>
+                                    <div id="slug-suggestions" class="mt-1 d-flex flex-wrap gap-1"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2 justify-content-end mb-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check2 me-1"></i> Guardar cambios
+                            </button>
+                        </div>
+                    </form>
+
+                    @* ── Bloque de Estado y Privacidad ── *@
+                    <div class="perfil-section-block">
+                        <div class="card-body">
+                            <h2 class="card-section-title mb-3"><i class="bi bi-shield-lock me-1"></i> Estado y Privacidad</h2>
+                            <form method="post" id="privacidadForm">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="PerfilBase.idUser" value="@Model.PerfilBase?.idUser" />
+
+                                <div class="row perfil-field-row">
+                                    <div class="col-sm-6 mb-3">
+                                        <input type="hidden" name="PerfilBase.PermitirTelefonoReal" value="false" />
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox"
+                                                   id="PerfilBase_PermitirTelefonoReal"
+                                                   name="PerfilBase.PermitirTelefonoReal" value="true"
+                                                   @(Model.PerfilBase?.PermitirTelefonoReal == true ? "checked" : "") />
+                                            <label class="form-check-label" for="PerfilBase_PermitirTelefonoReal">
+                                                Permitir utilizar teléfono para saber si soy real
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6 mb-3">
+                                        <input type="hidden" name="PerfilBase.PermitirCorreoNoticias" value="false" />
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox"
+                                                   id="PerfilBase_PermitirCorreoNoticias"
+                                                   name="PerfilBase.PermitirCorreoNoticias" value="true"
+                                                   @(Model.PerfilBase?.PermitirCorreoNoticias == true ? "checked" : "") />
+                                            <label class="form-check-label" for="PerfilBase_PermitirCorreoNoticias">
+                                                Permitir enviarme notificaciones o noticias
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row mt-2 perfil-field-row">
+                                    <div class="col-sm-6 mb-3">
+                                        <input type="hidden" name="PerfilBase.AceptoPP" value="false" />
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox"
+                                                   id="PerfilBase_AceptoPP"
+                                                   name="PerfilBase.AceptoPP" value="true"
+                                                   @(Model.PerfilBase?.AceptoPP == true ? "checked" : "") />
+                                            <label class="form-check-label" for="PerfilBase_AceptoPP">
+                                                Aceptó Política de Privacidad
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6 mb-3">
+                                        <input type="hidden" name="PerfilBase.PermitirMostrarPais" value="false" />
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox"
+                                                   id="PerfilBase_PermitirMostrarPais"
+                                                   name="PerfilBase.PermitirMostrarPais" value="true"
+                                                   @(Model.PerfilBase?.PermitirMostrarPais == true ? "checked" : "") />
+                                            <label class="form-check-label" for="PerfilBase_PermitirMostrarPais">
+                                                Permitir que otros usuarios vean de qué país soy
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row mt-2 perfil-field-row">
+                                    <div class="col-sm-6 mb-3">
+                                        <input type="hidden" name="PerfilBase.PermitirCompartirDatosMedicos" value="false" />
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox"
+                                                   id="PerfilBase_PermitirCompartirDatosMedicos"
+                                                   name="PerfilBase.PermitirCompartirDatosMedicos" value="true"
+                                                   @(Model.PerfilBase?.PermitirCompartirDatosMedicos == true ? "checked" : "") />
+                                            <label class="form-check-label" for="PerfilBase_PermitirCompartirDatosMedicos">
+                                                Permitir que otros vean mis datos médicos (condiciones, síntomas, tratamientos)
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2 mt-2">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-check2 me-1"></i> Guardar privacidad
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    @* ── Bloque 7: Badges (solo lectura) ── *@
+                    @if (Model.PerfilVinculado && Model.TodosLosBadges.Any())
+                    {
+                        <div class="perfil-section-block">
+                            <div class="card-body">
+                                <h2 class="card-section-title mb-3">
+                                    <i class="bi bi-award me-1"></i> Mis Badges
+                                    <span class="badge ms-2" style="background:#7c3aed;font-size:.8rem;">
+                                        Nivel @Model.NivelActual de 6
+                                    </span>
+                                </h2>
+                                <div class="row g-3">
+                                    @foreach (var badge in Model.TodosLosBadges)
+                                    {
+                                        <div class="col-6 col-md-4">
+                                            <div class="d-flex gap-2 align-items-start p-2 rounded"
+                                                 style="background:@(badge.Obtenido ? "#f5f3ff" : "#f9fafb");">
+                                                <i class="@badge.Icono fs-4" style="color:@(badge.Obtenido ? "#7c3aed" : "#9ca3af");"></i>
+                                                <div>
+                                                    <div class="fw-semibold" style="font-size:.88rem;color:@(badge.Obtenido ? "#1f2937" : "#9ca3af");">
+                                                        @badge.Nombre
+                                                    </div>
+                                                    @if (badge.Obtenido && badge.FechaObtenido.HasValue)
+                                                    {
+                                                        <div class="text-muted" style="font-size:.75rem;">
+                                                            @badge.FechaObtenido.Value.ToString("dd MMM yyyy")
+                                                        </div>
+                                                    }
+                                                    else if (!badge.Obtenido)
+                                                    {
+                                                        <div class="text-muted" style="font-size:.75rem;">
+                                                            Cómo obtenerlo: @badge.ComoObtenerlo
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    @* ── Bloque 8: Estado de verificación (solo lectura) ── *@
+                    <div class="perfil-section-block">
+                        <div class="card-body">
+                            <h2 class="card-section-title mb-3"><i class="bi bi-shield-check me-1"></i> Estado de verificación</h2>
+                            @if (!Model.PerfilVinculado)
+                            {
+                                <div class="alert alert-light border">
+                                    <strong>No vinculado</strong> — Busca tu perfil en el directorio y reclámaló.
+                                    <a asp-page="/DirectorioMedicos/Index" class="ms-1">Ir al directorio</a>
+                                </div>
+                            }
+                            else
+                            {
+                                var esVerificado = Model.TodosLosBadges.Any(b => b.Codigo == "verificado" && b.Obtenido);
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi @(esVerificado ? "bi-patch-check-fill text-primary" : "bi-clock text-warning") fs-5"></i>
+                                    <span>@(esVerificado ? "Verificado por el equipo EIIBD" : "Pendiente de verificación")</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        // ── Hospitales ──
+        document.getElementById('btn-add-hospital').addEventListener('click', function () {
+            const c = document.getElementById('hospitales-container');
+            const d = document.createElement('div');
+            d.className = 'input-group mb-1 hospital-row';
+            d.innerHTML = '<input type="text" name="Input.Hospitales" class="form-control form-control-sm" placeholder="Nombre del hospital o clínica" />'
+                        + '<button type="button" class="btn btn-outline-secondary btn-sm" onclick="this.closest(\'.hospital-row\').remove()">✕</button>';
+            c.appendChild(d);
+        });
+
+        // ── Slug ──
+        function previewSlug(val) {
+            document.getElementById('slug-preview').textContent = val || 'tu-slug';
+        }
+        async function checkSlug() {
+            const slug = document.getElementById('slug-input').value;
+            if (!slug) return;
+            const r = await fetch(`?handler=CheckSlug&slug=${encodeURIComponent(slug)}`);
+            const data = await r.json();
+            const el = document.getElementById('slug-status');
+            el.innerHTML = data.disponible
+                ? '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Disponible</span>'
+                : '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>No disponible</span>';
+        }
+        async function generateSlug() {
+            const r = await fetch('?handler=GenerateSlug');
+            const suggestions = await r.json();
+            const container = document.getElementById('slug-suggestions');
+            container.innerHTML = '';
+            suggestions.forEach(s => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-outline-secondary btn-sm';
+                btn.textContent = s;
+                btn.onclick = () => {
+                    document.getElementById('slug-input').value = s;
+                    previewSlug(s);
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        // ── Foto preview ──
+        function previewMedicoAvatar(input) {
+            if (input.files && input.files[0]) {
+                var r = new FileReader();
+                r.onload = function (e) {
+                    document.getElementById('medico-avatar-preview').src = e.target.result;
+                };
+                r.readAsDataURL(input.files[0]);
+            }
+        }
+    </script>
+    <script src="~/js/usuario-perfil.js" asp-append-version="true"></script>
+    <script>
+        (function () {
+            var apiKey = '@Html.Raw(Model.GoogleMapsApiKey)';
+            function loadMapsAndInit() {
+                if (window.google && window.google.maps) {
+                    google.maps.importLibrary('places').then(function () {
+                        if (typeof window.initAutocomplete === 'function') window.initAutocomplete();
+                    });
+                    return;
+                }
+                var existing = document.querySelector('script[data-gmaps="1"]');
+                if (existing) return;
+                var script = document.createElement('script');
+                script.src = 'https://maps.googleapis.com/maps/api/js?key=' + apiKey;
+                script.async = true; script.defer = true; script.dataset.gmaps = '1';
+                script.onload = function () {
+                    if (google.maps.importLibrary) {
+                        google.maps.importLibrary('places').then(function () {
+                            if (typeof window.initAutocomplete === 'function') window.initAutocomplete();
+                        });
+                    } else if (google.maps.places) {
+                        if (typeof window.initAutocomplete === 'function') window.initAutocomplete();
+                    }
+                };
+                document.head.appendChild(script);
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', loadMapsAndInit);
+            } else { loadMapsAndInit(); }
+        })();
+    </script>
+}

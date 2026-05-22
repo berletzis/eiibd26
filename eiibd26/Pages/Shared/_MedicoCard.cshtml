@@ -1,5 +1,12 @@
 @model eiibd26.Models.Directorio.MedicoCardVm
 
+@{
+    var _badgeComunidad = ViewData["BadgeComunidad"] as bool? ?? false;
+    var _badgeVerificado = ViewData["BadgeVerificado"] as bool? ?? false;
+    var _badgeMedico = ViewData["BadgeMedico"] as bool? ?? false;
+    var _ubicacion = string.Join(", ", new[] { Model.Ciudad, Model.Estado }.Where(x => !string.IsNullOrWhiteSpace(x)));
+}
+
 <article class="medico-card">
     <div class="medico-card__header">
         <div class="medico-card__avatar">
@@ -7,7 +14,8 @@
         </div>
         <div class="medico-card__info">
             <h3 class="medico-card__nombre">
-                <a asp-page="/DirectorioMedicos/Detalle" asp-route-id="@Model.Id">@Model.NombreCompleto</a>
+                <a asp-page="/DirectorioMedicos/Detalle" asp-route-id="@Model.Id">@Model.NombreCompleto</a>@if (Model.CedulaValidada)
+                {<span class="medico-card__verified-inline" title="Cédula verificada"><i class="bi bi-patch-check-fill"></i></span>}
             </h3>
             @if (!string.IsNullOrWhiteSpace(Model.Especialidad))
             {
@@ -19,14 +27,11 @@
         </div>
     </div>
 
-    @{
-        var ubicacion = string.Join(", ", new[] { Model.Ciudad, Model.Estado }.Where(x => !string.IsNullOrWhiteSpace(x)));
-    }
-    @if (!string.IsNullOrWhiteSpace(ubicacion))
+    @if (!string.IsNullOrWhiteSpace(_ubicacion))
     {
         <div class="medico-card__ubicacion">
             <i class="bi bi-geo-alt text-muted"></i>
-            <span>@ubicacion</span>
+            <span>@_ubicacion</span>
         </div>
     }
 
@@ -52,15 +57,20 @@
         @if (Model.TotalPacientesUnicos > 0)
         {
             <span class="medico-card__confirmaciones text-muted">
-                <i class="bi bi-people"></i> @Model.TotalPacientesUnicos
-                @(Model.TotalPacientesUnicos == 1 ? "paciente" : "pacientes")
+                @Model.TotalPacientesUnicos paciente@(Model.TotalPacientesUnicos == 1 ? "" : "s") de la comunidad lo ha@(Model.TotalPacientesUnicos == 1 ? "" : "n") identificado
             </span>
         }
-        @if (Model.CedulaValidada)
-        {
-            <span class="medico-cedula-validada" title="Cédula verificada">
-                <i class="bi bi-patch-check-fill"></i>
-            </span>
-        }
+    </div>
+
+    <div class="medico-card__status-badges">
+        <span class="medico-status-badge @(_badgeComunidad ? "badge-status-comunidad" : "badge-status-inactivo")">
+            <i class="bi bi-people-fill"></i> Comunidad
+        </span>
+        <span class="medico-status-badge @(_badgeVerificado ? "badge-status-verificado" : "badge-status-inactivo")">
+            <i class="bi bi-patch-check"></i> Verificado
+        </span>
+        <span class="medico-status-badge @(_badgeMedico ? "badge-status-medico" : "badge-status-inactivo")">
+            <i class="bi bi-patch-check-fill"></i> Médico
+        </span>
     </div>
 </article>

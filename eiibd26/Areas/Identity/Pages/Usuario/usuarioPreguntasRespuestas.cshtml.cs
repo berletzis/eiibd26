@@ -17,7 +17,7 @@ using System.Threading.Tasks;
 
 namespace eiibd26.Areas.Identity.Pages.Usuario
 {
-    [Authorize]
+    [Authorize(Roles = "Paciente,Administrador")]
     public class PreguntasRespuestasModel : PageModel
     {
         private readonly ApplicationDbContext _db;
@@ -85,6 +85,8 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
         public async Task<IActionResult> OnGetAsync(int? pageNumber, int? pageSize)
         {
+            if (User.IsInRole("Medico"))
+                return RedirectToPage("/Medico/Dashboard", new { area = "Identity" });
             if (pageNumber.HasValue) PageNumber = Math.Max(1, pageNumber.Value);
             if (pageSize.HasValue) PageSize = Math.Max(1, pageSize.Value);
 

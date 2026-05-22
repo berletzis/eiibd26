@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using eiibd26.Data;
 using eiibd26.Services.Directorio;
+using eiibd26.Services.Medico;
 using eiibd26.Models.Directorio;
 using eiibd26.Models.Directorio.Enums;
 
@@ -13,11 +14,13 @@ public class DetalleModel : PageModel
 {
     private readonly IMedicoDirectorioService _service;
     private readonly ApplicationDbContext _db;
+    private readonly IMedicoBadgeService _badgeService;
 
-    public DetalleModel(IMedicoDirectorioService service, ApplicationDbContext db)
+    public DetalleModel(IMedicoDirectorioService service, ApplicationDbContext db, IMedicoBadgeService badgeService)
     {
         _service = service;
         _db = db;
+        _badgeService = badgeService;
     }
 
     public MedicoDetalleVm? Medico { get; set; }
@@ -29,6 +32,7 @@ public class DetalleModel : PageModel
     // Confirmación simple (nueva tabla DirectorioMedicoConfirmacion)
     public bool YaConfirme { get; set; }
     public int TotalConfirmaciones { get; set; }
+    public bool PerfilYaVinculado { get; set; }
 
     public async Task<IActionResult> OnGetAsync(int id)
     {
@@ -41,6 +45,9 @@ public class DetalleModel : PageModel
 
         TotalConfirmaciones = await _db.DirectorioMedicoConfirmaciones
             .CountAsync(c => c.MedicoId == id && !c.Eliminado);
+
+        PerfilYaVinculado = await _db.MedicosPerfilExtendido
+            .AnyAsync(p => p.MedicoId == id && p.UserId != null);
 
         if (usuarioId.HasValue)
             YaConfirme = await _db.DirectorioMedicoConfirmaciones
@@ -62,6 +69,11 @@ public class DetalleModel : PageModel
         TempData[resultado ? "Success" : "Error"] = resultado
             ? "Tu confirmación fue registrada. Gracias por contribuir al directorio comunitario."
             : "Ya registraste este tipo de confirmación para este médico.";
+
+        if (resultado)
+        {
+            await _badgeService.EvaluarBadgesAutomaticosAsync(ConfirmarVm.MedicoDirectorioId);
+        }
 
         return RedirectToPage(new { id = ConfirmarVm.MedicoDirectorioId });
     }
@@ -111,6 +123,7 @@ public class DetalleModel : PageModel
         await _db.SaveChangesAsync();
 
         await RecalcularNivelAsync(medicoId);
+        await _badgeService.EvaluarBadgesAutomaticosAsync(medicoId);
 
         TempData["Success"] = "¡Gracias! Tu confirmación ayuda a la comunidad EII.";
         return RedirectToPage(new { id = medicoId });

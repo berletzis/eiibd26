@@ -151,6 +151,7 @@ try
             options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/ResetPassword");
             options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/ConfirmEmail");
             options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/AccessDenied");
+            options.Conventions.AllowAnonymousToAreaPage("Identity", "/Account/RegisterM");
             // Si tienes otras páginas públicas (ConfirmEmailChange, ExternalLoginCallback...) añádelas también.
 
             // Protección por roles (ejemplo): /Identity/Admin -> Administradores solamente
@@ -259,6 +260,7 @@ try
 
     // Directorio comunitario de médicos EII
     builder.Services.AddScoped<eiibd26.Services.Directorio.IMedicoDirectorioService, eiibd26.Services.Directorio.MedicoDirectorioService>();
+    builder.Services.AddScoped<eiibd26.Services.Medico.IMedicoBadgeService, eiibd26.Services.Medico.MedicoBadgeService>();
 
     // Register HttpClient for Anthropic API
     builder.Services.AddHttpClient("AnthropicClient", (serviceProvider, client) =>
@@ -847,8 +849,32 @@ try
         Authorization = new[] { new eiibd26.Helpers.HangfireAdminAuthFilter() }
     });
 
+    // Redirigir médicos a su dashboard cuando aterrizan en "/"
+    app.Use(async (context, next) =>
+    {
+        if (context.User.Identity?.IsAuthenticated == true
+            && context.User.IsInRole("Medico")
+            && context.Request.Path == "/")
+        {
+            context.Response.Redirect("/Identity/Medico/Dashboard");
+            return;
+        }
+        await next();
+    });
+
     app.MapControllers();
     app.MapRazorPages();
+
+    // Seed roles
+    using (var scope = app.Services.CreateScope())
+    {
+        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
+        foreach (var role in new[] { "Paciente", "Medico", "Admin" })
+        {
+            if (!await roleManager.RoleExistsAsync(role))
+                await roleManager.CreateAsync(new ApplicationRole { Name = role });
+        }
+    }
 
     app.Run();
 
