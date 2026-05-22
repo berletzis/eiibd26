@@ -30,9 +30,14 @@
                 if (Guid.TryParse(userId, out var userGuid)) perfil = await Db.Set<Perfil>().FirstOrDefaultAsync(p => p.idUser == userGuid);
                 else perfil = await Db.Set<Perfil>().FirstOrDefaultAsync(p => p.idUser.ToString() == userId);
 
-                if (perfil != null && !string.IsNullOrWhiteSpace(perfil.Nombre))
+                if (perfil != null)
                 {
-                    displayName = perfil.Nombre + (string.IsNullOrWhiteSpace(perfil.Apellidos) ? "" : " " + perfil.Apellidos);
+                    if (!string.IsNullOrWhiteSpace(perfil.Nombre))
+                        displayName = perfil.Nombre + (string.IsNullOrWhiteSpace(perfil.Apellidos) ? "" : " " + perfil.Apellidos);
+
+                    // Usar Perfil.Avatar si es una ruta de archivo subido (cubre foto de médico y paciente)
+                    if (!string.IsNullOrWhiteSpace(perfil.Avatar) && perfil.Avatar.StartsWith("/uploads/"))
+                        avatarSrc = Url.Content("~" + perfil.Avatar);
                 }
             }
             catch { }
@@ -40,15 +45,19 @@
 
         displayName = displayName ?? User?.FindFirst(ClaimTypes.Name)?.Value ?? User?.Identity?.Name ?? "Usuario";
 
-        var env = Context.RequestServices.GetService(typeof(IWebHostEnvironment)) as IWebHostEnvironment;
-        if (!string.IsNullOrEmpty(userId) && env != null)
+        // Fallback al archivo de avatar de paciente solo si Perfil.Avatar no resolvió
+        if (avatarSrc == Url.Content("~/img/default-avatar.png"))
         {
-            try
+            var env = Context.RequestServices.GetService(typeof(IWebHostEnvironment)) as IWebHostEnvironment;
+            if (!string.IsNullOrEmpty(userId) && env != null)
             {
-                var physicalPath = System.IO.Path.Combine(env.WebRootPath ?? "wwwroot", "uploads", "avatars", userId, "avatar-64.png");
-                if (System.IO.File.Exists(physicalPath)) avatarSrc = Url.Content($"~/uploads/avatars/{userId}/avatar-64.png");
+                try
+                {
+                    var physicalPath = System.IO.Path.Combine(env.WebRootPath ?? "wwwroot", "uploads", "avatars", userId, "avatar-64.png");
+                    if (System.IO.File.Exists(physicalPath)) avatarSrc = Url.Content($"~/uploads/avatars/{userId}/avatar-64.png");
+                }
+                catch { avatarSrc = Url.Content("~/img/default-avatar.png"); }
             }
-            catch { avatarSrc = Url.Content("~/img/default-avatar.png"); }
         }
     }
 

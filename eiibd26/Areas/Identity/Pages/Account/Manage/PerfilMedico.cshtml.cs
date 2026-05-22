@@ -7,7 +7,6 @@ using eiibd26.Services.Medico;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -56,9 +55,12 @@ public class PerfilMedicoModel : PageModel
     [BindProperty]
     public List<int> AreasEiiSeleccionadas { get; set; } = new();
 
-    [BindProperty]
-    [ValidateNever]
-    public eiibd26.Models.Perfil? PerfilBase { get; set; }
+    // Campos de privacidad como bool individuales — evita validar el modelo Perfil completo
+    [BindProperty] public bool PrivPermitirTelefonoReal { get; set; }
+    [BindProperty] public bool PrivPermitirCorreoNoticias { get; set; }
+    [BindProperty] public bool PrivAceptoPP { get; set; }
+    [BindProperty] public bool PrivPermitirMostrarPais { get; set; }
+    [BindProperty] public bool PrivPermitirCompartirDatosMedicos { get; set; }
 
     [TempData] public string? SuccessMessage { get; set; }
     [TempData] public string? ErrorMessage { get; set; }
@@ -212,11 +214,19 @@ public class PerfilMedicoModel : PageModel
         await PopulateAreasAsync();
         await PopulatePaisesAsync();
 
-        // Cargar Perfil base (privacidad)
+        // Cargar flags de privacidad del Perfil base
         var uid = GetUserId();
-        PerfilBase = await _db.Perfil
+        var perfilPriv = await _db.Perfil
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.idUser == uid);
+        if (perfilPriv != null)
+        {
+            PrivPermitirTelefonoReal          = perfilPriv.PermitirTelefonoReal          ?? false;
+            PrivPermitirCorreoNoticias        = perfilPriv.PermitirCorreoNoticias        ?? false;
+            PrivAceptoPP                      = perfilPriv.AceptoPP                      ?? false;
+            PrivPermitirMostrarPais           = perfilPriv.PermitirMostrarPais           ?? false;
+            PrivPermitirCompartirDatosMedicos = perfilPriv.PermitirCompartirDatosMedicos ?? false;
+        }
 
         return Page();
     }
@@ -306,36 +316,38 @@ public class PerfilMedicoModel : PageModel
             await _db.SaveChangesAsync();
         }
 
+        // Badges: en try-catch para que un fallo no corte el guardado de privacidad
         if (perfil.MedicoId.HasValue)
-            await _badgeService.EvaluarBadgesAutomaticosAsync(perfil.MedicoId.Value);
-
-        // Guardar campos de privacidad en Perfil base (crear si no existe)
         {
-            var uid3     = GetUserId();
-            var perfilBd = await _db.Perfil.FirstOrDefaultAsync(p => p.idUser == uid3);
+            try { await _badgeService.EvaluarBadgesAutomaticosAsync(perfil.MedicoId.Value); }
+            catch (Exception ex) { _logger.LogError(ex, "Error evaluando badges para médico {MedicoId}", perfil.MedicoId.Value); }
+        }
+
+        // Guardar campos de privacidad en Perfil (SIEMPRE, independiente de ModelState o badges)
+        {
+            var privUid  = GetUserId();
+            var perfilBd = await _db.Perfil.FirstOrDefaultAsync(p => p.idUser == privUid);
             if (perfilBd == null)
             {
-                var emailLocal = (await _db.Users
-                    .AsNoTracking()
-                    .Where(u => u.Id == uid3)
-                    .Select(u => u.Email)
-                    .FirstOrDefaultAsync() ?? uid3.ToString("N")[..6]).Split('@')[0];
-
                 perfilBd = new eiibd26.Models.Perfil
                 {
-                    idUser          = uid3,
-                    Avatar          = $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(emailLocal)}&size=110",
-                    Nombre          = string.Empty,
-                    FechaCreacion   = DateTime.UtcNow,
-                    UltimaActividad = DateTime.UtcNow,
+                    idUser        = privUid,
+                    Avatar        = string.Empty,
+                    Nombre        = string.Empty,
+                    FechaCreacion = DateTime.UtcNow
                 };
                 _db.Perfil.Add(perfilBd);
             }
-            perfilBd.PermitirTelefonoReal          = PerfilBase?.PermitirTelefonoReal          ?? false;
-            perfilBd.PermitirCorreoNoticias        = PerfilBase?.PermitirCorreoNoticias        ?? false;
-            perfilBd.AceptoPP                      = PerfilBase?.AceptoPP                      ?? false;
-            perfilBd.PermitirMostrarPais           = PerfilBase?.PermitirMostrarPais           ?? false;
-            perfilBd.PermitirCompartirDatosMedicos = PerfilBase?.PermitirCompartirDatosMedicos ?? false;
+            // Sync foto médico → Perfil.Avatar para que el top-menu lo refleje
+            if (!string.IsNullOrWhiteSpace(perfil.Foto))
+                perfilBd.Avatar = perfil.Foto;
+
+            perfilBd.PermitirTelefonoReal          = PrivPermitirTelefonoReal;
+            perfilBd.PermitirCorreoNoticias        = PrivPermitirCorreoNoticias;
+            perfilBd.AceptoPP                      = PrivAceptoPP;
+            perfilBd.PermitirMostrarPais           = PrivPermitirMostrarPais;
+            perfilBd.PermitirCompartirDatosMedicos = PrivPermitirCompartirDatosMedicos;
+            perfilBd.FechaModificado               = DateTime.UtcNow;
             await _db.SaveChangesAsync();
         }
 
@@ -360,9 +372,7 @@ public class PerfilMedicoModel : PageModel
 
         await PopulateAreasAsync();
         await PopulatePaisesAsync();
-        var uid2 = GetUserId();
-        PerfilBase = await _db.Perfil.AsNoTracking().FirstOrDefaultAsync(p => p.idUser == uid2);
-        // Repoblar para que los checkboxes queden en su estado correcto al re-render
+        // Los [BindProperty] bool retienen sus valores del POST — no hace falta repoblarlos
         AreasSeleccionadas = AreasEiiSeleccionadas.ToHashSet();
         return Page();
     }

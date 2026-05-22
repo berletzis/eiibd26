@@ -199,10 +199,20 @@ public class DetalleModel : PageModel
 
         if (perfil != null && !string.IsNullOrWhiteSpace(perfil.Hospitales))
         {
-            var hospitalesMedico = perfil.Hospitales
-                .Split(new[] { '\n', ';', '|' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(h => h.Trim())
-                .Where(h => !string.IsNullOrWhiteSpace(h));
+            IEnumerable<string> hospitalesMedico;
+            try
+            {
+                hospitalesMedico = System.Text.Json.JsonSerializer.Deserialize<List<string>>(perfil.Hospitales)
+                    ?? Enumerable.Empty<string>();
+            }
+            catch
+            {
+                // Fallback para datos en formato texto plano (legacy)
+                hospitalesMedico = perfil.Hospitales
+                    .Split(new[] { '\n', ';', '|' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(h => h.Trim())
+                    .Where(h => !string.IsNullOrWhiteSpace(h));
+            }
 
             foreach (var hospital in hospitalesMedico)
             {

@@ -1,17 +1,33 @@
 ﻿@using System.Security.Claims
+@using Microsoft.EntityFrameworkCore
+@using eiibd26.Data
+@using eiibd26.Models
 @inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment Env
+@inject ApplicationDbContext Db
 @{
     var isAuth = User?.Identity?.IsAuthenticated ?? false;
     var avatarSrc = Url.Content("~/img/default-avatar.png");
     var userName = User?.Identity?.Name ?? "";
-    // Attempt to read an uploaded avatar if exists (best-effort)
+    // Intentar leer avatar: prioridad Perfil.Avatar (cubre foto de médico y paciente)
     try
     {
         var userId = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (!string.IsNullOrEmpty(userId))
         {
-            var physicalPath = System.IO.Path.Combine(Env.WebRootPath ?? "wwwroot", "uploads", "avatars", userId, "avatar-64.png");
-            if (System.IO.File.Exists(physicalPath)) avatarSrc = Url.Content($"~/uploads/avatars/{userId}/avatar-64.png");
+            eiibd26.Models.Perfil perfilMob = null;
+            if (Guid.TryParse(userId, out var guidMob))
+                perfilMob = await Db.Set<eiibd26.Models.Perfil>().AsNoTracking().FirstOrDefaultAsync(p => p.idUser == guidMob);
+
+            if (perfilMob != null && !string.IsNullOrWhiteSpace(perfilMob.Avatar) && perfilMob.Avatar.StartsWith("/uploads/"))
+            {
+                avatarSrc = Url.Content("~" + perfilMob.Avatar);
+            }
+            else
+            {
+                // Fallback: archivo de avatar de paciente
+                var physicalPath = System.IO.Path.Combine(Env.WebRootPath ?? "wwwroot", "uploads", "avatars", userId, "avatar-64.png");
+                if (System.IO.File.Exists(physicalPath)) avatarSrc = Url.Content($"~/uploads/avatars/{userId}/avatar-64.png");
+            }
         }
     }
     catch { /* ignore */ }
