@@ -42,6 +42,9 @@
 <div class="crm-container-admin">
     <div class="d-flex justify-content-between align-items-center mb-2">
         <h2 class="crm-title-admin">Directorio Médicos — Admin</h2>
+        <button class="btn btn-outline-secondary btn-sm" onclick="evaluarTodos()">
+            <i class="bi bi-arrow-repeat me-1"></i> Re-evaluar todos los badges
+        </button>
     </div>
 
     <div class="admin-layout-flex">
@@ -326,6 +329,11 @@ ${d.cedulaVerificada && d.fechaCedulaVerificada ? `<p class="text-muted small mb
 </div>
 
 <p class="panel-section-title mt-3">Badges</p>
+<div class="d-flex gap-2 mb-2">
+    <button class="btn btn-sm btn-outline-primary" onclick="evaluarBadges(${d.id})">
+        <i class="bi bi-arrow-clockwise me-1"></i> Re-evaluar badges
+    </button>
+</div>
 <div id="badgesContainer">${badgesHtml}</div>
 
 <p class="panel-section-title mt-3">Pacientes que confirmaron</p>
@@ -381,6 +389,23 @@ ${confHtml}`;
         const r = await postJson('@Url.Page(null, "RevocarBadge")', { medicoId, codigo });
         if (r.success) abrirEditar(medicoId);
         else alert('Error al revocar badge.');
+    }
+
+    async function evaluarBadges(medicoId) {
+        const btn = event.currentTarget;
+        btn.disabled = true; btn.textContent = 'Evaluando...';
+        try {
+            const r = await postJson('@Url.Page(null, "EvaluarBadges")', { medicoId });
+            if (r.success) { abrirEditar(medicoId); tabla.ajax.reload(null, false); }
+            else alert('Error al evaluar badges.');
+        } finally { btn.disabled = false; btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i> Re-evaluar badges'; }
+    }
+
+    async function evaluarTodos() {
+        if (!confirm('¿Re-evaluar badges de TODOS los médicos activos? Puede tomar varios segundos.')) return;
+        const r = await postJson('@Url.Page(null, "EvaluarTodos")', {});
+        if (r.success) { alert(`Re-evaluados: ${r.total} médicos.`); tabla.ajax.reload(null, false); }
+        else alert('Error.');
     }
 
     // Google Maps autocomplete para el panel admin

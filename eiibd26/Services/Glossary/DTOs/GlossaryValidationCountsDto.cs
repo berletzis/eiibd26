@@ -21,6 +21,12 @@ namespace eiibd26.Services.Glossary.DTOs
 
         /// <summary>Distribución de votos por nivel de relación médica</summary>
         public List<RelationConsensusItemDto> RelationConsensus { get; set; } = new();
+
+        /// <summary>Comentarios de validadores de descripción (ValidationType = MeaningValidation)</summary>
+        public List<string> MeaningComments { get; set; } = new();
+
+        /// <summary>Comentarios clínicos de médicos con comentario no vacío</summary>
+        public List<ValidationCommentDto> ComentariosMedicos { get; set; } = new();
     }
 
     /// <summary>Votos y comentarios para un nivel específico de relación médica</summary>
@@ -34,5 +40,15 @@ namespace eiibd26.Services.Glossary.DTOs
 
         /// <summary>Comentarios clínicos de los validadores humanos para este nivel</summary>
         public List<string> Comments { get; set; } = new();
+    }
+
+    /// <summary>Comentario clínico de un médico sobre un término</summary>
+    public class ValidationCommentDto
+    {
+        public string UserDisplay { get; set; } = "";
+        public GlossaryValidationType ValidationType { get; set; }
+        public MedicalRelationType? RelationType { get; set; }
+        public string? Comment { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 }

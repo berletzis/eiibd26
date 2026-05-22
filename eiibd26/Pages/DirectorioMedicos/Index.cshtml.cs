@@ -23,6 +23,9 @@ public class IndexModel : PageModel
     // Para los badges públicos: EII por medico
     public Dictionary<int, bool> MedicosConEII { get; set; } = new();
 
+    // Badges ganados por médico (código del badge)
+    public Dictionary<int, HashSet<string>> BadgesPorMedico { get; set; } = new();
+
     [BindProperty(SupportsGet = true)] public string? Busqueda     { get; set; }
     [BindProperty(SupportsGet = true)] public string? Estado       { get; set; }
     [BindProperty(SupportsGet = true)] public string? Especialidad { get; set; }
@@ -47,6 +50,22 @@ public class IndexModel : PageModel
                 .Distinct()
                 .ToListAsync();
             MedicosConEII = conEII.ToDictionary(id => id, _ => true);
+
+            // Badges ganados en batch (evita N+1)
+            var badgesRows = await _db.MedicosPerfilBadge
+                .AsNoTracking()
+                .Where(pb => ids.Contains(pb.MedicoId))
+                .Join(_db.MedicosBadge, pb => pb.BadgeId, b => b.Id,
+                      (pb, b) => new { pb.MedicoId, b.Codigo })
+                .ToListAsync();
+
+            BadgesPorMedico = badgesRows
+                .GroupBy(x => x.MedicoId)
+                .ToDictionary(g => g.Key, g => g.Select(x => x.Codigo).ToHashSet());
+
+            foreach (var medico in Directorio.Medicos)
+                if (BadgesPorMedico.TryGetValue(medico.Id, out var badgeSet))
+                    medico.BadgesGanados = badgeSet;
         }
     }
 }

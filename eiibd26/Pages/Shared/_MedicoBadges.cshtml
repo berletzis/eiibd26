@@ -1,0 +1,32 @@
+@model IEnumerable<eiibd26.Models.Medico.MedicoBadgeDto>
+
+@{
+    var todosBadges = new[]
+    {
+        new { Clave = "perfil_reclamado",    Icono = "bi-shield-check",      Label = "Perfil Reclamado",    Color = "#4f46e5" },
+        new { Clave = "verificado",          Icono = "bi-patch-check-fill",  Label = "Verificado",          Color = "#0ea5e9" },
+        new { Clave = "activo_comunidad",    Icono = "bi-people-fill",       Label = "Activo en Comunidad", Color = "#22c55e" },
+        new { Clave = "participante_qa",     Icono = "bi-chat-dots-fill",    Label = "Participa en Q&A",    Color = "#f59e0b" },
+        new { Clave = "validador_contenido", Icono = "bi-check2-circle",     Label = "Valida Contenido",    Color = "#8b5cf6" },
+        new { Clave = "creador_contenido",   Icono = "bi-pencil-square",     Label = "Crea Contenido",      Color = "#ec4899" },
+    };
+
+    var clavesObtenidas = Model?.Where(b => b.Obtenido).Select(b => b.Codigo).ToHashSet() ?? new HashSet<string>();
+}
+
+<div class="medico-badges-row d-flex flex-wrap gap-2">
+    @foreach (var badge in todosBadges)
+    {
+        var tiene = clavesObtenidas.Contains(badge.Clave);
+        var style = tiene
+            ? $"background:{badge.Color}20; border:1.5px solid {badge.Color}; color:{badge.Color};"
+            : "background:#f3f4f6; border:1.5px solid #d1d5db; color:#9ca3af;";
+        var title = tiene ? badge.Label : $"{badge.Label} (no obtenido)";
+
+        <span class="badge-medico-pill" style="@style" title="@title"
+              data-bs-toggle="tooltip" data-bs-placement="top">
+            <i class="bi @badge.Icono me-1"></i>
+            <span class="badge-label d-none d-md-inline">@badge.Label</span>
+        </span>
+    }
+</div>

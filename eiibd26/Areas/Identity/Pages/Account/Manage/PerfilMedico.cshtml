@@ -233,29 +233,12 @@
                                     </div>
                                     <div class="col-md-9">
                                         <div class="form-floating mb-2">
-                                            @if (Model.PerfilVinculado)
-                                            {
-                                                <input asp-for="Input.NombreCompleto" class="form-control" placeholder="Nombre completo" readonly />
-                                            }
-                                            else
-                                            {
-                                                <input asp-for="Input.NombreCompleto" class="form-control" placeholder="Nombre completo" />
-                                            }
+                                            <input asp-for="Input.NombreCompleto" class="form-control" placeholder="Nombre completo" readonly />
                                             <label asp-for="Input.NombreCompleto">Nombre completo</label>
-                                            @if (Model.PerfilVinculado)
-                                            {
-                                                <div class="form-text text-muted">Proviene del directorio EII.</div>
-                                            }
+                                            <div class="form-text text-muted">Proviene del directorio EII. Vincula tu perfil para editarlo.</div>
                                         </div>
                                         <div class="form-floating">
-                                            @if (Model.PerfilVinculado)
-                                            {
-                                                <input asp-for="Input.Especialidad" class="form-control" placeholder="Especialidad" readonly />
-                                            }
-                                            else
-                                            {
-                                                <input asp-for="Input.Especialidad" class="form-control" placeholder="Especialidad" />
-                                            }
+                                            <input asp-for="Input.Especialidad" class="form-control" placeholder="Especialidad" readonly />
                                             <label asp-for="Input.Especialidad">Especialidad</label>
                                         </div>
                                     </div>
@@ -425,21 +408,10 @@
                             </div>
                         </div>
 
-                        <div class="d-flex gap-2 justify-content-end mb-4">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-check2 me-1"></i> Guardar cambios
-                            </button>
-                        </div>
-                    </form>
-
-                    @* ── Bloque de Estado y Privacidad ── *@
-                    <div class="perfil-section-block">
-                        <div class="card-body">
-                            <h2 class="card-section-title mb-3"><i class="bi bi-shield-lock me-1"></i> Estado y Privacidad</h2>
-                            <form method="post" id="privacidadForm">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="PerfilBase.idUser" value="@Model.PerfilBase?.idUser" />
-
+                        @* ── Estado y Privacidad — integrado al form principal ── *@
+                        <div class="perfil-section-block mt-3">
+                            <div class="card-body">
+                                <h2 class="card-section-title mb-3"><i class="bi bi-shield-lock me-1"></i> Estado y Privacidad</h2>
                                 <div class="row perfil-field-row">
                                     <div class="col-sm-6 mb-3">
                                         <input type="hidden" name="PerfilBase.PermitirTelefonoReal" value="false" />
@@ -465,8 +437,6 @@
                                             </label>
                                         </div>
                                     </div>
-                                </div>
-                                <div class="row mt-2 perfil-field-row">
                                     <div class="col-sm-6 mb-3">
                                         <input type="hidden" name="PerfilBase.AceptoPP" value="false" />
                                         <div class="form-check">
@@ -491,8 +461,6 @@
                                             </label>
                                         </div>
                                     </div>
-                                </div>
-                                <div class="row mt-2 perfil-field-row">
                                     <div class="col-sm-6 mb-3">
                                         <input type="hidden" name="PerfilBase.PermitirCompartirDatosMedicos" value="false" />
                                         <div class="form-check">
@@ -506,79 +474,15 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="d-flex gap-2 mt-2">
-                                    <button type="submit" class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-check2 me-1"></i> Guardar privacidad
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-
-                    @* ── Bloque 7: Badges (solo lectura) ── *@
-                    @if (Model.PerfilVinculado && Model.TodosLosBadges.Any())
-                    {
-                        <div class="perfil-section-block">
-                            <div class="card-body">
-                                <h2 class="card-section-title mb-3">
-                                    <i class="bi bi-award me-1"></i> Mis Badges
-                                    <span class="badge ms-2" style="background:#7c3aed;font-size:.8rem;">
-                                        Nivel @Model.NivelActual de 6
-                                    </span>
-                                </h2>
-                                <div class="row g-3">
-                                    @foreach (var badge in Model.TodosLosBadges)
-                                    {
-                                        <div class="col-6 col-md-4">
-                                            <div class="d-flex gap-2 align-items-start p-2 rounded"
-                                                 style="background:@(badge.Obtenido ? "#f5f3ff" : "#f9fafb");">
-                                                <i class="@badge.Icono fs-4" style="color:@(badge.Obtenido ? "#7c3aed" : "#9ca3af");"></i>
-                                                <div>
-                                                    <div class="fw-semibold" style="font-size:.88rem;color:@(badge.Obtenido ? "#1f2937" : "#9ca3af");">
-                                                        @badge.Nombre
-                                                    </div>
-                                                    @if (badge.Obtenido && badge.FechaObtenido.HasValue)
-                                                    {
-                                                        <div class="text-muted" style="font-size:.75rem;">
-                                                            @badge.FechaObtenido.Value.ToString("dd MMM yyyy")
-                                                        </div>
-                                                    }
-                                                    else if (!badge.Obtenido)
-                                                    {
-                                                        <div class="text-muted" style="font-size:.75rem;">
-                                                            Cómo obtenerlo: @badge.ComoObtenerlo
-                                                        </div>
-                                                    }
-                                                </div>
-                                            </div>
-                                        </div>
-                                    }
-                                </div>
                             </div>
                         </div>
-                    }
 
-                    @* ── Bloque 8: Estado de verificación (solo lectura) ── *@
-                    <div class="perfil-section-block">
-                        <div class="card-body">
-                            <h2 class="card-section-title mb-3"><i class="bi bi-shield-check me-1"></i> Estado de verificación</h2>
-                            @if (!Model.PerfilVinculado)
-                            {
-                                <div class="alert alert-light border">
-                                    <strong>No vinculado</strong> — Busca tu perfil en el directorio y reclámaló.
-                                    <a asp-page="/DirectorioMedicos/Index" class="ms-1">Ir al directorio</a>
-                                </div>
-                            }
-                            else
-                            {
-                                var esVerificado = Model.TodosLosBadges.Any(b => b.Codigo == "verificado" && b.Obtenido);
-                                <div class="d-flex align-items-center gap-2">
-                                    <i class="bi @(esVerificado ? "bi-patch-check-fill text-primary" : "bi-clock text-warning") fs-5"></i>
-                                    <span>@(esVerificado ? "Verificado por el equipo EIIBD" : "Pendiente de verificación")</span>
-                                </div>
-                            }
+                        <div class="d-flex gap-2 justify-content-end mb-4">
+                            <button type="submit" class="btn btn-primary px-4">
+                                <i class="bi bi-check2 me-1"></i> Guardar cambios
+                            </button>
                         </div>
-                    </div>
+                    </form>
 
                 </div>
             </div>

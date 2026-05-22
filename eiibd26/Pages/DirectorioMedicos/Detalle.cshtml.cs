@@ -7,6 +7,7 @@ using eiibd26.Services.Directorio;
 using eiibd26.Services.Medico;
 using eiibd26.Models.Directorio;
 using eiibd26.Models.Directorio.Enums;
+using eiibd26.Models.Medico;
 
 namespace eiibd26.Pages.DirectorioMedicos;
 
@@ -34,11 +35,32 @@ public class DetalleModel : PageModel
     public int TotalConfirmaciones { get; set; }
     public bool PerfilYaVinculado { get; set; }
 
+    public bool IsPaciente { get; private set; }
+    public bool IsMedico { get; private set; }
+    public bool IsAdmin { get; private set; }
+    public bool IsOwnerMedico { get; private set; }
+    public bool CanInteractAsPaciente { get; private set; }
+
+    public List<UbicacionMedicoVm> UbicacionesCombinadas { get; private set; } = new();
+    public List<MedicoBadgeDto> BadgesDirectorio { get; private set; } = new();
+
     public async Task<IActionResult> OnGetAsync(int id)
     {
         var usuarioId = ObtenerUsuarioId();
         Medico = await _service.GetDetalleAsync(id, usuarioId);
         if (Medico is null) return NotFound();
+
+        IsMedico   = User.IsInRole("Medico");
+        IsPaciente = User.IsInRole("Paciente");
+        IsAdmin    = User.IsInRole("Administrador");
+
+        if (IsMedico && usuarioId.HasValue)
+        {
+            IsOwnerMedico = await _db.MedicosPerfilExtendido
+                .AnyAsync(p => p.MedicoId == id && p.UserId == usuarioId.Value);
+        }
+
+        CanInteractAsPaciente = (IsPaciente || IsAdmin) && !IsMedico;
 
         TiposConfirmacion = await _service.GetTiposConfirmacionActivosAsync();
         ConfirmarVm.MedicoDirectorioId = id;
@@ -52,6 +74,12 @@ public class DetalleModel : PageModel
         if (usuarioId.HasValue)
             YaConfirme = await _db.DirectorioMedicoConfirmaciones
                 .AnyAsync(c => c.MedicoId == id && c.UsuarioId == usuarioId.Value && !c.Eliminado);
+
+        // Fase 2: Ubicaciones combinadas
+        await CargarUbicacionesAsync(id);
+
+        // Fase 4: Badges del directorio
+        BadgesDirectorio = await _badgeService.GetTodosLosBadgesAsync(id);
 
         return Page();
     }
@@ -158,6 +186,69 @@ public class DetalleModel : PageModel
         if (cedulaVerificada || totalConfirmaciones >= 5) return 2;
         if (totalConfirmaciones >= 3 && tieneConfirmacionEII) return 1;
         return 0;
+    }
+
+    private async Task CargarUbicacionesAsync(int medicoId)
+    {
+        var ubicaciones = new List<UbicacionMedicoVm>();
+
+        // Hospitales ingresados por el médico en su perfil (campo texto libre)
+        var perfil = await _db.MedicosPerfilExtendido
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.MedicoId == medicoId);
+
+        if (perfil != null && !string.IsNullOrWhiteSpace(perfil.Hospitales))
+        {
+            var hospitalesMedico = perfil.Hospitales
+                .Split(new[] { '\n', ';', '|' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(h => h.Trim())
+                .Where(h => !string.IsNullOrWhiteSpace(h));
+
+            foreach (var hospital in hospitalesMedico)
+            {
+                ubicaciones.Add(new UbicacionMedicoVm
+                {
+                    Hospital = hospital,
+                    Ciudad   = perfil.Ciudad ?? Medico!.Ciudad ?? "",
+                    Estado   = perfil.Estado ?? Medico!.Estado ?? "",
+                    Pais     = perfil.PaisCodigo ?? "",
+                    Fuente   = "medico",
+                    Reportes = 1
+                });
+            }
+        }
+
+        // Hospital del directorio (reportado por la comunidad al proponer al médico)
+        if (!string.IsNullOrWhiteSpace(Medico!.HospitalClinica))
+        {
+            var yaExiste = ubicaciones.Any(u =>
+                string.Equals(u.Hospital, Medico.HospitalClinica, StringComparison.OrdinalIgnoreCase));
+
+            if (!yaExiste)
+            {
+                ubicaciones.Add(new UbicacionMedicoVm
+                {
+                    Hospital = Medico.HospitalClinica,
+                    Ciudad   = Medico.Ciudad ?? "",
+                    Estado   = Medico.Estado ?? "",
+                    Fuente   = "paciente",
+                    Reportes = 1
+                });
+            }
+        }
+
+        UbicacionesCombinadas = ubicaciones;
+
+        // Poblar campos del perfil extendido en el ViewModel (misma carga, sin query extra)
+        if (perfil != null)
+        {
+            Medico!.Foto             = perfil.Foto;
+            Medico!.Biografia        = perfil.Biografia;
+            Medico!.HorariosAtencion = perfil.HorariosAtencion;
+            Medico!.SitioWeb         = perfil.SitioWeb;
+            Medico!.Instagram        = perfil.Instagram;
+            Medico!.LinkedIn         = perfil.LinkedIn;
+        }
     }
 
     private Guid? ObtenerUsuarioId()

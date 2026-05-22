@@ -50,6 +50,19 @@ public class MedicoCardVm
     public int TotalConfirmaciones { get; set; }
     public int TotalPacientesUnicos { get; set; }
     public List<string> AreasExperiencia { get; set; } = new();
+    public HashSet<string> BadgesGanados { get; set; } = new();
+}
+
+// ── UBICACIONES COMBINADAS (médico + pacientes) ──────────────────────────
+
+public class UbicacionMedicoVm
+{
+    public string Hospital { get; set; } = "";
+    public string Ciudad { get; set; } = "";
+    public string Estado { get; set; } = "";
+    public string Pais { get; set; } = "";
+    public string Fuente { get; set; } = "";  // "medico" | "paciente"
+    public int Reportes { get; set; } = 1;
 }
 
 // ── FICHA DETALLE ────────────────────────────────────────────────────────
@@ -67,6 +80,13 @@ public class MedicoDetalleVm
     public string? HospitalClinica { get; set; }
     public decimal? Latitud { get; set; }
     public decimal? Longitud { get; set; }
+    // Campos del perfil extendido (ingresados por el médico)
+    public string? Foto { get; set; }
+    public string? Biografia { get; set; }
+    public string? HorariosAtencion { get; set; }
+    public string? SitioWeb { get; set; }
+    public string? Instagram { get; set; }
+    public string? LinkedIn { get; set; }
     public NivelConfianzaEnum NivelConfianza { get; set; }
     public string NivelConfianzaLabel => NivelConfianza switch
     {

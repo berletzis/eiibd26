@@ -144,25 +144,19 @@
             {
                 <div class="dash-card">
                     <div class="dash-card-title"><i class="bi bi-award" style="color:#7c3aed;"></i> Mis Badges</div>
-                    @foreach (var badge in Model.TodosLosBadges)
-                    {
-                        <div class="badge-item">
-                            <i class="@badge.Icono" style="font-size:1.2rem;color:@(badge.Obtenido ? "#7c3aed" : "#9ca3af");width:22px;text-align:center;flex-shrink:0;"></i>
-                            <div>
-                                <div style="font-size:.85rem;font-weight:@(badge.Obtenido ? "600" : "400");color:@(badge.Obtenido ? "#1f2937" : "#9ca3af");">
-                                    @badge.Nombre
-                                </div>
-                                @if (!badge.Obtenido)
-                                {
-                                    <div class="text-muted" style="font-size:.72rem;">@badge.ComoObtenerlo</div>
-                                }
-                                else if (badge.FechaObtenido.HasValue)
-                                {
-                                    <div class="text-muted" style="font-size:.72rem;">@badge.FechaObtenido.Value.ToString("dd MMM yyyy")</div>
-                                }
+                    <partial name="_MedicoBadges" model="Model.TodosLosBadges" />
+                    <p class="text-muted small mt-2 mb-0">
+                        Los badges se actualizan automáticamente según tu actividad en la plataforma.
+                    </p>
+                    <div class="mt-2">
+                        @foreach (var badge in Model.TodosLosBadges.Where(b => !b.Obtenido))
+                        {
+                            <div class="badge-item">
+                                <i class="@badge.Icono" style="font-size:1rem;color:#9ca3af;width:18px;text-align:center;flex-shrink:0;"></i>
+                                <div class="text-muted" style="font-size:.78rem;">@badge.Nombre: @badge.ComoObtenerlo</div>
                             </div>
-                        </div>
-                    }
+                        }
+                    </div>
                 </div>
             }
             else

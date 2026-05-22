@@ -2,10 +2,12 @@ using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using System.Text.Json;
 using eiibd26.Models.Medico;
+using eiibd26.Models.Directorio.Enums;
 using eiibd26.Services.Medico;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -55,6 +57,7 @@ public class PerfilMedicoModel : PageModel
     public List<int> AreasEiiSeleccionadas { get; set; } = new();
 
     [BindProperty]
+    [ValidateNever]
     public eiibd26.Models.Perfil? PerfilBase { get; set; }
 
     [TempData] public string? SuccessMessage { get; set; }
@@ -93,6 +96,73 @@ public class PerfilMedicoModel : PageModel
             .AsNoTracking()
             .Include(p => p.Medico)
             .FirstOrDefaultAsync(p => p.UserId == userId);
+
+        // Auto-link: si no hay perfil, o perfil existe pero sin MedicoId vinculado
+        if (perfil is null || !perfil.MedicoId.HasValue)
+        {
+            var userEmail = await _db.Users
+                .AsNoTracking()
+                .Where(u => u.Id == userId)
+                .Select(u => u.Email)
+                .FirstOrDefaultAsync();
+
+            var medicoDirectorio = await _db.MedicosDirectorio
+                .AsNoTracking()
+                .FirstOrDefaultAsync(m =>
+                    m.EstatusReclamacion == EstatusReclamacion.Reclamado &&
+                    (m.AspNetUserId == userId ||
+                     (!string.IsNullOrWhiteSpace(userEmail) && m.EmailSolicitudClaim == userEmail)) &&
+                    !m.Eliminado);
+
+            if (medicoDirectorio != null)
+            {
+                if (perfil is null)
+                {
+                    // Buscar por MedicoId o crear nuevo MedicoPerfilExtendido
+                    var perfilExistente = await _db.MedicosPerfilExtendido
+                        .FirstOrDefaultAsync(p => p.MedicoId == medicoDirectorio.Id);
+
+                    if (perfilExistente != null)
+                    {
+                        perfilExistente.UserId          = userId;
+                        perfilExistente.FechaModificado = DateTime.UtcNow;
+                    }
+                    else
+                    {
+                        perfilExistente = new MedicoPerfilExtendido
+                        {
+                            MedicoId        = medicoDirectorio.Id,
+                            UserId          = userId,
+                            FechaCreado     = DateTime.UtcNow,
+                            FechaModificado = DateTime.UtcNow
+                        };
+                        _db.MedicosPerfilExtendido.Add(perfilExistente);
+                    }
+                    await _db.SaveChangesAsync();
+                }
+                else
+                {
+                    // perfil existe pero MedicoId es null — vincularlo al directorio
+                    var trackedPerfil = await _db.MedicosPerfilExtendido.FindAsync(perfil.Id);
+                    if (trackedPerfil != null)
+                    {
+                        trackedPerfil.MedicoId        = medicoDirectorio.Id;
+                        trackedPerfil.FechaModificado = DateTime.UtcNow;
+                        await _db.SaveChangesAsync();
+                    }
+                }
+
+                _logger.LogInformation(
+                    "Auto-vinculado MedicoPerfilExtendido {MedicoId} a UserId {UserId}",
+                    medicoDirectorio.Id, userId);
+
+                // Recargar con navegación
+                perfil = await _db.MedicosPerfilExtendido
+                    .AsNoTracking()
+                    .Include(p => p.Medico)
+                    .FirstOrDefaultAsync(p => p.UserId == userId);
+            }
+        }
 
         if (perfil is not null)
         {
@@ -239,19 +309,34 @@ public class PerfilMedicoModel : PageModel
         if (perfil.MedicoId.HasValue)
             await _badgeService.EvaluarBadgesAutomaticosAsync(perfil.MedicoId.Value);
 
-        // Guardar campos de privacidad en Perfil base
-        if (PerfilBase != null)
+        // Guardar campos de privacidad en Perfil base (crear si no existe)
         {
-            var perfilBd = await _db.Perfil.FirstOrDefaultAsync(p => p.idUser == GetUserId());
-            if (perfilBd != null)
+            var uid3     = GetUserId();
+            var perfilBd = await _db.Perfil.FirstOrDefaultAsync(p => p.idUser == uid3);
+            if (perfilBd == null)
             {
-                perfilBd.PermitirTelefonoReal          = PerfilBase.PermitirTelefonoReal;
-                perfilBd.PermitirCorreoNoticias        = PerfilBase.PermitirCorreoNoticias;
-                perfilBd.AceptoPP                      = PerfilBase.AceptoPP;
-                perfilBd.PermitirMostrarPais           = PerfilBase.PermitirMostrarPais;
-                perfilBd.PermitirCompartirDatosMedicos = PerfilBase.PermitirCompartirDatosMedicos;
-                await _db.SaveChangesAsync();
+                var emailLocal = (await _db.Users
+                    .AsNoTracking()
+                    .Where(u => u.Id == uid3)
+                    .Select(u => u.Email)
+                    .FirstOrDefaultAsync() ?? uid3.ToString("N")[..6]).Split('@')[0];
+
+                perfilBd = new eiibd26.Models.Perfil
+                {
+                    idUser          = uid3,
+                    Avatar          = $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(emailLocal)}&size=110",
+                    Nombre          = string.Empty,
+                    FechaCreacion   = DateTime.UtcNow,
+                    UltimaActividad = DateTime.UtcNow,
+                };
+                _db.Perfil.Add(perfilBd);
             }
+            perfilBd.PermitirTelefonoReal          = PerfilBase?.PermitirTelefonoReal          ?? false;
+            perfilBd.PermitirCorreoNoticias        = PerfilBase?.PermitirCorreoNoticias        ?? false;
+            perfilBd.AceptoPP                      = PerfilBase?.AceptoPP                      ?? false;
+            perfilBd.PermitirMostrarPais           = PerfilBase?.PermitirMostrarPais           ?? false;
+            perfilBd.PermitirCompartirDatosMedicos = PerfilBase?.PermitirCompartirDatosMedicos ?? false;
+            await _db.SaveChangesAsync();
         }
 
         if (ModelState.IsValid)
@@ -260,10 +345,25 @@ public class PerfilMedicoModel : PageModel
             return RedirectToPage();
         }
 
+        // Construir mensaje descriptivo con los campos específicos que fallaron
+        var errores = ModelState
+            .Where(x => x.Value?.Errors.Count > 0)
+            .SelectMany(x => x.Value!.Errors.Select(e =>
+                string.IsNullOrWhiteSpace(e.ErrorMessage)
+                    ? $"Campo '{x.Key}': valor inválido"
+                    : e.ErrorMessage))
+            .ToList();
+
+        ErrorMessage = errores.Any()
+            ? "Por favor corrige: " + string.Join("; ", errores)
+            : "Revisa los campos del formulario e inténtalo de nuevo.";
+
         await PopulateAreasAsync();
         await PopulatePaisesAsync();
         var uid2 = GetUserId();
         PerfilBase = await _db.Perfil.AsNoTracking().FirstOrDefaultAsync(p => p.idUser == uid2);
+        // Repoblar para que los checkboxes queden en su estado correcto al re-render
+        AreasSeleccionadas = AreasEiiSeleccionadas.ToHashSet();
         return Page();
     }
 

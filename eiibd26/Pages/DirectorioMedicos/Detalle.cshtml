@@ -34,8 +34,16 @@
 
             <div class="crm-card mb-4">
                 <div class="d-flex gap-3 align-items-start">
-                    <div class="medico-card__avatar" style="width:64px;height:64px;font-size:2rem;">
-                        <i class="bi bi-person-badge-fill"></i>
+                    <div class="medico-card__avatar" style="width:64px;height:64px;font-size:2rem;overflow:hidden;">
+                        @if (!string.IsNullOrWhiteSpace(Model.Medico.Foto))
+                        {
+                            <img src="@Model.Medico.Foto" alt="@Model.Medico.NombreCompleto"
+                                 style="width:64px;height:64px;object-fit:cover;border-radius:50%;" loading="lazy" />
+                        }
+                        else
+                        {
+                            <i class="bi bi-person-badge-fill"></i>
+                        }
                     </div>
                     <div class="flex-grow-1">
                         @if (!string.IsNullOrWhiteSpace(Model.Medico.Especialidad))
@@ -44,6 +52,12 @@
                                 @if (!string.IsNullOrWhiteSpace(Model.Medico.Subespecialidad))
                                 {<span> · @Model.Medico.Subespecialidad</span>}
                             </p>
+                        }
+                        @if (Model.BadgesDirectorio.Any())
+                        {
+                            <div class="mb-2">
+                                <partial name="_MedicoBadges" model="Model.BadgesDirectorio" />
+                            </div>
                         }
                         @{
                             bool _comunidadOk = Model.Medico.NivelConfianza >= NivelConfianzaEnum.Confirmado;
@@ -108,8 +122,38 @@
                         { <p class="mb-1"><strong>Ciudad:</strong> @Model.Medico.Ciudad</p> }
                         @if (!string.IsNullOrWhiteSpace(Model.Medico.MunicipioAlcaldia))
                         { <p class="mb-1"><strong>Municipio/Alcaldía:</strong> @Model.Medico.MunicipioAlcaldia</p> }
-                        @if (!string.IsNullOrWhiteSpace(Model.Medico.HospitalClinica))
-                        { <p class="mb-0"><strong>Hospital/Clínica:</strong> @Model.Medico.HospitalClinica</p> }
+
+                        @if (Model.UbicacionesCombinadas.Any())
+                        {
+                            <h6 class="crm-label mt-3 mb-2"><i class="bi bi-hospital me-1"></i>Consultorios / Hospitales</h6>
+                            @foreach (var ub in Model.UbicacionesCombinadas)
+                            {
+                                <div class="d-flex align-items-start gap-2 mb-2">
+                                    <i class="bi bi-geo-alt-fill text-primary mt-1" style="flex-shrink:0;"></i>
+                                    <div>
+                                        <div class="fw-semibold small">@ub.Hospital</div>
+                                        @if (!string.IsNullOrWhiteSpace(ub.Ciudad) || !string.IsNullOrWhiteSpace(ub.Estado))
+                                        {
+                                            <div class="text-muted" style="font-size:.78rem;">@string.Join(", ", new[]{ub.Ciudad, ub.Estado}.Where(x => !string.IsNullOrWhiteSpace(x)))</div>
+                                        }
+                                        @if (ub.Fuente == "medico")
+                                        {
+                                            <span class="badge bg-success-subtle text-success" style="font-size:.65rem;">✓ Confirmado por médico</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary-subtle text-secondary" style="font-size:.65rem;">
+                                                Reportado por @ub.Reportes paciente@(ub.Reportes != 1 ? "s" : "")
+                                            </span>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else if (!string.IsNullOrWhiteSpace(Model.Medico.HospitalClinica))
+                        {
+                            <p class="mb-0"><strong>Hospital/Clínica:</strong> @Model.Medico.HospitalClinica</p>
+                        }
                     </div>
                 </div>
                 <div class="col-md-6">
@@ -150,7 +194,62 @@
                 </div>
             }
 
-            @if (User.Identity?.IsAuthenticated == true)
+            @* Biografía — solo si el médico la ingresó *@
+            @if (!string.IsNullOrWhiteSpace(Model.Medico.Biografia))
+            {
+                <div class="crm-card mb-4">
+                    <h6 class="crm-label mb-3"><i class="bi bi-file-person me-1"></i>Acerca del médico</h6>
+                    <p class="mb-0" style="white-space:pre-line;">@Model.Medico.Biografia</p>
+                </div>
+            }
+
+            @* Horarios de atención — solo si los ingresó *@
+            @if (!string.IsNullOrWhiteSpace(Model.Medico.HorariosAtencion))
+            {
+                <div class="crm-card mb-4">
+                    <h6 class="crm-label mb-3"><i class="bi bi-clock me-1"></i>Horarios de atención</h6>
+                    <p class="mb-0" style="white-space:pre-line;">@Model.Medico.HorariosAtencion</p>
+                </div>
+            }
+
+            @* Contacto y redes — solo si hay al menos un dato *@
+            @if (!string.IsNullOrWhiteSpace(Model.Medico.SitioWeb) ||
+                 !string.IsNullOrWhiteSpace(Model.Medico.Instagram) ||
+                 !string.IsNullOrWhiteSpace(Model.Medico.LinkedIn))
+            {
+                <div class="crm-card mb-4">
+                    <h6 class="crm-label mb-3"><i class="bi bi-link-45deg me-1"></i>Contacto y redes</h6>
+                    <div class="d-flex flex-column gap-2">
+                        @if (!string.IsNullOrWhiteSpace(Model.Medico.SitioWeb))
+                        {
+                            <a href="@Model.Medico.SitioWeb" target="_blank" rel="noopener noreferrer"
+                               class="d-flex align-items-center gap-2 text-decoration-none">
+                                <i class="bi bi-globe text-primary"></i>
+                                <span class="small">@Model.Medico.SitioWeb</span>
+                            </a>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(Model.Medico.Instagram))
+                        {
+                            <a href="https://instagram.com/@Model.Medico.Instagram.TrimStart('@')"
+                               target="_blank" rel="noopener noreferrer"
+                               class="d-flex align-items-center gap-2 text-decoration-none">
+                                <i class="bi bi-instagram" style="color:#e1306c;"></i>
+                                <span class="small">@@@Model.Medico.Instagram.TrimStart('@')</span>
+                            </a>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(Model.Medico.LinkedIn))
+                        {
+                            <a href="@Model.Medico.LinkedIn" target="_blank" rel="noopener noreferrer"
+                               class="d-flex align-items-center gap-2 text-decoration-none">
+                                <i class="bi bi-linkedin" style="color:#0077b5;"></i>
+                                <span class="small">LinkedIn</span>
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (Model.CanInteractAsPaciente)
             {
                 <div class="crm-card mb-4 medico-confirm-card">
                     <h6 class="crm-label mb-3"><i class="bi bi-person-check me-1"></i>¿Recibiste atención de este médico?</h6>
@@ -193,7 +292,7 @@
                     </p>
                 </div>
             }
-            else
+            @if (!User.Identity?.IsAuthenticated ?? true)
             {
                 <div class="vote-auth-notice mb-4">
                     <span>¿Recibiste atención de este médico?</span>
@@ -202,7 +301,7 @@
             }
 
             @* Confirmación simple — nueva tabla DirectorioMedicoConfirmacion *@
-            @if (User.Identity?.IsAuthenticated == true)
+            @if (Model.CanInteractAsPaciente)
             {
                 <div class="crm-card mt-3">
                     @if (Model.YaConfirme)
@@ -243,11 +342,20 @@
             }
 
             @* Claim del perfil *@
-            @if (!Model.PerfilYaVinculado)
+            @if (!Model.PerfilYaVinculado && (Model.IsMedico || Model.IsAdmin))
             {
                 <div class="mt-3">
                     <a href="/directorio/reclamar/@Model.Medico.Id" class="btn btn-outline-primary">
                         <i class="bi bi-person-check me-1"></i> ¿Eres este médico? Reclamar perfil
+                    </a>
+                </div>
+            }
+
+            @if (Model.IsOwnerMedico)
+            {
+                <div class="mt-3">
+                    <a asp-area="Identity" asp-page="/Medico/Dashboard" class="btn btn-primary">
+                        <i class="bi bi-speedometer2 me-1"></i> Ir a mi dashboard
                     </a>
                 </div>
             }

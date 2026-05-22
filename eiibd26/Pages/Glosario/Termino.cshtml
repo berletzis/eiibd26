@@ -583,29 +583,69 @@ else
                                 <!-- Body: partial-open por defecto -->
                                 <div class="eii-toggle-body partial-open" id="@cardId"
                                      style="--eii-fade: @borderColor;">
-                                    @if (isAiLevel && !string.IsNullOrWhiteSpace(counts.AiReasoning))
+                                    @{
+                                        var humanComments = lvlConsensus?.Comments ?? new List<string>();
+                                        var humanCount = humanComments.Count;
+                                        var showMeaningHere = isTop && counts.MeaningComments.Any();
+                                        var showNina = isAiLevel && !string.IsNullOrWhiteSpace(counts.AiReasoning);
+                                        var totalHuman = humanCount + (showMeaningHere ? counts.MeaningComments.Count : 0);
+                                    }
+
+                                    @* 1. Comentarios de validación de RELACIÓN (tipo 2) — primero *@
+                                    @foreach (var comment in humanComments)
                                     {
                                         <div class="d-flex gap-2 align-items-start p-2 rounded mb-2"
                                              style="background:#f8fafc;">
-                                            <span style="font-size:1rem;">🤖</span>
-                                            <div class="small">
-                                                <span class="fw-semibold text-secondary">NINA (IA)</span>
-                                                <p class="mb-0 text-dark">@counts.AiReasoning</p>
-                                            </div>
+                                            <i class="bi bi-person-badge-fill text-primary mt-1" style="font-size:1rem;"></i>
+                                            <p class="mb-0 small text-dark">@comment</p>
                                         </div>
                                     }
-                                    @if (lvlConsensus?.Comments.Any() == true)
+
+                                    @* 2. Comentarios de validación de DESCRIPCIÓN (tipo 1) — en el nivel top *@
+                                    @if (showMeaningHere)
                                     {
-                                        @foreach (var comment in lvlConsensus.Comments)
+                                        @foreach (var mc in counts.MeaningComments)
                                         {
                                             <div class="d-flex gap-2 align-items-start p-2 rounded mb-2"
                                                  style="background:#f8fafc;">
-                                                <i class="bi bi-person-circle text-secondary mt-1" style="font-size:1rem;"></i>
-                                                <p class="mb-0 small text-dark">@comment</p>
+                                                <i class="bi bi-person-badge-fill text-primary mt-1" style="font-size:1rem;"></i>
+                                                <div class="small">
+                                                    <span class="badge bg-primary-subtle text-primary mb-1" style="font-size:.65rem;">Validó descripción</span>
+                                                    <p class="mb-0 text-dark">@mc</p>
+                                                </div>
                                             </div>
                                         }
                                     }
-                                    else if (!isAiLevel || string.IsNullOrWhiteSpace(counts.AiReasoning))
+
+                                    @* 3. NINA — primero si no hay comentarios humanos, último si los hay *@
+                                    @if (showNina)
+                                    {
+                                        if (totalHuman == 0)
+                                        {
+                                            <div class="d-flex gap-2 align-items-start p-2 rounded mb-2"
+                                                 style="background:#f8fafc;">
+                                                <span style="font-size:1rem;">🤖</span>
+                                                <div class="small">
+                                                    <span class="fw-semibold text-secondary">NINA (IA)</span>
+                                                    <p class="mb-0 text-dark">@counts.AiReasoning</p>
+                                                </div>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="d-flex gap-2 align-items-start p-2 rounded mb-2 mt-1"
+                                                 style="background:#f8fafc; border-top:1px dashed #e2e8f0;">
+                                                <span style="font-size:1rem;">🤖</span>
+                                                <div class="small">
+                                                    <span class="fw-semibold text-secondary">NINA (IA)</span>
+                                                    <p class="mb-0 text-dark">@counts.AiReasoning</p>
+                                                </div>
+                                            </div>
+                                        }
+                                    }
+
+                                    @* 4. Placeholder si no hay absolutamente nada *@
+                                    @if (humanCount == 0 && !showMeaningHere && !showNina)
                                     {
                                         <p class="mb-0 small text-muted fst-italic">Sin comentarios clínicos aún para este nivel.</p>
                                     }
@@ -622,47 +662,143 @@ else
                     </div>
                 }
 
-                <!-- Artículos relacionados -->
-                @if (Model.Term.ArticulosRelacionados.Any())
+                @* Validaciones de médicos — ANTES de artículos *@
+                @{
+                    var tieneMeaning  = counts.MeaningValidationCount > 0;
+                    var tieneRelacion = counts.RelationConsensus.Any(r => r.Count > 0);
+                    var tieneComentariosRelacion = counts.ComentariosMedicos.Any(c => !string.IsNullOrWhiteSpace(c.Comment));
+                }
+                @if (tieneMeaning || tieneRelacion || tieneComentariosRelacion)
                 {
-                    <div class="contenido-html mb-2"><h2>Artículos Relacionados</h2></div>
-                    <div class="card shadow-sm mb-4">
-                        <div class="card-body">
-                            <div class="row g-3">
-                                @foreach (var articulo in Model.Term.ArticulosRelacionados)
-                                {
-                                    <div class="col-md-6">
-                                        <div class="card h-100 border-0 shadow-sm">
+                    <div class="termino-validaciones-medicas mt-4 mb-4">
+                        <div class="contenido mb-2">
+                            <h2><i class="bi bi-patch-check-fill text-primary me-1"></i>Validado por médicos</h2>
+                        </div>
+
+                        @* Comentarios de MeaningValidation (tipo 1) — siempre visibles *@
+                        @if (counts.MeaningComments.Any())
+                        {
+                            @foreach (var mc in counts.MeaningComments)
+                            {
+                                <div class="d-flex gap-2 align-items-start p-3 rounded mb-2"
+                                     style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+                                    <i class="bi bi-person-badge-fill text-primary mt-1" style="font-size:1.1rem;flex-shrink:0;"></i>
+                                    <div>
+                                        <span class="badge bg-primary-subtle text-primary mb-1" style="font-size:.7rem;">Descripción</span>
+                                        <p class="mb-0 small text-dark fst-italic">"@mc"</p>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else if (tieneMeaning)
+                        {
+                            <p class="small text-muted mb-2">
+                                @counts.MeaningValidationCount médico@(counts.MeaningValidationCount != 1 ? "s" : "") validaron la descripción de este término.
+                            </p>
+                        }
+
+                        @* Comentarios de RelationValidation (tipo 2) con nombre médico *@
+                        @foreach (var val in counts.ComentariosMedicos.Where(c => !string.IsNullOrWhiteSpace(c.Comment)))
+                        {
+                            <div class="d-flex gap-2 align-items-start p-3 rounded mb-2"
+                                 style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+                                <i class="bi bi-person-badge-fill text-primary mt-1" style="font-size:1.1rem;flex-shrink:0;"></i>
+                                <div>
+                                    <span class="fw-semibold small">@val.UserDisplay</span>
+                                    @if (val.RelationType.HasValue)
+                                    {
+                                        <span class="badge bg-secondary-subtle ms-1" style="font-size:.65rem;">@val.RelationType.Value.ToString()</span>
+                                    }
+                                    <p class="mb-0 mt-1 small text-dark fst-italic">"@val.Comment"</p>
+                                    <small class="text-muted">@val.CreatedAt.ToString("MMMM yyyy")</small>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+
+                @* Tabs: Artículos relacionados + Preguntas *@
+                @{
+                    var artCount = Model.Term.ArticulosRelacionados?.Count ?? 0;
+                    var pregCount = Model.Term.PreguntasRelacionadas?.Count ?? 0;
+                }
+                <div class="tabs mt-2 mb-4" id="terminoRelatedTabs" role="tablist" aria-label="Contenido relacionado">
+                    <div class="tab-list" role="tablist" aria-hidden="false">
+                        <button type="button" class="tab-btn active"
+                                data-panel="termino-tab-articulos"
+                                role="tab" aria-selected="true">
+                            Artículos relacionados (@artCount)
+                        </button>
+                        @if (pregCount > 0)
+                        {
+                            <button type="button" class="tab-btn"
+                                    data-panel="termino-tab-preguntas"
+                                    role="tab" aria-selected="false">
+                                Preguntas (@pregCount)
+                            </button>
+                        }
+                    </div>
+
+                    <div class="tab-panels">
+                        <div id="termino-tab-articulos" class="tab-panel active"
+                             role="tabpanel" aria-hidden="false">
+                            @if (Model.Term.ArticulosRelacionados?.Any() == true)
+                            {
+                                <div class="related-grid">
+                                    @foreach (var articulo in Model.Term.ArticulosRelacionados)
+                                    {
+                                        <a href="/Contenidos/@articulo.Slug" class="related-card" style="text-decoration:none;color:inherit;">
                                             @if (!string.IsNullOrWhiteSpace(articulo.ImagenDestacada))
                                             {
-                                                <img src="@articulo.ImagenDestacada"
-                                                     class="card-img-top"
-                                                     alt="@articulo.Titulo"
+                                                <img src="@articulo.ImagenDestacada" alt="@articulo.Titulo"
                                                      loading="lazy" decoding="async"
-                                                     style="height:140px;object-fit:cover;">
+                                                     onerror="this.onerror=null;this.style.display='none'" />
                                             }
-                                            <div class="card-body">
-                                                <h6 class="card-title">
-                                                    <a href="/Contenidos/@articulo.Slug" class="text-decoration-none text-dark">@articulo.Titulo</a>
-                                                </h6>
+                                            <div>
+                                                <div class="r-title">@articulo.Titulo</div>
                                                 @if (!string.IsNullOrWhiteSpace(articulo.Resumen))
                                                 {
-                                                    <p class="card-text small text-muted">@articulo.Resumen</p>
+                                                    <div class="r-meta">@articulo.Resumen</div>
                                                 }
                                                 @if (articulo.FechaPublicacion.HasValue)
                                                 {
-                                                    <small class="text-muted">
-                                                        <i class="bi bi-calendar3"></i> @articulo.FechaPublicacion.Value.ToString("dd MMM yyyy")
-                                                    </small>
+                                                    <div class="r-meta">@articulo.FechaPublicacion.Value.ToString("dd MMM yyyy")</div>
                                                 }
                                             </div>
-                                        </div>
-                                    </div>
-                                }
-                            </div>
+                                        </a>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="text-muted small fst-italic mt-3">No hay artículos relacionados aún para este término.</p>
+                            }
                         </div>
+
+                        @if (pregCount > 0)
+                        {
+                            <div id="termino-tab-preguntas" class="tab-panel"
+                                 role="tabpanel" aria-hidden="true">
+                                <ul class="list-unstyled mt-3">
+                                    @foreach (var preg in Model.Term.PreguntasRelacionadas)
+                                    {
+                                        <li class="mb-3 pb-2" style="border-bottom:1px solid var(--color-border,#e5e7eb);">
+                                            <a href="/Preguntas/@preg.Slug" class="fw-semibold text-decoration-none">
+                                                @preg.Titulo
+                                            </a>
+                                            @if (preg.Score > 0)
+                                            {
+                                                <span class="badge bg-secondary-subtle text-secondary ms-2" style="font-size:.7rem;">
+                                                    ↑@preg.Score
+                                                </span>
+                                            }
+                                        </li>
+                                    }
+                                </ul>
+                            </div>
+                        }
                     </div>
-                }
+                </div>
 
                 @{
                     var experiencias = Model.Term.ExperienciasComunidad;
@@ -1191,6 +1327,31 @@ else
             }
 
             loadRatingState();
+        })();
+
+        // Tabs de contenido relacionado (artículos + preguntas)
+        (function () {
+            const container = document.getElementById('terminoRelatedTabs');
+            if (!container) return;
+            container.querySelectorAll('.tab-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    container.querySelectorAll('.tab-btn').forEach(function (b) {
+                        b.classList.remove('active');
+                        b.setAttribute('aria-selected', 'false');
+                    });
+                    container.querySelectorAll('.tab-panel').forEach(function (p) {
+                        p.classList.remove('active');
+                        p.setAttribute('aria-hidden', 'true');
+                    });
+                    btn.classList.add('active');
+                    btn.setAttribute('aria-selected', 'true');
+                    var panel = document.getElementById(btn.dataset.panel);
+                    if (panel) {
+                        panel.classList.add('active');
+                        panel.setAttribute('aria-hidden', 'false');
+                    }
+                });
+            });
         })();
     </script>
 }

@@ -2,6 +2,7 @@ using eiibd26.Models.Glossary;
 using eiibd26.Services.Community;
 using eiibd26.Services.Glossary.Adapters;
 using eiibd26.Services.Glossary.DTOs;
+using eiibd26.Services.Medico;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -19,6 +20,7 @@ namespace eiibd26.Services.Glossary
         private readonly Microsoft.Extensions.Caching.Memory.IMemoryCache _cache;
         private readonly Microsoft.AspNetCore.Hosting.IWebHostEnvironment _env;
         private readonly ILogger<GlossaryService> _logger;
+        private readonly IMedicoBadgeService _badgeService;
 
         public GlossaryService(
             ApplicationDbContext db,
@@ -26,7 +28,8 @@ namespace eiibd26.Services.Glossary
             ICommunityExperienceService community,
             ILogger<GlossaryService> logger,
             Microsoft.Extensions.Caching.Memory.IMemoryCache cache,
-            Microsoft.AspNetCore.Hosting.IWebHostEnvironment env)
+            Microsoft.AspNetCore.Hosting.IWebHostEnvironment env,
+            IMedicoBadgeService badgeService)
         {
             _db             = db;
             _medicalAdapter = medicalAdapter;
@@ -34,6 +37,7 @@ namespace eiibd26.Services.Glossary
             _logger         = logger;
             _cache          = cache;
             _env            = env;
+            _badgeService   = badgeService;
         }
 
         /// <summary>
@@ -291,6 +295,24 @@ namespace eiibd26.Services.Glossary
                 _logger.LogInformation(
                     "Validación registrada: término {TermId}, usuario {UserId}, tipo {Type}",
                     termId, userId, validationType);
+
+                // Hook: evaluar badges automáticos si el usuario es médico con perfil vinculado
+                try
+                {
+                    if (Guid.TryParse(userId, out var userGuid))
+                    {
+                        var perfilMedico = await _db.MedicosPerfilExtendido
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync(p => p.UserId == userGuid && p.MedicoId != null);
+                        if (perfilMedico?.MedicoId != null)
+                            await _badgeService.EvaluarBadgesAutomaticosAsync(perfilMedico.MedicoId.Value);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "No se pudieron evaluar badges para usuario {UserId}", userId);
+                }
+
                 // Invalidate top lists cache so UI reflects new human validations immediately
                 try
                 {
@@ -346,11 +368,21 @@ namespace eiibd26.Services.Glossary
                     _logger.LogDebug(ex, "Columna AiReasoning no disponible aún para término {TermId}", termId);
                 }
 
-                var meaningCount = await _db.GlossaryValidations
-                    .CountAsync(v =>
+                var meaningValidations = await _db.GlossaryValidations
+                    .AsNoTracking()
+                    .Where(v =>
                         v.GlossaryTermId == termId
                         && v.ValidationType == GlossaryValidationType.MeaningValidation
-                        && v.Approved);
+                        && v.Approved)
+                    .Select(v => v.Comment)
+                    .ToListAsync();
+
+                var meaningCount = meaningValidations.Count;
+
+                var meaningComments = meaningValidations
+                    .Where(c => !string.IsNullOrWhiteSpace(c))
+                    .Select(c => c!)
+                    .ToList();
 
                 // Agrupar validaciones humanas de relación con sus comentarios
                 var rawGroups = await _db.GlossaryValidations
@@ -408,13 +440,80 @@ namespace eiibd26.Services.Glossary
                     })
                     .ToList();
 
+                // ComentariosMedicos: validaciones aprobadas con comentario no vacío
+                var rawComments = await _db.GlossaryValidations
+                    .Where(v => v.GlossaryTermId == termId && v.Approved && v.Comment != null && v.Comment != "")
+                    .Select(v => new { v.UserId, v.ValidationType, v.MedicalRelationTypeId, v.Comment, v.CreatedAt })
+                    .ToListAsync();
+
+                List<ValidationCommentDto> comentariosMedicos = new();
+                if (rawComments.Any())
+                {
+                    var userGuidList = rawComments
+                        .Select(v => Guid.TryParse(v.UserId, out var g) ? (Guid?)g : null)
+                        .Where(g => g.HasValue).Select(g => g!.Value).Distinct().ToList();
+
+                    // Médico perfiles vinculados
+                    var perfiles = await _db.MedicosPerfilExtendido
+                        .AsNoTracking()
+                        .Where(p => p.UserId.HasValue && userGuidList.Contains(p.UserId.Value) && p.MedicoId != null)
+                        .Select(p => new { p.UserId, p.MedicoId })
+                        .ToListAsync();
+
+                    var medicoIds = perfiles.Where(p => p.MedicoId.HasValue).Select(p => p.MedicoId!.Value).ToList();
+
+                    // Médicos con badge perfil_reclamado o verificado
+                    var badgesVerificados = await _db.MedicosPerfilBadge
+                        .AsNoTracking()
+                        .Where(pb => medicoIds.Contains(pb.MedicoId))
+                        .Join(_db.MedicosBadge, pb => pb.BadgeId, b => b.Id, (pb, b) => new { pb.MedicoId, b.Codigo })
+                        .Where(x => x.Codigo == "perfil_reclamado" || x.Codigo == "verificado")
+                        .Select(x => x.MedicoId)
+                        .Distinct()
+                        .ToListAsync();
+
+                    // Nombres de los médicos del directorio
+                    var nombresMedico = await _db.MedicosDirectorio
+                        .AsNoTracking()
+                        .Where(m => medicoIds.Contains(m.Id))
+                        .Select(m => new { m.Id, m.NombreCompleto })
+                        .ToListAsync();
+
+                    var nombreDict = nombresMedico.ToDictionary(m => m.Id, m => m.NombreCompleto);
+                    var medicoIdByUser = perfiles.Where(p => p.MedicoId.HasValue)
+                        .ToDictionary(p => p.UserId!.Value, p => p.MedicoId!.Value);
+
+                    foreach (var v in rawComments)
+                    {
+                        if (!Guid.TryParse(v.UserId, out var guid)) continue;
+                        if (!medicoIdByUser.TryGetValue(guid, out var medicoId)) continue;
+
+                        string display;
+                        if (badgesVerificados.Contains(medicoId) && nombreDict.TryGetValue(medicoId, out var nombre))
+                            display = $"Dr. {nombre}";
+                        else
+                            display = "Médico verificado";
+
+                        comentariosMedicos.Add(new ValidationCommentDto
+                        {
+                            UserDisplay   = display,
+                            ValidationType = v.ValidationType,
+                            RelationType  = v.MedicalRelationTypeId,
+                            Comment       = v.Comment,
+                            CreatedAt     = v.CreatedAt
+                        });
+                    }
+                }
+
                 return new GlossaryValidationCountsDto
                 {
                     CreatedByAI            = term?.CreatedByAI ?? true,
                     MeaningValidationCount = meaningCount,
+                    MeaningComments        = meaningComments,
                     RelationSuggested      = term?.MedicalRelationSuggestedId,
                     AiReasoning            = aiReasoning,
-                    RelationConsensus      = consensus
+                    RelationConsensus      = consensus,
+                    ComentariosMedicos     = comentariosMedicos
                 };
             }
             catch (Exception ex)

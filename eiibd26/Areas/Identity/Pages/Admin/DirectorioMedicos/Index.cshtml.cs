@@ -316,6 +316,23 @@ public class IndexModel : PageModel
         return new JsonResult(new { success = result });
     }
 
+    public async Task<IActionResult> OnPostEvaluarBadgesAsync(int medicoId)
+    {
+        await _badgeService.EvaluarBadgesAutomaticosAsync(medicoId);
+        return new JsonResult(new { success = true });
+    }
+
+    public async Task<IActionResult> OnPostEvaluarTodosAsync()
+    {
+        var ids = await _db.MedicosDirectorio.AsNoTracking()
+            .Where(m => !m.Eliminado)
+            .Select(m => m.Id)
+            .ToListAsync();
+        foreach (var id in ids)
+            await _badgeService.EvaluarBadgesAutomaticosAsync(id);
+        return new JsonResult(new { success = true, total = ids.Count });
+    }
+
     public async Task<IActionResult> OnPostRevocarBadgeAsync(int medicoId, string codigo)
     {
         var badge = await _db.MedicosBadge.AsNoTracking()

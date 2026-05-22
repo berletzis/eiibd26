@@ -117,11 +117,11 @@ public class MedicoBadgeService : IMedicoBadgeService
             if (respuestas >= 3)
                 await OtorgarBadgeAsync(medicoId, "participante_qa", "sistema");
 
-            // validador_contenido: >= 5 validaciones en GlossaryValidations
+            // validador_contenido: >= 1 validación aprobada en GlossaryValidations
             var userIdStr = perfil.UserId.Value.ToString();
             var validaciones = await _db.GlossaryValidations
-                .CountAsync(v => v.UserId == userIdStr);
-            if (validaciones >= 5)
+                .CountAsync(v => v.UserId == userIdStr && v.Approved);
+            if (validaciones >= 1)
                 await OtorgarBadgeAsync(medicoId, "validador_contenido", "sistema");
         }
     }
