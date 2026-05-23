@@ -15,6 +15,38 @@ using SixLabors.ImageSharp.Processing;
 
 namespace eiibd26.Areas.Identity.Pages.Account.Manage;
 
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║              MAPA DE DATOS — PerfilMedico                       ║
+// ╠══════════════════════════════════════════════════════════════════╣
+// ║  TABLA Perfil (cargada/guardada por UserId = Guid):             ║
+// ║    Avatar            ← sincronizado desde MedicoPerfilExtendido ║
+// ║    PermitirTelefonoReal, PermitirCorreoNoticias, AceptoPP,      ║
+// ║    PermitirMostrarPais, PermitirCompartirDatosMedicos           ║
+// ║    → BindProperties: Priv* (5 bool individuales)                ║
+// ╠══════════════════════════════════════════════════════════════════╣
+// ║  TABLA MedicoPerfilExtendido (cargada/guardada por UserId):     ║
+// ║    Foto, Biografia, Hospitales (JSON), HorariosAtencion,        ║
+// ║    SitioWeb, Telefono, Instagram, LinkedIn, Slug,               ║
+// ║    PaisCodigo, Ciudad, Latitud, Longitud                        ║
+// ║    → BindProperty: Input (InputModel)                           ║
+// ╠══════════════════════════════════════════════════════════════════╣
+// ║  TABLA MedicoAreaEii (relación N:M, clave compuesta):           ║
+// ║    (MedicoPerfilId, CondicionId)                                 ║
+// ║    → BindProperty: AreasEiiSeleccionadas (List<int>)            ║
+// ║    Patrón: delete-all + insert-new; solo si ModelState.IsValid  ║
+// ╠══════════════════════════════════════════════════════════════════╣
+// ║  TABLA MedicosDirectorio (SOLO LECTURA aquí, admin la gestiona):║
+// ║    NombreCompleto, Especialidad, Ciudad, Estado                  ║
+// ║    → Input.NombreCompleto / Input.Especialidad (readonly en UI) ║
+// ╚══════════════════════════════════════════════════════════════════╝
+// ORDEN DE SaveChangesAsync en OnPostAsync:
+//   1. SaveChanges → MedicoPerfilExtendido  [solo si ModelState.IsValid]
+//   2. SaveChanges → MedicoAreaEii          [solo si ModelState.IsValid && Id > 0]
+//   3. SaveChanges → Perfil                 [SIEMPRE — privacidad independiente]
+// REGLA: antes del SaveChanges de Perfil, desacoplar perfil del DbContext
+//   si ModelState es inválido para evitar guardar cambios parciales.
+// ════════════════════════════════════════════════════════════════════
+
 [Authorize(Roles = "Medico")]
 public class PerfilMedicoModel : PageModel
 {
@@ -322,6 +354,13 @@ public class PerfilMedicoModel : PageModel
             try { await _badgeService.EvaluarBadgesAutomaticosAsync(perfil.MedicoId.Value); }
             catch (Exception ex) { _logger.LogError(ex, "Error evaluando badges para médico {MedicoId}", perfil.MedicoId.Value); }
         }
+
+        // Si ModelState no es válido, desacoplar perfil del contexto para que
+        // el SaveChangesAsync de Perfil no guarde cambios parciales de MedicoPerfilExtendido.
+        // (Bug raíz: ambas entidades comparten el mismo DbContext; sin esto, campos como
+        // Biografia y Hospitales se guardarían silenciosamente aunque el form tenga errores.)
+        if (!ModelState.IsValid)
+            _db.Entry(perfil).State = EntityState.Detached;
 
         // Guardar campos de privacidad en Perfil (SIEMPRE, independiente de ModelState o badges)
         {
