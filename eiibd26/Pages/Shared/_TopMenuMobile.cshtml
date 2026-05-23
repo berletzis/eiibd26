@@ -7,8 +7,9 @@
 @{
     var isAuth = User?.Identity?.IsAuthenticated ?? false;
     var avatarSrc = Url.Content("~/img/default-avatar.png");
-    var userName = User?.Identity?.Name ?? "";
-    // Intentar leer avatar: prioridad Perfil.Avatar (cubre foto de médico y paciente)
+    var userName  = User?.Identity?.Name ?? "";
+    string displayNameMob = null;
+    // Avatar y nombre: prioridad Perfil.Avatar / Perfil.Nombre; fallback filesystem
     try
     {
         var userId = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -18,19 +19,40 @@
             if (Guid.TryParse(userId, out var guidMob))
                 perfilMob = await Db.Set<eiibd26.Models.Perfil>().AsNoTracking().FirstOrDefaultAsync(p => p.idUser == guidMob);
 
-            if (perfilMob != null && !string.IsNullOrWhiteSpace(perfilMob.Avatar) && perfilMob.Avatar.StartsWith("/uploads/"))
+            if (perfilMob != null)
             {
-                avatarSrc = Url.Content("~" + perfilMob.Avatar);
+                if (!string.IsNullOrWhiteSpace(perfilMob.Avatar) && perfilMob.Avatar.StartsWith("/uploads/"))
+                    avatarSrc = Url.Content("~" + perfilMob.Avatar);
+                else
+                {
+                    var physicalPath = System.IO.Path.Combine(Env.WebRootPath ?? "wwwroot", "uploads", "avatars", userId, "avatar-64.png");
+                    if (System.IO.File.Exists(physicalPath)) avatarSrc = Url.Content($"~/uploads/avatars/{userId}/avatar-64.png");
+                }
+
+                if (!string.IsNullOrWhiteSpace(perfilMob.Nombre))
+                    displayNameMob = perfilMob.Nombre + (string.IsNullOrWhiteSpace(perfilMob.Apellidos) ? "" : " " + perfilMob.Apellidos);
             }
             else
             {
-                // Fallback: archivo de avatar de paciente
                 var physicalPath = System.IO.Path.Combine(Env.WebRootPath ?? "wwwroot", "uploads", "avatars", userId, "avatar-64.png");
                 if (System.IO.File.Exists(physicalPath)) avatarSrc = Url.Content($"~/uploads/avatars/{userId}/avatar-64.png");
+            }
+
+            // Para médicos: nombre viene de MedicosDirectorio (Perfil.Nombre está vacío)
+            if (string.IsNullOrWhiteSpace(displayNameMob) && User.IsInRole("Medico") && Guid.TryParse(userId, out var medicoGuidMob))
+            {
+                var medicoNombreMob = await Db.MedicosPerfilExtendido
+                    .AsNoTracking()
+                    .Where(m => m.UserId == medicoGuidMob)
+                    .Select(m => m.Medico != null ? m.Medico.NombreCompleto : null)
+                    .FirstOrDefaultAsync();
+                if (!string.IsNullOrWhiteSpace(medicoNombreMob))
+                    displayNameMob = medicoNombreMob;
             }
         }
     }
     catch { /* ignore */ }
+    var displayNameMobFinal = displayNameMob ?? userName;
 }
 
 <nav class="navbar topbar d-lg-none" role="navigation" aria-label="Navegación móvil">
@@ -106,7 +128,7 @@
                         <div class="d-flex align-items-center gap-2 mb-2">
                             <img src="@avatarSrc" alt="Avatar" class="avatar" />
                             <div>
-                                <div class="fw-semibold">@userName</div>
+                                <div class="fw-semibold">@displayNameMobFinal</div>
                             </div>
                         </div>
 

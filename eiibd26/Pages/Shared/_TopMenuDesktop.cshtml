@@ -43,6 +43,22 @@
             catch { }
         }
 
+        // Para médicos: Perfil.Nombre está vacío; el nombre real viene de MedicosDirectorio
+        if (string.IsNullOrWhiteSpace(displayName) && User.IsInRole("Medico") && Guid.TryParse(userId, out var medicoGuidTop))
+        {
+            try
+            {
+                var medicoNombre = await Db.MedicosPerfilExtendido
+                    .AsNoTracking()
+                    .Where(m => m.UserId == medicoGuidTop)
+                    .Select(m => m.Medico != null ? m.Medico.NombreCompleto : null)
+                    .FirstOrDefaultAsync();
+                if (!string.IsNullOrWhiteSpace(medicoNombre))
+                    displayName = medicoNombre;
+            }
+            catch { }
+        }
+
         displayName = displayName ?? User?.FindFirst(ClaimTypes.Name)?.Value ?? User?.Identity?.Name ?? "Usuario";
 
         // Fallback al archivo de avatar de paciente solo si Perfil.Avatar no resolvió
