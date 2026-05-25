@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>06 · BD y Relaciones — Auditoría EIIBD</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <div>
+      <div class="breadcrumb"><a href="00-index.html">← Índice</a></div>
+      <h1>06 · Base de Datos y Relaciones</h1>
+      <p class="subtitle">Índices faltantes · FK sin configurar · Cascadas peligrosas · NVARCHAR(MAX) · Integridad referencial</p>
+    </div>
+    <div class="header-meta">
+      <span class="badge badge-high">5 HIGH</span>
+      <span class="badge badge-medium">8 MEDIUM</span>
+      <span class="badge badge-low">4 LOW</span>
+      <span class="badge" style="background:#334;color:#aab">17 total</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- KPI -->
+<div class="kpi-grid" style="margin-bottom:2rem">
+  <div class="kpi-card">
+    <div class="kpi-value kpi-high">5</div>
+    <div class="kpi-label">HIGH</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value kpi-medium">8</div>
+    <div class="kpi-label">MEDIUM</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value kpi-low">4</div>
+    <div class="kpi-label">LOW</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" style="color:#7eb8f7">7</div>
+    <div class="kpi-label">Tablas sin índice en FK</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" style="color:#e8a838">3</div>
+    <div class="kpi-label">Cascadas críticas</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" style="color:#e8a838">2</div>
+    <div class="kpi-label">FK sin configurar en DbContext</div>
+  </div>
+</div>
+
+<!-- ALERT: Clinical FK risk -->
+<div class="finding high" style="background:rgba(255,70,70,0.08);border-left:4px solid #ff4646;padding:1rem 1.5rem;margin-bottom:2rem;border-radius:4px">
+  <strong style="color:#ff4646">⚠ RIESGO CLÍNICO — DB-005</strong><br>
+  <code>MedicoAreaEii.CondicionId</code> tiene <code>OnDelete(Cascade)</code> hacia el catálogo de condiciones.
+  Si un administrador elimina una entrada del catálogo, <strong>se borran todas las áreas EII asociadas de todos los médicos</strong> de forma silenciosa e irreversible.
+</div>
+
+<!-- Filter -->
+<div class="filter-bar">
+  <button class="filter-btn active" onclick="filterFindings('all',this)">Todos (17)</button>
+  <button class="filter-btn" onclick="filterFindings('high',this)">HIGH (5)</button>
+  <button class="filter-btn" onclick="filterFindings('medium',this)">MEDIUM (8)</button>
+  <button class="filter-btn" onclick="filterFindings('low',this)">LOW (4)</button>
+</div>
+
+<!-- ─── HIGH ─────────────────────────────────────────────── -->
+<h2>HIGH — Índices faltantes en tablas clínicas de alta frecuencia</h2>
+
+<div class="finding high" data-sev="high">
+  <div class="finding-header">
+    <span class="finding-id">DB-001</span>
+    <span class="badge badge-high">HIGH</span>
+    <span class="finding-title">Sin índice en FK idUsuario — tablas condicionUsuario, sintomasUsuario, tratamientoUsuario</span>
+  </div>
+  <p>Las tres tablas clínicas de alta frecuencia carecen de índice en su columna FK <code>idUsuario</code>. Cada carga de perfil de paciente ejecuta un <em>full table scan</em> sobre estas tablas.</p>
+  <table class="data-table">
+    <thead><tr><th>Tabla</th><th>Columna FK</th><th>Índice existente</th><th>Filas estimadas</th></tr></thead>
+    <tbody>
+      <tr><td><code>condicionUsuario</code></td><td><code>idUsuario</code></td><td class="badge badge-high">NO</td><td>~N × condiciones por usuario</td></tr>
+      <tr><td><code>sintomasUsuario</code></td><td><code>idUsuario</code></td><td class="badge badge-high">NO</td><td>~N × síntomas por usuario</td></tr>
+      <tr><td><code>tratamientoUsuario</code></td><td><code>idUsuario</code></td><td class="badge badge-high">NO</td><td>~N × tratamientos por usuario</td></tr>
+    </tbody>
+  </table>
+  <div class="finding-meta">
+    <span>Tablas: condicionUsuario, sintomasUsuario, tratamientoUsuario</span>
+    <span>Impacto: latencia de carga de perfil proporcional al crecimiento de usuarios</span>
+  </div>
+</div>
+
+<div class="finding high" data-sev="high">
+  <div class="finding-header">
+    <span class="finding-id">DB-002</span>
+    <span class="badge badge-high">HIGH</span>
+    <span class="finding-title">Sin índice en IdUsuario ni FechaRegistro — EstadoAnimoUsuario</span>
+  </div>
+  <p><code>EstadoAnimoUsuario</code> no tiene índice en <code>IdUsuario</code> ni en <code>FechaRegistro</code>. Las consultas de historial de estado de ánimo (con filtros de fechas) hacen full scan. Con 1000 usuarios y registros diarios, la tabla puede crecer a &gt;300 000 filas rápidamente.</p>
+  <p>La página <code>Pages/UsuarioEstadoAnimo</code> filtra por usuario + rango de fechas — esta combinación requiere un índice compuesto <code>(IdUsuario, FechaRegistro)</code>.</p>
+  <div class="finding-meta">
+    <span>Tabla: EstadoAnimoUsuario</span>
+    <span>Consulta afectada: historial, exportación PDF</span>
+  </div>
+</div>
+
+<div class="finding high" data-sev="high">
+  <div class="finding-header">
+    <span class="finding-id">DB-003</span>
+    <span class="badge badge-high">HIGH</span>
+    <span class="finding-title">Sin índices en tablas de relaciones N:M clínicas</span>
+  </div>
+  <p>Las tablas de relaciones muchos-a-muchos entre entidades clínicas no tienen índices en ninguna de sus FK. Los joins de estas tablas escalan O(n) con el tamaño total de la tabla.</p>
+  <table class="data-table">
+    <thead><tr><th>Tabla</th><th>FK 1</th><th>FK 2</th><th>Índice compuesto</th></tr></thead>
+    <tbody>
+      <tr><td><code>TratamientoCondicionUsuario</code></td><td><code>TratamientoId</code></td><td><code>CondicionId</code></td><td class="badge badge-high">NO</td></tr>
+      <tr><td><code>TratamientoSintomaUsuario</code></td><td><code>TratamientoId</code></td><td><code>SintomaId</code></td><td class="badge badge-high">NO</td></tr>
+      <tr><td><code>SintomaCondicionUsuario</code></td><td><code>SintomaId</code></td><td><code>CondicionId</code></td><td class="badge badge-high">NO</td></tr>
+    </tbody>
+  </table>
+  <div class="finding-meta">
+    <span>Impacto: queries de análisis de correlaciones síntoma-tratamiento</span>
+  </div>
+</div>
+
+<div class="finding high" data-sev="high">
+  <div class="finding-header">
+    <span class="finding-id">DB-004</span>
+    <span class="badge badge-high">HIGH</span>
+    <span class="finding-title">Sin índice en UserId — NotificationSubscription y PatientLaboratoryResult</span>
+  </div>
+  <p>Las notificaciones push y los resultados de laboratorio se buscan siempre por usuario. Sin índice, cada lookup es un full scan.</p>
+  <table class="data-table">
+    <thead><tr><th>Tabla</th><th>Columna</th><th>Índice</th><th>Operación afectada</th></tr></thead>
+    <tbody>
+      <tr><td><code>NotificationSubscription</code></td><td><code>UserId</code></td><td class="badge badge-high">NO</td><td>Envío de push notifications</td></tr>
+      <tr><td><code>PatientLaboratoryResult</code></td><td><code>PatientId</code></td><td class="badge badge-high">NO</td><td>Carga de resultados de laboratorio</td></tr>
+    </tbody>
+  </table>
+  <div class="finding-meta">
+    <span>Impacto directo: envío masivo de notificaciones, carga de resultados</span>
+  </div>
+</div>
+
+<div class="finding high" data-sev="high">
+  <div class="finding-header">
+    <span class="finding-id">DB-005</span>
+    <span class="badge badge-high">HIGH — RIESGO CLÍNICO</span>
+    <span class="finding-title">OnDelete(Cascade) en MedicoAreaEii.CondicionId — catálogo de condiciones</span>
+  </div>
+  <p>La relación <code>MedicoAreaEii → condiciones</code> está configurada con <code>OnDelete(Cascade)</code>. Si se elimina una entrada del catálogo de condiciones, <strong>todos los registros de MedicoAreaEii que referencian esa condición se borran en cascada</strong> de forma silenciosa.</p>
+  <p>Esto afecta directamente al directorio médico: los médicos perderían sus áreas de especialización EII sin previo aviso ni log.</p>
+  <div class="code-block">// Models/MedicoAreaEii.cs
+// La relación está configurada como CASCADE en OnModelCreating
+// Borrar una "condicion" del catálogo → borra filas en MedicoAreaEii para TODOS los médicos</div>
+  <p><strong>Mitigación recomendada (sin tocar código):</strong> No eliminar entradas del catálogo de condiciones. En su lugar, marcarlas con un campo <code>Activo = false</code>. Añadir constraint SQL <code>RESTRICT</code> / <code>NO ACTION</code>.</p>
+  <div class="finding-meta">
+    <span>Tabla: MedicoAreaEii · FK: CondicionId</span>
+    <span>Impacto: pérdida de datos de directorio médico</span>
+  </div>
+</div>
+
+<!-- ─── MEDIUM ────────────────────────────────────────────── -->
+<h2>MEDIUM — Cascadas secundarias y FK sin configurar</h2>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">DB-006</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Cascade en MedicoPerfilBadge desde MedicoBadge — borra historial de badges</span>
+  </div>
+  <p><code>MedicoPerfilBadge</code> tiene cascade desde <code>MedicoBadge</code> (el catálogo de tipos de badge). Eliminar un tipo de badge borra todo el historial de asignaciones para todos los médicos. No hay soft-delete en la tabla de catálogo.</p>
+  <div class="finding-meta">
+    <span>Tabla: MedicoPerfilBadge · FK: BadgeId → MedicoBadge</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">DB-007</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Contenido tiene 8 rutas de cascade delete activas</span>
+  </div>
+  <p>La entidad <code>Contenido</code> es padre de múltiples entidades hijas con cascade: <code>ContenidoCalificacionArticuloPregunta</code>, <code>ContenidoEtiqueta</code>, <code>ContenidoCategoria</code>, <code>ContenidoMedia</code>, y otras. Borrar un artículo activa 8+ cascadas simultáneas, algunas de las cuales también tienen sus propias cascadas.</p>
+  <p>El soft-delete <code>Eliminado = true</code> no previene esto si se usa <code>DbContext.Remove()</code> directamente en vez del patrón <code>Borrado</code>.</p>
+  <div class="finding-meta">
+    <span>Entidad: Contenido · 8+ cascade paths</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">DB-008</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">FK Pregunta.UsuarioId no configurada en DbContext</span>
+  </div>
+  <p>La propiedad <code>UsuarioId</code> en <code>Pregunta</code> no tiene una relación FK configurada explícitamente en <code>ApplicationDbContext.OnModelCreating</code>. EF Core puede inferirla por convención si existe la propiedad de navegación, pero sin configuración explícita no hay constraint a nivel BD ni comportamiento on-delete definido.</p>
+  <div class="code-block">// Sin configuración explícita en OnModelCreating:
+// modelBuilder.Entity&lt;Pregunta&gt;()
+//     .HasOne(p => p.Usuario)
+//     .WithMany()
+//     .HasForeignKey(p => p.UsuarioId)
+//     .OnDelete(DeleteBehavior.Restrict);</div>
+  <div class="finding-meta">
+    <span>Tabla: Pregunta · Columna: UsuarioId</span>
+    <span>Riesgo: huérfanos si se borra usuario sin cascade controlado</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">DB-009</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">FK Respuesta.UsuarioId no configurada en DbContext</span>
+  </div>
+  <p>Igual que DB-008 pero para <code>Respuesta.UsuarioId</code>. La FK no está configurada explícitamente. Las respuestas son el núcleo del módulo de P&amp;R y también contienen respuestas de IA — un comportamiento on-delete indefinido es especialmente riesgoso aquí.</p>
+  <div class="finding-meta">
+    <span>Tabla: Respuesta · Columna: UsuarioId</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">DB-010</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Sin índice en TrackingSintomaUsuario — IdUsuario y (IdUsuario, Fecha)</span>
+  </div>
+  <p>La tabla de tracking de síntomas <code>TrackingSintomaUsuario</code> no tiene índice en <code>IdUsuario</code> ni en el índice compuesto <code>(IdUsuario, Fecha)</code>. Las consultas de historial de síntomas con rango de fechas degradan linealmente con el tamaño de la tabla.</p>
+  <div class="finding-meta">
+    <span>Tabla: TrackingSintomaUsuario</span>
+    <span>Índice recomendado: (IdUsuario, Fecha) INCLUDE (SintomaId)</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">DB-011</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Columnas string en Contenido sin MaxLength — todo NVARCHAR(MAX)</span>
+  </div>
+  <p>Los campos de texto de la entidad <code>Contenido</code> (título, slug, resumen, cuerpo) no tienen atributo <code>[MaxLength]</code> ni configuración <code>.HasMaxLength()</code>. EF Core los mapea como <code>NVARCHAR(MAX)</code>, lo que:</p>
+  <ul>
+    <li>Impide crear índices sobre esas columnas (SQL Server no indexa <code>MAX</code>)</li>
+    <li>Aumenta el tamaño de página en disco y fragmentación</li>
+    <li>Permite inserción de datos sin validación de longitud a nivel BD</li>
+  </ul>
+  <div class="finding-meta">
+    <span>Entidad: Contenido · Campos: Titulo, Slug, Resumen, Cuerpo</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">DB-012</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Global query filter + cascade delete pueden dejar registros huérfanos en Pregunta/Respuesta</span>
+  </div>
+  <p><code>Pregunta</code> y <code>Respuesta</code> tienen global query filter <code>x.Borrado != true</code> (soft-delete con campo <code>Borrado</code>). Sin embargo, si se usa <code>DbContext.Remove()</code> directamente (hard-delete), la cascada borrará las respuestas hijas, pero los logs de IA (<code>AIRequestLog</code>) que referencian la pregunta quedarán huérfanos.</p>
+  <p>Adicionalmente, el campo de soft-delete es <code>Borrado</code> (no <code>Eliminado</code>), mientras que el helper <code>SoftDeleteEntity</code> trabaja con <code>Eliminado</code> — inconsistencia documentada en MDL-017.</p>
+  <div class="finding-meta">
+    <span>Entidades: Pregunta, Respuesta · Campos: Borrado vs Eliminado</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">DB-013</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">FK nullable en condicionUsuario/sintomasUsuario permite registros sin propietario</span>
+  </div>
+  <p>Las columnas FK hacia <code>AspNetUsers</code> en las tablas clínicas principales son <code>nullable</code> según la definición del modelo. Esto permite crear registros clínicos sin propietario (idUsuario = NULL), lo que rompe las garantías de ownership del sistema.</p>
+  <p>Aunque la aplicación siempre setea el idUsuario, la constraint a nivel BD no lo garantiza.</p>
+  <div class="finding-meta">
+    <span>Tablas: condicionUsuario, sintomasUsuario, tratamientoUsuario</span>
+    <span>Recomendación: NOT NULL + FK constraint explícita</span>
+  </div>
+</div>
+
+<!-- ─── LOW ───────────────────────────────────────────────── -->
+<h2>LOW — Optimizaciones y observaciones</h2>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">DB-014</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Sin FK explícita — ContenidoCalificacionArticuloPregunta.IdUsuario</span>
+  </div>
+  <p><code>ContenidoCalificacionArticuloPregunta.IdUsuario</code> almacena el ID del usuario que calificó, pero no tiene FK configurada hacia <code>AspNetUsers</code>. Si se borra el usuario, los votos quedan huérfanos pero no se detecta a nivel BD.</p>
+  <div class="finding-meta">
+    <span>Tabla: ContenidoCalificacionArticuloPregunta · Columna: IdUsuario</span>
+  </div>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">DB-015</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Sin índice en MedicoDirectorio.AspNetUserId</span>
+  </div>
+  <p><code>MedicoDirectorio.AspNetUserId</code> se consulta en cada carga de perfil médico para el auto-link. Sin índice, la búsqueda es O(n) sobre el directorio completo. Con crecimiento del directorio, esto impactará el tiempo de carga de la página de reclamación.</p>
+  <div class="finding-meta">
+    <span>Tabla: MedicosDirectorio · Columna: AspNetUserId</span>
+    <span>También afecta: EmailSolicitudClaim (misma query)</span>
+  </div>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">DB-016</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">EmailCampanaLog — índice único incluye columna boolean Exito innecesariamente</span>
+  </div>
+  <p>El índice único en <code>EmailCampanaLog</code> incluye la columna <code>Exito</code> (boolean). Los índices sobre columnas de baja cardinalidad (boolean = 2 valores posibles) tienen mínimo beneficio selectivo. El índice debería cubrir solo las columnas que garantizan unicidad del evento.</p>
+  <div class="finding-meta">
+    <span>Tabla: EmailCampanaLog</span>
+  </div>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">DB-017</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Raw SQL en dos servicios sin revisión de parámetros</span>
+  </div>
+  <p>Se detectó uso de <code>FromSqlRaw</code> o <code>ExecuteSqlRaw</code> en al menos 2 servicios. Aunque EF Core parametriza automáticamente con <code>FromSqlInterpolated</code> y <code>ExecuteSqlInterpolated</code>, el uso de <code>Raw</code> requiere verificación manual de que ningún parámetro proviene directamente de input del usuario sin parametrizar.</p>
+  <div class="finding-meta">
+    <span>Recomendación: auditar todas las llamadas FromSqlRaw/ExecuteSqlRaw</span>
+    <span>Prioridad baja si los parámetros son siempre internos del sistema</span>
+  </div>
+</div>
+
+<!-- ─── MATRIX ────────────────────────────────────────────── -->
+<h2>Matriz de tablas clínicas — Índices y FK</h2>
+
+<div style="overflow-x:auto">
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Tabla</th>
+      <th>FK principal</th>
+      <th>Índice FK</th>
+      <th>FK configurada en DbCtx</th>
+      <th>On-Delete</th>
+      <th>Soft-delete</th>
+      <th>Riesgo</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>condicionUsuario</code></td>
+      <td><code>idUsuario</code></td>
+      <td class="badge badge-high">NO</td>
+      <td class="badge badge-medium">Inferida</td>
+      <td>?</td>
+      <td class="badge badge-low">Eliminado</td>
+      <td class="badge badge-high">HIGH</td>
+    </tr>
+    <tr>
+      <td><code>sintomasUsuario</code></td>
+      <td><code>idUsuario</code></td>
+      <td class="badge badge-high">NO</td>
+      <td class="badge badge-medium">Inferida</td>
+      <td>?</td>
+      <td class="badge badge-low">Eliminado</td>
+      <td class="badge badge-high">HIGH</td>
+    </tr>
+    <tr>
+      <td><code>tratamientoUsuario</code></td>
+      <td><code>idUsuario</code></td>
+      <td class="badge badge-high">NO</td>
+      <td class="badge badge-medium">Inferida</td>
+      <td>?</td>
+      <td class="badge badge-low">Eliminado</td>
+      <td class="badge badge-high">HIGH</td>
+    </tr>
+    <tr>
+      <td><code>EstadoAnimoUsuario</code></td>
+      <td><code>IdUsuario</code></td>
+      <td class="badge badge-high">NO</td>
+      <td class="badge badge-medium">Inferida</td>
+      <td>?</td>
+      <td>—</td>
+      <td class="badge badge-high">HIGH</td>
+    </tr>
+    <tr>
+      <td><code>MedicoAreaEii</code></td>
+      <td><code>CondicionId</code></td>
+      <td class="badge badge-low">Sí (PK comp.)</td>
+      <td class="badge badge-low">Explícita</td>
+      <td class="badge badge-high">CASCADE</td>
+      <td>—</td>
+      <td class="badge badge-high">HIGH</td>
+    </tr>
+    <tr>
+      <td><code>NotificationSubscription</code></td>
+      <td><code>UserId</code></td>
+      <td class="badge badge-high">NO</td>
+      <td class="badge badge-medium">Inferida</td>
+      <td>?</td>
+      <td>—</td>
+      <td class="badge badge-high">HIGH</td>
+    </tr>
+    <tr>
+      <td><code>PatientLaboratoryResult</code></td>
+      <td><code>PatientId</code></td>
+      <td class="badge badge-high">NO</td>
+      <td class="badge badge-medium">Inferida</td>
+      <td>?</td>
+      <td>—</td>
+      <td class="badge badge-high">HIGH</td>
+    </tr>
+    <tr>
+      <td><code>Pregunta</code></td>
+      <td><code>UsuarioId</code></td>
+      <td>—</td>
+      <td class="badge badge-high">NO</td>
+      <td>NO ACTION</td>
+      <td class="badge badge-medium">Borrado</td>
+      <td class="badge badge-medium">MEDIUM</td>
+    </tr>
+    <tr>
+      <td><code>Respuesta</code></td>
+      <td><code>UsuarioId</code></td>
+      <td>—</td>
+      <td class="badge badge-high">NO</td>
+      <td>NO ACTION</td>
+      <td class="badge badge-medium">Borrado</td>
+      <td class="badge badge-medium">MEDIUM</td>
+    </tr>
+    <tr>
+      <td><code>TrackingSintomaUsuario</code></td>
+      <td><code>IdUsuario</code></td>
+      <td class="badge badge-high">NO</td>
+      <td class="badge badge-medium">Inferida</td>
+      <td>?</td>
+      <td>—</td>
+      <td class="badge badge-medium">MEDIUM</td>
+    </tr>
+    <tr>
+      <td><code>MedicoPerfilBadge</code></td>
+      <td><code>BadgeId</code></td>
+      <td>—</td>
+      <td class="badge badge-low">Explícita</td>
+      <td class="badge badge-medium">CASCADE</td>
+      <td>—</td>
+      <td class="badge badge-medium">MEDIUM</td>
+    </tr>
+    <tr>
+      <td><code>Contenido</code></td>
+      <td>múltiples</td>
+      <td>—</td>
+      <td class="badge badge-low">Explícita</td>
+      <td class="badge badge-medium">CASCADE (×8)</td>
+      <td class="badge badge-low">Eliminado</td>
+      <td class="badge badge-medium">MEDIUM</td>
+    </tr>
+    <tr>
+      <td><code>MedicosDirectorio</code></td>
+      <td><code>AspNetUserId</code></td>
+      <td class="badge badge-low">NO</td>
+      <td>—</td>
+      <td>—</td>
+      <td>—</td>
+      <td class="badge badge-low">LOW</td>
+    </tr>
+    <tr>
+      <td><code>ContenidoCalificacion…</code></td>
+      <td><code>IdUsuario</code></td>
+      <td>—</td>
+      <td class="badge badge-high">NO</td>
+      <td>—</td>
+      <td>—</td>
+      <td class="badge badge-low">LOW</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<!-- SQL Scripts recomendados -->
+<h2>Scripts SQL recomendados (no ejecutar sin revisión DBA)</h2>
+<div class="code-block">-- DB-001: Índices en tablas clínicas de alta frecuencia
+-- VALIDAR en entorno de staging primero
+CREATE INDEX IX_condicionUsuario_idUsuario ON condicionUsuario(idUsuario) WHERE Eliminado = 0;
+CREATE INDEX IX_sintomasUsuario_idUsuario ON sintomasUsuario(idUsuario) WHERE Eliminado = 0;
+CREATE INDEX IX_tratamientoUsuario_idUsuario ON tratamientoUsuario(idUsuario) WHERE Eliminado = 0;
+
+-- DB-002: Índice compuesto en EstadoAnimoUsuario
+CREATE INDEX IX_EstadoAnimoUsuario_IdUsuario_Fecha
+    ON EstadoAnimoUsuario(IdUsuario, FechaRegistro DESC);
+
+-- DB-010: Índice compuesto en TrackingSintomaUsuario
+CREATE INDEX IX_TrackingSintomaUsuario_IdUsuario_Fecha
+    ON TrackingSintomaUsuario(IdUsuario, Fecha DESC);
+
+-- DB-015: Índice en MedicosDirectorio.AspNetUserId
+CREATE INDEX IX_MedicosDirectorio_AspNetUserId ON MedicosDirectorio(AspNetUserId)
+    WHERE AspNetUserId IS NOT NULL;</div>
+
+</main>
+
+<footer>
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem">
+    <span>Auditoría EIIBD · 2026-05-25 · Fase 06/10 — BD y Relaciones</span>
+    <div style="display:flex;gap:1rem">
+      <a href="05-modelos.html">← 05 Modelos</a>
+      <a href="07-performance.html">07 Performance →</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+function filterFindings(sev, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.finding[data-sev]').forEach(el => {
+    el.style.display = (sev === 'all' || el.dataset.sev === sev) ? '' : 'none';
+  });
+}
+</script>
+</body>
+</html>

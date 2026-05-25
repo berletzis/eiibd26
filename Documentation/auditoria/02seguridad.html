@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Seguridad – EIIBD Auditoría</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <h1>🔒 Fase 2 – Seguridad</h1>
+  <span class="breadcrumb"><a href="00-index.html">← Índice</a> · EIIBD Auditoría 2026</span>
+</div>
+<div class="container">
+
+<div class="kpi-grid">
+  <div class="kpi-card high"><div class="num">5</div><div class="label">Issues HIGH</div></div>
+  <div class="kpi-card medium"><div class="num">9</div><div class="label">Issues MEDIUM</div></div>
+  <div class="kpi-card low"><div class="num">4</div><div class="label">Issues LOW</div></div>
+  <div class="kpi-card accent"><div class="num">2</div><div class="label">CSRF Deshabilitado</div></div>
+  <div class="kpi-card accent"><div class="num">3</div><div class="label">Endpoints sin Auth</div></div>
+  <div class="kpi-card accent"><div class="num">2</div><div class="label">IDOR Activos</div></div>
+</div>
+
+<div class="notice danger">
+  <span style="font-size:20px">🚨</span>
+  <div>Los hallazgos SEC-008 y FUNC-001/007/008/009/010/014 representan vulnerabilidades activas en datos de salud de pacientes. Deben priorizarse en la próxima sesión de desarrollo.</div>
+</div>
+
+<div class="filter-bar">
+  <button class="filter-btn active" onclick="filterFindings('all',this)">Todos (18)</button>
+  <button class="filter-btn" onclick="filterFindings('high',this)">HIGH (5)</button>
+  <button class="filter-btn" onclick="filterFindings('medium',this)">MEDIUM (9)</button>
+  <button class="filter-btn" onclick="filterFindings('low',this)">LOW (4)</button>
+</div>
+
+<div class="finding-list" id="sec-list">
+
+  <div class="finding high" data-sev="high">
+    <div class="finding-header">
+      <span class="finding-id">SEC-001</span>
+      <span class="badge badge-high">HIGH</span>
+      <span class="badge badge-neutral">Sin Autorización</span>
+      <span class="finding-loc">Controllers/SintomasApiController.cs:1-53</span>
+    </div>
+    <div class="finding-title">GET /api/sintomas/autocomplete — sin [Authorize] y sin documentar</div>
+    <div class="finding-desc">El controlador completo no tiene [Authorize] ni [AllowAnonymous]. Cualquier usuario no autenticado puede enumerar el catálogo completo de síntomas médicos sin limitación de tasa.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Catálogo médico de síntomas accesible anónimamente. Sin rate limiting: scraping masivo posible. Para una plataforma de salud, la intencionalidad de exposición pública debe estar documentada.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Agregar [AllowAnonymous] explícito con comentario justificando la decisión, o [Authorize] si el catálogo es privado. Implementar rate limiting vía ASP.NET Core RateLimiting middleware.</div>
+  </div>
+
+  <div class="finding high" data-sev="high">
+    <div class="finding-header">
+      <span class="finding-id">SEC-002</span>
+      <span class="badge badge-high">HIGH</span>
+      <span class="badge badge-neutral">Sin Autorización</span>
+      <span class="finding-loc">Controllers/TratamientosApiController.cs:1-39</span>
+    </div>
+    <div class="finding-title">GET /api/tratamientos/autocomplete — mismo patrón que SEC-001</div>
+    <div class="finding-desc">Catálogo completo de tratamientos médicos (incluyendo medicamentos) accesible anónimamente sin rate limiting ni documentación de intención.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Catálogo de medicamentos y tratamientos para EII enumerables públicamente.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Mismo tratamiento que SEC-001. Declarar intención explícita con [AllowAnonymous] + comment o añadir [Authorize].</div>
+  </div>
+
+  <div class="finding high" data-sev="high">
+    <div class="finding-header">
+      <span class="finding-id">SEC-003</span>
+      <span class="badge badge-high">HIGH</span>
+      <span class="badge badge-neutral">Sin Autorización</span>
+      <span class="finding-loc">Controllers/CondicionesApiController.cs:1-79</span>
+    </div>
+    <div class="finding-title">GET /api/condiciones/autocomplete — exposición de catálogo de condiciones EII</div>
+    <div class="finding-desc">Catálogo de condiciones médicas (Crohn, Colitis Ulcerosa, etc.) con jerarquía padre/hijo completamente accesible sin autenticación.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Dependiendo de la jurisdicción y política de privacidad, exponer condiciones médicas listadas puede ser un problema GDPR/LGPD.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Evaluar política de privacidad. Si el catálogo es público intencionalmente, documentar. Si no, agregar [Authorize].</div>
+  </div>
+
+  <div class="finding high" data-sev="high">
+    <div class="finding-header">
+      <span class="finding-id">SEC-004</span>
+      <span class="badge badge-high">HIGH</span>
+      <span class="badge badge-neutral">Voting Manipulation</span>
+      <span class="finding-loc">Controllers/ArticleRatingsApiController.cs:87-181</span>
+    </div>
+    <div class="finding-title">POST /api/articles/{id}/rating — votación anónima con deduplicación bypasseable</div>
+    <div class="finding-desc">Usuarios no autenticados pueden votar artículos. La deduplicación usa X-Forwarded-For como identificador, que es completamente controlable por el cliente (ver SEC-007).</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Calificaciones de artículos médicos manipulables artificialmente por un atacante con VPN/proxy rotativo. Contenido médico puede ser inflado o deflado.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Requerir [Authorize] para POST (writes). Si se quiere mantener votación anónima, implementar CAPTCHA. Nunca usar X-Forwarded-For como identificador de seguridad.</div>
+  </div>
+
+  <div class="finding high" data-sev="high">
+    <div class="finding-header">
+      <span class="finding-id">SEC-005</span>
+      <span class="badge badge-high">HIGH</span>
+      <span class="badge badge-neutral">Voting Manipulation</span>
+      <span class="finding-loc">Controllers/GlossaryRatingsApiController.cs:75-151</span>
+    </div>
+    <div class="finding-title">POST /api/glossary/{id}/rating — mismo problema que SEC-004</div>
+    <div class="finding-desc">Calificaciones de términos del glosario médico manipulables anónimamente. Misma vulnerabilidad de X-Forwarded-For.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Términos médicos importantes pueden ser calificados negativamente de forma masiva por actores maliciosos.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> [Authorize] para POST de ratings del glosario.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">SEC-006</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Exposición UserID</span>
+      <span class="finding-loc">Controllers/PreguntasApiController.Respuestas.cs:15-67</span>
+    </div>
+    <div class="finding-title">GET /{id}/respuestas expone UsuarioId a usuarios no autenticados</div>
+    <div class="finding-desc">El endpoint retorna respuestas completas incluyendo el GUID del UsuarioId de cada respondedor sin [Authorize] ni proyección limitada.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Enumeración de GUIDs de usuarios. Los GUIDs pueden usarse para correlacionar actividad entre endpoints y obtener perfiles de pacientes.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Excluir UsuarioId de la proyección en respuestas públicas. Si el endpoint es intencionalmente público, proyectar solo campos necesarios sin identificadores internos.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">SEC-007</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">IP Spoofing</span>
+      <span class="finding-loc">ArticleRatingsApiController.cs:186-205 · GlossaryRatingsApiController.cs:153-167</span>
+    </div>
+    <div class="finding-title">GetClientIpAddress() lee X-Forwarded-For sin validar proxy confiable</div>
+    <div class="finding-desc">El primer valor de X-Forwarded-For se usa como identificador único de deduplicación de votos. Este header es completamente controlable por cualquier cliente HTTP.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Cualquier atacante puede bypassear la deduplicación de votos fijando X-Forwarded-For: 1.2.3.4 en cada request. Ratings 100% manipulables.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Solo confiar en X-Forwarded-For si el request viene de un proxy conocido. Usar HttpContext.Connection.RemoteIpAddress cuando no hay proxy. Nunca usar X-Forwarded-For como identificador de seguridad.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">SEC-008</span>
+      <span class="badge badge-high">HIGH</span>
+      <span class="badge badge-neutral">CSRF</span>
+      <span class="finding-loc">UsuarioLaboratorios.cshtml.cs:16 · UsuarioCondiciones.cshtml.cs:15</span>
+    </div>
+    <div class="finding-title">[IgnoreAntiforgeryToken] en nivel de clase desactiva CSRF en páginas clínicas</div>
+    <div class="finding-desc">[IgnoreAntiforgeryToken] aplicado a nivel de clase en UsuarioLaboratorios y UsuarioCondiciones desactiva toda protección CSRF en TODOS los POST handlers de estas páginas, incluyendo crear/editar/eliminar resultados de laboratorio y condiciones médicas.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Un atacante puede crear una página web maliciosa que, cuando un paciente la visita mientras está autenticado, automáticamente crea, modifica o elimina su historial de laboratorios y condiciones médicas.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Remover [IgnoreAntiforgeryToken] de nivel de clase. Si los handlers son AJAX, enviar el token de antiforgery vía header RequestVerificationToken en el JS. Agregar [ValidateAntiForgeryToken] per handler donde corresponda.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">SEC-009</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">CSRF</span>
+      <span class="finding-loc">Controllers/EstadoAnimoUsuarioController.cs:100-201</span>
+    </div>
+    <div class="finding-title">POST /api/estadoanimousuario/nuevo — sin antiforgery en [FromForm]</div>
+    <div class="finding-desc">API controller que usa [FromForm] sin validación antiforgery explícita. Los API controllers no aplican antiforgery por defecto. SameSite=Lax ofrece protección parcial pero no completa.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Posible CSRF en creación de estados de ánimo. Limitado por SameSite=Lax pero no completamente mitigado en todos los escenarios cross-origin.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Cambiar a [FromBody] JSON (inmune a CSRF por naturaleza), o agregar validación explícita de token antiforgery.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">SEC-010</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">IDOR</span>
+      <span class="finding-loc">Controllers/EstadoAnimoUsuarioController.cs:161-175</span>
+    </div>
+    <div class="finding-title">IDOR: condicionUsuarioId/sintomaUsuarioId/tratamientoUsuarioId sin validación de ownership</div>
+    <div class="finding-desc">Al crear un EstadoAnimoUsuario, los IDs de condición, síntoma y tratamiento provistos por el cliente se almacenan directamente sin verificar que pertenezcan al usuario autenticado.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Usuario A puede vincular su estado de ánimo a condición/síntoma/tratamiento de Usuario B adivinando IDs enteros. El nombre del registro ajeno se retorna en la respuesta, confirmando su existencia.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Verificar que cada ID de relación pertenezca al usuario: <code>WHERE id = @id AND idUsuario = @currentUserId</code> antes de guardar.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">SEC-011</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">IDOR</span>
+      <span class="finding-loc">Controllers/DashboardController.cs:210-231</span>
+    </div>
+    <div class="finding-title">IDOR: sintomaUsuarioId en AddSymptom sin validación de ownership</div>
+    <div class="finding-desc">POST /Dashboard/add-sintoma acepta sintomaUsuarioId sin verificar que el síntoma pertenece al usuario autenticado. Crea registro TrackingSintomaUsuario con FK a síntoma ajeno.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Usuario A puede crear tracking de síntomas apuntando a síntomas de Usuario B.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Validar <code>sintomasUsuario WHERE id = @id AND idUsuario = @userGuid</code> antes de insertar tracking.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">SEC-012</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Roles</span>
+      <span class="finding-loc">Program.cs:868-877</span>
+    </div>
+    <div class="finding-title">Seed de roles crea "Admin" pero todas las policies usan "Administrador"</div>
+    <div class="finding-desc">El seed en Program.cs crea roles "Paciente", "Medico" y "Admin". Sin embargo, todas las [Authorize(Roles="...")] en el proyecto usan "Administrador". El rol "Admin" nunca matchea ninguna policy.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Si un usuario recibe el rol "Admin" (en lugar de "Administrador"), no podrá acceder a ninguna funcionalidad de administrador. El rol sembrado es funcionalmente muerto.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Cambiar seed para crear "Administrador" en lugar de "Admin". Verificar en BD que ningún usuario tenga solo "Admin" sin "Administrador".</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">SEC-013</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Token Auth</span>
+      <span class="finding-loc">Controllers/MoodApiController.cs:35-69</span>
+    </div>
+    <div class="finding-title">Token de mood push sin audit trail y [IgnoreAntiforgeryToken]</div>
+    <div class="finding-desc">POST /api/mood/quick usa un token de corta duración de IPushMoodTokenService para autenticación. [IgnoreAntiforgeryToken] aplicado. Sin audit trail de uso/abuso de tokens.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Si PushMoodTokenService tiene problemas de entropía, tokens pueden ser adivinados. Sin visibilidad sobre abuso de tokens en producción.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Verificar que PushMoodTokenService usa CSPRNG. Agregar logging cuando tokens son inválidos o usados más de una vez.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">SEC-014</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">XSS</span>
+      <span class="finding-loc">Controllers/ContenidosAdminController.cs:151-153</span>
+    </div>
+    <div class="finding-title">HTML generado en servidor con valores no codificados en admin de contenidos</div>
+    <div class="finding-desc">GetGridData() construye strings HTML crudos para botones de acción (editBtn, deleteForm) embebiendo p.id directamente sin HtmlEncoder. Retornados en JSON y renderizados por DataTables.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> p.id es int hoy (no XSS real), pero el patrón es inseguro. Establece un precedente peligroso. El deleteForm incluye dialog de confirmación sin token CSRF.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Usar HtmlEncoder.Default.Encode() al construir HTML en servidor. Preferir retornar datos crudos y construir UI en DataTables columnDefs.render().</div>
+  </div>
+
+  <div class="finding low" data-sev="low">
+    <div class="finding-header">
+      <span class="finding-id">SEC-015</span>
+      <span class="badge badge-low">LOW</span>
+      <span class="badge badge-neutral">Info Disclosure</span>
+      <span class="finding-loc">Controllers/RespuestasApiController.cs:170 · PreguntasApiController.cs:317</span>
+    </div>
+    <div class="finding-title">Stack traces retornados en API si ASPNETCORE_ENVIRONMENT no está configurado</div>
+    <div class="finding-desc">En Development, ex.ToString() y dbEx.InnerException.Message se retornan en responses de API. Si la variable de entorno no está explícitamente configurada en producción, stack traces son visibles.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Bajo si el entorno está correctamente configurado. Riesgo si el deployment no tiene ASPNETCORE_ENVIRONMENT=Production.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Agregar check en startup (similar al SecretsValidator existente) que warning-logee si Environment es Development en deployment.</div>
+  </div>
+
+  <div class="finding low" data-sev="low">
+    <div class="finding-header">
+      <span class="finding-id">SEC-016</span>
+      <span class="badge badge-low">LOW</span>
+      <span class="badge badge-neutral">Fire-and-Forget</span>
+      <span class="finding-loc">Controllers/PreguntasApiController.cs:95-111</span>
+    </div>
+    <div class="finding-title">Task.Factory.StartNew para jobs de IA — thread no rastreado sin retry</div>
+    <div class="finding-desc">Se usa Task.Factory.StartNew(LongRunning) para la generación de respuestas IA en lugar de Hangfire. El thread se pierde en cualquier reciclo del app pool. Sin retry, sin visibility.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Jobs de IA se pierden silenciosamente en deploys o reinicios. LongRunning crea thread OS dedicado desperdiciado para operación I/O bound.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Usar BackgroundJob.Enqueue() de Hangfire (queue 'ai'). El AiAnswerJob ya existe registrado. Ver también FUNC-017.</div>
+  </div>
+
+  <div class="finding low" data-sev="low">
+    <div class="finding-header">
+      <span class="finding-id">SEC-017</span>
+      <span class="badge badge-low">LOW</span>
+      <span class="badge badge-neutral">Dashboard Hangfire</span>
+      <span class="finding-loc">Program.cs:847-849</span>
+    </div>
+    <div class="finding-title">HangfireAdminAuthFilter — verificar implementación del chequeo de rol</div>
+    <div class="finding-desc">El dashboard /hangfire usa un filtro de auth personalizado. Si HangfireAdminAuthFilter tiene un bug, el dashboard completo de Hangfire (que permite ejecutar/cancelar jobs) sería accesible públicamente.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Potencial acceso al dashboard de background jobs. Verificar que el filtro checa User.IsInRole("Administrador").</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Verificar manualmente que /hangfire retorna 403 para usuarios no admin y usuarios anónimos. Agregar test de integración o prueba manual en checklist de deploy.</div>
+  </div>
+
+  <div class="finding low" data-sev="low">
+    <div class="finding-header">
+      <span class="finding-id">SEC-018</span>
+      <span class="badge badge-low">LOW</span>
+      <span class="badge badge-neutral">CSP</span>
+      <span class="finding-loc">Program.cs:408</span>
+    </div>
+    <div class="finding-title">Content-Security-Policy incluye 'unsafe-inline' y 'unsafe-eval'</div>
+    <div class="finding-desc">El CSP configurado permite 'unsafe-inline' y 'unsafe-eval' en script-src, negando gran parte de la protección XSS que un CSP debe proveer.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Cualquier script inline inyectado (XSS) se ejecutará porque 'unsafe-inline' está permitido. CSP no ofrece la protección esperada.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Plan de largo plazo: migrar scripts inline a archivos externos y usar nonces/hashes en CSP. Ver UI-018 (200+ líneas de JS inline en _Layout.cshtml).</div>
+  </div>
+
+</div>
+
+<div style="margin-top:32px;padding-top:16px;border-top:1px solid var(--border);color:var(--muted);font-size:12px">
+  02-seguridad.html · 18 hallazgos SEC · <a href="01-arquitectura.html">← Arquitectura</a> · <a href="03-roles-permisos.html">Roles y Permisos →</a>
+</div>
+</div>
+
+<script>
+function filterFindings(sev, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active','active-high','active-medium','active-low'));
+  btn.classList.add('active', sev !== 'all' ? 'active-'+sev : '');
+  document.querySelectorAll('#sec-list .finding').forEach(f => {
+    f.style.display = (sev === 'all' || f.dataset.sev === sev) ? '' : 'none';
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Modelos – EIIBD Auditoría</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <h1>📦 Fase 5 – Modelos de Datos</h1>
+  <span class="breadcrumb"><a href="00-index.html">← Índice</a> · EIIBD Auditoría 2026</span>
+</div>
+<div class="container">
+
+<div class="kpi-grid">
+  <div class="kpi-card high"><div class="num">7</div><div class="label">Issues HIGH</div></div>
+  <div class="kpi-card medium"><div class="num">14</div><div class="label">Issues MEDIUM</div></div>
+  <div class="kpi-card low"><div class="num">9</div><div class="label">Issues LOW</div></div>
+  <div class="kpi-card accent"><div class="num">68</div><div class="label">Entidades Auditadas</div></div>
+  <div class="kpi-card accent"><div class="num">3</div><div class="label">Sin DbSet</div></div>
+  <div class="kpi-card accent"><div class="num">8</div><div class="label">Nombres Camelcase legacy</div></div>
+</div>
+
+<!-- TOP FINDINGS -->
+<div class="section">
+<div class="section-title"><span class="icon">⚠️</span> Hallazgos de Modelos (MDL)</div>
+
+<div class="filter-bar">
+  <button class="filter-btn active" onclick="filterFindings('all',this)">Todos (30)</button>
+  <button class="filter-btn" onclick="filterFindings('high',this)">HIGH (7)</button>
+  <button class="filter-btn" onclick="filterFindings('medium',this)">MEDIUM (14)</button>
+  <button class="filter-btn" onclick="filterFindings('low',this)">LOW (9)</button>
+</div>
+
+<div class="finding-list" id="mdl-list">
+
+  <div class="finding high" data-sev="high">
+    <div class="finding-header">
+      <span class="finding-id">MDL-001</span>
+      <span class="badge badge-high">HIGH</span>
+      <span class="badge badge-neutral">Naming</span>
+      <span class="finding-loc">Models/ — 8+ entidades legacy</span>
+    </div>
+    <div class="finding-title">8+ entidades con nombres camelCase/lowercase — inconsistente con C# conventions</div>
+    <div class="finding-desc">condiciones, sintomas, tratamientos, condicionUsuario, sintomasUsuario, tratamientoUsuario, estudiosLab, estudiosLabUsuario usan nombres de clase y propiedades en camelCase/lowercase. Todo el resto del codebase usa PascalCase.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> EF Core puede tener conflictos de convención. Nuevos desarrolladores no saben qué estilo aplicar. Dificulta uso de genéricos y reflection.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> En sprint de refactor: renombrar a PascalCase con [Table("nombre_original")] para preservar tabla de BD. Prioridad baja — no es bug funcional hoy.</div>
+  </div>
+
+  <div class="finding high" data-sev="high">
+    <div class="finding-header">
+      <span class="finding-id">MDL-002</span>
+      <span class="badge badge-high">HIGH</span>
+      <span class="badge badge-neutral">Typo</span>
+      <span class="finding-loc">Models/estuduiLabUsuario.cs</span>
+    </div>
+    <div class="finding-title">Nombre de archivo con typo: estudu<strong>i</strong>LabUsuario.cs</div>
+    <div class="finding-desc">El archivo se llama <code>estuduiLabUsuario.cs</code> (typo: "estudui") pero la clase dentro es <code>estudiosLabUsuario</code>. Nombre de archivo no coincide con nombre de clase.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Imposible encontrar el archivo por nombre de clase. Confusión para cualquier desarrollador.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Renombrar a <code>estudiosLabUsuario.cs</code>. Bajo riesgo, acción trivial.</div>
+  </div>
+
+  <div class="finding high" data-sev="high">
+    <div class="finding-header">
+      <span class="finding-id">MDL-003</span>
+      <span class="badge badge-high">HIGH</span>
+      <span class="badge badge-neutral">Tipo incorrecto</span>
+      <span class="finding-loc">Models/estudioLab.cs:14</span>
+    </div>
+    <div class="finding-title">estudiosLab.idPadre tipado como string en lugar de int?</div>
+    <div class="finding-desc"><code>public string idPadre { get; set; }</code> — debería ser <code>int?</code> como todos los demás campos idPadre en el sistema. EF crea NVARCHAR en lugar de INT, rompiendo la jerarquía auto-referencial.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> La jerarquía de catálogo de estudios nunca funciona. Queries de padre/hijo retornan resultados vacíos silenciosamente.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Cambiar a <code>public int? idPadre</code> + SQL script para ALTER TABLE. Aunque el modelo es legacy (DEAD-004), si se sigue usando requiere corrección.</div>
+  </div>
+
+  <div class="finding high" data-sev="high">
+    <div class="finding-header">
+      <span class="finding-id">MDL-004</span>
+      <span class="badge badge-high">HIGH</span>
+      <span class="badge badge-neutral">Sin DbSet</span>
+      <span class="finding-loc">Models/AIRequestLog.cs</span>
+    </div>
+    <div class="finding-title">AIRequestLog sin DbSet en ApplicationDbContext — tabla no existe en BD</div>
+    <div class="finding-desc">La clase AIRequestLog existe con navegación a Pregunta pero no hay DbSet&lt;AIRequestLog&gt; en DbContext. La tabla nunca se creó en migraciones.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Cualquier código que intente usar AIRequestLog via EF lanzará excepción en runtime. El modelo es completamente no funcional.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Agregar DbSet al contexto y configurar FK, o eliminar la clase si el logging de IA se hace de otra forma.</div>
+  </div>
+
+  <div class="finding high" data-sev="high">
+    <div class="finding-header">
+      <span class="finding-id">MDL-005</span>
+      <span class="badge badge-high">HIGH</span>
+      <span class="badge badge-neutral">Sin DbSet</span>
+      <span class="finding-loc">Models/SintomasNotas.cs · Models/TratamientosNotas.cs</span>
+    </div>
+    <div class="finding-title">SintomasNotas y TratamientosNotas sin DbSet — tablas existen en BD pero inaccesibles</div>
+    <div class="finding-desc">Ambas entidades aparecen en el Designer.cs de migraciones (las tablas existen), pero no tienen DbSet en ApplicationDbContext actual. No hay forma de accederlas via EF.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Si existe funcionalidad de notas en la app, está completamente rota. Las tablas existen con datos potenciales inaccesibles.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Agregar <code>DbSet&lt;SintomasNotas&gt;</code> y <code>DbSet&lt;TratamientosNotas&gt;</code> al DbContext, o ejecutar DROP TABLE si la funcionalidad fue abandonada.</div>
+  </div>
+
+  <div class="finding high" data-sev="high">
+    <div class="finding-header">
+      <span class="finding-id">MDL-006</span>
+      <span class="badge badge-high">HIGH</span>
+      <span class="badge badge-neutral">Falta [Key]</span>
+      <span class="finding-loc">Models/Voto.cs · Models/AIRequestLog.cs</span>
+    </div>
+    <div class="finding-title">Voto y AIRequestLog sin atributo [Key] explícito en Id (Guid)</div>
+    <div class="finding-desc">EF resuelve el PK por convención pero la ausencia de [Key] hace la intención ambigua y puede causar problemas con herramientas de generación de código.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> No es bug funcional hoy. Riesgo en herramientas de scaffolding y generadores de DTO.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Agregar [Key] a <code>public Guid Id</code> en ambas clases.</div>
+  </div>
+
+  <div class="finding high" data-sev="high">
+    <div class="finding-header">
+      <span class="finding-id">MDL-007</span>
+      <span class="badge badge-high">HIGH</span>
+      <span class="badge badge-neutral">Nullability</span>
+      <span class="finding-loc">Models/Perfil.cs:22-23</span>
+    </div>
+    <div class="finding-title">[Required] en string? Nombre — causa bug de ModelState documentado en CLAUDE.md</div>
+    <div class="finding-desc"><code>[Required] public string? Nombre { get; set; }</code> — [Required] y el operador ? son contradictorios. Este conflicto es el bug documentado en CLAUDE.md sobre "nunca bindear Perfil como [BindProperty]".</div>
+    <div class="finding-impact"><strong>Impacto:</strong> ModelState falla inesperadamente cuando Perfil se usa como BindProperty. La causa raíz está en el modelo, no en los page models que lo consumen.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Cambiar a <code>public string Nombre { get; set; } = string.Empty;</code> — no nullable, con [Required] o sin él.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">MDL-008</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Redundancia</span>
+      <span class="finding-loc">Models/Perfil.cs</span>
+    </div>
+    <div class="finding-title">Perfil tiene campos audit duplicados: FechaCreacion + FechaCreado</div>
+    <div class="finding-desc">Existen tanto FechaCreacion (DateTime, non-nullable) como FechaCreado (DateTime?, nullable), más FechaModificado y UltimaActividad. Cuatro campos de timestamp con propósitos solapados.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Código puede escribir a un campo pero no al otro. Queries de auditoría pueden usar el campo equivocado.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Consolidar a FechaCreacion + FechaModificacion. Migrar FechaCreado → FechaCreacion via SQL script.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">MDL-009</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Nullability</span>
+      <span class="finding-loc">Models/condiciones.cs:12 · Models/sintomas.cs · Models/tratamientos.cs</span>
+    </div>
+    <div class="finding-title">[Required] + string? nombre en 3 entidades de catálogo</div>
+    <div class="finding-desc">Mismo patrón que MDL-007 en los tres catálogos principales: <code>[Required] [StringLength(250)] public string? nombre</code>.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Warnings de NRT. Contrato del campo ambiguo para callers.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Cambiar a <code>public string nombre { get; set; } = string.Empty;</code></div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">MDL-011</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">MaxLength</span>
+      <span class="finding-loc">Models/contenidosRespuesta.cs</span>
+    </div>
+    <div class="finding-title">ContenidoRespuesta tiene múltiples propiedades NVARCHAR(MAX) por falta de MaxLength</div>
+    <div class="finding-desc">Metas, RespuestaTitulo, RespuestaTextoC, RespuestaTextoL, Slug, URLImagenPrincipal, Autor — todas string sin [MaxLength]. Producen NVARCHAR(MAX) en SQL Server, que no puede indexarse.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Slug de SEO no indexable sin MaxLength. Queries de lookup por slug son full table scans.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Agregar [MaxLength] a todos los strings: Slug(500), Titulo(300), URL(500), Autor(200).</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">MDL-012</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">FK Faltante</span>
+      <span class="finding-loc">Models/Pregunta.cs</span>
+    </div>
+    <div class="finding-title">Pregunta.UsuarioId sin navigation property ni FK configurada en DbContext</div>
+    <div class="finding-desc">UsuarioId (Guid) está comentado como FK a AspNetUsers pero no hay [ForeignKey], no hay navigation property y no está configurado en OnModelCreating.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> No se puede hacer Include(p =&gt; p.Usuario). Sin integridad referencial: preguntas pueden quedar huérfanas si se borra un usuario.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Agregar en DbContext: <code>.HasOne&lt;ApplicationUser&gt;().WithMany().HasForeignKey(p =&gt; p.UsuarioId).OnDelete(DeleteBehavior.Restrict);</code></div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">MDL-013</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">FK Faltante</span>
+      <span class="finding-loc">Models/Respuesta.cs</span>
+    </div>
+    <div class="finding-title">Respuesta.UsuarioId sin navigation property ni FK — mismo problema que MDL-012</div>
+    <div class="finding-desc">UsuarioId es un Guid sin FK constraint ni navigation a ApplicationUser. Mismo gap de integridad referencial que en Pregunta.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Respuestas pueden quedar huérfanas. No se puede eager-load el autor de una respuesta.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Configurar FK en DbContext igual que MDL-012.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">MDL-014</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">FK Faltante</span>
+      <span class="finding-loc">Models/PreguntaEtiqueta.cs</span>
+    </div>
+    <div class="finding-title">PreguntaEtiqueta sin navigation properties a Pregunta ni Etiqueta</div>
+    <div class="finding-desc">La entidad de relación muchos-a-muchos no tiene navigation properties. Solo se configuran índices y constraint unique, pero no las FK relationships.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Imposible usar .Include() para cargar etiquetas de preguntas. JOINs deben escribirse manualmente.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Agregar navigation properties: <code>public Pregunta Pregunta</code> y <code>public Etiqueta Etiqueta</code></div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">MDL-016</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Typo</span>
+      <span class="finding-loc">Models/Paises.cs:31</span>
+    </div>
+    <div class="finding-title">Propiedad VIsibleBuscador con mayúscula incorrecta ('I' en lugar de 'i')</div>
+    <div class="finding-desc"><code>public bool VIsibleBuscador</code> — la I mayúscula es un typo. Debería ser VisibleBuscador.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Cualquier generador de código o Swagger producirá el nombre incorrecto. Inconsistencia visual.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Renombrar con [Column("VIsibleBuscador")] para preservar nombre de columna en BD.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">MDL-017</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Inconsistencia</span>
+      <span class="finding-loc">Models/ (proyecto completo)</span>
+    </div>
+    <div class="finding-title">Soft delete inconsistente: Eliminado vs Borrado vs IsActive — SoftDeleteEntity helper solo funciona con Eliminado</div>
+    <div class="finding-desc">Entidades con Eliminado (bool): condiciones, sintomas, tratamientos, condicionUsuario, Pregunta, Respuesta, etc. Entidades con Borrado (bool): ContenidoCategoria, BannerInicio, Paises, múltiples tablas de relación de Contenido. Entidades con IsActive: NotificationSubscription.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> El helper SoftDeleteEntity&lt;T&gt; en DbContext solo aplica a "Eliminado". Las entidades con "Borrado" NO son soft-deleted por el utility method, resultando en deletes accidentalmente permanentes.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Estandarizar en "Eliminado" para todas las entidades. Las tablas con "Borrado" requieren SQL ALTER COLUMN. Plan de migración incremental.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">MDL-018</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Inconsistencia</span>
+      <span class="finding-loc">Models/ (proyecto completo)</span>
+    </div>
+    <div class="finding-title">Inconsistencia de idioma en nombres de campos de auditoría</div>
+    <div class="finding-desc">Modelos legacy: fechaCreado, fechaModificado, fechaEliminado (español camelCase). Modelos nuevos: CreatedAt, UpdatedAt (inglés PascalCase). Algunos: FechaCreado, FechaModificado (español PascalCase). También mezcla DateTime.Now vs DateTime.UtcNow.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> No se puede escribir utilidades genéricas de auditoría. Confusión sobre timezone.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Adoptar estándar FechaCreacion/FechaModificacion (español PascalCase, UTC) para nuevas entidades.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">MDL-019</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Tipo incorrecto</span>
+      <span class="finding-loc">Models/Glossary/GlossaryValidation.cs</span>
+    </div>
+    <div class="finding-title">GlossaryValidation.UserId es string — único caso en todo el sistema (resto son Guid)</div>
+    <div class="finding-desc">Todas las entidades del sistema usan Guid para UserId. GlossaryValidation usa string (NVARCHAR 450). El proyecto usa IdentityUser&lt;Guid&gt; por lo que los IDs son Guids. Almacenarlos como string pierde type safety.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> No se puede hacer FK JOIN a AspNetUsers con tipo consistente. Pérdida de type safety. Posible incompatibilidad con queries de correlación de usuarios.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Cambiar UserId a Guid. SQL: ALTER COLUMN UserId UNIQUEIDENTIFIER NOT NULL. Migrar datos existentes.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">MDL-022</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Redundancia</span>
+      <span class="finding-loc">Models/Contenido.cs:25-34</span>
+    </div>
+    <div class="finding-title">Contenido tiene tres referencias al autor: IdAutor (FK Perfil) + IdUser (FK User) + Autor (string)</div>
+    <div class="finding-desc">IdAutor (Guid FK a Perfil), IdUser (Guid? FK a ApplicationUser) y Autor (string nombre denormalizado). Las tres apuntan al mismo concepto. Datos pueden divergir si el usuario cambia su nombre.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Tres fuentes de verdad para el autor de un contenido. Inconsistencia posible.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Remover IdUser (redundante con IdAutor→Perfil.idUser). Marcar Autor como campo legacy/calculado.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">MDL-023</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Redundancia</span>
+      <span class="finding-loc">Models/tratamientoUsuario.cs:10</span>
+    </div>
+    <div class="finding-title">tratamientoUsuario tiene IdCondicion directa duplicando TratamientoCondicionUsuario</div>
+    <div class="finding-desc">tratamientoUsuario.IdCondicion (FK directa a condiciones) y la tabla de relación TratamientoCondicionUsuario representan el mismo concepto. Un tratamiento puede estar vinculado a una condición por dos mecanismos distintos.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Código puede escribir a uno y no al otro. Inconsistencia entre la FK directa y la tabla de relación.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Eliminar IdCondicion de tratamientoUsuario y usar exclusivamente TratamientoCondicionUsuario.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">MDL-024</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Entidad Duplicada</span>
+      <span class="finding-loc">Models/Directorio/DirectorioMedicoConfirmacion.cs · Models/Directorio/ConfirmacionComunitaria.cs</span>
+    </div>
+    <div class="finding-title">Dos entidades para el mismo concepto: confirmación de médico por paciente</div>
+    <div class="finding-desc">DirectorioMedicoConfirmacion (legacy, sin FK a MedicosDirectorio) y ConfirmacionComunitaria (nueva) representan el mismo concepto de negocio. Ambas tienen DbSet activos.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Ver FUNC-023. Los dos flujos de confirmación usan tablas diferentes causando NivelConfianza inconsistente.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Deprecar DirectorioMedicoConfirmacion. Migrar datos a ConfirmacionComunitaria. Eliminar DbSet legacy.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">MDL-028</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Auditoría</span>
+      <span class="finding-loc">Models/TratamientoCondicionUsuario.cs · TratamientoSintomaUsuario.cs · SintomaCondicionUsuario.cs · TrackingSintomaUsuario.cs</span>
+    </div>
+    <div class="finding-title">Tablas de relación clínica sin campos de auditoría ni soft delete</div>
+    <div class="finding-desc">Las cuatro tablas de relación (síntoma↔condición, tratamiento↔condición, tratamiento↔síntoma, tracking síntoma) solo tienen FechaCreado. Sin FechaModificado, sin Eliminado. TrackingSintomaUsuario no tiene soft-delete.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Deletes de tracking son permanentes. Sin audit trail de modificaciones a relaciones clínicas del paciente.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Agregar Eliminado (bool), FechaModificado (DateTime?) y ModificadoPor (Guid?) a las tablas editables.</div>
+  </div>
+
+  <!-- LOW FINDINGS -->
+  <div class="finding low" data-sev="low">
+    <div class="finding-header">
+      <span class="finding-id">MDL-015</span>
+      <span class="badge badge-low">LOW</span>
+      <span class="badge badge-neutral">FK</span>
+      <span class="finding-loc">Models/Directorio/DirectorioMedicoConfirmacion.cs</span>
+    </div>
+    <div class="finding-title">DirectorioMedicoConfirmacion.MedicoId sin FK configurada en DbContext</div>
+    <div class="finding-desc">Sin FK constraint a MedicosDirectorio. Entidad legacy probablemente reemplazada por ConfirmacionComunitaria (ver MDL-024).</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Deprecar entidad o configurar FK.</div>
+  </div>
+
+  <div class="finding low" data-sev="low">
+    <div class="finding-header">
+      <span class="finding-id">MDL-020</span>
+      <span class="badge badge-low">LOW</span>
+      <span class="badge badge-neutral">Nullability</span>
+      <span class="finding-loc">Models/Etiqueta.cs:20-23</span>
+    </div>
+    <div class="finding-title">Etiqueta.Fuente y Sinonimos — strings no nullable sin default ni MaxLength</div>
+    <div class="finding-desc">Sinonimos especialmente: sin MaxLength produce NVARCHAR(MAX) no indexable.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Cambiar a <code>string?</code> o agregar <code>= string.Empty</code>. Agregar [MaxLength(2000)] a Sinonimos.</div>
+  </div>
+
+  <div class="finding low" data-sev="low">
+    <div class="finding-header">
+      <span class="finding-id">MDL-021</span>
+      <span class="badge badge-low">LOW</span>
+      <span class="badge badge-neutral">MaxLength</span>
+      <span class="finding-loc">Models/SintomasNotas.cs · Models/TratamientosNotas.cs</span>
+    </div>
+    <div class="finding-title">Nota sin MaxLength — NVARCHAR(MAX)</div>
+    <div class="finding-desc"><code>[Required] public string Nota</code> sin [MaxLength]. NVARCHAR(MAX) para campos de notas clínicas.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Agregar [MaxLength(4000)].</div>
+  </div>
+
+  <div class="finding low" data-sev="low">
+    <div class="finding-header">
+      <span class="finding-id">MDL-025</span>
+      <span class="badge badge-low">LOW</span>
+      <span class="badge badge-neutral">Organización</span>
+      <span class="finding-loc">Models/Medico/MedicoBadgeDto.cs · Models/DashboardViewModel.cs · etc.</span>
+    </div>
+    <div class="finding-title">DTOs y ViewModels mezclados en carpeta Models/ junto a entidades EF</div>
+    <div class="finding-desc">MedicoBadgeDto, DashboardViewModel, BlogViewModels, DirectorioViewModels están en Models/ junto a entidades persistidas. Confusión arquitectónica.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Mover DTOs a carpeta DTOs/ y ViewModels a ViewModels/. Bajo impacto funcional.</div>
+  </div>
+
+  <div class="finding low" data-sev="low">
+    <div class="finding-header">
+      <span class="finding-id">MDL-029</span>
+      <span class="badge badge-low">LOW</span>
+      <span class="badge badge-neutral">Redundancia</span>
+      <span class="finding-loc">Models/Voto.cs</span>
+    </div>
+    <div class="finding-title">Voto tiene Fecha + FechaCreacion + FechaModificacion — tres campos de timestamp</div>
+    <div class="finding-desc">Voto.Fecha es redundante con FechaCreacion. Campo de auditoría duplicado.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Eliminar Voto.Fecha. Usar FechaCreacion exclusivamente.</div>
+  </div>
+
+  <div class="finding low" data-sev="low">
+    <div class="finding-header">
+      <span class="finding-id">MDL-030</span>
+      <span class="badge badge-low">LOW</span>
+      <span class="badge badge-neutral">Nullability</span>
+      <span class="finding-loc">Models/condiciones.cs:19 · sintomas.cs · tratamientos.cs · estudioLab.cs</span>
+    </div>
+    <div class="finding-title">fechaEliminado no nullable en entidades con soft delete</div>
+    <div class="finding-desc"><code>public DateTime fechaEliminado</code> — para registros no eliminados contiene DateTime.MinValue (0001-01-01). Debería ser <code>DateTime?</code>.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Cambiar a <code>DateTime? fechaEliminado</code> en los 4 modelos.</div>
+  </div>
+
+</div>
+</div>
+
+<!-- ENTITY MATRIX -->
+<div class="section">
+<div class="section-title"><span class="icon">📊</span> Matriz de Entidades</div>
+<div style="overflow-x:auto">
+<table class="data-table" style="font-size:12px">
+<thead>
+  <tr><th>Entidad</th><th>Tabla BD</th><th>PK</th><th>Soft Delete</th><th>Auditoría</th><th>Problema Principal</th></tr>
+</thead>
+<tbody>
+  <tr><td><code>Perfil</code></td><td>Perfil</td><td>Guid</td><td><span class="badge badge-high">✗ Ninguno</span></td><td><span class="badge badge-medium">⚠️ Duplicado</span></td><td>FechaCreacion + FechaCreado, [Required] string?</td></tr>
+  <tr><td><code>condiciones</code></td><td>condiciones</td><td>int</td><td><span class="badge badge-low">✓ Eliminado</span></td><td><span class="badge badge-low">✓</span></td><td>Nombre camelCase, fechaEliminado no nullable</td></tr>
+  <tr><td><code>condicionUsuario</code></td><td>condicionUsuario</td><td>int</td><td><span class="badge badge-low">✓ Eliminado</span></td><td><span class="badge badge-low">✓</span></td><td>Sin índice en idUsuario, sin HasQueryFilter</td></tr>
+  <tr><td><code>sintomas</code></td><td>sintomas</td><td>int</td><td><span class="badge badge-low">✓ Eliminado</span></td><td><span class="badge badge-low">✓</span></td><td>Nombre camelCase, fechaEliminado no nullable</td></tr>
+  <tr><td><code>sintomasUsuario</code></td><td>sintomasUsuario</td><td>int</td><td><span class="badge badge-low">✓ Eliminado</span></td><td><span class="badge badge-low">✓</span></td><td>Sin índice en idUsuario, sin HasQueryFilter</td></tr>
+  <tr><td><code>SintomasNotas</code></td><td>SintomasNotas</td><td>int</td><td><span class="badge badge-low">✓</span></td><td><span class="badge badge-high">✗</span></td><td><strong>SIN DbSet en DbContext</strong></td></tr>
+  <tr><td><code>tratamientos</code></td><td>tratamientos</td><td>int</td><td><span class="badge badge-low">✓ Eliminado</span></td><td><span class="badge badge-low">✓</span></td><td>Nombre camelCase</td></tr>
+  <tr><td><code>tratamientoUsuario</code></td><td>tratamientoUsuario</td><td>int</td><td><span class="badge badge-low">✓ Eliminado</span></td><td><span class="badge badge-low">✓</span></td><td>IdCondicion redundante, sin índice idUsuario</td></tr>
+  <tr><td><code>TratamientosNotas</code></td><td>TratamientosNotas</td><td>int</td><td><span class="badge badge-low">✓</span></td><td><span class="badge badge-high">✗</span></td><td><strong>SIN DbSet en DbContext</strong></td></tr>
+  <tr><td><code>EstadoAnimoUsuario</code></td><td>EstadoAnimoUsuario</td><td>int</td><td><span class="badge badge-low">✓ Eliminado</span></td><td><span class="badge badge-high">✗</span></td><td>Sin índice IdUsuario, sin HasQueryFilter, sin audit</td></tr>
+  <tr><td><code>PatientLaboratoryResult</code></td><td>PatientLaboratoryResults</td><td>int</td><td><span class="badge badge-low">✓</span></td><td><span class="badge badge-low">✓</span></td><td>Sin índice en PatientId</td></tr>
+  <tr><td><code>estudiosLab</code></td><td>estudiosLab</td><td>int</td><td><span class="badge badge-low">✓</span></td><td><span class="badge badge-low">✓</span></td><td>idPadre como string (bug tipo), LEGACY</td></tr>
+  <tr><td><code>Pregunta</code></td><td>Preguntas</td><td>Guid</td><td><span class="badge badge-low">✓ Eliminado</span></td><td><span class="badge badge-high">✗</span></td><td>UsuarioId sin FK, sin nav property, sin CreatedBy</td></tr>
+  <tr><td><code>Respuesta</code></td><td>Respuestas</td><td>Guid</td><td><span class="badge badge-low">✓ Eliminado</span></td><td><span class="badge badge-high">✗</span></td><td>UsuarioId sin FK, sin nav property</td></tr>
+  <tr><td><code>Voto</code></td><td>Votos</td><td>Guid</td><td><span class="badge badge-low">✓</span></td><td><span class="badge badge-medium">⚠️</span></td><td>Sin [Key], Fecha redundante con FechaCreacion</td></tr>
+  <tr><td><code>Contenido</code></td><td>contenidos</td><td>int</td><td><span class="badge badge-low">✓ Eliminado</span></td><td><span class="badge badge-low">✓</span></td><td>3 campos autor, NVARCHAR(MAX) sin MaxLength, 8 cascade paths</td></tr>
+  <tr><td><code>ContenidoCategoria</code></td><td>contenidosCategorias</td><td>int</td><td><span class="badge badge-medium">⚠️ Borrado</span></td><td><span class="badge badge-low">✓</span></td><td>Soft delete "Borrado" inconsistente</td></tr>
+  <tr><td><code>TrackingSintomaUsuario</code></td><td>TrackingSintomaUsuario</td><td>int</td><td><span class="badge badge-high">✗ Ninguno</span></td><td><span class="badge badge-high">✗</span></td><td>Sin soft delete, sin índices, sin audit</td></tr>
+  <tr><td><code>TratamientoCondicionUsuario</code></td><td>TratamientoCondicionUsuario</td><td>int</td><td><span class="badge badge-high">✗</span></td><td><span class="badge badge-high">✗</span></td><td>Sin soft delete, sin índices</td></tr>
+  <tr><td><code>AIRequestLog</code></td><td>N/A — no existe</td><td>Guid</td><td><span class="badge badge-high">✗</span></td><td><span class="badge badge-high">✗</span></td><td><strong>SIN DbSet, tabla no creada</strong></td></tr>
+  <tr><td><code>GlossaryValidation</code></td><td>GlossaryValidation</td><td>int</td><td><span class="badge badge-high">✗</span></td><td><span class="badge badge-high">✗</span></td><td>UserId como string (único en el sistema)</td></tr>
+  <tr><td><code>MedicoDirectorio</code></td><td>MedicosDirectorio</td><td>int</td><td><span class="badge badge-low">✓ Eliminado</span></td><td><span class="badge badge-low">✓</span></td><td>Sin índice en AspNetUserId, EmailSolicitudClaim sin índice</td></tr>
+  <tr><td><code>MedicoPerfilExtendido</code></td><td>MedicoPerfilExtendido</td><td>int</td><td><span class="badge badge-high">✗</span></td><td><span class="badge badge-low">✓</span></td><td>Sin soft delete, Hospitales como JSON string</td></tr>
+  <tr><td><code>DirectorioMedicoConfirmacion</code></td><td>DirectorioMedicoConfirmacion</td><td>int</td><td><span class="badge badge-low">✓</span></td><td><span class="badge badge-high">✗</span></td><td>Sin FK a MedicoDirectorio, <strong>LEGACY DUPLICADO</strong></td></tr>
+  <tr><td><code>ConfirmacionComunitaria</code></td><td>ConfirmacionComunitaria</td><td>int</td><td><span class="badge badge-low">✓</span></td><td><span class="badge badge-low">Parcial</span></td><td>Sin FechaModificado</td></tr>
+  <tr><td><code>MedicoAreaEii</code></td><td>MedicoAreaEii</td><td>composite</td><td><span class="badge badge-high">✗</span></td><td><span class="badge badge-high">✗</span></td><td>Cascade delete peligroso desde condiciones</td></tr>
+  <tr><td><code>Aplicaciones</code></td><td>Aplicaciones</td><td>Guid</td><td><span class="badge badge-high">✗</span></td><td><span class="badge badge-high">✗</span></td><td><strong>CÓDIGO MUERTO</strong>, FK comentada</td></tr>
+  <tr><td><code>ZonaHoraria</code></td><td>ZonaHoraria</td><td>int</td><td><span class="badge badge-high">✗</span></td><td><span class="badge badge-high">✗</span></td><td>Funcionalidad nunca implementada</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
+<div style="margin-top:32px;padding-top:16px;border-top:1px solid var(--border);color:var(--muted);font-size:12px">
+  05-modelos.html · 30 hallazgos MDL · <a href="04-modulos.html">← Módulos</a> · <a href="06-bd-relaciones.html">BD →</a>
+</div>
+</div>
+
+<script>
+function filterFindings(sev, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active','active-high','active-medium','active-low'));
+  btn.classList.add('active', sev !== 'all' ? 'active-'+sev : '');
+  document.querySelectorAll('#mdl-list .finding').forEach(f => {
+    f.style.display = (sev === 'all' || f.dataset.sev === sev) ? '' : 'none';
+  });
+}
+</script>
+</body>
+</html>

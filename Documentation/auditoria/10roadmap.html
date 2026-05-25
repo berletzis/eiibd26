@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>10 · Roadmap Técnico — Auditoría EIIBD</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <div>
+      <div class="breadcrumb"><a href="00-index.html">← Índice</a></div>
+      <h1>10 · Roadmap Técnico</h1>
+      <p class="subtitle">Plan de acción consolidado en 4 fases · 192 hallazgos priorizados · Sin migraciones EF Core</p>
+    </div>
+    <div class="header-meta">
+      <span class="badge badge-high">Fase 1: Inmediato (0-2 sem)</span>
+      <span class="badge badge-medium">Fase 2: Corto (1-2 mes)</span>
+      <span class="badge badge-low">Fase 3: Medio (1 trim)</span>
+      <span class="badge" style="background:#334;color:#aab">Fase 4: Largo (6+ mes)</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- KPI global -->
+<div class="kpi-grid" style="margin-bottom:2rem">
+  <div class="kpi-card">
+    <div class="kpi-value kpi-high">56</div>
+    <div class="kpi-label">HIGH — Acción requerida</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value kpi-medium">90</div>
+    <div class="kpi-label">MEDIUM — Planificar</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value kpi-low">46</div>
+    <div class="kpi-label">LOW — Backlog</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" style="color:#7eb8f7">192</div>
+    <div class="kpi-label">Total hallazgos</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" style="color:#ff4646">10</div>
+    <div class="kpi-label">Críticos de seguridad/clínica</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" style="color:#5fc97e">4</div>
+    <div class="kpi-label">Fases de remediación</div>
+  </div>
+</div>
+
+<!-- Alert crítico -->
+<div class="finding high" style="background:rgba(255,70,70,0.08);border-left:4px solid #ff4646;padding:1rem 1.5rem;margin-bottom:2rem;border-radius:4px">
+  <strong style="color:#ff4646">⚠ TOP 3 — Atención inmediata antes de cualquier otra tarea</strong><br>
+  <strong>1.</strong> <a href="01-arquitectura.html">ARCH-003</a> — Contenido VIH hardcodeado en aplicación de EII (riesgo clínico)<br>
+  <strong>2.</strong> <a href="04-modulos.html">FUNC-022</a> — VincularAsync no actualiza EstatusReclamacion → NivelConfianza siempre 0<br>
+  <strong>3.</strong> <a href="02-seguridad.html">SEC-004/005</a> — Votos anónimos con IP spoofable
+</div>
+
+<!-- ─── FASE 1 ─────────────────────────────────────────────── -->
+<div class="phase-card phase-1">
+  <div class="phase-header">
+    <h2 style="margin:0">Fase 1 — Inmediato <span style="font-size:0.9rem;font-weight:400;color:var(--muted)">(0–2 semanas)</span></h2>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+      <span class="badge badge-high">Seguridad crítica</span>
+      <span class="badge badge-high">Integridad de datos</span>
+      <span class="badge badge-high">Safety clínica</span>
+    </div>
+  </div>
+
+  <p>Solo fixes de alto impacto que no requieren refactorización. Cada uno es aislado y reversible. Build limpio después de cada cambio.</p>
+
+  <h3 style="color:var(--h-text)">1A · Safety clínica — 1 ítem</h3>
+  <table class="data-table">
+    <thead><tr><th>ID</th><th>Acción</th><th>Archivo</th><th>Esfuerzo</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><a href="01-arquitectura.html">ARCH-003</a></td>
+        <td>Eliminar o corregir contenido de VIH hardcodeado en NinaModelRouterService. Reemplazar por contenido específico de EII o por variable de configuración externa.</td>
+        <td><code>Services/AI/NinaModelRouterService.cs</code></td>
+        <td>1–2h</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 style="color:var(--h-text)">1B · Integridad de datos — 3 ítems</h3>
+  <table class="data-table">
+    <thead><tr><th>ID</th><th>Acción</th><th>Archivo</th><th>Esfuerzo</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><a href="04-modulos.html">FUNC-022</a></td>
+        <td>En VincularAsync: setear EstatusReclamacion = Reclamado y NivelConfianza apropiado después de confirmar la reclamación médica.</td>
+        <td><code>Pages/Reclamacion/ o Service de Directorio</code></td>
+        <td>2–3h</td>
+      </tr>
+      <tr>
+        <td><a href="04-modulos.html">FUNC-023</a></td>
+        <td>Unificar los dos flujos de confirmación de reclamación que escriben a tablas distintas. Identificar cuál es el flujo canónico y eliminar el redundante.</td>
+        <td><code>Services/Medico/ · Pages/Admin/</code></td>
+        <td>3–4h</td>
+      </tr>
+      <tr>
+        <td><a href="04-modulos.html">FUNC-013</a></td>
+        <td>Añadir check de duplicado antes de crear resultado de laboratorio. Verificar si existe un resultado con el mismo PatientId + CategoryId + Fecha.</td>
+        <td><code>Pages/UsuarioLaboratorios.cshtml.cs</code></td>
+        <td>1–2h</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 style="color:var(--h-text)">1C · Seguridad de autenticación — 4 ítems</h3>
+  <table class="data-table">
+    <thead><tr><th>ID</th><th>Acción</th><th>Archivo</th><th>Esfuerzo</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><a href="02-seguridad.html">SEC-010</a></td>
+        <td>Añadir verificación de ownership en endpoint de creación de estado de ánimo: el userId del body debe coincidir con el usuario autenticado.</td>
+        <td><code>Controllers/EstadoAnimoApiController.cs</code></td>
+        <td>30min</td>
+      </tr>
+      <tr>
+        <td><a href="02-seguridad.html">SEC-011</a></td>
+        <td>Añadir verificación de ownership en endpoint de tracking de síntomas: el userId debe coincidir con el usuario autenticado.</td>
+        <td><code>Controllers/SintomasApiController.cs</code></td>
+        <td>30min</td>
+      </tr>
+      <tr>
+        <td><a href="02-seguridad.html">SEC-008</a></td>
+        <td>Revisar el uso de [IgnoreAntiforgeryToken] en UsuarioLaboratorios y UsuarioCondiciones. Si es necesario para AJAX, usar header-based CSRF token en lugar de ignorar la protección.</td>
+        <td><code>Pages/UsuarioLaboratorios.cshtml.cs · UsuarioCondiciones.cshtml.cs</code></td>
+        <td>2h</td>
+      </tr>
+      <tr>
+        <td><a href="02-seguridad.html">SEC-012</a></td>
+        <td>Eliminar el role "Admin" del seed si no se usa, o documentar su uso explícitamente. Todas las policies deben usar "Administrador".</td>
+        <td><code>Program.cs o SeedData</code></td>
+        <td>30min</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 style="color:var(--h-text)">1D · Fixes pendientes de CLAUDE.md — 3 ítems</h3>
+  <table class="data-table">
+    <thead><tr><th>ID</th><th>Acción</th><th>Archivo</th><th>Esfuerzo</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>C-01</td>
+        <td>Agregar &&!IsInRole("Administrador") al bloque Paciente del sidebar para que el menú de paciente no aparezca para administradores.</td>
+        <td><code>Pages/Shared/_SidebarMenu.cshtml</code></td>
+        <td>15min</td>
+      </tr>
+      <tr>
+        <td>C-02</td>
+        <td>Top-menu muestra email en lugar del nombre del médico. Inyectar ApplicationDbContext y leer Perfil.Nombre.</td>
+        <td><code>_TopMenuDesktop.cshtml · _TopMenuMobile.cshtml</code></td>
+        <td>1h</td>
+      </tr>
+      <tr>
+        <td>C-03 (Hook)</td>
+        <td>Añadir llamada a EvaluarBadgesAutomaticosAsync en GlossaryService.AddValidationAsync (en try-catch).</td>
+        <td><code>Services/Glossary/GlossaryService.cs</code></td>
+        <td>30min</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ─── FASE 2 ─────────────────────────────────────────────── -->
+<div class="phase-card phase-2">
+  <div class="phase-header">
+    <h2 style="margin:0">Fase 2 — Corto plazo <span style="font-size:0.9rem;font-weight:400;color:var(--muted)">(1–2 meses)</span></h2>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+      <span class="badge badge-medium">Performance crítica</span>
+      <span class="badge badge-medium">IDOR sistémico</span>
+      <span class="badge badge-medium">Índices BD</span>
+    </div>
+  </div>
+
+  <p>Mejoras de performance de alto impacto y corrección del patrón IDOR sistémico. Requieren más planificación pero son cambios aislados sin refactorización masiva.</p>
+
+  <h3 style="color:var(--m-text)">2A · Performance — Top hotspots</h3>
+  <table class="data-table">
+    <thead><tr><th>ID</th><th>Acción</th><th>Impacto esperado</th><th>Esfuerzo</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><a href="07-performance.html">PERF-001/002</a></td>
+        <td>Reescribir SearchSuggestionService con query UNION única + IMemoryCache (TTL 5min). Reducir de 16 queries a 1 query + caché.</td>
+        <td>-94% queries de búsqueda</td>
+        <td>1 día</td>
+      </tr>
+      <tr>
+        <td><a href="07-performance.html">PERF-003</a></td>
+        <td>Añadir índices Full-Text Search en SQL Server para columnas de búsqueda de catálogo. (Script SQL directo, sin migración EF Core)</td>
+        <td>-80% tiempo de query de búsqueda</td>
+        <td>2h + DBA review</td>
+      </tr>
+      <tr>
+        <td><a href="07-performance.html">PERF-004/005</a></td>
+        <td>Refactorizar GetTopTermsByQualityAsync: reemplazar 5 subqueries correlacionadas por LEFT JOINs con GROUP BY en una sola query.</td>
+        <td>-98% queries en glosario top terms</td>
+        <td>4h</td>
+      </tr>
+      <tr>
+        <td><a href="07-performance.html">PERF-008</a></td>
+        <td>Reemplazar Task.Factory.StartNew(LongRunning) con IBackgroundJobClient.Enqueue() de Hangfire para todos los jobs de IA.</td>
+        <td>-N OS threads por job IA</td>
+        <td>2h</td>
+      </tr>
+      <tr>
+        <td><a href="07-performance.html">PERF-010</a></td>
+        <td>Añadir .AsNoTracking() a las 12 queries de solo lectura identificadas.</td>
+        <td>Reducción de memoria en ChangeTracker</td>
+        <td>2h (12 cambios pequeños)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 style="color:var(--m-text)">2B · Seguridad — IDOR sistémico (7 endpoints)</h3>
+  <table class="data-table">
+    <thead><tr><th>Endpoints afectados</th><th>Patrón de fix</th><th>Esfuerzo</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>CondicionUsuario CRUD, SintomaUsuario CRUD, TratamientoUsuario CRUD, EstadoAnimo, TrackingSintoma, Laboratorios, Notas</td>
+        <td>Antes de operar sobre un record, verificar: <code>if (record.IdUsuario != currentUserId) return Forbid()</code>. Mismo patrón en los 7 endpoints.</td>
+        <td>3–4h total (patrón repetible)</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="code-block">// Patrón a repetir en todos los endpoints afectados:
+var record = await _db.EntityTable.FindAsync(id);
+if (record == null) return NotFound();
+if (record.IdUsuario != _userManager.GetUserId(User))
+    return Forbid(); // nunca revelar que existe (404 vs 403 - elegir según política)
+// ... continuar con la operación</div>
+
+  <h3 style="color:var(--m-text)">2C · Base de datos — Índices críticos (SQL directo)</h3>
+  <table class="data-table">
+    <thead><tr><th>ID</th><th>Script SQL</th><th>Tabla objetivo</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><a href="06-bd-relaciones.html">DB-001</a></td>
+        <td>CREATE INDEX IX_condicionUsuario_idUsuario · IX_sintomasUsuario · IX_tratamientoUsuario</td>
+        <td>3 tablas clínicas principales</td>
+      </tr>
+      <tr>
+        <td><a href="06-bd-relaciones.html">DB-002</a></td>
+        <td>CREATE INDEX IX_EstadoAnimoUsuario_IdUsuario_Fecha (compuesto)</td>
+        <td>EstadoAnimoUsuario</td>
+      </tr>
+      <tr>
+        <td><a href="06-bd-relaciones.html">DB-004</a></td>
+        <td>CREATE INDEX IX_NotificationSubscription_UserId · IX_PatientLaboratoryResult_PatientId</td>
+        <td>Notificaciones y laboratorios</td>
+      </tr>
+      <tr>
+        <td><a href="06-bd-relaciones.html">DB-010</a></td>
+        <td>CREATE INDEX IX_TrackingSintomaUsuario_IdUsuario_Fecha</td>
+        <td>TrackingSintomaUsuario</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="color:var(--muted);font-size:0.85rem">⚠ Todos los scripts de índice deben ejecutarse en horario de baja actividad. Verificar en staging primero.</p>
+
+  <h3 style="color:var(--m-text)">2D · Modelos — DbSet faltantes y FK sin configurar</h3>
+  <table class="data-table">
+    <thead><tr><th>ID</th><th>Acción</th><th>Archivo</th><th>Esfuerzo</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><a href="05-modelos.html">MDL-004/005</a></td>
+        <td>Añadir DbSet&lt;AIRequestLog&gt;, DbSet&lt;SintomasNotas&gt;, DbSet&lt;TratamientosNotas&gt; a ApplicationDbContext.</td>
+        <td><code>Data/ApplicationDbContext.cs</code></td>
+        <td>30min</td>
+      </tr>
+      <tr>
+        <td><a href="06-bd-relaciones.html">DB-008/009</a></td>
+        <td>Configurar explícitamente las FK de Pregunta.UsuarioId y Respuesta.UsuarioId en OnModelCreating con OnDelete(Restrict).</td>
+        <td><code>Data/ApplicationDbContext.cs</code></td>
+        <td>1h</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ─── FASE 3 ─────────────────────────────────────────────── -->
+<div class="phase-card phase-3">
+  <div class="phase-header">
+    <h2 style="margin:0">Fase 3 — Medio plazo <span style="font-size:0.9rem;font-weight:400;color:var(--muted)">(1 trimestre)</span></h2>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+      <span class="badge badge-low">Consolidación CSS</span>
+      <span class="badge badge-low">Refactoring de servicios</span>
+      <span class="badge badge-low">Deuda técnica UI</span>
+    </div>
+  </div>
+
+  <p>Mejoras estructurales que requieren refactorización planificada. No son urgentes pero acumulan deuda técnica exponencialmente si se posponen indefinidamente.</p>
+
+  <h3 style="color:var(--l-text)">3A · Consolidación CSS</h3>
+  <ul>
+    <li><strong>UI-001:</strong> Centralizar todas las custom properties CSS en <code>site.css</code>. Eliminar los bloques <code>:root</code> de los 6 archivos secundarios.</li>
+    <li><strong>UI-007:</strong> Mover CSS inline de las 12 páginas afectadas a sus archivos .css correspondientes.</li>
+    <li><strong>UI-008:</strong> Mover JavaScript inline a archivos .js externos. Usar <code>data-*</code> attributes para pasar datos del servidor.</li>
+    <li><strong>UI-017:</strong> Consolidar a una sola librería de iconos (Bootstrap Icons o FontAwesome, no ambas).</li>
+  </ul>
+
+  <h3 style="color:var(--l-text)">3B · División de servicios god-object</h3>
+  <table class="data-table">
+    <thead><tr><th>Servicio</th><th>Líneas</th><th>Responsabilidades a separar</th><th>ID</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>GlossaryService.cs</code></td>
+        <td>731</td>
+        <td>Separar: búsqueda · validación comunitaria · ranking de calidad · exportación</td>
+        <td><a href="01-arquitectura.html">ARCH-001</a></td>
+      </tr>
+      <tr>
+        <td><code>Detalles.cshtml</code></td>
+        <td>1963</td>
+        <td>Extraer: partial views por sección (header, badges, tabs, Q&amp;A)</td>
+        <td><a href="08-ui.html">UI-003</a></td>
+      </tr>
+      <tr>
+        <td><code>NinaModelRouterService.cs</code></td>
+        <td>&gt;400</td>
+        <td>Separar: clasificación de complejidad · routing · safety layers · prompt building</td>
+        <td><a href="01-arquitectura.html">ARCH-002</a></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 style="color:var(--l-text)">3C · Performance — mejoras secundarias</h3>
+  <ul>
+    <li><strong>PERF-009:</strong> Añadir paginación (Take/Skip) a la carga de resultados de laboratorio.</li>
+    <li><strong>PERF-011:</strong> Mover cálculos de HealthInsightService de memoria a agregaciones SQL (AVG, GROUP BY por mes).</li>
+    <li><strong>PERF-013:</strong> Usar Task.WhenAll() para las 6-8 queries paralelas del dashboard médico.</li>
+    <li><strong>PERF-019:</strong> Hacer la carga de Chart.js condicional (solo en páginas que lo usan).</li>
+    <li><strong>PERF-022:</strong> Añadir .AsSplitQuery() a queries con múltiples colecciones Include() paralelas.</li>
+  </ul>
+
+  <h3 style="color:var(--l-text)">3D · Seguridad — mejoras de nivel medio</h3>
+  <ul>
+    <li><strong>SEC-001/002/003:</strong> Documentar o proteger los endpoints de catálogo públicos (condiciones, síntomas, tratamientos). Si son intencionales, añadir comentario. Si no, añadir [Authorize].</li>
+    <li><strong>SEC-004/005:</strong> Reemplazar deduplicación de votos por IP con deduplicación por UserId (para usuarios autenticados) o session token persistente (para anónimos).</li>
+    <li><strong>DEP-001:</strong> Downgrade de DataProtection.Extensions de 10.0.3 a 8.x.x.</li>
+    <li><strong>DEP-002:</strong> Verificar si CodeGeneration.Design se usa activamente; si no, eliminar o mover a herramienta local dotnet-tools.json.</li>
+    <li><strong>DEP-003:</strong> Migrar de WebPush-NetCore (sin mantenimiento desde 2017) a Lib.Net.Http.WebPush.</li>
+  </ul>
+
+  <h3 style="color:var(--l-text)">3E · Modelos — inconsistencias</h3>
+  <ul>
+    <li><strong>MDL-017:</strong> Definir un campo de soft-delete canónico (propuesta: <code>Eliminado</code> para todas las entidades). Actualizar entidades que usan <code>Borrado</code>.</li>
+    <li><strong>MDL-019:</strong> Cambiar <code>GlossaryValidation.UserId</code> de <code>string</code> a <code>Guid</code> para consistencia con el resto del sistema.</li>
+    <li><strong>MDL-003:</strong> Cambiar <code>estudiosLab.idPadre</code> de <code>string</code> a <code>int?</code>.</li>
+  </ul>
+</div>
+
+<!-- ─── FASE 4 ─────────────────────────────────────────────── -->
+<div class="phase-card phase-4">
+  <div class="phase-header">
+    <h2 style="margin:0">Fase 4 — Largo plazo <span style="font-size:0.9rem;font-weight:400;color:var(--muted)">(6+ meses)</span></h2>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+      <span class="badge" style="background:#334;color:#aab">Mejoras arquitectónicas</span>
+      <span class="badge" style="background:#334;color:#aab">PWA completo</span>
+      <span class="badge" style="background:#334;color:#aab">Accesibilidad WCAG</span>
+    </div>
+  </div>
+
+  <p>Mejoras estratégicas de alto esfuerzo que transforman la arquitectura del sistema. Requieren planificación de sprints dedicados y revisión de requisitos.</p>
+
+  <h3>4A · Arquitectura</h3>
+  <ul>
+    <li>Evaluar extracción de módulo de Directorio Médico como área separada con su propio contexto de BD (bounded context)</li>
+    <li>Implementar output caching para páginas públicas del directorio y glosario (ASP.NET Core 8 Output Caching)</li>
+    <li>Considerar separación del worker NINA a un proyecto independiente (ya existe NINA-WorkerService — consolidar)</li>
+    <li>Implementar API versioning para los controllers que tienen consumidores externos</li>
+  </ul>
+
+  <h3>4B · Performance avanzada</h3>
+  <ul>
+    <li>Implementar SQL Server Full-Text Search completo para búsqueda de glosario y directorio</li>
+    <li>Evaluar uso de Redis/IDistributedCache para caché de búsquedas compartida entre instancias</li>
+    <li>Implementar paginación cursor-based para historiales clínicos largos</li>
+    <li>Migrar notificaciones push de polling a WebSockets/SignalR</li>
+    <li>Añadir Limit de workers concurrentes para la queue "ai" de Hangfire</li>
+  </ul>
+
+  <h3>4C · Calidad de código</h3>
+  <ul>
+    <li>Añadir test coverage: al menos Services críticos (GlossaryService, NinaModelRouterService, BadgeService)</li>
+    <li>Integrar análisis estático (SonarQube o Roslyn analyzers) en el pipeline CI</li>
+    <li>Configurar <code>dotnet list package --vulnerable</code> como gate de CI</li>
+    <li>Documentar API con Swagger/OpenAPI para todos los controllers</li>
+  </ul>
+
+  <h3>4D · UX/Accesibilidad</h3>
+  <ul>
+    <li>Audit completo WCAG 2.1 AA con herramienta automática (axe, Lighthouse) + revisión manual</li>
+    <li>Implementar modo oscuro completo (prefers-color-scheme + toggle manual)</li>
+    <li>Completar PWA: manifest.json con todos los iconos, offline support para páginas clave</li>
+    <li>Open Graph + meta description dinámica para páginas del directorio médico</li>
+    <li>Migrar iconografía a una sola librería (eliminar la duplicación Bootstrap Icons / FontAwesome)</li>
+  </ul>
+
+  <h3>4E · Seguridad avanzada</h3>
+  <ul>
+    <li>Implementar rate limiting a nivel de middleware (ASP.NET Core 8 Rate Limiting built-in)</li>
+    <li>Revisar y documentar todos los endpoints públicos no autorizados (intencionales vs accidentales)</li>
+    <li>Implementar audit log de accesos a datos clínicos (¿quién accedió a qué y cuándo?)</li>
+    <li>Security headers: Content-Security-Policy, HSTS, X-Frame-Options</li>
+    <li>Rotar API keys de Anthropic, SendGrid y Twilio periódicamente</li>
+  </ul>
+</div>
+
+<!-- ─── Resumen ejecutivo ──────────────────────────────────── -->
+<h2>Resumen ejecutivo — Riesgo por categoría</h2>
+
+<div style="overflow-x:auto">
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Categoría</th>
+      <th>HIGH</th>
+      <th>MEDIUM</th>
+      <th>LOW</th>
+      <th>Total</th>
+      <th>Riesgo global</th>
+      <th>Fase prioritaria</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="01-arquitectura.html">01 · Arquitectura</a></td>
+      <td>3</td>
+      <td>4</td>
+      <td>2</td>
+      <td>9</td>
+      <td class="badge badge-high">ALTO</td>
+      <td>Fase 1 (ARCH-003) + Fase 3</td>
+    </tr>
+    <tr>
+      <td><a href="02-seguridad.html">02 · Seguridad</a></td>
+      <td>12</td>
+      <td>4</td>
+      <td>2</td>
+      <td>18</td>
+      <td class="badge badge-high">ALTO</td>
+      <td>Fase 1 + Fase 2</td>
+    </tr>
+    <tr>
+      <td><a href="03-roles-permisos.html">03 · Roles / Permisos</a></td>
+      <td>7</td>
+      <td>5</td>
+      <td>—</td>
+      <td>12</td>
+      <td class="badge badge-high">ALTO</td>
+      <td>Fase 2 (IDOR sistémico)</td>
+    </tr>
+    <tr>
+      <td><a href="04-modulos.html">04 · Módulos funcionales</a></td>
+      <td>8</td>
+      <td>14</td>
+      <td>7</td>
+      <td>29</td>
+      <td class="badge badge-high">ALTO</td>
+      <td>Fase 1 (FUNC-022/023)</td>
+    </tr>
+    <tr>
+      <td><a href="05-modelos.html">05 · Modelos</a></td>
+      <td>5</td>
+      <td>15</td>
+      <td>10</td>
+      <td>30</td>
+      <td class="badge badge-medium">MEDIO</td>
+      <td>Fase 2 + Fase 3</td>
+    </tr>
+    <tr>
+      <td><a href="06-bd-relaciones.html">06 · BD / Relaciones</a></td>
+      <td>5</td>
+      <td>8</td>
+      <td>4</td>
+      <td>17</td>
+      <td class="badge badge-high">ALTO</td>
+      <td>Fase 2 (índices SQL)</td>
+    </tr>
+    <tr>
+      <td><a href="07-performance.html">07 · Performance</a></td>
+      <td>8</td>
+      <td>18</td>
+      <td>13</td>
+      <td>39</td>
+      <td class="badge badge-high">ALTO</td>
+      <td>Fase 2 (SearchSuggestion)</td>
+    </tr>
+    <tr>
+      <td><a href="08-ui.html">08 · UI / CSS / JS</a></td>
+      <td>5</td>
+      <td>19</td>
+      <td>14</td>
+      <td>38</td>
+      <td class="badge badge-medium">MEDIO</td>
+      <td>Fase 3</td>
+    </tr>
+    <tr>
+      <td><a href="09-dependencias.html">09 · Dependencias</a></td>
+      <td>2</td>
+      <td>5</td>
+      <td>6</td>
+      <td>13</td>
+      <td class="badge badge-medium">MEDIO</td>
+      <td>Fase 3</td>
+    </tr>
+    <tr style="font-weight:bold;background:rgba(255,255,255,0.03)">
+      <td>TOTAL</td>
+      <td class="badge badge-high">55</td>
+      <td class="badge badge-medium">92</td>
+      <td class="badge badge-low">58</td>
+      <td>205*</td>
+      <td class="badge badge-high">ALTO</td>
+      <td>—</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+<p style="color:var(--muted);font-size:0.8rem">* Los totales incluyen hallazgos de código muerto y otras categorías no enumeradas individualmente. El índice reporta 192 hallazgos únicos.</p>
+
+<!-- Quick wins -->
+<h2>Quick wins — máximo impacto, mínimo esfuerzo</h2>
+
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-value" style="color:#5fc97e;font-size:1.5rem">30 min</div>
+    <div class="kpi-label">SEC-010/011 — Fix IDOR por endpoint (×7)</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" style="color:#5fc97e;font-size:1.5rem">30 min</div>
+    <div class="kpi-label">MDL-004/005 — Añadir 3 DbSet faltantes</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" style="color:#5fc97e;font-size:1.5rem">2h</div>
+    <div class="kpi-label">PERF-010 — AsNoTracking() en 12 queries</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" style="color:#5fc97e;font-size:1.5rem">2h</div>
+    <div class="kpi-label">DB-001 — Índices en 3 tablas clínicas (SQL)</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" style="color:#5fc97e;font-size:1.5rem">1h</div>
+    <div class="kpi-label">PERF-008 — StartNew → Hangfire.Enqueue</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" style="color:#5fc97e;font-size:1.5rem">15 min</div>
+    <div class="kpi-label">C-01 — Sidebar menu fix admin/paciente</div>
+  </div>
+</div>
+
+<!-- Criterios de éxito -->
+<h2>Criterios de éxito por fase</h2>
+
+<table class="data-table">
+  <thead>
+    <tr><th>Fase</th><th>Criterio de éxito</th><th>Métrica</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="badge badge-high">Fase 1</td>
+      <td>Contenido VIH eliminado · FUNC-022 corregido · IDOR críticos parcheados · C-01/C-02 del backlog resueltos</td>
+      <td>0 hallazgos High de safety clínica · NivelConfianza correcto en reclamaciones</td>
+    </tr>
+    <tr>
+      <td class="badge badge-medium">Fase 2</td>
+      <td>SearchSuggestionService &lt;2 queries/búsqueda · IDOR sistémico resuelto en 7 endpoints · Índices BD aplicados</td>
+      <td>&lt;2 queries/búsqueda (Monitoring APM) · 0 IDOR en endpoints clínicos</td>
+    </tr>
+    <tr>
+      <td class="badge badge-low">Fase 3</td>
+      <td>Un solo bloque :root en CSS · GlossaryService &lt;300 líneas · 0 CSS inline en páginas · WebPush actualizado</td>
+      <td>1 :root en site.css · Lighthouse performance &gt;70 · 0 paquetes sin mantenimiento</td>
+    </tr>
+    <tr>
+      <td style="color:#aab">Fase 4</td>
+      <td>Test coverage &gt;60% en servicios críticos · WCAG 2.1 AA aprobado · Rate limiting activo</td>
+      <td>Coverage report · Lighthouse accessibility &gt;90 · 0 responses 429 en tests de carga</td>
+    </tr>
+  </tbody>
+</table>
+
+</main>
+
+<footer>
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem">
+    <span>Auditoría EIIBD · 2026-05-25 · Fase 10/10 — Roadmap Técnico</span>
+    <div style="display:flex;gap:1rem">
+      <a href="09-dependencias.html">← 09 Dependencias</a>
+      <a href="00-index.html">↑ Índice general</a>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

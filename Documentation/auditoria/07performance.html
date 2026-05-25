@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>07 · Performance — Auditoría EIIBD</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <div>
+      <div class="breadcrumb"><a href="00-index.html">← Índice</a></div>
+      <h1>07 · Performance</h1>
+      <p class="subtitle">N+1 queries · AsNoTracking faltante · Queries sin límite · Operaciones síncronas en async · Task.Factory.StartNew en I/O</p>
+    </div>
+    <div class="header-meta">
+      <span class="badge badge-high">8 HIGH</span>
+      <span class="badge badge-medium">18 MEDIUM</span>
+      <span class="badge badge-low">13 LOW</span>
+      <span class="badge" style="background:#334;color:#aab">39 total</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- KPI -->
+<div class="kpi-grid" style="margin-bottom:2rem">
+  <div class="kpi-card">
+    <div class="kpi-value kpi-high">8</div>
+    <div class="kpi-label">HIGH</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value kpi-medium">18</div>
+    <div class="kpi-label">MEDIUM</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value kpi-low">13</div>
+    <div class="kpi-label">LOW</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" style="color:#ff4646">16+</div>
+    <div class="kpi-label">DB roundtrips/búsqueda</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" style="color:#e8a838">12</div>
+    <div class="kpi-label">Queries sin AsNoTracking</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" style="color:#e8a838">3</div>
+    <div class="kpi-label">Queries sin Take()</div>
+  </div>
+</div>
+
+<!-- Alert: worst offender -->
+<div class="finding high" style="background:rgba(255,70,70,0.08);border-left:4px solid #ff4646;padding:1rem 1.5rem;margin-bottom:2rem;border-radius:4px">
+  <strong style="color:#ff4646">⚠ PEOR CASO — PERF-001/002/003</strong><br>
+  <code>SearchSuggestionService</code> ejecuta <strong>hasta 16 queries de BD por búsqueda de autocompletado</strong>.
+  Con uso concurrente, este servicio puede saturar el pool de conexiones. Es el hotspot de performance #1 del sistema.
+</div>
+
+<!-- Filter -->
+<div class="filter-bar">
+  <button class="filter-btn active" onclick="filterFindings('all',this)">Todos (39)</button>
+  <button class="filter-btn" onclick="filterFindings('high',this)">HIGH (8)</button>
+  <button class="filter-btn" onclick="filterFindings('medium',this)">MEDIUM (18)</button>
+  <button class="filter-btn" onclick="filterFindings('low',this)">LOW (13)</button>
+</div>
+
+<!-- ─── HIGH ─────────────────────────────────────────────── -->
+<h2>HIGH — N+1 y hotspots críticos</h2>
+
+<div class="finding high" data-sev="high">
+  <div class="finding-header">
+    <span class="finding-id">PERF-001</span>
+    <span class="badge badge-high">HIGH</span>
+    <span class="finding-title">SearchSuggestionService — loop N+1: 5 keywords × 3 entidades = hasta 16 queries por request</span>
+  </div>
+  <p>El servicio de sugerencias de búsqueda itera sobre una lista de keywords extraídas de la query del usuario y, para cada keyword, lanza queries separadas hacia múltiples entidades (condiciones, síntomas, tratamientos). El bucle no tiene paralelismo ni batching.</p>
+  <div class="code-block">// Services/Search/SearchSuggestionService.cs (aproximado)
+foreach (var keyword in keywords) // hasta 5 keywords
+{
+    var condiciones = await _db.Condiciones.Where(c => c.Nombre.Contains(keyword)).Take(3).ToListAsync();
+    var sintomas    = await _db.Sintomas.Where(s => s.Nombre.Contains(keyword)).Take(3).ToListAsync();
+    var tratamientos = await _db.Tratamientos.Where(t => t.Nombre.Contains(keyword)).Take(3).ToListAsync();
+    // + consultas adicionales para glossary, contenido...
+}</div>
+  <p><strong>Impacto:</strong> Cada keystroke del usuario dispara hasta 16 roundtrips síncronos a BD. Con 50 usuarios simultáneos en autocompletado → 800 queries concurrentes.</p>
+  <div class="finding-meta">
+    <span>Archivo: Services/Search/SearchSuggestionService.cs</span>
+    <span>Solución: query UNION única con FTS o un índice de búsqueda unificado</span>
+  </div>
+</div>
+
+<div class="finding high" data-sev="high">
+  <div class="finding-header">
+    <span class="finding-id">PERF-002</span>
+    <span class="badge badge-high">HIGH</span>
+    <span class="finding-title">SearchSuggestionService — sin caché de resultados de búsqueda</span>
+  </div>
+  <p>Las sugerencias de búsqueda no tienen ninguna capa de caché. Dos usuarios buscando el mismo término en el mismo segundo ejecutan 32 queries idénticas. El servicio es stateless y los resultados son estables (catálogo de condiciones/síntomas cambia raramente).</p>
+  <p><strong>Solución de bajo esfuerzo:</strong> <code>IMemoryCache</code> con TTL de 5 minutos indexado por el texto de búsqueda normalizado reduciría el 90%+ de queries de búsqueda.</p>
+  <div class="finding-meta">
+    <span>Archivo: Services/Search/SearchSuggestionService.cs</span>
+  </div>
+</div>
+
+<div class="finding high" data-sev="high">
+  <div class="finding-header">
+    <span class="finding-id">PERF-003</span>
+    <span class="badge badge-high">HIGH</span>
+    <span class="finding-title">SearchSuggestionService — LIKE '%keyword%' sin índice fulltext</span>
+  </div>
+  <p>Las queries de búsqueda usan <code>Contains(keyword)</code> que EF Core traduce a <code>LIKE '%keyword%'</code>. El operador <code>LIKE</code> con wildcard inicial (<code>%</code>) no puede usar índices B-tree estándar — siempre hace full scan. En tablas grandes de glosario y contenido, esto es O(n) por query.</p>
+  <div class="finding-meta">
+    <span>Afecta: todas las entidades en SearchSuggestionService</span>
+    <span>Solución: SQL Server Full-Text Search o índice sobre columna computada normalizada</span>
+  </div>
+</div>
+
+<div class="finding high" data-sev="high">
+  <div class="finding-header">
+    <span class="finding-id">PERF-004</span>
+    <span class="badge badge-high">HIGH</span>
+    <span class="finding-title">GlossaryService.GetTopTermsByQualityAsync — 5 subqueries correlacionadas por fila</span>
+  </div>
+  <p><code>GetTopTermsByQualityAsync</code> calcula métricas de calidad para cada término del glosario usando subqueries correlacionadas dentro del <code>Select</code>. EF Core las convierte en N subqueries ejecutadas por cada fila resultado.</p>
+  <div class="code-block">// GlossaryService.cs — patrón problemático (aproximado)
+var terms = await _db.GlossaryTerms
+    .Select(t => new TermQualityDto {
+        Term = t,
+        ValidationCount = _db.GlossaryValidations.Count(v => v.TermId == t.Id),  // subquery
+        ApprovalCount   = _db.GlossaryValidations.Count(v => v.TermId == t.Id && v.Approved), // subquery
+        CommentCount    = _db.Comments.Count(c => c.TermId == t.Id),              // subquery
+        HasMedia        = _db.GlossaryMedia.Any(m => m.TermId == t.Id),          // subquery
+        QualityScore    = ...                                                      // subquery
+    }).ToListAsync();</div>
+  <p>Con 500 términos en el glosario, esto genera hasta 2500+ queries por llamada.</p>
+  <div class="finding-meta">
+    <span>Archivo: Services/Glossary/GlossaryService.cs</span>
+    <span>Solución: LEFT JOIN con GROUP BY para agregar en una sola query</span>
+  </div>
+</div>
+
+<div class="finding high" data-sev="high">
+  <div class="finding-header">
+    <span class="finding-id">PERF-005</span>
+    <span class="badge badge-high">HIGH</span>
+    <span class="finding-title">GlossaryService — 2 filtros Any() correlacionados adicionales por fila</span>
+  </div>
+  <p>Además de las 5 subqueries de PERF-004, <code>GlossaryService</code> aplica 2 filtros <code>Any()</code> correlacionados en memoria después de materializar, iterando sobre colecciones ya cargadas para filtrar por criterios de calidad. Doble penalización: primero N subqueries en BD, luego iteración en memoria.</p>
+  <div class="finding-meta">
+    <span>Archivo: Services/Glossary/GlossaryService.cs</span>
+  </div>
+</div>
+
+<div class="finding high" data-sev="high">
+  <div class="finding-header">
+    <span class="finding-id">PERF-006</span>
+    <span class="badge badge-high">HIGH</span>
+    <span class="finding-title">CondicionesApiController.Autocomplete — 2 subqueries correlacionadas por resultado</span>
+  </div>
+  <p>El endpoint de autocompletado de condiciones (<code>/api/condiciones/autocomplete</code>) incluye conteos correlacionados por cada resultado (número de usuarios con esa condición, número de síntomas relacionados). Cada resultado en la respuesta dispara 2 subqueries adicionales.</p>
+  <div class="finding-meta">
+    <span>Archivo: Controllers/CondicionesApiController.cs</span>
+    <span>Endpoint: GET /api/condiciones/autocomplete?q=</span>
+  </div>
+</div>
+
+<div class="finding high" data-sev="high">
+  <div class="finding-header">
+    <span class="finding-id">PERF-007</span>
+    <span class="badge badge-high">HIGH</span>
+    <span class="finding-title">UsuarioEstadoAnimo.OnGet() — método síncrono en Razor Page async</span>
+  </div>
+  <p>La página <code>Pages/UsuarioEstadoAnimo.cshtml.cs</code> tiene su método <code>OnGet()</code> declarado sin <code>async</code>/<code>await</code>, pero internamente llama a operaciones de BD mediante <code>.Result</code> o <code>.Wait()</code>. Esto bloquea un hilo del thread pool por cada request, reduciendo el throughput máximo del servidor.</p>
+  <div class="code-block">// Patrón problemático:
+public IActionResult OnGet()
+{
+    EstadosAnimo = _db.EstadoAnimoUsuario
+        .Where(e => e.IdUsuario == _userId)
+        .OrderByDescending(e => e.FechaRegistro)
+        .ToList(); // .ToList() síncrono — bloquea hilo
+    return Page();
+}</div>
+  <div class="finding-meta">
+    <span>Archivo: Pages/UsuarioEstadoAnimo.cshtml.cs</span>
+    <span>Solución: OnGetAsync() + ToListAsync()</span>
+  </div>
+</div>
+
+<div class="finding high" data-sev="high">
+  <div class="finding-header">
+    <span class="finding-id">PERF-008</span>
+    <span class="badge badge-high">HIGH</span>
+    <span class="finding-title">Task.Factory.StartNew(TaskCreationOptions.LongRunning) para jobs I/O-bound</span>
+  </div>
+  <p>Los jobs de IA que deberían encolarse en Hangfire usan <code>Task.Factory.StartNew(..., TaskCreationOptions.LongRunning)</code>. Esta opción crea un <strong>thread dedicado del OS</strong> para cada job — correcto para operaciones CPU-bound, pero completamente innecesario (y dañino) para operaciones I/O-bound como llamadas a la API de Anthropic.</p>
+  <p>Con 100 respuestas de IA pendientes, esto crea 100 threads OS dedicados. Cada thread OS consume ~1MB de stack. Esto puede agotar los recursos del servidor.</p>
+  <div class="code-block">// Patrón problemático en Services o AiAnswerJob:
+Task.Factory.StartNew(async () => {
+    var response = await _anthropicClient.CompleteAsync(prompt); // I/O-bound
+    // ...
+}, TaskCreationOptions.LongRunning); // ← INCORRECTO para I/O</div>
+  <div class="finding-meta">
+    <span>Solución: usar Hangfire directamente → IBackgroundJobClient.Enqueue()</span>
+    <span>Documentado en: FUNC-017 (04-modulos.html)</span>
+  </div>
+</div>
+
+<!-- ─── MEDIUM ────────────────────────────────────────────── -->
+<h2>MEDIUM — AsNoTracking faltante y queries sin límite</h2>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">PERF-009</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">UsuarioLaboratorios — carga todos los resultados con Include() de 4 niveles sin Take()</span>
+  </div>
+  <p>La página de laboratorios carga todos los resultados del usuario con una cadena de <code>Include()</code> de 4 niveles de profundidad y sin paginación ni <code>Take()</code>. Un usuario con historial extenso cargará cientos de registros con sus relaciones completas en memoria.</p>
+  <div class="code-block">// Patrón aproximado en Pages/UsuarioLaboratorios.cshtml.cs:
+var resultados = await _db.PatientLaboratoryResults
+    .Include(r => r.Category)
+        .ThenInclude(c => c.Parent)
+            .ThenInclude(p => p.Parent)
+                .ThenInclude(pp => pp.Units)
+    .Where(r => r.PatientId == userId)
+    // Sin .Take(n) ni paginación
+    .ToListAsync();</div>
+  <div class="finding-meta">
+    <span>Archivo: Pages/UsuarioLaboratorios.cshtml.cs</span>
+    <span>Impacto: proporcional al número de resultados del usuario</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">PERF-010</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">12 queries de solo-lectura sin AsNoTracking()</span>
+  </div>
+  <p>Se identificaron 12 consultas de solo lectura (datos para views, APIs de catálogo, reportes) que no usan <code>AsNoTracking()</code>. EF Core mantiene todas las entidades rastreadas en el <code>ChangeTracker</code>, consumiendo memoria y tiempo de comparación en el <code>SaveChanges()</code> siguiente.</p>
+  <table class="data-table">
+    <thead><tr><th>Archivo</th><th>Query</th><th>Entidades cargadas (est.)</th></tr></thead>
+    <tbody>
+      <tr><td>Controllers/CondicionesApiController.cs</td><td>Listado condiciones</td><td>~50</td></tr>
+      <tr><td>Controllers/SintomasApiController.cs</td><td>Listado síntomas</td><td>~100</td></tr>
+      <tr><td>Controllers/TratamientosApiController.cs</td><td>Listado tratamientos</td><td>~80</td></tr>
+      <tr><td>Pages/Directorio/Detalles.cshtml.cs</td><td>Perfil médico completo</td><td>~20</td></tr>
+      <tr><td>Services/Analytics/HealthInsightService.cs</td><td>Datos agregados</td><td>~500+</td></tr>
+      <tr><td>Pages/Glosario/*.cshtml.cs</td><td>Términos del glosario</td><td>~200</td></tr>
+      <tr><td>Controllers/GlosarioApiController.cs</td><td>Términos para widget</td><td>~50</td></tr>
+      <tr><td>Pages/Admin/*.cshtml.cs</td><td>Listados de admin</td><td>~100</td></tr>
+      <tr><td colspan="3" style="color:var(--muted);text-align:center">+ 4 más en servicios de catálogo</td></tr>
+    </tbody>
+  </table>
+  <div class="finding-meta">
+    <span>Solución: añadir .AsNoTracking() en todas las queries que no llaman SaveChanges()</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">PERF-011</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">HealthInsightService — carga todos los registros de síntomas/estado ánimo en memoria</span>
+  </div>
+  <p><code>HealthInsightService</code> carga colecciones completas de registros de estado de ánimo y síntomas del usuario en memoria para calcular insights clínicos. Los cálculos de tendencias se hacen con LINQ-to-Objects en lugar de agregaciones en BD. Con usuarios con historial largo, esto es O(n) en memoria.</p>
+  <div class="finding-meta">
+    <span>Archivo: Services/Analytics/HealthInsightService.cs</span>
+    <span>Solución: mover agregaciones a SQL (AVG, COUNT, GROUP BY por mes)</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">PERF-012</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">MedicalSummaryService — generación PDF carga historial completo sin fecha límite</span>
+  </div>
+  <p>El servicio de generación de PDF (<code>MedicalSummaryService</code>) carga el historial completo de condiciones, síntomas, tratamientos y laboratorios del usuario sin restricción de fechas. Para usuarios con historial de años, esto puede cargar miles de registros solo para generar un resumen de los últimos 3 meses.</p>
+  <div class="finding-meta">
+    <span>Archivo: Services/Export/MedicalSummaryService.cs</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">PERF-013</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Dashboard médico — múltiples queries sin batching en carga de página</span>
+  </div>
+  <p>El dashboard médico (<code>Areas/Identity/Pages/Medico/Dashboard.cshtml.cs</code>) ejecuta entre 6 y 8 queries separadas en el <code>OnGetAsync()</code> para cargar distintas secciones (contadores, preguntas recientes, notificaciones, perfil). Podrían combinarse o ejecutarse en paralelo con <code>Task.WhenAll</code>.</p>
+  <div class="finding-meta">
+    <span>Archivo: Areas/Identity/Pages/Medico/Dashboard.cshtml.cs</span>
+    <span>Solución: Task.WhenAll() para queries independientes</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">PERF-014</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">NinaModelRouterService — clasificación de complejidad sin caché</span>
+  </div>
+  <p>Cada request a NINA evalúa la complejidad de la pregunta llamando al modelo de clasificación (Haiku) antes de decidir qué modelo usar para la respuesta. Las preguntas frecuentes o similares no tienen caché de clasificación, generando un call adicional a la API de Anthropic por cada pregunta.</p>
+  <div class="finding-meta">
+    <span>Archivo: Services/AI/NinaModelRouterService.cs</span>
+    <span>Impacto: +1 API call (Haiku) por cada pregunta</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">PERF-015</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Directorio — carga perfil completo (Includes anidados) en listado paginado</span>
+  </div>
+  <p>El listado paginado del directorio médico carga el perfil extendido completo, incluyendo áreas EII, hospitales y badges, para cada médico en la página. Debería usar una proyección <code>Select()</code> que cargue solo los campos necesarios para la card de listado.</p>
+  <div class="finding-meta">
+    <span>Archivo: Pages/Directorio/Index.cshtml.cs</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">PERF-016</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Notificaciones push — sin batching de envíos, loop secuencial</span>
+  </div>
+  <p>El servicio de notificaciones push envía cada notificación de forma secuencial en un loop <code>foreach</code>. Con 1000 suscriptores, el loop completo bloquea la thread hasta que todas las requests HTTP salientes completen. No hay <code>Task.WhenAll</code> ni límite de concurrencia.</p>
+  <div class="finding-meta">
+    <span>Archivo: Services/Notificaciones/ (servicio de push)</span>
+    <span>Solución: SemaphoreSlim + Task.WhenAll con concurrencia limitada (ej: 20)</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">PERF-017</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">GlossaryService es un god object — 731 líneas, 7 responsabilidades, sin división de queries</span>
+  </div>
+  <p><code>GlossaryService</code> tiene 731 líneas y combina búsqueda, validación comunitaria, caché, adaptación, ranking de calidad y exportación. Las queries pesadas (PERF-004/005) están mezcladas con lógica ligera. Sin separación, no es posible optimizar selectivamente.</p>
+  <div class="finding-meta">
+    <span>Archivo: Services/Glossary/GlossaryService.cs · 731 líneas</span>
+    <span>Documentado también en: ARCH-001</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">PERF-018</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">AIBatchService — renombrado de tratamientos sin paginación ni throttle</span>
+  </div>
+  <p>El servicio de batch de IA que normaliza/renombra tratamientos procesa todos los registros marcados como pendientes en una sola pasada sin paginación. Si hay 500 tratamientos pendientes, lanza 500 llamadas a la API de Anthropic de forma concurrente o secuencial sin rate limiting.</p>
+  <div class="finding-meta">
+    <span>Riesgo: saturación de la API de Anthropic, costos no controlados</span>
+    <span>Documentado también en: FUNC-012</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">PERF-019</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">wwwroot — sin bundling ni minificación en producción</span>
+  </div>
+  <p>La configuración de LigerShark.WebOptimizer (incluida en el proyecto) no está activa en producción o no está completamente configurada para los archivos CSS/JS principales. Se detectaron múltiples archivos JS separados cargados con <code>&lt;script&gt;</code> individuales en <code>_Layout.cshtml</code>.</p>
+  <div class="finding-meta">
+    <span>Archivos: wwwroot/js/*.js · _Layout.cshtml</span>
+    <span>Impacto: tiempo de carga inicial del usuario, número de requests HTTP</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">PERF-020</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Imágenes de médicos — sin lazy loading ni WebP</span>
+  </div>
+  <p>Las fotos de médicos en el directorio (<code>/uploads/medicos/medico-{guid}.jpg</code>) se sirven como JPEG sin conversión a WebP ni atributo <code>loading="lazy"</code> en los <code>&lt;img&gt;</code> del listado. El listado carga todas las imágenes de la página visible + las páginas adyacentes.</p>
+  <div class="finding-meta">
+    <span>Impacto: +200-500KB por página en directorio médico</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">PERF-021</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Hangfire — queue "ai" sin límite de workers concurrentes configurado</span>
+  </div>
+  <p>La queue de Hangfire <code>ai</code> no tiene configurado un límite de workers. Si llegan muchos jobs de IA simultáneos (ej: burst de preguntas), todos se procesan en paralelo, multiplicando los costos de API y pudiendo exceder los rate limits de Anthropic.</p>
+  <div class="finding-meta">
+    <span>Configuración: Startup/Program.cs · GlobalConfiguration de Hangfire</span>
+    <span>Solución: limitar workers de la queue "ai" a 2-3 concurrentes</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">PERF-022</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">ApplicationDbContext — sin query splitting para Include() múltiples</span>
+  </div>
+  <p>Las queries con múltiples <code>Include()</code> paralelos (no encadenados) generan JOINs con multiplicación cartesiana de filas. No se usa <code>AsSplitQuery()</code> en ninguna de las consultas complejas detectadas. Para el perfil médico completo (condiciones + síntomas + tratamientos + badges), esto puede retornar 10x más filas del necesario.</p>
+  <div class="finding-meta">
+    <span>Solución: .AsSplitQuery() en queries con múltiples colecciones Include()</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">PERF-023</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Campaña de email — loop secuencial sin batching</span>
+  </div>
+  <p>El servicio de campañas de email (SendGrid) envía los correos en un loop secuencial. Con 1000 destinatarios, cada envío espera la respuesta del anterior antes de continuar. No usa la API de batch de SendGrid ni paralelismo limitado.</p>
+  <div class="finding-meta">
+    <span>Tiempo estimado para 1000 emails a ~100ms/email: ~1.7 minutos mínimo</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">PERF-024</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Cálculo de BadgeScore — recalculado en cada request sin caché</span>
+  </div>
+  <p><code>IMedicoBadgeService.EvaluarBadgesAutomaticosAsync</code> recalcula todos los badges del médico en cada guardado de perfil. Si el perfil se guarda frecuentemente, el cálculo de badges (que incluye queries de conteos) se ejecuta repetidamente. No hay caché de estado de badges.</p>
+  <div class="finding-meta">
+    <span>Archivo: Services/Medico/IMedicoBadgeService.cs</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">PERF-025</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Glosario — caché sin invalidación en validaciones comunitarias</span>
+  </div>
+  <p>El glosario usa <code>IMemoryCache</code> para términos frecuentes, pero la caché no se invalida cuando un usuario submite una validación comunitaria. Los términos pueden aparecer con conteos desactualizados hasta que expire el TTL.</p>
+  <div class="finding-meta">
+    <span>Archivo: Services/Glossary/GlossaryService.cs</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">PERF-026</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Sidebar menu — queries de DB en cada render de partial view</span>
+  </div>
+  <p>El menú lateral (<code>Pages/Shared/_SidebarMenu.cshtml</code>) puede estar cargando datos de BD (roles, perfil del usuario) en cada render de página sin caché. Los datos de roles del usuario son estables durante la sesión y deberían ser leídos una sola vez por sesión.</p>
+  <div class="finding-meta">
+    <span>Archivo: Pages/Shared/_SidebarMenu.cshtml</span>
+  </div>
+</div>
+
+<!-- ─── LOW ───────────────────────────────────────────────── -->
+<h2>LOW — Mejoras incrementales</h2>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">PERF-027</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Output caching no configurado para páginas públicas</span>
+  </div>
+  <p>Las páginas del directorio médico (listado, detalles) y el glosario son de acceso público con contenido que cambia raramente. No tienen output caching configurado. ASP.NET Core 8 incluye <code>IOutputCacheStore</code> que podría reducir significativamente la carga de DB para estas páginas.</p>
+  <div class="finding-meta">
+    <span>Páginas: Directorio/Index, Directorio/Detalles, Glosario/Index</span>
+  </div>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">PERF-028</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Response compression no verificada para API controllers</span>
+  </div>
+  <p>Los API controllers que devuelven JSON de listas (condiciones, síntomas, tratamientos para autocompletado) pueden beneficiarse de response compression. No se verificó si <code>UseResponseCompression()</code> está habilitado en el pipeline para las respuestas de tipo <code>application/json</code>.</p>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">PERF-029</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Markdig — instancia creada por request en lugar de singleton</span>
+  </div>
+  <p>Si <code>Markdig.Markdown</code> se instancia por request (patrón común cuando se inyecta en servicios transient), la configuración del pipeline de Markdig se reconstruye en cada llamada. Debería usarse como singleton.</p>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">PERF-030</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Conversión de imágenes con ImageSharp — sin caché de thumbnails</span>
+  </div>
+  <p>Las imágenes de perfil médico se guardan en tamaño completo. Si se generan thumbnails para el listado del directorio, se regeneran en cada request en lugar de guardar versiones pre-procesadas.</p>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">PERF-031</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">QuestPDF — generación de PDF en request síncrono sin background job</span>
+  </div>
+  <p>La generación de PDF del resumen médico se ejecuta en el request HTTP del usuario, bloqueando la respuesta hasta que el PDF esté completo. Para historiales extensos, esto puede tomar varios segundos. Debería encolarse en Hangfire y notificar al usuario cuando esté listo.</p>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">PERF-032</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Paginación no implementada en historial de síntomas y tratamientos</span>
+  </div>
+  <p>Los historiales de síntomas y tratamientos no tienen paginación del lado del servidor. Se carga el historial completo y se pagina en el cliente con JavaScript. Esto escala mal con usuarios de historial largo.</p>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">PERF-033</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">SignalR / WebSockets no usados — polling de notificaciones</span>
+  </div>
+  <p>Las notificaciones en el top menu se actualizan con polling JavaScript periódico en lugar de WebSockets/SignalR. Con 1000 usuarios activos y un intervalo de polling de 30s, esto genera ~2000 requests/min de polling al servidor.</p>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">PERF-034</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">EF Core — sin compiled queries para queries frecuentes de catálogo</span>
+  </div>
+  <p>Las queries frecuentes sobre catálogos estáticos (condiciones, síntomas, tratamientos) no usan <code>EF.CompileAsyncQuery()</code>. EF Core recompila el expression tree en cada llamada, aunque los parámetros sean los mismos.</p>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">PERF-035</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Hangfire dashboard accesible sin restricción de IP en producción</span>
+  </div>
+  <p>Si el dashboard de Hangfire está habilitado en producción, su URL (<code>/hangfire</code>) debe tener restricción de acceso por IP o requerir rol Administrador. No se verificó si hay restricción configurada más allá de la autenticación básica.</p>
+  <div class="finding-meta">
+    <span>Nota: también es concern de seguridad (SEC-related)</span>
+  </div>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">PERF-036</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">DateTimeOffset vs DateTime — uso inconsistente</span>
+  </div>
+  <p>Algunas entidades usan <code>DateTime</code> y otras <code>DateTimeOffset</code> para campos de fecha. En SQL Server, <code>DateTimeOffset</code> ocupa 10 bytes vs 8 bytes para <code>DateTime2</code>. La inconsistencia también complica comparaciones y ordenamiento entre tablas.</p>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">PERF-037</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Session state no usado — overhead de ASP.NET Session innecesario</span>
+  </div>
+  <p>Si <code>AddSession()</code> está configurado en Program.cs pero no se usa activamente, genera overhead de verificación de cookie y potencial acceso a caché distribuida en cada request.</p>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">PERF-038</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">AiAnswerConfiguration referencia modelo obsoleto — llamadas posiblemente fallidas</span>
+  </div>
+  <p>La configuración de IA referencia el string <code>'claude-sonnet-4.5-20250514'</code> que puede ser un model ID obsoleto. Las llamadas a la API de Anthropic con un model ID inválido fallan silenciosamente si no hay manejo de errores robusto.</p>
+  <div class="finding-meta">
+    <span>Documentado también en: ARCH-006 (01-arquitectura.html)</span>
+  </div>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">PERF-039</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Antiforgery token validación — overhead en endpoints de solo lectura</span>
+  </div>
+  <p>Algunos endpoints GET tienen validación de antiforgery token configurada (probablemente por herencia de clase base), añadiendo overhead innecesario en operaciones de solo lectura.</p>
+</div>
+
+<!-- ─── RESUMEN ────────────────────────────────────────────── -->
+<h2>Resumen de hotspots por servicio</h2>
+
+<div style="overflow-x:auto">
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Servicio/Archivo</th>
+      <th>Hallazgos</th>
+      <th>Peor caso (queries/request)</th>
+      <th>Prioridad</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>SearchSuggestionService</code></td>
+      <td>PERF-001, 002, 003</td>
+      <td class="badge badge-high">16+ queries</td>
+      <td class="badge badge-high">Crítica</td>
+    </tr>
+    <tr>
+      <td><code>GlossaryService</code></td>
+      <td>PERF-004, 005, 017, 025</td>
+      <td class="badge badge-high">2500+ subqueries</td>
+      <td class="badge badge-high">Crítica</td>
+    </tr>
+    <tr>
+      <td><code>CondicionesApiController</code></td>
+      <td>PERF-006</td>
+      <td class="badge badge-medium">2N subqueries</td>
+      <td class="badge badge-high">Alta</td>
+    </tr>
+    <tr>
+      <td><code>UsuarioLaboratorios</code></td>
+      <td>PERF-009</td>
+      <td class="badge badge-medium">Include 4 niveles sin Take</td>
+      <td class="badge badge-medium">Media</td>
+    </tr>
+    <tr>
+      <td><code>HealthInsightService</code></td>
+      <td>PERF-011</td>
+      <td class="badge badge-medium">Todo en memoria</td>
+      <td class="badge badge-medium">Media</td>
+    </tr>
+    <tr>
+      <td><code>Notificaciones push</code></td>
+      <td>PERF-016</td>
+      <td class="badge badge-medium">1000 HTTP serial</td>
+      <td class="badge badge-medium">Media</td>
+    </tr>
+    <tr>
+      <td><code>Task.Factory.StartNew</code></td>
+      <td>PERF-008</td>
+      <td class="badge badge-high">Thread OS por job IA</td>
+      <td class="badge badge-high">Alta</td>
+    </tr>
+    <tr>
+      <td>Queries sin AsNoTracking</td>
+      <td>PERF-010</td>
+      <td class="badge badge-medium">12 queries afectadas</td>
+      <td class="badge badge-medium">Media (bajo esfuerzo)</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+</main>
+
+<footer>
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem">
+    <span>Auditoría EIIBD · 2026-05-25 · Fase 07/10 — Performance</span>
+    <div style="display:flex;gap:1rem">
+      <a href="06-bd-relaciones.html">← 06 BD y Relaciones</a>
+      <a href="08-ui.html">08 UI/CSS/JS →</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+function filterFindings(sev, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.finding[data-sev]').forEach(el => {
+    el.style.display = (sev === 'all' || el.dataset.sev === sev) ? '' : 'none';
+  });
+}
+</script>
+</body>
+</html>

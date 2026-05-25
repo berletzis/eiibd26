@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Arquitectura – EIIBD Auditoría</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <h1>🏗️ Fase 1 – Arquitectura y Código Muerto</h1>
+  <span class="breadcrumb"><a href="00-index.html">← Índice</a> · EIIBD Auditoría 2026</span>
+</div>
+<div class="container">
+
+<div class="kpi-grid">
+  <div class="kpi-card high"><div class="num">2</div><div class="label">Issues HIGH</div></div>
+  <div class="kpi-card medium"><div class="num">5</div><div class="label">Issues MEDIUM</div></div>
+  <div class="kpi-card low"><div class="num">2</div><div class="label">Issues LOW</div></div>
+  <div class="kpi-card accent"><div class="num">6</div><div class="label">Entidades Código Muerto</div></div>
+  <div class="kpi-card accent"><div class="num">731</div><div class="label">Líneas GlossaryService</div></div>
+  <div class="kpi-card accent"><div class="num">892</div><div class="label">Líneas Program.cs</div></div>
+</div>
+
+<!-- ARQUITECTURA -->
+<div class="section">
+<div class="section-title"><span class="icon">⚠️</span> Hallazgos – Separación de Responsabilidades (ARCH)</div>
+
+<div class="filter-bar">
+  <button class="filter-btn active" onclick="filterFindings('all',this)">Todos (9)</button>
+  <button class="filter-btn" onclick="filterFindings('high',this)">HIGH (2)</button>
+  <button class="filter-btn" onclick="filterFindings('medium',this)">MEDIUM (5)</button>
+  <button class="filter-btn" onclick="filterFindings('low',this)">LOW (2)</button>
+</div>
+
+<div class="finding-list" id="arch-list">
+
+  <div class="finding high" data-sev="high">
+    <div class="finding-header">
+      <span class="finding-id">ARCH-001</span>
+      <span class="badge badge-high">HIGH</span>
+      <span class="badge badge-neutral">SRP</span>
+      <span class="finding-loc">Services/Glossary/GlossaryService.cs (~731 líneas)</span>
+    </div>
+    <div class="finding-title">GlossaryService: God Object con 7 responsabilidades</div>
+    <div class="finding-desc">GlossaryService maneja: página home, listado de términos A-Z, detalle de término, artículos relacionados, preguntas relacionadas, experiencias comunitarias, conteos de validación, búsqueda y envío de validaciones. Recibe IMedicoBadgeService como dependencia sin usarla actualmente (hook pendiente según CLAUDE.md).</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Alta cohesión problemática. Cualquier cambio en carga de experiencias comunitarias puede romper el detalle de términos. 7 parámetros en constructor aumentan acoplamiento. Difícil testing unitario.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Extraer GlossaryReadService (queries) y GlossaryValidationService (writes). Implementar el hook de badge en AddValidationAsync con try-catch como indica CLAUDE.md.</div>
+  </div>
+
+  <div class="finding high" data-sev="high">
+    <div class="finding-header">
+      <span class="finding-id">ARCH-003</span>
+      <span class="badge badge-high">HIGH</span>
+      <span class="badge badge-neutral">Error Dominio Clínico</span>
+      <span class="finding-loc">Services/AI/NinaModelRouterService.cs:252-283</span>
+    </div>
+    <div class="finding-title">🚨 CRÍTICO: Respuestas médicas sobre VIH en app de EII</div>
+    <div class="finding-desc">GenerarRespuestaSimple() contiene respuestas preconfiguradas sobre VIH (rutas de transmisión, profilaxis) que son completamente incorrectas para el dominio de la aplicación (Enfermedad Inflamatoria Intestinal). El router de IA sirve estas respuestas a pacientes de EII.</div>
+    <div class="finding-impact"><strong>Impacto CRÍTICO:</strong> Pacientes con EII (Crohn, Colitis Ulcerosa) reciben información médica sobre VIH como respuesta de su aplicación de salud. Esto es un riesgo clínico activo en producción con ~1000 usuarios.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> ACCIÓN INMEDIATA: Reemplazar todo contenido de VIH con respuestas EII-apropiadas (síntomas EII, brotes, medicamentos biológicos, dieta). Revisar todos los prompts en AiPromptBuilder para confirmar que referencian EII, no VIH.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">ARCH-002</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">SRP</span>
+      <span class="finding-loc">Services/AI/NinaModelRouterService.cs (~366 líneas)</span>
+    </div>
+    <div class="finding-title">NinaModelRouterService mezcla routing, clasificación, prompts y dominio</div>
+    <div class="finding-desc">El router hace: (1) routing entre modelos, (2) detección de keywords de alto riesgo, (3) clasificación de preguntas vía segunda llamada a Claude Haiku, (4) llamadas directas a Haiku bypaseando IAiAnswerService, (5) construcción de prompts Haiku inline, (6) enriquecimiento de respuestas con metadata de autoría. Y también contiene las respuestas VIH hardcodeadas (ver ARCH-003).</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Cambiar la estrategia de routing requiere modificar la misma clase que maneja los prompts específicos de modelos. Violación de SRP y OCP.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Extraer IQuestionClassifier, ISimpleAnswerProvider, IResponseEnricher. La VIH content es un error de dominio que debe corregirse urgentemente (ver ARCH-003).</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">ARCH-004</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">SRP</span>
+      <span class="finding-loc">Services/Medico/MedicoBadgeService.cs (~145 líneas)</span>
+    </div>
+    <div class="finding-title">MedicoBadgeService: lectura, escritura y orquestación en misma clase</div>
+    <div class="finding-desc">Mezcla: (1) queries de lectura (GetTodosLosBadgesAsync, GetBadgesGanadosAsync, GetNivelActualAsync), (2) escritura (OtorgarBadgeAsync) y (3) orquestación con criterios de evaluación (EvaluarBadgesAutomaticosAsync) que consulta múltiples tablas externas (MedicosPerfilExtendido, MedicosDirectorio, Confirmaciones).</div>
+    <div class="finding-impact"><strong>Impacto:</strong> EvaluarBadgesAutomaticosAsync crecerá con cada nuevo criterio de badge. Riesgo de convertirse en god method. Testing requiere stubs de 4+ repositorios.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Separar IBadgeQueryService de IBadgeEvaluationService. Considerar patrón Strategy para criterios de badges.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">ARCH-006</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">SRP</span>
+      <span class="finding-loc">Services/Export/MedicalSummaryService.cs (~220 líneas)</span>
+    </div>
+    <div class="finding-title">MedicalSummaryService acumula métodos privados de acceso a datos</div>
+    <div class="finding-desc">Orquesta carga de 6 dominios de datos (perfil, condiciones, estados de ánimo, síntomas con tracking, tratamientos, laboratorios) mediante métodos privados dentro de la misma clase. Actualmente manejable pero en riesgo de convertirse en dios de acceso a datos.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Bajo hoy. Riesgo de crecimiento si se agregan más fuentes de datos al resumen médico.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Monitorear. Si crece >400 líneas, extraer loaders a MedicalSummaryQueryBuilder. Diseño actual es aceptable.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">ARCH-007</span>
+      <span class="badge badge-neutral">LOW</span>
+      <span class="badge badge-neutral">Acoplamiento</span>
+      <span class="finding-loc">Services/Glossary/GlossaryService.cs:23</span>
+    </div>
+    <div class="finding-title">IMedicoBadgeService inyectado en GlossaryService pero no usado</div>
+    <div class="finding-desc">GlossaryService recibe IMedicoBadgeService en constructor (7 parámetros total) pero no lo llama en ningún método. El hook de badge está pendiente según CLAUDE.md item C-03.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Constructor sobrecargado. Confusión sobre responsabilidades de GlossaryService. Testing requiere mock de dependencia no usada.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Implementar el hook ahora con try-catch en AddValidationAsync, o remover la dependencia hasta que sea necesaria.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">ARCH-009</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">DI Lifetime</span>
+      <span class="finding-loc">Program.cs:239-241</span>
+    </div>
+    <div class="finding-title">IAiAnswerService registrado como Singleton — riesgo de captive dependency</div>
+    <div class="finding-desc">AiAnswerService e IAiPromptBuilder registrados como Singleton. Actualmente seguros porque no usan DbContext. Si un futuro desarrollador inyecta un servicio Scoped en ellos, el app fallará en runtime o reutilizará DbContext stalé.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> No es problema hoy. Trampa para futuros desarrolladores. Sin documentación del razonamiento Singleton.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Agregar comentario explicando por qué son Singleton (stateless + HttpClient). O cambiar a Transient si el impacto de performance es negligible.</div>
+  </div>
+
+  <div class="finding low" data-sev="low">
+    <div class="finding-header">
+      <span class="finding-id">ARCH-005</span>
+      <span class="badge badge-low">LOW</span>
+      <span class="badge badge-neutral">Diseño</span>
+      <span class="finding-loc">Services/Analytics/HealthInsightService.cs</span>
+    </div>
+    <div class="finding-title">HealthInsightService: diseño correcto, bien documentarlo como patrón</div>
+    <div class="finding-desc">HealthInsightService es una clase stateless que actúa como calculadora en memoria (sin queries a BD), recibiendo datos pre-cargados. Diseño correcto y testable. Sin problemas.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Ninguno. Es el patrón correcto para servicios de analytics.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Documentar este patrón en CLAUDE.md como referencia para futuros servicios de analytics.</div>
+  </div>
+
+  <div class="finding low" data-sev="low">
+    <div class="finding-header">
+      <span class="finding-id">ARCH-008</span>
+      <span class="badge badge-low">LOW</span>
+      <span class="badge badge-neutral">Testabilidad</span>
+      <span class="finding-loc">Controllers/PreguntasApiController.cs:70</span>
+    </div>
+    <div class="finding-title">SlugHelper usa patrón estático recibiendo DbContext como parámetro</div>
+    <div class="finding-desc">SlugHelper.GenerateUniqueSlugForPregunta() es un método estático que recibe DbContext como parámetro, combinando invocación estática con objetos DI-managed.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> No se puede hacer unit test de PreguntasApiController sin una BD real.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Convertir a ISlugService interfaz registrada en DI. Bajo prioridad dado que no es bug funcional.</div>
+  </div>
+
+</div>
+</div>
+
+<!-- CÓDIGO MUERTO -->
+<div class="section">
+<div class="section-title"><span class="icon">💀</span> Inventario – Código Muerto (DEAD)</div>
+
+<table class="data-table">
+<thead>
+  <tr>
+    <th>ID</th><th>Tipo</th><th>Ubicación</th><th>Descripción</th><th>Acción</th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+    <td><code>DEAD-001</code></td>
+    <td><span class="badge badge-neutral">Controller</span></td>
+    <td><code>Controllers/AiTestController.cs</code></td>
+    <td>Archivo con 1 línea — clase vacía. Vestigio de controlador de pruebas que fue vaciado pero no eliminado.</td>
+    <td><span class="badge badge-medium">Eliminar</span></td>
+  </tr>
+  <tr>
+    <td><code>DEAD-002</code></td>
+    <td><span class="badge badge-neutral">Controller</span></td>
+    <td><code>Controllers/DiagnosticoNinaController.cs</code></td>
+    <td>Debug controller restringido a Development via [DevelopmentOnly]. Retorna 404 en producción. Código de prueba que debería estar bajo #if DEBUG o eliminado.</td>
+    <td><span class="badge badge-low">Documentar / #if DEBUG</span></td>
+  </tr>
+  <tr>
+    <td><code>DEAD-003</code></td>
+    <td><span class="badge badge-neutral">Model</span></td>
+    <td><code>Models/Aplicaciones.cs</code></td>
+    <td>DbSet&lt;Aplicaciones&gt; en DbContext pero sin referencia en ningún controller, page o servicio. FK a Perfil comentada. Parece ser un modelo legacy de OAuth never completado.</td>
+    <td><span class="badge badge-medium">Eliminar + DROP TABLE</span></td>
+  </tr>
+  <tr>
+    <td><code>DEAD-004</code></td>
+    <td><span class="badge badge-neutral">Model</span></td>
+    <td><code>Models/estudioLab.cs · Models/estuduiLabUsuario.cs</code></td>
+    <td>Modelos legacy completamente reemplazados por PatientLaboratoryResult / LaboratoryType. Ningún controller o servicio los referencia para lógica de negocio activa.</td>
+    <td><span class="badge badge-medium">Plan de migración + DROP</span></td>
+  </tr>
+  <tr>
+    <td><code>DEAD-005</code></td>
+    <td><span class="badge badge-neutral">Model</span></td>
+    <td><code>Models/zonaHoraria.cs</code></td>
+    <td>ZonaHoraria en DbContext con FK a Paises configurada, pero nunca leída ni escrita desde ningún controller, page o servicio. Funcionalidad de timezone nunca implementada.</td>
+    <td><span class="badge badge-low">Dejar tabla, evaluar uso</span></td>
+  </tr>
+  <tr>
+    <td><code>DEAD-006</code></td>
+    <td><span class="badge badge-neutral">Configuración</span></td>
+    <td><code>Configuration/AiAnswerConfiguration.cs</code></td>
+    <td>Referencia modelo 'claude-sonnet-4.5-20250514' que es un string desactualizado. Producción debe usar 'claude-sonnet-4-6'. AiAnswerService usa esta config directamente.</td>
+    <td><span class="badge badge-high">Actualizar modelo string</span></td>
+  </tr>
+</tbody>
+</table>
+</div>
+
+<!-- DIAGRAMA DE DEPENDENCIAS DE SERVICIOS -->
+<div class="section">
+<div class="section-title"><span class="icon">🔗</span> Dependencias de Servicios – Resumen</div>
+<table class="data-table">
+<thead>
+  <tr><th>Servicio</th><th>Líneas</th><th>Dependencias</th><th>Estado</th><th>Issues</th></tr>
+</thead>
+<tbody>
+  <tr><td><code>GlossaryService</code></td><td>731</td><td>8 deps (incl. IMedicoBadgeService no usada)</td><td><span class="badge badge-high">God Object</span></td><td>ARCH-001, ARCH-007</td></tr>
+  <tr><td><code>NinaModelRouterService</code></td><td>366</td><td>4 deps</td><td><span class="badge badge-high">SRP Violation</span></td><td>ARCH-002, ARCH-003</td></tr>
+  <tr><td><code>MedicoBadgeService</code></td><td>145</td><td>1 dep (DbContext)</td><td><span class="badge badge-medium">Mejorable</span></td><td>ARCH-004</td></tr>
+  <tr><td><code>MedicalSummaryService</code></td><td>220</td><td>3 deps</td><td><span class="badge badge-low">OK</span></td><td>ARCH-006 (monitorear)</td></tr>
+  <tr><td><code>AiAnswerService</code></td><td>—</td><td>HttpClient, IOptions</td><td><span class="badge badge-medium">Singleton riesgoso</span></td><td>ARCH-009</td></tr>
+  <tr><td><code>HealthInsightService</code></td><td>—</td><td>Ninguna (stateless)</td><td><span class="badge badge-low">Óptimo</span></td><td>ARCH-005</td></tr>
+  <tr><td><code>MedicoDirectorioService</code></td><td>—</td><td>DbContext</td><td><span class="badge badge-low">OK</span></td><td>—</td></tr>
+  <tr><td><code>SearchSuggestionService</code></td><td>—</td><td>DbContext</td><td><span class="badge badge-high">N+1 severo</span></td><td>PERF-001/002/003</td></tr>
+</tbody>
+</table>
+</div>
+
+<div style="margin-top:32px;padding-top:16px;border-top:1px solid var(--border);color:var(--muted);font-size:12px">
+  01-arquitectura.html · 9 hallazgos ARCH + 6 DEAD · <a href="00-index.html">← Volver al índice</a> · <a href="02-seguridad.html">Seguridad →</a>
+</div>
+</div>
+
+<script>
+function filterFindings(sev, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active','active-high','active-medium','active-low'));
+  btn.classList.add('active', sev !== 'all' ? 'active-'+sev : '');
+  document.querySelectorAll('#arch-list .finding').forEach(f => {
+    f.style.display = (sev === 'all' || f.dataset.sev === sev) ? '' : 'none';
+  });
+}
+</script>
+</body>
+</html>

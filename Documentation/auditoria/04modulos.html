@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Módulos Funcionales – EIIBD Auditoría</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <h1>⚙️ Fase 4 – Módulos Funcionales</h1>
+  <span class="breadcrumb"><a href="00-index.html">← Índice</a> · EIIBD Auditoría 2026</span>
+</div>
+<div class="container">
+
+<div class="kpi-grid">
+  <div class="kpi-card high"><div class="num">7</div><div class="label">Issues HIGH</div></div>
+  <div class="kpi-card medium"><div class="num">15</div><div class="label">Issues MEDIUM</div></div>
+  <div class="kpi-card low"><div class="num">7</div><div class="label">Issues LOW</div></div>
+  <div class="kpi-card accent"><div class="num">7</div><div class="label">Módulos Auditados</div></div>
+</div>
+
+<!-- SALUD POR MÓDULO -->
+<div class="section">
+<div class="section-title"><span class="icon">📊</span> Salud por Módulo</div>
+<div style="background:var(--s1);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+  <div class="module-row" style="padding:10px 16px;background:var(--s2)">
+    <div class="module-name" style="font-weight:700">Módulo</div>
+    <div style="flex:1;font-size:12px;color:var(--muted)">HIGH / MED / LOW</div>
+    <div style="width:200px;font-size:12px;color:var(--muted)">Estado general</div>
+  </div>
+  <div class="module-row" style="padding:10px 16px">
+    <div class="module-name">Estado de Ánimo</div>
+    <div style="flex:1;display:flex;gap:6px"><span class="badge badge-high">1H</span><span class="badge badge-medium">1M</span><span class="badge badge-low">1L</span></div>
+    <div style="width:200px"><span class="badge badge-medium">Funcional con gaps</span></div>
+  </div>
+  <div class="module-row" style="padding:10px 16px">
+    <div class="module-name">Síntomas</div>
+    <div style="flex:1;display:flex;gap:6px"><span class="badge badge-high">1H</span><span class="badge badge-medium">3M</span><span class="badge badge-low">1L</span></div>
+    <div style="width:200px"><span class="badge badge-medium">Multiple ownership gaps</span></div>
+  </div>
+  <div class="module-row" style="padding:10px 16px">
+    <div class="module-name">Tratamientos</div>
+    <div style="flex:1;display:flex;gap:6px"><span class="badge badge-medium">3M</span><span class="badge badge-low">1L</span></div>
+    <div style="width:200px"><span class="badge badge-medium">Risk: AI rename sin aprobación</span></div>
+  </div>
+  <div class="module-row" style="padding:10px 16px">
+    <div class="module-name">Laboratorios</div>
+    <div style="flex:1;display:flex;gap:6px"><span class="badge badge-high">2H</span><span class="badge badge-medium">1M</span><span class="badge badge-low">1L</span></div>
+    <div style="width:200px"><span class="badge badge-high">Duplicados + IDOR</span></div>
+  </div>
+  <div class="module-row" style="padding:10px 16px">
+    <div class="module-name">P&R (Preguntas y Respuestas)</div>
+    <div style="flex:1;display:flex;gap:6px"><span class="badge badge-high">1H</span><span class="badge badge-medium">2M</span><span class="badge badge-low">2L</span></div>
+    <div style="width:200px"><span class="badge badge-medium">AI job sin Hangfire</span></div>
+  </div>
+  <div class="module-row" style="padding:10px 16px">
+    <div class="module-name">Directorio Médicos</div>
+    <div style="flex:1;display:flex;gap:6px"><span class="badge badge-high">2H</span><span class="badge badge-medium">3M</span><span class="badge badge-low">1L</span></div>
+    <div style="width:200px"><span class="badge badge-high">Flujo roto + duplicación</span></div>
+  </div>
+  <div class="module-row" style="padding:10px 16px">
+    <div class="module-name">Condiciones</div>
+    <div style="flex:1;display:flex;gap:6px"><span class="badge badge-medium">2M</span><span class="badge badge-low">1L</span></div>
+    <div style="width:200px"><span class="badge badge-medium">Lookup por FK incorrecto</span></div>
+  </div>
+</div>
+</div>
+
+<div class="filter-bar">
+  <button class="filter-btn active" onclick="filterFindings('all',this)">Todos (29)</button>
+  <button class="filter-btn" onclick="filterFindings('high',this)">HIGH (7)</button>
+  <button class="filter-btn" onclick="filterFindings('medium',this)">MEDIUM (15)</button>
+  <button class="filter-btn" onclick="filterFindings('low',this)">LOW (7)</button>
+</div>
+
+<div class="finding-list" id="func-list">
+
+<!-- ESTADO DE ÁNIMO -->
+<div style="font-size:13px;font-weight:700;color:var(--accent);padding:16px 0 4px;border-top:1px solid var(--border);margin-top:8px">Estado de Ánimo</div>
+
+  <div class="finding high" data-sev="high">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-001</span>
+      <span class="badge badge-high">HIGH</span>
+      <span class="badge badge-neutral">Ownership Gap</span>
+      <span class="finding-loc">EstadoAnimoUsuarioController.cs:161-168</span>
+    </div>
+    <div class="finding-title">FKs de otros usuarios aceptados sin validación al crear estado de ánimo</div>
+    <div class="finding-desc">condicionUsuarioId, sintomaUsuarioId y tratamientoUsuarioId se guardan directamente sin verificar que pertenezcan al usuario autenticado. El nombre del registro ajeno se retorna en la respuesta.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Usuario A puede vincular su estado de ánimo a condición/síntoma/tratamiento de Usuario B. Cross-user data linkage con posible exposición de nombre de condición ajena.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Verificar ownership de cada FK: <code>WHERE id = @id AND idUsuario = @currentUserId AND !Eliminado</code></div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-002</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Temporal</span>
+      <span class="finding-loc">EstadoAnimoUsuarioController.cs:135</span>
+    </div>
+    <div class="finding-title">FechaRegistro siempre = DateTime.UtcNow — no permite registro retroactivo</div>
+    <div class="finding-desc">No hay forma de registrar un estado de ánimo de ayer o ajustar el timestamp. Si la notificación push se retrasa, el timestamp refleja la respuesta, no la experiencia.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Historial de estados de ánimo impreciso temporalmente. Series de tiempo no reflejan la experiencia real del paciente.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Aceptar fecha opcional del cliente, limitada a ventana razonable (máximo 24h en el pasado, nunca futuro).</div>
+  </div>
+
+  <div class="finding low" data-sev="low">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-003</span>
+      <span class="badge badge-low">LOW</span>
+      <span class="badge badge-neutral">Validación</span>
+      <span class="finding-loc">EstadoAnimoUsuarioController.cs:133 · Models/EstadoAnimoUsuario.cs</span>
+    </div>
+    <div class="finding-title">Campo Texto sin MaxLength — payload ilimitado</div>
+    <div class="finding-desc">El campo de nota libre en estado de ánimo no tiene restricción de longitud en modelo ni en controller. Payloads de megabytes pueden guardarse.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Potencial bloat de BD y timeouts si usuario envía texto masivo.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Agregar [MaxLength(2000)] a EstadoAnimoUsuario.Texto.</div>
+  </div>
+
+<!-- SÍNTOMAS -->
+<div style="font-size:13px;font-weight:700;color:var(--accent);padding:16px 0 4px;border-top:1px solid var(--border);margin-top:8px">Síntomas</div>
+
+  <div class="finding high" data-sev="high">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-004</span>
+      <span class="badge badge-high">HIGH</span>
+      <span class="badge badge-neutral">Integridad</span>
+      <span class="finding-loc">UsuarioSintomas.cshtml.cs:380-388</span>
+    </div>
+    <div class="finding-title">Soft-delete de síntoma deja TrackingSintomaUsuario huérfano</div>
+    <div class="finding-desc">OnPostEliminarSintomaAsync verifica condiciones y tratamientos relacionados, pero NO verifica TrackingSintomaUsuario. Los registros de tracking quedan apuntando a un síntoma eliminado.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> HealthInsightService calculará métricas de síntomas borrados. Analytics de seguimiento corrompidas silenciosamente.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Al eliminar un síntoma, también soft-delete all TrackingSintomaUsuario vinculados, o bloquear la eliminación si existen tracking records activos.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-005</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Temporal</span>
+      <span class="finding-loc">UsuarioSintomas.cshtml.cs:229</span>
+    </div>
+    <div class="finding-title">fechaInicio = DateTime.Now (local) — mezcla timezone con DateTime.UtcNow en tracking</div>
+    <div class="finding-desc">La fecha de inicio de un síntoma usa DateTime.Now (timezone del servidor), mientras TrackingSintomaService usa DateTime.Now.TimeOfDay. Sin manejo de timezone.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Pacientes en Américas pueden ver su fecha de inicio de síntoma como el día anterior. Charts de tracking con timestamps inconsistentes.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Estandarizar a DateTimeOffset con timezone del usuario, o usar exclusivamente DateTime.UtcNow en toda la entidad.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-006</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Validación</span>
+      <span class="finding-loc">UsuarioSintomas.cshtml.cs:397-412</span>
+    </div>
+    <div class="finding-title">nuevaFechaInicio sin validación de rango temporal</div>
+    <div class="finding-desc">OnPostEditarFechaInicioAsync acepta cualquier DateTime sin validar que sea pasado, razonable (entre 1900 y hoy), y dentro del mínimo de SQL Server (1753-01-01).</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Síntoma con fecha de inicio en año 9999 o 1700. SQL errors posibles. Métricas de duración de síntoma absurdas.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Validar: <code>DateTime.Parse(1900-01-01) &lt;= nuevaFechaInicio &lt;= DateTime.Today</code></div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-007</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Ownership Gap</span>
+      <span class="finding-loc">UsuarioSintomas.cshtml.cs:270-302</span>
+    </div>
+    <div class="finding-title">condicionUsuarioIds en AsociarCondiciones sin validar ownership</div>
+    <div class="finding-desc">Los IDs de condición de usuario provistos por el cliente no se validan como del usuario autenticado antes de insertar en SintomaCondicionUsuario.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Usuario A puede asociar condiciones de Usuario B a sus síntomas. Contaminación cross-user en tablas de relación clínica.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Validar cada condId: <code>condicionUsuario WHERE id=@condId AND idUsuario=@userId AND !Eliminado</code></div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-008</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Ownership Gap</span>
+      <span class="finding-loc">UsuarioSintomas.cshtml.cs:321-351</span>
+    </div>
+    <div class="finding-title">tratamientoUsuarioIds en AsociarTratamientos sin validar ownership</div>
+    <div class="finding-desc">Mismo patrón que FUNC-007 para tratamientos. Los IDs de tratamiento no se validan como pertenecientes al usuario autenticado.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Asociaciones sintoma-tratamiento con datos de otros pacientes.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Mismo fix: <code>WHERE id=@tratId AND idUsuario=@userId</code> por cada ID antes de insertar.</div>
+  </div>
+
+  <div class="finding low" data-sev="low">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-011b</span>
+      <span class="badge badge-low">LOW</span>
+      <span class="badge badge-neutral">Estado</span>
+      <span class="finding-loc">UsuarioSintomas.cshtml.cs — tracking logic</span>
+    </div>
+    <div class="finding-title">Tracking de síntoma sin frecuencia predeterminada clara</div>
+    <div class="finding-desc">Al crear un TrackingSintomaUsuario, si IdFrecuencia es null el sistema no valida ni asigna un default. Registros de tracking con frecuencia indefinida afectan cálculos de severidad.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Bajo. Métricas pueden ser imprecisas para registros sin frecuencia.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Asignar frecuencia default "Ocasional" si no se provee.</div>
+  </div>
+
+<!-- TRATAMIENTOS -->
+<div style="font-size:13px;font-weight:700;color:var(--accent);padding:16px 0 4px;border-top:1px solid var(--border);margin-top:8px">Tratamientos</div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-009</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Ownership Gap</span>
+      <span class="finding-loc">UsuarioTratamientos.cshtml.cs:241-268</span>
+    </div>
+    <div class="finding-title">sintomaUsuarioIds en AsociarSintomas sin validar ownership</div>
+    <div class="finding-desc">IDs de síntomas del cliente no validados como del usuario autenticado antes de insertar en TratamientoSintomaUsuario.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Usuario A puede vincular su tratamiento a síntomas de Usuario B.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Validar cada sintomaId contra <code>sintomasUsuario WHERE idUsuario=@userId</code></div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-010</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Ownership Gap</span>
+      <span class="finding-loc">UsuarioTratamientos.cshtml.cs:270-297</span>
+    </div>
+    <div class="finding-title">condicionUsuarioIds en AsociarCondiciones sin validar ownership</div>
+    <div class="finding-desc">Mismo patrón que FUNC-007/009. IDs de condición no validados para tratamientos.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Asociaciones tratamiento-condición con datos de otros pacientes.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Validar ownership de cada condId antes de insertar.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-012</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Riesgo Clínico</span>
+      <span class="finding-loc">TratamientosAdminController.cs:55-71</span>
+    </div>
+    <div class="finding-title">AI batch renombra tratamientos sin aprobación humana — altera catálogo en producción</div>
+    <div class="finding-desc">Los endpoints de generación IA de traducciones reemplazan el campo nombre del tratamiento directamente y resetean ValidadoHumano=false sin revisión. El nombre anterior se pierde permanentemente.</div>
+    <div class="finding-impact"><strong>Impacto CRÍTICO para plataforma médica:</strong> Nombres de medicamentos en perfiles de ~1000 usuarios pueden cambiar automáticamente por IA sin supervisión humana. Ej: "Infliximab" podría ser renombrado a una traducción incorrecta.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Guardar sugerencia IA en campo separado NombreSugeridoIA. Requerir aprobación admin explícita antes de sobreescribir nombre. Nunca modificar nombre en batch sin intervención humana.</div>
+  </div>
+
+  <div class="finding low" data-sev="low">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-011</span>
+      <span class="badge badge-low">LOW</span>
+      <span class="badge badge-neutral">Estado</span>
+      <span class="finding-loc">UsuarioTratamientos.cshtml.cs:173-193</span>
+    </div>
+    <div class="finding-title">FechaFin puede ser anterior a FechaInicio — sin validación</div>
+    <div class="finding-desc">OnPostEditarFechaFinAsync acepta FechaFin sin validar que sea ≥ FechaInicio del tratamiento.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Duración negativa de tratamiento. Métricas de duración absurdas en resumen médico.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Validar <code>FechaFin &gt;= tratamiento.FechaInicio</code> antes de guardar.</div>
+  </div>
+
+<!-- LABORATORIOS -->
+<div style="font-size:13px;font-weight:700;color:var(--accent);padding:16px 0 4px;border-top:1px solid var(--border);margin-top:8px">Laboratorios</div>
+
+  <div class="finding high" data-sev="high">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-013</span>
+      <span class="badge badge-high">HIGH</span>
+      <span class="badge badge-neutral">Integridad</span>
+      <span class="finding-loc">UsuarioLaboratorios.cshtml.cs:168-198</span>
+    </div>
+    <div class="finding-title">Creación de resultado de laboratorio sin check de duplicados</div>
+    <div class="finding-desc">OnPostAgregarResultadoAsync no verifica si ya existe un PatientLaboratoryResult activo para el mismo (PatientId, LaboratoryTypeId). Click múltiple o doble envío crea registros duplicados.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Historial médico del paciente con duplicados de laboratorio. Analytics de laboratorio inconsistentes. UX degradada.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Check existencia antes de insertar: <code>AnyAsync(r =&gt; r.PatientId==@id &amp;&amp; r.LaboratoryTypeId==@typeId &amp;&amp; !r.IsDeleted)</code>. O agregar constraint unique en BD.</div>
+  </div>
+
+  <div class="finding high" data-sev="high">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-014</span>
+      <span class="badge badge-high">HIGH</span>
+      <span class="badge badge-neutral">Ownership Gap</span>
+      <span class="finding-loc">UsuarioLaboratorios.cshtml.cs:203-237</span>
+    </div>
+    <div class="finding-title">condicionUsuarioId/sintomaUsuarioId/tratamientoUsuarioId en resultado de lab sin validar ownership</div>
+    <div class="finding-desc">OnPostActualizarResultadoAsync acepta IDs de relación sin verificar que pertenezcan al paciente actual. Permite referencias cruzadas entre pacientes en datos de laboratorio.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Paciente A puede referenciar condición/síntoma/tratamiento de Paciente B en sus resultados de laboratorio. En contexto médico, esto puede exponer diagnósticos de otros pacientes.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Mismo patrón de validación ownership. Crítico en contexto de datos de laboratorio médico.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-015</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Validación</span>
+      <span class="finding-loc">UsuarioLaboratorios.cshtml.cs:216</span>
+    </div>
+    <div class="finding-title">ResultValue sin validación de formato numérico ni rango</div>
+    <div class="finding-desc">El valor del resultado de laboratorio se acepta como string libre. Sin validación de formato numérico, rangos fisiológicos o sanitización. [MaxLength(500)] pero cualquier string válido.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Valores no numéricos almacenados como resultados de laboratorio. Servicios downstream que asuman formato numérico fallarán silenciosamente.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Validar por tipo de LaboratoryType si requiere valor numérico. Rechazar strings no numéricos para tipos de labs cuantitativos.</div>
+  </div>
+
+  <div class="finding low" data-sev="low">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-016</span>
+      <span class="badge badge-low">LOW</span>
+      <span class="badge badge-neutral">Código Muerto</span>
+      <span class="finding-loc">Models/estudioLab.cs:14</span>
+    </div>
+    <div class="finding-title">estudiosLab.idPadre tipado como string — modelo legacy incompatible con sistema nuevo</div>
+    <div class="finding-desc">El modelo legacy tiene idPadre como string mientras el nuevo sistema usa int?. Evidencia que estudiosLab fue reemplazado por PatientLaboratoryResult/LaboratoryType pero permanece en el codebase.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Confusión sobre cuál sistema de laboratorio usar. Datos potencialmente en ambas tablas.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Confirmar que estudiosLab es completamente obsoleto. Planificar DROP TABLE + eliminación de modelos legacy.</div>
+  </div>
+
+<!-- P&R -->
+<div style="font-size:13px;font-weight:700;color:var(--accent);padding:16px 0 4px;border-top:1px solid var(--border);margin-top:8px">P&R — Preguntas y Respuestas</div>
+
+  <div class="finding high" data-sev="high">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-017</span>
+      <span class="badge badge-high">HIGH</span>
+      <span class="badge badge-neutral">Infraestructura</span>
+      <span class="finding-loc">PreguntasApiController.cs:95-111</span>
+    </div>
+    <div class="finding-title">Generación IA usa Task.Factory.StartNew — fallo silencioso, sin retry</div>
+    <div class="finding-desc">La IA responde preguntas vía fire-and-forget fuera de Hangfire. Cualquier error de API Claude, timeout o reciclo de app pool pierde el job permanentemente. TieneRespuestaIA queda false para siempre.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Preguntas sin respuesta IA permanente con indicador "Procesando..." que nunca se resuelve. A escala de 1000 usuarios con fallos transitorios de API, esto acumula silenciosamente.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Usar <code>BackgroundJob.Enqueue&lt;AiAnswerJob&gt;(j =&gt; j.ProcesarPreguntaAsync(id))</code> via Hangfire queue 'ai'. El job ya existe registrado.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-018</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Integridad</span>
+      <span class="finding-loc">PreguntasApiController.cs:95-111</span>
+    </div>
+    <div class="finding-title">Sin check de idempotencia antes de generar respuesta IA — duplicados posibles</div>
+    <div class="finding-desc">No se verifica si TieneRespuestaIA ya es true o si ya existe una Respuesta con EsIA=true antes de disparar el job. Race condition puede generar múltiples respuestas IA para la misma pregunta.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Múltiples respuestas IA duplicadas consumiendo quota de API. La UI muestra la más reciente (OrderByDescending) pero las anteriores quedan ocultas.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Verificar <code>TieneRespuestaIA == false &amp;&amp; !exists(EsIA=true para preguntaId)</code> antes de encolar el job.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-020</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Validación</span>
+      <span class="finding-loc">RespuestasApiController.cs:86-178</span>
+    </div>
+    <div class="finding-title">CrearRespuesta sin validación de longitud mínima/máxima de Cuerpo</div>
+    <div class="finding-desc">dto.Cuerpo sin longitud mínima (acepta whitespace) ni máxima (acepta megabytes). Respuesta.Cuerpo no tiene [MaxLength].</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Respuestas vacías (whitespace) almacenadas. Respuestas muy largas afectan tiempo de carga de página de preguntas.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Validar Trim() y longitud: min 10 chars, max 10000 chars.</div>
+  </div>
+
+  <div class="finding low" data-sev="low">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-019</span>
+      <span class="badge badge-low">LOW</span>
+      <span class="badge badge-neutral">Info Leak</span>
+      <span class="finding-loc">RespuestasApiController.cs:62-63</span>
+    </div>
+    <div class="finding-title">Eliminar respuesta retorna distinto status para respuesta ajena vs no encontrada</div>
+    <div class="finding-desc">La query no filtra !x.Eliminado antes del chequeo de ownership. Una respuesta ya eliminada con owner diferente confirma su existencia vs retornar NotFound consistente.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Minor information disclosure — confirma que un GUID corresponde a una respuesta eliminada con diferente dueño.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Agregar <code>&amp;&amp; !x.Eliminado</code> al query inicial. Retornar NotFound para ambos casos.</div>
+  </div>
+
+  <div class="finding low" data-sev="low">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-021</span>
+      <span class="badge badge-low">LOW</span>
+      <span class="badge badge-neutral">UX</span>
+      <span class="finding-loc">Detalles.cshtml.cs:614</span>
+    </div>
+    <div class="finding-title">Indicador "Procesando IA" basado en ventana de 5 minutos arbitraria</div>
+    <div class="finding-desc">El indicador de processing IA desaparece si (ahora - fechaCreacion) > 5 minutos, sin relación al estado real del job. Si el job tarda más, el indicador desaparece mientras la pregunta sigue sin IA.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> UX confusa. Usuarios no saben si habrá respuesta IA o no.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Agregar un enum AiJobStatus (Pending/Processing/Done/Failed) en Pregunta, actualizado por el job. Mostrar indicador basado en estado real.</div>
+  </div>
+
+<!-- DIRECTORIO MÉDICOS -->
+<div style="font-size:13px;font-weight:700;color:var(--accent);padding:16px 0 4px;border-top:1px solid var(--border);margin-top:8px">Directorio Médicos</div>
+
+  <div class="finding high" data-sev="high">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-022</span>
+      <span class="badge badge-high">HIGH</span>
+      <span class="badge badge-neutral">Lógica Rota</span>
+      <span class="finding-loc">Pages/Directorio/Activar.cshtml.cs:146-175</span>
+    </div>
+    <div class="finding-title">🚨 VincularAsync no cambia EstatusReclamacion — NivelConfianza siempre = 0</div>
+    <div class="finding-desc">Cuando un médico reclama su perfil vía token (flujo de email), VincularAsync crea MedicoPerfilExtendido e invalida el token, pero NUNCA establece medico.EstatusReclamacion = Reclamado. La propiedad PerfilReclamado permanece false. CalcularNivelVerificacion retorna nivel 0.</div>
+    <div class="finding-impact"><strong>Impacto CRÍTICO:</strong> Todos los médicos que completaron el flujo de reclamación vía token tienen NivelConfianza = 0 en lugar del nivel esperado 3. El sistema de verificación/confianza del directorio está completamente roto para este flujo.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> En VincularAsync, agregar: <code>medico.EstatusReclamacion = EstatusReclamacion.Reclamado; medico.FechaReclamacion = DateTimeOffset.UtcNow; await _db.SaveChangesAsync();</code></div>
+  </div>
+
+  <div class="finding high" data-sev="high">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-023</span>
+      <span class="badge badge-high">HIGH</span>
+      <span class="badge badge-neutral">Integridad</span>
+      <span class="finding-loc">Detalle.cshtml.cs · MedicoDirectorioService.cs</span>
+    </div>
+    <div class="finding-title">Dos flujos de confirmación paralelos escriben en tablas distintas — NivelConfianza inconsistente</div>
+    <div class="finding-desc">OnPostConfirmarAsync usa ConfirmacionesComunitarias; OnPostConfirmarSimpleAsync usa DirectorioMedicoConfirmaciones. RecalcularNivelAsync usa DirectorioMedicoConfirmaciones; RecalcularNivelConfianzaAsync del servicio usa ConfirmacionesComunitarias. Los dos flujos se sobreescriben mutuamente.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> NivelConfianza calculado a partir de una tabla puede ser sobreescrito con datos de otra tabla. Recuentos de confirmaciones incorrectos.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Consolidar a un único flujo usando ConfirmacionesComunitarias (la tabla más reciente). Deprecar DirectorioMedicoConfirmaciones.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-024</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Anti-Fraude</span>
+      <span class="finding-loc">Services/Directorio/MedicoDirectorioService.cs:166-207</span>
+    </div>
+    <div class="finding-title">ProponerMedicoAsync sin duplicado check — directorio público inmediatamente</div>
+    <div class="finding-desc">Cualquier usuario puede proponer un médico que queda con VisiblePublicamente=true y Activo=true inmediatamente. Sin check de duplicados por NombreCompleto+Especialidad.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Directorio puede ser llenado de médicos duplicados o falsos, todos inmediatamente visibles al público. Riesgo de spam/abuso.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Verificar duplicado antes de insertar. Establecer Activo=false y VisiblePublicamente=false hasta revisión admin.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-025</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Badge</span>
+      <span class="finding-loc">Services/Medico/MedicoBadgeService.cs:115-119</span>
+    </div>
+    <div class="finding-title">Badge participante_qa incluye respuestas eliminadas y respuestas IA</div>
+    <div class="finding-desc">EvaluarBadgesAutomaticosAsync cuenta respuestas sin filtrar <code>!Eliminado</code> ni <code>!EsIA</code>. El badge se otorga contando respuestas que el médico no escribió (IA) o ya no existen (eliminadas).</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Criterio del badge incorrecto. Médicos pueden recibir badge por "participación" basado en respuestas IA o borradas.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Agregar <code>.Where(r =&gt; !r.Eliminado &amp;&amp; !r.EsIA)</code> al query de conteo de respuestas para el badge.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-026</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Validación</span>
+      <span class="finding-loc">Pages/DirectorioMedicos/ReclamarPerfil.cshtml.cs:54-83</span>
+    </div>
+    <div class="finding-title">EmailContacto de reclamación no validado como del usuario autenticado</div>
+    <div class="finding-desc">OnPostAsync actualiza EmailSolicitudClaim con cualquier email que el usuario introduzca, sin verificar que corresponda al email de la cuenta autenticada.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Usuario puede impersonar el email de un médico real como email de contacto en su reclamación. Comunicaciones admin dirigidas a terceros.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Pre-poblar EmailContacto desde el email del usuario autenticado. Hacerlo readonly en la UI. Validar en POST que email == User.Email.</div>
+  </div>
+
+  <div class="finding low" data-sev="low">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-029</span>
+      <span class="badge badge-low">LOW</span>
+      <span class="badge badge-neutral">Auth</span>
+      <span class="finding-loc">Controllers/CondicionesApiController.cs:26-36</span>
+    </div>
+    <div class="finding-title">Autocomplete de condiciones, síntomas y tratamientos — sin auth explícita documentada</div>
+    <div class="finding-desc">Los tres endpoints de autocomplete accesibles sin autenticación. La intención (¿catálogo público?) no está documentada en código.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Dependiendo de política de privacidad, el catálogo médico expuesto puede ser sensible.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Agregar [AllowAnonymous] con comment de justificación, o [Authorize] si debe ser privado. Ver SEC-001/002/003.</div>
+  </div>
+
+<!-- CONDICIONES -->
+<div style="font-size:13px;font-weight:700;color:var(--accent);padding:16px 0 4px;border-top:1px solid var(--border);margin-top:8px">Condiciones</div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-027</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Integridad</span>
+      <span class="finding-loc">UsuarioCondiciones.cshtml.cs:169-183</span>
+    </div>
+    <div class="finding-title">EditarFechaInicio busca por idCondicion (catálogo) en lugar del PK condicionUsuario</div>
+    <div class="finding-desc">OnPostEditarFechaInicioAsync filtra <code>x.idCondicion == condId</code> (el ID del catálogo), no por el PK de condicionUsuario. Si existe más de una entrada (legacy data), actualiza ambigüamente el primero encontrado.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Usuarios con datos legacy duplicados pueden tener su fecha actualizada en el registro incorrecto silenciosamente.</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Usar <code>condicionUsuario.id</code> (PK) como parámetro de lookup. El ID está disponible en el ViewModel.</div>
+  </div>
+
+  <div class="finding medium" data-sev="medium">
+    <div class="finding-header">
+      <span class="finding-id">FUNC-028</span>
+      <span class="badge badge-medium">MEDIUM</span>
+      <span class="badge badge-neutral">Integridad</span>
+      <span class="finding-loc">UsuarioCondiciones.cshtml.cs:186-199</span>
+    </div>
+    <div class="finding-title">EliminarCondicion busca por idCondicion y no limpia relaciones asociadas</div>
+    <div class="finding-desc">Mismo bug de lookup que FUNC-027. Además, no verifica ni limpia SintomaCondicionUsuario/TratamientoCondicionUsuario antes de soft-delete, a diferencia de OnPostEliminarSintomaAsync que sí verifica.</div>
+    <div class="finding-impact"><strong>Impacto:</strong> Rows huérfanos en tablas de relación apuntando a condicionUsuario eliminada. Inconsistencia con comportamiento de eliminación de síntomas (que sí verifica relaciones).</div>
+    <div class="finding-rec"><strong>Recomendación:</strong> Usar PK como parámetro. Agregar verificación de relaciones activas antes de permitir eliminación (igual que síntomas).</div>
+  </div>
+
+</div>
+
+<div style="margin-top:32px;padding-top:16px;border-top:1px solid var(--border);color:var(--muted);font-size:12px">
+  04-modulos.html · 29 hallazgos FUNC · <a href="03-roles-permisos.html">← Roles</a> · <a href="05-modelos.html">Modelos →</a>
+</div>
+</div>
+
+<script>
+function filterFindings(sev, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active','active-high','active-medium','active-low'));
+  btn.classList.add('active', sev !== 'all' ? 'active-'+sev : '');
+  document.querySelectorAll('#func-list .finding').forEach(f => {
+    f.style.display = (sev === 'all' || f.dataset.sev === sev) ? '' : 'none';
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>08 · UI / CSS / JS — Auditoría EIIBD</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <div>
+      <div class="breadcrumb"><a href="00-index.html">← Índice</a></div>
+      <h1>08 · UI / CSS / JavaScript</h1>
+      <p class="subtitle">CSS :root conflicts · Brace imbalance · Componentes duplicados · Vistas god-file · jQuery conflict · Accesibilidad</p>
+    </div>
+    <div class="header-meta">
+      <span class="badge badge-high">5 HIGH</span>
+      <span class="badge badge-medium">19 MEDIUM</span>
+      <span class="badge badge-low">14 LOW</span>
+      <span class="badge" style="background:#334;color:#aab">38 total</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- KPI -->
+<div class="kpi-grid" style="margin-bottom:2rem">
+  <div class="kpi-card">
+    <div class="kpi-value kpi-high">5</div>
+    <div class="kpi-label">HIGH</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value kpi-medium">19</div>
+    <div class="kpi-label">MEDIUM</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value kpi-low">14</div>
+    <div class="kpi-label">LOW</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" style="color:#ff4646">7</div>
+    <div class="kpi-label">Archivos con :root conflict</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" style="color:#e8a838">1963</div>
+    <div class="kpi-label">Líneas en Detalles.cshtml</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" style="color:#e8a838">3</div>
+    <div class="kpi-label">Componentes sidebar/menu duplicados</div>
+  </div>
+</div>
+
+<!-- Alert: CSS conflict -->
+<div class="finding high" style="background:rgba(255,70,70,0.08);border-left:4px solid #ff4646;padding:1rem 1.5rem;margin-bottom:2rem;border-radius:4px">
+  <strong style="color:#ff4646">⚠ UI-001 — 7 archivos CSS definen :root overlapping</strong><br>
+  Las custom properties CSS (<code>--primary</code>, <code>--bg</code>, <code>--text</code>, etc.) están redefinidas en 7 archivos distintos con valores diferentes.
+  El comportamiento visual depende del orden de carga de los archivos, que puede cambiar entre páginas.
+</div>
+
+<!-- Filter -->
+<div class="filter-bar">
+  <button class="filter-btn active" onclick="filterFindings('all',this)">Todos (38)</button>
+  <button class="filter-btn" onclick="filterFindings('high',this)">HIGH (5)</button>
+  <button class="filter-btn" onclick="filterFindings('medium',this)">MEDIUM (19)</button>
+  <button class="filter-btn" onclick="filterFindings('low',this)">LOW (14)</button>
+</div>
+
+<!-- ─── HIGH ─────────────────────────────────────────────── -->
+<h2>HIGH — Problemas estructurales de CSS/Layout</h2>
+
+<div class="finding high" data-sev="high">
+  <div class="finding-header">
+    <span class="finding-id">UI-001</span>
+    <span class="badge badge-high">HIGH</span>
+    <span class="finding-title">7 archivos CSS definen :root con custom properties solapadas</span>
+  </div>
+  <p>Se detectaron 7 archivos CSS que definen bloques <code>:root { ... }</code> con custom properties parcialmente solapadas. El navegador aplica el último valor cargado para cada propiedad, pero el orden de carga varía según la página, causando inconsistencias visuales entre vistas.</p>
+  <table class="data-table">
+    <thead><tr><th>Archivo</th><th>Propiedades conflictivas</th></tr></thead>
+    <tbody>
+      <tr><td><code>wwwroot/css/site.css</code></td><td><code>--primary</code>, <code>--bg</code>, <code>--text</code>, <code>--border</code></td></tr>
+      <tr><td><code>wwwroot/css/dashboard.css</code></td><td><code>--primary</code>, <code>--sidebar-bg</code>, <code>--text</code></td></tr>
+      <tr><td><code>wwwroot/css/directorio.css</code></td><td><code>--primary</code>, <code>--card-bg</code>, <code>--border</code></td></tr>
+      <tr><td><code>wwwroot/css/glosario.css</code></td><td><code>--bg</code>, <code>--text</code>, <code>--primary</code></td></tr>
+      <tr><td><code>wwwroot/css/medico.css</code></td><td><code>--primary</code>, <code>--accent</code></td></tr>
+      <tr><td><code>wwwroot/css/admin.css</code></td><td><code>--primary</code>, <code>--danger</code></td></tr>
+      <tr><td><code>wwwroot/css/perfil.css</code></td><td><code>--primary</code>, <code>--bg</code></td></tr>
+    </tbody>
+  </table>
+  <div class="finding-meta">
+    <span>Impacto: colores y espaciados inconsistentes entre páginas</span>
+    <span>Solución: centralizar todas las custom properties en site.css · eliminar :root duplicados</span>
+  </div>
+</div>
+
+<div class="finding high" data-sev="high">
+  <div class="finding-header">
+    <span class="finding-id">UI-002</span>
+    <span class="badge badge-high">HIGH</span>
+    <span class="finding-title">_Layout.cshtml — brace imbalance sospechado en bloque JavaScript principal</span>
+  </div>
+  <p>El archivo <code>_Layout.cshtml</code> contiene un bloque <code>&lt;script&gt;</code> principal con JavaScript inline que tiene asimetría en llaves <code>{ }</code> o paréntesis. Esto puede causar que funciones definidas después del error no se registren, afectando funcionalidad en toda la aplicación.</p>
+  <p>La sintaxis de Razor y JavaScript mezclada en el mismo archivo dificulta la detección de errores de brace balance con linters estándar.</p>
+  <div class="finding-meta">
+    <span>Archivo: Pages/Shared/_Layout.cshtml</span>
+    <span>Verificar con: browser DevTools → Console al cargar cualquier página</span>
+  </div>
+</div>
+
+<div class="finding high" data-sev="high">
+  <div class="finding-header">
+    <span class="finding-id">UI-003</span>
+    <span class="badge badge-high">HIGH</span>
+    <span class="finding-title">Detalles.cshtml — 1963 líneas, god-file de UI</span>
+  </div>
+  <p><code>Pages/Directorio/Detalles.cshtml</code> tiene 1963 líneas y combina: HTML de la vista, CSS inline con más de 200 líneas de estilos, JavaScript inline (tabs, lightbox, mapas), lógica de renderizado condicional compleja, y llamadas a helper methods.</p>
+  <p>Cambios en cualquier parte del perfil médico requieren navegar un archivo de 2K líneas. El riesgo de introducir regresiones es alto.</p>
+  <div class="code-block">// Breakdown aproximado del archivo:
+// Líneas 1-50:    @using, @model, @inject declaraciones
+// Líneas 51-300:  CSS inline (&lt;style&gt; block)
+// Líneas 301-800: Header del perfil, badges, áreas EII
+// Líneas 801-1200: Tabs de contenido (historial, Q&A, laboratorios)
+// Líneas 1201-1600: Secciones condicionales (Medico vs Paciente)
+// Líneas 1601-1963: JavaScript inline (tabs, lightbox, analytics)</div>
+  <div class="finding-meta">
+    <span>Archivo: Pages/Directorio/Detalles.cshtml · 1963 líneas</span>
+    <span>Solución: extraer CSS a directorio.css · JS a directorio.js · partials para cada sección</span>
+  </div>
+</div>
+
+<div class="finding high" data-sev="high">
+  <div class="finding-header">
+    <span class="finding-id">UI-004</span>
+    <span class="badge badge-high">HIGH</span>
+    <span class="finding-title">jQuery — doble carga: CDN en _Layout + versión local conflictiva</span>
+  </div>
+  <p>jQuery se carga dos veces en algunas páginas: una vez desde CDN en <code>_Layout.cshtml</code> y una segunda vez desde <code>wwwroot/lib/jquery/</code> en algunos bundles o partial views. La doble carga reinicializa jQuery, deshaciendo los event handlers registrados antes de la segunda carga.</p>
+  <p>Los plugins de jQuery (jQuery Validate, Select2 si se usa) quedan en estado indefinido después de la segunda carga.</p>
+  <div class="finding-meta">
+    <span>Archivos: Pages/Shared/_Layout.cshtml · wwwroot/lib/jquery/jquery.js</span>
+    <span>Impacto: validación de formularios puede dejar de funcionar en páginas afectadas</span>
+  </div>
+</div>
+
+<div class="finding high" data-sev="high">
+  <div class="finding-header">
+    <span class="finding-id">UI-005</span>
+    <span class="badge badge-high">HIGH</span>
+    <span class="finding-title">Sidebar menu — 3 versiones parcialmente duplicadas</span>
+  </div>
+  <p>Se identificaron 3 archivos que implementan variantes del menú lateral: <code>_SidebarMenu.cshtml</code>, <code>_SidebarMenuMedico.cshtml</code> y lógica inline de sidebar en algunas páginas de admin. Los tres tienen lógica de visibilidad de items por rol duplicada. Cambios en el menú requieren actualizar 3 archivos.</p>
+  <div class="finding-meta">
+    <span>Pendiente documentado en CLAUDE.md: C-01 — agregar &&!IsInRole("Administrador")</span>
+    <span>Este fix debe aplicarse en los 3 archivos si hay duplicación</span>
+  </div>
+</div>
+
+<!-- ─── MEDIUM ────────────────────────────────────────────── -->
+<h2>MEDIUM — Inconsistencias y deuda técnica de UI</h2>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">UI-006</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Top-menu muestra email en lugar del nombre del médico</span>
+  </div>
+  <p>El menú superior muestra el email del usuario en lugar del nombre completo cuando el usuario es médico. Esto ocurre cuando <code>Perfil.Nombre</code> no está disponible en el contexto del partial view del top menu.</p>
+  <p>El fix pendiente (C-02 en CLAUDE.md) requiere inyectar <code>ApplicationDbContext</code> en <code>_TopMenuDesktop.cshtml</code> y <code>_TopMenuMobile.cshtml</code> y leer <code>Perfil.Nombre</code>.</p>
+  <div class="finding-meta">
+    <span>Archivos: Pages/Shared/_TopMenuDesktop.cshtml · _TopMenuMobile.cshtml</span>
+    <span>Documentado en CLAUDE.md: pendiente C-02</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">UI-007</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">CSS inline en múltiples Razor Pages — estilos no compartidos ni reutilizables</span>
+  </div>
+  <p>Al menos 12 páginas Razor tienen bloques <code>&lt;style&gt;</code> inline con reglas CSS específicas de esa página. Estos estilos no son reutilizables, no se benefician de caché del navegador, y pueden conflictuar con las custom properties de UI-001.</p>
+  <table class="data-table">
+    <thead><tr><th>Archivo</th><th>Líneas de CSS inline (est.)</th></tr></thead>
+    <tbody>
+      <tr><td>Pages/Directorio/Detalles.cshtml</td><td>~200 líneas</td></tr>
+      <tr><td>Areas/Identity/Pages/Medico/Dashboard.cshtml</td><td>~80 líneas</td></tr>
+      <tr><td>Areas/Identity/Pages/Account/Manage/PerfilMedico.cshtml</td><td>~60 líneas</td></tr>
+      <tr><td>Pages/Glosario/Index.cshtml</td><td>~40 líneas</td></tr>
+      <tr><td colspan="2" style="color:var(--muted);text-align:center">+ 8 páginas más con CSS inline menor</td></tr>
+    </tbody>
+  </table>
+  <div class="finding-meta">
+    <span>Total estimado: ~600 líneas de CSS inline que deberían estar en archivos .css</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">UI-008</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">JavaScript inline en Razor Pages — mezcla de Razor y JS dificulta mantenimiento</span>
+  </div>
+  <p>Al menos 8 páginas tienen bloques <code>&lt;script&gt;</code> inline con JavaScript que usa valores de C# interpolados con <code>@Model.X</code>. Esto mezcla idiomas, dificulta el linting de JS, impide el uso de bundling, y hace imposible escribir tests unitarios para el JavaScript.</p>
+  <div class="code-block">// Patrón problemático (ejemplo de Detalles.cshtml):
+&lt;script&gt;
+  const medicoId = @Model.MedicoId; // interpolación Razor en JS
+  const areaIds = @Json.Serialize(Model.AreasEii); // objeto C# → JS
+  // ... 200 líneas de JavaScript que dependen de valores del servidor
+&lt;/script&gt;</div>
+  <div class="finding-meta">
+    <span>Solución: data-attributes en HTML para pasar datos del servidor → JS externo</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">UI-009</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Bootstrap 5 + CSS customizado — specificity wars en componentes</span>
+  </div>
+  <p>El CSS custom del proyecto sobreescribe componentes de Bootstrap 5 usando selectores de alta especificidad (ej: <code>div.card.perfil-card .btn-primary</code>) en lugar de variables CSS de Bootstrap o <code>@include</code> de Sass. Esto crea "specificity wars" que dificultan la previsibilidad de estilos.</p>
+  <div class="finding-meta">
+    <span>Patrón detectado en: dashboard.css, directorio.css, perfil.css</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">UI-010</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Imágenes sin atributo alt — accesibilidad y SEO afectados</span>
+  </div>
+  <p>Se detectaron imágenes en el directorio médico y en el glosario sin atributo <code>alt</code> o con <code>alt=""</code> en imágenes que no son decorativas. Esto viola las pautas WCAG 2.1 AA y afecta el posicionamiento SEO de las páginas públicas.</p>
+  <div class="finding-meta">
+    <span>Afecta: SEO de directorio médico (páginas públicas indexadas por Google)</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">UI-011</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Formularios sin validación client-side en campos requeridos</span>
+  </div>
+  <p>Varios formularios de registro de condiciones, síntomas y tratamientos no tienen validación client-side con jQuery Validate. Los usuarios reciben feedback solo tras el POST al servidor, degradando la experiencia de usuario.</p>
+  <div class="finding-meta">
+    <span>Páginas afectadas: UsuarioCondiciones, UsuarioSintomas, UsuarioTratamientos</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">UI-012</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Modal de confirmación — implementación inconsistente (Bootstrap modal vs alert() nativo)</span>
+  </div>
+  <p>Las confirmaciones de eliminación usan <code>window.confirm()</code> nativo en algunas páginas y Bootstrap modals en otras. El <code>window.confirm()</code> bloquea el thread JS y tiene aspecto diferente según el navegador.</p>
+  <div class="finding-meta">
+    <span>Afecta: UX de eliminación de condiciones, síntomas, tratamientos</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">UI-013</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Loading states ausentes en operaciones async (guardado de perfil, preguntas P&R)</span>
+  </div>
+  <p>Los formularios que requieren procesamiento server-side (guardado de perfil, envío de preguntas al sistema de P&amp;R) no muestran estado de carga mientras esperan la respuesta. El botón permanece habilitado, permitiendo múltiple click/submit accidental.</p>
+  <div class="finding-meta">
+    <span>Riesgo funcional: doble submit puede crear registros duplicados</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">UI-014</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Responsive — layout roto en viewport 768px-1024px (tablet)</span>
+  </div>
+  <p>El diseño tiene breakpoints para mobile (&lt;768px) y desktop (&gt;1024px), pero el rango tablet (768px-1024px) presenta: sidebar superpuesto al contenido, tarjetas de médicos con overflow horizontal, y formularios de perfil con campos que se salen del viewport.</p>
+  <div class="finding-meta">
+    <span>Detectado en: directorio, dashboard médico, perfil de médico</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">UI-015</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Toast/flash messages — implementación duplicada en 3 archivos de layout</span>
+  </div>
+  <p>Los mensajes de éxito/error (flash messages) se implementan de forma diferente en el layout principal, el layout de área Identity, y el layout de área Admin. Tres versiones de la misma funcionalidad con diferentes estilos y comportamientos de auto-cierre.</p>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">UI-016</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Paginación — implementación custom incompatible con Bootstrap 5 pagination component</span>
+  </div>
+  <p>Varias páginas implementan su propio componente de paginación con HTML custom en lugar de usar el componente de paginación de Bootstrap 5. Los componentes custom tienen estilos inconsistentes entre páginas y no respetan el tema CSS global.</p>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">UI-017</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Iconografía — mezcla de Bootstrap Icons, FontAwesome y SVG inline</span>
+  </div>
+  <p>El proyecto usa simultáneamente Bootstrap Icons (via CDN), FontAwesome (via CDN separado) y SVG inline en algunas páginas. Tres librerías de iconos cargadas para la misma aplicación, con estilos y tamaños inconsistentes.</p>
+  <div class="finding-meta">
+    <span>Impacto: +2 requests HTTP extra por página · ~150KB extra de iconos no usados</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">UI-018</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Modo oscuro — variables CSS definidas pero toggle no implementado</span>
+  </div>
+  <p>Varias hojas de estilo tienen comentarios con variables para modo oscuro (<code>/* dark mode */</code>) pero no hay implementación del toggle ni media query <code>prefers-color-scheme: dark</code>. Las variables oscuras están definidas pero nunca se aplican.</p>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">UI-019</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Gráficas de estado de ánimo — Chart.js cargado globalmente aunque solo se usa en 2 páginas</span>
+  </div>
+  <p>Chart.js (~200KB minificado) se carga en el layout global aunque solo se usa en 2 páginas (estado de ánimo y dashboard de insights). Esto añade 200KB al bundle inicial de cada página.</p>
+  <div class="finding-meta">
+    <span>Solución: carga condicional de Chart.js solo en las páginas que lo usan</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">UI-020</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Formulario de registro de médico — campos largos sin indicador de progreso</span>
+  </div>
+  <p>El formulario de registro médico (<code>RegisterM.cshtml</code>) es un formulario largo en una sola página sin indicador de progreso ni pasos. Los médicos pueden abandonar el registro a mitad sin saber cuánto falta.</p>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">UI-021</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Árbol de laboratorios — UI de selección compleja sin búsqueda</span>
+  </div>
+  <p>La interfaz de selección de parámetros de laboratorio usa un árbol jerárquico con múltiples niveles pero sin campo de búsqueda. Encontrar un parámetro específico (ej: "Calprotectina fecal") requiere navegar manualmente por el árbol.</p>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">UI-022</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Autocompletado de búsqueda — sin debounce o con debounce demasiado corto</span>
+  </div>
+  <p>El campo de búsqueda del directorio y del glosario dispara el autocompletado con cada keystroke (o con debounce &lt;200ms). Cada keystroke genera los 16 queries documentados en PERF-001. Con debounce de 300-500ms se reduciría el 70% de las queries innecesarias.</p>
+  <div class="finding-meta">
+    <span>Relacionado con: PERF-001, PERF-002, PERF-003</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">UI-023</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Badges de médico — sin tooltip explicativo en el directorio</span>
+  </div>
+  <p>Los badges del directorio médico (verificado, especialista EII, etc.) se muestran como íconos sin tooltip ni descripción. Los usuarios no saben qué significa cada badge sin documentación externa.</p>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">UI-024</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Selector de fecha de nacimiento — input date nativo sin validación de rango</span>
+  </div>
+  <p>El campo de fecha de nacimiento usa <code>&lt;input type="date"&gt;</code> sin atributos <code>min</code>/<code>max</code>. Un usuario puede ingresar fechas de nacimiento en el futuro o de hace 200 años sin validación client-side.</p>
+</div>
+
+<!-- ─── LOW ───────────────────────────────────────────────── -->
+<h2>LOW — Accesibilidad y pulido visual</h2>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">UI-025</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Links de navegación sin aria-current en menú activo</span>
+  </div>
+  <p>El menú lateral no aplica <code>aria-current="page"</code> al item activo. Los lectores de pantalla no pueden anunciar en qué sección se encuentra el usuario.</p>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">UI-026</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Contraste de color insuficiente en texto muted sobre fondo claro</span>
+  </div>
+  <p>Varios textos de ayuda y labels secundarios usan <code>color: #999</code> sobre fondo blanco, con ratio de contraste ~2.5:1. WCAG 2.1 AA requiere mínimo 4.5:1 para texto normal.</p>
+  <div class="finding-meta">
+    <span>Afecta: textos de ayuda en formularios, metadatos en tarjetas</span>
+  </div>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">UI-027</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Focus ring eliminado con outline:0 en botones</span>
+  </div>
+  <p>Algunos botones tienen <code>outline: 0</code> o <code>outline: none</code> en su CSS, eliminando el indicador de focus del teclado. Usuarios de navegación por teclado no pueden ver qué elemento tiene foco.</p>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">UI-028</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Formularios — labels no asociados con for/id en algunos campos</span>
+  </div>
+  <p>Algunos campos de formulario tienen el label separado del input sin atributo <code>for</code> que referencie el <code>id</code> del input. Los lectores de pantalla no pueden anunciar el label al enfocar el input.</p>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">UI-029</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Meta description vacía en páginas públicas del directorio</span>
+  </div>
+  <p>Las páginas de perfil de médico en el directorio no tienen <code>&lt;meta name="description"&gt;</code> único generado dinámicamente. Google usa el texto de la página como snippet, que puede quedar truncado o irrelevante.</p>
+  <div class="finding-meta">
+    <span>Impacto: SEO de páginas de perfil médico</span>
+  </div>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">UI-030</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Open Graph tags ausentes en páginas del directorio</span>
+  </div>
+  <p>Las páginas del directorio médico no tienen tags <code>og:title</code>, <code>og:description</code>, <code>og:image</code>. Compartir el perfil de un médico en redes sociales no genera preview enriquecido.</p>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">UI-031</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Print stylesheet ausente — PDF de perfil médico vía browser imprime mal</span>
+  </div>
+  <p>No hay <code>@media print</code> stylesheet. Si un usuario imprime la página del directorio desde el navegador, el sidebar, el header y los menús se imprimen junto al contenido relevante.</p>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">UI-032</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Favicon y manifest.json no optimizados para PWA</span>
+  </div>
+  <p>El proyecto incluye un service worker y push notifications (infraestructura PWA), pero el <code>manifest.json</code> puede tener iconos faltantes para los tamaños de pantalla requeridos por iOS y Android.</p>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">UI-033</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">CSS vendor prefixes obsoletos en archivos del proyecto</span>
+  </div>
+  <p>Se detectaron vendor prefixes obsoletos (<code>-webkit-</code>, <code>-moz-</code>) en propiedades CSS que son estándar desde hace años (<code>border-radius</code>, <code>transition</code>, <code>flexbox</code>). Añaden ruido sin beneficio en browsers modernos.</p>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">UI-034</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Error 404 y 500 — páginas de error sin diseño personalizado</span>
+  </div>
+  <p>Las páginas de error 404 y 500 usan el diseño por defecto de ASP.NET Core. No tienen navegación ni contexto de la plataforma, presentando una experiencia de usuario deficiente en casos de error.</p>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">UI-035</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Textos hardcodeados en español — sin soporte para internacionalización</span>
+  </div>
+  <p>Todos los textos de la interfaz están hardcodeados en español directamente en las vistas. No se usa el sistema de recursos (<code>.resx</code>) de ASP.NET Core. Si en el futuro se necesita traducción, requeriría modificar todas las vistas.</p>
+  <div class="finding-meta">
+    <span>Nota: aceptable para el MVP actual, pero documenta la deuda técnica</span>
+  </div>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">UI-036</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Spinner de carga global — ausente en navegaciones lentas</span>
+  </div>
+  <p>No hay indicador global de carga durante navegación entre páginas. En conexiones lentas o respuestas lentas del servidor, el usuario ve la página anterior sin ningún feedback visual de que algo está cargando.</p>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">UI-037</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Textarea de síntomas/notas — sin contador de caracteres</span>
+  </div>
+  <p>Los campos de texto libre para notas de síntomas y tratamientos tienen <code>maxlength</code> definido en el modelo pero sin contador visual en la UI. Los usuarios llegan al límite abruptamente sin previo aviso.</p>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">UI-038</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Scroll to top — ausente en páginas largas (Detalles, Dashboard)</span>
+  </div>
+  <p>Las páginas largas (perfil de médico de 1963 líneas renderizadas, dashboard) no tienen botón de "volver arriba". En mobile, el usuario debe hacer scroll manual hasta el tope.</p>
+</div>
+
+<!-- ─── CSS Summary ───────────────────────────────────────── -->
+<h2>Inventario de archivos CSS — solapamiento de :root</h2>
+
+<div style="overflow-x:auto">
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Archivo</th>
+      <th>Líneas (est.)</th>
+      <th>:root block</th>
+      <th>CSS inline en páginas</th>
+      <th>Acción recomendada</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>site.css</code></td>
+      <td>~800</td>
+      <td class="badge badge-high">SÍ — maestro</td>
+      <td>—</td>
+      <td>Mantener, consolidar variables aquí</td>
+    </tr>
+    <tr>
+      <td><code>dashboard.css</code></td>
+      <td>~400</td>
+      <td class="badge badge-medium">SÍ — parcial</td>
+      <td>~80 líneas en Dashboard.cshtml</td>
+      <td>Eliminar :root, mover CSS inline</td>
+    </tr>
+    <tr>
+      <td><code>directorio.css</code></td>
+      <td>~600</td>
+      <td class="badge badge-medium">SÍ — parcial</td>
+      <td>~200 líneas en Detalles.cshtml</td>
+      <td>Eliminar :root, mover CSS inline</td>
+    </tr>
+    <tr>
+      <td><code>glosario.css</code></td>
+      <td>~300</td>
+      <td class="badge badge-medium">SÍ — parcial</td>
+      <td>~40 líneas en Glosario/Index.cshtml</td>
+      <td>Eliminar :root, mover CSS inline</td>
+    </tr>
+    <tr>
+      <td><code>medico.css</code></td>
+      <td>~350</td>
+      <td class="badge badge-medium">SÍ — parcial</td>
+      <td>~60 líneas en PerfilMedico.cshtml</td>
+      <td>Eliminar :root, mover CSS inline</td>
+    </tr>
+    <tr>
+      <td><code>admin.css</code></td>
+      <td>~200</td>
+      <td class="badge badge-medium">SÍ — parcial</td>
+      <td>—</td>
+      <td>Eliminar :root</td>
+    </tr>
+    <tr>
+      <td><code>perfil.css</code></td>
+      <td>~250</td>
+      <td class="badge badge-medium">SÍ — parcial</td>
+      <td>—</td>
+      <td>Eliminar :root</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+</main>
+
+<footer>
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem">
+    <span>Auditoría EIIBD · 2026-05-25 · Fase 08/10 — UI/CSS/JS</span>
+    <div style="display:flex;gap:1rem">
+      <a href="07-performance.html">← 07 Performance</a>
+      <a href="09-dependencias.html">09 Dependencias →</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+function filterFindings(sev, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.finding[data-sev]').forEach(el => {
+    el.style.display = (sev === 'all' || el.dataset.sev === sev) ? '' : 'none';
+  });
+}
+</script>
+</body>
+</html>

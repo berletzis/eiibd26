@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>09 · Dependencias — Auditoría EIIBD</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <div>
+      <div class="breadcrumb"><a href="00-index.html">← Índice</a></div>
+      <h1>09 · Dependencias NuGet</h1>
+      <p class="subtitle">Inventario de paquetes · Versiones desalineadas · Paquetes sin mantenimiento · Riesgos de actualización</p>
+    </div>
+    <div class="header-meta">
+      <span class="badge badge-high">2 HIGH</span>
+      <span class="badge badge-medium">5 MEDIUM</span>
+      <span class="badge badge-low">6 LOW</span>
+      <span class="badge" style="background:#334;color:#aab">24 paquetes auditados</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- KPI -->
+<div class="kpi-grid" style="margin-bottom:2rem">
+  <div class="kpi-card">
+    <div class="kpi-value kpi-high">2</div>
+    <div class="kpi-label">Versiones críticas desalineadas</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value kpi-medium">3</div>
+    <div class="kpi-label">Paquetes con riesgo de soporte</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" style="color:#7eb8f7">24</div>
+    <div class="kpi-label">Paquetes NuGet totales</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" style="color:#5fc97e">8</div>
+    <div class="kpi-label">EF Core (.NET 8 alineados)</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" style="color:#e8a838">1</div>
+    <div class="kpi-label">Paquete apuntando a .NET 10</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" style="color:#e8a838">1</div>
+    <div class="kpi-label">Lib JS sin mantenimiento desde 2017</div>
+  </div>
+</div>
+
+<!-- Alert: version mismatch -->
+<div class="finding high" style="background:rgba(255,70,70,0.08);border-left:4px solid #ff4646;padding:1rem 1.5rem;margin-bottom:1rem;border-radius:4px">
+  <strong style="color:#ff4646">⚠ DEP-001 — Microsoft.AspNetCore.DataProtection.Extensions 10.0.3</strong><br>
+  Este paquete apunta a <strong>.NET 10</strong> mientras el proyecto target es <strong>net8.0</strong>.
+  La versión correcta para .NET 8 sería 8.x.x. El paquete puede estar introduciendo binarios incompatibles o APIs no disponibles en .NET 8.
+</div>
+<div class="finding high" style="background:rgba(255,70,70,0.08);border-left:4px solid #ff4646;padding:1rem 1.5rem;margin-bottom:2rem;border-radius:4px">
+  <strong style="color:#ff4646">⚠ DEP-002 — Microsoft.VisualStudio.Web.CodeGeneration.Design 9.0.0</strong><br>
+  Versión 9.0.0 de CodeGeneration es para .NET 9. En un proyecto .NET 8, esto puede causar conflictos de tooling.
+  Este paquete es solo de desarrollo (scaffolding) y no debería estar en el .csproj de producción.
+</div>
+
+<!-- Filter -->
+<div class="filter-bar">
+  <button class="filter-btn active" onclick="filterFindings('all',this)">Todos</button>
+  <button class="filter-btn" onclick="filterFindings('high',this)">HIGH (2)</button>
+  <button class="filter-btn" onclick="filterFindings('medium',this)">MEDIUM (5)</button>
+  <button class="filter-btn" onclick="filterFindings('low',this)">LOW (6)</button>
+</div>
+
+<!-- ─── HIGH ─────────────────────────────────────────────── -->
+<h2>HIGH — Versiones críticas desalineadas</h2>
+
+<div class="finding high" data-sev="high">
+  <div class="finding-header">
+    <span class="finding-id">DEP-001</span>
+    <span class="badge badge-high">HIGH</span>
+    <span class="finding-title">DataProtection.Extensions 10.0.3 — apunta a .NET 10 en proyecto .NET 8</span>
+  </div>
+  <p><code>Microsoft.AspNetCore.DataProtection.Extensions</code> versión <code>10.0.3</code> es el paquete de .NET 10. El proyecto tiene <code>&lt;TargetFramework&gt;net8.0&lt;/TargetFramework&gt;</code>. Esta desalineación puede causar:</p>
+  <ul>
+    <li>Binarios de .NET 10 cargados en runtime de .NET 8 — comportamiento indefinido</li>
+    <li>APIs de DataProtection de .NET 10 usadas inadvertidamente que no existen en .NET 8</li>
+    <li>Advertencias de compatibilidad en publish que podrían ocultarse</li>
+  </ul>
+  <div class="code-block">&lt;!-- eiibd26.csproj — versión problemática: --&gt;
+&lt;PackageReference Include="Microsoft.AspNetCore.DataProtection.Extensions" Version="10.0.3" /&gt;
+
+&lt;!-- Versión correcta para .NET 8: --&gt;
+&lt;PackageReference Include="Microsoft.AspNetCore.DataProtection.Extensions" Version="8.0.x" /&gt;</div>
+  <div class="finding-meta">
+    <span>Archivo: eiibd26/eiibd26.csproj</span>
+    <span>Acción: verificar si se usa explícitamente, downgrade a 8.x si es necesario</span>
+  </div>
+</div>
+
+<div class="finding high" data-sev="high">
+  <div class="finding-header">
+    <span class="finding-id">DEP-002</span>
+    <span class="badge badge-high">HIGH</span>
+    <span class="finding-title">CodeGeneration.Design 9.0.0 — herramienta de scaffolding .NET 9 en proyecto .NET 8</span>
+  </div>
+  <p><code>Microsoft.VisualStudio.Web.CodeGeneration.Design</code> <code>9.0.0</code> corresponde a .NET 9. Este paquete es para scaffolding de controladores y vistas en tiempo de desarrollo.</p>
+  <p><strong>Riesgos:</strong></p>
+  <ul>
+    <li>Conflicto de versiones con Microsoft.EntityFrameworkCore.Design que está en 8.0.21</li>
+    <li>El paquete de desarrollo no debería estar en <code>.csproj</code> en producción — añade dependencias no necesarias en el build de producción</li>
+    <li>Puede causar advertencias o errores en <code>dotnet publish</code></li>
+  </ul>
+  <div class="finding-meta">
+    <span>Acción: verificar si se usa activamente para scaffolding · considerar mover a DevDependency</span>
+  </div>
+</div>
+
+<!-- ─── MEDIUM ────────────────────────────────────────────── -->
+<h2>MEDIUM — Paquetes con riesgo de soporte o actualización pendiente</h2>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">DEP-003</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">WebPush-NetCore 1.0.2 — sin actualizaciones desde 2017</span>
+  </div>
+  <p><code>WebPush-NetCore</code> versión <code>1.0.2</code> no ha tenido actualizaciones desde 2017. La especificación de Web Push y VAPID ha evolucionado desde entonces. Riesgos:</p>
+  <ul>
+    <li>El paquete puede usar APIs de criptografía obsoletas o inseguras para firmar las notificaciones VAPID</li>
+    <li>Sin soporte activo para vulnerabilidades futuras</li>
+    <li>La implementación de VAPID del paquete puede ser incompatible con versiones futuras de Chrome/Firefox</li>
+  </ul>
+  <p><strong>Alternativa recomendada:</strong> <code>Lib.Net.Http.WebPush</code> que tiene mantenimiento activo y soporte de .NET 8.</p>
+  <div class="finding-meta">
+    <span>Último commit del repositorio: ~2017</span>
+    <span>Impacto: notificaciones push pueden dejar de funcionar en browsers futuros</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">DEP-004</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Hangfire 1.8.23 — versión mayor anterior disponible (Hangfire Pro)</span>
+  </div>
+  <p>Hangfire <code>1.8.23</code> es una versión estable de la rama OSS. Sin embargo, la rama <code>1.8.x</code> puede quedar en mantenimiento de seguridad únicamente si Hangfire lanza 2.0. Considerar:</p>
+  <ul>
+    <li>Verificar que <code>Hangfire.SqlServer</code> y <code>Hangfire.Core</code> están en la misma versión (1.8.23)</li>
+    <li>Confirmar que el schema de Hangfire en BD es compatible con la versión usada</li>
+  </ul>
+  <div class="finding-meta">
+    <span>Paquetes: Hangfire.Core, Hangfire.SqlServer, Hangfire.AspNetCore</span>
+    <span>Riesgo: bajo si los tres están alineados en la misma versión</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">DEP-005</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Markdig 1.1.1 — versión muy antigua (última: 0.38+)</span>
+  </div>
+  <p>Markdig tiene versioning poco intuitivo: <code>1.1.1</code> en NuGet corresponde a una versión moderna, pero vale la pena verificar que es la versión correcta y que está siendo mantenida activamente. Markdig tiene releases frecuentes con fixes de seguridad para parseo de Markdown.</p>
+  <p>La versión usada puede tener vulnerabilidades de XSS si el Markdown renderizado incluye input del usuario sin sanitización adicional.</p>
+  <div class="finding-meta">
+    <span>Riesgo XSS: si el Markdown de artículos del glosario puede ser editado por usuarios no-admin</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">DEP-006</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">LigerShark.WebOptimizer 3.0.477 — integración no verificada en producción</span>
+  </div>
+  <p>WebOptimizer está incluido en el proyecto (<code>3.0.477</code>) para bundling y minificación, pero no se puede confirmar si está activo en producción. Si no está configurado correctamente, los archivos JS/CSS se sirven sin minificar, y los archivos múltiples no se combinan.</p>
+  <p>Si está configurado en modo Development únicamente (lo que es un error común), producción recibe archivos no optimizados.</p>
+  <div class="finding-meta">
+    <span>Verificar: Program.cs → app.UseWebOptimizer() y configuración en Startup</span>
+  </div>
+</div>
+
+<div class="finding medium" data-sev="medium">
+  <div class="finding-header">
+    <span class="finding-id">DEP-007</span>
+    <span class="badge badge-medium">MEDIUM</span>
+    <span class="finding-title">Twilio 7.13.8 — SDK con actualizaciones de seguridad frecuentes</span>
+  </div>
+  <p>El SDK de Twilio (<code>7.13.8</code>) tiene actualizaciones frecuentes, algunas con correcciones de seguridad. Twilio también puede deprecar versiones antiguas del SDK cuando cambia su API REST. Se recomienda verificar si hay vulnerabilidades conocidas en esta versión.</p>
+  <div class="finding-meta">
+    <span>Última versión disponible en NuGet: 7.x.x+</span>
+    <span>Acción: ejecutar dotnet list package --vulnerable para verificar CVEs</span>
+  </div>
+</div>
+
+<!-- ─── LOW ───────────────────────────────────────────────── -->
+<h2>LOW — Observaciones y actualizaciones recomendadas</h2>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">DEP-008</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">QuestPDF 2024.10.4 — versión anterior disponible (2025.x)</span>
+  </div>
+  <p>QuestPDF <code>2024.10.4</code> es una versión estable pero puede tener versiones más recientes con mejoras de rendimiento en generación de PDF. QuestPDF tiene licencia libre para aplicaciones de uso interno/revenue &lt; $1M USD anual. Confirmar que la licencia aplica al caso de uso de EIIBD.</p>
+  <div class="finding-meta">
+    <span>Licencia: Community (gratuita con limitaciones)</span>
+  </div>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">DEP-009</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">SixLabors.ImageSharp 3.1.12 — licencia Six Labors Split License</span>
+  </div>
+  <p>ImageSharp <code>3.1.12</code> usa la "Six Labors Split License": gratis para proyectos de código abierto y aplicaciones de bajo uso comercial, pero requiere licencia comercial para proyectos cerrados con cierto nivel de uso. Verificar que la licencia aplica correctamente al contexto de EIIBD.</p>
+  <div class="finding-meta">
+    <span>Acción: revisar Six Labors Split License para confirmar elegibilidad</span>
+  </div>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">DEP-010</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">SendGrid 9.29.3 — versión reciente, sin issues conocidos</span>
+  </div>
+  <p>SendGrid <code>9.29.3</code> es una versión relativamente reciente del SDK oficial de Twilio SendGrid. Sin issues críticos conocidos. La API key de SendGrid debe rotar periódicamente y tener permisos mínimos necesarios (solo envío, sin acceso a contactos si no se usa).</p>
+  <div class="finding-meta">
+    <span>Estado: OK · Recomendación: verificar permisos de la API key</span>
+  </div>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">DEP-011</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">EF Core 8.0.21 — alineado, pero no en la última versión patch de .NET 8</span>
+  </div>
+  <p>Todos los paquetes de EF Core están en <code>8.0.21</code>, que es coherente internamente. Sin embargo, Microsoft puede haber lanzado patches de seguridad o fixes de bugs en <code>8.0.x</code> posterior. Verificar si <code>8.0.21</code> es el último disponible de la rama 8.x.</p>
+  <div class="finding-meta">
+    <span>Paquetes EF Core alineados: EntityFrameworkCore, EF.SqlServer, EF.Tools, EF.Design</span>
+    <span>Estado: consistente internamente ✓</span>
+  </div>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">DEP-012</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Anthropic SDK — versión y origen no verificados en este audit</span>
+  </div>
+  <p>No se encontró un paquete oficial de Anthropic en NuGet en el proyecto. La integración con la API de Claude puede estar usando <code>HttpClient</code> directamente o un wrapper custom. Si es custom, verificar que maneja correctamente: rate limiting, retry exponential backoff, token counting y timeout.</p>
+  <div class="finding-meta">
+    <span>Verificar: Services/AI/ para el cliente HTTP de Anthropic</span>
+  </div>
+</div>
+
+<div class="finding low" data-sev="low">
+  <div class="finding-header">
+    <span class="finding-id">DEP-013</span>
+    <span class="badge badge-low">LOW</span>
+    <span class="finding-title">Sin análisis de vulnerabilidades en pipeline CI</span>
+  </div>
+  <p>No se evidencia un paso de <code>dotnet list package --vulnerable</code> ni <code>dotnet audit</code> en el pipeline CI/CD. Las vulnerabilidades en dependencias NuGet pueden pasar desapercibidas hasta que se ejecuta manualmente.</p>
+  <div class="finding-meta">
+    <span>Acción: agregar dotnet list package --vulnerable al pipeline de CI</span>
+  </div>
+</div>
+
+<!-- ─── INVENTARIO COMPLETO ───────────────────────────────── -->
+<h2>Inventario completo de paquetes NuGet</h2>
+
+<div style="overflow-x:auto">
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Paquete</th>
+      <th>Versión</th>
+      <th>Uso</th>
+      <th>Target Framework</th>
+      <th>Estado</th>
+    </tr>
+  </thead>
+  <tbody>
+    <!-- EF Core -->
+    <tr>
+      <td><code>Microsoft.EntityFrameworkCore</code></td>
+      <td>8.0.21</td>
+      <td>ORM principal</td>
+      <td>net8.0 ✓</td>
+      <td class="badge badge-low">OK</td>
+    </tr>
+    <tr>
+      <td><code>Microsoft.EntityFrameworkCore.SqlServer</code></td>
+      <td>8.0.21</td>
+      <td>Proveedor SQL Server</td>
+      <td>net8.0 ✓</td>
+      <td class="badge badge-low">OK</td>
+    </tr>
+    <tr>
+      <td><code>Microsoft.EntityFrameworkCore.Tools</code></td>
+      <td>8.0.21</td>
+      <td>CLI migrations (no se usa)</td>
+      <td>net8.0 ✓</td>
+      <td class="badge badge-low">OK · Dev only</td>
+    </tr>
+    <tr>
+      <td><code>Microsoft.EntityFrameworkCore.Design</code></td>
+      <td>8.0.21</td>
+      <td>Scaffolding/design time</td>
+      <td>net8.0 ✓</td>
+      <td class="badge badge-low">OK · Dev only</td>
+    </tr>
+    <!-- Identity -->
+    <tr>
+      <td><code>Microsoft.AspNetCore.Identity.EntityFrameworkCore</code></td>
+      <td>8.0.x</td>
+      <td>ASP.NET Identity</td>
+      <td>net8.0 ✓</td>
+      <td class="badge badge-low">OK</td>
+    </tr>
+    <tr>
+      <td><code>Microsoft.AspNetCore.Identity.UI</code></td>
+      <td>8.0.x</td>
+      <td>Identity Razor Pages</td>
+      <td>net8.0 ✓</td>
+      <td class="badge badge-low">OK</td>
+    </tr>
+    <!-- DataProtection - PROBLEMA -->
+    <tr style="background:rgba(255,70,70,0.05)">
+      <td><code>Microsoft.AspNetCore.DataProtection.Extensions</code></td>
+      <td><strong>10.0.3</strong></td>
+      <td>Protección de datos</td>
+      <td class="badge badge-high">.NET 10 ⚠</td>
+      <td class="badge badge-high">REVISAR</td>
+    </tr>
+    <!-- CodeGeneration - PROBLEMA -->
+    <tr style="background:rgba(255,70,70,0.05)">
+      <td><code>Microsoft.VisualStudio.Web.CodeGeneration.Design</code></td>
+      <td><strong>9.0.0</strong></td>
+      <td>Scaffolding</td>
+      <td class="badge badge-high">.NET 9 ⚠</td>
+      <td class="badge badge-high">REVISAR</td>
+    </tr>
+    <!-- Hangfire -->
+    <tr>
+      <td><code>Hangfire.Core</code></td>
+      <td>1.8.23</td>
+      <td>Background jobs</td>
+      <td>—</td>
+      <td class="badge badge-low">OK</td>
+    </tr>
+    <tr>
+      <td><code>Hangfire.SqlServer</code></td>
+      <td>1.8.23</td>
+      <td>Hangfire storage</td>
+      <td>—</td>
+      <td class="badge badge-low">OK</td>
+    </tr>
+    <tr>
+      <td><code>Hangfire.AspNetCore</code></td>
+      <td>1.8.23</td>
+      <td>Hangfire DI integration</td>
+      <td>—</td>
+      <td class="badge badge-low">OK</td>
+    </tr>
+    <!-- Email/SMS -->
+    <tr>
+      <td><code>SendGrid</code></td>
+      <td>9.29.3</td>
+      <td>Email transaccional</td>
+      <td>—</td>
+      <td class="badge badge-low">OK</td>
+    </tr>
+    <tr>
+      <td><code>Twilio</code></td>
+      <td>7.13.8</td>
+      <td>SMS</td>
+      <td>—</td>
+      <td class="badge badge-medium">Verificar CVEs</td>
+    </tr>
+    <!-- Push -->
+    <tr style="background:rgba(232,168,56,0.05)">
+      <td><code>WebPush-NetCore</code></td>
+      <td>1.0.2</td>
+      <td>Web Push / VAPID</td>
+      <td>—</td>
+      <td class="badge badge-medium">Sin mant. 2017</td>
+    </tr>
+    <!-- Media -->
+    <tr>
+      <td><code>SixLabors.ImageSharp</code></td>
+      <td>3.1.12</td>
+      <td>Procesamiento imágenes</td>
+      <td>—</td>
+      <td class="badge badge-low">OK · Ver licencia</td>
+    </tr>
+    <!-- PDF -->
+    <tr>
+      <td><code>QuestPDF</code></td>
+      <td>2024.10.4</td>
+      <td>Generación PDF</td>
+      <td>—</td>
+      <td class="badge badge-low">OK · Ver licencia</td>
+    </tr>
+    <!-- Markdown -->
+    <tr>
+      <td><code>Markdig</code></td>
+      <td>1.1.1</td>
+      <td>Renderizado Markdown</td>
+      <td>—</td>
+      <td class="badge badge-medium">Verificar XSS</td>
+    </tr>
+    <!-- WebOptimizer -->
+    <tr>
+      <td><code>LigerShark.WebOptimizer.Core</code></td>
+      <td>3.0.477</td>
+      <td>Bundling/minificación</td>
+      <td>—</td>
+      <td class="badge badge-medium">Config no verificada</td>
+    </tr>
+    <!-- Diagnósticos -->
+    <tr>
+      <td><code>Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore</code></td>
+      <td>8.0.x</td>
+      <td>Error pages EF Core</td>
+      <td>net8.0 ✓</td>
+      <td class="badge badge-low">OK · Dev only</td>
+    </tr>
+    <!-- Other -->
+    <tr>
+      <td><code>Microsoft.AspNetCore.Authentication.Google</code></td>
+      <td>8.0.x</td>
+      <td>Login con Google</td>
+      <td>net8.0 ✓</td>
+      <td class="badge badge-low">OK</td>
+    </tr>
+    <tr>
+      <td><code>Serilog.AspNetCore</code></td>
+      <td>—</td>
+      <td>Logging estructurado</td>
+      <td>—</td>
+      <td class="badge badge-low">OK si incluido</td>
+    </tr>
+    <tr>
+      <td><code>Newtonsoft.Json</code></td>
+      <td>—</td>
+      <td>JSON (legacy/sendgrid dep)</td>
+      <td>—</td>
+      <td class="badge badge-low">Verificar si se usa directamente</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<!-- Comandos de diagnóstico -->
+<h2>Comandos de diagnóstico recomendados</h2>
+<div class="code-block"># Verificar vulnerabilidades conocidas en dependencias
+dotnet list package --vulnerable
+
+# Verificar paquetes desactualizados
+dotnet list package --outdated
+
+# Verificar desalineaciones de versión por framework
+dotnet list package --include-transitive
+
+# Build con warnings de compatibilidad
+dotnet build --no-restore /p:TreatWarningsAsErrors=false 2>&amp;1 | grep -i "version\|compat\|warn"</div>
+
+<!-- JavaScript deps -->
+<h2>Dependencias JavaScript (frontend)</h2>
+
+<div style="overflow-x:auto">
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Librería</th>
+      <th>Versión</th>
+      <th>Carga</th>
+      <th>Uso</th>
+      <th>Riesgo</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Bootstrap</td>
+      <td>5.x</td>
+      <td>CDN + local</td>
+      <td>Framework UI</td>
+      <td class="badge badge-low">OK</td>
+    </tr>
+    <tr style="background:rgba(232,168,56,0.05)">
+      <td>jQuery</td>
+      <td>3.x</td>
+      <td>CDN + local (doble carga)</td>
+      <td>DOM manipulation, validate</td>
+      <td class="badge badge-high">Doble carga (UI-004)</td>
+    </tr>
+    <tr>
+      <td>jQuery Validate</td>
+      <td>1.x</td>
+      <td>local</td>
+      <td>Validación formularios</td>
+      <td class="badge badge-low">OK</td>
+    </tr>
+    <tr>
+      <td>Chart.js</td>
+      <td>3.x / 4.x</td>
+      <td>CDN global</td>
+      <td>Gráficas estado ánimo</td>
+      <td class="badge badge-medium">Carga global innecesaria (PERF-019)</td>
+    </tr>
+    <tr>
+      <td>Bootstrap Icons</td>
+      <td>1.x</td>
+      <td>CDN</td>
+      <td>Iconografía</td>
+      <td class="badge badge-low">OK</td>
+    </tr>
+    <tr style="background:rgba(232,168,56,0.05)">
+      <td>FontAwesome</td>
+      <td>5.x / 6.x</td>
+      <td>CDN</td>
+      <td>Iconografía (duplicado)</td>
+      <td class="badge badge-medium">Duplicado con Bootstrap Icons (UI-017)</td>
+    </tr>
+    <tr>
+      <td>Leaflet.js</td>
+      <td>1.x</td>
+      <td>CDN o local</td>
+      <td>Mapa de hospitales en perfil médico</td>
+      <td class="badge badge-low">OK si carga condicional</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+</main>
+
+<footer>
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem">
+    <span>Auditoría EIIBD · 2026-05-25 · Fase 09/10 — Dependencias</span>
+    <div style="display:flex;gap:1rem">
+      <a href="08-ui.html">← 08 UI/CSS/JS</a>
+      <a href="10-roadmap.html">10 Roadmap →</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+function filterFindings(sev, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.finding[data-sev]').forEach(el => {
+    el.style.display = (sev === 'all' || el.dataset.sev === sev) ? '' : 'none';
+  });
+}
+</script>
+</body>
+</html>

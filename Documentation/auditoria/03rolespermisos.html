@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Roles y Permisos – EIIBD Auditoría</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <h1>👤 Fase 3 – Roles y Permisos</h1>
+  <span class="breadcrumb"><a href="00-index.html">← Índice</a> · EIIBD Auditoría 2026</span>
+</div>
+<div class="container">
+
+<div class="kpi-grid">
+  <div class="kpi-card accent"><div class="num">4</div><div class="label">Roles Definidos</div></div>
+  <div class="kpi-card accent"><div class="num">1</div><div class="label">Policy Definida</div></div>
+  <div class="kpi-card high"><div class="num">1</div><div class="label">Rol Muerto (Admin)</div></div>
+  <div class="kpi-card accent"><div class="num">26</div><div class="label">Controllers/Pages Auditados</div></div>
+  <div class="kpi-card high"><div class="num">5</div><div class="label">Endpoints sin Auth Explícita</div></div>
+  <div class="kpi-card medium"><div class="num">5</div><div class="label">Gaps de Ownership</div></div>
+</div>
+
+<!-- ROLES -->
+<div class="section">
+<div class="section-title"><span class="icon">🎭</span> Inventario de Roles</div>
+<table class="data-table">
+<thead><tr><th>Rol</th><th>Descripción</th><th>Usado en Policies</th><th>Estado</th></tr></thead>
+<tbody>
+  <tr>
+    <td><span class="badge badge-high">Administrador</span></td>
+    <td>Acceso completo al panel de administración, gestión de usuarios, contenidos, catálogos</td>
+    <td><code>AdminOnly policy</code> · <code>[Authorize(Roles="Administrador")]</code> en múltiples controllers</td>
+    <td><span class="badge badge-low">Activo ✓</span></td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-medium">Medico</span></td>
+    <td>Acceso al dashboard médico, perfil médico extendido, badges</td>
+    <td><code>[Authorize(Roles="Medico")]</code> en Dashboard médico</td>
+    <td><span class="badge badge-low">Activo ✓</span></td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-neutral">Paciente (default)</span></td>
+    <td>Rol predeterminado para usuarios registrados. Acceso a mi salud, P&R, directorio</td>
+    <td><code>[Authorize(Roles="Paciente,Administrador")]</code> en páginas Usuario</td>
+    <td><span class="badge badge-low">Activo ✓</span></td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-high">Admin</span></td>
+    <td>Sembrado por seed en Program.cs pero NUNCA usado en ninguna policy o [Authorize]</td>
+    <td>Ninguna — 0 referencias en código</td>
+    <td><span class="badge badge-high">ROL MUERTO ✗</span></td>
+  </tr>
+</tbody>
+</table>
+<div class="notice warn">
+  <span>⚠️</span>
+  <div><strong>SEC-012:</strong> El seed crea "Admin" pero todas las [Authorize] usan "Administrador". Si un usuario recibe "Admin", no accede a ninguna funcionalidad de admin. Verificar en BD: <code>SELECT * FROM AspNetUserRoles WHERE RoleId = (SELECT Id FROM AspNetRoles WHERE Name='Admin')</code></div>
+</div>
+</div>
+
+<!-- POLICIES -->
+<div class="section">
+<div class="section-title"><span class="icon">🔐</span> Policies Definidas</div>
+<table class="data-table">
+<thead><tr><th>Policy</th><th>Requiere Rol</th><th>Aplicada en</th><th>Estado</th></tr></thead>
+<tbody>
+  <tr>
+    <td><code>AdminOnly</code></td>
+    <td><span class="badge badge-neutral">Administrador</span></td>
+    <td>AuthorizeAreaFolder('Identity', '/Admin', 'AdminOnly') — toda el área Identity/Admin</td>
+    <td><span class="badge badge-low">Correcta ✓</span></td>
+  </tr>
+</tbody>
+</table>
+
+<div class="section-title" style="margin-top:16px"><span class="icon">📑</span> Convenciones de Autorización por Area</div>
+<table class="data-table">
+<thead><tr><th>Convención</th><th>Área</th><th>Path</th><th>Efecto</th></tr></thead>
+<tbody>
+  <tr><td>AuthorizeAreaFolder</td><td>Identity</td><td>/</td><td>Toda el área Identity requiere auth por defecto</td></tr>
+  <tr><td>AllowAnonymousToAreaPage (×6)</td><td>Identity/Account</td><td>Login, Register, ForgotPassword, ResetPassword, ConfirmEmail, AccessDenied, RegisterM</td><td>Páginas públicas de auth</td></tr>
+  <tr><td>AuthorizeAreaFolder + Policy</td><td>Identity/Admin</td><td>/Admin</td><td>Requiere rol Administrador</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- MATRIZ CONTROLLERS -->
+<div class="section">
+<div class="section-title"><span class="icon">🗺️</span> Matriz de Autorización – Controllers</div>
+<table class="data-table">
+<thead>
+  <tr><th>Controller</th><th>Auth Clase</th><th>Auth Acciones</th><th>Ownership</th><th>Issues</th></tr>
+</thead>
+<tbody>
+  <tr>
+    <td><code>PreguntasApiController</code></td>
+    <td><span class="badge badge-neutral">Ninguna</span></td>
+    <td>[Authorize] en Crear, Actualizar, Eliminar, Votar · [AllowAnon] en GetAiStatus</td>
+    <td><span class="badge badge-low">✓ Validado</span></td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td><code>RespuestasApiController</code></td>
+    <td><span class="badge badge-neutral">Ninguna</span></td>
+    <td>[Authorize] en Eliminar, Crear, Votar</td>
+    <td><span class="badge badge-low">✓ Validado</span></td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td><code>SintomasApiController</code></td>
+    <td><span class="badge badge-high">Sin auth</span></td>
+    <td>Ninguna</td>
+    <td><span class="badge badge-neutral">N/A (solo GET)</span></td>
+    <td>SEC-001</td>
+  </tr>
+  <tr>
+    <td><code>TratamientosApiController</code></td>
+    <td><span class="badge badge-high">Sin auth</span></td>
+    <td>Ninguna</td>
+    <td><span class="badge badge-neutral">N/A (solo GET)</span></td>
+    <td>SEC-002</td>
+  </tr>
+  <tr>
+    <td><code>CondicionesApiController</code></td>
+    <td><span class="badge badge-high">Sin auth</span></td>
+    <td>Ninguna</td>
+    <td><span class="badge badge-neutral">N/A (solo GET)</span></td>
+    <td>SEC-003</td>
+  </tr>
+  <tr>
+    <td><code>EstadoAnimoUsuarioController</code></td>
+    <td><span class="badge badge-low">[Authorize]</span></td>
+    <td>Clase completa protegida</td>
+    <td><span class="badge badge-medium">⚠️ Parcial</span></td>
+    <td>SEC-009, SEC-010 — FKs sin validar</td>
+  </tr>
+  <tr>
+    <td><code>MoodApiController</code></td>
+    <td><span class="badge badge-neutral">Token custom</span></td>
+    <td>IPushMoodTokenService auth</td>
+    <td><span class="badge badge-low">✓ Token</span></td>
+    <td>SEC-013</td>
+  </tr>
+  <tr>
+    <td><code>DashboardController</code></td>
+    <td><span class="badge badge-low">[Authorize]</span></td>
+    <td>[ValidateAntiForgeryToken] en POSTs</td>
+    <td><span class="badge badge-medium">⚠️ Parcial</span></td>
+    <td>SEC-011 — sintomaUsuarioId sin validar</td>
+  </tr>
+  <tr>
+    <td><code>ArticleRatingsApiController</code></td>
+    <td><span class="badge badge-high">Sin auth</span></td>
+    <td>Ninguna (GET y POST abiertos)</td>
+    <td><span class="badge badge-high">✗ Sin ownership</span></td>
+    <td>SEC-004, SEC-007</td>
+  </tr>
+  <tr>
+    <td><code>GlossaryRatingsApiController</code></td>
+    <td><span class="badge badge-high">Sin auth</span></td>
+    <td>Ninguna (GET y POST abiertos)</td>
+    <td><span class="badge badge-high">✗ Sin ownership</span></td>
+    <td>SEC-005, SEC-007</td>
+  </tr>
+  <tr>
+    <td><code>RespuestaFeedbackApiController</code></td>
+    <td><span class="badge badge-low">[Authorize]</span></td>
+    <td>[AllowAnon] en GET stats</td>
+    <td><span class="badge badge-low">✓ Validado</span></td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td><code>SintomasAdminController</code></td>
+    <td><span class="badge badge-low">[Authorize(Admin)]</span></td>
+    <td>Clase completa protegida</td>
+    <td><span class="badge badge-neutral">N/A (admin)</span></td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td><code>TratamientosAdminController</code></td>
+    <td><span class="badge badge-low">[Authorize(Admin)]</span></td>
+    <td>Clase completa protegida</td>
+    <td><span class="badge badge-neutral">N/A (admin)</span></td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td><code>ContenidosAdminController</code></td>
+    <td><span class="badge badge-low">[Authorize(Admin)]</span></td>
+    <td>Clase completa protegida</td>
+    <td><span class="badge badge-neutral">N/A (admin)</span></td>
+    <td>SEC-014 (XSS en HTML builder)</td>
+  </tr>
+  <tr>
+    <td><code>DiagnosticoNinaController</code></td>
+    <td><span class="badge badge-low">[Authorize(Admin)] + [DevOnly]</span></td>
+    <td>Clase completa + filtro dev</td>
+    <td><span class="badge badge-neutral">N/A (admin dev)</span></td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td><code>PushApiController</code></td>
+    <td><span class="badge badge-low">[Authorize]</span></td>
+    <td>Clase completa protegida</td>
+    <td><span class="badge badge-low">✓</span></td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td><code>SearchApiController</code></td>
+    <td><span class="badge badge-neutral">Sin auth explícita</span></td>
+    <td>GET público (búsqueda)</td>
+    <td><span class="badge badge-neutral">N/A</span></td>
+    <td>Verificar si intencional</td>
+  </tr>
+  <tr>
+    <td><code>UsuarioController</code></td>
+    <td><span class="badge badge-low">[Authorize]</span></td>
+    <td>Clase completa protegida</td>
+    <td><span class="badge badge-low">✓ Filtrado por userId</span></td>
+    <td>—</td>
+  </tr>
+</tbody>
+</table>
+</div>
+
+<!-- MATRIZ PAGES -->
+<div class="section">
+<div class="section-title"><span class="icon">📄</span> Matriz de Autorización – Identity Pages</div>
+<table class="data-table">
+<thead>
+  <tr><th>Page</th><th>[Authorize]</th><th>Rol Requerido</th><th>Ownership</th><th>CSRF</th><th>Issues</th></tr>
+</thead>
+<tbody>
+  <tr>
+    <td><code>Areas/Identity/Pages/Usuario/Dashboard</code></td>
+    <td><span class="badge badge-low">✓</span></td>
+    <td>Paciente, Administrador</td>
+    <td><span class="badge badge-low">✓ userId claims</span></td>
+    <td><span class="badge badge-low">✓</span></td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td><code>UsuarioSintomas</code></td>
+    <td><span class="badge badge-low">✓</span></td>
+    <td>Paciente, Administrador</td>
+    <td><span class="badge badge-low">✓ userId claims</span></td>
+    <td><span class="badge badge-low">✓</span></td>
+    <td>FUNC-007, FUNC-008</td>
+  </tr>
+  <tr>
+    <td><code>UsuarioTratamientos</code></td>
+    <td><span class="badge badge-low">✓</span></td>
+    <td>Paciente, Administrador</td>
+    <td><span class="badge badge-low">✓ userId claims</span></td>
+    <td><span class="badge badge-low">✓</span></td>
+    <td>FUNC-009, FUNC-010</td>
+  </tr>
+  <tr>
+    <td><code>UsuarioLaboratorios</code></td>
+    <td><span class="badge badge-low">✓</span></td>
+    <td>Paciente, Administrador</td>
+    <td><span class="badge badge-low">✓ userId claims</span></td>
+    <td><span class="badge badge-high">✗ [IgnoreAntiForgery]</span></td>
+    <td>SEC-008, FUNC-014</td>
+  </tr>
+  <tr>
+    <td><code>UsuarioCondiciones</code></td>
+    <td><span class="badge badge-low">✓</span></td>
+    <td>Paciente, Administrador</td>
+    <td><span class="badge badge-low">✓ userId claims</span></td>
+    <td><span class="badge badge-high">✗ [IgnoreAntiForgery]</span></td>
+    <td>SEC-008, FUNC-027, FUNC-028</td>
+  </tr>
+  <tr>
+    <td><code>UsuarioEstadoAnimo</code></td>
+    <td><span class="badge badge-low">✓</span></td>
+    <td>Paciente, Administrador</td>
+    <td><span class="badge badge-low">✓ (solo GET)</span></td>
+    <td><span class="badge badge-low">✓</span></td>
+    <td>PERF-015 (OnGet síncrono)</td>
+  </tr>
+  <tr>
+    <td><code>Medico/Dashboard</code></td>
+    <td><span class="badge badge-low">✓</span></td>
+    <td>Medico</td>
+    <td><span class="badge badge-low">✓ UserId claims</span></td>
+    <td><span class="badge badge-low">✓</span></td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td><code>Admin/* (todas)</code></td>
+    <td><span class="badge badge-low">✓ Policy AdminOnly</span></td>
+    <td>Administrador</td>
+    <td><span class="badge badge-neutral">N/A (admin all)</span></td>
+    <td><span class="badge badge-low">✓</span></td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td><code>Pages/DirectorioMedicos/*</code></td>
+    <td><span class="badge badge-neutral">Parcial</span></td>
+    <td>Index: anónimo · Proponer: [Authorize] · ReclamarPerfil: [Authorize]</td>
+    <td><span class="badge badge-medium">⚠️ Parcial</span></td>
+    <td><span class="badge badge-low">✓</span></td>
+    <td>FUNC-022, FUNC-024</td>
+  </tr>
+  <tr>
+    <td><code>Pages/Preguntas/Detalles</code></td>
+    <td><span class="badge badge-neutral">Público + partial</span></td>
+    <td>Anónimo puede ver · Autenticado puede responder/votar</td>
+    <td><span class="badge badge-low">✓ En writes</span></td>
+    <td><span class="badge badge-low">✓</span></td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td><code>Manage/PerfilMedico</code></td>
+    <td><span class="badge badge-low">✓</span></td>
+    <td>Medico</td>
+    <td><span class="badge badge-low">✓ UserId claims</span></td>
+    <td><span class="badge badge-low">✓</span></td>
+    <td>—</td>
+  </tr>
+</tbody>
+</table>
+</div>
+
+<!-- OWNERSHIP GAPS RESUMEN -->
+<div class="section">
+<div class="section-title"><span class="icon">🔍</span> Gaps de Ownership Identificados</div>
+<table class="data-table">
+<thead><tr><th>ID</th><th>Módulo</th><th>Acción Vulnerable</th><th>Riesgo</th></tr></thead>
+<tbody>
+  <tr>
+    <td><code>SEC-010</code></td>
+    <td>Estado de Ánimo</td>
+    <td>condicionUsuarioId, sintomaUsuarioId, tratamientoUsuarioId no validados al crear estado</td>
+    <td><span class="badge badge-medium">MEDIUM — cross-user data linkage</span></td>
+  </tr>
+  <tr>
+    <td><code>SEC-011</code></td>
+    <td>Dashboard / Síntomas</td>
+    <td>sintomaUsuarioId no validado en AddSymptom tracking</td>
+    <td><span class="badge badge-medium">MEDIUM — cross-user tracking</span></td>
+  </tr>
+  <tr>
+    <td><code>FUNC-007</code></td>
+    <td>Síntomas</td>
+    <td>condicionUsuarioIds en AsociarCondiciones no validados como del usuario</td>
+    <td><span class="badge badge-medium">MEDIUM — cross-user FK injection</span></td>
+  </tr>
+  <tr>
+    <td><code>FUNC-008</code></td>
+    <td>Síntomas</td>
+    <td>tratamientoUsuarioIds en AsociarTratamientos no validados</td>
+    <td><span class="badge badge-medium">MEDIUM — same pattern</span></td>
+  </tr>
+  <tr>
+    <td><code>FUNC-009</code></td>
+    <td>Tratamientos</td>
+    <td>sintomaUsuarioIds en AsociarSintomas no validados</td>
+    <td><span class="badge badge-medium">MEDIUM — same pattern</span></td>
+  </tr>
+  <tr>
+    <td><code>FUNC-010</code></td>
+    <td>Tratamientos</td>
+    <td>condicionUsuarioIds en AsociarCondiciones no validados</td>
+    <td><span class="badge badge-medium">MEDIUM — same pattern</span></td>
+  </tr>
+  <tr>
+    <td><code>FUNC-014</code></td>
+    <td>Laboratorios</td>
+    <td>condicionUsuarioId, sintomaUsuarioId, tratamientoUsuarioId en ActualizarResultado no validados</td>
+    <td><span class="badge badge-high">HIGH — datos médicos cross-patient</span></td>
+  </tr>
+</tbody>
+</table>
+<div class="notice warn">
+  <span>⚠️</span>
+  <div><strong>Patrón sistémico:</strong> Los 7 gaps de ownership son el MISMO bug repetido en 7 endpoints. La corrección es un patrón: añadir validación <code>WHERE id = @id AND idUsuario = @currentUserId</code> antes de cada inserción de relación. Corregir como patrón, no caso por caso.</div>
+</div>
+</div>
+
+<div style="margin-top:32px;padding-top:16px;border-top:1px solid var(--border);color:var(--muted);font-size:12px">
+  03-roles-permisos.html · Matriz completa · <a href="02-seguridad.html">← Seguridad</a> · <a href="04-modulos.html">Módulos →</a>
+</div>
+</div>
+</body>
+</html>
