@@ -20,7 +20,7 @@ namespace eiibd26.Models
 
         [Required]
         [StringLength(256)]
-        public string? Nombre { get; set; }
+        public string Nombre { get; set; } = string.Empty;
 
         [StringLength(50)]
         public string? Apellidos { get; set; }

@@ -19,11 +19,13 @@ public class MoodApiController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
     private readonly IPushMoodTokenService _tokenService;
+    private readonly ILogger<MoodApiController> _logger;
 
-    public MoodApiController(ApplicationDbContext db, IPushMoodTokenService tokenService)
+    public MoodApiController(ApplicationDbContext db, IPushMoodTokenService tokenService, ILogger<MoodApiController> logger)
     {
         _db = db;
         _tokenService = tokenService;
+        _logger = logger;
     }
 
     /// <summary>
@@ -40,7 +42,12 @@ public class MoodApiController : ControllerBase
     {
         var userId = _tokenService.ValidarToken(token);
         if (userId is null)
+        {
+            // SEC-013: Audit trail — token inválido o expirado (posible abuso)
+            _logger.LogWarning("[SEC-013] Token de mood inválido o expirado. IP: {IP}",
+                HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
             return Unauthorized(new { ok = false, error = "Token inválido o expirado." });
+        }
 
         if (!Enum.IsDefined(typeof(EstadoAnimoEnum), valor))
             return BadRequest(new { ok = false, error = "Valor de mood fuera de rango (1-5)." });

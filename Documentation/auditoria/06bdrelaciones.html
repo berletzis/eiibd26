@@ -10,7 +10,7 @@
 <header>
   <div class="header-inner">
     <div>
-      <div class="breadcrumb"><a href="00-index.html">← Índice</a></div>
+      <div class="breadcrumb"><a href="00index.html">← Índice</a></div>
       <h1>06 · Base de Datos y Relaciones</h1>
       <p class="subtitle">Índices faltantes · FK sin configurar · Cascadas peligrosas · NVARCHAR(MAX) · Integridad referencial</p>
     </div>
@@ -501,12 +501,156 @@ CREATE INDEX IX_MedicosDirectorio_AspNetUserId ON MedicosDirectorio(AspNetUserId
 
 </main>
 
+<!-- ═══════════════════════════════════════════════════════════════════════════════
+     REPORTE DE CIERRE — Verificación y correcciones aplicadas 2026-05-25
+     Método: source-first — cada finding verificado en ApplicationDbContext.cs
+     antes de proponer o implementar cualquier cambio.
+     ═══════════════════════════════════════════════════════════════════════════════ -->
+<section style="background:#1a1f2e;border-top:2px solid #334;padding:2rem;margin-top:2rem">
+<h2 style="color:#7eb8f7">REPORTE DE CIERRE — Fase 06 · BD y Relaciones</h2>
+<p style="color:#aab">Fecha: 2026-05-25 · Build: ✅ exitoso · Archivo modificado: <code>eiibd26/Data/ApplicationDbContext.cs</code></p>
+
+<table style="width:100%;border-collapse:collapse;font-size:.9rem;margin-top:1rem">
+<thead>
+<tr style="background:#252b3b">
+  <th style="padding:.5rem;text-align:left">ID</th>
+  <th style="padding:.5rem;text-align:left">Severidad</th>
+  <th style="padding:.5rem;text-align:left">Estado verificado</th>
+  <th style="padding:.5rem;text-align:left">Acción</th>
+</tr>
+</thead>
+<tbody>
+<tr style="border-bottom:1px solid #252b3b">
+  <td style="padding:.5rem"><strong>DB-001</strong></td>
+  <td style="padding:.5rem"><span style="color:#ff4646">HIGH</span></td>
+  <td style="padding:.5rem;color:#4caf50">✅ YA RESUELTO</td>
+  <td style="padding:.5rem">Índices <code>IX_condicionUsuario_IdUsuario</code>, <code>IX_sintomasUsuario_IdUsuario</code>, <code>IX_tratamientoUsuario_IdUsuario</code> ya existían en DbContext. Sin cambio.</td>
+</tr>
+<tr style="border-bottom:1px solid #252b3b">
+  <td style="padding:.5rem"><strong>DB-002</strong></td>
+  <td style="padding:.5rem"><span style="color:#ff4646">HIGH</span></td>
+  <td style="padding:.5rem;color:#4caf50">✅ YA RESUELTO</td>
+  <td style="padding:.5rem">Índices <code>IX_EstadoAnimoUsuario_IdUsuario</code> e <code>IX_EstadoAnimoUsuario_IdUsuario_FechaRegistro</code> ya existían. Sin cambio.</td>
+</tr>
+<tr style="border-bottom:1px solid #252b3b">
+  <td style="padding:.5rem"><strong>DB-003</strong></td>
+  <td style="padding:.5rem"><span style="color:#ff4646">HIGH</span></td>
+  <td style="padding:.5rem;color:#e8a838">⚠️ REAL — CORREGIDO</td>
+  <td style="padding:.5rem">Agregados <code>IX_TratamientoSintomaUsuario_IdUsuario</code> e <code>IX_SintomaCondicionUsuario_IdUsuario</code> en <code>OnModelCreating</code>.</td>
+</tr>
+<tr style="border-bottom:1px solid #252b3b">
+  <td style="padding:.5rem"><strong>DB-004</strong></td>
+  <td style="padding:.5rem"><span style="color:#ff4646">HIGH</span></td>
+  <td style="padding:.5rem;color:#e8a838">⚠️ REAL — CORREGIDO</td>
+  <td style="padding:.5rem">Agregado <code>IX_PatientLaboratoryResults_PatientId</code> en bloque existente. Agregado bloque <code>Entity&lt;NotificationSubscription&gt;</code> con <code>IX_NotificationSubscriptions_UserId</code>.</td>
+</tr>
+<tr style="border-bottom:1px solid #252b3b">
+  <td style="padding:.5rem"><strong>DB-005</strong></td>
+  <td style="padding:.5rem"><span style="color:#ff4646">HIGH — RIESGO CLÍNICO</span></td>
+  <td style="padding:.5rem;color:#4caf50">✅ YA RESUELTO</td>
+  <td style="padding:.5rem"><code>MedicoAreaEii.CondicionId</code> ya tiene <code>OnDelete(DeleteBehavior.Restrict)</code> configurado. Sin cambio.</td>
+</tr>
+<tr style="border-bottom:1px solid #252b3b">
+  <td style="padding:.5rem"><strong>DB-006</strong></td>
+  <td style="padding:.5rem"><span style="color:#e8a838">MEDIUM</span></td>
+  <td style="padding:.5rem;color:#aab">ℹ️ INFORMATIVO</td>
+  <td style="padding:.5rem">Cascade intencional de diseño en <code>MedicoPerfilBadge</code>. Sin evidencia de borrado de catálogos. Sin instrucción de cambio. No se modifica.</td>
+</tr>
+<tr style="border-bottom:1px solid #252b3b">
+  <td style="padding:.5rem"><strong>DB-007</strong></td>
+  <td style="padding:.5rem"><span style="color:#e8a838">MEDIUM</span></td>
+  <td style="padding:.5rem;color:#aab">ℹ️ INFORMATIVO</td>
+  <td style="padding:.5rem">8 cascades en <code>Contenido</code> son intencionales para borrado de artículos. El soft-delete normal previene borrados accidentales. Sin instrucción de cambio.</td>
+</tr>
+<tr style="border-bottom:1px solid #252b3b">
+  <td style="padding:.5rem"><strong>DB-008</strong></td>
+  <td style="padding:.5rem"><span style="color:#e8a838">MEDIUM</span></td>
+  <td style="padding:.5rem;color:#e8a838">⚠️ REAL — CORREGIDO</td>
+  <td style="padding:.5rem">Agregado <code>HasOne&lt;ApplicationUser&gt;().WithMany().HasForeignKey(p =&gt; p.UsuarioId).OnDelete(Restrict)</code> en bloque <code>Pregunta</code>.</td>
+</tr>
+<tr style="border-bottom:1px solid #252b3b">
+  <td style="padding:.5rem"><strong>DB-009</strong></td>
+  <td style="padding:.5rem"><span style="color:#e8a838">MEDIUM</span></td>
+  <td style="padding:.5rem;color:#e8a838">⚠️ REAL — CORREGIDO</td>
+  <td style="padding:.5rem">Agregado <code>HasOne&lt;ApplicationUser&gt;().WithMany().HasForeignKey(r =&gt; r.UsuarioId).OnDelete(Restrict)</code> en bloque <code>Respuesta</code>.</td>
+</tr>
+<tr style="border-bottom:1px solid #252b3b">
+  <td style="padding:.5rem"><strong>DB-010</strong></td>
+  <td style="padding:.5rem"><span style="color:#e8a838">MEDIUM</span></td>
+  <td style="padding:.5rem;color:#4caf50">✅ YA RESUELTO</td>
+  <td style="padding:.5rem">Índice compuesto <code>IX_TrackingSintomaUsuario_IdUsuario_Fecha</code> ya existía. Sin cambio.</td>
+</tr>
+<tr style="border-bottom:1px solid #252b3b">
+  <td style="padding:.5rem"><strong>DB-011</strong></td>
+  <td style="padding:.5rem"><span style="color:#e8a838">MEDIUM</span></td>
+  <td style="padding:.5rem;color:#aab">🔜 FUERA DE ALCANCE</td>
+  <td style="padding:.5rem">Campos <code>Contenido</code> sin <code>MaxLength</code> son NVARCHAR(MAX) real. Corregir requiere migración EF — no autorizada sin instrucción explícita.</td>
+</tr>
+<tr style="border-bottom:1px solid #252b3b">
+  <td style="padding:.5rem"><strong>DB-012</strong></td>
+  <td style="padding:.5rem"><span style="color:#e8a838">MEDIUM</span></td>
+  <td style="padding:.5rem;color:#aab">ℹ️ TEÓRICO</td>
+  <td style="padding:.5rem">No hay uso de <code>DbContext.Remove()</code> directo sobre <code>Pregunta</code> detectado. Riesgo teórico documentado. Sin cambio.</td>
+</tr>
+<tr style="border-bottom:1px solid #252b3b">
+  <td style="padding:.5rem"><strong>DB-013</strong></td>
+  <td style="padding:.5rem"><span style="color:#e8a838">MEDIUM</span></td>
+  <td style="padding:.5rem;color:#4caf50">✅ NO CONFIRMADO</td>
+  <td style="padding:.5rem">Los modelos clínicos principales usan <code>Guid IdUsuario</code> (non-nullable). La FK nullable del audit no se confirma en el modelo C#. Sin cambio.</td>
+</tr>
+<tr style="border-bottom:1px solid #252b3b">
+  <td style="padding:.5rem"><strong>DB-014</strong></td>
+  <td style="padding:.5rem"><span style="color:#5cb85c">LOW</span></td>
+  <td style="padding:.5rem;color:#aab">ℹ️ INFORMATIVO</td>
+  <td style="padding:.5rem">Bajo impacto. Sin instrucción de cambio.</td>
+</tr>
+<tr style="border-bottom:1px solid #252b3b">
+  <td style="padding:.5rem"><strong>DB-015</strong></td>
+  <td style="padding:.5rem"><span style="color:#5cb85c">LOW</span></td>
+  <td style="padding:.5rem;color:#e8a838">⚠️ REAL — CORREGIDO</td>
+  <td style="padding:.5rem">Agregado <code>IX_MedicosDirectorio_AspNetUserId</code> con <code>HasFilter IS NOT NULL</code> en bloque <code>MedicoDirectorio</code>.</td>
+</tr>
+<tr style="border-bottom:1px solid #252b3b">
+  <td style="padding:.5rem"><strong>DB-016</strong></td>
+  <td style="padding:.5rem"><span style="color:#5cb85c">LOW</span></td>
+  <td style="padding:.5rem;color:#aab">ℹ️ INFORMATIVO</td>
+  <td style="padding:.5rem">Bajo impacto. Sin instrucción de cambio.</td>
+</tr>
+<tr>
+  <td style="padding:.5rem"><strong>DB-017</strong></td>
+  <td style="padding:.5rem"><span style="color:#5cb85c">LOW</span></td>
+  <td style="padding:.5rem;color:#aab">ℹ️ INFORMATIVO</td>
+  <td style="padding:.5rem">Bajo impacto. Sin instrucción de cambio.</td>
+</tr>
+</tbody>
+</table>
+
+<div style="margin-top:1.5rem;padding:1rem;background:#252b3b;border-radius:4px;border-left:3px solid #7eb8f7">
+  <strong style="color:#7eb8f7">NOTA IMPORTANTE — Migraciones pendientes</strong><br>
+  <span style="color:#aab">Los cambios de EF Core Fluent API agregados (índices y relaciones FK) <strong>requieren una migración</strong> para aplicarse a la BD de producción.
+  Los cambios son <em>no-destructivos</em> (solo agregan índices y constraints).
+  Ejecutar cuando el equipo autorice: <code>dotnet ef migrations add DB_06_Indices_FK_Explicitas</code> + <code>dotnet ef database update</code>.
+  Mientras tanto, el código compila y la aplicación funciona sin los índices activos.</span>
+</div>
+
+<div style="margin-top:1rem;padding:1rem;background:#252b3b;border-radius:4px;border-left:3px solid #4caf50">
+  <strong style="color:#4caf50">RESUMEN</strong><br>
+  <span style="color:#aab">
+    Auditados: 17 findings ·
+    Ya resueltos antes de esta sesión: 5 (DB-001, DB-002, DB-005, DB-010, DB-013) ·
+    Corregidos ahora: 5 (DB-003, DB-004, DB-008, DB-009, DB-015) ·
+    Fuera de alcance/informativos: 7 (DB-006, DB-007, DB-011, DB-012, DB-014, DB-016, DB-017) ·
+    Build: ✅ exitoso
+  </span>
+</div>
+</section>
+
 <footer>
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem">
     <span>Auditoría EIIBD · 2026-05-25 · Fase 06/10 — BD y Relaciones</span>
     <div style="display:flex;gap:1rem">
-      <a href="05-modelos.html">← 05 Modelos</a>
-      <a href="07-performance.html">07 Performance →</a>
+      <a href="05modelos.html">← 05 Modelos</a>
+      <a href="07performance.html">07 Performance →</a>
     </div>
   </div>
 </footer>

@@ -6,7 +6,6 @@ using eiibd26.Data;
 using eiibd26.Services.Directorio;
 using eiibd26.Services.Medico;
 using eiibd26.Models.Directorio;
-using eiibd26.Models.Directorio.Enums;
 using eiibd26.Models.Medico;
 
 namespace eiibd26.Pages.DirectorioMedicos;
@@ -65,15 +64,15 @@ public class DetalleModel : PageModel
         TiposConfirmacion = await _service.GetTiposConfirmacionActivosAsync();
         ConfirmarVm.MedicoDirectorioId = id;
 
-        TotalConfirmaciones = await _db.DirectorioMedicoConfirmaciones
-            .CountAsync(c => c.MedicoId == id && !c.Eliminado);
+        TotalConfirmaciones = await _db.ConfirmacionesComunitarias
+            .CountAsync(c => c.MedicoDirectorioId == id && !c.Eliminado);
 
         PerfilYaVinculado = await _db.MedicosPerfilExtendido
             .AnyAsync(p => p.MedicoId == id && p.UserId != null);
 
         if (usuarioId.HasValue)
-            YaConfirme = await _db.DirectorioMedicoConfirmaciones
-                .AnyAsync(c => c.MedicoId == id && c.UsuarioId == usuarioId.Value && !c.Eliminado);
+            YaConfirme = await _db.ConfirmacionesComunitarias
+                .AnyAsync(c => c.MedicoDirectorioId == id && c.UsuarioId == usuarioId.Value && !c.Eliminado);
 
         // Fase 2: Ubicaciones combinadas
         await CargarUbicacionesAsync(id);
@@ -106,20 +105,16 @@ public class DetalleModel : PageModel
         return RedirectToPage(new { id = ConfirmarVm.MedicoDirectorioId });
     }
 
-    // Handler de confirmación con 10 áreas EII específicas
-    public async Task<IActionResult> OnPostConfirmarSimpleAsync(
-        int medicoId,
-        bool expCUCI, bool expCrohn, bool expPediatrico, bool expOstomias,
-        bool expBiologicos, bool expEmbarazoEII, bool expManejoBrotes,
-        bool expSegundaOpinion, bool expCirugia, bool expSeguimientoProlongado)
+    // Handler de confirmación simple (nueva tabla ConfirmacionComunitaria)
+    public async Task<IActionResult> OnPostConfirmarSimpleAsync(int medicoId)
     {
         if (!User.Identity!.IsAuthenticated)
             return RedirectToPage("/Account/Login", new { area = "Identity" });
 
         var usuarioId = ObtenerUsuarioId()!.Value;
 
-        var existe = await _db.DirectorioMedicoConfirmaciones
-            .AnyAsync(c => c.MedicoId == medicoId && c.UsuarioId == usuarioId && !c.Eliminado);
+        var existe = await _db.ConfirmacionesComunitarias
+            .AnyAsync(c => c.MedicoDirectorioId == medicoId && c.UsuarioId == usuarioId && !c.Eliminado);
 
         if (existe)
         {
@@ -127,65 +122,37 @@ public class DetalleModel : PageModel
             return RedirectToPage(new { id = medicoId });
         }
 
-        var tieneAlguna = expCUCI || expCrohn || expPediatrico || expOstomias ||
-                          expBiologicos || expEmbarazoEII || expManejoBrotes ||
-                          expSegundaOpinion || expCirugia || expSeguimientoProlongado;
+        var tipoConfirmacion = await _db.TiposConfirmacion
+            .OrderBy(t => t.Orden)
+            .FirstOrDefaultAsync(t => t.Activo);
 
-        _db.DirectorioMedicoConfirmaciones.Add(new DirectorioMedicoConfirmacion
+        if (tipoConfirmacion is null)
         {
-            MedicoId              = medicoId,
-            UsuarioId             = usuarioId,
-            TieneExperienciaEII   = tieneAlguna,
-            ExpCUCI               = expCUCI,
-            ExpCrohn              = expCrohn,
-            ExpPediatrico         = expPediatrico,
-            ExpOstomias           = expOstomias,
-            ExpBiologicos         = expBiologicos,
-            ExpEmbarazoEII        = expEmbarazoEII,
-            ExpManejoBrotes       = expManejoBrotes,
-            ExpSegundaOpinion     = expSegundaOpinion,
-            ExpCirugia            = expCirugia,
-            ExpSeguimientoProlongado = expSeguimientoProlongado,
-            FechaConfirmacion     = DateTime.UtcNow
+            TempData["Error"] = "No hay tipos de confirmación disponibles.";
+            return RedirectToPage(new { id = medicoId });
+        }
+
+        _db.ConfirmacionesComunitarias.Add(new ConfirmacionComunitaria
+        {
+            MedicoDirectorioId = medicoId,
+            UsuarioId          = usuarioId,
+            TipoConfirmacionId = tipoConfirmacion.Id,
+            FechaCreacion      = DateTimeOffset.UtcNow
         });
         await _db.SaveChangesAsync();
 
-        await RecalcularNivelAsync(medicoId);
-        await _badgeService.EvaluarBadgesAutomaticosAsync(medicoId);
+        await _service.RecalcularNivelConfianzaAsync(medicoId);
+        try
+        {
+            await _badgeService.EvaluarBadgesAutomaticosAsync(medicoId);
+        }
+        catch (Exception ex)
+        {
+            _ = ex; // badge evaluation failure must not block the save
+        }
 
         TempData["Success"] = "¡Gracias! Tu confirmación ayuda a la comunidad EII.";
         return RedirectToPage(new { id = medicoId });
-    }
-
-    private async Task RecalcularNivelAsync(int medicoId)
-    {
-        var medico = await _db.MedicosDirectorio.FindAsync(medicoId);
-        if (medico is null) return;
-
-        var total = await _db.DirectorioMedicoConfirmaciones
-            .CountAsync(c => c.MedicoId == medicoId && !c.Eliminado);
-        var tieneEII = await _db.DirectorioMedicoConfirmaciones
-            .AnyAsync(c => c.MedicoId == medicoId && !c.Eliminado &&
-                           (c.TieneExperienciaEII || c.ExpCUCI || c.ExpCrohn || c.ExpPediatrico ||
-                            c.ExpOstomias || c.ExpBiologicos || c.ExpEmbarazoEII || c.ExpManejoBrotes ||
-                            c.ExpSegundaOpinion || c.ExpCirugia || c.ExpSeguimientoProlongado));
-
-        medico.NivelConfianza = (NivelConfianzaEnum)CalcularNivelVerificacion(
-            total, tieneEII,
-            medico.CedulaVerificada,
-            medico.PerfilReclamado);
-        medico.FechaModificacion = DateTimeOffset.UtcNow;
-        await _db.SaveChangesAsync();
-    }
-
-    private static int CalcularNivelVerificacion(
-        int totalConfirmaciones, bool tieneConfirmacionEII,
-        bool cedulaVerificada, bool perfilReclamado)
-    {
-        if (perfilReclamado) return 3;
-        if (cedulaVerificada || totalConfirmaciones >= 5) return 2;
-        if (totalConfirmaciones >= 3 && tieneConfirmacionEII) return 1;
-        return 0;
     }
 
     private async Task CargarUbicacionesAsync(int medicoId)

@@ -71,14 +71,21 @@ public class ReclamarPerfilModel : PageModel
             return Page();
         }
 
+        var userEmail = User.FindFirstValue(ClaimTypes.Email);
+        if (string.IsNullOrWhiteSpace(userEmail))
+        {
+            ModelState.AddModelError(string.Empty, "No se pudo verificar tu email. Inicia sesión nuevamente.");
+            return Page();
+        }
+
         Medico.EstatusReclamacion = EstatusReclamacion.EnProceso;
-        Medico.EmailSolicitudClaim = EmailContacto?.Trim();
+        Medico.EmailSolicitudClaim = userEmail;
         Medico.CedulaProfesional = CedulaProfesionalDeclarada.Trim();
         Medico.FechaSolicitudClaim = DateTime.UtcNow;
         Medico.FechaModificacion = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
 
-        TempData["Success"] = "Tu solicitud fue enviada. El equipo de EIIBD te contactará al email indicado.";
+        TempData["Success"] = "Tu solicitud fue enviada. El equipo de EIIBD te contactará al email de tu cuenta.";
         return RedirectToPage("Detalle", new { id });
     }
 }

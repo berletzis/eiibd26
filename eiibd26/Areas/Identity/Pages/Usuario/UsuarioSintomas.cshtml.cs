@@ -226,9 +226,9 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 {
                     idUsuario = Guid.Parse(userId),
                     idSintoma = sintomaId,
-                    fechaInicio = DateTime.Now,
-                    fechaCreado = DateTime.Now,
-                    fechaModificado = DateTime.Now,
+                    fechaInicio = DateTime.UtcNow,
+                    fechaCreado = DateTime.UtcNow,
+                    fechaModificado = DateTime.UtcNow,
                     Eliminado = false
                 };
                 _db.sintomasUsuario.Add(su);
@@ -282,8 +282,14 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 existentes.Where(x => !condicionUsuarioIds.Contains(x.IdCondicionUsuario))
             );
 
+            // FUNC-007: Filtrar solo IDs que pertenecen al usuario autenticado
+            var idsValidos = await _db.condicionUsuario
+                .Where(x => condicionUsuarioIds.Contains(x.id) && x.idUsuario == Guid.Parse(userId) && !x.Eliminado)
+                .Select(x => x.id)
+                .ToListAsync();
+
             // Agrega nuevas relaciones que no exist�an
-            foreach (var condId in condicionUsuarioIds)
+            foreach (var condId in idsValidos)
             {
                 if (!existentes.Any(x => x.IdCondicionUsuario == condId))
                 {
@@ -331,8 +337,14 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 existentes.Where(x => !tratamientoUsuarioIds.Contains(x.IdTratamientoUsuario ?? 0))
             );
 
+            // FUNC-008: Filtrar solo IDs que pertenecen al usuario autenticado
+            var idsValidos = await _db.tratamientoUsuario
+                .Where(x => tratamientoUsuarioIds.Contains(x.id) && x.idUsuario == Guid.Parse(userId) && !x.Eliminado)
+                .Select(x => x.id)
+                .ToListAsync();
+
             // Agrega nuevas relaciones
-            foreach (var tratId in tratamientoUsuarioIds)
+            foreach (var tratId in idsValidos)
             {
                 if (!existentes.Any(x => (x.IdTratamientoUsuario ?? 0) == tratId))
                 {
@@ -387,6 +399,11 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             if (tieneTratamientos)
                 return new JsonResult(new { ok = false, mensaje = "No se puede eliminar el s�ntoma porque tiene tratamientos relacionados. Primero qu�talos." }) { StatusCode = 400 };
 
+            var tieneTracking = await _db.TrackingSintomaUsuario
+                .AnyAsync(t => t.IdSintomaUsuario == sintId);
+            if (tieneTracking)
+                return new JsonResult(new { ok = false, mensaje = "No se puede eliminar el s�ntoma porque tiene registros de seguimiento. Contacta con soporte si necesitas eliminarlo." }) { StatusCode = 400 };
+
             sintomaUsuario.Eliminado = true;
             sintomaUsuario.fechaModificado = DateTime.Now;
             await _db.SaveChangesAsync();
@@ -394,18 +411,25 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             return new JsonResult(new { ok = true });
         }
 
-        public async Task<IActionResult> OnPostEditarFechaInicioAsync(int sintId, DateTime nuevaFechaInicio)
+        public async Task<IActionResult> OnPostEditarFechaInicioAsync(int sintId, DateTime? nuevaFechaInicio)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (userId == null) return Unauthorized();
+
+            if (!nuevaFechaInicio.HasValue)
+                return new JsonResult(new { ok = false, mensaje = "Fecha no válida." }) { StatusCode = 400 };
 
             var sintomaUsuario = await _db.sintomasUsuario
                 .FirstOrDefaultAsync(x => x.id == sintId && x.idUsuario == Guid.Parse(userId) && !x.Eliminado);
 
             if (sintomaUsuario == null)
-                return new JsonResult(new { ok = false, mensaje = "S�ntoma no encontrado" }) { StatusCode = 400 };
+                return new JsonResult(new { ok = false, mensaje = "Sintoma no encontrado" }) { StatusCode = 400 };
 
-            sintomaUsuario.fechaInicio = nuevaFechaInicio;
+            var fechaMin = new DateTime(1900, 1, 1);
+            if (nuevaFechaInicio.Value < fechaMin || nuevaFechaInicio.Value > DateTime.Today)
+                return new JsonResult(new { ok = false, mensaje = "La fecha debe estar entre 1900 y hoy." }) { StatusCode = 400 };
+
+            sintomaUsuario.fechaInicio = nuevaFechaInicio.Value;
             sintomaUsuario.fechaModificado = DateTime.Now;
             await _db.SaveChangesAsync();
 

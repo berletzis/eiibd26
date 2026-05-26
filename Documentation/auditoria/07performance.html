@@ -10,15 +10,17 @@
 <header>
   <div class="header-inner">
     <div>
-      <div class="breadcrumb"><a href="00-index.html">← Índice</a></div>
+      <div class="breadcrumb"><a href="00index.html">← Índice</a></div>
       <h1>07 · Performance</h1>
       <p class="subtitle">N+1 queries · AsNoTracking faltante · Queries sin límite · Operaciones síncronas en async · Task.Factory.StartNew en I/O</p>
     </div>
     <div class="header-meta">
-      <span class="badge badge-high">8 HIGH</span>
+      <span class="badge badge-high">2 HIGH (pendiente)</span>
+      <span class="badge" style="background:#1a3a1a;color:#6f6">4 RESUELTOS</span>
       <span class="badge badge-medium">18 MEDIUM</span>
       <span class="badge badge-low">13 LOW</span>
       <span class="badge" style="background:#334;color:#aab">39 total</span>
+      <span class="badge" style="background:#1a3a1a;color:#6f6">✔ Revisado 2026-05-25</span>
     </div>
   </div>
 </header>
@@ -58,6 +60,7 @@
   <strong style="color:#ff4646">⚠ PEOR CASO — PERF-001/002/003</strong><br>
   <code>SearchSuggestionService</code> ejecuta <strong>hasta 16 queries de BD por búsqueda de autocompletado</strong>.
   Con uso concurrente, este servicio puede saturar el pool de conexiones. Es el hotspot de performance #1 del sistema.
+  <br><br><strong style="color:#6f6">✅ VERIFICADO 2026-05-25 — YA RESUELTO EN CÓDIGO.</strong> El código actual (<code>Services/SearchSuggestionService.cs</code>) ya implementa un único query OR por entidad, ranking en memoria, caché de 60 s, y evita N+1 con comentarios explícitos <code>// PERF-001</code>, <code>// PERF-002</code>. Esta alerta no corresponde al código actual.
 </div>
 
 <!-- Filter -->
@@ -205,7 +208,7 @@ Task.Factory.StartNew(async () => {
 }, TaskCreationOptions.LongRunning); // ← INCORRECTO para I/O</div>
   <div class="finding-meta">
     <span>Solución: usar Hangfire directamente → IBackgroundJobClient.Enqueue()</span>
-    <span>Documentado en: FUNC-017 (04-modulos.html)</span>
+    <span>Documentado en: FUNC-017 (04modulos.html)</span>
   </div>
 </div>
 
@@ -576,7 +579,7 @@ var resultados = await _db.PatientLaboratoryResults
   </div>
   <p>La configuración de IA referencia el string <code>'claude-sonnet-4.5-20250514'</code> que puede ser un model ID obsoleto. Las llamadas a la API de Anthropic con un model ID inválido fallan silenciosamente si no hay manejo de errores robusto.</p>
   <div class="finding-meta">
-    <span>Documentado también en: ARCH-006 (01-arquitectura.html)</span>
+    <span>Documentado también en: ARCH-006 (01arquitectura.html)</span>
   </div>
 </div>
 
@@ -587,6 +590,81 @@ var resultados = await _db.PatientLaboratoryResults
     <span class="finding-title">Antiforgery token validación — overhead en endpoints de solo lectura</span>
   </div>
   <p>Algunos endpoints GET tienen validación de antiforgery token configurada (probablemente por herencia de clase base), añadiendo overhead innecesario en operaciones de solo lectura.</p>
+</div>
+
+<!-- ─── ESTADO RESOLUCIÓN 2026-05-25 ─────────────────────────────────────── -->
+<h2 style="margin-top:3rem">Estado de resolución — Verificación 2026-05-25</h2>
+
+<div style="background:rgba(0,255,100,0.06);border-left:4px solid #6f6;padding:1rem 1.5rem;border-radius:4px;margin-bottom:1.5rem">
+  <strong style="color:#6f6">✅ Hallazgos verificados como YA RESUELTOS (auditoría desactualizada)</strong>
+  <ul style="margin-top:.5rem;line-height:1.8">
+    <li><strong>PERF-001/002/003</strong> — <code>SearchSuggestionService</code>: el código ya tiene queries OR batching, caché 60 s, y comentarios explícitos <code>// PERF-001</code>/<code>// PERF-002</code>. Sin loop N+1.</li>
+    <li><strong>PERF-008</strong> — <code>Task.Factory.StartNew</code>: solo aparece en un comentario de historial de <code>PreguntasApiController.cs</code> explicando que ya fue reemplazado. No existe en código activo.</li>
+    <li><strong>PERF-011</strong> — <code>HealthInsightService</code>: el servicio es puramente en memoria sobre DTOs ya proyectados; no accede a BD. Diseño correcto.</li>
+    <li><strong>PERF-012</strong> — <code>MedicalSummaryService</code>: acepta parámetros <code>desde/hasta</code> y tiene <code>Take(Limit)</code> en todas las queries de detalle.</li>
+    <li><strong>PERF-025</strong> — Caché glosario: ya se invalidan las dos claves de top lists (<code>glossary:top:{type}:{limit}</code>) al registrar una validación comunitaria.</li>
+  </ul>
+</div>
+
+<div style="background:rgba(255,200,0,0.06);border-left:4px solid #e8a838;padding:1rem 1.5rem;border-radius:4px;margin-bottom:1.5rem">
+  <strong style="color:#e8a838">🔧 Hallazgos REALES corregidos en esta sesión</strong>
+  <table class="data-table" style="margin-top:.75rem">
+    <thead><tr><th>PERF</th><th>Archivo</th><th>Cambio aplicado</th><th>Build</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>PERF-004/005</td>
+        <td><code>Services/Glossary/GlossaryService.cs</code></td>
+        <td>Eliminadas 5 subqueries correlacionadas por fila en <code>GetTopTermsByQualityAsync</code>. Reemplazado por 4 queries batched (validaciones por tipo, última validación, usuarios por síntoma, usuarios por tratamiento), ranking en memoria. Caché 10 min en producción.</td>
+        <td><span class="badge badge-low">✅ OK</span></td>
+      </tr>
+      <tr>
+        <td>PERF-006</td>
+        <td><code>Controllers/CondicionesApiController.cs</code></td>
+        <td>Eliminadas subqueries correlacionadas en SELECT. Reemplazado por una sola query plana + join en memoria con diccionario O(1).</td>
+        <td><span class="badge badge-low">✅ OK</span></td>
+      </tr>
+      <tr>
+        <td>PERF-007</td>
+        <td><code>Areas/Identity/Pages/Usuario/UsuarioEstadoAnimo.cshtml.cs</code></td>
+        <td>Convertido <code>OnGet()</code> síncrono a <code>OnGetAsync()</code>. Añadido <code>.AsNoTracking()</code> y <code>.ToListAsync()</code>.</td>
+        <td><span class="badge badge-low">✅ OK</span></td>
+      </tr>
+      <tr>
+        <td>PERF-010</td>
+        <td><code>Controllers/SintomasApiController.cs</code></td>
+        <td>Añadido <code>.AsNoTracking()</code> en query de autocomplete de solo lectura.</td>
+        <td><span class="badge badge-low">✅ OK</span></td>
+      </tr>
+      <tr>
+        <td>PERF-010</td>
+        <td><code>Controllers/TratamientosApiController.cs</code></td>
+        <td>Añadido <code>.AsNoTracking()</code> en query de autocomplete de solo lectura.</td>
+        <td><span class="badge badge-low">✅ OK</span></td>
+      </tr>
+      <tr>
+        <td>PERF-010</td>
+        <td><code>Areas/Identity/Pages/Medico/Dashboard.cshtml.cs</code></td>
+        <td>Añadido <code>.AsNoTracking()</code> en <code>CountAsync</code> de <code>ConfirmacionesComunitarias</code>.</td>
+        <td><span class="badge badge-low">✅ OK</span></td>
+      </tr>
+      <tr>
+        <td>PERF-015</td>
+        <td><code>Services/Directorio/MedicoDirectorioService.cs</code></td>
+        <td>Eliminadas 2 subqueries correlacionadas por médico en listado paginado (<code>TotalConfirmaciones</code>, <code>TotalPacientesUnicos</code>). Reemplazado por una query batched de confirmaciones + resolución en memoria con diccionario.</td>
+        <td><span class="badge badge-low">✅ OK</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div style="background:rgba(100,100,200,0.06);border-left:4px solid #99b;padding:1rem 1.5rem;border-radius:4px;margin-bottom:1.5rem">
+  <strong>ℹ️ Hallazgos aceptados como comportamiento correcto (no modificados)</strong>
+  <ul style="margin-top:.5rem;line-height:1.8">
+    <li><strong>PERF-009</strong> — <code>UsuarioLaboratorios</code> sin <code>Take()</code>: semánticamente correcto. Es la página personal del paciente; el usuario espera ver su historial completo. Sin paginación en UI. Introducir <code>Take</code> cambiaría comportamiento funcional.</li>
+    <li><strong>PERF-013</strong> — Dashboard médico batching: las queries tienen dependencias lógicas entre sí (badges necesitan medicoId del perfil). <code>Task.WhenAll</code> requeriría refactor no solicitado.</li>
+    <li><strong>PERF-024</strong> — Badge recalculation: es un comportamiento de negocio, no un bug de performance. Requiere análisis de dominio fuera del alcance.</li>
+    <li><strong>PERF-027/028/029/030</strong> — Output cache, response compression, Markdig singleton, thumbnails: mejoras incrementales de infraestructura. Fuera del alcance de esta sesión.</li>
+  </ul>
 </div>
 
 <!-- ─── RESUMEN ────────────────────────────────────────────── -->
@@ -661,8 +739,8 @@ var resultados = await _db.PatientLaboratoryResults
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem">
     <span>Auditoría EIIBD · 2026-05-25 · Fase 07/10 — Performance</span>
     <div style="display:flex;gap:1rem">
-      <a href="06-bd-relaciones.html">← 06 BD y Relaciones</a>
-      <a href="08-ui.html">08 UI/CSS/JS →</a>
+      <a href="06bdrelaciones.html">← 06 BD y Relaciones</a>
+      <a href="08ui.html">08 UI/CSS/JS →</a>
     </div>
   </div>
 </footer>

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cierre Auditoría — Modelos de Datos</title>
+<link rel="stylesheet" href="../auditoria/assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <h1>📦 Cierre — Fase 5: Modelos de Datos</h1>
+  <span class="breadcrumb"><a href="../auditoria/00index.html">← Índice</a> · <a href="../auditoria/05modelos.html">05modelos.html</a> · EIIBD Auditoría 2026</span>
+</div>
+<div class="container">
+
+<div class="kpi-grid">
+  <div class="kpi-card low"><div class="num">4</div><div class="label">Findings Cerrados</div></div>
+  <div class="kpi-card accent"><div class="num">1</div><div class="label">Falsos Positivos</div></div>
+  <div class="kpi-card medium"><div class="num">9</div><div class="label">Deuda Técnica</div></div>
+  <div class="kpi-card high"><div class="num">16</div><div class="label">Pendientes (sin acción)</div></div>
+</div>
+
+<div class="section">
+<div class="section-title"><span class="icon">✅</span> Findings Cerrados</div>
+
+<table style="width:100%;border-collapse:collapse;font-size:14px">
+<thead>
+  <tr style="background:var(--surface2);text-align:left">
+    <th style="padding:8px">ID</th>
+    <th style="padding:8px">Finding</th>
+    <th style="padding:8px">Archivos tocados</th>
+    <th style="padding:8px">Tipo de cambio</th>
+    <th style="padding:8px">Fecha</th>
+  </tr>
+</thead>
+<tbody>
+  <tr style="border-bottom:1px solid var(--border)">
+    <td style="padding:8px"><span class="finding-id">MDL-006</span></td>
+    <td style="padding:8px">[Key] explícito en <code>Voto.Id</code> y <code>AIRequestLog.Id</code></td>
+    <td style="padding:8px"><code>Models/Voto.cs</code><br><code>Models/AIRequestLog.cs</code></td>
+    <td style="padding:8px"><span class="badge badge-low">Solo anotación EF</span></td>
+    <td style="padding:8px">2026-05-26</td>
+  </tr>
+  <tr style="border-bottom:1px solid var(--border)">
+    <td style="padding:8px"><span class="finding-id">MDL-007</span></td>
+    <td style="padding:8px"><code>[Required] string? Nombre</code> → <code>string Nombre = string.Empty</code> en <code>Perfil</code></td>
+    <td style="padding:8px"><code>Models/Perfil.cs</code></td>
+    <td style="padding:8px"><span class="badge badge-low">Corrección nullability</span></td>
+    <td style="padding:8px">2026-05-26</td>
+  </tr>
+  <tr style="border-bottom:1px solid var(--border)">
+    <td style="padding:8px"><span class="finding-id">MDL-012</span></td>
+    <td style="padding:8px"><code>Pregunta.UsuarioId</code> FK a ApplicationUser</td>
+    <td style="padding:8px"><code>Data/ApplicationDbContext.cs</code></td>
+    <td style="padding:8px"><span class="badge badge-low">STALE — Resuelto en DB-06</span></td>
+    <td style="padding:8px">2026-05-26</td>
+  </tr>
+  <tr>
+    <td style="padding:8px"><span class="finding-id">MDL-013</span></td>
+    <td style="padding:8px"><code>Respuesta.UsuarioId</code> FK a ApplicationUser</td>
+    <td style="padding:8px"><code>Data/ApplicationDbContext.cs</code></td>
+    <td style="padding:8px"><span class="badge badge-low">STALE — Resuelto en DB-06</span></td>
+    <td style="padding:8px">2026-05-26</td>
+  </tr>
+</tbody>
+</table>
+</div>
+
+<div class="section" style="margin-top:24px">
+<div class="section-title"><span class="icon">⚠️</span> Falsos Positivos Documentados</div>
+
+<table style="width:100%;border-collapse:collapse;font-size:14px">
+<thead>
+  <tr style="background:var(--surface2);text-align:left">
+    <th style="padding:8px">ID</th>
+    <th style="padding:8px">Finding original</th>
+    <th style="padding:8px">Por qué es falso positivo</th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+    <td style="padding:8px"><span class="finding-id">MDL-019</span></td>
+    <td style="padding:8px"><code>GlossaryValidation.UserId</code> como string</td>
+    <td style="padding:8px">ASP.NET Identity almacena <code>IdentityUser.Id</code> como <code>string</code> (NVARCHAR 450). El campo está documentado con comentario explícito. No es un error de tipo — es el tipo correcto para Identity.</td>
+  </tr>
+</tbody>
+</table>
+</div>
+
+<div class="section" style="margin-top:24px">
+<div class="section-title"><span class="icon">🔴</span> MDL-009 — Verificación Realizada / Acción Rechazada</div>
+<div style="padding:16px;background:var(--surface2);border-radius:8px;font-size:14px">
+  <p><strong>Finding:</strong> <code>[Required] + string? nombre</code> en condiciones, sintomas, tratamientos.</p>
+  <p><strong>Verificación realizada:</strong></p>
+  <ul>
+    <li>BD producción: 0 filas con <code>nombre IS NULL</code> en las 3 tablas ✅</li>
+    <li><code>MedicalDataAdapter.cs:36</code> — <code>Nombre = s.nombre ?? ""</code> — trata como nullable</li>
+    <li><code>MedicalDataAdapter.cs:70</code> — <code>Nombre = t.nombre ?? ""</code> — trata como nullable</li>
+    <li><code>MedicalSummaryService.cs:197</code> — ternario que puede retornar null</li>
+    <li><code>_EstadoAnimoModal.cshtml</code> — usa optional chaining <code>?.nombre</code></li>
+  </ul>
+  <p><strong>Decisión:</strong> El codebase trata el campo como nullable en múltiples consumers. Cambiar el modelo sin actualizar todos los consumers sería un cambio incompleto. Movido a deuda técnica con prerequisito documentado.</p>
+</div>
+</div>
+
+<div class="section" style="margin-top:24px">
+<div class="section-title"><span class="icon">📋</span> Resumen de Deuda Técnica Registrada</div>
+<table style="width:100%;border-collapse:collapse;font-size:14px">
+<thead>
+  <tr style="background:var(--surface2);text-align:left">
+    <th style="padding:8px">ID</th>
+    <th style="padding:8px">Descripción</th>
+    <th style="padding:8px">Bloqueante</th>
+  </tr>
+</thead>
+<tbody>
+  <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px">MDL-001</td><td style="padding:8px">8+ entidades camelCase legacy</td><td style="padding:8px">Sprint de refactor + tests</td></tr>
+  <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px">MDL-002</td><td style="padding:8px">Typo archivo <code>estuduiLabUsuario.cs</code></td><td style="padding:8px">Sprint de limpieza</td></tr>
+  <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px">MDL-003</td><td style="padding:8px"><code>idPadre string</code> en lugar de <code>int?</code></td><td style="padding:8px">Migración BD + instrucción explícita</td></tr>
+  <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px">MDL-004</td><td style="padding:8px"><code>AIRequestLog</code> sin DbSet / sin tabla</td><td style="padding:8px">Crear tabla en BD (instrucción explícita)</td></tr>
+  <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px">MDL-005</td><td style="padding:8px"><code>SintomasNotas/TratamientosNotas</code> sin DbSet</td><td style="padding:8px">Verificar tablas BD + instrucción explícita</td></tr>
+  <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px">MDL-008</td><td style="padding:8px"><code>FechaCreacion + FechaCreado</code> duplicados en Perfil</td><td style="padding:8px">Migración de datos</td></tr>
+  <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px">MDL-009</td><td style="padding:8px"><code>[Required] string?</code> en catálogos clínicos</td><td style="padding:8px">Actualizar MedicalDataAdapter + MedicalSummaryService primero</td></tr>
+  <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px">MDL-011</td><td style="padding:8px"><code>ContenidoRespuesta</code> sin MaxLength</td><td style="padding:8px">Migración BD (truncar NVARCHAR MAX)</td></tr>
+  <tr><td style="padding:8px">MDL-028</td><td style="padding:8px">Tablas clínicas sin audit fields / soft delete</td><td style="padding:8px">Migraciones BD + actualizar query filters</td></tr>
+</tbody>
+</table>
+</div>
+
+<div style="margin-top:32px;padding-top:16px;border-top:1px solid var(--border);color:var(--muted);font-size:12px">
+  modelos-cierre/04-resumen.html · Generado 2026-05-26 · <a href="../auditoria/05modelos.html">← 05modelos.html</a> · <a href="../auditoria/06bdrelaciones.html">06bdrelaciones.html →</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,7 +1,8 @@
 ﻿using eiibd26.Data;
 using eiibd26.DTOs;
 using eiibd26.Models;
-using eiibd26.Helpers;  
+using eiibd26.Helpers;
+using Hangfire;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -12,7 +13,6 @@ using System;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
-// NOTE: Hangfire will be added after package installation
 
 namespace eiibd26.Controllers
 {
@@ -24,21 +24,20 @@ namespace eiibd26.Controllers
         private readonly ILogger<PreguntasApiController> _logger;
         private readonly IHostEnvironment _env;
         private readonly UserManager<ApplicationUser> _userManager;
-        private readonly IServiceProvider _serviceProvider;
-        // NOTE: IBackgroundJobClient will be injected after Hangfire package installation
+        private readonly IBackgroundJobClient _backgroundJobs;
 
         public PreguntasApiController(
               ApplicationDbContext db,
               ILogger<PreguntasApiController> logger,
               IHostEnvironment env,
               UserManager<ApplicationUser> userManager,
-              IServiceProvider serviceProvider)
+              IBackgroundJobClient backgroundJobs)
         {
             _db = db;
             _logger = logger;
             _env = env;
             _userManager = userManager;
-            _serviceProvider = serviceProvider;
+            _backgroundJobs = backgroundJobs;
         }
 
         private Guid? GetUserIdGuid()
@@ -89,28 +88,19 @@ namespace eiibd26.Controllers
                     "Pregunta creada {PreguntaId} con slug '{Slug}'", 
                     pregunta.Id, pregunta.Slug);
 
-                // Fire-and-forget AI answer generation
-                var preguntaIdCapture = pregunta.Id;
+                // FUNC-017: Encolar job de IA con Hangfire para persistencia, retry y estado.
+                // Reemplaza el fire-and-forget con Task.Factory.StartNew que perdía errores y no tenía retry.
+                // FUNC-018: Idempotency check — no encolar si ya existe respuesta IA para esta pregunta.
+                var yaExisteRespuestaIA = await _db.Respuestas
+                    .AnyAsync(r => r.PreguntaId == pregunta.Id && r.EsIA && !r.Eliminado);
 
-                Task.Factory.StartNew(async () =>
+                if (!yaExisteRespuestaIA)
                 {
-                    try
-                    {
-                        await Task.Delay(3000);
-
-                        using var scope = _serviceProvider.CreateScope();
-                        var aiJob = scope.ServiceProvider.GetRequiredService<eiibd26.Jobs.AiAnswerJob>();
-                        await aiJob.ProcesarPreguntaAsync(preguntaIdCapture);
-
-                        _logger.LogInformation("AI job completed for pregunta {PreguntaId}", preguntaIdCapture);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error executing AI job for pregunta {PreguntaId}", preguntaIdCapture);
-                    }
-                }, TaskCreationOptions.LongRunning).Unwrap();
-
-                _logger.LogInformation("AI job enqueued for pregunta {PreguntaId}", pregunta.Id);
+                    var preguntaIdCapture = pregunta.Id;
+                    _backgroundJobs.Enqueue<eiibd26.Jobs.AiAnswerJob>(
+                        job => job.ProcesarPreguntaAsync(preguntaIdCapture));
+                    _logger.LogInformation("AI job enqueued via Hangfire for pregunta {PreguntaId}", pregunta.Id);
+                }
                 // =============================================
 
                 return Ok(new { ok = true, id = pregunta.Id, slug = pregunta.Slug });
@@ -198,6 +188,7 @@ namespace eiibd26.Controllers
         // POST api/preguntas/{id}/votar
         [HttpPost("{id:guid}/votar")]
         [Authorize]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> VotarPregunta(Guid id, [FromBody] VotarDto votoDto)
         {
             if (votoDto == null) return BadRequest();

@@ -111,9 +111,19 @@ namespace eiibd26.Services.AI
             switch (level)
             {
                 case QuestionLevel.Simple:
-                    _logger.LogInformation("💡 [NINA Router] Usando respuesta económica (local)");
+                    _logger.LogInformation("💡 [NINA Router] Intentando respuesta local EII");
                     contenidoRespuesta = GenerarRespuestaSimple(pregunta);
-                    modelUsado = ModelEconomico;
+                    if (string.IsNullOrEmpty(contenidoRespuesta))
+                    {
+                        // No hay template local para este tema; escalar a Haiku
+                        _logger.LogInformation("💰 [NINA Router] Sin template local, escalando a Claude Haiku");
+                        contenidoRespuesta = await GenerarRespuestaConHaiku(pregunta, contextoDinamico, cancellationToken);
+                        modelUsado = ModelClaudeHaiku;
+                    }
+                    else
+                    {
+                        modelUsado = ModelEconomico;
+                    }
                     break;
 
                 case QuestionLevel.Medium:
@@ -184,9 +194,9 @@ namespace eiibd26.Services.AI
 
             try
             {
-                var prompt = $@"Analiza la siguiente pregunta y clasifícala según su complejidad:
+                var prompt = $@"Analiza la siguiente pregunta sobre Enfermedad Inflamatoria Intestinal (EII) y clasifícala según su complejidad:
 
-SIMPLE: pregunta informativa general sobre VIH (¿Qué es...? ¿Cómo se define...? ¿Cuáles son los tipos...?)
+SIMPLE: pregunta informativa general sobre EII, CUCI o Crohn (¿Qué es...? ¿Cómo se define...? ¿Cuáles son los tipos...?)
 MEDIA: requiere explicación contextual o comparación (¿Por qué...? ¿Cómo funciona...? ¿Cuál es la diferencia...?)
 COMPLEJA: incluye síntomas personales, medicamentos específicos, decisiones médicas personales, o situaciones de salud individuales
 
@@ -245,42 +255,20 @@ Pregunta:
 
         private string GenerarRespuestaSimple(Pregunta pregunta)
         {
-            // Respuestas pre-programadas para preguntas simples comunes
-            var titulo = pregunta.Titulo?.ToLowerInvariant() ?? "";
+            var titulo = pregunta.Titulo ?? string.Empty;
 
-            if (titulo.Contains("qué es") && titulo.Contains("vih"))
-            {
-                return @"El VIH (Virus de Inmunodeficiencia Humana) es un virus que ataca el sistema inmunitario del cuerpo, específicamente las células CD4 (células T), que ayudan al sistema inmunitario a combatir infecciones.
+            // Intentar resolver con conocimiento local EII
+            var respuestaLocal = IBDKnowledgeTemplates.TryResolve(titulo);
+            if (respuestaLocal is not null)
+                return respuestaLocal;
 
-Sin tratamiento, el VIH puede destruir tantas células que el cuerpo no puede luchar contra infecciones y enfermedades. Cuando esto sucede, la infección por VIH puede conducir al SIDA (Síndrome de Inmunodeficiencia Adquirida).";
-            }
+            // Pregunta fuera del dominio EII — redirigir sin inventar contenido clínico
+            _logger.LogWarning(
+                "[NINA Router] Pregunta '{Titulo}' no resuelta por templates locales EII; derivando a modelo IA.",
+                pregunta.Titulo);
 
-            if (titulo.Contains("cómo se transmite") || titulo.Contains("como se transmite"))
-            {
-                return @"El VIH se transmite principalmente a través de:
-
-• Relaciones sexuales sin protección (vaginal, anal u oral) con una persona que tiene VIH
-• Compartir agujas, jeringas u otro equipo de inyección con alguien que tiene VIH
-• De madre a hijo durante el embarazo, parto o lactancia
-• Contacto con sangre infectada (transfusiones, accidentes laborales en salud)
-
-**El VIH NO se transmite por:**
-• Contacto casual (abrazos, besos secos)
-• Compartir alimentos o bebidas
-• Picaduras de mosquitos
-• Usar baños públicos";
-            }
-
-            // Fallback genérico
-            return @"Gracias por tu pregunta sobre VIH. Este es un tema importante de salud.
-
-Para obtener información específica y actualizada sobre tu consulta, te recomendamos:
-
-• Consultar con un profesional de salud
-• Visitar organizaciones especializadas en VIH
-• Revisar recursos educativos certificados
-
-Si tienes síntomas o preocupaciones específicas sobre tu salud, es fundamental que consultes con un médico.";
+            // Retornar null fuerza el escalado al modelo IA en el caller
+            return string.Empty;
         }
 
         private async Task<string> GenerarRespuestaConHaiku(
@@ -291,10 +279,12 @@ Si tienes síntomas o preocupaciones específicas sobre tu salud, es fundamental
             // Usar Claude Haiku (más económico que Sonnet) para preguntas de complejidad media
             try
             {
-                var systemPrompt = @"Eres NINA, asistente educativa especializada en VIH. 
-Proporciona respuestas claras, empáticas y educativas. 
+                var systemPrompt = @"Eres NINA, asistente educativa especializada en Enfermedad Inflamatoria Intestinal (EII), 
+incluye Colitis Ulcerosa Crónica Idiopática (CUCI) y Enfermedad de Crohn. 
+Proporciona respuestas claras, empáticas y educativas exclusivamente sobre EII y su manejo. 
 Usa lenguaje accesible. 
-Si la pregunta involucra decisiones médicas personales, recomienda consultar a un profesional.";
+Si la pregunta involucra decisiones médicas personales, recomienda consultar a un gastroenterólogo. 
+Si la pregunta no está relacionada con EII, indica amablemente que la plataforma se especializa en EII.";
 
                 var userPrompt = $@"Pregunta: {pregunta.Titulo}
 

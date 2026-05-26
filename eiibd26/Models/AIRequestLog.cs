@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using eiibd26.Models.AI;
 
 namespace eiibd26.Models
@@ -8,6 +9,7 @@ namespace eiibd26.Models
     /// </summary>
     public class AIRequestLog
     {
+        [Key]
         public Guid Id { get; set; }
 
         /// <summary>

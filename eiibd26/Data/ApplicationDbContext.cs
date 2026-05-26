@@ -160,6 +160,11 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
             b.Property(p => p.Cuerpo).IsRequired();
             b.HasIndex(p => p.UsuarioId);
             b.HasIndex(p => p.FechaCreacion);
+            // DB-008: FK explícita a AspNetUsers — evita comportamiento OnDelete indefinido
+            b.HasOne<ApplicationUser>()
+             .WithMany()
+             .HasForeignKey(p => p.UsuarioId)
+             .OnDelete(DeleteBehavior.Restrict);
             b.HasQueryFilter(p => !p.Eliminado);
         });
 
@@ -179,6 +184,11 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
               .WithMany()
               .HasForeignKey(r => r.ParentRespuestaId)
               .OnDelete(DeleteBehavior.NoAction);
+            // DB-009: FK explícita a AspNetUsers — evita comportamiento OnDelete indefinido
+            b.HasOne<ApplicationUser>()
+             .WithMany()
+             .HasForeignKey(r => r.UsuarioId)
+             .OnDelete(DeleteBehavior.Restrict);
             b.HasQueryFilter(r => !r.Eliminado);
         });
 
@@ -447,6 +457,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
         {
             b.ToTable("PatientLaboratoryResults");
             b.HasKey(x => x.Id);
+            // DB-004: índice para acelerar carga de resultados por paciente
+            b.HasIndex(x => x.PatientId)
+             .HasDatabaseName("IX_PatientLaboratoryResults_PatientId");
             b.Property(x => x.ResultValue).HasMaxLength(500);
             b.Property(x => x.ResultUnit).HasMaxLength(50);
             b.Property(x => x.Notes).HasMaxLength(1000);
@@ -487,7 +500,68 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
              .HasDatabaseName("IX_EmailCampanaLog_FechaEnvio");
         });
 
+        // DB-004: índice en NotificationSubscription.UserId para acelerar lookup de suscripciones por usuario
+        builder.Entity<NotificationSubscription>(b =>
+        {
+            b.ToTable("NotificationSubscriptions");
+            b.HasIndex(x => x.UserId)
+             .HasDatabaseName("IX_NotificationSubscriptions_UserId");
+        });
+
         // ── DIRECTORIO MÉDICOS EII ──────────────────────────────────────────────
+
+        // ── ÍNDICES TABLAS CLÍNICAS (DB-001/002/003) ─────────────────────────────
+        // Consultas del dashboard y perfil siempre filtran por IdUsuario.
+        // Sin estos índices cada query hace full scan sobre tablas de gran volumen.
+
+        builder.Entity<condicionUsuario>(b =>
+        {
+            b.HasIndex(x => x.idUsuario)
+             .HasDatabaseName("IX_condicionUsuario_IdUsuario");
+        });
+
+        builder.Entity<sintomasUsuario>(b =>
+        {
+            b.HasIndex(x => x.idUsuario)
+             .HasDatabaseName("IX_sintomasUsuario_IdUsuario");
+        });
+
+        builder.Entity<tratamientoUsuario>(b =>
+        {
+            b.HasIndex(x => x.idUsuario)
+             .HasDatabaseName("IX_tratamientoUsuario_IdUsuario");
+        });
+
+        builder.Entity<EstadoAnimoUsuario>(b =>
+        {
+            b.HasIndex(x => x.IdUsuario)
+             .HasDatabaseName("IX_EstadoAnimoUsuario_IdUsuario");
+            b.HasIndex(x => new { x.IdUsuario, x.FechaRegistro })
+             .HasDatabaseName("IX_EstadoAnimoUsuario_IdUsuario_FechaRegistro");
+        });
+
+        builder.Entity<TrackingSintomaUsuario>(b =>
+        {
+            // IX_TrackingSintomaUsuario_IdUsuario ya viene de la config de arriba,
+            // pero agregarmos el índice compuesto para consultas de rango de fechas.
+            b.HasIndex(x => new { x.IdUsuario, x.Fecha })
+             .HasDatabaseName("IX_TrackingSintomaUsuario_IdUsuario_Fecha");
+        });
+
+        // DB-003: índices en tablas de correlación clínica — consultas siempre filtran por IdUsuario
+        builder.Entity<TratamientoSintomaUsuario>(b =>
+        {
+            b.HasIndex(x => x.IdUsuario)
+             .HasDatabaseName("IX_TratamientoSintomaUsuario_IdUsuario");
+        });
+
+        builder.Entity<SintomaCondicionUsuario>(b =>
+        {
+            b.HasIndex(x => x.IdUsuario)
+             .HasDatabaseName("IX_SintomaCondicionUsuario_IdUsuario");
+        });
+
+        // ── FIN ÍNDICES TABLAS CLÍNICAS ───────────────────────────────────────
 
         builder.Entity<eiibd26.Models.Directorio.AreaExperienciaEii>(b =>
         {
@@ -545,6 +619,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
             b.HasQueryFilter(m => !m.Eliminado);
             b.HasIndex(m => m.CedulaProfesional);
             b.HasIndex(m => new { m.Estado, m.Ciudad });
+            // DB-015: índice en AspNetUserId para acelerar lookup del médico por usuario vinculado
+            b.HasIndex(m => m.AspNetUserId)
+             .HasDatabaseName("IX_MedicosDirectorio_AspNetUserId")
+             .HasFilter("[AspNetUserId] IS NOT NULL");
             b.HasOne(m => m.UsuarioVinculado)
              .WithMany()
              .HasForeignKey(m => m.AspNetUserId)
@@ -658,7 +736,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
             b.HasOne(x => x.Condicion)
              .WithMany()
              .HasForeignKey(x => x.CondicionId)
-             .OnDelete(DeleteBehavior.Cascade);
+             // DB-005: Restrict evita borrado masivo de experiencia médica al eliminar condición.
+             // El borrado de condiciones clínicas no debe propagarse a perfiles de médicos.
+             .OnDelete(DeleteBehavior.Restrict);
         });
     }
 

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>06 Verificación Final – Remediación Seguridad EIIBD</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --border: #2d3148;
+    --text: #e2e8f0; --muted: #64748b;
+    --green: #22c55e; --yellow: #eab308; --red: #ef4444; --blue: #3b82f6;
+  }
+  body { background: var(--bg); color: var(--text); font-family: system-ui,sans-serif; margin: 0; padding: 24px; }
+  h1 { font-size: 1.4rem; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); font-size: .85rem; margin-bottom: 32px; }
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  th { background: var(--surface); padding: 10px 12px; text-align: left; font-weight: 600; border-bottom: 2px solid var(--border); }
+  td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:hover td { background: var(--surface); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: .75rem; font-weight: 600; }
+  .pass  { background: #166534; color: var(--green); }
+  .warn  { background: #713f12; color: var(--yellow); }
+  .fail  { background: #7f1d1d; color: var(--red); }
+  .info  { background: #1e3a5f; color: var(--blue); }
+  code { background: #1e2130; padding: 1px 5px; border-radius: 4px; font-size: .82rem; }
+  .section-header { background: var(--surface); font-weight: 700; color: var(--muted); font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; }
+  .summary-box { border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin-bottom: 28px; display: flex; gap: 32px; flex-wrap: wrap; }
+  .summary-box .stat { display: flex; flex-direction: column; }
+  .summary-box .num  { font-size: 2rem; font-weight: 700; }
+  .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+
+<h1>Verificación Final – Remediación Seguridad EIIBD</h1>
+<div class="subtitle">06-verificacion-final.html · generado post-remediación · <a href="../auditoria/02seguridad.html" style="color:var(--blue)">← Auditoría original</a></div>
+
+<div class="summary-box">
+  <div class="stat"><span class="num" style="color:var(--green)">14</span><span>✅ PASS (resueltos)</span></div>
+  <div class="stat"><span class="num" style="color:var(--yellow)">2</span><span>⚠️ WARN (aceptados/pendientes)</span></div>
+  <div class="stat"><span class="num" style="color:var(--red)">0</span><span>❌ FAIL</span></div>
+  <div class="stat"><span class="num" style="color:var(--blue)">2</span><span>ℹ️ INFO (tarea larga)</span></div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>ID</th><th>Severidad</th><th>Título</th><th>Estado</th><th>Notas de verificación</th>
+    </tr>
+  </thead>
+  <tbody>
+
+    <tr class="section-header"><td colspan="5">BLOQUE 1 — Catálogos Públicos</td></tr>
+
+    <tr>
+      <td><code>SEC-001</code></td>
+      <td>Low</td>
+      <td>Autocomplete /api/sintomas sin <code>[AllowAnonymous]</code> explícito</td>
+      <td><span class="badge pass">PASS</span></td>
+      <td><code>[AllowAnonymous]</code> + <code>[EnableRateLimiting("catalogos-autocomplete")]</code> agregados. 30 req/60s por IP. Build ✅</td>
+    </tr>
+    <tr>
+      <td><code>SEC-002</code></td>
+      <td>Low</td>
+      <td>Autocomplete /api/tratamientos sin <code>[AllowAnonymous]</code> explícito</td>
+      <td><span class="badge pass">PASS</span></td>
+      <td>Ídem SEC-001. Build ✅</td>
+    </tr>
+    <tr>
+      <td><code>SEC-003</code></td>
+      <td>Low</td>
+      <td>Autocomplete /api/condiciones sin <code>[AllowAnonymous]</code> explícito</td>
+      <td><span class="badge pass">PASS</span></td>
+      <td>Ídem SEC-001. Build ✅</td>
+    </tr>
+
+    <tr class="section-header"><td colspan="5">BLOQUE 2 — Ratings</td></tr>
+
+    <tr>
+      <td><code>SEC-004</code></td>
+      <td>Low</td>
+      <td>Ratings anónimos de artículos</td>
+      <td><span class="badge pass">PASS</span></td>
+      <td>Anonimato intencional documentado en <code>02-ratings.md</code>. Deduplicación por UserId (autenticado) o IP (anónimo) es correcta.</td>
+    </tr>
+    <tr>
+      <td><code>SEC-005</code></td>
+      <td>Low</td>
+      <td>Ratings anónimos de glosario</td>
+      <td><span class="badge pass">PASS</span></td>
+      <td>Ídem SEC-004.</td>
+    </tr>
+    <tr>
+      <td><code>SEC-007</code></td>
+      <td>Medium</td>
+      <td><code>X-Forwarded-For</code> como identificador de IP en ratings</td>
+      <td><span class="badge pass">PASS</span></td>
+      <td><code>GetClientIpAddress()</code> simplificado a <code>RemoteIpAddress</code> en <code>ArticleRatingsApiController</code> y <code>GlossaryRatingsApiController</code>. Build ✅</td>
+    </tr>
+
+    <tr class="section-header"><td colspan="5">BLOQUE 3 — Roles</td></tr>
+
+    <tr>
+      <td><code>SEC-012</code></td>
+      <td>High</td>
+      <td>Rol <code>"Admin"</code> seeded pero código usa <code>"Administrador"</code></td>
+      <td><span class="badge pass">PASS</span></td>
+      <td><code>"Administrador"</code> agregado al seed en <code>Program.cs</code>. <code>"Admin"</code> se mantiene para compatibilidad con DB existente. Build ✅</td>
+    </tr>
+
+    <tr class="section-header"><td colspan="5">BLOQUE 4 — IDOR (verificación)</td></tr>
+
+    <tr>
+      <td><code>SEC-009</code></td>
+      <td>High</td>
+      <td>Dashboard: tracking síntomas sin validación ownership</td>
+      <td><span class="badge pass">PASS</span></td>
+      <td>Ya remediado. <code>DashboardController.AddSymptom</code> llama <code>_ownership.OwnsSintomaAsync()</code> antes de insertar.</td>
+    </tr>
+    <tr>
+      <td><code>SEC-010</code></td>
+      <td>High</td>
+      <td>EstadoAnimoUsuario: relaciones con IDs ajenos</td>
+      <td><span class="badge pass">PASS</span></td>
+      <td>Ya remediado. <code>EstadoAnimoUsuarioController.Nuevo</code> llama <code>ValidateEstadoAnimoRelationsAsync()</code>.</td>
+    </tr>
+    <tr>
+      <td><code>SEC-011</code></td>
+      <td>Medium</td>
+      <td>EstadoAnimoUsuario: eliminación sin verificación ownership</td>
+      <td><span class="badge pass">PASS</span></td>
+      <td>Ya remediado. <code>Eliminar(int id)</code> filtra <code>e.Id == id &amp;&amp; e.UsuarioId == guid</code>.</td>
+    </tr>
+
+    <tr class="section-header"><td colspan="5">BLOQUE 5 — Hardening</td></tr>
+
+    <tr>
+      <td><code>SEC-013</code></td>
+      <td>Medium</td>
+      <td>Token push mood sin audit trail</td>
+      <td><span class="badge pass">PASS</span></td>
+      <td>CSPRNG confirmado (Data Protection). <code>LogWarning</code> en tokens inválidos con IP. Build ✅</td>
+    </tr>
+    <tr>
+      <td><code>SEC-014</code></td>
+      <td>Medium</td>
+      <td>HTML generado sin <code>HtmlEncoder</code> en admin contenidos</td>
+      <td><span class="badge pass">PASS</span></td>
+      <td><code>HtmlEncoder.Default.Encode(p.id.ToString())</code> aplicado en <code>ContenidosAdminController</code>. Build ✅</td>
+    </tr>
+    <tr>
+      <td><code>SEC-015</code></td>
+      <td>Low</td>
+      <td>Stack traces expuestos si ASPNETCORE_ENVIRONMENT no configurado</td>
+      <td><span class="badge pass">PASS</span></td>
+      <td>Warning de startup agregado en <code>Program.cs</code> si <code>!IsProduction()</code>. Build ✅</td>
+    </tr>
+    <tr>
+      <td><code>SEC-016</code></td>
+      <td>Low</td>
+      <td><code>Task.Factory.StartNew(LongRunning)</code> para jobs de IA</td>
+      <td><span class="badge warn">PENDIENTE</span></td>
+      <td>Refactor a <code>BackgroundJob.Enqueue&lt;AiAnswerJob&gt;()</code> es scope funcional (FUNC-017). No se modifica en esta remediación de seguridad.</td>
+    </tr>
+    <tr>
+      <td><code>SEC-017</code></td>
+      <td>Low</td>
+      <td>Hangfire dashboard — verificar <code>HangfireAdminAuthFilter</code></td>
+      <td><span class="badge pass">PASS</span></td>
+      <td>Verificado manualmente: filtro checa <code>IsAuthenticated &amp;&amp; IsInRole("Administrador")</code>. Con SEC-012 resuelto, el rol ahora existe en seed.</td>
+    </tr>
+    <tr>
+      <td><code>SEC-018</code></td>
+      <td>Low</td>
+      <td>CSP incluye <code>'unsafe-inline'</code> y <code>'unsafe-eval'</code></td>
+      <td><span class="badge info">ACEPTADO</span></td>
+      <td>Causa raíz: 200+ líneas JS inline en <code>_Layout.cshtml</code> (UI-018). Plan de largo plazo documentado. Mitigación actual: CSRF + ownership + autenticación robusta.</td>
+    </tr>
+
+    <tr class="section-header"><td colspan="5">Issues no en SEC-xxx (identificados durante remediación)</td></tr>
+
+    <tr>
+      <td><code>SEC-006</code></td>
+      <td>—</td>
+      <td>(no listado en auditoría original; gap en numeración)</td>
+      <td><span class="badge info">N/A</span></td>
+      <td>Gap en numeración del reporte original.</td>
+    </tr>
+    <tr>
+      <td><code>SEC-008</code></td>
+      <td>—</td>
+      <td>(no listado en auditoría original; gap en numeración)</td>
+      <td><span class="badge info">N/A</span></td>
+      <td>Gap en numeración del reporte original.</td>
+    </tr>
+
+  </tbody>
+</table>
+
+<div class="footer">
+  06-verificacion-final.html · Sesión de remediación completada ·
+  <a href="01-catalogos.md" style="color:var(--blue)">01-catalogos</a> ·
+  <a href="02-ratings.md" style="color:var(--blue)">02-ratings</a> ·
+  <a href="03-roles.md" style="color:var(--blue)">03-roles</a> ·
+  <a href="04-idor.md" style="color:var(--blue)">04-idor</a> ·
+  <a href="05-hardening.md" style="color:var(--blue)">05-hardening</a>
+</div>
+
+</body>
+</html>

@@ -374,15 +374,14 @@ namespace eiibd26.Services.Glossary
                         v.GlossaryTermId == termId
                         && v.ValidationType == GlossaryValidationType.MeaningValidation
                         && v.Approved)
-                    .Select(v => v.Comment)
+                    .Select(v => new { v.Comment, v.UserId })
                     .ToListAsync();
 
                 var meaningCount = meaningValidations.Count;
 
-                var meaningComments = meaningValidations
-                    .Where(c => !string.IsNullOrWhiteSpace(c))
-                    .Select(c => c!)
-                    .ToList();
+                // Solo mostrar texto de médicos con badge verificado/reclamado — mismo filtro que ComentariosMedicos
+                var meaningComments = await FilterCommentsByVerifiedDoctorAsync(
+                    meaningValidations.Select(v => (v.Comment, v.UserId)));
 
                 // Agrupar validaciones humanas de relación con sus comentarios
                 var rawGroups = await _db.GlossaryValidations
@@ -538,6 +537,7 @@ namespace eiibd26.Services.Glossary
                     .AsNoTracking()
                     .Where(c => !c.Eliminado
                         && c.EstadoPublicacion == 1
+                        && !string.IsNullOrEmpty(c.ContenidoTituloSlug)
                         && c.ContenidoTitulo.Contains(termName))
                     .OrderByDescending(c => c.ContenidoFechaInicio)
                     .Take(5)
@@ -613,45 +613,119 @@ namespace eiibd26.Services.Glossary
                 );
 
                 // Project with user relationship count + validation badges
-                var projected = filtered.Select(t => new GlossaryTermSummaryDto
+                // PERF-004/005: Materializamos los términos filtrados primero (solo campos base),
+                // luego resolvemos conteos de validaciones en queries batched separadas.
+                // Elimina 4 subqueries correlacionadas por fila dentro del SELECT.
+                var termsCandidatos = await filtered
+                    .Select(t => new
+                    {
+                        t.Id,
+                        t.Nombre,
+                        t.Slug,
+                        t.MedicalLinkSintomaId,
+                        t.MedicalLinkTratamientoId,
+                        t.MedicalRelationSuggestedId
+                    })
+                    .ToListAsync(cancellationToken);
+
+                if (!termsCandidatos.Any())
+                    return new List<GlossaryTermSummaryDto>();
+
+                var termIds        = termsCandidatos.Select(t => t.Id).ToList();
+                var sintomaIds     = termsCandidatos.Where(t => t.MedicalLinkSintomaId.HasValue)
+                                        .Select(t => t.MedicalLinkSintomaId!.Value).ToList();
+                var tratamientoIds = termsCandidatos.Where(t => t.MedicalLinkTratamientoId.HasValue)
+                                        .Select(t => t.MedicalLinkTratamientoId!.Value).ToList();
+
+                // Conteos de validaciones por término y tipo de relación — 1 sola query
+                var validacionesBatch = await _db.GlossaryValidations
+                    .AsNoTracking()
+                    .Where(v => termIds.Contains(v.GlossaryTermId)
+                                && v.ValidationType == GlossaryValidationType.RelationValidation
+                                && v.Approved
+                                && v.MedicalRelationTypeId != null)
+                    .GroupBy(v => new { v.GlossaryTermId, v.MedicalRelationTypeId })
+                    .Select(g => new { g.Key.GlossaryTermId, g.Key.MedicalRelationTypeId, Count = g.Count() })
+                    .ToListAsync(cancellationToken);
+
+                // Última validación humana por término — 1 sola query
+                var ultimaValidacionBatch = await _db.GlossaryValidations
+                    .AsNoTracking()
+                    .Where(v => termIds.Contains(v.GlossaryTermId) && v.Approved)
+                    .GroupBy(v => v.GlossaryTermId)
+                    .Select(g => new { TermId = g.Key, Last = g.Max(v => (DateTime?)v.CreatedAt) })
+                    .ToDictionaryAsync(x => x.TermId, x => x.Last, cancellationToken);
+
+                // Usuarios únicos por síntoma — 1 sola query (solo si hay términos de tipo Sintoma)
+                Dictionary<int, int> usuariosPorSintoma = new();
+                if (sintomaIds.Any())
                 {
-                    Id = t.Id,
-                    Nombre = t.Nombre,
-                    Slug = t.Slug,
-                    ShortDescription = null,
-                    LastHumanUpdateDate = _db.GlossaryValidations
-                        .Where(v => v.GlossaryTermId == t.Id && v.Approved)
-                        .Max(v => (DateTime?)v.CreatedAt),
-                    Views = 0,
-                    IsValidated = true,
-                    IsReviewedByHuman = true,
-                    HasRelationBadge = true,
-                    // Count distinct users who have this symptom/treatment in their profile (mejor indicador de relaciones reales)
-                    UserRelationCount = type == GlossaryTermType.Sintoma
-                        ? _db.sintomasUsuario.Where(su => su.idSintoma == t.MedicalLinkSintomaId && !su.Eliminado).Select(su => su.idUsuario).Distinct().Count()
-                        : _db.tratamientoUsuario.Where(tu => tu.idTratamiento == t.MedicalLinkTratamientoId && !tu.Eliminado).Select(tu => tu.idUsuario).Distinct().Count(),
-                    RelationDirectCount = _db.GlossaryValidations.Count(v => v.GlossaryTermId == t.Id && v.ValidationType == GlossaryValidationType.RelationValidation && v.MedicalRelationTypeId == MedicalRelationType.Directa && v.Approved)
-                        + (t.MedicalRelationSuggestedId == MedicalRelationType.Directa ? 1 : 0),
-                    RelationIndirectCount = _db.GlossaryValidations.Count(v => v.GlossaryTermId == t.Id && v.ValidationType == GlossaryValidationType.RelationValidation && v.MedicalRelationTypeId == MedicalRelationType.Indirecta && v.Approved)
-                        + (t.MedicalRelationSuggestedId == MedicalRelationType.Indirecta ? 1 : 0),
-                    RelationSecondaryCount = _db.GlossaryValidations.Count(v => v.GlossaryTermId == t.Id && v.ValidationType == GlossaryValidationType.RelationValidation && v.MedicalRelationTypeId == MedicalRelationType.Secundaria && v.Approved)
-                        + (t.MedicalRelationSuggestedId == MedicalRelationType.Secundaria ? 1 : 0)
-                });
+                    usuariosPorSintoma = await _db.sintomasUsuario
+                        .AsNoTracking()
+                        .Where(su => su.idSintoma.HasValue && sintomaIds.Contains(su.idSintoma.Value) && !su.Eliminado)
+                        .GroupBy(su => su.idSintoma!.Value)
+                        .Select(g => new { SintomaId = g.Key, Usuarios = g.Select(su => su.idUsuario).Distinct().Count() })
+                        .ToDictionaryAsync(x => x.SintomaId, x => x.Usuarios, cancellationToken);
+                }
 
-                // Ranking ponderado: nivel clínico tiene prioridad sobre popularidad.
-                // Math.Sqrt no es traducible a SQL en EF Core; se usa UserRelationCount directamente.
-                // Directa(×3) > Indirecta(×2) > Secundaria(×1) + usuarios como desempate.
-                var ordered = projected
-                    .OrderByDescending(x =>
-                        (x.RelationDirectCount * 3) +
-                        (x.RelationIndirectCount * 2) +
-                        (x.RelationSecondaryCount * 1) +
-                        x.UserRelationCount
-                    )
-                    .ThenBy(x => x.Nombre)
-                    .Take(limit);
+                // Usuarios únicos por tratamiento — 1 sola query (solo si hay términos de tipo Tratamiento)
+                Dictionary<int, int> usuariosPorTratamiento = new();
+                if (tratamientoIds.Any())
+                {
+                    usuariosPorTratamiento = await _db.tratamientoUsuario
+                        .AsNoTracking()
+                        .Where(tu => tu.idTratamiento.HasValue && tratamientoIds.Contains(tu.idTratamiento.Value) && !tu.Eliminado)
+                        .GroupBy(tu => tu.idTratamiento!.Value)
+                        .Select(g => new { TratamientoId = g.Key, Usuarios = g.Select(tu => tu.idUsuario).Distinct().Count() })
+                        .ToDictionaryAsync(x => x.TratamientoId, x => x.Usuarios, cancellationToken);
+                }
 
-                var list = await ordered.ToListAsync(cancellationToken);
+                // Proyectar y calcular ranking en memoria
+                var list = termsCandidatos
+                    .Select(t =>
+                    {
+                        int GetValidationCount(MedicalRelationType rel) =>
+                            validacionesBatch.Where(v => v.GlossaryTermId == t.Id && v.MedicalRelationTypeId == rel)
+                                             .Sum(v => v.Count);
+
+                        var directCount    = GetValidationCount(MedicalRelationType.Directa)
+                                            + (t.MedicalRelationSuggestedId == MedicalRelationType.Directa ? 1 : 0);
+                        var indirectCount  = GetValidationCount(MedicalRelationType.Indirecta)
+                                            + (t.MedicalRelationSuggestedId == MedicalRelationType.Indirecta ? 1 : 0);
+                        var secondaryCount = GetValidationCount(MedicalRelationType.Secundaria)
+                                            + (t.MedicalRelationSuggestedId == MedicalRelationType.Secundaria ? 1 : 0);
+
+                        int userCount = type == GlossaryTermType.Sintoma
+                            ? (t.MedicalLinkSintomaId.HasValue && usuariosPorSintoma.TryGetValue(t.MedicalLinkSintomaId.Value, out var uc) ? uc : 0)
+                            : (t.MedicalLinkTratamientoId.HasValue && usuariosPorTratamiento.TryGetValue(t.MedicalLinkTratamientoId.Value, out var ut) ? ut : 0);
+
+                        return new
+                        {
+                            Dto = new GlossaryTermSummaryDto
+                            {
+                                Id                    = t.Id,
+                                Nombre                = t.Nombre,
+                                Slug                  = t.Slug,
+                                ShortDescription      = null,
+                                LastHumanUpdateDate   = ultimaValidacionBatch.TryGetValue(t.Id, out var lv) ? lv : null,
+                                Views                 = 0,
+                                IsValidated           = true,
+                                IsReviewedByHuman     = true,
+                                HasRelationBadge      = true,
+                                UserRelationCount     = userCount,
+                                RelationDirectCount   = directCount,
+                                RelationIndirectCount = indirectCount,
+                                RelationSecondaryCount = secondaryCount
+                            },
+                            Score = (directCount * 3) + (indirectCount * 2) + (secondaryCount * 1) + userCount
+                        };
+                    })
+                    .OrderByDescending(x => x.Score)
+                    .ThenBy(x => x.Dto.Nombre)
+                    .Take(limit)
+                    .Select(x => x.Dto)
+                    .ToList();
+
                 _logger.LogInformation("GetTopTermsByQualityAsync: DB returned {Count} items for type {Type}", list.Count, type);
 
                 if (useCache)
@@ -726,6 +800,58 @@ namespace eiibd26.Services.Glossary
                 _logger.LogError(ex, "Error al obtener preguntas relacionadas");
                 return new List<RelatedQuestionDto>();
             }
+        }
+
+        /// <summary>
+        /// Filtra una colección de pares (Comment, UserId) para devolver solo los comentarios
+        /// de usuarios que tienen un médico con badge perfil_reclamado o verificado.
+        /// Evita mostrar texto de cuentas de prueba o usuarios no verificados.
+        /// </summary>
+        private async Task<List<string>> FilterCommentsByVerifiedDoctorAsync(
+            IEnumerable<(string? Comment, string? UserId)> validations)
+        {
+            var items = validations
+                .Where(v => !string.IsNullOrWhiteSpace(v.Comment))
+                .ToList();
+
+            if (!items.Any())
+                return new List<string>();
+
+            var userGuidList = items
+                .Select(v => Guid.TryParse(v.UserId, out var g) ? (Guid?)g : null)
+                .Where(g => g.HasValue).Select(g => g!.Value).Distinct().ToList();
+
+            var perfiles = await _db.MedicosPerfilExtendido
+                .AsNoTracking()
+                .Where(p => p.UserId.HasValue && userGuidList.Contains(p.UserId.Value) && p.MedicoId != null)
+                .Select(p => new { p.UserId, p.MedicoId })
+                .ToListAsync();
+
+            var medicoIds = perfiles.Where(p => p.MedicoId.HasValue).Select(p => p.MedicoId!.Value).ToList();
+            if (!medicoIds.Any())
+                return new List<string>();
+
+            var badgesVerificados = await _db.MedicosPerfilBadge
+                .AsNoTracking()
+                .Where(pb => medicoIds.Contains(pb.MedicoId))
+                .Join(_db.MedicosBadge, pb => pb.BadgeId, b => b.Id, (pb, b) => new { pb.MedicoId, b.Codigo })
+                .Where(x => x.Codigo == "perfil_reclamado" || x.Codigo == "verificado")
+                .Select(x => x.MedicoId)
+                .Distinct()
+                .ToListAsync();
+
+            if (!badgesVerificados.Any())
+                return new List<string>();
+
+            var verifiedUserGuids = perfiles
+                .Where(p => p.MedicoId.HasValue && badgesVerificados.Contains(p.MedicoId!.Value))
+                .Select(p => p.UserId!.Value)
+                .ToHashSet();
+
+            return items
+                .Where(v => Guid.TryParse(v.UserId, out var g) && verifiedUserGuids.Contains(g))
+                .Select(v => v.Comment!)
+                .ToList();
         }
     }
 }

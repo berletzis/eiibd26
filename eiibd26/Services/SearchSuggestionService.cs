@@ -107,52 +107,59 @@ namespace eiibd26.Services
             if (!keywords.Any())
                 return new List<SuggestionPregunta>();
 
-            var baseQuery = _db.Preguntas
+            // PERF-001: Un único query que combina todos los keywords con OR dinámico en SQL.
+            // Reemplaza el loop de N queries independientes (uno por keyword).
+            var kws = keywords.Take(5).ToList();
+
+            var query = _db.Preguntas
                 .AsNoTracking()
                 .Where(p => !p.Eliminado);
 
-            // Filtrar por condición si se especifica
             if (condicionId.HasValue)
-            {
-                baseQuery = baseQuery.Where(p => p.PreguntaCondiciones.Any(pc => pc.CondicionId == condicionId.Value));
-            }
+                query = query.Where(p => p.PreguntaCondiciones.Any(pc => pc.CondicionId == condicionId.Value));
 
-            // ⭐ CAMBIO: Buscar preguntas que contengan CUALQUIER keyword (OR en lugar de AND)
-            // Construir una expresión OR para todos los keywords
-            var matchingQuestions = new List<Pregunta>();
+            // Construir el predicado OR dinámico en una sola expresión SQL
+            query = query.Where(p =>
+                kws.Any(k => p.Titulo.Contains(k) || p.Cuerpo.Contains(k)));
 
-            foreach (var keyword in keywords.Take(5)) // Limitar a primeros 5 keywords más relevantes
-            {
-                var k = keyword;
-                var matches = await baseQuery
-                    .Where(p => p.Titulo.Contains(k) || p.Cuerpo.Contains(k))
-                    .ToListAsync(cancellationToken);
+            var preguntas = await query
+                .OrderByDescending(p => p.FechaCreacion)
+                .Take(20)
+                .Select(p => new { p.Id, p.Titulo, p.Slug, p.FechaCreacion })
+                .ToListAsync(cancellationToken);
 
-                matchingQuestions.AddRange(matches);
-            }
-
-            // Agrupar por pregunta y ordenar por número de coincidencias (relevancia)
-            var grouped = matchingQuestions
-                .GroupBy(p => p.Id)
-                .Select(g => new
+            // Ranking en memoria: cuántos keywords coinciden por pregunta
+            var ranked = preguntas
+                .Select(p => new
                 {
-                    Pregunta = g.First(),
-                    MatchCount = g.Count() // Cuántos keywords coincidieron
+                    Pregunta = p,
+                    MatchCount = kws.Count(k =>
+                        p.Titulo.Contains(k, StringComparison.OrdinalIgnoreCase) ||
+                        p.Slug.Contains(k, StringComparison.OrdinalIgnoreCase))
                 })
-                .OrderByDescending(x => x.MatchCount) // Más coincidencias = más relevante
-                .ThenByDescending(x => x.Pregunta.FechaCreacion)
+                .OrderByDescending(x => x.MatchCount)
                 .Take(5)
+                .ToList();
+
+            // Contar respuestas en un solo query para todas las preguntas seleccionadas (evita N+1)
+            var preguntaIds = ranked.Select(x => x.Pregunta.Id).ToList();
+            var respuestasCounts = await _db.Respuestas
+                .AsNoTracking()
+                .Where(r => preguntaIds.Contains(r.PreguntaId) && !r.Eliminado)
+                .GroupBy(r => r.PreguntaId)
+                .Select(g => new { PreguntaId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.PreguntaId, x => x.Count, cancellationToken);
+
+            return ranked
                 .Select(x => new SuggestionPregunta
                 {
                     Id = x.Pregunta.Id,
                     Titulo = x.Pregunta.Titulo,
                     Slug = x.Pregunta.Slug,
-                    RespuestasCount = _db.Respuestas.Count(r => r.PreguntaId == x.Pregunta.Id && !r.Eliminado),
+                    RespuestasCount = respuestasCounts.TryGetValue(x.Pregunta.Id, out var cnt) ? cnt : 0,
                     FechaCreacion = x.Pregunta.FechaCreacion
                 })
                 .ToList();
-
-            return grouped;
         }
 
         private async Task<List<SuggestionArticulo>> BuscarArticulosAsync(
@@ -163,80 +170,83 @@ namespace eiibd26.Services
             if (!keywords.Any())
                 return new List<SuggestionArticulo>();
 
-            var baseQuery = _db.Contenidos
-                .AsNoTracking()
-                .Where(c => !c.Eliminado && c.EstadoPublicacion == 1); // Solo publicados
+            var kws = keywords.Take(5).ToList();
 
-            // Filtrar por condición si se especifica
+            var query = _db.Contenidos
+                .AsNoTracking()
+                .Where(c => !c.Eliminado && c.EstadoPublicacion == 1);
+
             if (condicionId.HasValue)
             {
-                var contenidoIdsConCondicion = _db.ContenidoCondiciones
+                var contenidoIds = _db.ContenidoCondiciones
                     .Where(cc => cc.CondicionId == condicionId.Value && !cc.Borrado)
                     .Select(cc => cc.ContenidoId)
                     .Distinct();
-
-                baseQuery = baseQuery.Where(c => contenidoIdsConCondicion.Contains(c.Id));
+                query = query.Where(c => contenidoIds.Contains(c.Id));
             }
 
-            // ⭐ CAMBIO: Buscar artículos que contengan CUALQUIER keyword (OR en lugar de AND)
-            // Y buscar también en el contenido completo, no solo en título y resumen
-            var matchingArticulos = new List<Contenido>();
+            // PERF-002: Un único query OR en lugar de N queries por keyword.
+            query = query.Where(c =>
+                kws.Any(k =>
+                    (c.ContenidoTitulo != null && c.ContenidoTitulo.Contains(k)) ||
+                    (c.ContenidoTextoC != null && c.ContenidoTextoC.Contains(k)) ||
+                    (c.ContenidoTextoL != null && c.ContenidoTextoL.Contains(k))));
 
-            foreach (var keyword in keywords.Take(5)) // Limitar a primeros 5 keywords
-            {
-                var k = keyword;
-                var matches = await baseQuery
-                    .Where(c => 
-                        (c.ContenidoTitulo != null && c.ContenidoTitulo.Contains(k)) || 
-                        (c.ContenidoTextoC != null && c.ContenidoTextoC.Contains(k)) ||
-                        (c.ContenidoTextoL != null && c.ContenidoTextoL.Contains(k))) // ⭐ NUEVO: Buscar en contenido completo
-                    .ToListAsync(cancellationToken);
-
-                matchingArticulos.AddRange(matches);
-            }
-
-            // Agrupar por artículo y ordenar por número de coincidencias (relevancia)
-            var articulos = matchingArticulos
-                .GroupBy(c => c.Id)
-                .Select(g => new
+            var articulos = await query
+                .OrderByDescending(c => c.ContenidoFechaInicio ?? c.FechaCreado)
+                .Take(20)
+                .Select(c => new
                 {
-                    Articulo = g.First(),
-                    MatchCount = g.Count() // Cuántos keywords coincidieron
+                    c.Id,
+                    c.ContenidoTitulo,
+                    c.ContenidoTituloSlug,
+                    c.ContenidoTextoC,
+                    c.URLImagenPrincipal,
+                    FechaRef = c.ContenidoFechaInicio ?? c.FechaCreado
                 })
-                .OrderByDescending(x => x.MatchCount) // Más coincidencias = más relevante
-                .ThenByDescending(x => x.Articulo.ContenidoFechaInicio ?? x.Articulo.FechaCreado)
+                .ToListAsync(cancellationToken);
+
+            // Ranking en memoria por número de keywords coincidentes
+            var ranked = articulos
+                .Select(a => new
+                {
+                    Articulo = a,
+                    MatchCount = kws.Count(k =>
+                        (a.ContenidoTitulo?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                        (a.ContenidoTextoC?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false))
+                })
+                .OrderByDescending(x => x.MatchCount)
+                .ThenByDescending(x => x.Articulo.FechaRef)
                 .Take(5)
                 .ToList();
 
-            // Obtener slugs de categorías para construir URLs correctas
-            var articulosIds = articulos.Select(x => x.Articulo.Id).ToList();
+            // Obtener slugs de categorías en un único query (evita N+1)
+            var articuloIds = ranked.Select(x => x.Articulo.Id).ToList();
             var categoriasSlugs = await _db.ContenidosCategoriasRelacion
                 .AsNoTracking()
-                .Where(ccr => articulosIds.Contains(ccr.IdContenido) && !ccr.Borrado && ccr.IdCategoria.HasValue)
+                .Where(ccr => articuloIds.Contains(ccr.IdContenido) && !ccr.Borrado && ccr.IdCategoria.HasValue)
                 .Join(_db.ContenidosCategorias,
-                    ccr => ccr.IdCategoria.Value,
+                    ccr => ccr.IdCategoria!.Value,
                     cat => cat.Sequence,
-                    (ccr, cat) => new { IdContenido = ccr.IdContenido, CategoriaSlug = cat.CategoriaSlug })
+                    (ccr, cat) => new { IdContenido = ccr.IdContenido, cat.CategoriaSlug })
                 .Where(x => x.CategoriaSlug != null)
                 .GroupBy(x => x.IdContenido)
                 .Select(g => new { IdContenido = g.Key, CategoriaSlug = g.First().CategoriaSlug })
                 .ToDictionaryAsync(x => x.IdContenido, x => x.CategoriaSlug, cancellationToken);
 
-            var result = articulos
+            return ranked
                 .Select(x => new SuggestionArticulo
                 {
                     Id = x.Articulo.Id,
                     Titulo = x.Articulo.ContenidoTitulo ?? "",
                     Slug = x.Articulo.ContenidoTituloSlug ?? "",
-                    Resumen = x.Articulo.ContenidoTextoC != null && x.Articulo.ContenidoTextoC.Length > 200 
-                        ? x.Articulo.ContenidoTextoC.Substring(0, 200) + "..." 
+                    Resumen = x.Articulo.ContenidoTextoC != null && x.Articulo.ContenidoTextoC.Length > 200
+                        ? x.Articulo.ContenidoTextoC.Substring(0, 200) + "..."
                         : x.Articulo.ContenidoTextoC,
                     ImagenUrl = x.Articulo.URLImagenPrincipal,
                     CategoriaSlug = categoriasSlugs.TryGetValue(x.Articulo.Id, out var catSlug) ? catSlug : null
                 })
                 .ToList();
-
-            return result;
         }
 
         private async Task<List<SuggestionRespuesta>> BuscarRespuestasAsync(
@@ -246,34 +256,28 @@ namespace eiibd26.Services
             if (!keywords.Any())
                 return new List<SuggestionRespuesta>();
 
-            var baseQuery = _db.Respuestas
+            var kws = keywords.Take(5).ToList();
+
+            // PERF-003: Un único query OR en lugar de N queries por keyword.
+            var respuestas = await _db.Respuestas
                 .AsNoTracking()
-                .Where(r => !r.Eliminado && !r.EsIA); // Solo respuestas de humanos
+                .Where(r => !r.Eliminado && !r.EsIA)
+                .Where(r => kws.Any(k => r.Cuerpo.Contains(k)))
+                .OrderByDescending(r => r.Puntuacion)
+                .ThenByDescending(r => r.FechaCreacion)
+                .Take(20)
+                .Select(r => new { r.Id, r.PreguntaId, r.Cuerpo, r.Puntuacion, r.FechaCreacion })
+                .ToListAsync(cancellationToken);
 
-            // ⭐ CAMBIO: Buscar respuestas que contengan CUALQUIER keyword (OR)
-            var matchingRespuestas = new List<Respuesta>();
-
-            foreach (var keyword in keywords.Take(5))
-            {
-                var k = keyword;
-                var matches = await baseQuery
-                    .Where(r => r.Cuerpo.Contains(k))
-                    .ToListAsync(cancellationToken);
-
-                matchingRespuestas.AddRange(matches);
-            }
-
-            // Agrupar y limitar a las 5 más relevantes ANTES de ir a la BD por datos de pregunta
-            var top5 = matchingRespuestas
-                .GroupBy(r => r.Id)
-                .Select(g => new
+            // Ranking en memoria y top 5
+            var top5 = respuestas
+                .Select(r => new
                 {
-                    Respuesta = g.First(),
-                    MatchCount = g.Count()
+                    Respuesta = r,
+                    MatchCount = kws.Count(k => r.Cuerpo.Contains(k, StringComparison.OrdinalIgnoreCase))
                 })
                 .OrderByDescending(x => x.MatchCount)
                 .ThenByDescending(x => x.Respuesta.Puntuacion)
-                .ThenByDescending(x => x.Respuesta.FechaCreacion)
                 .Take(5)
                 .ToList();
 
@@ -285,7 +289,7 @@ namespace eiibd26.Services
                 .Select(p => new { p.Id, p.Titulo, p.Slug })
                 .ToDictionaryAsync(p => p.Id, cancellationToken);
 
-            var grouped = top5
+            return top5
                 .Select(x =>
                 {
                     preguntasInfo.TryGetValue(x.Respuesta.PreguntaId, out var pInfo);
@@ -300,8 +304,6 @@ namespace eiibd26.Services
                     };
                 })
                 .ToList();
-
-            return grouped;
         }
 
         private string NormalizeQuery(string query)

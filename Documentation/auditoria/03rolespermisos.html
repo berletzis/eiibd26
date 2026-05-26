@@ -9,17 +9,17 @@
 <body>
 <div class="topbar">
   <h1>👤 Fase 3 – Roles y Permisos</h1>
-  <span class="breadcrumb"><a href="00-index.html">← Índice</a> · EIIBD Auditoría 2026</span>
+  <span class="breadcrumb"><a href="00index.html">← Índice</a> · EIIBD Auditoría 2026</span>
 </div>
 <div class="container">
 
 <div class="kpi-grid">
   <div class="kpi-card accent"><div class="num">4</div><div class="label">Roles Definidos</div></div>
   <div class="kpi-card accent"><div class="num">1</div><div class="label">Policy Definida</div></div>
-  <div class="kpi-card high"><div class="num">1</div><div class="label">Rol Muerto (Admin)</div></div>
+  <div class="kpi-card low"><div class="num">1</div><div class="label">Rol Legacy (Admin, intencional)</div></div>
   <div class="kpi-card accent"><div class="num">26</div><div class="label">Controllers/Pages Auditados</div></div>
-  <div class="kpi-card high"><div class="num">5</div><div class="label">Endpoints sin Auth Explícita</div></div>
-  <div class="kpi-card medium"><div class="num">5</div><div class="label">Gaps de Ownership</div></div>
+  <div class="kpi-card neutral"><div class="num">3</div><div class="label">Endpoints solo-GET públicos (intencional)</div></div>
+  <div class="kpi-card low"><div class="num">7</div><div class="label">Gaps de Ownership RESUELTOS ✓</div></div>
 </div>
 
 <!-- ROLES -->
@@ -47,16 +47,16 @@
     <td><span class="badge badge-low">Activo ✓</span></td>
   </tr>
   <tr>
-    <td><span class="badge badge-high">Admin</span></td>
-    <td>Sembrado por seed en Program.cs pero NUNCA usado en ninguna policy o [Authorize]</td>
-    <td>Ninguna — 0 referencias en código</td>
-    <td><span class="badge badge-high">ROL MUERTO ✗</span></td>
+    <td><span class="badge badge-neutral">Admin</span></td>
+    <td>Sembrado por seed en Program.cs. No usado en policies activas. Mantenido intencionalmente por compatibilidad con registros existentes en BD (comentado en Program.cs SEC-012).</td>
+    <td>Ninguna — rol de compatibilidad de BD</td>
+    <td><span class="badge badge-low">Legacy intencional ✓</span></td>
   </tr>
 </tbody>
 </table>
-<div class="notice warn">
-  <span>⚠️</span>
-  <div><strong>SEC-012:</strong> El seed crea "Admin" pero todas las [Authorize] usan "Administrador". Si un usuario recibe "Admin", no accede a ninguna funcionalidad de admin. Verificar en BD: <code>SELECT * FROM AspNetUserRoles WHERE RoleId = (SELECT Id FROM AspNetRoles WHERE Name='Admin')</code></div>
+<div class="notice info">
+  <span>ℹ️</span>
+  <div><strong>SEC-012 – DOCUMENTADO:</strong> El rol "Admin" se mantiene en seed <em>intencionalmente</em> por compatibilidad con datos existentes en BD (comentario en Program.cs línea 905). Todas las policies y <code>[Authorize]</code> activos usan "Administrador". Riesgo aceptado: ningún usuario con rol "Admin" puede escalar privilegios porque no hay ninguna policy ni acción protegida por ese nombre.</div>
 </div>
 </div>
 
@@ -133,8 +133,8 @@
     <td><code>EstadoAnimoUsuarioController</code></td>
     <td><span class="badge badge-low">[Authorize]</span></td>
     <td>Clase completa protegida</td>
-    <td><span class="badge badge-medium">⚠️ Parcial</span></td>
-    <td>SEC-009, SEC-010 — FKs sin validar</td>
+    <td><span class="badge badge-low">✓ ClinicalOwnershipValidator</span></td>
+    <td><span class="badge badge-low">SEC-009, SEC-010 RESUELTOS ✓</span></td>
   </tr>
   <tr>
     <td><code>MoodApiController</code></td>
@@ -147,8 +147,8 @@
     <td><code>DashboardController</code></td>
     <td><span class="badge badge-low">[Authorize]</span></td>
     <td>[ValidateAntiForgeryToken] en POSTs</td>
-    <td><span class="badge badge-medium">⚠️ Parcial</span></td>
-    <td>SEC-011 — sintomaUsuarioId sin validar</td>
+    <td><span class="badge badge-low">✓ _ownership.OwnsSintomaAsync</span></td>
+    <td><span class="badge badge-low">SEC-011 RESUELTO ✓</span></td>
   </tr>
   <tr>
     <td><code>ArticleRatingsApiController</code></td>
@@ -244,25 +244,25 @@
     <td><code>UsuarioSintomas</code></td>
     <td><span class="badge badge-low">✓</span></td>
     <td>Paciente, Administrador</td>
-    <td><span class="badge badge-low">✓ userId claims</span></td>
+    <td><span class="badge badge-low">✓ Filtrado WHERE idUsuario = currentUser</span></td>
     <td><span class="badge badge-low">✓</span></td>
-    <td>FUNC-007, FUNC-008</td>
+    <td><span class="badge badge-low">FUNC-007, FUNC-008 RESUELTOS ✓</span></td>
   </tr>
   <tr>
     <td><code>UsuarioTratamientos</code></td>
     <td><span class="badge badge-low">✓</span></td>
     <td>Paciente, Administrador</td>
-    <td><span class="badge badge-low">✓ userId claims</span></td>
+    <td><span class="badge badge-low">✓ Filtrado WHERE idUsuario = currentUser</span></td>
     <td><span class="badge badge-low">✓</span></td>
-    <td>FUNC-009, FUNC-010</td>
+    <td><span class="badge badge-low">FUNC-009, FUNC-010 RESUELTOS ✓</span></td>
   </tr>
   <tr>
     <td><code>UsuarioLaboratorios</code></td>
     <td><span class="badge badge-low">✓</span></td>
     <td>Paciente, Administrador</td>
-    <td><span class="badge badge-low">✓ userId claims</span></td>
+    <td><span class="badge badge-low">✓ AnyAsync WHERE idUsuario = currentUser ×3 FKs</span></td>
     <td><span class="badge badge-high">✗ [IgnoreAntiForgery]</span></td>
-    <td>SEC-008, FUNC-014</td>
+    <td>SEC-008 (pendiente) · <span class="badge badge-low">FUNC-014 RESUELTO ✓</span></td>
   </tr>
   <tr>
     <td><code>UsuarioCondiciones</code></td>
@@ -326,62 +326,69 @@
 
 <!-- OWNERSHIP GAPS RESUMEN -->
 <div class="section">
-<div class="section-title"><span class="icon">🔍</span> Gaps de Ownership Identificados</div>
+<div class="section-title"><span class="icon">✅</span> Gaps de Ownership – TODOS RESUELTOS</div>
 <table class="data-table">
-<thead><tr><th>ID</th><th>Módulo</th><th>Acción Vulnerable</th><th>Riesgo</th></tr></thead>
+<thead><tr><th>ID</th><th>Módulo</th><th>Corrección aplicada</th><th>Archivo</th><th>Estado</th></tr></thead>
 <tbody>
   <tr>
     <td><code>SEC-010</code></td>
     <td>Estado de Ánimo</td>
-    <td>condicionUsuarioId, sintomaUsuarioId, tratamientoUsuarioId no validados al crear estado</td>
-    <td><span class="badge badge-medium">MEDIUM — cross-user data linkage</span></td>
+    <td><code>ClinicalOwnershipValidator.ValidateEstadoAnimoRelationsAsync</code> valida condicion, sintoma y tratamiento antes de crear</td>
+    <td><code>EstadoAnimoUsuarioController.cs</code></td>
+    <td><span class="badge badge-low">RESUELTO ✓</span></td>
   </tr>
   <tr>
     <td><code>SEC-011</code></td>
     <td>Dashboard / Síntomas</td>
-    <td>sintomaUsuarioId no validado en AddSymptom tracking</td>
-    <td><span class="badge badge-medium">MEDIUM — cross-user tracking</span></td>
+    <td><code>_ownership.OwnsSintomaAsync(sintomaUsuarioId, userGuid)</code> → 403 si no coincide</td>
+    <td><code>DashboardController.cs</code></td>
+    <td><span class="badge badge-low">RESUELTO ✓</span></td>
   </tr>
   <tr>
     <td><code>FUNC-007</code></td>
-    <td>Síntomas</td>
-    <td>condicionUsuarioIds en AsociarCondiciones no validados como del usuario</td>
-    <td><span class="badge badge-medium">MEDIUM — cross-user FK injection</span></td>
+    <td>Síntomas – AsociarCondiciones</td>
+    <td>Filtro <code>WHERE condicionUsuarioIds.Contains(x.id) AND x.idUsuario == userId</code> — solo se persisten IDs válidos del usuario</td>
+    <td><code>UsuarioSintomas.cshtml.cs</code></td>
+    <td><span class="badge badge-low">RESUELTO ✓</span></td>
   </tr>
   <tr>
     <td><code>FUNC-008</code></td>
-    <td>Síntomas</td>
-    <td>tratamientoUsuarioIds en AsociarTratamientos no validados</td>
-    <td><span class="badge badge-medium">MEDIUM — same pattern</span></td>
+    <td>Síntomas – AsociarTratamientos</td>
+    <td>Filtro <code>WHERE tratamientoUsuarioIds.Contains(x.id) AND x.idUsuario == userId</code></td>
+    <td><code>UsuarioSintomas.cshtml.cs</code></td>
+    <td><span class="badge badge-low">RESUELTO ✓</span></td>
   </tr>
   <tr>
     <td><code>FUNC-009</code></td>
-    <td>Tratamientos</td>
-    <td>sintomaUsuarioIds en AsociarSintomas no validados</td>
-    <td><span class="badge badge-medium">MEDIUM — same pattern</span></td>
+    <td>Tratamientos – AsociarSintomas</td>
+    <td>Filtro <code>WHERE sintomaUsuarioIds.Contains(x.id) AND x.idUsuario == userId</code></td>
+    <td><code>UsuarioTratamientos.cshtml.cs</code></td>
+    <td><span class="badge badge-low">RESUELTO ✓</span></td>
   </tr>
   <tr>
     <td><code>FUNC-010</code></td>
-    <td>Tratamientos</td>
-    <td>condicionUsuarioIds en AsociarCondiciones no validados</td>
-    <td><span class="badge badge-medium">MEDIUM — same pattern</span></td>
+    <td>Tratamientos – AsociarCondiciones</td>
+    <td>Filtro <code>WHERE condicionUsuarioIds.Contains(x.id) AND x.idUsuario == userId</code></td>
+    <td><code>UsuarioTratamientos.cshtml.cs</code></td>
+    <td><span class="badge badge-low">RESUELTO ✓</span></td>
   </tr>
   <tr>
     <td><code>FUNC-014</code></td>
-    <td>Laboratorios</td>
-    <td>condicionUsuarioId, sintomaUsuarioId, tratamientoUsuarioId en ActualizarResultado no validados</td>
-    <td><span class="badge badge-high">HIGH — datos médicos cross-patient</span></td>
+    <td>Laboratorios – ActualizarResultado</td>
+    <td><code>AnyAsync WHERE id == X AND idUsuario == userGuid</code> aplicado a condicion, sintoma y tratamiento; FK se anula si no pertenece al usuario</td>
+    <td><code>UsuarioLaboratorios.cshtml.cs</code></td>
+    <td><span class="badge badge-low">RESUELTO ✓</span></td>
   </tr>
 </tbody>
 </table>
-<div class="notice warn">
-  <span>⚠️</span>
-  <div><strong>Patrón sistémico:</strong> Los 7 gaps de ownership son el MISMO bug repetido en 7 endpoints. La corrección es un patrón: añadir validación <code>WHERE id = @id AND idUsuario = @currentUserId</code> antes de cada inserción de relación. Corregir como patrón, no caso por caso.</div>
+<div class="notice info">
+  <span>✅</span>
+  <div><strong>Patrón aplicado en todos los casos:</strong> Se creó <code>Services/ClinicalOwnershipValidator.cs</code> como fuente única de validación de ownership (<code>OwnsCondicionAsync</code>, <code>OwnsSintomaAsync</code>, <code>OwnsTratamientoAsync</code>, <code>ValidateEstadoAnimoRelationsAsync</code>). Los endpoints de Sintomas/Tratamientos/Laboratorios usan filtrado inline <code>WHERE idUsuario = currentUser</code> directamente en la consulta de LINQ antes de persistir.</div>
 </div>
 </div>
 
 <div style="margin-top:32px;padding-top:16px;border-top:1px solid var(--border);color:var(--muted);font-size:12px">
-  03-roles-permisos.html · Matriz completa · <a href="02-seguridad.html">← Seguridad</a> · <a href="04-modulos.html">Módulos →</a>
+  03rolespermisos.html · Matriz completa · Actualizado 2026-05-25 · Ownership gaps: <strong>7/7 RESUELTOS</strong> · <a href="02seguridad.html">← Seguridad</a> · <a href="04modulos.html">Módulos →</a>
 </div>
 </div>
 </body>

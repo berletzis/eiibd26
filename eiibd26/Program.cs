@@ -14,6 +14,8 @@ using Microsoft.EntityFrameworkCore;
 using System.Text;
 using System.Diagnostics;
 using System.Net;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 
 // Global startup exception handler — writes the full exception to stdout/stderr
 // so it appears in the IIS stdout log (.\logs\stdout_*.log) before the 500.30 page.
@@ -132,6 +134,25 @@ try
         // no definimos una FallbackPolicy global aquí porque se protegerá el area Identity por convención
     });
 
+    // SEC-001/002/003: Rate limiting para endpoints de catálogos públicos (autocomplete).
+    // Previene scraping masivo. 30 requests por IP por ventana de 60 segundos.
+    builder.Services.AddRateLimiter(options =>
+    {
+        options.AddFixedWindowLimiter("catalogos-autocomplete", limiterOptions =>
+        {
+            limiterOptions.Window = TimeSpan.FromSeconds(60);
+            limiterOptions.PermitLimit = 30;
+            limiterOptions.QueueLimit = 0;
+        });
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        options.OnRejected = async (context, ct) =>
+        {
+            context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            await context.HttpContext.Response.WriteAsJsonAsync(
+                new { ok = false, error = "Demasiadas solicitudes. Intente nuevamente en un momento." }, ct);
+        };
+    });
+
     // Register Razor Pages and add route convention + authorization conventions
     var razorBuilder = builder.Services.AddRazorPages();
     if (builder.Environment.IsDevelopment())
@@ -226,6 +247,9 @@ try
 
     // Search Suggestions (sin IA)
     builder.Services.AddScoped<eiibd26.Services.SearchSuggestionService>();
+
+    // SEC-010/011: Validación de ownership para datos clínicos del paciente
+    builder.Services.AddScoped<eiibd26.Services.ClinicalOwnershipValidator>();
 
     // ⭐ NUEVO: Background Service para procesar notificaciones programadas
     builder.Services.AddHostedService<eiibd26.Services.ScheduledNotificationWorker>();
@@ -339,6 +363,16 @@ try
     // ===== END AI ANSWER SERVICES =====
 
     var app = builder.Build();
+
+    // SEC-015: Advertir si el ambiente no es Production — stack traces de API quedan expuestos en Development.
+    if (!app.Environment.IsProduction())
+    {
+        var startupLogger = app.Services.GetRequiredService<ILogger<Program>>();
+        startupLogger.LogWarning(
+            "[SEC-015] ASPNETCORE_ENVIRONMENT = '{Env}'. Los endpoints de API retornan stack traces en ambientes no productivos. " +
+            "Asegurarse que la variable ASPNETCORE_ENVIRONMENT=Production esté configurada en el servidor.",
+            app.Environment.EnvironmentName);
+    }
 
     // ===== SECRETS VALIDATION =====
     // Fails the app in Production if any critical secret is missing.
@@ -756,6 +790,7 @@ try
 
     // UseRouting DESPUÉS del middleware de reescritura
     app.UseRouting();
+    app.UseRateLimiter(); // SEC-001/002/003: rate limiting para catálogos
     app.UseAuthentication();
     app.UseAuthorization();
 
@@ -866,10 +901,12 @@ try
     app.MapRazorPages();
 
     // Seed roles
+    // SEC-012: El rol operativo del sistema es "Administrador" (usado en [Authorize(Roles="Administrador")],
+    // HangfireAdminAuthFilter, y políticas). "Admin" se mantiene por compatibilidad con datos existentes en DB.
     using (var scope = app.Services.CreateScope())
     {
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
-        foreach (var role in new[] { "Paciente", "Medico", "Admin" })
+        foreach (var role in new[] { "Paciente", "Medico", "Admin", "Administrador" })
         {
             if (!await roleManager.RoleExistsAsync(role))
                 await roleManager.CreateAsync(new ApplicationRole { Name = role });

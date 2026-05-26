@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cierre · Dependencias — EIIBD</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#0d1117;color:#c9d1d9;line-height:1.6;padding:2rem}
+  h1{font-size:1.6rem;color:#e6edf3;margin-bottom:.25rem}
+  h2{font-size:1.1rem;color:#7eb8f7;margin:2rem 0 .75rem;border-bottom:1px solid #21262d;padding-bottom:.4rem}
+  .subtitle{color:#8b949e;font-size:.9rem;margin-bottom:2rem}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:2rem}
+  .kpi{background:#161b22;border:1px solid #21262d;border-radius:8px;padding:1rem 1.25rem;text-align:center}
+  .kpi-value{font-size:2rem;font-weight:700;margin-bottom:.25rem}
+  .green{color:#3fb950} .yellow{color:#e3b341} .blue{color:#7eb8f7} .red{color:#f85149}
+  table{width:100%;border-collapse:collapse;font-size:.88rem;background:#161b22;border-radius:8px;overflow:hidden}
+  th{background:#21262d;color:#8b949e;text-align:left;padding:.6rem 1rem;font-weight:600}
+  td{padding:.6rem 1rem;border-bottom:1px solid #21262d;vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  .badge{display:inline-block;padding:.2rem .55rem;border-radius:4px;font-size:.75rem;font-weight:600}
+  .closed{background:rgba(63,185,80,.15);color:#3fb950;border:1px solid #3fb950}
+  .debt{background:rgba(227,179,65,.12);color:#e3b341;border:1px solid #e3b341}
+  .open{background:rgba(248,81,73,.12);color:#f85149;border:1px solid #f85149}
+  .zero{background:rgba(63,185,80,.15);color:#3fb950;border:1px solid #3fb950;padding:.4rem 1rem;display:inline-block;border-radius:4px;font-weight:700;margin:.5rem 0}
+  .section{background:#161b22;border:1px solid #21262d;border-radius:8px;padding:1.25rem 1.5rem;margin-bottom:1.5rem}
+  code{background:#21262d;padding:.1rem .4rem;border-radius:3px;font-size:.82rem;color:#7eb8f7}
+  .breadcrumb{font-size:.82rem;color:#8b949e;margin-bottom:.5rem}
+  .breadcrumb a{color:#7eb8f7;text-decoration:none}
+</style>
+</head>
+<body>
+
+<div class="breadcrumb"><a href="../auditoria/00index.html">← Índice de auditoría</a> · <a href="../auditoria/09dependencias.html">09dependencias.html</a></div>
+<h1>Cierre · Dependencias NuGet</h1>
+<p class="subtitle">Resultados de la auditoría de paquetes · eiibd26 · net8.0</p>
+
+<!-- KPIs -->
+<div class="grid">
+  <div class="kpi">
+    <div class="kpi-value green">2</div>
+    <div style="color:#8b949e;font-size:.82rem">Findings cerrados</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value green">0</div>
+    <div style="color:#8b949e;font-size:.82rem">Vulnerabilidades</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value yellow">4</div>
+    <div style="color:#8b949e;font-size:.82rem">Deuda técnica</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value blue">24</div>
+    <div style="color:#8b949e;font-size:.82rem">Paquetes auditados</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value green">✓</div>
+    <div style="color:#8b949e;font-size:.82rem">Build exitoso</div>
+  </div>
+</div>
+
+<h2>Findings cerrados</h2>
+<table>
+  <thead><tr><th>ID</th><th>Paquete</th><th>Acción</th><th>Estado</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>DEP-001</strong></td>
+      <td><code>Microsoft.AspNetCore.DataProtection.Extensions 10.0.3</code></td>
+      <td>Eliminado — paquete fantasma sin ningún uso en el código fuente. <code>AddDataProtection()</code> e <code>IDataProtector</code> vienen del SDK/runtime base.</td>
+      <td><span class="badge closed">CERRADO</span></td>
+    </tr>
+    <tr>
+      <td><strong>DEP-002</strong></td>
+      <td><code>Microsoft.VisualStudio.Web.CodeGeneration.Design 9.0.0 → 8.0.23</code></td>
+      <td>Bajado a la última versión 8.x disponible. Solo tooling de scaffolding (dev), sin impacto runtime. Verificado con <code>dotnet aspnet-codegenerator</code> y búsqueda de uso en fuentes.</td>
+      <td><span class="badge closed">CERRADO</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Vulnerabilidades</h2>
+<div class="section">
+  <div class="zero">0 vulnerabilidades detectadas</div>
+  <p style="color:#8b949e;font-size:.88rem;margin-top:.5rem">
+    Comando ejecutado: <code>dotnet list package --vulnerable</code><br>
+    Resultado: <em>"The given project eiibd26 has no vulnerable packages given the current sources."</em><br>
+    Alcance: 24 paquetes NuGet, fuentes NuGet configuradas en el proyecto.
+  </p>
+</div>
+
+<h2>Deuda técnica</h2>
+<table>
+  <thead><tr><th>ID</th><th>Paquete</th><th>Razón de diferimiento</th><th>Estado</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>DEP-003</strong></td>
+      <td><code>Hangfire</code></td>
+      <td>Actualización mayor puede requerir migración de esquema de BD de jobs. Requiere staging.</td>
+      <td><span class="badge debt">DEUDA</span></td>
+    </tr>
+    <tr>
+      <td><strong>DEP-005</strong></td>
+      <td><code>QuestPDF</code></td>
+      <td>Versiones recientes con modelo de licencia comercial. Requiere evaluación legal previa.</td>
+      <td><span class="badge debt">DEUDA</span></td>
+    </tr>
+    <tr>
+      <td><strong>DEP-007</strong></td>
+      <td><code>Twilio</code></td>
+      <td>Breaking changes en versión mayor. Requiere revisión de código de integración SMS/WhatsApp.</td>
+      <td><span class="badge debt">DEUDA</span></td>
+    </tr>
+    <tr>
+      <td><strong>DEP-008</strong></td>
+      <td><code>WebPush</code></td>
+      <td>Paquete sin mantenimiento activo. Requiere evaluar alternativas antes de migrar.</td>
+      <td><span class="badge debt">DEUDA</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Paquetes no tocados (correctos)</h2>
+<div class="section" style="font-size:.88rem;color:#8b949e">
+  Los siguientes paquetes están correctamente alineados con <code>net8.0</code> o su versión es apropiada para el dominio y no requieren cambio:<br><br>
+  <code>Markdig</code> · <code>Twilio</code> · <code>QuestPDF</code> · <code>WebPush</code> · <code>SixLabors.ImageSharp</code> ·
+  <code>Microsoft.EntityFrameworkCore.*</code> (8.0.21) · <code>Hangfire.*</code> · <code>Microsoft.AspNetCore.Identity.*</code>
+</div>
+
+<h2>Archivos de esta auditoría</h2>
+<div class="section" style="font-size:.88rem">
+  <ul style="list-style:none;padding:0;line-height:2">
+    <li>📄 <a href="01-paquetes-eliminados.md" style="color:#7eb8f7">01-paquetes-eliminados.md</a> — DEP-001 eliminado</li>
+    <li>📄 <a href="02-tooling-alineado.md" style="color:#7eb8f7">02-tooling-alineado.md</a> — DEP-002 bajado a 8.0.23</li>
+    <li>📄 <a href="03-vulnerabilidades.md" style="color:#7eb8f7">03-vulnerabilidades.md</a> — 0 vulnerabilidades</li>
+    <li>📄 <a href="04-deuda.md" style="color:#7eb8f7">04-deuda.md</a> — DEP-003/005/007/008 deuda</li>
+  </ul>
+</div>
+
+</body>
+</html>

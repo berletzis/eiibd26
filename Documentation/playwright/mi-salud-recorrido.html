@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Recorrido Mi Salud — Reporte UX · 2026-05-25</title>
+<style>
+  :root {
+    --rojo:   #dc3545;
+    --naranja:#fd7e14;
+    --amarillo:#ffc107;
+    --verde:  #198754;
+    --azul:   #0d6efd;
+    --gris:   #6c757d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         background: #f8f9fa; color: #212529; font-size: 15px; line-height: 1.6; }
+  header { background: #4c1d95; color: #fff; padding: 2rem 2.5rem; }
+  header h1 { font-size: 1.8rem; font-weight: 700; }
+  header p  { opacity: .8; margin-top: .4rem; font-size: .95rem; }
+  .meta { display:flex; gap:2rem; margin-top:1rem; font-size:.85rem; opacity:.85; }
+  .meta span { background:rgba(255,255,255,.15); border-radius:4px; padding:.2rem .7rem; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+  /* Resumen ejecutivo */
+  .summary-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:1rem; margin:1.5rem 0; }
+  .summary-card { background:#fff; border-radius:10px; padding:1.2rem; text-align:center;
+                   box-shadow:0 1px 4px rgba(0,0,0,.08); }
+  .summary-card .num { font-size:2.2rem; font-weight:800; }
+  .summary-card .lbl { font-size:.8rem; color:#6c757d; margin-top:.3rem; }
+  .c-red    { color: var(--rojo); }
+  .c-orange { color: var(--naranja); }
+  .c-yellow { color: var(--amarillo); }
+  .c-green  { color: var(--verde); }
+  .c-blue   { color: var(--azul); }
+
+  /* Severidad badges */
+  .badge { display:inline-block; font-size:.72rem; font-weight:700; padding:.2rem .6rem;
+           border-radius:4px; text-transform:uppercase; letter-spacing:.04em; }
+  .badge-critico  { background:#fce8e8; color:#b91c1c; }
+  .badge-alto     { background:#fff3e0; color:#b45309; }
+  .badge-medio    { background:#fef9c3; color:#854d0e; }
+  .badge-bajo     { background:#dcfce7; color:#166534; }
+  .badge-info     { background:#e0f2fe; color:#075985; }
+  .badge-ok       { background:#d1fae5; color:#065f46; }
+
+  /* Sección */
+  .section { margin: 2.5rem 0; }
+  .section-title { font-size:1.3rem; font-weight:700; color:#4c1d95;
+                   border-bottom:3px solid #4c1d95; padding-bottom:.5rem; margin-bottom:1.2rem; }
+
+  /* Hallazgo card */
+  .finding { background:#fff; border-radius:10px; border-left:5px solid #ccc;
+             padding:1.2rem 1.4rem; margin-bottom:1rem;
+             box-shadow:0 1px 4px rgba(0,0,0,.07); }
+  .finding.critico  { border-left-color: var(--rojo); }
+  .finding.alto     { border-left-color: var(--naranja); }
+  .finding.medio    { border-left-color: var(--amarillo); }
+  .finding.bajo     { border-left-color: var(--verde); }
+  .finding.info     { border-left-color: var(--azul); }
+  .finding.ok       { border-left-color: var(--verde); }
+
+  .finding-header { display:flex; align-items:flex-start; gap:.8rem; margin-bottom:.7rem; }
+  .finding-id { font-size:.8rem; font-weight:700; color:#aaa; min-width:3.5rem; }
+  .finding-title { font-weight:700; font-size:1rem; flex:1; }
+
+  .finding-body { display:grid; grid-template-columns:1fr 1fr; gap:1rem; font-size:.9rem; }
+  .finding-body.single { grid-template-columns:1fr; }
+  .field-label { font-size:.75rem; font-weight:700; text-transform:uppercase;
+                 letter-spacing:.06em; color:#6c757d; margin-bottom:.3rem; }
+  .field-value { color:#212529; }
+  code { background:#f1f5f9; border-radius:3px; padding:.1rem .3rem; font-size:.85em;
+         font-family:"Fira Code","Cascadia Code",monospace; }
+
+  /* Screenshot */
+  .screenshot-row { display:flex; flex-wrap:wrap; gap:.8rem; margin-top:.8rem; }
+  .screenshot-item { flex:1; min-width:220px; max-width:380px; }
+  .screenshot-item img { width:100%; border-radius:6px; border:1px solid #e2e8f0;
+                          cursor:pointer; transition:transform .2s; }
+  .screenshot-item img:hover { transform:scale(1.02); }
+  .screenshot-item figcaption { font-size:.72rem; color:#6c757d; margin-top:.3rem; text-align:center; }
+
+  /* Tabla resumen */
+  table { width:100%; border-collapse:collapse; font-size:.9rem; }
+  th { background:#4c1d95; color:#fff; padding:.7rem 1rem; text-align:left; }
+  td { padding:.6rem 1rem; border-bottom:1px solid #e2e8f0; vertical-align:top; }
+  tr:hover td { background:#f8f7ff; }
+  .module-header td { background:#f1f5ff; font-weight:700; color:#4c1d95; padding:.5rem 1rem; }
+
+  footer { background:#1e1b4b; color:#a5b4fc; text-align:center; padding:1.5rem; font-size:.85rem; margin-top:3rem; }
+
+  @media(max-width:700px){
+    .finding-body { grid-template-columns:1fr; }
+    .summary-grid { grid-template-columns:1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📋 Recorrido Mi Salud — Reporte UX</h1>
+  <p>Recorrido completo del módulo Mi Salud como paciente autenticado con EII</p>
+  <div class="meta">
+    <span>📅 2026-05-25</span>
+    <span>👤 Berletzis (paciente real)</span>
+    <span>🌐 https://localhost:7002</span>
+    <span>🔧 Playwright MCP</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- RESUMEN EJECUTIVO -->
+  <div class="section">
+    <div class="section-title">Resumen Ejecutivo</div>
+    <div class="summary-grid">
+      <div class="summary-card">
+        <div class="num c-red">2</div>
+        <div class="lbl">Críticos</div>
+      </div>
+      <div class="summary-card">
+        <div class="num c-orange">5</div>
+        <div class="lbl">Altos</div>
+      </div>
+      <div class="summary-card">
+        <div class="num c-yellow">6</div>
+        <div class="lbl">Medios</div>
+      </div>
+      <div class="summary-card">
+        <div class="num c-green">4</div>
+        <div class="lbl">OK / Positivos</div>
+      </div>
+      <div class="summary-card">
+        <div class="num c-blue">7</div>
+        <div class="lbl">Módulos revisados</div>
+      </div>
+      <div class="summary-card">
+        <div class="num" style="color:#4c1d95">22</div>
+        <div class="lbl">Screenshots</div>
+      </div>
+    </div>
+    <p style="color:#495057; font-size:.92rem;">
+      El módulo Mi Salud funciona correctamente en sus flujos principales (estado de ánimo, síntomas, seguimiento).
+      Se detectaron <strong>2 bugs bloqueantes</strong>: el guardado de laboratorios falla con HTTP 400,
+      y el patrón autocomplete requiere un segundo clic no evidente. La densidad visual en
+      las cards de síntomas y tratamientos es aceptable en desktop pero puede ser excesiva en móvil.
+    </p>
+  </div>
+
+  <!-- TABLA RESUMEN POR MÓDULO -->
+  <div class="section">
+    <div class="section-title">Estado por Módulo</div>
+    <table>
+      <thead><tr><th>Módulo</th><th>URL</th><th>Estado</th><th>Principales hallazgos</th></tr></thead>
+      <tbody>
+        <tr><td>Dashboard</td><td><code>/Identity/Usuario/Dashboard</code></td><td><span class="badge badge-ok">OK</span></td><td>Sin preguntas/respuestas. Gráfica de ánimo y síntomas funcionales.</td></tr>
+        <tr><td>Estado de Ánimo</td><td><code>/Identity/Usuario/UsuarioEstadoAnimo</code></td><td><span class="badge badge-medio">MEDIO</span></td><td>Sin confirmación de éxito. Sin campo fecha retroactiva. Botón guardar no obvio.</td></tr>
+        <tr><td>Condiciones</td><td><code>/Identity/Usuario/UsuarioCondiciones</code></td><td><span class="badge badge-alto">ALTO</span></td><td>Autocomplete no guarda al seleccionar — requiere clic separado en lupa no indicado.</td></tr>
+        <tr><td>Síntomas</td><td><code>/Identity/Usuario/UsuarioSintomas</code></td><td><span class="badge badge-medio">MEDIO</span></td><td>Mismo patrón que condiciones. Nuevo síntoma no vinculado automáticamente.</td></tr>
+        <tr><td>Seguimiento síntomas</td><td><code>/Identity/Usuario/UsuarioSintomasSeguimiento</code></td><td><span class="badge badge-ok">OK</span></td><td>Matriz visual excelente. Modal claro. Sin toast post-save.</td></tr>
+        <tr><td>Tratamientos</td><td><code>/Identity/Usuario/UsuarioTratamientos</code></td><td><span class="badge badge-alto">ALTO</span></td><td>Duplicados en autocomplete. Fácil seleccionar tratamiento equivocado.</td></tr>
+        <tr><td>Laboratorios</td><td><code>/Identity/Usuario/UsuarioLaboratorios</code></td><td><span class="badge badge-critico">CRÍTICO</span></td><td>Guardado falla HTTP 400. Solo 2 tipos de estudio. Flujo de edición confuso.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- HALLAZGOS DETALLADOS -->
+  <div class="section">
+    <div class="section-title">Hallazgos Detallados</div>
+
+    <!-- F-01 -->
+    <div class="finding critico">
+      <div class="finding-header">
+        <span class="finding-id">F-01</span>
+        <span class="finding-title">Guardado de laboratorio falla con HTTP 400</span>
+        <span class="badge badge-critico">Crítico</span>
+      </div>
+      <div class="finding-body">
+        <div>
+          <div class="field-label">Pantalla</div>
+          <div class="field-value">Mis Laboratorios → Editar → Guardar</div>
+        </div>
+        <div>
+          <div class="field-label">Error</div>
+          <div class="field-value"><code>POST /Identity/Usuario/UsuarioLaboratorios?handler=ActualizarResultado → 400</code><br>Alert: "Error al guardar."</div>
+        </div>
+        <div>
+          <div class="field-label">Problema</div>
+          <div class="field-value">El handler <code>OnPostActualizarResultadoAsync</code> rechaza el request con 400 Bad Request. El usuario llena todos los campos obligatorios (resultado, unidad, fecha, condición) y no puede guardar. No hay mensaje de error específico que indique qué falló.</div>
+        </div>
+        <div>
+          <div class="field-label">Mejora sugerida</div>
+          <div class="field-value">Investigar validación en el handler (posible anti-forgery token, binding de modelo, o constraint de DB). Agregar mensaje de error descriptivo en el alert. Loguear el error detallado con los campos que fallaron.</div>
+        </div>
+      </div>
+      <div class="screenshot-row">
+        <figure class="screenshot-item">
+          <img src="../../.playwright-mcp/page-2026-05-26T03-18-43-381Z.png" alt="Formulario laboratorio habilitado"/>
+          <figcaption>Formulario con datos llenados antes del error</figcaption>
+        </figure>
+        <figure class="screenshot-item">
+          <img src="../../.playwright-mcp/page-2026-05-26T03-19-37-934Z.png" alt="Estado tras el error 400"/>
+          <figcaption>Estado tras el error — datos preservados, sin guardar</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <!-- F-02 -->
+    <div class="finding critico">
+      <div class="finding-header">
+        <span class="finding-id">F-02</span>
+        <span class="finding-title">Autocomplete de Condiciones y Síntomas no guarda al seleccionar</span>
+        <span class="badge badge-critico">Crítico</span>
+      </div>
+      <div class="finding-body">
+        <div>
+          <div class="field-label">Pantalla</div>
+          <div class="field-value">Mis condiciones / Mis síntomas / Mis tratamientos</div>
+        </div>
+        <div>
+          <div class="field-label">Pasos para reproducir</div>
+          <div class="field-value">1. Escribe en el campo de búsqueda.<br>2. Selecciona un ítem del autocomplete.<br>3. El nombre aparece en el input pero NO se agrega.<br>4. Hay que hacer clic en el ícono lupa (no etiquetado) para confirmar.</div>
+        </div>
+        <div>
+          <div class="field-label">Problema</div>
+          <div class="field-value">El flujo mental del usuario al seleccionar del autocomplete es "ya elegí". El paso adicional de hacer clic en la lupa es invisible — sin label, sin tooltip, sin indicador visual de que es necesario. En prueba real, la acción falló silenciosamente 2 veces antes de descubrirlo.</div>
+        </div>
+        <div>
+          <div class="field-label">Mejora sugerida</div>
+          <div class="field-value">Agregar automáticamente el ítem al hacer clic en el autocomplete (sin paso adicional), o mostrar un botón visible "Agregar" que se active al seleccionar. Alternativa: disparar el guardado con Enter o con la selección del dropdown.</div>
+        </div>
+      </div>
+      <div class="screenshot-row">
+        <figure class="screenshot-item">
+          <img src="../../.playwright-mcp/page-2026-05-26T03-11-29-332Z.png" alt="Autocomplete condiciones abierto"/>
+          <figcaption>Autocomplete abierto — parece que seleccionar = agregar, pero no</figcaption>
+        </figure>
+        <figure class="screenshot-item">
+          <img src="../../.playwright-mcp/page-2026-05-26T03-11-45-501Z.png" alt="Condición seleccionada pero no guardada"/>
+          <figcaption>Nombre en el input, condición NO agregada aún</figcaption>
+        </figure>
+        <figure class="screenshot-item">
+          <img src="../../.playwright-mcp/page-2026-05-26T03-12-08-256Z.png" alt="Condición guardada tras clic en lupa"/>
+          <figcaption>Condición agregada solo después de clic en lupa</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <!-- F-03 -->
+    <div class="finding alto">
+      <div class="finding-header">
+        <span class="finding-id">F-03</span>
+        <span class="finding-title">Duplicados en autocomplete de Tratamientos</span>
+        <span class="badge badge-alto">Alto</span>
+      </div>
+      <div class="finding-body">
+        <div>
+          <div class="field-label">Pantalla</div>
+          <div class="field-value">Mis tratamientos → buscar "prednisona"</div>
+        </div>
+        <div>
+          <div class="field-label">Evidencia</div>
+          <div class="field-value">El autocomplete muestra <strong>"Prednisona"</strong> dos veces con texto idéntico. El usuario no puede distinguir cuál elegir, y es fácil seleccionar el ítem incorrecto adyacente.</div>
+        </div>
+        <div>
+          <div class="field-label">Problema</div>
+          <div class="field-value">Datos duplicados en el catálogo de tratamientos (tabla de referencia). En la prueba se agregó accidentalmente "Melfalán-Prednisona-Talidomida (MPT)" en lugar de "Prednisona" simple por la ambigüedad de posición.</div>
+        </div>
+        <div>
+          <div class="field-label">Mejora sugerida</div>
+          <div class="field-value">Ejecutar: <code>SELECT Nombre, COUNT(*) FROM Tratamientos GROUP BY Nombre HAVING COUNT(*) > 1</code> y deduplicar. En el autocomplete, mostrar el ID o una distinción si hay nombres iguales.</div>
+        </div>
+      </div>
+      <div class="screenshot-row">
+        <figure class="screenshot-item">
+          <img src="../../.playwright-mcp/page-2026-05-26T03-15-32-823Z.png" alt="Duplicados Prednisona en autocomplete"/>
+          <figcaption>"Prednisona" aparece dos veces — con riesgo de selección equivocada</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <!-- F-04 -->
+    <div class="finding alto">
+      <div class="finding-header">
+        <span class="finding-id">F-04</span>
+        <span class="finding-title">Sin confirmación visual tras acciones de guardado</span>
+        <span class="badge badge-alto">Alto</span>
+      </div>
+      <div class="finding-body">
+        <div>
+          <div class="field-label">Pantallas afectadas</div>
+          <div class="field-value">Estado de Ánimo, Condiciones, Síntomas, Seguimiento de síntomas, Tratamientos</div>
+        </div>
+        <div>
+          <div class="field-label">Problema</div>
+          <div class="field-value">Después de guardar exitosamente, el sistema no muestra ningún toast, banner o mensaje de confirmación. El modal simplemente se cierra o la lista se actualiza silenciosamente. En pantallas densas (tratamientos, síntomas) el usuario puede no notar que algo cambió.</div>
+        </div>
+        <div>
+          <div class="field-label">Mejora sugerida</div>
+          <div class="field-value">Agregar toast verde "Guardado correctamente" con 2-3 segundos de duración. Bootstrap 5 incluye <code>.toast</code> nativo. Ya existe el patrón en otras partes del sistema.</div>
+        </div>
+      </div>
+      <div class="screenshot-row">
+        <figure class="screenshot-item">
+          <img src="../../.playwright-mcp/page-2026-05-26T03-11-06-223Z.png" alt="Estado de ánimo guardado sin confirmación"/>
+          <figcaption>Estado de ánimo guardado — modal cerrado, sin feedback visible</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <!-- F-05 -->
+    <div class="finding alto">
+      <div class="finding-header">
+        <span class="finding-id">F-05</span>
+        <span class="finding-title">Laboratorios: flujo de edición confuso — campos deshabilitados por defecto</span>
+        <span class="badge badge-alto">Alto</span>
+      </div>
+      <div class="finding-body">
+        <div>
+          <div class="field-label">Pantalla</div>
+          <div class="field-value">Mis laboratorios → nuevo resultado</div>
+        </div>
+        <div>
+          <div class="field-label">Problema</div>
+          <div class="field-value">Al agregar un tipo de estudio, el formulario inline aparece con <strong>todos los campos deshabilitados</strong>. El usuario debe hacer clic en un botón "Editar" adicional para habilitarlos. El patrón es inconsistente con el resto del módulo (condiciones y síntomas son editables inmediatamente). Adicionalmente, el dropdown de tipo de estudio se resetea visualmente tras confirmar, generando confusión sobre si la acción ocurrió.</div>
+        </div>
+        <div>
+          <div class="field-label">Mejora sugerida</div>
+          <div class="field-value">Para registros nuevos, habilitar los campos directamente al crear (sin requerir "Editar"). El modo "Editar/Ver" tiene sentido para registros existentes, no para creación.</div>
+        </div>
+      </div>
+      <div class="screenshot-row">
+        <figure class="screenshot-item">
+          <img src="../../.playwright-mcp/page-2026-05-26T03-17-56-671Z.png" alt="Campos deshabilitados en laboratorio nuevo"/>
+          <figcaption>Formulario nuevo — todos los campos disabled, botón "Editar" no evidente</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <!-- F-06 -->
+    <div class="finding alto">
+      <div class="finding-header">
+        <span class="finding-id">F-06</span>
+        <span class="finding-title">Solo 2 tipos de estudio de laboratorio disponibles</span>
+        <span class="badge badge-alto">Alto</span>
+      </div>
+      <div class="finding-body single">
+        <div>
+          <div class="field-label">Problema</div>
+          <div class="field-value">El catálogo de estudios solo tiene "Calprotectina - Cualitativa" y "Calprotectina - Cuantitativa". Un paciente con EII típicamente necesita registrar: Hemograma, PCR, VSG, Albumina, Ferro, B12, Vitamina D, ANCA, ASCA, Colonoscopia, Calprotectina, Lactoferrina, entre otros. El módulo es casi inutilizable con solo 2 opciones.</div>
+        </div>
+        <div>
+          <div class="field-label">Mejora sugerida</div>
+          <div class="field-value">Expandir el catálogo con los estudios más frecuentes en EII. Como mínimo: PCR, Hemoglobina, Albúmina, VSG, Vitamina D, Ferritina, Calprotectina, B12. Considerar permitir que el usuario escriba un estudio personalizado si no está en el catálogo.</div>
+        </div>
+      </div>
+      <div class="screenshot-row">
+        <figure class="screenshot-item">
+          <img src="../../.playwright-mcp/page-2026-05-26T03-16-24-282Z.png" alt="Laboratorios vacío con solo 2 opciones"/>
+          <figcaption>Solo 2 opciones en el catálogo de estudios</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <!-- F-07 -->
+    <div class="finding medio">
+      <div class="finding-header">
+        <span class="finding-id">F-07</span>
+        <span class="finding-title">Estado de ánimo: no hay campo de fecha retroactiva</span>
+        <span class="badge badge-medio">Medio</span>
+      </div>
+      <div class="finding-body">
+        <div>
+          <div class="field-label">Pantalla</div>
+          <div class="field-value">Estado de Ánimo → modal "Agregar estado de ánimo"</div>
+        </div>
+        <div>
+          <div class="field-label">Problema</div>
+          <div class="field-value">El modal solo registra la fecha del día actual. Si el paciente olvida registrar un día (muy común), no puede ingresar el dato retroactivamente. La gráfica entonces tendrá huecos que no reflejan la realidad.</div>
+        </div>
+        <div>
+          <div class="field-label">Mejora sugerida</div>
+          <div class="field-value">Agregar un <code>&lt;input type="date"&gt;</code> con valor por defecto = hoy. Validar que no se pueda registrar más de 1 entrada por día por usuario.</div>
+        </div>
+      </div>
+      <div class="screenshot-row">
+        <figure class="screenshot-item">
+          <img src="../../.playwright-mcp/page-2026-05-26T03-07-50-020Z.png" alt="Modal estado de ánimo sin campo fecha"/>
+          <figcaption>Modal sin campo de fecha — siempre registra hoy</figcaption>
+        </figure>
+        <figure class="screenshot-item">
+          <img src="../../.playwright-mcp/page-2026-05-26T03-10-49-848Z.png" alt="Modal lleno antes de guardar"/>
+          <figcaption>Formulario completo — botón guardar es un círculo púrpura poco convencional</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <!-- F-08 -->
+    <div class="finding medio">
+      <div class="finding-header">
+        <span class="finding-id">F-08</span>
+        <span class="finding-title">Botón guardar en Estado de Ánimo no es intuitivo</span>
+        <span class="badge badge-medio">Medio</span>
+      </div>
+      <div class="finding-body single">
+        <div>
+          <div class="field-label">Problema</div>
+          <div class="field-value">El botón de guardado del modal de Estado de Ánimo es un círculo púrpura con ícono de check (✓) sin texto. No sigue el patrón del resto del módulo donde los botones dicen "Guardar"/"Cancelar". Para un usuario nuevo, no es evidente que ese es el botón de guardar.</div>
+        </div>
+        <div>
+          <div class="field-label">Mejora sugerida</div>
+          <div class="field-value">Reemplazar por un botón con texto "Guardar" o al menos un tooltip accesible. Mantener coherencia con el patrón de botones del resto del módulo.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- F-09 -->
+    <div class="finding medio">
+      <div class="finding-header">
+        <span class="finding-id">F-09</span>
+        <span class="finding-title">Síntomas nuevos sin condición vinculada por defecto</span>
+        <span class="badge badge-medio">Medio</span>
+      </div>
+      <div class="finding-body single">
+        <div>
+          <div class="field-label">Problema</div>
+          <div class="field-value">Al agregar un síntoma desde el campo de búsqueda, se crea sin vinculación a ninguna condición. El paciente debe ir manualmente a la card del síntoma y agregar la condición desde ahí. Como el síntoma aparece al final de la lista sin condición, podría pasar desapercibido.</div>
+        </div>
+        <div>
+          <div class="field-label">Mejora sugerida</div>
+          <div class="field-value">Si el usuario tiene solo 1 condición activa, vincularla automáticamente. Si tiene más de 1, mostrar un prompt rápido "¿A qué condición pertenece este síntoma?" antes de guardar.</div>
+        </div>
+      </div>
+      <div class="screenshot-row">
+        <figure class="screenshot-item">
+          <img src="../../.playwright-mcp/page-2026-05-26T03-13-29-884Z.png" alt="Fatiga sin condición vinculada"/>
+          <figcaption>Fatiga agregada — "Condiciones: Ninguna", requiere paso manual extra</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <!-- F-10 -->
+    <div class="finding medio">
+      <div class="finding-header">
+        <span class="finding-id">F-10</span>
+        <span class="finding-title">Tendencia "Sin datos" no explica qué se necesita</span>
+        <span class="badge badge-medio">Medio</span>
+      </div>
+      <div class="finding-body single">
+        <div>
+          <div class="field-label">Pantallas</div>
+          <div class="field-value">Mis síntomas, Seguimiento semanal</div>
+        </div>
+        <div>
+          <div class="field-label">Problema</div>
+          <div class="field-value">Los síntomas nuevos muestran "Sin datos" en Tendencia. Para un paciente nuevo, no queda claro cuántos registros de seguimiento necesita para que la tendencia se calcule, ni qué significa la tendencia exactamente.</div>
+        </div>
+        <div>
+          <div class="field-label">Mejora sugerida</div>
+          <div class="field-value">Mostrar tooltip: "Registra 3+ seguimientos para ver la tendencia". Alternativamente, un micro-texto bajo "Sin datos" que explique el requisito.</div>
+        </div>
+      </div>
+      <div class="screenshot-row">
+        <figure class="screenshot-item">
+          <img src="../../.playwright-mcp/page-2026-05-26T03-15-06-649Z.png" alt="Fatiga con Sin datos en seguimiento semanal"/>
+          <figcaption>Matriz semanal — Fatiga muestra "Sin datos" sin explicación</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <!-- F-11 -->
+    <div class="finding medio">
+      <div class="finding-header">
+        <span class="finding-id">F-11</span>
+        <span class="finding-title">Dashboard: sección Q&amp;A completamente vacía</span>
+        <span class="badge badge-medio">Medio</span>
+      </div>
+      <div class="finding-body single">
+        <div>
+          <div class="field-label">Problema</div>
+          <div class="field-value">La sección "Preguntas y Respuestas" del Dashboard muestra "No hay preguntas para mostrar" en "Top Preguntas" y "Top Respuestas". Para un paciente nuevo, esto da la impresión de que la comunidad está inactiva o vacía. En producción puede haber datos, pero en dev local el módulo Q&amp;A no tiene registros.</div>
+        </div>
+        <div>
+          <div class="field-label">Mejora sugerida</div>
+          <div class="field-value">Agregar un estado vacío más invitador: "¡Sé el primero en preguntar! La comunidad está aquí para ti →" con CTA a /Preguntas. Ocultar la sección si no hay datos, o mostrar preguntas destacadas globales.</div>
+        </div>
+      </div>
+      <div class="screenshot-row">
+        <figure class="screenshot-item">
+          <img src="../../.playwright-mcp/page-2026-05-26T03-06-55-998Z.png" alt="Dashboard completo"/>
+          <figcaption>Dashboard completo — sección Q&amp;A vacía visible en centro</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <!-- F-12 -->
+    <div class="finding medio">
+      <div class="finding-header">
+        <span class="finding-id">F-12</span>
+        <span class="finding-title">Tratamientos: campo "Fecha fin" siempre visible aunque no aplique</span>
+        <span class="badge badge-medio">Medio</span>
+      </div>
+      <div class="finding-body single">
+        <div>
+          <div class="field-label">Problema</div>
+          <div class="field-value">Cada card de tratamiento muestra dos campos de fecha (inicio y fin) con el placeholder <code>mm/dd/yyyy</code> incluso cuando el tratamiento está activo y no tiene fecha de fin. Esto genera ruido visual y puede confundir al paciente haciéndole pensar que debe completar ese campo.</div>
+        </div>
+        <div>
+          <div class="field-label">Mejora sugerida</div>
+          <div class="field-value">Ocultar la fila "Fecha fin" hasta que el usuario quiera editarla, o colapsar con un "¿Tratamiento terminado? Agregar fecha de fin →" solo visible en modo edición.</div>
+        </div>
+      </div>
+      <div class="screenshot-row">
+        <figure class="screenshot-item">
+          <img src="../../.playwright-mcp/page-2026-05-26T03-15-20-926Z.png" alt="Tratamientos con fecha fin vacía"/>
+          <figcaption>Cada card muestra fecha fin vacía — redundante para tratamientos activos</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <!-- POSITIVOS -->
+    <div class="section-title" style="margin-top:2rem">Aspectos Positivos</div>
+
+    <div class="finding ok">
+      <div class="finding-header">
+        <span class="finding-id">P-01</span>
+        <span class="finding-title">Matriz semanal de seguimiento: excelente visualización</span>
+        <span class="badge badge-ok">OK</span>
+      </div>
+      <div class="finding-body single">
+        <div class="field-value">La tabla matriz con columnas por día, filas por síntoma y código de colores (Ninguno → Extremo) es clara, compacta y fácil de interpretar. El modal de captura con 5 opciones + slider de dolor es intuitivo. La actualización visual inmediata al guardar sin recarga de página es correcta.</div>
+      </div>
+      <div class="screenshot-row">
+        <figure class="screenshot-item">
+          <img src="../../.playwright-mcp/page-2026-05-26T03-14-04-202Z.png" alt="Matriz semanal síntomas"/>
+          <figcaption>Matriz semanal — diseño claro y funcional</figcaption>
+        </figure>
+        <figure class="screenshot-item">
+          <img src="../../.playwright-mcp/page-2026-05-26T03-14-31-740Z.png" alt="Modal seguimiento síntoma"/>
+          <figcaption>Modal de seguimiento — escala visual + dolor slider</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <div class="finding ok">
+      <div class="finding-header">
+        <span class="finding-id">P-02</span>
+        <span class="finding-title">Gráfica de Estado de Ánimo: datos reales bien visualizados</span>
+        <span class="badge badge-ok">OK</span>
+      </div>
+      <div class="finding-body single">
+        <div class="field-value">La gráfica de línea con puntos coloreados por estado de ánimo (último mes / 3 meses / 6 meses / año) es legible. Los filtros de período funcionan. Las 12 cards con texto personal de cada registro muestran continuidad emocional — muy valioso para el paciente.</div>
+      </div>
+      <div class="screenshot-row">
+        <figure class="screenshot-item">
+          <img src="../../.playwright-mcp/page-2026-05-26T03-07-10-486Z.png" alt="Página Estado de Ánimo completa"/>
+          <figcaption>Estado de Ánimo — gráfica + cards con reflexiones personales</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <div class="finding ok">
+      <div class="finding-header">
+        <span class="finding-id">P-03</span>
+        <span class="finding-title">Autocomplete de condiciones con jerarquía bien estructurada</span>
+        <span class="badge badge-ok">OK</span>
+      </div>
+      <div class="finding-body single">
+        <div class="field-value">El autocomplete muestra la jerarquía "Enfermedad de Crohn > Ileocolitis" facilitando que el paciente encuentre su diagnóstico específico. Los grupos padres aparecen como headers deshabilitados (texto gris), lo que orienta sin confundir. El catálogo con 7+ opciones para "Crohn" demuestra buena cobertura de diagnósticos EII.</div>
+      </div>
+    </div>
+
+    <div class="finding ok">
+      <div class="finding-header">
+        <span class="finding-id">P-04</span>
+        <span class="finding-title">Dashboard con export PDF y resumen clínico</span>
+        <span class="badge badge-ok">OK</span>
+      </div>
+      <div class="finding-body single">
+        <div class="field-value">La sección "Mi Salud en un Vistazo" con botones de exportación (último mes / 3 meses / 6 meses / rango personalizado) es una funcionalidad de alto valor para el paciente al ir al médico. El diseño es limpio y los botones son claros.</div>
+      </div>
+    </div>
+
+  </div><!-- /hallazgos -->
+
+  <!-- LINKS ROTOS Y ERRORES JS -->
+  <div class="section">
+    <div class="section-title">Links Rotos y Errores HTTP</div>
+    <table>
+      <thead><tr><th>Tipo</th><th>URL / Recurso</th><th>Contexto</th><th>Severidad</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-critico">HTTP 400</span></td>
+          <td><code>/Identity/Usuario/UsuarioLaboratorios?handler=ActualizarResultado</code></td>
+          <td>Guardar resultado de laboratorio</td>
+          <td><span class="badge badge-critico">Crítico</span></td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-medio">404 imagen</span></td>
+          <td><code>/uploads/contenidos/76f10e49e8734b989a762ac9bee39eab.jpg</code></td>
+          <td>Imagen portada artículo "Diarrea en EII" (glosario público)</td>
+          <td><span class="badge badge-medio">Medio</span></td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-info">CSP bloqueado</span></td>
+          <td><code>stats.g.doubleclick.net</code></td>
+          <td>Google Analytics — esperado en dev, no crítico en producción</td>
+          <td><span class="badge badge-info">Info</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- FLUJO AUTOCOMPLETE -->
+  <div class="section">
+    <div class="section-title">Hallazgo Transversal: Patrón de Agregar inconsistente</div>
+    <p style="font-size:.92rem; color:#495057; margin-bottom:1rem;">
+      El módulo usa 3 patrones diferentes para agregar entidades. La inconsistencia genera fricción porque
+      el usuario no puede transferir el aprendizaje de un módulo al siguiente.
+    </p>
+    <table>
+      <thead><tr><th>Módulo</th><th>Patrón</th><th>Consistente</th></tr></thead>
+      <tbody>
+        <tr><td>Condiciones</td><td>Autocomplete texto → seleccionar → clic lupa separado</td><td><span class="badge badge-alto">No</span></td></tr>
+        <tr><td>Síntomas</td><td>Autocomplete texto → seleccionar → clic lupa separado</td><td><span class="badge badge-alto">No</span></td></tr>
+        <tr><td>Tratamientos</td><td>Autocomplete texto → seleccionar → clic lupa separado</td><td><span class="badge badge-alto">No</span></td></tr>
+        <tr><td>Estado de Ánimo</td><td>Botón + → Modal → botón círculo check</td><td><span class="badge badge-medio">Parcial</span></td></tr>
+        <tr><td>Seguimiento</td><td>Clic en celda de matriz → Modal → botón "Guardar"</td><td><span class="badge badge-ok">Sí</span></td></tr>
+        <tr><td>Laboratorios</td><td>Dropdown → clic lupa → campos disabled → Editar → Guardar</td><td><span class="badge badge-critico">No</span></td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:.88rem; color:#6c757d; margin-top:.8rem;">
+      Recomendación: estandarizar el flujo de alta de entidades. El patrón del Seguimiento (clic → modal → Guardar) es el más claro y debería replicarse.
+    </p>
+  </div>
+
+  <!-- SCREENSHOTS COMPLETOS -->
+  <div class="section">
+    <div class="section-title">Todos los Screenshots</div>
+    <div class="screenshot-row">
+      <figure class="screenshot-item">
+        <img src="../../.playwright-mcp/page-2026-05-26T03-06-55-998Z.png" alt="Dashboard"/>
+        <figcaption>1. Dashboard — Mi Panel de Control</figcaption>
+      </figure>
+      <figure class="screenshot-item">
+        <img src="../../.playwright-mcp/page-2026-05-26T03-07-10-486Z.png" alt="Estado de Ánimo"/>
+        <figcaption>2. Estado de Ánimo — lista completa</figcaption>
+      </figure>
+      <figure class="screenshot-item">
+        <img src="../../.playwright-mcp/page-2026-05-26T03-07-50-020Z.png" alt="Modal estado ánimo"/>
+        <figcaption>3. Modal crear estado de ánimo</figcaption>
+      </figure>
+      <figure class="screenshot-item">
+        <img src="../../.playwright-mcp/page-2026-05-26T03-11-06-223Z.png" alt="Ánimo guardado"/>
+        <figcaption>4. Estado de ánimo guardado (13 registros)</figcaption>
+      </figure>
+      <figure class="screenshot-item">
+        <img src="../../.playwright-mcp/page-2026-05-26T03-11-19-140Z.png" alt="Condiciones"/>
+        <figcaption>5. Mis condiciones</figcaption>
+      </figure>
+      <figure class="screenshot-item">
+        <img src="../../.playwright-mcp/page-2026-05-26T03-11-29-332Z.png" alt="Autocomplete Crohn"/>
+        <figcaption>6. Autocomplete condiciones — jerarquía Crohn</figcaption>
+      </figure>
+      <figure class="screenshot-item">
+        <img src="../../.playwright-mcp/page-2026-05-26T03-12-08-256Z.png" alt="Ileocolitis agregada"/>
+        <figcaption>7. Ileocolitis agregada exitosamente</figcaption>
+      </figure>
+      <figure class="screenshot-item">
+        <img src="../../.playwright-mcp/page-2026-05-26T03-12-38-327Z.png" alt="Síntomas"/>
+        <figcaption>8. Mis síntomas — 5 existentes</figcaption>
+      </figure>
+      <figure class="screenshot-item">
+        <img src="../../.playwright-mcp/page-2026-05-26T03-12-52-005Z.png" alt="Autocomplete fatiga"/>
+        <figcaption>9. Autocomplete síntomas — "Fatiga"</figcaption>
+      </figure>
+      <figure class="screenshot-item">
+        <img src="../../.playwright-mcp/page-2026-05-26T03-13-29-884Z.png" alt="Fatiga agregada"/>
+        <figcaption>10. Fatiga agregada (6 síntomas)</figcaption>
+      </figure>
+      <figure class="screenshot-item">
+        <img src="../../.playwright-mcp/page-2026-05-26T03-14-04-202Z.png" alt="Seguimiento semanal"/>
+        <figcaption>11. Seguimiento semanal — matriz</figcaption>
+      </figure>
+      <figure class="screenshot-item">
+        <img src="../../.playwright-mcp/page-2026-05-26T03-14-31-740Z.png" alt="Modal seguimiento"/>
+        <figcaption>12. Modal seguimiento Fatiga</figcaption>
+      </figure>
+      <figure class="screenshot-item">
+        <img src="../../.playwright-mcp/page-2026-05-26T03-15-06-649Z.png" alt="Seguimiento guardado"/>
+        <figcaption>13. Seguimiento Fatiga guardado (punto amarillo)</figcaption>
+      </figure>
+      <figure class="screenshot-item">
+        <img src="../../.playwright-mcp/page-2026-05-26T03-15-20-926Z.png" alt="Tratamientos"/>
+        <figcaption>14. Mis tratamientos — 5 existentes</figcaption>
+      </figure>
+      <figure class="screenshot-item">
+        <img src="../../.playwright-mcp/page-2026-05-26T03-15-32-823Z.png" alt="Duplicados Prednisona"/>
+        <figcaption>15. Duplicados "Prednisona" en autocomplete</figcaption>
+      </figure>
+      <figure class="screenshot-item">
+        <img src="../../.playwright-mcp/page-2026-05-26T03-16-08-648Z.png" alt="Tratamiento agregado"/>
+        <figcaption>16. Tratamiento agregado (6 en total)</figcaption>
+      </figure>
+      <figure class="screenshot-item">
+        <img src="../../.playwright-mcp/page-2026-05-26T03-16-24-282Z.png" alt="Laboratorios vacío"/>
+        <figcaption>17. Laboratorios vacíos — 2 tipos de estudio</figcaption>
+      </figure>
+      <figure class="screenshot-item">
+        <img src="../../.playwright-mcp/page-2026-05-26T03-17-56-671Z.png" alt="Laboratorio formulario campos disabled"/>
+        <figcaption>18. Formulario laboratorio — campos deshabilitados</figcaption>
+      </figure>
+      <figure class="screenshot-item">
+        <img src="../../.playwright-mcp/page-2026-05-26T03-18-43-381Z.png" alt="Laboratorio habilitado"/>
+        <figcaption>19. Formulario habilitado tras clic "Editar"</figcaption>
+      </figure>
+      <figure class="screenshot-item">
+        <img src="../../.playwright-mcp/page-2026-05-26T03-19-37-934Z.png" alt="Error laboratorio"/>
+        <figcaption>20. Error HTTP 400 al guardar laboratorio</figcaption>
+      </figure>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<footer>
+  Generado por Claude Code + Playwright MCP · 2026-05-25 · eiibd26
+</footer>
+</body>
+</html>

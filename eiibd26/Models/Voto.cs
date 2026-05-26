@@ -1,9 +1,11 @@
 ﻿using System;
+using System.ComponentModel.DataAnnotations;
 
 namespace eiibd26.Models
 {
     public class Voto
     {
+        [Key]
         public Guid Id { get; set; }
 
         // 'pregunta' | 'respuesta' (max length 20)

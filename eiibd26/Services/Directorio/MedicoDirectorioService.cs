@@ -42,12 +42,55 @@ public class MedicoDirectorioService : IMedicoDirectorioService
 
         var total = await query.CountAsync();
 
+        // PERF-015: Obtener IDs de la página primero, luego resolver confirmaciones
+        // en una sola query agregada — elimina 2 subqueries correlacionadas por médico.
+        var medicoIds = await query
+            .OrderByDescending(m => (int)m.NivelConfianza)
+            .ThenBy(m => m.NombreCompleto)
+            .Skip((pagina - 1) * porPagina)
+            .Take(porPagina)
+            .Select(m => m.Id)
+            .ToListAsync();
+
+        // Query única de confirmaciones para todos los médicos de la página
+        var confirmacionesPorMedico = await _db.ConfirmacionesComunitarias
+            .AsNoTracking()
+            .Where(c => medicoIds.Contains(c.MedicoDirectorioId) && !c.Eliminado)
+            .GroupBy(c => c.MedicoDirectorioId)
+            .Select(g => new
+            {
+                MedicoId            = g.Key,
+                Total               = g.Count(),
+                PacientesUnicos     = g.Select(c => c.UsuarioId).Distinct().Count()
+            })
+            .ToDictionaryAsync(x => x.MedicoId);
+
         var medicos = await query
             .OrderByDescending(m => (int)m.NivelConfianza)
             .ThenBy(m => m.NombreCompleto)
             .Skip((pagina - 1) * porPagina)
             .Take(porPagina)
-            .Select(m => new MedicoCardVm
+            .Select(m => new
+            {
+                m.Id,
+                m.NombreCompleto,
+                m.Especialidad,
+                m.Subespecialidad,
+                m.Estado,
+                m.Ciudad,
+                m.HospitalClinica,
+                m.NivelConfianza,
+                m.EstatusValidacion,
+                AreasExperiencia = m.AreasExperiencia
+                    .Select(ae => ae.AreaExperienciaEii.Nombre)
+                    .ToList()
+            })
+            .ToListAsync();
+
+        var medicoCards = medicos.Select(m =>
+        {
+            confirmacionesPorMedico.TryGetValue(m.Id, out var conf);
+            return new MedicoCardVm
             {
                 Id                   = m.Id,
                 NombreCompleto       = m.NombreCompleto,
@@ -58,13 +101,11 @@ public class MedicoDirectorioService : IMedicoDirectorioService
                 HospitalClinica      = m.HospitalClinica,
                 NivelConfianza       = m.NivelConfianza,
                 EstatusValidacion    = m.EstatusValidacion,
-                TotalConfirmaciones  = m.Confirmaciones.Count(),
-                TotalPacientesUnicos = m.Confirmaciones.Select(c => c.UsuarioId).Distinct().Count(),
+                TotalConfirmaciones  = conf?.Total ?? 0,
+                TotalPacientesUnicos = conf?.PacientesUnicos ?? 0,
                 AreasExperiencia     = m.AreasExperiencia
-                    .Select(ae => ae.AreaExperienciaEii.Nombre)
-                    .ToList()
-            })
-            .ToListAsync();
+            };
+        }).ToList();
 
         var estados = await _db.MedicosDirectorio
             .AsNoTracking()
@@ -82,7 +123,7 @@ public class MedicoDirectorioService : IMedicoDirectorioService
 
         return new DirectorioIndexVm
         {
-            Medicos            = medicos,
+            Medicos            = medicoCards,
             FiltroBusqueda     = busqueda,
             FiltroEstado       = estado,
             FiltroEspecialidad = especialidad,
@@ -116,14 +157,19 @@ public class MedicoDirectorioService : IMedicoDirectorioService
                 NivelConfianza       = m.NivelConfianza,
                 EstatusValidacion    = m.EstatusValidacion,
                 EstatusReclamacion   = m.EstatusReclamacion,
-                TotalConfirmaciones  = m.Confirmaciones.Count(),
-                TotalPacientesUnicos = m.Confirmaciones.Select(c => c.UsuarioId).Distinct().Count(),
+                TotalConfirmaciones  = _db.ConfirmacionesComunitarias
+                    .Count(c => c.MedicoDirectorioId == m.Id && !c.Eliminado),
+                TotalPacientesUnicos = _db.ConfirmacionesComunitarias
+                    .Where(c => c.MedicoDirectorioId == m.Id && !c.Eliminado)
+                    .Select(c => c.UsuarioId).Distinct().Count(),
                 AreasExperiencia     = m.AreasExperiencia
                     .Select(ae => new AreaExperienciaVm
                     {
                         Id     = ae.AreaExperienciaEiiId,
                         Nombre = ae.AreaExperienciaEii.Nombre
                     }).ToList(),
+                // ConfirmacionesAgregadas: se mantiene desde ConfirmacionComunitaria
+                // porque representa confirmaciones de tipo/rol comunitario (diferente semántica).
                 ConfirmacionesAgregadas = m.Confirmaciones
                     .GroupBy(c => c.TipoConfirmacionId)
                     .Select(g => new ConfirmacionAgregadaVm
@@ -165,6 +211,17 @@ public class MedicoDirectorioService : IMedicoDirectorioService
 
     public async Task<int> ProponerMedicoAsync(ProponerMedicoVm vm, Guid usuarioId)
     {
+        var especialidadTrim = vm.Especialidad?.Trim();
+        var yaExiste = await _db.MedicosDirectorio
+            .AnyAsync(m =>
+                m.NombreCompleto == vm.NombreCompleto.Trim() &&
+                m.Especialidad == especialidadTrim &&
+                !m.Eliminado);
+
+        if (yaExiste)
+            throw new InvalidOperationException(
+                $"Ya existe un médico registrado con el nombre '{vm.NombreCompleto}' y especialidad '{vm.Especialidad}'.");
+
         var medico = new MedicoDirectorio
         {
             NombreCompleto        = vm.NombreCompleto.Trim(),
@@ -181,8 +238,8 @@ public class MedicoDirectorioService : IMedicoDirectorioService
             EstatusValidacion     = EstatusValidacionCedula.PendienteValidacion,
             NivelConfianza        = NivelConfianzaEnum.Identificado,
             EstatusReclamacion    = EstatusReclamacion.NoReclamado,
-            VisiblePublicamente   = true,
-            Activo                = true,
+            VisiblePublicamente   = false,
+            Activo                = false,
             PropuestoPorUsuarioId = usuarioId,
             FechaCreacion         = DateTimeOffset.UtcNow
         };
@@ -229,27 +286,36 @@ public class MedicoDirectorioService : IMedicoDirectorioService
         return true;
     }
 
+    /// <summary>
+    /// Fuente canónica: ConfirmacionesComunitarias.
+    /// Recalcula NivelConfianza considerando total de confirmaciones,
+    /// cédula verificada y perfil reclamado.
+    /// </summary>
     public async Task RecalcularNivelConfianzaAsync(int medicoId)
     {
         var medico = await _db.MedicosDirectorio.FindAsync(medicoId);
         if (medico is null) return;
 
-        var pacientesUnicos = await _db.ConfirmacionesComunitarias
-            .Where(c => c.MedicoDirectorioId == medicoId)
-            .Select(c => c.UsuarioId)
-            .Distinct()
-            .CountAsync();
+        var total = await _db.ConfirmacionesComunitarias
+            .CountAsync(c => c.MedicoDirectorioId == medicoId && !c.Eliminado);
 
-        medico.NivelConfianza = pacientesUnicos switch
-        {
-            >= 10 => NivelConfianzaEnum.Establecido,
-            >= 5  => NivelConfianzaEnum.Reconocido,
-            >= 3  => NivelConfianzaEnum.Confirmado,
-            _     => NivelConfianzaEnum.Identificado
-        };
+        // The platform is EII-specific — any community confirmation implies EII context
+        var tieneEII = total > 0;
 
+        medico.NivelConfianza = (NivelConfianzaEnum)CalcularNivelVerificacion(
+            total, tieneEII, medico.CedulaVerificada, medico.PerfilReclamado);
         medico.FechaModificacion = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
+    }
+
+    private static int CalcularNivelVerificacion(
+        int totalConfirmaciones, bool tieneConfirmacionEII,
+        bool cedulaVerificada, bool perfilReclamado)
+    {
+        if (perfilReclamado) return 3;
+        if (cedulaVerificada || totalConfirmaciones >= 5) return 2;
+        if (totalConfirmaciones >= 3 && tieneConfirmacionEII) return 1;
+        return 0;
     }
 
     public async Task<List<TipoConfirmacion>> GetTiposConfirmacionActivosAsync()

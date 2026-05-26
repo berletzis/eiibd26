@@ -5,6 +5,7 @@ using eiibd26.Data;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Text.Encodings.Web;
 
 namespace eiibd26.Controllers
 {
@@ -147,10 +148,11 @@ namespace eiibd26.Controllers
                         ? catInfo.Name
                         : "";
 
-                    // Build action buttons (simplified)
-                    var editBtn = $"<a href='/Identity/Admin/Contenidos/Detalle?id={p.id}' class='btn btn-sm btn-outline-primary'><i class='bi bi-pencil'></i></a>";
-                    var deleteForm = $"<form method='post' style='display:inline' onsubmit='return confirm(\"¿Eliminar?\");'><input type='hidden' name='id' value='{p.id}'/><button type='submit' name='handler' value='Eliminar' class='btn btn-sm btn-outline-danger'><i class='bi bi-trash'></i></button></form>";
-                    var cloneForm = $"<form method='post' style='display:inline' onsubmit='return confirm(\"¿Clonar?\");'><input type='hidden' name='id' value='{p.id}'/><button type='submit' name='handler' value='Clone' class='btn btn-sm btn-outline-secondary'><i class='bi bi-files'></i></button></form>";
+                    // SEC-014: Usar HtmlEncoder al embeber valores en HTML generado en servidor.
+                    var safeId = HtmlEncoder.Default.Encode(p.id.ToString());
+                    var editBtn = $"<a href='/Identity/Admin/Contenidos/Detalle?id={safeId}' class='btn btn-sm btn-outline-primary'><i class='bi bi-pencil'></i></a>";
+                    var deleteForm = $"<form method='post' style='display:inline' onsubmit='return confirm(\"¿Eliminar?\");'><input type='hidden' name='id' value='{safeId}'/><button type='submit' name='handler' value='Eliminar' class='btn btn-sm btn-outline-danger'><i class='bi bi-trash'></i></button></form>";
+                    var cloneForm = $"<form method='post' style='display:inline' onsubmit='return confirm(\"¿Clonar?\");'><input type='hidden' name='id' value='{safeId}'/><button type='submit' name='handler' value='Clone' class='btn btn-sm btn-outline-secondary'><i class='bi bi-files'></i></button></form>";
 
                     return new
                     {

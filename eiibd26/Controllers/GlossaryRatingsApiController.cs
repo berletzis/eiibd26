@@ -150,21 +150,10 @@ public class GlossaryRatingsApiController : ControllerBase
         }
     }
 
-    private string? GetClientIpAddress()
-    {
-        try
-        {
-            var forwardedFor = HttpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-            if (!string.IsNullOrEmpty(forwardedFor))
-                return forwardedFor.Split(',')[0].Trim();
-
-            return HttpContext.Connection.RemoteIpAddress?.ToString();
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    // SEC-007: Se usa RemoteIpAddress (IP real de la conexión TCP) como identificador de deduplicación.
+    // Ver comentario en ArticleRatingsApiController.GetClientIpAddress.
+    private string? GetClientIpAddress() =>
+        HttpContext.Connection.RemoteIpAddress?.ToString();
 
     private async Task<object> GetUpdatedStats(int termId)
     {

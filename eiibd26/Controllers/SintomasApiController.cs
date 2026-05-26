@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,7 +19,12 @@ namespace eiibd26.Controllers
             _db = db;
         }
 
+        // SEC-001: Los síntomas son taxonomía médica genérica de EII, no datos de pacientes.
+        // El acceso anónimo es intencional para soportar autocomplete en UI pública futura.
+        // Rate limiting aplicado para prevenir scraping masivo.
         [HttpGet("autocomplete")]
+        [AllowAnonymous]
+        [EnableRateLimiting("catalogos-autocomplete")]
         public async Task<IActionResult> Autocomplete([FromQuery] string q, [FromQuery] string excludeIds = null)
         {
             if (string.IsNullOrWhiteSpace(q))
@@ -33,6 +40,7 @@ namespace eiibd26.Controllers
             }
 
             var query = _db.sintomas
+                .AsNoTracking()
                 .Where(s => !s.Eliminado && s.nombre.Contains(q));
 
             if (excluded.Count > 0)

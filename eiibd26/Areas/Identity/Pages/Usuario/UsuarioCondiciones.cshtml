@@ -12,6 +12,7 @@
                 Busca y agregar la condición con la que fuiste diagnosticad@@
             </label>
             <form id="agregarCondicionForm" autocomplete="off" class="crm-form-row" onsubmit="return false;">
+                @Html.AntiForgeryToken()
                 <div class="crm-search-group crm-col-8">
                     <div class="crm-search-horizontal">
                         <input id="condicionBuscar" type="text" class="crm-input" placeholder="Ej: Colitis Ulcerativa, Crohn, etc..." autocomplete="off" />
@@ -54,7 +55,7 @@
                                             @(hijo.EsPrincipal ? "⭐" : "☆")
                                         </button>
                                         <button type="button" class="crm-btn crm-btn-delete btn-eliminar"
-                                                data-id="@hijo.Id"
+                                                data-id="@hijo.CondicionUsuarioId"
                                                 data-nombre="@hijo.Nombre"
                                                 data-tratamientos="@hijo.TratamientosCount"
                                                 data-sintomas="@hijo.SintomasCount"
@@ -70,7 +71,7 @@
                                 <div class="crm-card-fecha">
                                     <span class="crm-card-label">
                                         <i class="bi bi-calendar2-date"></i> Fecha de Diagonostico:</span>
-                                    <form method="post" class="form-editar-fecha" data-id="@hijo.Id" asp-page-handler="EditarFechaInicio">
+                                    <form method="post" class="form-editar-fecha" data-id="@hijo.CondicionUsuarioId" asp-page-handler="EditarFechaInicio">
                                         <div class="crm-input-group">
                                             <input type="date"
                                                    class="crm-input-date fecha-inicio"
@@ -92,7 +93,7 @@
                                                     title="Cancelar edición de fecha">
                                                 Cancelar
                                             </button>
-                                            <input type="hidden" name="condId" value="@hijo.Id" />
+                                            <input type="hidden" name="condUsuarioId" value="@hijo.CondicionUsuarioId" />
                                         </div>
                                     </form>
                                     @* Legend alert below the date field when diagnosis date equals profile creation date *@
@@ -156,6 +157,14 @@
         const urlAgregar = "/Identity/Usuario/UsuarioCondiciones?handler=AgregarCondicion";
         const urlEliminar = "/Identity/Usuario/UsuarioCondiciones?handler=EliminarCondicion";
         const urlEditarFecha = "/Identity/Usuario/UsuarioCondiciones?handler=EditarFechaInicio";
+
+        function getAntiforgeryToken() {
+            return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+        }
+        function addAntiforgeryToken(formData) {
+            const t = getAntiforgeryToken();
+            if (t) formData.append('__RequestVerificationToken', t);
+        }
         // Autocomplete guard: track last request token and ignore stale responses.
         let _lastAutocompleteToken = 0;
         document.getElementById('condicionBuscar').addEventListener('input', async function () {
@@ -217,6 +226,7 @@
             }
             let formData = new FormData();
             formData.append('condicionId', id);
+            addAntiforgeryToken(formData);
             let resp = await fetch(urlAgregar, { method: "POST", body: formData });
             if (resp.ok) location.reload();
         });
@@ -235,9 +245,14 @@
                     form.action = urlEliminar;
                     let inp = document.createElement("input");
                     inp.type = "hidden";
-                    inp.name = "condId";
+                    inp.name = "condUsuarioId";
                     inp.value = this.dataset.id;
                     form.appendChild(inp);
+                    let csrf = document.createElement("input");
+                    csrf.type = "hidden";
+                    csrf.name = "__RequestVerificationToken";
+                    csrf.value = getAntiforgeryToken();
+                    form.appendChild(csrf);
                     document.body.appendChild(form);
                     form.submit();
                 }
@@ -267,6 +282,7 @@
             form.addEventListener('submit', async function (ev) {
                 ev.preventDefault();
                 let formData = new FormData(form);
+                addAntiforgeryToken(formData);
                 let resp = await fetch(urlEditarFecha, { method: "POST", body: formData });
                 if (resp.ok) {
                     valorOriginal = input.value;
@@ -288,6 +304,7 @@
                 const condUsuarioId = this.dataset.id;
                 const formData = new FormData();
                 formData.append('condUsuarioId', condUsuarioId);
+                addAntiforgeryToken(formData);
                 const resp = await fetch(urlTogglePrincipalCond, { method: 'POST', body: formData });
                 if (resp.ok) {
                     const data = await resp.json();

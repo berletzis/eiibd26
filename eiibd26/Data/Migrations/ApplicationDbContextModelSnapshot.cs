@@ -1109,6 +1109,66 @@ namespace eiibd26.Data.Migrations
                     b.ToTable("ConfirmacionComunitaria", (string)null);
                 });
 
+            modelBuilder.Entity("eiibd26.Models.Directorio.DirectorioMedicoConfirmacion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Eliminado")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ExpBiologicos")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ExpCUCI")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ExpCirugia")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ExpCrohn")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ExpEmbarazoEII")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ExpManejoBrotes")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ExpOstomias")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ExpPediatrico")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ExpSeguimientoProlongado")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ExpSegundaOpinion")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("FechaConfirmacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("MedicoId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("TieneExperienciaEII")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.ToTable("DirectorioMedicoConfirmacion");
+                });
+
             modelBuilder.Entity("eiibd26.Models.Directorio.MedicoDirectorio", b =>
                 {
                     b.Property<int>("Id")
@@ -1134,6 +1194,10 @@ namespace eiibd26.Data.Migrations
                     b.Property<bool>("Eliminado")
                         .HasColumnType("bit");
 
+                    b.Property<string>("EmailSolicitudClaim")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<string>("Especialidad")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
@@ -1148,6 +1212,9 @@ namespace eiibd26.Data.Migrations
                     b.Property<int>("EstatusValidacion")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("FechaCedulaVerificada")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTimeOffset>("FechaCreacion")
                         .HasColumnType("datetimeoffset");
 
@@ -1156,6 +1223,9 @@ namespace eiibd26.Data.Migrations
 
                     b.Property<DateTimeOffset?>("FechaReclamacion")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTime?>("FechaSolicitudClaim")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("HospitalClinica")
                         .HasMaxLength(300)
@@ -1195,7 +1265,9 @@ namespace eiibd26.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AspNetUserId");
+                    b.HasIndex("AspNetUserId")
+                        .HasDatabaseName("IX_MedicosDirectorio_AspNetUserId")
+                        .HasFilter("[AspNetUserId] IS NOT NULL");
 
                     b.HasIndex("CedulaProfesional");
 
@@ -1378,7 +1450,8 @@ namespace eiibd26.Data.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Texto")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
 
                     b.HasKey("Id");
 
@@ -1388,7 +1461,11 @@ namespace eiibd26.Data.Migrations
 
                     b.HasIndex("IdTratamientoUsuario");
 
-                    b.HasIndex("IdUsuario");
+                    b.HasIndex("IdUsuario")
+                        .HasDatabaseName("IX_EstadoAnimoUsuario_IdUsuario");
+
+                    b.HasIndex("IdUsuario", "FechaRegistro")
+                        .HasDatabaseName("IX_EstadoAnimoUsuario_IdUsuario_FechaRegistro");
 
                     b.ToTable("EstadoAnimoUsuario");
                 });
@@ -1745,6 +1822,245 @@ namespace eiibd26.Data.Migrations
                     b.ToTable("LaboratoryUnitCatalog", (string)null);
                 });
 
+            modelBuilder.Entity("eiibd26.Models.Medico.MedicoAreaEii", b =>
+                {
+                    b.Property<int>("MedicoPerfilId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CondicionId")
+                        .HasColumnType("int");
+
+                    b.HasKey("MedicoPerfilId", "CondicionId");
+
+                    b.HasIndex("CondicionId");
+
+                    b.ToTable("MedicoAreaEii", (string)null);
+                });
+
+            modelBuilder.Entity("eiibd26.Models.Medico.MedicoBadge", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("ComoObtenerlo")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("FechaCreado")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Icono")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Nivel")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<int>("Orden")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Codigo")
+                        .IsUnique();
+
+                    b.ToTable("MedicoBadge", (string)null);
+                });
+
+            modelBuilder.Entity("eiibd26.Models.Medico.MedicoPerfilBadge", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BadgeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FechaObtenido")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("MedicoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("OtorgadoPor")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BadgeId");
+
+                    b.HasIndex("MedicoId", "BadgeId")
+                        .IsUnique();
+
+                    b.ToTable("MedicoPerfilBadge", (string)null);
+                });
+
+            modelBuilder.Entity("eiibd26.Models.Medico.MedicoPerfilExtendido", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Biografia")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Ciudad")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Estado")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTime>("FechaCreado")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaModificado")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Foto")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("HorariosAtencion")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Hospitales")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Instagram")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Latitud")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("LinkedIn")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Longitud")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("MedicoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PaisCodigo")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("SitioWeb")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("Slug")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Telefono")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MedicoId")
+                        .IsUnique()
+                        .HasFilter("[MedicoId] IS NOT NULL");
+
+                    b.HasIndex("Slug")
+                        .IsUnique()
+                        .HasFilter("[Slug] IS NOT NULL");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("MedicoPerfilExtendido", (string)null);
+                });
+
+            modelBuilder.Entity("eiibd26.Models.Medico.MedicoReclamacionToken", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("EmailDestino")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("FechaCreado")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaExpira")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("FechaUsado")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("MedicoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MedicoId");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("MedicoReclamacionToken", (string)null);
+                });
+
             modelBuilder.Entity("eiibd26.Models.NotificationSubscription", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1780,9 +2096,10 @@ namespace eiibd26.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_NotificationSubscriptions_UserId");
 
-                    b.ToTable("NotificationSubscriptions");
+                    b.ToTable("NotificationSubscriptions", (string)null);
                 });
 
             modelBuilder.Entity("eiibd26.Models.Paises", b =>
@@ -1919,7 +2236,8 @@ namespace eiibd26.Data.Migrations
 
                     b.HasIndex("LaboratoryUnitCatalogId");
 
-                    b.HasIndex("PatientId");
+                    b.HasIndex("PatientId")
+                        .HasDatabaseName("IX_PatientLaboratoryResults_PatientId");
 
                     b.HasIndex("SintomaUsuarioId");
 
@@ -2356,7 +2674,8 @@ namespace eiibd26.Data.Migrations
 
                     b.HasIndex("IdSintomaUsuario");
 
-                    b.HasIndex("IdUsuario");
+                    b.HasIndex("IdUsuario")
+                        .HasDatabaseName("IX_SintomaCondicionUsuario_IdUsuario");
 
                     b.ToTable("SintomaCondicionUsuario");
                 });
@@ -2437,7 +2756,8 @@ namespace eiibd26.Data.Migrations
 
                     b.HasIndex("IdSintomaUsuario");
 
-                    b.HasIndex("IdUsuario");
+                    b.HasIndex("IdUsuario", "Fecha")
+                        .HasDatabaseName("IX_TrackingSintomaUsuario_IdUsuario_Fecha");
 
                     b.ToTable("TrackingSintomaUsuario");
                 });
@@ -2507,7 +2827,8 @@ namespace eiibd26.Data.Migrations
 
                     b.HasIndex("IdTratamientoUsuario");
 
-                    b.HasIndex("IdUsuario");
+                    b.HasIndex("IdUsuario")
+                        .HasDatabaseName("IX_TratamientoSintomaUsuario_IdUsuario");
 
                     b.ToTable("TratamientoSintomaUsuario");
                 });
@@ -2678,7 +2999,8 @@ namespace eiibd26.Data.Migrations
 
                     b.HasIndex("idCondicion");
 
-                    b.HasIndex("idUsuario");
+                    b.HasIndex("idUsuario")
+                        .HasDatabaseName("IX_condicionUsuario_IdUsuario");
 
                     b.ToTable("condicionUsuario");
                 });
@@ -2908,7 +3230,8 @@ namespace eiibd26.Data.Migrations
 
                     b.HasIndex("idSintoma");
 
-                    b.HasIndex("idUsuario");
+                    b.HasIndex("idUsuario")
+                        .HasDatabaseName("IX_sintomasUsuario_IdUsuario");
 
                     b.ToTable("sintomasUsuario");
                 });
@@ -2957,7 +3280,8 @@ namespace eiibd26.Data.Migrations
 
                     b.HasIndex("idTratamiento");
 
-                    b.HasIndex("idUsuario");
+                    b.HasIndex("idUsuario")
+                        .HasDatabaseName("IX_tratamientoUsuario_IdUsuario");
 
                     b.ToTable("tratamientoUsuario");
                 });
@@ -2982,6 +3306,9 @@ namespace eiibd26.Data.Migrations
                     b.Property<string>("Fuentes")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("NombreSugeridoIA")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("RelacionEII")
                         .HasColumnType("bit");
@@ -3306,6 +3633,17 @@ namespace eiibd26.Data.Migrations
                     b.Navigation("Usuario");
                 });
 
+            modelBuilder.Entity("eiibd26.Models.Directorio.DirectorioMedicoConfirmacion", b =>
+                {
+                    b.HasOne("eiibd26.Models.ApplicationUser", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Usuario");
+                });
+
             modelBuilder.Entity("eiibd26.Models.Directorio.MedicoDirectorio", b =>
                 {
                     b.HasOne("eiibd26.Models.ApplicationUser", "UsuarioVinculado")
@@ -3414,6 +3752,79 @@ namespace eiibd26.Data.Migrations
                     b.Navigation("Parent");
                 });
 
+            modelBuilder.Entity("eiibd26.Models.Medico.MedicoAreaEii", b =>
+                {
+                    b.HasOne("eiibd26.Models.condiciones", "Condicion")
+                        .WithMany()
+                        .HasForeignKey("CondicionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("eiibd26.Models.Medico.MedicoPerfilExtendido", "MedicoPerfil")
+                        .WithMany()
+                        .HasForeignKey("MedicoPerfilId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Condicion");
+
+                    b.Navigation("MedicoPerfil");
+                });
+
+            modelBuilder.Entity("eiibd26.Models.Medico.MedicoPerfilBadge", b =>
+                {
+                    b.HasOne("eiibd26.Models.Medico.MedicoBadge", "Badge")
+                        .WithMany("PerfilesBadges")
+                        .HasForeignKey("BadgeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("eiibd26.Models.Directorio.MedicoDirectorio", "Medico")
+                        .WithMany()
+                        .HasForeignKey("MedicoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Badge");
+
+                    b.Navigation("Medico");
+                });
+
+            modelBuilder.Entity("eiibd26.Models.Medico.MedicoPerfilExtendido", b =>
+                {
+                    b.HasOne("eiibd26.Models.Directorio.MedicoDirectorio", "Medico")
+                        .WithMany()
+                        .HasForeignKey("MedicoId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("eiibd26.Models.ApplicationUser", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Medico");
+
+                    b.Navigation("Usuario");
+                });
+
+            modelBuilder.Entity("eiibd26.Models.Medico.MedicoReclamacionToken", b =>
+                {
+                    b.HasOne("eiibd26.Models.Directorio.MedicoDirectorio", "Medico")
+                        .WithMany()
+                        .HasForeignKey("MedicoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("eiibd26.Models.ApplicationUser", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Medico");
+
+                    b.Navigation("Usuario");
+                });
+
             modelBuilder.Entity("eiibd26.Models.NotificationSubscription", b =>
                 {
                     b.HasOne("eiibd26.Models.ApplicationUser", "User")
@@ -3486,6 +3897,15 @@ namespace eiibd26.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Usuario");
+                });
+
+            modelBuilder.Entity("eiibd26.Models.Pregunta", b =>
+                {
+                    b.HasOne("eiibd26.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("eiibd26.Models.PreguntaCondicion", b =>
@@ -3574,6 +3994,12 @@ namespace eiibd26.Data.Migrations
                         .WithMany("Respuestas")
                         .HasForeignKey("PreguntaId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("eiibd26.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Parent");
@@ -3908,6 +4334,11 @@ namespace eiibd26.Data.Migrations
                     b.Navigation("Children");
 
                     b.Navigation("Results");
+                });
+
+            modelBuilder.Entity("eiibd26.Models.Medico.MedicoBadge", b =>
+                {
+                    b.Navigation("PerfilesBadges");
                 });
 
             modelBuilder.Entity("eiibd26.Models.Paises", b =>

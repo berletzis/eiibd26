@@ -59,13 +59,11 @@ namespace eiibd26.Controllers
             var userId = GetUserIdGuid();
             if (!userId.HasValue) return Unauthorized(new { ok = false, error = "Usuario no autenticado" });
 
-            var r = await _db.Respuestas.FirstOrDefaultAsync(x => x.Id == id);
+            var r = await _db.Respuestas.FirstOrDefaultAsync(x => x.Id == id && !x.Eliminado);
             if (r == null) return NotFound(new { ok = false, error = "Respuesta no encontrada" });
 
             if (r.UsuarioId != userId.Value)
-            {
-                return Forbid();
-            }
+                return NotFound(new { ok = false, error = "Respuesta no encontrada" });
 
             try
             {
@@ -115,6 +113,12 @@ namespace eiibd26.Controllers
 
             try
             {
+                if (string.IsNullOrWhiteSpace(dto.Cuerpo) || dto.Cuerpo.Trim().Length < 10)
+                    return BadRequest(new { ok = false, error = "La respuesta debe tener al menos 10 caracteres." });
+
+                if (dto.Cuerpo.Length > 10000)
+                    return BadRequest(new { ok = false, error = "La respuesta no puede superar 10.000 caracteres." });
+
                 var respuesta = new Respuesta
                 {
                     Id = Guid.NewGuid(),
@@ -181,6 +185,7 @@ namespace eiibd26.Controllers
         // POST /api/respuestas/{id}/votar
         [HttpPost("{id:guid}/votar")]
         [Authorize]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> VotarRespuesta(Guid id, [FromBody] VotarDto dto)
         {
             if (dto == null) return BadRequest();

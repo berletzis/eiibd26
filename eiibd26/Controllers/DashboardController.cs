@@ -1,5 +1,6 @@
 ﻿using eiibd26.Data;
 using eiibd26.Models;
+using eiibd26.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -17,11 +18,16 @@ namespace eiibd26.Controllers
     {
         private readonly ApplicationDbContext _db;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly ClinicalOwnershipValidator _ownership;
 
-        public DashboardController(ApplicationDbContext db, UserManager<ApplicationUser> userManager)
+        public DashboardController(
+            ApplicationDbContext db,
+            UserManager<ApplicationUser> userManager,
+            ClinicalOwnershipValidator ownership)
         {
             _db = db;
             _userManager = userManager;
+            _ownership = ownership;
         }
 
         [HttpGet("Index")]
@@ -214,6 +220,10 @@ namespace eiibd26.Controllers
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrWhiteSpace(userIdClaim)) return Unauthorized();
             var userGuid = Guid.Parse(userIdClaim);
+
+            // SEC-011: Validar que el síntoma pertenece al usuario autenticado.
+            if (!await _ownership.OwnsSintomaAsync(sintomaUsuarioId, userGuid))
+                return Forbid();
 
             // Registrar una interacción en TrackingSintomaUsuario (usa Fecha y Estado)
             var tracking = new TrackingSintomaUsuario

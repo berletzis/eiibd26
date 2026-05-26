@@ -152,17 +152,20 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             }
         }
 
-        public async Task<IActionResult> OnPostEditarFechaInicioAsync(int tratId, DateTime nuevaFechaInicio)
+        public async Task<IActionResult> OnPostEditarFechaInicioAsync(int tratId, DateTime? nuevaFechaInicio)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (userId == null) return Unauthorized();
+
+            if (!nuevaFechaInicio.HasValue)
+                return new JsonResult(new { ok = false, mensaje = "Fecha no válida." }) { StatusCode = 400 };
 
             var rel = await _db.tratamientoUsuario
                 .FirstOrDefaultAsync(x => x.idUsuario == Guid.Parse(userId) && x.id == tratId && !x.Eliminado);
 
             if (rel != null)
             {
-                rel.fechaInicio = (nuevaFechaInicio < new DateTime(1753, 1, 1)) ? DateTime.Now : nuevaFechaInicio;
+                rel.fechaInicio = (nuevaFechaInicio.Value < new DateTime(1753, 1, 1)) ? DateTime.Now : nuevaFechaInicio.Value;
                 rel.fechaModificado = DateTime.Now;
                 await _db.SaveChangesAsync();
                 return new JsonResult(new { ok = true });
@@ -184,6 +187,9 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
             if (rel != null)
             {
+                if (fechaFin.HasValue && fechaFin.Value < rel.fechaInicio)
+                    return new JsonResult(new { ok = false, mensaje = "La fecha de fin no puede ser anterior a la fecha de inicio." }) { StatusCode = 400 };
+
                 rel.FechaFin = fechaFin;
                 rel.fechaModificado = DateTime.Now;
                 await _db.SaveChangesAsync();
@@ -247,9 +253,14 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 .Where(x => x.IdUsuario == Guid.Parse(userId) && x.IdTratamientoUsuario == tratamientoId)
                 .ToListAsync();
 
-            _db.TratamientoSintomaUsuario.RemoveRange(relsActuales.Where(x => !sintomaUsuarioIds.Contains(x.IdSintomaUsuario ?? 0)));
+            var idsValidos = await _db.sintomasUsuario
+                .Where(x => sintomaUsuarioIds.Contains(x.id) && x.idUsuario == Guid.Parse(userId) && !x.Eliminado)
+                .Select(x => x.id)
+                .ToListAsync();
 
-            foreach (var sId in sintomaUsuarioIds)
+            _db.TratamientoSintomaUsuario.RemoveRange(relsActuales.Where(x => !idsValidos.Contains(x.IdSintomaUsuario ?? 0)));
+
+            foreach (var sId in idsValidos)
             {
                 if (!relsActuales.Any(x => x.IdSintomaUsuario == sId))
                 {
@@ -276,9 +287,14 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 .Where(x => x.IdUsuario == Guid.Parse(userId) && x.IdTratamientoUsuario == tratamientoId)
                 .ToListAsync();
 
-            _db.TratamientoCondicionUsuario.RemoveRange(relsActuales.Where(x => !condicionUsuarioIds.Contains(x.IdCondicionUsuario ?? 0)));
+            var idsValidos = await _db.condicionUsuario
+                .Where(x => condicionUsuarioIds.Contains(x.id) && x.idUsuario == Guid.Parse(userId) && !x.Eliminado)
+                .Select(x => x.id)
+                .ToListAsync();
 
-            foreach (var cId in condicionUsuarioIds)
+            _db.TratamientoCondicionUsuario.RemoveRange(relsActuales.Where(x => !idsValidos.Contains(x.IdCondicionUsuario ?? 0)));
+
+            foreach (var cId in idsValidos)
             {
                 if (!relsActuales.Any(x => x.IdCondicionUsuario == cId))
                 {

@@ -183,26 +183,12 @@ public class ArticleRatingsApiController : ControllerBase
     /// <summary>
     /// Obtener IP del cliente
     /// </summary>
-    private string? GetClientIpAddress()
-    {
-        try
-        {
-            // Intentar obtener IP de headers de proxy
-            var forwardedFor = HttpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-            if (!string.IsNullOrEmpty(forwardedFor))
-            {
-                var ips = forwardedFor.Split(',');
-                return ips[0].Trim();
-            }
-
-            // IP directa
-            return HttpContext.Connection.RemoteIpAddress?.ToString();
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    // SEC-007: Se usa RemoteIpAddress (IP real de la conexión TCP) como identificador de deduplicación.
+    // X-Forwarded-For se ignora deliberadamente porque puede ser falsificado por el cliente.
+    // Si la app se coloca detrás de un reverse proxy confiable, configurar UseForwardedHeaders en Program.cs
+    // y sólo entonces leer HttpContext.Connection.RemoteIpAddress (que ya será la IP desenvuelta por el middleware).
+    private string? GetClientIpAddress() =>
+        HttpContext.Connection.RemoteIpAddress?.ToString();
 
     /// <summary>
     /// Obtener estadísticas actualizadas de un artículo

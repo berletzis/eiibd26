@@ -1,8 +1,10 @@
+using eiibd26.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
-using eiibd26.Models;
+using System.Threading.Tasks;
 
 namespace eiibd26.Areas.Identity.Pages.Usuario
 {
@@ -24,20 +26,21 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             _db = db;
         }
 
-        public void OnGet()
+        public async Task OnGetAsync()
         {
             if (User.IsInRole("Medico")) { Response.Redirect("/Identity/Medico/Dashboard"); return; }
             var userIdStr = User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (System.Guid.TryParse(userIdStr, out var userId))
             {
-                CondicionesUsuario = _db.condicionUsuario
+                CondicionesUsuario = await _db.condicionUsuario
+                    .AsNoTracking()
                     .Where(c => c.idUsuario == userId && !c.Eliminado)
                     .Select(c => new CondicionUsuarioViewModel
                     {
                         id = c.id,
                         nombre = c.Condicion.nombre
                     })
-                    .ToList();
+                    .ToListAsync();
             }
         }
     }

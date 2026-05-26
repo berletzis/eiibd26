@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using eiibd26.Data;
 using eiibd26.Services.Directorio;
 using eiibd26.Models.Directorio;
+using System.Security.Claims;
 
 namespace eiibd26.Pages.DirectorioMedicos;
 
@@ -26,6 +27,9 @@ public class IndexModel : PageModel
     // Badges ganados por médico (código del badge)
     public Dictionary<int, HashSet<string>> BadgesPorMedico { get; set; } = new();
 
+    // Propuestas pendientes del usuario autenticado
+    public List<(int Id, string Nombre, string? Especialidad, string? Estado, DateTimeOffset Fecha)> MisPropuestas { get; set; } = new();
+
     [BindProperty(SupportsGet = true)] public string? Busqueda     { get; set; }
     [BindProperty(SupportsGet = true)] public string? Estado       { get; set; }
     [BindProperty(SupportsGet = true)] public string? Especialidad { get; set; }
@@ -36,17 +40,27 @@ public class IndexModel : PageModel
     {
         Directorio = await _service.GetListadoAsync(Busqueda, Estado, Especialidad, AreaId, Pagina);
 
+        var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (Guid.TryParse(rawId, out var userId))
+        {
+            var rows = await _db.MedicosDirectorio
+                .AsNoTracking()
+                .Where(m => m.PropuestoPorUsuarioId == userId && !m.Activo)
+                .OrderByDescending(m => m.FechaCreacion)
+                .Select(m => new { m.Id, m.NombreCompleto, m.Especialidad, m.Estado, m.FechaCreacion })
+                .ToListAsync();
+            MisPropuestas = rows
+                .Select(m => (m.Id, m.NombreCompleto, m.Especialidad, m.Estado, m.FechaCreacion))
+                .ToList();
+        }
+
         if (Directorio.Medicos.Any())
         {
             var ids = Directorio.Medicos.Select(m => m.Id).ToList();
-            var conEII = await _db.DirectorioMedicoConfirmaciones
+            var conEII = await _db.ConfirmacionesComunitarias
                 .AsNoTracking()
-                .Where(c => ids.Contains(c.MedicoId) && !c.Eliminado &&
-                            (c.TieneExperienciaEII || c.ExpCUCI || c.ExpCrohn ||
-                             c.ExpPediatrico || c.ExpOstomias || c.ExpBiologicos ||
-                             c.ExpEmbarazoEII || c.ExpManejoBrotes || c.ExpSegundaOpinion ||
-                             c.ExpCirugia || c.ExpSeguimientoProlongado))
-                .Select(c => c.MedicoId)
+                .Where(c => ids.Contains(c.MedicoDirectorioId) && !c.Eliminado)
+                .Select(c => c.MedicoDirectorioId)
                 .Distinct()
                 .ToListAsync();
             MedicosConEII = conEII.ToDictionary(id => id, _ => true);

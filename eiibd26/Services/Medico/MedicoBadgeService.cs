@@ -99,8 +99,8 @@ public class MedicoBadgeService : IMedicoBadgeService
             await OtorgarBadgeAsync(medicoId, "perfil_reclamado", "sistema");
 
         // activo_comunidad: >= 5 confirmaciones de pacientes
-        var totalConfirmaciones = await _db.DirectorioMedicoConfirmaciones
-            .CountAsync(c => c.MedicoId == medicoId && !c.Eliminado);
+        var totalConfirmaciones = await _db.ConfirmacionesComunitarias
+            .CountAsync(c => c.MedicoDirectorioId == medicoId && !c.Eliminado);
         if (totalConfirmaciones >= 5)
             await OtorgarBadgeAsync(medicoId, "activo_comunidad", "sistema");
 
@@ -111,9 +111,9 @@ public class MedicoBadgeService : IMedicoBadgeService
 
         if (perfil?.UserId != null)
         {
-            // participante_qa: >= 3 respuestas del usuario vinculado
+            // participante_qa: >= 3 respuestas del usuario vinculado (excluye IA y eliminadas)
             var respuestas = await _db.Respuestas
-                .CountAsync(r => r.UsuarioId == perfil.UserId.Value);
+                .CountAsync(r => r.UsuarioId == perfil.UserId.Value && !r.Eliminado && !r.EsIA);
             if (respuestas >= 3)
                 await OtorgarBadgeAsync(medicoId, "participante_qa", "sistema");
 

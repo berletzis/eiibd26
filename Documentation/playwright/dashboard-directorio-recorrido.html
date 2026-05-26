@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>UX Report — Dashboard Paciente + Directorio Médicos · eiibd</title>
+<style>
+  :root {
+    --verde: #198754;
+    --rojo: #dc3545;
+    --naranja: #fd7e14;
+    --amarillo: #ffc107;
+    --azul: #0d6efd;
+    --gris: #6c757d;
+    --bg: #f8f9fa;
+    --card-bg: #fff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: #212529; line-height: 1.6; }
+  .header { background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%); color: #fff; padding: 2.5rem 2rem 2rem; }
+  .header h1 { font-size: 1.75rem; font-weight: 700; }
+  .header p { opacity: 0.88; margin-top: 0.4rem; font-size: 0.95rem; }
+  .badge-meta { display: inline-block; background: rgba(255,255,255,0.2); border-radius: 20px; padding: 0.2rem 0.75rem; font-size: 0.8rem; margin-top: 0.75rem; margin-right: 0.4rem; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+  .section { margin-bottom: 2.5rem; }
+  .section h2 { font-size: 1.2rem; font-weight: 700; border-bottom: 2px solid #dee2e6; padding-bottom: 0.5rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem; }
+  .card { background: var(--card-bg); border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 1rem; overflow: hidden; }
+  .card-header { display: flex; align-items: flex-start; gap: 1rem; padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f0f0f0; }
+  .card-body { padding: 0.85rem 1.25rem 1rem; font-size: 0.92rem; color: #495057; }
+  .card-body ul { padding-left: 1.2rem; }
+  .card-body li { margin-bottom: 0.3rem; }
+  .card-body code { background: #f1f3f5; padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.85em; }
+  .sev { display: inline-block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; border-radius: 4px; padding: 0.2rem 0.6rem; white-space: nowrap; }
+  .sev-critical { background: #f8d7da; color: #842029; }
+  .sev-high { background: #fff3cd; color: #664d03; }
+  .sev-medium { background: #d1ecf1; color: #0c5460; }
+  .sev-low { background: #d1e7dd; color: #0a3622; }
+  .sev-info { background: #e2e3e5; color: #41464b; }
+  .finding-id { font-size: 0.75rem; font-weight: 700; color: var(--gris); flex-shrink: 0; margin-top: 2px; }
+  .finding-title { font-size: 1rem; font-weight: 600; flex: 1; }
+  .flow-tag { font-size: 0.72rem; background: #e9ecef; color: #495057; border-radius: 10px; padding: 0.15rem 0.55rem; margin-left: 0.5rem; white-space: nowrap; }
+  .summary-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  .summary-table th { background: #e9ecef; text-align: left; padding: 0.6rem 0.9rem; }
+  .summary-table td { padding: 0.55rem 0.9rem; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+  .summary-table tr:last-child td { border-bottom: none; }
+  .summary-table tr:hover td { background: #f8f9fa; }
+  .positive { background: var(--card-bg); border: 1px solid #d1e7dd; border-left: 4px solid var(--verde); border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 0.6rem; font-size: 0.92rem; }
+  .positive strong { color: var(--verde); }
+  .screenshot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; margin-top: 0.75rem; }
+  .screenshot-item { border: 1px solid #dee2e6; border-radius: 6px; overflow: hidden; font-size: 0.78rem; }
+  .screenshot-item img { width: 100%; display: block; object-fit: cover; max-height: 140px; }
+  .screenshot-item .caption { padding: 0.35rem 0.5rem; background: #f8f9fa; color: #495057; }
+  .toc { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 2rem; }
+  .toc h3 { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.6rem; color: var(--gris); text-transform: uppercase; letter-spacing: 0.05em; }
+  .toc ul { list-style: none; padding: 0; columns: 2; column-gap: 1.5rem; }
+  .toc li { font-size: 0.87rem; margin-bottom: 0.3rem; }
+  .toc a { color: var(--azul); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .meta-box { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 2rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem; }
+  .meta-item label { font-size: 0.75rem; font-weight: 700; color: var(--gris); text-transform: uppercase; display: block; margin-bottom: 0.2rem; }
+  .meta-item span { font-size: 0.92rem; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div style="max-width:1100px;margin:0 auto">
+    <h1>UX Report — Dashboard Paciente + Directorio Médicos</h1>
+    <p>Recorrido completo como paciente autenticado: flujos post-login, P&amp;R, exportación PDF, estado de ánimo y directorio comunitario</p>
+    <span class="badge-meta">🗓 2026-05-26</span>
+    <span class="badge-meta">🔗 https://localhost:7002</span>
+    <span class="badge-meta">👤 Paciente autenticado (Berletzis)</span>
+    <span class="badge-meta">🎭 Playwright MCP</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Resumen ejecutivo -->
+  <div class="meta-box">
+    <div class="meta-item"><label>Flujos cubiertos</label><span>Dashboard Paciente + Directorio Médicos</span></div>
+    <div class="meta-item"><label>Total hallazgos</label><span>16 (3 críticos, 4 altos, 5 medios, 4 bajos)</span></div>
+    <div class="meta-item"><label>Positivos</label><span>6 flujos funcionando bien</span></div>
+    <div class="meta-item"><label>Prioridad inmediata</label><span>Proponer médico → 404 post-submit, Lab 400</span></div>
+  </div>
+
+  <!-- TOC -->
+  <div class="toc">
+    <h3>Contenido</h3>
+    <ul>
+      <li><a href="#flujo-dashboard">Dashboard Paciente</a></li>
+      <li><a href="#flujo-preguntas">Preguntas &amp; Respuestas</a></li>
+      <li><a href="#flujo-pdf">Exportación PDF</a></li>
+      <li><a href="#flujo-estado-animo">Estado de Ánimo (modal)</a></li>
+      <li><a href="#flujo-directorio">Directorio Médicos</a></li>
+      <li><a href="#flujo-proponer">Proponer Médico</a></li>
+      <li><a href="#positivos">Aspectos positivos</a></li>
+      <li><a href="#resumen">Tabla de resumen</a></li>
+      <li><a href="#screenshots">Screenshots</a></li>
+    </ul>
+  </div>
+
+  <!-- ──────────────────────────────────────── DASHBOARD ─── -->
+  <div class="section" id="flujo-dashboard">
+    <h2>📊 Dashboard Paciente</h2>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="finding-id">D-01</span>
+        <span class="finding-title">Duplicación del eje X en gráfica de estado de ánimo <span class="flow-tag">Dashboard</span></span>
+        <span class="sev sev-medium">Medio</span>
+      </div>
+      <div class="card-body">
+        <p>La gráfica de "Mi estado de ánimo (últimos 7 días)" repite la etiqueta "25 may" tres veces en el eje X cuando hay más de un registro el mismo día. No rompe la funcionalidad pero confunde la lectura del gráfico y genera desconfianza en los datos.</p>
+        <ul style="margin-top:0.6rem">
+          <li><strong>Causa probable:</strong> La serie de datos incluye un punto por registro, no por día. El eje no agrupa fechas duplicadas.</li>
+          <li><strong>Mejora:</strong> Agrupar/promediar los registros por día antes de renderizar, o usar el eje en modo "category" con fechas únicas.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="finding-id">D-02</span>
+        <span class="finding-title">El mood del Dashboard no tiene campo de fecha <span class="flow-tag">Dashboard</span></span>
+        <span class="sev sev-low">Bajo</span>
+      </div>
+      <div class="card-body">
+        <p>El modal de estado de ánimo accesible desde el Dashboard (botón "+😊") no tiene campo de fecha — siempre registra hoy. Un paciente que quiera registrar el estado de un día pasado no puede hacerlo. La página de <code>UsuarioEstadoAnimo</code> tampoco tiene este campo.</p>
+        <ul style="margin-top:0.6rem">
+          <li><strong>Mejora:</strong> Agregar un date picker opcional con valor por defecto = hoy.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="finding-id">D-03</span>
+        <span class="finding-title">Link "Top Preguntas" usa <code>?id=</code> en lugar de slug <span class="flow-tag">Dashboard</span></span>
+        <span class="sev sev-info">Info</span>
+      </div>
+      <div class="card-body">
+        <p>El widget de P&amp;R del Dashboard genera URLs tipo <code>/Preguntas/Detalles?id=85e910de…</code>, mientras que las preguntas reales usan slugs (<code>/Preguntas/cuanto-tiempo-dura…</code>). La redirección funciona, pero la URL expone el GUID interno antes de redirigir.</p>
+        <ul style="margin-top:0.6rem">
+          <li><strong>Mejora (baja prioridad):</strong> Generar directamente el link con slug en el query del widget.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="finding-id">D-04</span>
+        <span class="finding-title">Laboratorio muestra "—" en resultado y fecha sin explicación <span class="flow-tag">Dashboard</span></span>
+        <span class="sev sev-high">Alto</span>
+      </div>
+      <div class="card-body">
+        <p>La fila "Calprotectina Cuantitativa" en el widget de laboratorio muestra "—" tanto en Resultado como en Fecha. Esto se debe al bug D-05 (400 en <code>ActualizarResultado</code>): el registro fue creado pero nunca pudo guardarse. Un usuario real no entendería por qué su resultado aparece vacío sin ningún mensaje de error.</p>
+        <ul style="margin-top:0.6rem">
+          <li><strong>Relacionado con:</strong> Bug Lab-01 en <em>Mi Salud</em> (handler <code>ActualizarResultado</code> retorna 400)</li>
+          <li><strong>Mejora:</strong> Mostrar "Sin datos" con un tooltip explicativo o un CTA para agregar el resultado.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────── P&R ─── -->
+  <div class="section" id="flujo-preguntas">
+    <h2>💬 Preguntas &amp; Respuestas</h2>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="finding-id">PR-01</span>
+        <span class="finding-title">No hay redirección al publicar una pregunta — se queda en modo edición <span class="flow-tag">P&amp;R</span></span>
+        <span class="sev sev-medium">Medio</span>
+      </div>
+      <div class="card-body">
+        <p>Al crear una pregunta exitosamente, la página cambia de "Haz tu Pregunta" a "Editar Pregunta" en la misma URL (que ahora incluye el GUID). El mensaje de éxito aparece con el link "Ir a la pregunta para ver las respuestas". El usuario no es redirigido automáticamente a la pregunta pública.</p>
+        <ul style="margin-top:0.6rem">
+          <li><strong>Carga cognitiva:</strong> El usuario debe hacer un click extra para ver su pregunta publicada.</li>
+          <li><strong>Mejora:</strong> Redirigir automáticamente a <code>/Preguntas/[slug]</code> tras la creación exitosa (o al menos mostrar un banner prominente con un countdown).</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="finding-id">PR-02</span>
+        <span class="finding-title">"Preguntas Similares" muestra la misma pregunta actual <span class="flow-tag">P&amp;R</span></span>
+        <span class="sev sev-medium">Medio</span>
+      </div>
+      <div class="card-body">
+        <p>El sidebar de la página de pregunta muestra en "Preguntas Similares" la misma pregunta que se está viendo. Genera confusión y parece un bug en la query de similitud.</p>
+        <ul style="margin-top:0.6rem">
+          <li><strong>Causa probable:</strong> La query de "preguntas similares" no excluye la pregunta actual (<code>WHERE Id != @currentId</code> faltante).</li>
+          <li><strong>Mejora:</strong> Filtrar la pregunta actual del resultado o mostrar "No hay preguntas similares aún" si no hay resultados.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="finding-id">PR-03</span>
+        <span class="finding-title">Link "compartir por email" usa dominio de producción en dev <span class="flow-tag">P&amp;R</span></span>
+        <span class="sev sev-info">Info</span>
+      </div>
+      <div class="card-body">
+        <p>El mailto del share sidebar usa <code>https://eiibd.com/Preguntas/…</code> en lugar de la URL actual del servidor. Esto es probablemente intencional (las preguntas se comparten con la URL de producción), pero vale la pena confirmarlo ya que en ambiente local podría generar confusión durante testing.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="finding-id">PR-04</span>
+        <span class="finding-title">Botones Like/Dislike deshabilitados para el autor de la pregunta <span class="flow-tag">P&amp;R</span></span>
+        <span class="sev sev-info">Info</span>
+      </div>
+      <div class="card-body">
+        <p>Los botones de votación (👍/👎) aparecen <code>disabled</code> en la página de la pregunta cuando el usuario autenticado es el autor. Este es el comportamiento correcto y esperado (no puedes votar tu propia pregunta). Se registra aquí para confirmar que es intencional y no un bug visual.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────── PDF ─── -->
+  <div class="section" id="flujo-pdf">
+    <h2>📄 Exportación PDF</h2>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="finding-id">PDF-01</span>
+        <span class="finding-title">PDF se descarga correctamente en todas las opciones de rango <span class="flow-tag">Dashboard</span></span>
+        <span class="sev sev-info">Info ✅</span>
+      </div>
+      <div class="card-body">
+        <p>Tanto el botón "Exportar" con rango personalizado como el link de acceso rápido "Último mes" generan y descargan el PDF correctamente (<code>eiibd_Berletzis_*.pdf</code>). No se detectaron errores ni timeouts.</p>
+        <ul style="margin-top:0.6rem">
+          <li>Descargado: <code>eiibd_Berletzis_20260425_7090dbac.pdf</code></li>
+          <li>Descargado: <code>eiibd_Berletzis_20260425_e6351c8b.pdf</code></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────── ESTADO ÁNIMO ─── -->
+  <div class="section" id="flujo-estado-animo">
+    <h2>😊 Estado de Ánimo (modal Dashboard)</h2>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="finding-id">EA-01</span>
+        <span class="finding-title">Modal se cierra silenciosamente tras guardar — sin confirmación visual <span class="flow-tag">Dashboard</span></span>
+        <span class="sev sev-low">Bajo</span>
+      </div>
+      <div class="card-body">
+        <p>Al guardar un estado de ánimo desde el modal del Dashboard, el modal se cierra sin ningún toast/notificación de éxito. El usuario no sabe si el registro fue guardado o si hubo un error silencioso.</p>
+        <ul style="margin-top:0.6rem">
+          <li><strong>Comparación:</strong> En la página <code>UsuarioEstadoAnimo</code> sí aparece el emoji nuevo en la lista de inmediato. Aquí no hay feedback.</li>
+          <li><strong>Mejora:</strong> Mostrar un toast "✅ Estado guardado" por 3 segundos tras el cierre del modal, y actualizar la gráfica sin reload completo.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="finding-id">EA-02</span>
+        <span class="finding-title">Modal tiene campos opcionales de condición/síntoma/tratamiento que requieren custom dropdowns complejos <span class="flow-tag">Dashboard</span></span>
+        <span class="sev sev-low">Bajo</span>
+      </div>
+      <div class="card-body">
+        <p>El modal de ánimo incluye tres custom selects (condición, síntoma, tratamiento) con búsqueda. Esto añade complejidad cognitiva a un registro que debería ser rápido. El "flujo mínimo" (solo seleccionar emoción y guardar) es correcto, pero los campos opcionales ocupan espacio visual prominente.</p>
+        <ul style="margin-top:0.6rem">
+          <li><strong>Mejora:</strong> Colapsar los campos opcionales en un link "+ Relacionar a condición/síntoma" para mantener el modal limpio.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────── DIRECTORIO ─── -->
+  <div class="section" id="flujo-directorio">
+    <h2>🏥 Directorio Médicos</h2>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="finding-id">DIR-01</span>
+        <span class="finding-title">Directorio vacío en local — sin datos de muestra para testear filtros y cards <span class="flow-tag">Directorio</span></span>
+        <span class="sev sev-info">Info</span>
+      </div>
+      <div class="card-body">
+        <p>El directorio muestra "0 médicos encontrados" en el ambiente local. Sin datos de prueba, es imposible verificar el renderizado de las cards de médicos, los filtros por estado/área, el badge de verificación y el detalle del perfil. Se recomienda tener al menos 5 médicos de muestra en el seed local.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="finding-id">DIR-02</span>
+        <span class="finding-title">Filtro de estado vacío — no hay opciones cargadas <span class="flow-tag">Directorio</span></span>
+        <span class="sev sev-medium">Medio</span>
+      </div>
+      <div class="card-body">
+        <p>El combobox de "Todos los estados" solo contiene esa opción. Las opciones de estados se generan dinámicamente desde los médicos registrados, por lo que en un directorio vacío no hay estados disponibles. Sin embargo, incluso en producción, esto podría ser un problema si los médicos no tienen estado asignado.</p>
+        <ul style="margin-top:0.6rem">
+          <li><strong>Mejora:</strong> Cargar la lista de estados de México desde una tabla fija (catálogo) independientemente de si hay médicos registrados.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="finding-id">DIR-03</span>
+        <span class="finding-title">Búsqueda funciona con SSR (query params en URL) — correcto para SEO <span class="flow-tag">Directorio</span></span>
+        <span class="sev sev-info">Info ✅</span>
+      </div>
+      <div class="card-body">
+        <p>La búsqueda por texto genera <code>?Busqueda=García&amp;Estado=&amp;AreaId=</code> en la URL mediante un GET request. Esto es correcto para SEO y permite compartir búsquedas. El resultado se muestra limpiamente aunque esté vacío.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────── FLUJO POST-PROPONER ─── -->
+  <div class="section" id="flujo-post-proponer">
+    <h2>🔄 Flujo post-Proponer (hallazgos de 2ª sesión)</h2>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="finding-id">PROP-05</span>
+        <span class="finding-title">Redirect post-submit va a Detalle que retorna 404 — flujo completamente roto <span class="flow-tag">Proponer</span></span>
+        <span class="sev sev-critical">Crítico</span>
+      </div>
+      <div class="card-body">
+        <p>Tras proponer un médico exitosamente, el servidor hace <code>RedirectToPage("Detalle", new { id = medicoId })</code>. Sin embargo, <code>GetDetalleAsync</code> filtra por <code>VisiblePublicamente == true &amp;&amp; Activo == true</code>, y los médicos propuestos se crean con ambas flags en <code>false</code> (requieren aprobación admin). El resultado es que el usuario ve <strong>404 · Página no encontrada</strong> inmediatamente después de una propuesta exitosa.</p>
+        <ul style="margin-top:0.6rem">
+          <li><strong>El mensaje de éxito</strong> (<em>"Gracias por tu aporte…"</em>) se guarda en <code>TempData</code> y solo aparece si el usuario navega manualmente al Directorio — completamente invisible para el usuario que ve la 404.</li>
+          <li><strong>Fix en <code>Proponer.cshtml.cs</code> línea 72:</strong> Cambiar el redirect de <code>RedirectToPage("Detalle", …)</code> a <code>RedirectToPage("/DirectorioMedicos/Index")</code> (o a una página de confirmación dedicada).</li>
+          <li><strong>Alternatively:</strong> Modificar <code>GetDetalleAsync</code> para mostrar el perfil al proponente aunque no sea público todavía (con badge "En revisión").</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="finding-id">PROP-06</span>
+        <span class="finding-title">Google Maps <code>place_changed</code> no dispara en Playwright headless — autocomplete inutilizable en tests automáticos <span class="flow-tag">Proponer</span></span>
+        <span class="sev sev-low">Bajo (contexto automático)</span>
+      </div>
+      <div class="card-body">
+        <p>El evento <code>place_changed</code> de Google Maps Places Autocomplete no se dispara cuando la selección se hace mediante <code>ArrowDown + Enter</code> via Playwright. El texto visible del input se actualiza pero los campos ocultos (<code>Estado</code>, <code>Latitud</code>, <code>Longitud</code>) quedan vacíos. Esto no afecta a usuarios reales que hagan click en la sugerencia, pero confirma que el flujo no es testeable automáticamente sin mockear el SDK de Maps.</p>
+        <ul style="margin-top:0.6rem">
+          <li><strong>Verificado:</strong> Con mouse click real (simulado via JS <code>mousedown+mouseup+click</code>) tampoco dispara. Solo el SDK de Google Maps tiene el handle del evento <code>place_changed</code>.</li>
+          <li><strong>Mejora de testabilidad:</strong> Agregar un atributo <code>data-testid</code> al campo oculto de Estado y un modo de fallback para tests (o mockear la API de Maps en el entorno de test).</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="finding-id">DIR-04</span>
+        <span class="finding-title">Detalle de médico no accesible antes de aprobación admin — sin página "en revisión" <span class="flow-tag">Directorio</span></span>
+        <span class="sev sev-high">Alto</span>
+      </div>
+      <div class="card-body">
+        <p>No existe ninguna página o vista que muestre al proponente el estado de su propuesta (pendiente, aprobado, rechazado). Una vez propuesto el médico, el usuario no tiene forma de saber qué pasó con su aporte sin que un admin lo apruebe y el médico aparezca en el directorio.</p>
+        <ul style="margin-top:0.6rem">
+          <li><strong>Mejora:</strong> Agregar una sección en el Dashboard paciente o en el perfil del usuario con "Mis propuestas" que muestre el estado de cada médico propuesto.</li>
+          <li><strong>O bien:</strong> Enviar un email de confirmación al proponente vía SendGrid.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────── PROPONER ─── -->
+  <div class="section" id="flujo-proponer">
+    <h2>➕ Proponer Médico</h2>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="finding-id">PROP-01</span>
+        <span class="finding-title">Formulario falla silenciosamente si no se usa el autocomplete de ciudad <span class="flow-tag">Proponer</span></span>
+        <span class="sev sev-critical">Crítico</span>
+      </div>
+      <div class="card-body">
+        <p>El campo <code>Input.Estado</code> es <strong>[Required]</strong> en el servidor pero es un <code>&lt;input type="hidden"&gt;</code> que solo se rellena cuando el usuario <em>selecciona</em> una sugerencia del autocomplete de Google Maps. Si el usuario escribe la ciudad manualmente (sin hacer click en la sugerencia), el campo queda vacío, el ModelState falla con <em>"El estado es obligatorio"</em> y la página vuelve a renderizar el formulario <strong>en blanco</strong>, sin mostrar ningún mensaje de error al usuario.</p>
+        <ul style="margin-top:0.6rem">
+          <li><strong>Flujo roto:</strong> Escribir "Ciudad de México" + Submit → página limpia, sin error visible, médico no guardado</li>
+          <li><strong>Sin mensaje de error:</strong> No hay <code>asp-validation-for="Input.Estado"</code> en el form, ni un <code>div asp-validation-summary</code></li>
+          <li><strong>Doble problema:</strong> El API de Google Maps Places usado (<code>google.maps.places.Autocomplete</code>) está deprecado desde marzo 2025. New customers no pueden usarlo. Si la key caduca, el autocomplete dejará de funcionar y <strong>nadie podrá proponer médicos</strong>.</li>
+          <li><strong>Mejora inmediata:</strong> Agregar <code>asp-validation-summary="ModelOnly"</code> al form para mostrar errores de servidor.</li>
+          <li><strong>Mejora estructural:</strong> Migrar a <code>google.maps.places.PlaceAutocompleteElement</code> (nuevo API) o agregar fallback de texto libre para el estado.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="finding-id">PROP-02</span>
+        <span class="finding-title">Nombres de países en inglés en un formulario en español <span class="flow-tag">Proponer</span></span>
+        <span class="sev sev-medium">Medio</span>
+      </div>
+      <div class="card-body">
+        <p>El dropdown de País muestra "Mexico", "Brazil", "Dominican Republic", "Spain" en inglés. El resto de la UI está en español. El mismatch es evidente y reduce la confianza del usuario.</p>
+        <ul style="margin-top:0.6rem">
+          <li><strong>Causa:</strong> La tabla <code>Paises</code> tiene el campo <code>PaisNombre</code> con valores en inglés.</li>
+          <li><strong>Mejora:</strong> Traducir los nombres a español en la tabla o agregar columna <code>PaisNombreEs</code>.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="finding-id">PROP-03</span>
+        <span class="finding-title">El primer <code>button[type="submit"]</code> del DOM es el botón de logout del top-menu <span class="flow-tag">Proponer</span></span>
+        <span class="sev sev-critical">Crítico</span>
+      </div>
+      <div class="card-body">
+        <p>Al intentar hacer submit programático con <code>document.querySelector('button[type="submit"]')</code>, se activa el botón de <em>Cerrar sesión</em> del top-menu, que es el primer submit del DOM, y se cierra la sesión del usuario. Aunque esto es un artefacto del método de testing automático, revela una vulnerabilidad potencial: si algún script de la página intentara hacer submit del formulario por referencia genérica, cerraría la sesión.</p>
+        <ul style="margin-top:0.6rem">
+          <li><strong>Raíz del problema:</strong> El formulario de logout de ASP.NET Identity está renderizado en el top-menu con <code>type="submit"</code>, antes que el formulario de Proponer en el DOM.</li>
+          <li><strong>Verificar:</strong> Que el botón "Agregar al directorio" tenga su propio <code>id</code> y que los scripts de la página hagan referencia a él por ID, no por selector genérico.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="finding-id">PROP-04</span>
+        <span class="finding-title">Validación solo muestra "El nombre completo es obligatorio" — no el error de Estado <span class="flow-tag">Proponer</span></span>
+        <span class="sev sev-high">Alto</span>
+      </div>
+      <div class="card-body">
+        <p>La validación cliente-side de JavaScript solo muestra "El nombre completo es obligatorio" como único error visible. El campo <code>Estado</code> (hidden, requerido en servidor) no tiene representación en la UI de error. El usuario ve la validación del nombre si no lo llena, pero nunca ve el error de Estado aunque sea el bloqueante real del submit.</p>
+        <ul style="margin-top:0.6rem">
+          <li><strong>Mejora:</strong> Agregar validación cliente-side que detecte si <code>#dir-estado-input</code> está vacío antes de submit, y mostrar un mensaje: "Por favor selecciona una ciudad del autocompletado."</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────── POSITIVOS ─── -->
+  <div class="section" id="positivos">
+    <h2>✅ Aspectos positivos</h2>
+
+    <div class="positive"><strong>Dashboard completo y cohesivo:</strong> El panel muestra síntomas, laboratorios, P&amp;R, estado de ánimo y PDF en una sola pantalla sin saturar. El diseño de tarjetas es consistente.</div>
+    <div class="positive"><strong>PDF funciona sin fricciones:</strong> Los tres rangos de exportación (personalizado, último mes, últimos 3/6 meses) generan PDF correctamente y se descargan de inmediato.</div>
+    <div class="positive"><strong>Creación de preguntas con sugerencias en tiempo real:</strong> Al escribir el título de la pregunta, aparece un widget con artículos relacionados. Excelente UX proactivo que reduce preguntas duplicadas.</div>
+    <div class="positive"><strong>Redirección <code>?id= → slug</code> funciona:</strong> Los links con query param (usados en el Dashboard widget) redirigen correctamente a la URL con slug. No hay links rotos.</div>
+    <div class="positive"><strong>Modal de ánimo es rico sin ser complejo:</strong> El modal incluye selección de emoción, reflexión opcional y relación a condición/síntoma/tratamiento. El flujo mínimo (clic + guardar) es de 2 clicks.</div>
+    <div class="positive"><strong>Directorio con filtros bien diseñados:</strong> La combinación de búsqueda texto + estado + área EII cubre los casos de uso principales. Los filtros se preservan en URL (shareable).</div>
+  </div>
+
+  <!-- ──────────────────────────────────────── RESUMEN ─── -->
+  <div class="section" id="resumen">
+    <h2>📋 Tabla de resumen</h2>
+    <table class="summary-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Flujo</th>
+          <th>Descripción</th>
+          <th>Severidad</th>
+          <th>Acción sugerida</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>PROP-01</strong></td>
+          <td>Proponer médico</td>
+          <td>Form falla silenciosamente si no se usa autocomplete</td>
+          <td><span class="sev sev-critical">Crítico</span></td>
+          <td>Agregar <code>asp-validation-summary</code> + validación JS del campo Estado; migrar Google Maps API</td>
+        </tr>
+        <tr>
+          <td><strong>PROP-03</strong></td>
+          <td>Proponer médico</td>
+          <td>Primer <code>button[type="submit"]</code> en DOM es logout</td>
+          <td><span class="sev sev-critical">Crítico</span></td>
+          <td>Verificar que el botón "Agregar" tiene <code>id</code> propio y no depende de selector genérico</td>
+        </tr>
+        <tr>
+          <td><strong>D-04</strong></td>
+          <td>Dashboard</td>
+          <td>Lab muestra "—" sin explicación (relacionado con bug 400)</td>
+          <td><span class="sev sev-high">Alto</span></td>
+          <td>Resolver bug handler <code>ActualizarResultado</code> (400); agregar tooltip en "—"</td>
+        </tr>
+        <tr>
+          <td><strong>PROP-04</strong></td>
+          <td>Proponer médico</td>
+          <td>Validación no muestra error de Estado al usuario</td>
+          <td><span class="sev sev-high">Alto</span></td>
+          <td>Agregar validación JS explícita para <code>#dir-estado-input</code> vacío</td>
+        </tr>
+        <tr>
+          <td><strong>D-01</strong></td>
+          <td>Dashboard</td>
+          <td>Eje X duplicado en gráfica de ánimo con múltiples registros por día</td>
+          <td><span class="sev sev-medium">Medio</span></td>
+          <td>Agrupar datos por día antes de renderizar gráfica</td>
+        </tr>
+        <tr>
+          <td><strong>PR-01</strong></td>
+          <td>P&amp;R</td>
+          <td>No hay redirección automática al publicar pregunta</td>
+          <td><span class="sev sev-medium">Medio</span></td>
+          <td>Redirigir a <code>/Preguntas/[slug]</code> tras creación exitosa</td>
+        </tr>
+        <tr>
+          <td><strong>PR-02</strong></td>
+          <td>P&amp;R</td>
+          <td>"Preguntas similares" incluye la pregunta actual</td>
+          <td><span class="sev sev-medium">Medio</span></td>
+          <td>Agregar <code>WHERE Id != @currentId</code> a la query</td>
+        </tr>
+        <tr>
+          <td><strong>DIR-02</strong></td>
+          <td>Directorio</td>
+          <td>Filtro de estado vacío — no hay catálogo fijo</td>
+          <td><span class="sev sev-medium">Medio</span></td>
+          <td>Cargar estados de México desde tabla catálogo fija</td>
+        </tr>
+        <tr>
+          <td><strong>PROP-02</strong></td>
+          <td>Proponer médico</td>
+          <td>Países en inglés en UI en español</td>
+          <td><span class="sev sev-medium">Medio</span></td>
+          <td>Traducir <code>PaisNombre</code> a español en la tabla <code>Paises</code></td>
+        </tr>
+        <tr>
+          <td><strong>D-02</strong></td>
+          <td>Dashboard</td>
+          <td>Modal de ánimo no tiene campo de fecha</td>
+          <td><span class="sev sev-low">Bajo</span></td>
+          <td>Agregar date picker opcional con default = hoy</td>
+        </tr>
+        <tr>
+          <td><strong>EA-01</strong></td>
+          <td>Estado de ánimo</td>
+          <td>Modal cierra sin confirmación visual</td>
+          <td><span class="sev sev-low">Bajo</span></td>
+          <td>Agregar toast "✅ Estado guardado" después del cierre</td>
+        </tr>
+        <tr>
+          <td><strong>EA-02</strong></td>
+          <td>Estado de ánimo</td>
+          <td>Campos opcionales en modal añaden complejidad visual</td>
+          <td><span class="sev sev-low">Bajo</span></td>
+          <td>Colapsar campos opcionales por defecto</td>
+        </tr>
+        <tr>
+          <td><strong>D-03</strong></td>
+          <td>Dashboard</td>
+          <td>Link P&amp;R usa <code>?id=</code> antes de redirigir a slug</td>
+          <td><span class="sev sev-info">Info</span></td>
+          <td>Generar link con slug directamente en widget</td>
+        </tr>
+        <tr>
+          <td><strong>PR-03</strong></td>
+          <td>P&amp;R</td>
+          <td>Email de compartir usa dominio de producción</td>
+          <td><span class="sev sev-info">Info</span></td>
+          <td>Confirmar si es intencional para todos los entornos</td>
+        </tr>
+        <tr>
+          <td><strong>PROP-05</strong></td>
+          <td>Proponer médico</td>
+          <td>Redirect post-submit va a Detalle/{id} → 404 (médico invisible hasta aprobación)</td>
+          <td><span class="sev sev-critical">Crítico</span></td>
+          <td>Cambiar redirect a <code>RedirectToPage("/DirectorioMedicos/Index")</code> en <code>Proponer.cshtml.cs:72</code></td>
+        </tr>
+        <tr>
+          <td><strong>DIR-04</strong></td>
+          <td>Directorio</td>
+          <td>Sin página "mis propuestas" — proponente no sabe el estado de su aporte</td>
+          <td><span class="sev sev-high">Alto</span></td>
+          <td>Agregar sección "Mis propuestas" en perfil de usuario o enviar email de confirmación</td>
+        </tr>
+        <tr>
+          <td><strong>PROP-06</strong></td>
+          <td>Proponer médico</td>
+          <td><code>place_changed</code> de Google Maps no dispara en Playwright — no testeable automáticamente</td>
+          <td><span class="sev sev-low">Bajo</span></td>
+          <td>Mockear Maps API en entorno de test o agregar fallback</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ──────────────────────────────────────── SCREENSHOTS ─── -->
+  <div class="section" id="screenshots">
+    <h2>📸 Screenshots</h2>
+    <div class="screenshot-grid">
+      <div class="screenshot-item">
+        <img src="../../.playwright-mcp/page-2026-05-26T03-38-30-222Z.png" alt="Dashboard" />
+        <div class="caption">Dashboard principal</div>
+      </div>
+      <div class="screenshot-item">
+        <img src="../../.playwright-mcp/dashboard-mood-modal-open.png" alt="Modal ánimo" />
+        <div class="caption">Modal estado de ánimo</div>
+      </div>
+      <div class="screenshot-item">
+        <img src="../../.playwright-mcp/dashboard-pregunta-form-filled.png" alt="Form pregunta" />
+        <div class="caption">Crear pregunta — form lleno</div>
+      </div>
+      <div class="screenshot-item">
+        <img src="../../.playwright-mcp/dashboard-pregunta-submitted.png" alt="Pregunta enviada" />
+        <div class="caption">Pregunta creada — modo edición</div>
+      </div>
+      <div class="screenshot-item">
+        <img src="../../.playwright-mcp/dashboard-pregunta-publica.png" alt="Pregunta pública" />
+        <div class="caption">Pregunta pública con similares (bug circular)</div>
+      </div>
+      <div class="screenshot-item">
+        <img src="../../.playwright-mcp/dashboard-pdf-export.png" alt="PDF export" />
+        <div class="caption">Exportación PDF personalizada</div>
+      </div>
+      <div class="screenshot-item">
+        <img src="../../.playwright-mcp/directorio-landing.png" alt="Directorio vacío" />
+        <div class="caption">Directorio — 0 médicos en local</div>
+      </div>
+      <div class="screenshot-item">
+        <img src="../../.playwright-mcp/directorio-search-empty.png" alt="Directorio búsqueda" />
+        <div class="caption">Búsqueda SSR con query params</div>
+      </div>
+      <div class="screenshot-item">
+        <img src="../../.playwright-mcp/directorio-proponer.png" alt="Proponer médico" />
+        <div class="caption">Formulario Proponer médico</div>
+      </div>
+      <div class="screenshot-item">
+        <img src="../../.playwright-mcp/directorio-proponer-validation.png" alt="Validación proponer" />
+        <div class="caption">Validación — solo muestra error de nombre</div>
+      </div>
+      <div class="screenshot-item">
+        <img src="../../.playwright-mcp/directorio-proponer-filled.png" alt="Proponer lleno" />
+        <div class="caption">Formulario completo antes de submit</div>
+      </div>
+      <div class="screenshot-item">
+        <img src="../../.playwright-mcp/directorio-proponer-result.png" alt="Resultado proponer" />
+        <div class="caption">Resultado submit — falla silenciosa (Estado vacío)</div>
+      </div>
+      <div class="screenshot-item">
+        <img src="../../.playwright-mcp/directorio-autocomplete-dropdown.png" alt="Autocomplete Maps" />
+        <div class="caption">Autocomplete Google Maps — dropdown activo</div>
+      </div>
+      <div class="screenshot-item">
+        <img src="../../.playwright-mcp/directorio-after-proponer.png" alt="Directorio post-proponer" />
+        <div class="caption">Directorio — TempData success aparece aquí (tras 404)</div>
+      </div>
+    </div>
+  </div>
+
+  <p style="text-align:center;color:var(--gris);font-size:0.8rem;padding:2rem 0 1rem">
+    Generado por Playwright MCP · Claude Code · 2026-05-26 · eiibd UX Testing
+  </p>
+
+</div>
+</body>
+</html>

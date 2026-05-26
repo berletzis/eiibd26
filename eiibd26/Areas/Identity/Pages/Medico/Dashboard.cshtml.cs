@@ -79,15 +79,16 @@ public class DashboardModel : PageModel
                     }
                 }
 
-                TotalRecomendaciones = await _db.DirectorioMedicoConfirmaciones
-                    .CountAsync(c => c.MedicoId == perfil.MedicoId.Value && !c.Eliminado);
+                TotalRecomendaciones = await _db.ConfirmacionesComunitarias
+                    .AsNoTracking()
+                    .CountAsync(c => c.MedicoDirectorioId == perfil.MedicoId.Value && !c.Eliminado);
 
                 if (NivelActual >= 2)
                 {
-                    var confirmaciones = await _db.DirectorioMedicoConfirmaciones
+                    var confirmaciones = await _db.ConfirmacionesComunitarias
                         .AsNoTracking()
-                        .Where(c => c.MedicoId == perfil.MedicoId.Value && !c.Eliminado)
-                        .OrderByDescending(c => c.FechaConfirmacion)
+                        .Where(c => c.MedicoDirectorioId == perfil.MedicoId.Value && !c.Eliminado)
+                        .OrderByDescending(c => c.FechaCreacion)
                         .Take(20)
                         .ToListAsync();
 
@@ -105,11 +106,11 @@ public class DashboardModel : PageModel
 
                     Recomendaciones = confirmaciones.Select(c => new RecomendacionDashboardVm
                     {
-                        FechaConfirmacion = c.FechaConfirmacion,
-                        ExpCUCI           = c.ExpCUCI,
-                        ExpCrohn          = c.ExpCrohn,
-                        ExpPediatrico     = c.ExpPediatrico,
-                        ExpBiologicos     = c.ExpBiologicos,
+                        FechaConfirmacion = c.FechaCreacion.DateTime,
+                        ExpCUCI           = false,
+                        ExpCrohn          = false,
+                        ExpPediatrico     = false,
+                        ExpBiologicos     = false,
                         NombrePaciente    = NivelActual >= 3 && nombresPacientes.TryGetValue(c.UsuarioId, out var n)
                                                ? n : null
                     }).ToList();

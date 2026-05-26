@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using eiibd26.Models;
+using eiibd26.Services;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Linq;
@@ -15,7 +16,13 @@ namespace eiibd26.Controllers
     public class EstadoAnimoUsuarioController : ControllerBase
     {
         private readonly ApplicationDbContext _db;
-        public EstadoAnimoUsuarioController(ApplicationDbContext db) { _db = db; }
+        private readonly ClinicalOwnershipValidator _ownership;
+
+        public EstadoAnimoUsuarioController(ApplicationDbContext db, ClinicalOwnershipValidator ownership)
+        {
+            _db = db;
+            _ownership = ownership;
+        }
 
         [HttpGet("historico")]
         public async Task<ActionResult<List<object>>> Historico()
@@ -103,7 +110,8 @@ namespace eiibd26.Controllers
             [FromForm] string? texto,
             [FromForm] int? condicionUsuarioId,
             [FromForm] int? sintomaUsuarioId,
-            [FromForm] int? tratamientoUsuarioId)
+            [FromForm] int? tratamientoUsuarioId,
+            [FromForm] DateTime? fechaRegistro)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (userId == null) return Unauthorized();
@@ -132,12 +140,26 @@ namespace eiibd26.Controllers
 
             if (string.IsNullOrWhiteSpace(texto)) texto = null;
 
+            if (texto?.Length > 2000)
+                return BadRequest(new { ok = false, error = "El texto no puede superar 2000 caracteres." });
+
+            // SEC-010: Validar que los FK opcionales pertenecen al usuario autenticado.
+            // Evita que un cliente manipule IDs de otro paciente.
+            var invalidField = await _ownership.ValidateEstadoAnimoRelationsAsync(
+                condicionUsuarioId, sintomaUsuarioId, tratamientoUsuarioId, guid);
+            if (invalidField is not null)
+                return BadRequest(new { ok = false, error = $"El campo {invalidField} no pertenece al usuario autenticado." });
+
             var nuevo = new EstadoAnimoUsuario
             {
                 IdUsuario = guid,
                 EstadoMood = estadoEnum,
                 Texto = texto,
-                FechaRegistro = DateTime.UtcNow,
+                FechaRegistro = (fechaRegistro.HasValue
+                    && fechaRegistro.Value <= DateTime.UtcNow
+                    && fechaRegistro.Value >= DateTime.UtcNow.AddHours(-24))
+                    ? DateTime.SpecifyKind(fechaRegistro.Value, DateTimeKind.Utc)
+                    : DateTime.UtcNow,
                 IdCondicionUsuario = condicionUsuarioId,
                 IdSintomaUsuario = sintomaUsuarioId,
                 IdTratamientoUsuario = tratamientoUsuarioId

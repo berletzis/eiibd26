@@ -28,6 +28,8 @@ namespace eiibd26.Models
         [Display(Name = "Validado por Humano")]
         public bool ValidadoHumano { get; set; } = false;
 
+        public string? NombreSugeridoIA { get; set; }
+
         [Display(Name = "Relación con EII (texto)")]
         [StringLength(1000)]
         public string? RelacionEIIDescripcion { get; set; }

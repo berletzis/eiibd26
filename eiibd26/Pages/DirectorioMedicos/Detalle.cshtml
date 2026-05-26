@@ -4,6 +4,28 @@
 @{
     ViewData["Title"] = $"{Model.Medico!.NombreCompleto} — Directorio EII";
     Layout = "_Layout";
+
+    var ogTitle   = Model.Medico.NombreCompleto;
+    var ogDesc    = string.IsNullOrWhiteSpace(Model.Medico.Especialidad)
+        ? $"Perfil del especialista {Model.Medico.NombreCompleto} en el directorio de médicos de EIIBD."
+        : $"{Model.Medico.Especialidad} · {Model.Medico.NombreCompleto} — Directorio de médicos EIIBD.";
+    var ogImage   = !string.IsNullOrWhiteSpace(Model.Medico.Foto)
+        ? $"{Request.Scheme}://{Request.Host}{Model.Medico.Foto}"
+        : $"{Request.Scheme}://{Request.Host}/img/logo.png";
+    var ogUrl     = $"{Request.Scheme}://{Request.Host}{Request.Path}";
+}
+
+@section Head {
+    <meta name="description" content="@ogDesc" />
+    <meta property="og:type"        content="profile" />
+    <meta property="og:title"       content="@ogTitle" />
+    <meta property="og:description" content="@ogDesc" />
+    <meta property="og:image"       content="@ogImage" />
+    <meta property="og:url"         content="@ogUrl" />
+    <meta name="twitter:card"       content="summary" />
+    <meta name="twitter:title"      content="@ogTitle" />
+    <meta name="twitter:description" content="@ogDesc" />
+    <meta name="twitter:image"      content="@ogImage" />
 }
 
 @section Styles {
@@ -317,19 +339,6 @@
                         <form method="post" asp-page-handler="ConfirmarSimple">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="medicoId" value="@Model.Medico.Id" />
-                            <p class="text-muted mb-2" style="font-size:.875rem;">Selecciona las áreas donde este médico tiene experiencia (opcional):</p>
-                            <div class="row g-1 mb-3">
-                                <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="expCUCI" value="true" id="chk-cuci"/><label class="form-check-label" for="chk-cuci">CUCI</label></div></div>
-                                <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="expCrohn" value="true" id="chk-crohn"/><label class="form-check-label" for="chk-crohn">Crohn</label></div></div>
-                                <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="expPediatrico" value="true" id="chk-ped"/><label class="form-check-label" for="chk-ped">Pediátrico</label></div></div>
-                                <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="expOstomias" value="true" id="chk-ost"/><label class="form-check-label" for="chk-ost">Ostomías</label></div></div>
-                                <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="expBiologicos" value="true" id="chk-bio"/><label class="form-check-label" for="chk-bio">Biológicos</label></div></div>
-                                <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="expEmbarazoEII" value="true" id="chk-emb"/><label class="form-check-label" for="chk-emb">Embarazo + EII</label></div></div>
-                                <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="expManejoBrotes" value="true" id="chk-bro"/><label class="form-check-label" for="chk-bro">Manejo brotes</label></div></div>
-                                <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="expSegundaOpinion" value="true" id="chk-seg"/><label class="form-check-label" for="chk-seg">Segunda opinión</label></div></div>
-                                <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="expCirugia" value="true" id="chk-cir"/><label class="form-check-label" for="chk-cir">Cirugía</label></div></div>
-                                <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" name="expSeguimientoProlongado" value="true" id="chk-seg2"/><label class="form-check-label" for="chk-seg2">Seguimiento</label></div></div>
-                            </div>
                             <button type="submit" class="crm-btn crm-btn-primary">
                                 <i class="bi bi-person-check me-1"></i> Confirmar médico
                             </button>

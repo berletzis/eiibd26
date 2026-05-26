@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Directorio Médicos Fase 2 — Migración ConfirmacionesComunitarias</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 0 auto; padding: 24px; background: #f8fafc; color: #1a202c; }
+    h1 { color: #2E86AB; border-bottom: 3px solid #2E86AB; padding-bottom: 8px; }
+    h2 { color: #374151; margin-top: 28px; }
+    .verdict { font-size: 1.4rem; font-weight: bold; padding: 14px 22px; border-radius: 8px; margin: 20px 0; }
+    .apto { background: #d1fae5; color: #065f46; border: 2px solid #10b981; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 20px 0; }
+    .kpi { background: white; border-radius: 8px; padding: 14px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .kpi-number { font-size: 2.2rem; font-weight: bold; }
+    .kpi-label { font-size: 0.82rem; color: #6b7280; margin-top: 4px; }
+    .green { color: #10b981; }
+    table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    th { background: #2E86AB; color: white; padding: 9px 13px; text-align: left; font-size: .9rem; }
+    td { padding: 9px 13px; border-bottom: 1px solid #e5e7eb; font-size: .88rem; }
+    tr:last-child td { border-bottom: none; }
+    .pass { background: #d1fae5; color: #065f46; padding: 2px 7px; border-radius: 4px; font-size: .78rem; font-weight: 600; }
+    code { background: #f3f4f6; padding: 2px 5px; border-radius: 3px; font-family: monospace; font-size: .82rem; }
+    .note { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 12px 16px; margin: 12px 0; font-size: .88rem; color: #1e40af; }
+    .meta { color: #6b7280; font-size: .88rem; }
+  </style>
+</head>
+<body>
+
+<h1>Directorio Médicos Fase 2 — Eliminación deuda <code>DirectorioMedicoConfirmaciones</code></h1>
+<p class="meta">Fecha: 2026-05-25 &nbsp;|&nbsp; Rama: master</p>
+
+<div class="verdict apto">
+  ✅ MIGRACIÓN COMPLETA — Fuente única <code>ConfirmacionesComunitarias</code> · 0 errores · 10/10 escenarios PASS
+</div>
+
+<h2>KPIs</h2>
+<div class="kpi-grid">
+  <div class="kpi">
+    <div class="kpi-number green">0</div>
+    <div class="kpi-label">Referencias activas a tabla antigua</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-number green">0</div>
+    <div class="kpi-label">Errores de build</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-number green">9</div>
+    <div class="kpi-label">Cambios aplicados</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-number green">10/10</div>
+    <div class="kpi-label">Escenarios PASS</div>
+  </div>
+</div>
+
+<h2>Archivos modificados</h2>
+<table>
+  <thead>
+    <tr><th>Archivo</th><th>Cambios</th><th>Descripción</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>Services/Directorio/MedicoDirectorioService.cs</code></td>
+      <td>2</td>
+      <td><code>GetListadoAsync</code> + <code>GetDetalleAsync</code> — TotalConfirmaciones y TotalPacientesUnicos</td>
+    </tr>
+    <tr>
+      <td><code>Services/Medico/MedicoBadgeService.cs</code></td>
+      <td>1</td>
+      <td>Badge <code>activo_comunidad</code> — count para umbral ≥ 5</td>
+    </tr>
+    <tr>
+      <td><code>Pages/DirectorioMedicos/Index.cshtml.cs</code></td>
+      <td>1</td>
+      <td><code>MedicosConEII</code> — médicos con cualquier confirmación (sin filtros booleanos EII)</td>
+    </tr>
+    <tr>
+      <td><code>Areas/Identity/Pages/Medico/Dashboard.cshtml.cs</code></td>
+      <td>2</td>
+      <td><code>TotalRecomendaciones</code> + lista de 20 confirmaciones (<code>FechaCreacion.DateTime</code>, <code>Exp* = false</code>)</td>
+    </tr>
+    <tr>
+      <td><code>Areas/Identity/Pages/Admin/DirectorioMedicos/Index.cshtml.cs</code></td>
+      <td>3</td>
+      <td>Grid count+any · <code>OnGetMedicoAsync</code> con Include TipoConfirmacion · <code>RecalcularNivelAsync</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Escenarios verificados</h2>
+<table>
+  <thead>
+    <tr><th>#</th><th>Escenario</th><th>Estado</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Grep: cero referencias activas a <code>_db.DirectorioMedicoConfirmaciones.*</code></td><td><span class="pass">✅ PASS</span></td></tr>
+    <tr><td>2</td><td>Build limpio — 0 errores CS</td><td><span class="pass">✅ PASS</span></td></tr>
+    <tr><td>3</td><td>Listado de médicos — TotalConfirmaciones correcto</td><td><span class="pass">✅ PASS</span></td></tr>
+    <tr><td>4</td><td>Vista detalle — TotalConfirmaciones correcto</td><td><span class="pass">✅ PASS</span></td></tr>
+    <tr><td>5</td><td>Badge activo_comunidad — cuenta en tabla nueva</td><td><span class="pass">✅ PASS</span></td></tr>
+    <tr><td>6</td><td>Index público MedicosConEII — cualquier confirmación = EII</td><td><span class="pass">✅ PASS</span></td></tr>
+    <tr><td>7</td><td>Dashboard médico — TotalRecomendaciones + lista confirmaciones</td><td><span class="pass">✅ PASS</span></td></tr>
+    <tr><td>8</td><td>Admin grid — count + tieneConfEII</td><td><span class="pass">✅ PASS</span></td></tr>
+    <tr><td>9</td><td>Admin detalle — expContadores + confirmadores + tieneConfEII</td><td><span class="pass">✅ PASS</span></td></tr>
+    <tr><td>10</td><td>RecalcularNivelAsync — total + tieneEII correctos</td><td><span class="pass">✅ PASS</span></td></tr>
+  </tbody>
+</table>
+
+<h2>Cambios de comportamiento notables</h2>
+<div class="note">
+  <strong>Dashboard — Áreas EII por confirmación:</strong> La vista mostraba tags como "CUCI", "Crohn", "Biológicos" por cada confirmación, extraídos de los campos booleanos del modelo antiguo. En el nuevo modelo esas etiquetas siempre son vacías (todos los <code>Exp*</code> = <code>false</code>), porque <code>ConfirmacionComunitaria</code> no almacena granularidad por área EII. El contador total y los nombres de pacientes siguen funcionando correctamente.
+</div>
+<div class="note">
+  <strong>Admin — <code>expContadores</code>:</strong> El panel de detalle del médico mostraba conteos por área (CUCI: 3, Crohn: 2, etc.). Ahora muestra todos en 0. La estructura JSON es idéntica para no romper el frontend JS. La lista de confirmadores muestra el <code>TipoConfirmacion.Nombre</code> en lugar de las etiquetas de área.
+</div>
+<div class="note">
+  <strong>Tabla <code>DirectorioMedicoConfirmacion</code>:</strong> El DbSet y el modelo se mantienen en la aplicación. La tabla en BD no se elimina. Contiene datos históricos de confirmaciones previas a la migración. Si en el futuro se decide eliminar, requiere script SQL idempotente en <code>SQL/</code>.
+</div>
+
+<hr>
+<p class="meta">Generado: 2026-05-25 · Archivos de detalle: <code>01-matriz-referencias.md</code> · <code>02-migracion-servicios.md</code> · <code>03-verificacion.md</code></p>
+</body>
+</html>

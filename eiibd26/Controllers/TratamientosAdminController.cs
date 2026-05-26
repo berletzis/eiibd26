@@ -51,13 +51,14 @@ namespace eiibd26.Controllers
                     tratamiento.nombre, 
                     cancellationToken);
 
-                // ⭐ ACTUALIZAR EL NOMBRE SI SE TRADUJO
-                if (!string.IsNullOrWhiteSpace(nombreTraducido) && 
+                if (!string.IsNullOrWhiteSpace(nombreTraducido) &&
                     !nombreTraducido.Equals(tratamiento.nombre, StringComparison.OrdinalIgnoreCase))
                 {
-                    _logger.LogInformation("Traduciendo nombre de '{NombreOriginal}' a '{NombreTraducido}'", 
-                        tratamiento.nombre, nombreTraducido);
-                    tratamiento.nombre = nombreTraducido;
+                    _logger.LogInformation(
+                        "IA sugirió nombre '{NombreTraducido}' para tratamiento '{NombreOriginal}' — pendiente aprobación admin.",
+                        nombreTraducido, tratamiento.nombre);
+                    tratamiento.NombreSugeridoIA = nombreTraducido;
+                    tratamiento.ValidadoHumano = false;
                 }
 
                 tratamiento.DescripcionIA = descripcion;
@@ -308,20 +309,21 @@ namespace eiibd26.Controllers
                             tratamiento.nombre, 
                             cancellationToken);
 
-                        // ⭐ ACTUALIZAR EL NOMBRE SI SE TRADUJO
                         var nombreOriginal = tratamiento.nombre;
-                        if (!string.IsNullOrWhiteSpace(nombreTraducido) && 
+                        if (!string.IsNullOrWhiteSpace(nombreTraducido) &&
                             !nombreTraducido.Equals(tratamiento.nombre, StringComparison.OrdinalIgnoreCase))
                         {
-                            _logger.LogInformation("Traduciendo nombre de '{NombreOriginal}' a '{NombreTraducido}'", 
-                                tratamiento.nombre, nombreTraducido);
-                            tratamiento.nombre = nombreTraducido;
+                            _logger.LogInformation(
+                                "IA sugirió nombre '{NombreTraducido}' para tratamiento '{NombreOriginal}' — pendiente aprobación admin.",
+                                nombreTraducido, tratamiento.nombre);
+                            tratamiento.NombreSugeridoIA = nombreTraducido;
+                            tratamiento.ValidadoHumano = false;
                         }
 
                         // Actualizar el tratamiento
                         tratamiento.DescripcionIA = descripcion;
                         tratamiento.ValidadoIA = true;
-                        tratamiento.ValidadoHumano = false; // ⭐ Resetear validación humana
+                        tratamiento.ValidadoHumano = false; // Resetear validación humana
                         tratamiento.RelacionEII = relacionEII;
                         tratamiento.RelacionEIIDescripcion = _aiService.UltimaExplicacionEII;
                         tratamiento.Fuentes = _aiService.UltimasFuentes;
@@ -335,8 +337,8 @@ namespace eiibd26.Controllers
                         resultados.Add(new BatchResultItem
                         {
                             Id = tratamiento.id,
-                            Nombre = tratamiento.nombre, // ⭐ Usar el nombre actualizado (traducido)
-                            NombreOriginal = nombreOriginal != tratamiento.nombre ? nombreOriginal : null,
+                            Nombre = tratamiento.nombre,
+                            NombreSugeridoIA = tratamiento.NombreSugeridoIA,
                             Success = true,
                             RelacionEII = relacionEII
                         });
@@ -434,7 +436,7 @@ namespace eiibd26.Controllers
         {
             public int Id { get; set; }
             public string Nombre { get; set; } = "";
-            public string? NombreOriginal { get; set; } // ⭐ NUEVO: Para mostrar traducciones
+            public string? NombreSugeridoIA { get; set; }
             public bool Success { get; set; }
             public string? Error { get; set; }
             public bool RelacionEII { get; set; }

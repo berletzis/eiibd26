@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Directorio Fase 3 — Diseño Granularidad EII</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 960px; margin: 0 auto; padding: 24px; background: #f8fafc; color: #1a202c; }
+    h1 { color: #2E86AB; border-bottom: 3px solid #2E86AB; padding-bottom: 8px; }
+    h2 { color: #374151; margin-top: 28px; }
+    .status { display: inline-block; padding: 6px 16px; border-radius: 6px; font-weight: 600; font-size: .9rem; }
+    .design { background: #eff6ff; color: #1d4ed8; border: 2px solid #93c5fd; }
+    .alert-box { padding: 14px 18px; border-radius: 8px; margin: 16px 0; font-size: .9rem; }
+    .info { background: #eff6ff; border-left: 4px solid #3b82f6; color: #1e3a8a; }
+    .warn { background: #fffbeb; border-left: 4px solid #f59e0b; color: #78350f; }
+    .ok { background: #f0fdf4; border-left: 4px solid #22c55e; color: #14532d; }
+    table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    th { background: #2E86AB; color: white; padding: 9px 13px; text-align: left; font-size: .88rem; }
+    td { padding: 9px 13px; border-bottom: 1px solid #e5e7eb; font-size: .85rem; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    .pass { background: #d1fae5; color: #065f46; padding: 2px 7px; border-radius: 4px; font-size: .78rem; font-weight: 600; }
+    .lost { background: #fee2e2; color: #991b1b; padding: 2px 7px; border-radius: 4px; font-size: .78rem; font-weight: 600; }
+    .restored { background: #dbeafe; color: #1e40af; padding: 2px 7px; border-radius: 4px; font-size: .78rem; font-weight: 600; }
+    .na { background: #f3f4f6; color: #6b7280; padding: 2px 7px; border-radius: 4px; font-size: .78rem; font-weight: 600; }
+    code { background: #f3f4f6; padding: 2px 5px; border-radius: 3px; font-family: monospace; font-size: .82rem; }
+    pre { background: #1e293b; color: #e2e8f0; padding: 14px 18px; border-radius: 8px; overflow-x: auto; font-size: .82rem; }
+    .diagram { background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; font-family: monospace; font-size: .82rem; white-space: pre; margin: 12px 0; }
+    .meta { color: #6b7280; font-size: .88rem; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: .76rem; font-weight: 600; margin: 2px; }
+    .tag-alta { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
+    .tag-media { background: #fffbeb; color: #92400e; border: 1px solid #fcd34d; }
+    .tag-baja { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+    .tag-na { background: #f9fafb; color: #6b7280; border: 1px solid #d1d5db; }
+    .section-nota { font-size: .78rem; color: #6b7280; font-style: italic; margin-top: 4px; }
+  </style>
+</head>
+<body>
+
+<h1>Directorio Médicos Fase 3 — Propuesta Arquitectónica</h1>
+<p class="meta">Fecha: 2026-05-25 &nbsp;|&nbsp; Fase: DISEÑO (sin implementación) &nbsp;|&nbsp; Precondición: Fase 2 completada</p>
+
+<span class="status design">📐 Solo diseño — no hay código ni cambios de BD</span>
+
+<div class="alert-box info" style="margin-top:16px;">
+  <strong>Contexto:</strong> Tras Fase 2, la fuente única es <code>ConfirmacionesComunitarias</code>.
+  El modelo actual no almacena por qué área EII confirmó el paciente.
+  El Dashboard médico muestra esas áreas vacías. Este documento propone cómo recuperarlas.
+</div>
+
+<h2>Problema</h2>
+<table>
+  <thead><tr><th>Pantalla</th><th>Dato perdido</th><th>Impacto</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Dashboard médico — lista de confirmaciones</td>
+      <td>Tags CUCI, Crohn, Pediátrico, Biológicos por confirmación</td>
+      <td><span class="tag tag-alta">ALTA</span></td>
+    </tr>
+    <tr>
+      <td>Admin detalle — <code>expContadores</code></td>
+      <td>Conteo de confirmaciones por área (ahora todos en 0)</td>
+      <td><span class="tag tag-media">MEDIA</span></td>
+    </tr>
+    <tr>
+      <td>Admin detalle — <code>confirmadores[].exps</code></td>
+      <td>Áreas específicas por confirmador (ahora muestra TipoConfirmacion)</td>
+      <td><span class="tag tag-media">MEDIA</span></td>
+    </tr>
+    <tr>
+      <td>Contadores, badges, nivel confianza</td>
+      <td>Sin pérdida</td>
+      <td><span class="tag tag-na">SIN IMPACTO</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Solución propuesta — Opción B: <code>ConfirmacionComunitariaArea</code></h2>
+
+<div class="alert-box ok">
+  <strong>Principio:</strong> Reutilizar <code>AreaExperienciaEii</code> (tabla ya existe con las 10 áreas).
+  Agregar tabla puente que relaciona cada confirmación con las áreas que el paciente seleccionó.
+  Sin modificar tablas existentes. Sin romper datos históricos.
+</div>
+
+<div class="diagram">ConfirmacionComunitaria (1)
+    └──(N) ConfirmacionComunitariaArea
+                ├── ConfirmacionComunitariaId  FK → ConfirmacionComunitaria.Id
+                └── AreaExperienciaEiiId       FK → AreaExperienciaEii.Id
+                                                         ↑
+                                           (ya existe con CUCI, Crohn, etc.)</div>
+
+<h2>Por qué no las otras opciones</h2>
+<table>
+  <thead><tr><th>Opción</th><th>Problema</th></tr></thead>
+  <tbody>
+    <tr><td><strong>A — FK nullable en ConfirmacionComunitaria</strong></td><td>Un solo área por confirmación. Un paciente no puede confirmar "Crohn + Biológicos" en un solo acto.</td></tr>
+    <tr><td><strong>C — Reusar TipoConfirmacion para áreas</strong></td><td>TipoConfirmacion = quién confirma (paciente, familiar). Áreas EII = qué confirma. Mezclar rompe semántica.</td></tr>
+    <tr><td><strong>D — Solo agregar a MedicoExperienciaEii</strong></td><td>MedicoExperienciaEii es un agregado por médico, no por confirmación. Dashboard necesita datos por fila.</td></tr>
+  </tbody>
+</table>
+
+<h2>Schema SQL</h2>
+<pre>IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'ConfirmacionComunitariaArea')
+BEGIN
+    CREATE TABLE ConfirmacionComunitariaArea (
+        Id                         INT IDENTITY(1,1) NOT NULL,
+        ConfirmacionComunitariaId  INT NOT NULL,
+        AreaExperienciaEiiId       INT NOT NULL,
+        CONSTRAINT PK_ConfirmacionComunitariaArea PRIMARY KEY (Id),
+        CONSTRAINT FK_CCA_Confirmacion FOREIGN KEY (ConfirmacionComunitariaId)
+            REFERENCES ConfirmacionComunitaria(Id),
+        CONSTRAINT FK_CCA_Area FOREIGN KEY (AreaExperienciaEiiId)
+            REFERENCES AreaExperienciaEii(Id),
+        CONSTRAINT UQ_CCA_Conf_Area UNIQUE (ConfirmacionComunitariaId, AreaExperienciaEiiId)
+    );
+    CREATE INDEX IX_CCA_ConfirmacionId ON ConfirmacionComunitariaArea(ConfirmacionComunitariaId);
+END;</pre>
+
+<h2>Impacto por pantalla después de Fase 3</h2>
+<table>
+  <thead><tr><th>Pantalla</th><th>Antes (Fase 2)</th><th>Después (Fase 3)</th><th>Vista cambia</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Dashboard — tags de área</td>
+      <td><span class="lost">VACÍO (false)</span></td>
+      <td><span class="restored">RESTAURADO via Areas.Any()</span></td>
+      <td>❌ No</td>
+    </tr>
+    <tr>
+      <td>Admin — <code>expContadores</code></td>
+      <td><span class="lost">TODO 0</span></td>
+      <td><span class="restored">RESTAURADO por área</span></td>
+      <td>❌ No</td>
+    </tr>
+    <tr>
+      <td>Admin — <code>confirmadores.exps</code></td>
+      <td>TipoConfirmacion.Nombre</td>
+      <td><span class="restored">Nombres de áreas EII</span></td>
+      <td>❌ No</td>
+    </tr>
+    <tr>
+      <td>Formulario confirmar (Detalle)</td>
+      <td>Solo TipoConfirmacion</td>
+      <td>TipoConfirmacion + checkboxes áreas</td>
+      <td>✅ Sí (agregar checkboxes)</td>
+    </tr>
+    <tr>
+      <td>Contadores, badges, nivel</td>
+      <td><span class="pass">OK</span></td>
+      <td><span class="pass">OK (sin cambio)</span></td>
+      <td>❌ No</td>
+    </tr>
+    <tr>
+      <td>Confirmaciones históricas</td>
+      <td>Sin áreas (Fase 2)</td>
+      <td>Sin áreas (correcto — sin datos fuente)</td>
+      <td>❌ No</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Archivos a tocar en implementación</h2>
+<table>
+  <thead><tr><th>#</th><th>Archivo</th><th>Operación</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td><code>SQL/YYYY-MM-DD-confirmacion-comunitaria-area.sql</code></td><td>CREAR script idempotente</td></tr>
+    <tr><td>2</td><td><code>Models/Directorio/ConfirmacionComunitariaArea.cs</code></td><td>CREAR modelo</td></tr>
+    <tr><td>3</td><td><code>Models/Directorio/ConfirmacionComunitaria.cs</code></td><td>AGREGAR navigation <code>ICollection&lt;ConfirmacionComunitariaArea&gt;</code></td></tr>
+    <tr><td>4</td><td><code>Data/ApplicationDbContext.cs</code></td><td>AGREGAR DbSet</td></tr>
+    <tr><td>5</td><td><code>Pages/DirectorioMedicos/Detalle.cshtml.cs</code></td><td>MODIFICAR OnGet (cargar áreas disponibles) + OnPost (guardar áreas)</td></tr>
+    <tr><td>6</td><td><code>Pages/DirectorioMedicos/Detalle.cshtml</code></td><td>AGREGAR checkboxes de áreas al formulario</td></tr>
+    <tr><td>7</td><td><code>Areas/Identity/Pages/Medico/Dashboard.cshtml.cs</code></td><td>MODIFICAR Include + populate Exp* desde áreas</td></tr>
+    <tr><td>8</td><td><code>Areas/Identity/Pages/Admin/DirectorioMedicos/Index.cshtml.cs</code></td><td>MODIFICAR expContadores + confirmadores.exps</td></tr>
+  </tbody>
+</table>
+
+<div class="alert-box warn">
+  <strong>Nota sobre la vista:</strong> <code>Dashboard.cshtml</code> y <code>Admin/Index.cshtml</code> NO necesitan cambios —
+  el backend sigue populando los mismos campos (<code>ExpCUCI</code>, <code>expContadores</code>, <code>exps</code>)
+  que las vistas ya consumen. El único cambio de UI es agregar los checkboxes en el formulario de confirmación.
+</div>
+
+<hr>
+<p class="meta">Diseño propuesto 2026-05-25 · Archivos de detalle: <code>01-analisis.md</code> · <code>02-modelo-propuesto.md</code> · <code>03-impacto.md</code></p>
+<p class="meta">Próximo paso cuando se apruebe: ejecutar script SQL → crear modelo → implementar guardado → actualizar lecturas.</p>
+</body>
+</html>

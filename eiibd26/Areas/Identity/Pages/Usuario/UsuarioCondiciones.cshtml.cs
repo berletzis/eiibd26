@@ -12,7 +12,6 @@ using System.Threading.Tasks;
 namespace eiibd26.Areas.Identity.Pages.Usuario
 {
     [Authorize(Roles = "Paciente,Administrador")]
-    [IgnoreAntiforgeryToken]
     public class UsuarioCondicionesModel : PageModel
     {
         private readonly ApplicationDbContext _db;
@@ -166,33 +165,46 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             return new JsonResult(new { ok = true });
         }
 
-        public async Task<IActionResult> OnPostEditarFechaInicioAsync(int condId, DateTime nuevaFechaInicio)
+        public async Task<IActionResult> OnPostEditarFechaInicioAsync(int condUsuarioId, DateTime? nuevaFechaInicio)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (userId == null) return Unauthorized();
 
+            if (!nuevaFechaInicio.HasValue)
+                return new JsonResult(new { ok = false, mensaje = "Fecha no válida." }) { StatusCode = 400 };
+
             var rel = await _db.condicionUsuario
-                .FirstOrDefaultAsync(x => x.idUsuario == Guid.Parse(userId) && x.idCondicion == condId && !x.Eliminado);
+                .FirstOrDefaultAsync(x => x.idUsuario == Guid.Parse(userId) && x.id == condUsuarioId && !x.Eliminado);
 
             if (rel != null)
             {
-                rel.fechaInicio = nuevaFechaInicio;
+                rel.fechaInicio = nuevaFechaInicio.Value;
                 await _db.SaveChangesAsync();
                 return new JsonResult(new { ok = true });
             }
             return BadRequest();
         }
 
-        public async Task<IActionResult> OnPostEliminarCondicionAsync(int condId)
+        public async Task<IActionResult> OnPostEliminarCondicionAsync(int condUsuarioId)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (userId == null) return Unauthorized();
 
             var rel = await _db.condicionUsuario
-                .FirstOrDefaultAsync(x => x.idUsuario == Guid.Parse(userId) && x.idCondicion == condId && !x.Eliminado);
+                .FirstOrDefaultAsync(x => x.idUsuario == Guid.Parse(userId) && x.id == condUsuarioId && !x.Eliminado);
 
             if (rel != null)
             {
+                var tieneSintomas = await _db.SintomaCondicionUsuario
+                    .AnyAsync(x => x.IdCondicionUsuario == rel.id);
+                if (tieneSintomas)
+                    return new JsonResult(new { ok = false, mensaje = "No se puede eliminar la condición porque tiene síntomas relacionados. Primero quítalos." }) { StatusCode = 400 };
+
+                var tieneTratamientos = await _db.TratamientoCondicionUsuario
+                    .AnyAsync(x => x.IdCondicionUsuario == rel.id);
+                if (tieneTratamientos)
+                    return new JsonResult(new { ok = false, mensaje = "No se puede eliminar la condición porque tiene tratamientos relacionados. Primero quítalos." }) { StatusCode = 400 };
+
                 rel.Eliminado = true;
                 rel.fechaEliminado = DateTime.Now;
                 await _db.SaveChangesAsync();

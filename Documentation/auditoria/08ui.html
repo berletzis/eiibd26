@@ -10,7 +10,7 @@
 <header>
   <div class="header-inner">
     <div>
-      <div class="breadcrumb"><a href="00-index.html">← Índice</a></div>
+      <div class="breadcrumb"><a href="00index.html">← Índice</a></div>
       <h1>08 · UI / CSS / JavaScript</h1>
       <p class="subtitle">CSS :root conflicts · Brace imbalance · Componentes duplicados · Vistas god-file · jQuery conflict · Accesibilidad</p>
     </div>
@@ -594,22 +594,125 @@
 
 </main>
 
+<!-- ===== RESOLUCIÓN: Verificación y correcciones aplicadas ===== -->
+<section style="margin:2rem 0;padding:1.5rem;background:#0d1117;border:1px solid #30363d;border-radius:8px;font-family:monospace;font-size:.85rem;">
+  <h2 style="color:#58a6ff;margin-top:0;font-size:1rem;letter-spacing:.05em;">REPORTE DE CIERRE — Verificación sobre código fuente real</h2>
+  <p style="color:#8b949e;margin-bottom:1.2rem;">Fecha verificación: 2026-06-01 · Build: ✅ SUCCESS</p>
+
+  <table style="width:100%;border-collapse:collapse;color:#c9d1d9;font-size:.82rem;">
+    <thead>
+      <tr style="border-bottom:1px solid #30363d;color:#8b949e;">
+        <th style="text-align:left;padding:4px 8px">ID</th>
+        <th style="text-align:left;padding:4px 8px">Estado</th>
+        <th style="text-align:left;padding:4px 8px">Evidencia / Acción</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom:1px solid #21262d">
+        <td style="padding:4px 8px;color:#f85149">UI-001</td>
+        <td style="padding:4px 8px"><span style="background:#3d1f00;color:#f0883e;padding:2px 8px;border-radius:4px">REAL · PENDIENTE</span></td>
+        <td style="padding:4px 8px">Confirmado: 29 variables solapadas en 7 CSS; 3 con valores distintos: <code>--content-max-width</code> (68ch vs 1188px), <code>--brand-color</code> (#6a4e7a vs #546e76), <code>--se-bg</code> (#f4edfc vs #fff). No corregido: requiere refactor de bundling CSS fuera de alcance mínimo.</td>
+      </tr>
+      <tr style="border-bottom:1px solid #21262d">
+        <td style="padding:4px 8px;color:#f85149">UI-002</td>
+        <td style="padding:4px 8px"><span style="background:#0d2d0d;color:#3fb950;padding:2px 8px;border-radius:4px">FALSO POSITIVO</span></td>
+        <td style="padding:4px 8px"><code>_Layout.cshtml</code>: 96 llaves abren = 96 cierran. Sin imbalance.</td>
+      </tr>
+      <tr style="border-bottom:1px solid #21262d">
+        <td style="padding:4px 8px;color:#f85149">UI-003</td>
+        <td style="padding:4px 8px"><span style="background:#3d1f00;color:#f0883e;padding:2px 8px;border-radius:4px">REAL · PENDIENTE</span></td>
+        <td style="padding:4px 8px">Archivo afectado: <code>Pages/Preguntas/Detalles.cshtml</code> (1965 líneas), no <code>DirectorioMedicos/Detalle.cshtml</code> (368 líneas). Refactor de god-file fuera de alcance mínimo.</td>
+      </tr>
+      <tr style="border-bottom:1px solid #21262d">
+        <td style="padding:4px 8px;color:#f85149">UI-004</td>
+        <td style="padding:4px 8px"><span style="background:#0d2d0d;color:#3fb950;padding:2px 8px;border-radius:4px">STALE — Ya resuelto</span></td>
+        <td style="padding:4px 8px">Solo una carga de jQuery (CDN, línea 498 de <code>_Layout</code>). Carpeta <code>lib/jquery</code> existe pero no se referencia en ningún layout.</td>
+      </tr>
+      <tr style="border-bottom:1px solid #21262d">
+        <td style="padding:4px 8px;color:#f85149">UI-005</td>
+        <td style="padding:4px 8px"><span style="background:#3d1f00;color:#f0883e;padding:2px 8px;border-radius:4px">REAL · PENDIENTE</span></td>
+        <td style="padding:4px 8px"><code>Areas/Identity/Pages/Shared/_SidebarMenu.cshtml</code> (455 líneas) es código muerto — ningún layout lo referencia. Desktop/Mobile son versiones intencionales para diferentes viewports. Limpieza de código muerto fuera de alcance mínimo.</td>
+      </tr>
+      <tr style="border-bottom:1px solid #21262d">
+        <td style="padding:4px 8px;color:#79c0ff">UI-006</td>
+        <td style="padding:4px 8px"><span style="background:#0d2d0d;color:#3fb950;padding:2px 8px;border-radius:4px">STALE — Ya resuelto</span></td>
+        <td style="padding:4px 8px"><code>_TopMenuDesktop.cshtml</code> ya carga <code>NombreCompleto</code> de <code>MedicosPerfilExtendido</code> con fallback a perfil → claims → identity.</td>
+      </tr>
+      <tr style="border-bottom:1px solid #21262d">
+        <td style="padding:4px 8px;color:#79c0ff">UI-018</td>
+        <td style="padding:4px 8px"><span style="background:#0d2d0d;color:#3fb950;padding:2px 8px;border-radius:4px">STALE — Incorrecto</span></td>
+        <td style="padding:4px 8px">No hay variables dark mode en ningún CSS. El audit afirma "variables definidas sin toggle" — no existe evidencia en código.</td>
+      </tr>
+      <tr style="border-bottom:1px solid #21262d">
+        <td style="padding:4px 8px;color:#79c0ff">UI-019</td>
+        <td style="padding:4px 8px"><span style="background:#1f6feb;color:#cae8ff;padding:2px 8px;border-radius:4px">✅ CORREGIDO</span></td>
+        <td style="padding:4px 8px">Eliminada carga global de <code>chart.js</code> en <code>_Layout.cshtml</code> línea 492. <code>_DashboardColumn1.cshtml</code> usa lazy-load propio (<code>ensureChart</code>). <code>UsuarioEstadoAnimo.cshtml</code> lo carga en <code>@section Scripts</code>.</td>
+      </tr>
+      <tr style="border-bottom:1px solid #21262d">
+        <td style="padding:4px 8px;color:#79c0ff">UI-022</td>
+        <td style="padding:4px 8px"><span style="background:#0d2d0d;color:#3fb950;padding:2px 8px;border-radius:4px">STALE — Ya resuelto</span></td>
+        <td style="padding:4px 8px">Debounce de 400ms implementado en <code>UusuarioPreguntaDetalle.cshtml</code>. Debounce de 350ms en <code>Index.cshtml</code>.</td>
+      </tr>
+      <tr style="border-bottom:1px solid #21262d">
+        <td style="padding:4px 8px;color:#79c0ff">UI-025</td>
+        <td style="padding:4px 8px"><span style="background:#1f6feb;color:#cae8ff;padding:2px 8px;border-radius:4px">✅ CORREGIDO</span></td>
+        <td style="padding:4px 8px">Agregado <code>aria-current="page"</code> en los 4 enlaces de navegación de <code>_TopMenuDesktop.cshtml</code> donde ya existía detección de ruta activa (<code>IsActivePath</code>).</td>
+      </tr>
+      <tr style="border-bottom:1px solid #21262d">
+        <td style="padding:4px 8px;color:#a5d6ff">UI-027</td>
+        <td style="padding:4px 8px"><span style="background:#1f6feb;color:#cae8ff;padding:2px 8px;border-radius:4px">✅ CORREGIDO</span></td>
+        <td style="padding:4px 8px">Dos correcciones: (1) <code>accessibility-fixes.css</code> existía pero nunca se cargaba — añadido <code>&lt;link&gt;</code> en <code>_Layout.cshtml</code>. (2) <code>--focus-outline</code> en <code>site.css</code> era <code>#c6d7db</code> (contraste insuficiente) — corregido a <code>#005fcc</code> (WCAG AA).</td>
+      </tr>
+      <tr style="border-bottom:1px solid #21262d">
+        <td style="padding:4px 8px;color:#a5d6ff">UI-029</td>
+        <td style="padding:4px 8px"><span style="background:#1f6feb;color:#cae8ff;padding:2px 8px;border-radius:4px">✅ CORREGIDO</span></td>
+        <td style="padding:4px 8px">Añadida <code>&lt;meta name="description"&gt;</code> en <code>Pages/DirectorioMedicos/Detalle.cshtml</code> via <code>@section Head</code>. Descripción generada con nombre + especialidad del médico.</td>
+      </tr>
+      <tr style="border-bottom:1px solid #21262d">
+        <td style="padding:4px 8px;color:#a5d6ff">UI-030</td>
+        <td style="padding:4px 8px"><span style="background:#1f6feb;color:#cae8ff;padding:2px 8px;border-radius:4px">✅ CORREGIDO</span></td>
+        <td style="padding:4px 8px">Añadidos Open Graph (<code>og:type</code>, <code>og:title</code>, <code>og:description</code>, <code>og:image</code>, <code>og:url</code>) y Twitter Card en <code>Pages/DirectorioMedicos/Detalle.cshtml</code>.</td>
+      </tr>
+      <tr style="border-bottom:1px solid #21262d">
+        <td style="padding:4px 8px;color:#a5d6ff">UI-038</td>
+        <td style="padding:4px 8px"><span style="background:#0d2d0d;color:#3fb950;padding:2px 8px;border-radius:4px">STALE — Ya resuelto</span></td>
+        <td style="padding:4px 8px">Scroll-to-top implementado en <code>_Layout.cshtml</code> líneas 507-539 con botón, evento scroll con debounce 100ms y scroll suave.</td>
+      </tr>
+      <tr>
+        <td style="padding:4px 8px;color:#8b949e">UI-007..UI-017<br>UI-020..UI-024<br>UI-026, UI-028<br>UI-031..UI-037</td>
+        <td style="padding:4px 8px"><span style="background:#161b22;color:#8b949e;padding:2px 8px;border-radius:4px">PENDIENTE / MANTENIMIENTO</span></td>
+        <td style="padding:4px 8px">CSS/JS inline extendido, confirm() nativo, paginación, loading states, iconografía, char-counter, i18n — problemas de mantenibilidad sin impacto funcional inmediato. Fuera del alcance de corrección mínima.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top:1.2rem;padding:1rem;background:#161b22;border-radius:6px;color:#8b949e;font-size:.8rem;">
+    <strong style="color:#58a6ff">Archivos modificados:</strong>
+    <code>Pages/Shared/_Layout.cshtml</code> ·
+    <code>Pages/Shared/_TopMenuDesktop.cshtml</code> ·
+    <code>Pages/DirectorioMedicos/Detalle.cshtml</code> ·
+    <code>wwwroot/css/site.css</code><br>
+    <strong style="color:#58a6ff">No modificado:</strong> arquitectura, base de datos, modelos, servicios, controllers, otros layouts, pages fuera de alcance.
+  </div>
+</section>
+
 <footer>
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem">
     <span>Auditoría EIIBD · 2026-05-25 · Fase 08/10 — UI/CSS/JS</span>
     <div style="display:flex;gap:1rem">
-      <a href="07-performance.html">← 07 Performance</a>
-      <a href="09-dependencias.html">09 Dependencias →</a>
+      <a href="07performance.html">← 07 Performance</a>
+      <a href="09dependencias.html">09 Dependencias →</a>
     </div>
   </div>
 </footer>
 
 <script>
-function filterFindings(sev, btn) {
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+function filterFindings(sev /** @type {string} */, btn /** @type {HTMLElement} */) {
+  document.querySelectorAll('.filter-btn').forEach(function(b) { b.classList.remove('active'); });
   btn.classList.add('active');
-  document.querySelectorAll('.finding[data-sev]').forEach(el => {
-    el.style.display = (sev === 'all' || el.dataset.sev === sev) ? '' : 'none';
+  document.querySelectorAll('.finding[data-sev]').forEach(function(el) {
+    var htmlEl = /** @type {HTMLElement} */ (el);
+    htmlEl.style.display = (sev === 'all' || htmlEl.dataset['sev'] === sev) ? '' : 'none';
   });
 }
 </script>

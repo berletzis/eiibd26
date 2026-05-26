@@ -13,7 +13,6 @@ using System.Threading.Tasks;
 namespace eiibd26.Areas.Identity.Pages.Usuario
 {
     [Authorize(Roles = "Paciente,Administrador")]
-    [IgnoreAntiforgeryToken]
     public class UsuarioLaboratoriosModel : PageModel
     {
         private readonly ApplicationDbContext _db;
@@ -180,6 +179,14 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 if (!tipoExiste)
                     return new JsonResult(new { ok = false, mensaje = "Tipo no encontrado." }) { StatusCode = 400 };
 
+                var yaExiste = await _db.PatientLaboratoryResults
+                    .AnyAsync(r => r.PatientId == Guid.Parse(userId)
+                                && r.LaboratoryTypeId == laboratoryTypeId
+                                && !r.Eliminado);
+
+                if (yaExiste)
+                    return new JsonResult(new { ok = false, mensaje = "Ya tienes un resultado activo para este tipo de laboratorio." }) { StatusCode = 400 };
+
                 var nuevo = new PatientLaboratoryResult
                 {
                     PatientId        = Guid.Parse(userId),
@@ -201,7 +208,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
         // POST: Actualizar datos del card
         public async Task<IActionResult> OnPostActualizarResultadoAsync(
-            int resultadoId, string resultValue, string resultUnit, string notes, string resultDate,
+            int resultadoId, string? resultValue, string? resultUnit, string? notes, string? resultDate,
             int? condicionUsuarioId, int? sintomaUsuarioId, int? tratamientoUsuarioId,
             int? laboratoryUnitCatalogId)
         {
@@ -213,7 +220,40 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
             if (r == null) return BadRequest();
 
-            r.ResultValue        = string.IsNullOrWhiteSpace(resultValue) ? null : resultValue.Trim();
+            var userGuid = Guid.Parse(userId);
+
+            if (condicionUsuarioId.HasValue)
+            {
+                var valid = await _db.condicionUsuario.AnyAsync(
+                    x => x.id == condicionUsuarioId.Value && x.idUsuario == userGuid && !x.Eliminado);
+                if (!valid) condicionUsuarioId = null;
+            }
+
+            if (sintomaUsuarioId.HasValue)
+            {
+                var valid = await _db.sintomasUsuario.AnyAsync(
+                    x => x.id == sintomaUsuarioId.Value && x.idUsuario == userGuid && !x.Eliminado);
+                if (!valid) sintomaUsuarioId = null;
+            }
+
+            if (tratamientoUsuarioId.HasValue)
+            {
+                var valid = await _db.tratamientoUsuario.AnyAsync(
+                    x => x.id == tratamientoUsuarioId.Value && x.idUsuario == userGuid && !x.Eliminado);
+                if (!valid) tratamientoUsuarioId = null;
+            }
+
+            if (!string.IsNullOrWhiteSpace(resultValue))
+            {
+                var trimmed = resultValue.Trim();
+                if (trimmed.Length > 500)
+                    return new JsonResult(new { ok = false, mensaje = "El valor del resultado no puede superar 500 caracteres." }) { StatusCode = 400 };
+                r.ResultValue = trimmed;
+            }
+            else
+            {
+                r.ResultValue = null;
+            }
             r.ResultUnit         = string.IsNullOrWhiteSpace(resultUnit)  ? null : resultUnit.Trim();
             r.Notes              = string.IsNullOrWhiteSpace(notes)       ? null : notes.Trim();
             r.ResultDate         = DateTime.TryParse(resultDate, out var d) ? d : null;

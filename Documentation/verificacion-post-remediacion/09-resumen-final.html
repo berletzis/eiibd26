@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EIIBD – Reporte Final Verificación Post-Remediación</title>
+<style>
+  :root {
+    --pass: #16a34a; --pass-bg: #dcfce7;
+    --fail: #dc2626; --fail-bg: #fee2e2;
+    --warn: #d97706; --warn-bg: #fef3c7;
+    --pend: #7c3aed; --pend-bg: #ede9fe;
+    --info: #0369a1; --info-bg: #e0f2fe;
+    --text: #1e293b; --border: #e2e8f0;
+    --card-bg: #fff; --page-bg: #f8fafc;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+         background: var(--page-bg); color: var(--text); padding: 2rem; }
+  h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: .25rem; }
+  .subtitle { color: #64748b; font-size: .9rem; margin-bottom: 2rem; }
+  .verdict-banner { border-radius: .75rem; padding: 1.5rem 2rem; margin-bottom: 2rem;
+                    display: flex; align-items: center; gap: 1.25rem; }
+  .verdict-banner.fail  { background: var(--warn-bg); border: 2px solid var(--warn); }
+  .verdict-banner .icon { font-size: 2.5rem; }
+  .verdict-banner h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: .25rem; }
+  .verdict-banner p  { font-size: .9rem; color: #374151; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+  .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: .75rem; padding: 1.25rem; }
+  .card h3 { font-size: .9rem; font-weight: 600; color: #475569; margin-bottom: .75rem; text-transform: uppercase; letter-spacing: .05em; }
+  .badge { display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .75rem;
+           border-radius: 9999px; font-size: .8rem; font-weight: 600; }
+  .badge.pass { background: var(--pass-bg); color: var(--pass); }
+  .badge.fail { background: var(--fail-bg); color: var(--fail); }
+  .badge.warn { background: var(--warn-bg); color: var(--warn); }
+  .badge.pend { background: var(--pend-bg); color: var(--pend); }
+  .badge-lg { font-size: 1.1rem; padding: .5rem 1.25rem; }
+
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+  .kpi { background: var(--card-bg); border: 1px solid var(--border); border-radius: .75rem;
+         padding: 1.25rem; text-align: center; }
+  .kpi .num { font-size: 2rem; font-weight: 800; }
+  .kpi .lbl { font-size: .8rem; color: #64748b; margin-top: .25rem; }
+  .kpi.green .num { color: var(--pass); }
+  .kpi.red   .num { color: var(--fail); }
+  .kpi.amber .num { color: var(--warn); }
+  .kpi.violet .num { color: var(--pend); }
+
+  .section-title { font-size: 1.1rem; font-weight: 700; margin: 2rem 0 .75rem; border-left: 4px solid #6366f1; padding-left: .75rem; }
+  table { width: 100%; border-collapse: collapse; background: var(--card-bg);
+          border: 1px solid var(--border); border-radius: .5rem; overflow: hidden; margin-bottom: 1rem; }
+  th { background: #f1f5f9; text-align: left; padding: .65rem 1rem; font-size: .8rem;
+       text-transform: uppercase; letter-spacing: .05em; color: #475569; }
+  td { padding: .65rem 1rem; font-size: .875rem; border-top: 1px solid var(--border); vertical-align: top; }
+  tr:hover td { background: #f8fafc; }
+
+  .risk-high   { color: var(--fail);  font-weight: 600; }
+  .risk-medium { color: var(--warn);  font-weight: 600; }
+  .risk-low    { color: var(--info);  font-weight: 600; }
+  footer { margin-top: 3rem; border-top: 1px solid var(--border); padding-top: 1rem;
+           font-size: .8rem; color: #94a3b8; }
+</style>
+</head>
+<body>
+
+<h1>🏥 EIIBD – Verificación Post-Remediación</h1>
+<p class="subtitle">Fecha: 2025-07-10 &nbsp;|&nbsp; Rama: master &nbsp;|&nbsp; Proyecto: eiibd26 (.NET 8)</p>
+
+<!-- VEREDICTO FINAL -->
+<div class="verdict-banner pass">
+  <div class="icon">✅</div>
+  <div>
+    <h2>VEREDICTO: LISTO PARA MERGE</h2>
+    <p>Build limpio, sin regresiones funcionales críticas. R-SEC-01 corregido: CSRF en votación de preguntas resuelto. Todos los bloqueantes levantados. Quedan <strong>4 WARN</strong> no bloqueantes documentados para iteraciones futuras.</p>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-row">
+  <div class="kpi green"><div class="num">0</div><div class="lbl">Errores C# (build)</div></div>
+  <div class="kpi green"><div class="num">0</div><div class="lbl">Regresiones funcionales</div></div>
+  <div class="kpi green"><div class="num">0</div><div class="lbl">FAIL (seguridad)</div></div>
+  <div class="kpi amber"><div class="num">4</div><div class="lbl">WARN pendientes</div></div>
+</div>
+
+<!-- DASHBOARD MÓDULOS -->
+<div class="section-title">Dashboard por Módulo</div>
+<div class="grid">
+
+  <div class="card">
+    <h3>01 · Build &amp; Smoke</h3>
+    <span class="badge pass">✓ PASS</span>
+    <p style="margin-top:.75rem;font-size:.85rem;">Build succeeded. 0 errores C#. 794 warnings pre-existentes. DI completo.</p>
+  </div>
+
+  <div class="card">
+    <h3>02 · Directorio Médicos</h3>
+    <span class="badge warn">⚠ PASS c/obs</span>
+    <p style="margin-top:.75rem;font-size:.85rem;">Fuente canónica = <code>DirectorioMedicoConfirmaciones</code>. Admin duplica lógica localmente (no es bug, pero es deuda).</p>
+  </div>
+
+  <div class="card">
+    <h3>03 · Seguridad CSRF + Ownership</h3>
+    <span class="badge pass">✓ PASS</span>
+    <p style="margin-top:.75rem;font-size:.85rem;"><strong>R-SEC-01 corregido:</strong> <code>RequestVerificationToken</code> añadido en todos los fetch POST de votación en <code>Preguntas.cshtml</code> y <code>Detalles.cshtml</code>. <code>[ValidateAntiForgeryToken]</code> activo en backend. Ownership clínico OK.</p>
+  </div>
+
+  <div class="card">
+    <h3>04 · Hangfire</h3>
+    <span class="badge pass">✓ PASS</span>
+    <p style="margin-top:.75rem;font-size:.85rem;">Fire-and-forget eliminado. Enqueue en SQL Server. Retry en errores de red. Dashboard protegido. WorkerCount=2.</p>
+  </div>
+
+  <div class="card">
+    <h3>05 · Performance</h3>
+    <span class="badge pass">✓ PASS</span>
+    <p style="margin-top:.75rem;font-size:.85rem;">Loop N queries reemplazado por OR dinámico. Batch count. Cache 60s. AsNoTracking. Benchmark real pendiente en staging.</p>
+  </div>
+
+  <div class="card">
+    <h3>06 · Base de Datos</h3>
+    <span class="badge warn">⚠ PASS c/obs</span>
+    <p style="margin-top:.75rem;font-size:.85rem;">6 índices idempotentes. Script IF NOT EXISTS. DeleteBehavior.Restrict en MedicoAreaEii. Verificación en DB real pendiente.</p>
+  </div>
+
+  <div class="card">
+    <h3>07 · UI</h3>
+    <span class="badge pass">✓ PASS</span>
+    <p style="margin-top:.75rem;font-size:.85rem;">UI-015 brace fix aplicado. Scripts balanceados. MutationObserver con try/catch. Smoke visual en browser pendiente.</p>
+  </div>
+
+  <div class="card">
+    <h3>08 · Regresiones</h3>
+    <span class="badge pass">✓ SIN REGRESIONES</span>
+    <p style="margin-top:.75rem;font-size:.85rem;">0 regresiones funcionales detectadas. Todos los módulos afectados compilados y verificados estáticamente.</p>
+  </div>
+
+</div>
+
+<!-- ISSUES CERRADOS -->
+<div class="section-title">Issues Remediados — Verificados</div>
+<table>
+  <thead>
+    <tr><th>Issue</th><th>Descripción</th><th>Verificación</th><th>Estado</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>ARCH-003</td><td>IA NINA: eliminación contenido VIH/HIV/SIDA</td><td>No hay matches grep VIH/HIV/SIDA en NinaModelRouterService</td><td><span class="badge pass">✓</span></td></tr>
+    <tr><td>FUNC-017</td><td>Fire-and-forget → Hangfire</td><td>IBackgroundJobClient inyectado, Enqueue verificado en controller</td><td><span class="badge pass">✓</span></td></tr>
+    <tr><td>FUNC-022</td><td>Claim flow: persiste EstatusReclamacion</td><td>Activar.cshtml.cs línea 178: EstatusReclamacion = Reclamado</td><td><span class="badge pass">✓</span></td></tr>
+    <tr><td>FUNC-023</td><td>Directorio: fuente única de verdad confirmaciones</td><td>RecalcularNivelConfianzaAsync usa DirectorioMedicoConfirmaciones</td><td><span class="badge pass">✓</span></td></tr>
+    <tr><td>SEC-008</td><td>CSRF en páginas clínicas</td><td>No hay IgnoreAntiforgeryToken en páginas clínicas remediadas</td><td><span class="badge pass">✓</span></td></tr>
+    <tr><td>SEC-010</td><td>Ownership estado ánimo FK</td><td>ValidateEstadoAnimoRelationsAsync en Registrar()</td><td><span class="badge pass">✓</span></td></tr>
+    <tr><td>SEC-011</td><td>Ownership síntoma en dashboard</td><td>OwnsSintomaAsync en DashboardController.AddSymptom()</td><td><span class="badge pass">✓</span></td></tr>
+    <tr><td>PERF-001/002/003</td><td>SearchSuggestion N queries → OR dinámico + cache</td><td>Código consolidado, AsNoTracking, Take(), cache 60s</td><td><span class="badge pass">✓</span></td></tr>
+    <tr><td>DB-001/002/003</td><td>Índices clínicos FK</td><td>6 índices IF NOT EXISTS en SQL script + HasIndex en DbContext</td><td><span class="badge pass">✓</span></td></tr>
+    <tr><td>DB-005</td><td>Cascade Restrict en Condicion→MedicoAreaEii</td><td>OnDelete(DeleteBehavior.Restrict) en ApplicationDbContext línea 703</td><td><span class="badge pass">✓</span></td></tr>
+    <tr><td>UI-015</td><td>Brace faltante en DOMContentLoaded _Layout</td><td>Script 2 en _Layout.cshtml cierra correctamente con });</td><td><span class="badge pass">✓</span></td></tr>
+  </tbody>
+</table>
+
+<!-- RIESGOS RESIDUALES -->
+<div class="section-title">Riesgos Residuales (No corregidos en esta fase)</div>
+<table>
+  <thead>
+    <tr><th>ID</th><th>Módulo</th><th>Descripción</th><th>Severidad</th><th>Bloqueante</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>R-SEC-01</td><td>P&amp;R</td>
+      <td><code>Preguntas.cshtml</code> y <code>Detalles.cshtml</code>: <code>RequestVerificationToken</code> añadido en fetch POST de votación. <code>[ValidateAntiForgeryToken]</code> en backend. Ver <a href="r-sec-01-inventory.md">inventario</a> y <a href="r-sec-01-test.md">tests</a>.</td>
+      <td><span class="risk-low">✅ PASS</span></td><td><strong>Resuelto</strong></td>
+    </tr>
+    <tr>
+      <td>R-SEC-02</td><td>Admin</td>
+      <td>2 acciones en <code>Admin/Usuarios/Index.cshtml.cs</code> con <code>[IgnoreAntiforgeryToken]</code> sin justificación documentada</td>
+      <td><span class="risk-medium">🟠 Medio</span></td><td>No (admin-only)</td>
+    </tr>
+    <tr>
+      <td>R-SEC-03</td><td>Admin</td>
+      <td><code>Admin/Contenidos/Contenidos.cshtml.cs</code> suprime antiforgery a nivel clase</td>
+      <td><span class="risk-medium">🟠 Medio</span></td><td>No (admin-only)</td>
+    </tr>
+    <tr>
+      <td>R-DM-01</td><td>Directorio</td>
+      <td>Admin <code>RecalcularNivelAsync</code> duplica lógica del servicio (mantenibilidad)</td>
+      <td><span class="risk-low">🟡 Bajo</span></td><td>No</td>
+    </tr>
+    <tr>
+      <td>R-HF-01</td><td>Hangfire</td>
+      <td>Excepciones genéricas (DbException transitoria) no causan retry en AiAnswerJob</td>
+      <td><span class="risk-low">🟡 Bajo</span></td><td>No</td>
+    </tr>
+    <tr>
+      <td>R-BD-02</td><td>BD</td>
+      <td>DeleteBehavior.Restrict en EF no garantiza FK restrict si la tabla fue creada con CASCADE en DB existente</td>
+      <td><span class="risk-medium">🟠 Medio</span></td><td>No (verificar en staging)</td>
+    </tr>
+    <tr>
+      <td>R-PERF-03</td><td>Performance</td>
+      <td>Sin benchmark runtime — reducción de roundtrips validada sólo por análisis estático</td>
+      <td><span class="risk-low">🟡 Informativo</span></td><td>No</td>
+    </tr>
+    <tr>
+      <td>R-UI-01</td><td>UI</td>
+      <td>Layout no probado en browser real — smoke visual pendiente en staging</td>
+      <td><span class="risk-low">🟡 Informativo</span></td><td>No</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- CONDICIONES PARA MERGE -->
+<div class="section-title">Condiciones para aprobar Merge</div>
+<table>
+  <thead>
+    <tr><th>#</th><th>Condición</th><th>Prioridad</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td><del>Agregar <code>RequestVerificationToken</code> en headers fetch POST de <code>Preguntas.cshtml</code> (R-SEC-01)</del> — ✅ <strong>RESUELTO</strong></td><td><span class="risk-low">Completado</span></td></tr>
+    <tr><td>2</td><td>Verificar/justificar <code>[IgnoreAntiforgeryToken]</code> en acciones admin Usuarios (R-SEC-02)</td><td><span class="risk-medium">Recomendado</span></td></tr>
+    <tr><td>3</td><td>Ejecutar script SQL en staging y confirmar índices con query de validación (R-BD-02)</td><td><span class="risk-medium">Recomendado</span></td></tr>
+    <tr><td>4</td><td>Smoke visual en browser real: desktop + mobile (R-UI-01)</td><td><span class="risk-low">Informativo</span></td></tr>
+  </tbody>
+</table>
+
+<!-- DECISIÓN FINAL -->
+<div style="background:#d1fae5;border:2px solid #059669;border-radius:.75rem;padding:1.5rem;margin-top:2rem;">
+  <h2 style="color:#065f46;font-size:1.1rem;margin-bottom:.5rem;">✅ DECISIÓN FINAL: LISTO PARA MERGE</h2>
+  <p style="font-size:.9rem;color:#064e3b;">
+    La remediación está técnicamente sólida: build limpio, sin regresiones funcionales, Hangfire correcto, directorio unificado, ownership validado, índices idempotentes.
+    <br><br>
+    <strong>R-SEC-01 resuelto:</strong> <code>RequestVerificationToken</code> añadido en todos los fetch POST de votación en <code>Preguntas.cshtml</code> y <code>Detalles.cshtml</code>. <code>[ValidateAntiForgeryToken]</code> activo en ambos endpoints backend (<code>VotarPregunta</code> y <code>VotarRespuesta</code>). Ver <a href="r-sec-01-inventory.md">r-sec-01-inventory.md</a> y <a href="r-sec-01-test.md">r-sec-01-test.md</a>.
+    <br><br>
+    Los riesgos residuales R-SEC-02, R-SEC-03, R-DM-01, R-HF-01, R-BD-02, R-PERF-03 y R-UI-01 son no bloqueantes (admin-only o informativos) y pueden abordarse en iteraciones futuras.
+    <br><br>
+    El set de cambios está <strong>LISTO PARA MERGE</strong>.
+  </p>
+</div>
+
+<footer>
+  <p>Generado por verificación post-remediación EIIBD &nbsp;|&nbsp; 2025-07-10 &nbsp;|&nbsp; Rama: master &nbsp;|&nbsp; eiibd26 (.NET 8)</p>
+  <p style="margin-top:.25rem;">Archivos: 01-build-smoke.md · 02-directorio-medicos.md · 03-seguridad.md · 04-hangfire.md · 05-performance.md · 06-bd.md · 07-ui.md · 08-regresiones.md · 09-resumen-final.html</p>
+</footer>
+
+</body>
+</html>

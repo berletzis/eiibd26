@@ -1472,10 +1472,11 @@
                     if (upBtn)   upBtn.disabled   = true;
                     if (downBtn) downBtn.disabled = true;
 
+                    const csrfToken = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
                     try {
                         const res = await fetch(endpoint, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': csrfToken },
                             body: JSON.stringify({ valor })
                         });
                         if (!res.ok) {
@@ -1548,11 +1549,12 @@
                 const endpoint = isAnswer
                     ? '/api/respuestas/' + id + '/votar'
                     : '/api/preguntas/'  + id + '/votar';
+                const csrfToken = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
 
                 try {
                     const res = await fetch(endpoint, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': csrfToken },
                         body: JSON.stringify({ valor })
                     });
                     if (!res.ok) { alert('Error al votar'); return; }

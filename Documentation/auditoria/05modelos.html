@@ -9,7 +9,7 @@
 <body>
 <div class="topbar">
   <h1>📦 Fase 5 – Modelos de Datos</h1>
-  <span class="breadcrumb"><a href="00-index.html">← Índice</a> · EIIBD Auditoría 2026</span>
+  <span class="breadcrumb"><a href="00index.html">← Índice</a> · EIIBD Auditoría 2026</span>
 </div>
 <div class="container">
 
@@ -165,17 +165,19 @@
     <div class="finding-rec"><strong>Recomendación:</strong> Agregar [MaxLength] a todos los strings: Slug(500), Titulo(300), URL(500), Autor(200).</div>
   </div>
 
-  <div class="finding medium" data-sev="medium">
+  <div class="finding medium" data-sev="medium" style="opacity:0.6;border-left:4px solid #aaa">
     <div class="finding-header">
       <span class="finding-id">MDL-012</span>
       <span class="badge badge-medium">MEDIUM</span>
       <span class="badge badge-neutral">FK Faltante</span>
       <span class="finding-loc">Models/Pregunta.cs</span>
+      <span class="badge badge-low" style="margin-left:auto">✅ STALE — Resuelto en DB-06</span>
     </div>
     <div class="finding-title">Pregunta.UsuarioId sin navigation property ni FK configurada en DbContext</div>
     <div class="finding-desc">UsuarioId (Guid) está comentado como FK a AspNetUsers pero no hay [ForeignKey], no hay navigation property y no está configurado en OnModelCreating.</div>
     <div class="finding-impact"><strong>Impacto:</strong> No se puede hacer Include(p =&gt; p.Usuario). Sin integridad referencial: preguntas pueden quedar huérfanas si se borra un usuario.</div>
     <div class="finding-rec"><strong>Recomendación:</strong> Agregar en DbContext: <code>.HasOne&lt;ApplicationUser&gt;().WithMany().HasForeignKey(p =&gt; p.UsuarioId).OnDelete(DeleteBehavior.Restrict);</code></div>
+    <div style="margin-top:8px;padding:8px;background:#f0fff4;border-radius:4px;font-size:12px"><strong>✅ RESUELTO (DB-06 · 2026-05-26):</strong> FK explícita con <code>OnDelete(DeleteBehavior.Restrict)</code> configurada en <code>ApplicationDbContext.cs</code>. Migración <code>20260526010111_DB_06_Indices_FK_Explicitas</code> aplicada a producción.</div>
   </div>
 
   <div class="finding medium" data-sev="medium">
@@ -184,11 +186,13 @@
       <span class="badge badge-medium">MEDIUM</span>
       <span class="badge badge-neutral">FK Faltante</span>
       <span class="finding-loc">Models/Respuesta.cs</span>
+      <span class="badge badge-low" style="margin-left:auto">✅ STALE — Resuelto en DB-06</span>
     </div>
     <div class="finding-title">Respuesta.UsuarioId sin navigation property ni FK — mismo problema que MDL-012</div>
     <div class="finding-desc">UsuarioId es un Guid sin FK constraint ni navigation a ApplicationUser. Mismo gap de integridad referencial que en Pregunta.</div>
     <div class="finding-impact"><strong>Impacto:</strong> Respuestas pueden quedar huérfanas. No se puede eager-load el autor de una respuesta.</div>
     <div class="finding-rec"><strong>Recomendación:</strong> Configurar FK en DbContext igual que MDL-012.</div>
+    <div style="margin-top:8px;padding:8px;background:#f0fff4;border-radius:4px;font-size:12px"><strong>✅ RESUELTO (DB-06 · 2026-05-26):</strong> FK explícita con <code>OnDelete(DeleteBehavior.Restrict)</code> configurada en <code>ApplicationDbContext.cs</code>. Igual que MDL-012. Migración aplicada a producción.</div>
   </div>
 
   <div class="finding medium" data-sev="medium">
@@ -243,17 +247,19 @@
     <div class="finding-rec"><strong>Recomendación:</strong> Adoptar estándar FechaCreacion/FechaModificacion (español PascalCase, UTC) para nuevas entidades.</div>
   </div>
 
-  <div class="finding medium" data-sev="medium">
+  <div class="finding medium" data-sev="medium" style="opacity:0.6;border-left:4px solid #e0a000">
     <div class="finding-header">
       <span class="finding-id">MDL-019</span>
       <span class="badge badge-medium">MEDIUM</span>
       <span class="badge badge-neutral">Tipo incorrecto</span>
       <span class="finding-loc">Models/Glossary/GlossaryValidation.cs</span>
+      <span class="badge badge-low" style="margin-left:auto;background:#e0a000">⚠️ FALSE POSITIVE</span>
     </div>
     <div class="finding-title">GlossaryValidation.UserId es string — único caso en todo el sistema (resto son Guid)</div>
     <div class="finding-desc">Todas las entidades del sistema usan Guid para UserId. GlossaryValidation usa string (NVARCHAR 450). El proyecto usa IdentityUser&lt;Guid&gt; por lo que los IDs son Guids. Almacenarlos como string pierde type safety.</div>
     <div class="finding-impact"><strong>Impacto:</strong> No se puede hacer FK JOIN a AspNetUsers con tipo consistente. Pérdida de type safety. Posible incompatibilidad con queries de correlación de usuarios.</div>
     <div class="finding-rec"><strong>Recomendación:</strong> Cambiar UserId a Guid. SQL: ALTER COLUMN UserId UNIQUEIDENTIFIER NOT NULL. Migrar datos existentes.</div>
+    <div style="margin-top:8px;padding:8px;background:#fff8e1;border-radius:4px;font-size:12px"><strong>⚠️ FALSE POSITIVE (verificado 2026-05-26):</strong> <code>GlossaryValidation.UserId</code> tiene comentario explícito <code>/// ASP.NET Identity UserId (nvarchar 450)</code>. ASP.NET Identity almacena el ID del usuario como <code>string</code> en <code>AspNetUsers.Id</code> (NVARCHAR 450). El campo es correcto — es consistente con el tipo de <code>IdentityUser.Id</code>. La auditoría asume <code>IdentityUser&lt;Guid&gt;</code> pero el campo es un string de Identity estándar. No requiere acción.</div>
   </div>
 
   <div class="finding medium" data-sev="medium">
@@ -427,7 +433,7 @@
 </div>
 
 <div style="margin-top:32px;padding-top:16px;border-top:1px solid var(--border);color:var(--muted);font-size:12px">
-  05-modelos.html · 30 hallazgos MDL · <a href="04-modulos.html">← Módulos</a> · <a href="06-bd-relaciones.html">BD →</a>
+  05modelos.html · 30 hallazgos MDL · <a href="04modulos.html">← Módulos</a> · <a href="06bdrelaciones.html">BD →</a>
 </div>
 </div>
 

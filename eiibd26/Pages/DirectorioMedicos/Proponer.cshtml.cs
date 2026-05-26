@@ -53,10 +53,23 @@ public class ProponerModel : PageModel
 
         var value = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var usuarioId = Guid.Parse(value);
-        var medicoId = await _service.ProponerMedicoAsync(Input, usuarioId);
 
-        TempData["Success"] = "Gracias por tu aporte. El médico fue registrado en el directorio comunitario.";
-        return RedirectToPage("Detalle", new { id = medicoId });
+        int medicoId;
+        try
+        {
+            medicoId = await _service.ProponerMedicoAsync(Input, usuarioId);
+        }
+        catch (InvalidOperationException ex)
+        {
+            await PopulatePaisesAsync();
+            var datos = await _service.GetProponerVmAsync();
+            Input.AreasDisponibles = datos.AreasDisponibles;
+            ModelState.AddModelError(string.Empty, ex.Message);
+            return Page();
+        }
+
+        TempData["Success"] = "Gracias por tu aporte. El médico fue registrado en el directorio comunitario. Estará visible tras la revisión del equipo de EIIBD.";
+        return RedirectToPage("Index");
     }
 
     private async Task PopulatePaisesAsync()

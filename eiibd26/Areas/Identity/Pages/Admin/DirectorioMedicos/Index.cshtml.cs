@@ -67,11 +67,8 @@ public class IndexModel : PageModel
                 m.FechaCreacion, m.NivelConfianza, m.Eliminado,
                 Verificado      = m.EstatusValidacion == EstatusValidacionCedula.Validado,
                 PropuestoPorId  = m.PropuestoPorUsuarioId,
-                Confirmaciones  = _db.DirectorioMedicoConfirmaciones.Count(c => c.MedicoId == m.Id && !c.Eliminado),
-                TieneConfEII    = _db.DirectorioMedicoConfirmaciones.Any(c => c.MedicoId == m.Id && !c.Eliminado &&
-                                    (c.TieneExperienciaEII || c.ExpCUCI || c.ExpCrohn || c.ExpPediatrico || c.ExpOstomias ||
-                                     c.ExpBiologicos || c.ExpEmbarazoEII || c.ExpManejoBrotes || c.ExpSegundaOpinion ||
-                                     c.ExpCirugia || c.ExpSeguimientoProlongado)),
+                Confirmaciones  = _db.ConfirmacionesComunitarias.Count(c => c.MedicoDirectorioId == m.Id && !c.Eliminado),
+                TieneConfEII    = _db.ConfirmacionesComunitarias.Any(c => c.MedicoDirectorioId == m.Id && !c.Eliminado),
                 SolicitudClaim  = m.EstatusReclamacion == EstatusReclamacion.EnProceso,
                 PerfilReclamado = m.EstatusReclamacion == EstatusReclamacion.Reclamado,
                 EmailClaim      = m.EmailSolicitudClaim
@@ -124,9 +121,10 @@ public class IndexModel : PageModel
         var m = await _db.MedicosDirectorio.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
         if (m is null) return NotFound();
 
-        // Contadores EII por área
-        var confs = await _db.DirectorioMedicoConfirmaciones.AsNoTracking()
-            .Where(c => c.MedicoId == id && !c.Eliminado)
+        // Contadores y listado desde ConfirmacionesComunitarias (fuente canónica)
+        var confs = await _db.ConfirmacionesComunitarias.AsNoTracking()
+            .Include(c => c.TipoConfirmacion)
+            .Where(c => c.MedicoDirectorioId == id && !c.Eliminado)
             .ToListAsync();
 
         // Confirmadores — join con Users para email
@@ -136,24 +134,17 @@ public class IndexModel : PageModel
                 .ToDictionaryAsync(u => u.Id, u => u.Email ?? u.UserName ?? "—")
             : new Dictionary<Guid, string>();
 
+        // expContadores: mantiene estructura JSON; modelo nuevo no tiene campos por área
         var areas = new[] { "CUCI","Crohn","Pediátrico","Ostomías","Biológicos","Embarazo+EII","Manejo brotes","Segunda opinión","Cirugía","Seguimiento" };
-        Func<DirectorioMedicoConfirmacion, bool>[] expSelectors = {
-            c => c.ExpCUCI, c => c.ExpCrohn, c => c.ExpPediatrico, c => c.ExpOstomias,
-            c => c.ExpBiologicos, c => c.ExpEmbarazoEII, c => c.ExpManejoBrotes,
-            c => c.ExpSegundaOpinion, c => c.ExpCirugia, c => c.ExpSeguimientoProlongado
-        };
-        var expContadores = areas.Select((a, i) => new { nombre = a, total = confs.Count(expSelectors[i]) }).ToList();
+        var expContadores = areas.Select(a => new { nombre = a, total = 0 }).ToList();
 
-        var confirmadoresList = confs.OrderByDescending(c => c.FechaConfirmacion).Select(c => new
+        var confirmadoresList = confs.OrderByDescending(c => c.FechaCreacion).Select(c => new
         {
             email = users.TryGetValue(c.UsuarioId, out var em) ? em : "—",
-            fecha = c.FechaConfirmacion.ToString("dd/MM/yyyy"),
-            exps  = new[] {
-                c.ExpCUCI ? "CUCI" : null, c.ExpCrohn ? "Crohn" : null, c.ExpPediatrico ? "Pediátrico" : null,
-                c.ExpOstomias ? "Ostomías" : null, c.ExpBiologicos ? "Biológicos" : null, c.ExpEmbarazoEII ? "Embarazo" : null,
-                c.ExpManejoBrotes ? "Brotes" : null, c.ExpSegundaOpinion ? "2ª Opinión" : null,
-                c.ExpCirugia ? "Cirugía" : null, c.ExpSeguimientoProlongado ? "Seguimiento" : null
-            }.Where(x => x != null).ToList()
+            fecha = c.FechaCreacion.ToString("dd/MM/yyyy"),
+            exps  = c.TipoConfirmacion != null
+                ? new List<string?> { c.TipoConfirmacion.Nombre }
+                : new List<string?>()
         }).ToList();
 
         string? aportante = null;
@@ -200,7 +191,7 @@ public class IndexModel : PageModel
             cedulaVerificada = m.CedulaVerificada,
             fechaCedulaVerificada = m.FechaCedulaVerificada?.ToString("dd/MM/yyyy HH:mm"),
             totalConfirmaciones = confs.Count,
-            tieneConfirmacionEII = confs.Any(c => c.TieneExperienciaEII || c.ExpCUCI || c.ExpCrohn),
+            tieneConfirmacionEII = confs.Any(),
             estatusReclamacion = m.EstatusReclamacion.ToString(),
             solicitudClaim = m.SolicitudClaimPendiente, perfilReclamado = m.PerfilReclamado,
             emailClaim = m.EmailSolicitudClaim ?? "", fechaReclamacion = m.FechaReclamacion?.ToString("dd/MM/yyyy"),
@@ -350,11 +341,8 @@ public class IndexModel : PageModel
 
     private async Task RecalcularNivelAsync(MedicoDirectorio medico, int id)
     {
-        var total   = await _db.DirectorioMedicoConfirmaciones.CountAsync(c => c.MedicoId == id && !c.Eliminado);
-        var tieneEII = await _db.DirectorioMedicoConfirmaciones.AnyAsync(c => c.MedicoId == id && !c.Eliminado &&
-            (c.TieneExperienciaEII || c.ExpCUCI || c.ExpCrohn || c.ExpPediatrico || c.ExpOstomias ||
-             c.ExpBiologicos || c.ExpEmbarazoEII || c.ExpManejoBrotes || c.ExpSegundaOpinion ||
-             c.ExpCirugia || c.ExpSeguimientoProlongado));
+        var total    = await _db.ConfirmacionesComunitarias.CountAsync(c => c.MedicoDirectorioId == id && !c.Eliminado);
+        var tieneEII = total > 0; // plataforma EII: cualquier confirmación implica experiencia EII
         var nivel = medico.PerfilReclamado ? 3
             : (medico.CedulaVerificada || total >= 5) ? 2
             : (total >= 3 && tieneEII) ? 1

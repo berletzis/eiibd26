@@ -625,6 +625,8 @@
     </div>
 </div>
 
+<form id="__antiForgeryForm" style="display:none;">@Html.AntiForgeryToken()</form>
+
 @section Scripts {
     <script>
         (function () {
@@ -737,10 +739,11 @@
 
                     const valor = dir === 'up' ? 1 : -1;
 
+                    const csrfToken = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
                     try {
                         const res = await fetch('/api/preguntas/' + preguntaId + '/votar', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': csrfToken },
                             body: JSON.stringify({ valor })
                         });
                         if (!res.ok) {
@@ -836,11 +839,12 @@
                 if (downBtn) downBtn.disabled = true;
 
                 const valor = dir === 'up' ? 1 : -1;
+                const csrfToken = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
 
                 try {
                     const res = await fetch('/api/preguntas/' + id + '/votar', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': csrfToken },
                         body: JSON.stringify({ valor })
                     });
                     if (!res.ok) { alert('Error al votar'); return; }

@@ -25,6 +25,7 @@ namespace eiibd26.Models
         [Required]
         public EstadoAnimoEnum EstadoMood { get; set; }
 
+        [MaxLength(2000)]
         public string? Texto { get; set; }
 
         [Required]
