@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>07 — Inconsistencias · Auditoría UX EIIBD</title>
+<style>
+  body { font-family: Inter, system-ui, sans-serif; background: #f6f7f8; color: #1f2b2f; margin: 0; padding: 24px; }
+  h1 { color: #172849; font-weight: 700; font-size: 28px; }
+  h2 { color: #40545a; font-size: 18px; margin-top: 32px; border-bottom: 2px solid #e9ecef; padding-bottom: 8px; }
+  .meta { color: #546a70; font-size: 13px; margin-bottom: 24px; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-right: 4px; }
+  .tag-crit { background: #fdecea; color: #b94a42; }
+  .tag-warn { background: #fff8e1; color: #c38f3b; }
+  .tag-ok   { background: #e8f5e9; color: #2e7d32; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 16px; }
+  th { background: #f2f4f5; text-align: left; padding: 8px 10px; }
+  td { padding: 7px 10px; border-bottom: 1px solid #eef2f7; vertical-align: top; }
+  .section-card { background: #fff; border-radius: 10px; border: 1px solid #e9ecef; padding: 20px; margin-bottom: 20px; }
+  .issue { display: flex; gap: 12px; padding: 14px; background: #fff; border: 1px solid #e9ecef; border-radius: 8px; margin-bottom: 10px; }
+  .issue-id { min-width: 64px; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; height: fit-content; text-align: center; }
+  .sev-crit { background: #fdecea; color: #b94a42; }
+  .sev-high { background: #fff8e1; color: #c38f3b; }
+  .sev-med  { background: #e3f2fd; color: #1565c0; }
+  .issue-body h4 { margin: 0 0 4px; font-size: 14px; }
+  .issue-body p  { margin: 0; font-size: 13px; color: #546a70; line-height: 1.5; }
+  code { background: #f2f4f5; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+  .priority-matrix { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+  .matrix-cell { padding: 12px 16px; border-radius: 8px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<h1>Auditoría UX — Inconsistencias Detectadas</h1>
+<p class="meta">Listado priorizado de todas las inconsistencias de UX encontradas durante la auditoría Playwright</p>
+
+<h2>Resumen ejecutivo</h2>
+<div class="section-card">
+  <table>
+    <tr><th>Severidad</th><th>Cantidad</th><th>Categoría principal</th></tr>
+    <tr><td><span class="tag tag-crit">CRÍTICO</span></td><td>8</td><td>Colores desalineados, buscador sin estado vacío, triple sistema CSS, botones inconsistentes</td></tr>
+    <tr><td><span class="tag tag-warn">ALTO</span></td><td>12</td><td>Tipografía pequeña, espaciados ad-hoc, estados vacíos pobres, carga cognitiva</td></tr>
+    <tr><td>MEDIO</td><td>8</td><td>Duplicación mapa, H1s genéricos, border-radius mixto, links sin diferenciación</td></tr>
+  </table>
+</div>
+
+<h2>Inconsistencias Críticas</h2>
+
+<div class="issue">
+  <div class="issue-id sev-crit">INC-01<br>CRIT</div>
+  <div class="issue-body">
+    <h4>Botones primarios usan Bootstrap blue (#0d6efd), no el brand color (#6a4e7a)</h4>
+    <p>El CTA más importante del sitio ("Crea tu cuenta gratis", "Activar", "Guardar") usa azul Bootstrap por defecto. Toda la identidad visual del sitio es púrpura (#6a4e7a) pero los botones envían un mensaje visual diferente. Impacto: confianza de marca, coherencia visual.</p>
+  </div>
+</div>
+
+<div class="issue">
+  <div class="issue-id sev-crit">INC-02<br>CRIT</div>
+  <div class="issue-body">
+    <h4>Triple sistema de CSS tokens sin unificación: --bs-*, --se-*, --crm-*</h4>
+    <p>Tres familias de variables CSS de color que no se referencian entre sí, creadas en distintos momentos del desarrollo. Resultado: cualquier cambio de marca requiere editar 3 sistemas simultáneamente. Deuda técnica directa de UX.</p>
+  </div>
+</div>
+
+<div class="issue">
+  <div class="issue-id sev-crit">INC-03<br>CRIT</div>
+  <div class="issue-body">
+    <h4>Buscador sin estado vacío — búsqueda "Mesalazina" devuelve 9 artículos no relacionados</h4>
+    <p>Cuando no hay coincidencias exactas, el buscador hace fallback al listado completo sin avisar al usuario. El usuario cree que todos esos artículos hablan de Mesalazina. Es un bug de UX severo que desinforma.</p>
+  </div>
+</div>
+
+<div class="issue">
+  <div class="issue-id sev-crit">INC-04<br>CRIT</div>
+  <div class="issue-body">
+    <h4>4 valores distintos de color "danger/error": #dc3545 · #b94a42 · #c92a2a · #dd3333</h4>
+    <p>Cada sistema (Bootstrap, custom global, CRM, SE) tiene su propio rojo. El usuario percibe cuatro "rojos" en distintas partes del sitio que se sienten como colores diferentes. Destruye la semántica cromática.</p>
+  </div>
+</div>
+
+<div class="issue">
+  <div class="issue-id sev-crit">INC-05<br>CRIT</div>
+  <div class="issue-body">
+    <h4>.crm-btn-primary con font-weight: 100 — ícono "+" invisible en pantallas de baja resolución</h4>
+    <p>El botón circular "+" del dashboard (agregar estado de ánimo) usa peso tipográfico ultrathin. En dispositivos móviles de gama baja, el ícono desaparece visualmente.</p>
+  </div>
+</div>
+
+<div class="issue">
+  <div class="issue-id sev-crit">INC-06<br>CRIT</div>
+  <div class="issue-body">
+    <h4>Dashboard: "Top Respuestas: No hay respuestas para mostrar" sin CTA — estado vacío inútil</h4>
+    <p>Un estado vacío sin acción siguiente es un callejón sin salida. El usuario ve que no hay respuestas pero no tiene dónde ir. Debería mostrar un botón "Ir a P&R" o "Responder una pregunta".</p>
+  </div>
+</div>
+
+<div class="issue">
+  <div class="issue-id sev-crit">INC-07<br>CRIT</div>
+  <div class="issue-body">
+    <h4>Secciones Ayuda y General tienen H1 idéntico: "Contenidos por categoría" — pérdida de identidad</h4>
+    <p>El usuario no sabe en qué sección está. El breadcrumb o el H1 deben distinguir cada sección. Ayuda debería decir "Información y Ayuda" y General debería decir "Contenido General".</p>
+  </div>
+</div>
+
+<div class="issue">
+  <div class="issue-id sev-crit">INC-08<br>CRIT</div>
+  <div class="issue-body">
+    <h4>Tabla laboratorios sin indicador de rango normal — dato médico sin contexto interpretativo</h4>
+    <p>El paciente ve "Calprotectina: —" pero no sabe si el valor (cuando existe) es normal, alto o bajo. Para un sitio de salud, mostrar un número sin rango de referencia puede generar ansiedad innecesaria o falsa tranquilidad.</p>
+  </div>
+</div>
+
+<h2>Inconsistencias Altas</h2>
+
+<div class="issue">
+  <div class="issue-id sev-high">INC-09<br>ALTO</div>
+  <div class="issue-body">
+    <h4>6 variantes de border-radius en botones: 6px · 8px · 9px · 50% · 50% · 6px</h4>
+    <p>Sin sistema unificado de border-radius. Cada botón se percibe de una "familia" visual diferente.</p>
+  </div>
+</div>
+
+<div class="issue">
+  <div class="issue-id sev-high">INC-10<br>ALTO</div>
+  <div class="issue-body">
+    <h4>Texto de cuerpo a 14.4px (0.9rem) — demasiado pequeño para texto médico extenso</h4>
+    <p>El body font-size está escalado al 90% del base. Para pacientes con EII que leen información médica importante, 14.4px es insuficiente. Mínimo: 16px.</p>
+  </div>
+</div>
+
+<div class="issue">
+  <div class="issue-id sev-high">INC-11<br>ALTO</div>
+  <div class="issue-body">
+    <h4>H1 principal con font-weight: 300 (Light) — falta autoridad visual para contexto médico</h4>
+    <p>Títulos H1 con peso 300 se ven frágiles. Para una plataforma de salud donde la confianza es crítica, los títulos deben tener autoridad (weight 600-700).</p>
+  </div>
+</div>
+
+<div class="issue">
+  <div class="issue-id sev-high">INC-12<br>ALTO</div>
+  <div class="issue-body">
+    <h4>Buscador sin feedback de búsqueda activa — no indica cuántos resultados ni el término buscado</h4>
+    <p>Búsqueda de "Crohn" devuelve resultados sin mostrar "X resultados para 'Crohn'". El usuario no tiene confirmación de que el filtro está activo.</p>
+  </div>
+</div>
+
+<div class="issue">
+  <div class="issue-id sev-high">INC-13<br>ALTO</div>
+  <div class="issue-body">
+    <h4>Botón "+ Más" en cards de artículo — texto ambiguo</h4>
+    <p>"+ Más" no comunica qué va a pasar. ¿Abre el artículo? ¿Expande el extracto? Debería ser "Leer más" o directamente hacer click en el título sea suficiente.</p>
+  </div>
+</div>
+
+<div class="issue">
+  <div class="issue-id sev-high">INC-14<br>ALTO</div>
+  <div class="issue-body">
+    <h4>Dashboard: headers de tabla mezclan fecha y etiqueta semántica (25/05 lun AYER)</h4>
+    <p>El header de la columna combina la fecha numérica, el día de semana y una etiqueta relativa ("AYER", "HOY"). Es demasiada información en un header. Separar en 2 líneas o usar solo la etiqueta relativa.</p>
+  </div>
+</div>
+
+<div class="issue">
+  <div class="issue-id sev-high">INC-15<br>ALTO</div>
+  <div class="issue-body">
+    <h4>Botones de estado de ánimo sin diferenciación cromática — todos en outline-secondary gris</h4>
+    <p>Las 5 opciones de estado de ánimo (Muy bien → Muy mal) usan el mismo color. Un sistema de ánimo debería usar una escala cromática verde→rojo para refuerzo visual inmediato.</p>
+  </div>
+</div>
+
+<div class="issue">
+  <div class="issue-id sev-high">INC-16<br>ALTO</div>
+  <div class="issue-body">
+    <h4>Home demasiado largo — CTA principal queda fuera del viewport inicial</h4>
+    <p>El mapa de usuarios (altamente interactivo y con peso visual) aparece antes que los CTAs de registro. Los botones "Crea tu cuenta" están en el hero pero el mapa los eclipsa visualmente.</p>
+  </div>
+</div>
+
+<div class="issue">
+  <div class="issue-id sev-high">INC-17<br>ALTO</div>
+  <div class="issue-body">
+    <h4>Menú nav dice "Guias" pero la sección es /Glosario con H1 "Guía de síntomas y tratamientos"</h4>
+    <p>Triple inconsistencia: label del menú ("Guias") ≠ URL (/Glosario) ≠ H1 ("Guía de síntomas..."). El usuario no puede relacionar fácilmente dónde está con cómo llegó.</p>
+  </div>
+</div>
+
+<div class="issue">
+  <div class="issue-id sev-high">INC-18<br>ALTO</div>
+  <div class="issue-body">
+    <h4>Datos del sitio inconsistentes: contador "+700" en Home vs "723 ubicaciones" en mapa</h4>
+    <p>El hero dice "+700 pacientes" pero el mapa muestra "723 ubicaciones". Son el mismo dato mostrado de forma diferente. Genera desconfianza en usuarios que notan la discrepancia.</p>
+  </div>
+</div>
+
+<div class="issue">
+  <div class="issue-id sev-high">INC-19<br>ALTO</div>
+  <div class="issue-body">
+    <h4>Texto de cuerpo en rgba(33,37,41,0.75) — color con opacidad en lugar de valor sólido</h4>
+    <p>Usar opacidad para texto crea contraste impredecible sobre fondos no-blancos. Si algún día una card tiene background de color, el texto puede volverse ilegible. Usar siempre color sólido para texto.</p>
+  </div>
+</div>
+
+<div class="issue">
+  <div class="issue-id sev-high">INC-20<br>ALTO</div>
+  <div class="issue-body">
+    <h4>Mis P&R tiene 1 error en consola JavaScript</h4>
+    <p>La página /Identity/Usuario/usuarioPreguntasRespuestas reporta 1 error en console. Puede ser un recurso roto o JS fallando silenciosamente. Requiere investigación.</p>
+  </div>
+</div>
+
+</body>
+</html>

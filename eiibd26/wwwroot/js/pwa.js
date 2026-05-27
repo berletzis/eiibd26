@@ -91,7 +91,7 @@
                     <strong style="display:block;color:#0f172a;font-size:14px;">Instalar EIIBD como un APP</strong>
                     <span style="color:#6b7280;font-size:12px;">Acceso rápido con Notificaciones</span>
                 </div>
-                <button id="pwa-install-btn" style="background:#764ba2;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">Instalar</button>
+                <button id="pwa-install-btn" style="background:#6a4e7a;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">Instalar</button>
                 <button id="pwa-dismiss-btn" style="background:transparent;border:none;color:#6b7280;font-size:20px;cursor:pointer;padding:4px 8px;line-height:1;">×</button>
             </div>
             <style>

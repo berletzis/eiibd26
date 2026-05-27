@@ -1,0 +1,393 @@
+/* =============================================================================
+   EIIBD Design System — Layout
+   Fase 8 del plan de migración CSS
+   Requiere: eiibd-tokens.css cargado antes
+
+   Primitivas estructurales:
+     eii-page · eii-page-header · eii-section
+     eii-grid · eii-stack
+     eii-empty · eii-pagination · eii-divider
+   ============================================================================= */
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   PAGE WRAPPER
+   Reemplaza: <div class="container py-4"> + variantes de container
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.eii-page {
+    width: 100%;
+    max-width: var(--eii-max-content);
+    margin: 0 auto;
+    padding: var(--eii-space-7) var(--eii-space-4);
+    box-sizing: border-box;
+}
+
+/* Ancho reducido: formularios, detalle de artículo, pantallas enfocadas */
+.eii-page--narrow {
+    max-width: var(--eii-max-narrow);
+}
+
+/* Ancho extendido: tablas admin, dashboards con mucho contenido */
+.eii-page--wide {
+    max-width: var(--eii-max-wide);
+}
+
+/* Sin padding vertical (cuando el padre ya lo provee) */
+.eii-page--flush {
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+@media (max-width: 575.98px) {
+    .eii-page {
+        padding: var(--eii-space-5) var(--eii-space-3);
+    }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   PAGE HEADER
+   Reemplaza: crm-title + texto muted + btn inline
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.eii-page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--eii-space-4);
+    margin-bottom: var(--eii-space-6);
+    flex-wrap: wrap;
+}
+
+/* Lado izquierdo: título + subtítulo */
+.eii-page-header__content {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+/* Lado derecho: botones de acción */
+.eii-page-header__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--eii-space-2);
+    flex-shrink: 0;
+}
+
+/* Título de página — reemplaza crm-title y se-page-title */
+.eii-page-title {
+    font-size: 2.1rem;
+    font-weight: 300;
+    color: var(--eii-text-heading);
+    letter-spacing: -0.06em;
+    line-height: var(--eii-leading-tight);
+    padding-bottom: 20px;
+    margin: 0;
+}
+
+/* Variante más grande para home/landing sections */
+.eii-page-title--hero {
+    font-size: var(--eii-text-3xl);
+    letter-spacing: -0.03em;
+}
+
+/* Variante más pequeña para subsecciones */
+.eii-page-title--sm {
+    font-size: var(--eii-text-xl);
+    font-weight: var(--eii-fw-semibold);
+}
+
+/* Subtítulo descriptivo bajo el título */
+.eii-page-subtitle {
+    font-size: var(--eii-text-sm);
+    color: var(--eii-text-soft);
+    line-height: var(--eii-leading-normal);
+    margin: 0;
+}
+
+@media (max-width: 575.98px) {
+    .eii-page-title       { font-size: 1.4rem; }
+    .eii-page-title--hero { font-size: var(--eii-text-2xl); }
+    .eii-page-header__actions { width: 100%; justify-content: flex-start; }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SECTION
+   Separación vertical entre bloques de contenido dentro de una página
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.eii-section {
+    margin-bottom: var(--eii-space-7);
+}
+
+.eii-section--sm {
+    margin-bottom: var(--eii-space-5);
+}
+
+.eii-section--lg {
+    margin-bottom: var(--eii-space-9);
+}
+
+/* Título de sección (h2/h3 dentro de una section) */
+.eii-section-title {
+    font-size: var(--eii-text-lg);
+    font-weight: var(--eii-fw-semibold);
+    color: var(--eii-text);
+    letter-spacing: -0.01em;
+    margin: 0 0 var(--eii-space-4) 0;
+}
+
+.eii-section-title--sm {
+    font-size: var(--eii-text-base);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   GRID
+   CSS Grid responsivo — reemplaza directorio-grid, se-cards grid, crm-card-row
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Base: 3 columnas iguales */
+.eii-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--eii-space-5);
+    align-items: start;
+}
+
+/* 2 columnas fijas */
+.eii-grid--2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+/* 4 columnas fijas */
+.eii-grid--4 {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+/* Auto-fill responsive: caben tantas como quepan con mínimo 280px */
+.eii-grid--cards {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+/* Auto-fill compacto: mínimo 220px */
+.eii-grid--cards-sm {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+/* Gap reducido */
+.eii-grid--gap-sm { gap: var(--eii-space-3); }
+
+/* Gap ampliado */
+.eii-grid--gap-lg { gap: var(--eii-space-7); }
+
+/* Responsivo base */
+@media (max-width: 991.98px) {
+    .eii-grid          { grid-template-columns: repeat(2, 1fr); }
+    .eii-grid--4       { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 575.98px) {
+    .eii-grid          { grid-template-columns: 1fr; }
+    .eii-grid--2       { grid-template-columns: 1fr; }
+    .eii-grid--4       { grid-template-columns: repeat(2, 1fr); }
+    .eii-grid--cards   { grid-template-columns: 1fr; }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   STACK
+   Flex vertical con gap — primitiva compositiva
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.eii-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--eii-space-4);
+}
+
+.eii-stack--sm { gap: var(--eii-space-2); }
+.eii-stack--lg { gap: var(--eii-space-6); }
+.eii-stack--xl { gap: var(--eii-space-8); }
+
+/* Stack horizontal */
+.eii-stack--row {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* Stack horizontal que se apila en mobile */
+.eii-stack--row-wrap {
+    flex-direction: row;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+@media (max-width: 575.98px) {
+    .eii-stack--row-wrap { flex-direction: column; }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   LAYOUT CON SIDEBAR
+   Reemplaza: <div class="row g-4"><div class="col-lg-8">...<div class="col-lg-4">
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.eii-layout-sidebar {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: var(--eii-space-6);
+    align-items: start;
+}
+
+.eii-layout-sidebar--wide {
+    grid-template-columns: 1fr 380px;
+}
+
+.eii-layout-sidebar--narrow {
+    grid-template-columns: 1fr 260px;
+}
+
+@media (max-width: 991.98px) {
+    .eii-layout-sidebar,
+    .eii-layout-sidebar--wide,
+    .eii-layout-sidebar--narrow {
+        grid-template-columns: 1fr;
+    }
+    /* Sidebar se convierte en una sección al final */
+    .eii-layout-sidebar__aside {
+        order: 2;
+    }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   EMPTY STATE
+   Reemplaza: <div class="text-center py-5"> con icon + texto + CTA
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.eii-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: var(--eii-space-10) var(--eii-space-6);
+    gap: var(--eii-space-3);
+}
+
+.eii-empty__icon {
+    font-size: 3rem;
+    color: var(--eii-text-disabled);
+    line-height: 1;
+}
+
+.eii-empty__title {
+    font-size: var(--eii-text-md);
+    font-weight: var(--eii-fw-semibold);
+    color: var(--eii-text);
+    margin: 0;
+}
+
+.eii-empty__text {
+    font-size: var(--eii-text-sm);
+    color: var(--eii-text-soft);
+    max-width: 340px;
+    margin: 0;
+    line-height: var(--eii-leading-relaxed);
+}
+
+.eii-empty__actions {
+    display: flex;
+    gap: var(--eii-space-3);
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: var(--eii-space-2);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   PAGINATION
+   Reemplaza: preguntas-paginacion
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.eii-pagination {
+    display: flex;
+    justify-content: center;
+    margin-top: var(--eii-space-6);
+}
+
+.eii-pagination__bar {
+    display: flex;
+    align-items: center;
+    gap: var(--eii-space-1);
+}
+
+.eii-pagination__btn,
+.eii-pagination__num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    height: 2rem;
+    padding: 0 var(--eii-space-2);
+    font-size: var(--eii-text-sm);
+    font-weight: var(--eii-fw-medium);
+    border-radius: var(--eii-radius-md);
+    border: 1px solid var(--eii-border);
+    background: var(--eii-surface);
+    color: var(--eii-text-soft);
+    text-decoration: none;
+    transition:
+        background var(--eii-transition-base),
+        border-color var(--eii-transition-base),
+        color var(--eii-transition-base);
+    cursor: pointer;
+}
+
+.eii-pagination__btn:hover,
+.eii-pagination__num:hover {
+    background: var(--eii-primary-soft);
+    border-color: var(--eii-primary-border);
+    color: var(--eii-primary);
+}
+
+.eii-pagination__num.is-active,
+.eii-pagination__num[aria-current="page"] {
+    background: var(--eii-primary-soft);
+    border-color: var(--eii-primary);
+    color: var(--eii-primary);
+    font-weight: var(--eii-fw-semibold);
+    pointer-events: none;
+}
+
+.eii-pagination__btn:disabled,
+.eii-pagination__btn[aria-disabled="true"] {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+/* Variante mínima: solo prev / next */
+.eii-pagination--simple .eii-pagination__bar {
+    gap: var(--eii-space-3);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   DIVIDER
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.eii-divider {
+    border: none;
+    border-top: 1px solid var(--eii-border-soft);
+    margin: var(--eii-space-6) 0;
+}
+
+.eii-divider--strong {
+    border-top-color: var(--eii-border);
+}
+
+.eii-divider--sm {
+    margin: var(--eii-space-4) 0;
+}

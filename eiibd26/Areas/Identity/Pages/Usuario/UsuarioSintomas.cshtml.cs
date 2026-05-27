@@ -411,12 +411,14 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             return new JsonResult(new { ok = true });
         }
 
-        public async Task<IActionResult> OnPostEditarFechaInicioAsync(int sintId, DateTime? nuevaFechaInicio)
+        public async Task<IActionResult> OnPostEditarFechaInicioAsync(int sintId, string? nuevaFechaInicio)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (userId == null) return Unauthorized();
 
-            if (!nuevaFechaInicio.HasValue)
+            if (!DateTime.TryParseExact(nuevaFechaInicio, "yyyy-MM-dd",
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out var fechaParsed))
                 return new JsonResult(new { ok = false, mensaje = "Fecha no válida." }) { StatusCode = 400 };
 
             var sintomaUsuario = await _db.sintomasUsuario
@@ -426,10 +428,10 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                 return new JsonResult(new { ok = false, mensaje = "Sintoma no encontrado" }) { StatusCode = 400 };
 
             var fechaMin = new DateTime(1900, 1, 1);
-            if (nuevaFechaInicio.Value < fechaMin || nuevaFechaInicio.Value > DateTime.Today)
+            if (fechaParsed < fechaMin || fechaParsed > DateTime.Today)
                 return new JsonResult(new { ok = false, mensaje = "La fecha debe estar entre 1900 y hoy." }) { StatusCode = 400 };
 
-            sintomaUsuario.fechaInicio = nuevaFechaInicio.Value;
+            sintomaUsuario.fechaInicio = fechaParsed;
             sintomaUsuario.fechaModificado = DateTime.Now;
             await _db.SaveChangesAsync();
 

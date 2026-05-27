@@ -20,10 +20,14 @@
     <!-- Header -->
     <div class="row mb-4">
         <div class="col">
-            <h1 class="display-5 fw-bold text-dark" style="color:#000;margin-bottom:0;">
-                Tratamientos
-                <span class="badge bg-light text-dark ms-2" style="font-weight:600;font-size:.9rem;">@Model.Terminos.Count</span>
-            </h1>
+            <div class="eii-page-header">
+                <div class="eii-page-header__content">
+                    <h1 class="eii-page-title">
+                        Tratamientos
+                        <span class="badge bg-light text-dark ms-2" style="font-weight:600;font-size:.9rem;">@Model.Terminos.Count</span>
+                    </h1>
+                </div>
+            </div>
             <nav aria-label="breadcrumb" class="mt-2">
                 <ol class="breadcrumb mb-2">
                     <li class="breadcrumb-item"><a href="/">Inicio</a></li>
@@ -44,7 +48,7 @@
                     <span class="nivel-count">(@Model.Terminos.Count)</span>
                 </button>
                 <button type="button" class="btn-nivel-eii" data-nivel="1">
-                    <span class="nivel-dot" style="background:#7c3aed;"></span> Directa
+                    <span class="nivel-dot" style="background:var(--eii-primary);"></span> Directa
                     <span class="nivel-count">(@Model.Terminos.Count(t => t.NivelRelacion == eiibd26.Models.Glossary.MedicalRelationType.Directa))</span>
                 </button>
                 <button type="button" class="btn-nivel-eii" data-nivel="2">
@@ -83,15 +87,15 @@
                     @foreach (var termino in grupo)
                     {
                         <div class="col termino-item" data-nivel="@(termino.NivelRelacion.HasValue ? ((int)termino.NivelRelacion!).ToString() : "sin")">
-                            <article class="se-card h-100">
+                            <article class="eii-card eii-card--link h-100">
                                 <a href="/Termino/@termino.Slug" class="text-decoration-none text-reset d-flex flex-column h-100">
-                                    <div class="se-card-body se-card-body--row">
-                                        <h5 class="se-card-title mb-0">@termino.Nombre</h5>
+                                    <div class="d-flex align-items-center justify-content-between gap-2">
+                                        <h5 class="mb-0 fw-semibold" style="font-size:var(--eii-text-sm);">@termino.Nombre</h5>
                                         @{
                                             var dotColor = termino.NivelRelacion.HasValue
                                                 ? termino.NivelRelacion.Value switch
                                                 {
-                                                    eiibd26.Models.Glossary.MedicalRelationType.Directa    => "#7c3aed",
+                                                    eiibd26.Models.Glossary.MedicalRelationType.Directa    => "#6a4e7a",
                                                     eiibd26.Models.Glossary.MedicalRelationType.Indirecta  => "#c4b5fd",
                                                     eiibd26.Models.Glossary.MedicalRelationType.Secundaria => "#d1d5db",
                                                     _ => "#ced4da"
@@ -128,7 +132,7 @@
     <!-- Botón volver -->
     <div class="row mt-5">
         <div class="col text-center">
-            <a href="/Glosario" class="btn btn-outline-secondary">
+            <a href="/Glosario" class="eii-btn eii-btn--neutral">
                 <i class="bi bi-arrow-left"></i> Volver al Glosario
             </a>
         </div>
@@ -149,40 +153,28 @@
             line-height: 48px !important;
             padding: 0 10px !important;
             border-radius: 8px !important;
-            color: #6d28d9 !important;
+            color: var(--eii-primary) !important;
             background: transparent !important;
             cursor: pointer !important;
             font-weight: 700 !important;
         }
-        .alphabet-letter:hover { background: #f3e8ff !important; color: #5b21b6 !important; }
-        .alphabet-letter:active, .alphabet-letter.active { background: #e9d5ff !important; color: #6d28d9 !important; }
-        .alphabet-letter:focus { outline: 3px solid rgba(124,58,237,0.18) !important; outline-offset: 3px !important; }
+        .alphabet-letter:hover { background: var(--eii-primary-soft) !important; color: var(--eii-primary-hover) !important; }
+        .alphabet-letter:active, .alphabet-letter.active { background: var(--eii-primary-border) !important; color: var(--eii-primary) !important; }
+        .alphabet-letter:focus { outline: 3px solid rgba(106,78,122,0.18) !important; outline-offset: 3px !important; }
 
         /* ── Filtro EII ── */
-        .eii-nivel-filter { border-top: 1px solid #f0e8ff; border-bottom: 1px solid #f0e8ff; padding: .6rem 0; }
+        .eii-nivel-filter { border-top: 1px solid var(--eii-primary-soft); border-bottom: 1px solid var(--eii-primary-soft); padding: .6rem 0; }
         .btn-nivel-eii {
             display: inline-flex; align-items: center; gap: .4rem;
             padding: .35rem .85rem; border-radius: 999px;
-            border: 1.5px solid #e2d9f3; background: #fff;
+            border: 1.5px solid var(--eii-primary-border); background: #fff;
             font-size: .85rem; font-weight: 500; color: #374151;
             cursor: pointer; transition: border-color .15s, background .15s;
         }
-        .btn-nivel-eii:hover { border-color: #7c3aed; background: #f5f0ff; }
-        .btn-nivel-eii.active { border-color: #7c3aed; background: #ede9fe; color: #5b21b6; font-weight: 600; }
+        .btn-nivel-eii:hover { border-color: var(--eii-primary); background: var(--eii-primary-soft); }
+        .btn-nivel-eii.active { border-color: var(--eii-primary); background: var(--eii-primary-soft); color: var(--eii-primary-hover); font-weight: 600; }
         .nivel-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
         .nivel-count { font-size: .78rem; opacity: .7; }
-        /* fila horizontal dentro del card: nombre + punto al final */
-        .se-card-body--row {
-            flex-direction: row !important;
-            align-items: center !important;
-            justify-content: space-between !important;
-            gap: .5rem !important;
-        }
-        .se-card-body--row .se-card-title {
-            margin: 0;
-            flex: 1;
-            min-width: 0;          /* permite truncar texto largo */
-        }
         /* punto circular de nivel en la tarjeta */
         .nivel-dot-card {
             display: inline-block;

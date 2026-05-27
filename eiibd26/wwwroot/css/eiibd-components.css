@@ -1,0 +1,586 @@
+/* =============================================================================
+   EIIBD Design System — Components
+   Fases 5, 6 y 7 del plan de migración CSS
+   Requiere: eiibd-tokens.css cargado antes
+   ============================================================================= */
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   FASE 5 — eii-card
+   Reemplaza: crm-card · se-card · card-block · medico-card · sidebar-section
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Base */
+.eii-card {
+    background: var(--eii-surface);
+    border: 1px solid var(--eii-border);
+    border-radius: var(--eii-radius-lg);
+    padding: var(--eii-space-5);
+}
+
+/* Elevated: shadow + sin borde visible + radius mayor */
+.eii-card--elevated {
+    border-color: transparent;
+    box-shadow: var(--eii-shadow-md);
+    border-radius: var(--eii-radius-xl);
+    padding: var(--eii-space-6);
+}
+
+/* Link / hoverable: lift al hover (para cards clickeables) */
+.eii-card--link {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+    transition:
+        transform var(--eii-transition-base),
+        box-shadow var(--eii-transition-base),
+        border-color var(--eii-transition-base);
+}
+.eii-card--link:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--eii-shadow-md);
+    border-color: var(--eii-primary-border);
+    color: inherit;
+}
+.eii-card--link:hover .eii-card__title {
+    color: var(--eii-primary);
+}
+
+/* Flat: sin borde, fondo sutil (para secciones, not "cards") */
+.eii-card--flat {
+    border-color: transparent;
+    background: var(--eii-surface-soft);
+}
+
+/* Ghost: transparente, solo estructura */
+.eii-card--ghost {
+    background: transparent;
+    border-color: transparent;
+}
+
+/* Compact: padding reducido */
+.eii-card--compact {
+    padding: var(--eii-space-4);
+    border-radius: var(--eii-radius-md);
+}
+
+/* ── Elementos internos ──────────────────────────────────────────────────── */
+
+.eii-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--eii-space-3);
+    margin-bottom: var(--eii-space-4);
+}
+
+.eii-card__title {
+    font-size: var(--eii-text-base);
+    font-weight: var(--eii-fw-semibold);
+    color: var(--eii-text);
+    line-height: var(--eii-leading-tight);
+    margin: 0;
+    transition: color var(--eii-transition-base);
+}
+
+.eii-card__subtitle {
+    font-size: var(--eii-text-sm);
+    color: var(--eii-text-soft);
+    line-height: var(--eii-leading-normal);
+    margin: var(--eii-space-1) 0 0;
+}
+
+.eii-card__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--eii-space-2);
+    flex-shrink: 0;
+}
+
+.eii-card__body {
+    flex: 1;
+}
+
+.eii-card__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--eii-space-3);
+    margin-top: var(--eii-space-4);
+    padding-top: var(--eii-space-4);
+    border-top: 1px solid var(--eii-border-soft);
+}
+
+/* Imagen al tope de la card, antes del padding */
+.eii-card__img {
+    display: block;
+    width: calc(100% + 2 * var(--eii-space-5));
+    margin: calc(-1 * var(--eii-space-5)) calc(-1 * var(--eii-space-5)) var(--eii-space-5);
+    height: 200px;
+    object-fit: cover;
+    border-radius: var(--eii-radius-lg) var(--eii-radius-lg) 0 0;
+}
+
+/* Separador horizontal entre secciones de una card */
+.eii-card__divider {
+    height: 1px;
+    background: var(--eii-border-soft);
+    margin: var(--eii-space-4) 0;
+    border: none;
+}
+
+/* Fila de tags / badges */
+.eii-card__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--eii-space-1);
+}
+
+/* Meta row: fecha, autor, etc. */
+.eii-card__meta {
+    display: flex;
+    align-items: center;
+    gap: var(--eii-space-3);
+    font-size: var(--eii-text-xs);
+    color: var(--eii-text-soft);
+}
+
+/* Etiqueta de sección dentro de una card (reemplaza crm-label) */
+.eii-card__label {
+    display: block;
+    font-size: var(--eii-text-xs);
+    font-weight: var(--eii-fw-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--eii-text-soft);
+    margin-bottom: var(--eii-space-2);
+}
+
+/* Título de sección dentro de una card (reemplaza crm-card section titles) */
+.eii-card__section-title {
+    display: flex;
+    align-items: center;
+    gap: var(--eii-space-2);
+    font-size: var(--eii-text-sm);
+    font-weight: var(--eii-fw-semibold);
+    color: var(--eii-text);
+    margin-bottom: var(--eii-space-3);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   FASE 6 — eii-btn
+   Reemplaza: btn-brand · crm-btn-* · se-btn-* · btn-action-grid · etc.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Base — siempre combinar con un modificador de color */
+.eii-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--eii-space-2);
+    padding: 0.45rem 0.9rem;
+    font-size: var(--eii-text-sm);
+    font-weight: var(--eii-fw-medium);
+    font-family: var(--eii-font);
+    line-height: 1.2;
+    white-space: nowrap;
+    text-decoration: none;
+    cursor: pointer;
+    border: 1.5px solid transparent;
+    border-radius: var(--eii-radius-md);
+    transition:
+        background var(--eii-transition-base),
+        border-color var(--eii-transition-base),
+        color var(--eii-transition-base),
+        box-shadow var(--eii-transition-base),
+        transform var(--eii-transition-fast);
+    user-select: none;
+}
+.eii-btn:focus-visible {
+    outline: 2px solid var(--eii-primary);
+    outline-offset: 2px;
+}
+.eii-btn:disabled,
+.eii-btn[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* ── Variantes de color ──────────────────────────────────────────────────── */
+
+/* Solid: CTA principal — relleno morado, texto blanco */
+.eii-btn--solid {
+    background: var(--eii-primary);
+    color: var(--eii-text-inverse);
+    border-color: var(--eii-primary);
+}
+.eii-btn--solid:hover,
+.eii-btn--solid:focus-visible {
+    background: var(--eii-primary-hover);
+    border-color: var(--eii-primary-hover);
+    color: var(--eii-text-inverse);
+    box-shadow: var(--eii-shadow-sm);
+}
+.eii-btn--solid:active {
+    background: var(--eii-primary-active);
+    border-color: var(--eii-primary-active);
+    box-shadow: none;
+}
+
+/* Primary: outlined morado — reemplaza btn-brand */
+.eii-btn--primary {
+    background: var(--eii-surface);
+    color: var(--eii-primary);
+    border-color: var(--eii-primary-border);
+    box-shadow: 0 1px 3px rgba(106,78,122,0.08);
+}
+.eii-btn--primary:hover,
+.eii-btn--primary:focus-visible {
+    background: var(--eii-primary-soft);
+    border-color: var(--eii-primary);
+    color: var(--eii-primary-hover);
+    box-shadow: 0 2px 8px rgba(106,78,122,0.14);
+}
+.eii-btn--primary:active {
+    background: #ede3f5;
+    border-color: var(--eii-primary-hover);
+    box-shadow: none;
+}
+
+/* Neutral: para cancelar / acciones secundarias sin énfasis */
+.eii-btn--neutral {
+    background: var(--eii-surface);
+    color: var(--eii-text-soft);
+    border-color: var(--eii-border-strong);
+}
+.eii-btn--neutral:hover,
+.eii-btn--neutral:focus-visible {
+    background: var(--eii-surface-soft);
+    color: var(--eii-text);
+    border-color: var(--eii-border-strong);
+}
+.eii-btn--neutral:active {
+    background: var(--eii-surface-subtle);
+}
+
+/* Ghost: sin borde, fondo transparente — acciones terciarias */
+.eii-btn--ghost {
+    background: transparent;
+    color: var(--eii-text-soft);
+    border-color: transparent;
+}
+.eii-btn--ghost:hover,
+.eii-btn--ghost:focus-visible {
+    background: var(--eii-surface-subtle);
+    color: var(--eii-text);
+}
+.eii-btn--ghost:active {
+    background: var(--eii-border);
+}
+
+/* Link: solo texto con underline */
+.eii-btn--link {
+    background: transparent;
+    color: var(--eii-primary);
+    border-color: transparent;
+    padding-left: 0;
+    padding-right: 0;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+.eii-btn--link:hover,
+.eii-btn--link:focus-visible {
+    color: var(--eii-primary-hover);
+}
+
+/* Danger: destructive action */
+.eii-btn--danger {
+    background: var(--eii-surface);
+    color: var(--eii-danger);
+    border-color: var(--eii-danger-border);
+}
+.eii-btn--danger:hover,
+.eii-btn--danger:focus-visible {
+    background: var(--eii-danger-soft);
+    border-color: var(--eii-danger);
+    color: var(--eii-danger-hover);
+}
+.eii-btn--danger:active {
+    background: #fecaca;
+}
+
+/* Danger solid (confirm delete dialogs) */
+.eii-btn--danger-solid {
+    background: var(--eii-danger);
+    color: var(--eii-text-inverse);
+    border-color: var(--eii-danger);
+}
+.eii-btn--danger-solid:hover,
+.eii-btn--danger-solid:focus-visible {
+    background: var(--eii-danger-hover);
+    border-color: var(--eii-danger-hover);
+    color: var(--eii-text-inverse);
+}
+
+/* Success */
+.eii-btn--success {
+    background: var(--eii-surface);
+    color: var(--eii-success);
+    border-color: var(--eii-success-border);
+}
+.eii-btn--success:hover,
+.eii-btn--success:focus-visible {
+    background: var(--eii-success-soft);
+    border-color: var(--eii-success);
+    color: var(--eii-success-hover);
+}
+
+/* ── Tamaños ──────────────────────────────────────────────────────────────── */
+
+.eii-btn--sm {
+    padding: 0.25rem 0.6rem;
+    font-size: var(--eii-text-xs);
+    border-radius: var(--eii-radius-sm);
+    gap: var(--eii-space-1);
+}
+
+.eii-btn--lg {
+    padding: 0.65rem 1.25rem;
+    font-size: var(--eii-text-base);
+    border-radius: var(--eii-radius-lg);
+}
+
+/* ── Forma / layout ───────────────────────────────────────────────────────── */
+
+/* Ancho completo */
+.eii-btn--full { width: 100%; }
+
+/* Cuadrado para íconos */
+.eii-btn--icon {
+    padding: 0;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: var(--eii-radius-md);
+}
+.eii-btn--icon.eii-btn--sm {
+    width: 1.75rem;
+    height: 1.75rem;
+}
+.eii-btn--icon.eii-btn--lg {
+    width: 2.75rem;
+    height: 2.75rem;
+}
+
+/* Circular */
+.eii-btn--circle {
+    border-radius: var(--eii-radius-full);
+}
+.eii-btn--icon.eii-btn--circle {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 50%;
+}
+.eii-btn--icon.eii-btn--circle.eii-btn--sm {
+    width: 2.25rem;
+    height: 2.25rem;
+}
+.eii-btn--icon.eii-btn--circle.eii-btn--lg {
+    width: 3.5rem;
+    height: 3.5rem;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   FASE 7 — eii-input · eii-select · eii-textarea · eii-label · eii-form-group
+   Reemplaza: crm-input · se-search-input · form-control (módulos propios)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Input de texto ──────────────────────────────────────────────────────── */
+.eii-input {
+    display: block;
+    width: 100%;
+    padding: 0.45rem 0.75rem;
+    font-size: var(--eii-text-sm);
+    font-family: var(--eii-font);
+    color: var(--eii-text);
+    background: var(--eii-surface);
+    border: 1px solid var(--eii-border-strong);
+    border-radius: var(--eii-radius-md);
+    line-height: var(--eii-leading-normal);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    transition:
+        border-color var(--eii-transition-base),
+        box-shadow var(--eii-transition-base);
+}
+.eii-input::placeholder {
+    color: var(--eii-text-disabled);
+}
+.eii-input:hover {
+    border-color: var(--eii-primary-border);
+}
+.eii-input:focus {
+    border-color: var(--eii-primary);
+    box-shadow: 0 0 0 3px rgba(106,78,122,0.12);
+}
+.eii-input:disabled {
+    background: var(--eii-surface-subtle);
+    color: var(--eii-text-disabled);
+    border-color: var(--eii-border);
+    cursor: not-allowed;
+}
+.eii-input[readonly] {
+    background: var(--eii-surface-soft);
+    color: var(--eii-text-soft);
+}
+
+/* Error state */
+.eii-input--error {
+    border-color: var(--eii-danger);
+}
+.eii-input--error:focus {
+    border-color: var(--eii-danger);
+    box-shadow: 0 0 0 3px rgba(220,38,38,0.12);
+}
+
+/* Size: sm */
+.eii-input--sm {
+    padding: 0.25rem 0.55rem;
+    font-size: var(--eii-text-xs);
+    border-radius: var(--eii-radius-sm);
+}
+
+/* ── Select ──────────────────────────────────────────────────────────────── */
+.eii-select {
+    display: block;
+    width: 100%;
+    padding: 0.45rem 2.25rem 0.45rem 0.75rem;
+    font-size: var(--eii-text-sm);
+    font-family: var(--eii-font);
+    color: var(--eii-text);
+    background: var(--eii-surface);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 0.85em;
+    border: 1px solid var(--eii-border-strong);
+    border-radius: var(--eii-radius-md);
+    line-height: var(--eii-leading-normal);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    transition:
+        border-color var(--eii-transition-base),
+        box-shadow var(--eii-transition-base);
+}
+.eii-select:hover { border-color: var(--eii-primary-border); }
+.eii-select:focus {
+    border-color: var(--eii-primary);
+    box-shadow: 0 0 0 3px rgba(106,78,122,0.12);
+}
+.eii-select:disabled {
+    background-color: var(--eii-surface-subtle);
+    color: var(--eii-text-disabled);
+    cursor: not-allowed;
+}
+
+/* ── Textarea ────────────────────────────────────────────────────────────── */
+.eii-textarea {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    font-size: var(--eii-text-sm);
+    font-family: var(--eii-font);
+    color: var(--eii-text);
+    background: var(--eii-surface);
+    border: 1px solid var(--eii-border-strong);
+    border-radius: var(--eii-radius-md);
+    line-height: var(--eii-leading-relaxed);
+    resize: vertical;
+    min-height: 6rem;
+    outline: none;
+    transition:
+        border-color var(--eii-transition-base),
+        box-shadow var(--eii-transition-base);
+}
+.eii-textarea::placeholder { color: var(--eii-text-disabled); }
+.eii-textarea:hover { border-color: var(--eii-primary-border); }
+.eii-textarea:focus {
+    border-color: var(--eii-primary);
+    box-shadow: 0 0 0 3px rgba(106,78,122,0.12);
+}
+
+/* ── Label ───────────────────────────────────────────────────────────────── */
+.eii-label {
+    display: block;
+    font-size: var(--eii-text-sm);
+    font-weight: var(--eii-fw-medium);
+    color: var(--eii-text);
+    line-height: var(--eii-leading-normal);
+    margin-bottom: var(--eii-space-1);
+}
+.eii-label--required::after {
+    content: ' *';
+    color: var(--eii-danger);
+}
+
+/* ── Textos auxiliares ───────────────────────────────────────────────────── */
+.eii-form-text {
+    font-size: var(--eii-text-xs);
+    color: var(--eii-text-soft);
+    margin-top: var(--eii-space-1);
+}
+.eii-form-error {
+    font-size: var(--eii-text-xs);
+    color: var(--eii-danger);
+    margin-top: var(--eii-space-1);
+}
+
+/* ── Form group wrapper ──────────────────────────────────────────────────── */
+.eii-form-group {
+    display: flex;
+    flex-direction: column;
+}
+.eii-form-group + .eii-form-group {
+    margin-top: var(--eii-space-4);
+}
+
+/* ── Input group (prepend / append) ─────────────────────────────────────── */
+.eii-input-group {
+    display: flex;
+    align-items: stretch;
+}
+.eii-input-group .eii-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border-radius: 0;
+}
+.eii-input-group .eii-input:first-child {
+    border-radius: var(--eii-radius-md) 0 0 var(--eii-radius-md);
+}
+.eii-input-group .eii-input:last-child {
+    border-radius: 0 var(--eii-radius-md) var(--eii-radius-md) 0;
+}
+.eii-input-group .eii-btn {
+    flex-shrink: 0;
+    border-radius: 0 var(--eii-radius-md) var(--eii-radius-md) 0;
+}
+.eii-input-group-text {
+    display: flex;
+    align-items: center;
+    padding: 0.45rem 0.75rem;
+    font-size: var(--eii-text-sm);
+    color: var(--eii-text-soft);
+    background: var(--eii-surface-soft);
+    border: 1px solid var(--eii-border-strong);
+    border-radius: var(--eii-radius-md) 0 0 var(--eii-radius-md);
+    border-right: none;
+    white-space: nowrap;
+}

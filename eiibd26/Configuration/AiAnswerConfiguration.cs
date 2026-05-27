@@ -11,9 +11,9 @@ namespace eiibd26.Configuration
         public string AnthropicApiKey { get; set; } = string.Empty;
 
         /// <summary>
-        /// Modelo a utilizar (default: claude-sonnet-4.5-20250514)
+        /// Modelo a utilizar (default: claude-haiku-4-5-20251001)
         /// </summary>
-        public string Model { get; set; } = "claude-sonnet-4.5-20250514";
+        public string Model { get; set; } = "claude-haiku-4-5-20251001";
 
         /// <summary>
         /// Temperatura para generación (0.0 = determinista, 1.0 = creativo)

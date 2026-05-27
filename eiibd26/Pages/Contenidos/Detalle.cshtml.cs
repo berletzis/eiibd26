@@ -80,7 +80,7 @@ namespace eiibd26.Pages.Contenidos
                 Id = entity.Id,
                 Title = entity.ContenidoTitulo ?? "",
                 Excerpt = entity.ContenidoTextoC ?? "",
-                ContentHtml = entity.ContenidoTextoL ?? "",
+                ContentHtml = StripWysiwygNoiseAttributes(entity.ContenidoTextoL ?? ""),
                 ImageUrl = string.IsNullOrWhiteSpace(entity.URLImagenPrincipal)
                     ? null
                     : (entity.URLImagenPrincipal.StartsWith("http", StringComparison.OrdinalIgnoreCase)
@@ -102,7 +102,7 @@ namespace eiibd26.Pages.Contenidos
             var words = CountWords(plain);
             vm.ReadMinutes = Math.Max(1, (int)Math.Ceiling(words / (double)WordsPerMinute));
 
-            // 3) Obtener categorías del contenido
+            // 3) Obtener categorï¿½as del contenido
             var catIds = await _db.ContenidosCategoriasRelacion
                 .AsNoTracking()
                 .Where(r => r.IdContenido == entity.Id && !r.Borrado && r.IdCategoria != null)
@@ -122,7 +122,7 @@ namespace eiibd26.Pages.Contenidos
 
                 vm.Categories = catNames.Where(n => !string.IsNullOrWhiteSpace(n)).ToList();
 
-                // Buscar la categoría principal (EsPrincipal)
+                // Buscar la categorï¿½a principal (EsPrincipal)
                 var principalRel = await _db.ContenidosCategoriasRelacion.AsNoTracking()
                     .Where(r => r.IdContenido == entity.Id && !r.Borrado && r.IdCategoria != null && r.EsPrincipal == true)
                     .FirstOrDefaultAsync();
@@ -135,7 +135,7 @@ namespace eiibd26.Pages.Contenidos
                         .FirstOrDefaultAsync();
                 }
 
-                // Si no hay principal, usar la más profunda
+                // Si no hay principal, usar la mï¿½s profunda
                 if (principalCat == null)
                 {
                     var allCats = await _db.ContenidosCategorias
@@ -163,7 +163,7 @@ namespace eiibd26.Pages.Contenidos
                         chain.Reverse();
                         chains.Add((chain, cat));
                     }
-                    // Elegir la cadena más profunda (con más niveles)
+                    // Elegir la cadena mï¿½s profunda (con mï¿½s niveles)
                     var deepestChain = chains.OrderByDescending(x => x.chain.Count).FirstOrDefault();
                     if (deepestChain.chain != null && deepestChain.chain.Count > 0)
                     {
@@ -185,7 +185,7 @@ namespace eiibd26.Pages.Contenidos
                         var segment = !string.IsNullOrWhiteSpace(current.CategoriaSlug)
                             ? current.CategoriaSlug
                             : current.Sequence.ToString();
-                        crumbsTemp.Add((current.Nombre ?? $"Categoría {current.Sequence}", segment));
+                        crumbsTemp.Add((current.Nombre ?? $"Categorï¿½a {current.Sequence}", segment));
                         if (current.CategoriaPadre.HasValue && current.CategoriaPadre.Value > 0)
                         {
                             current = await _db.ContenidosCategorias.AsNoTracking()
@@ -212,7 +212,7 @@ namespace eiibd26.Pages.Contenidos
                 }
             }
 
-            // 4) Determinar URL canónica SEO (relative)
+            // 4) Determinar URL canï¿½nica SEO (relative)
             if (!string.IsNullOrWhiteSpace(primaryCategorySlug))
             {
                 CanonicalUrl = $"/{primaryCategorySlug}/{vm.Slug}";
@@ -241,12 +241,12 @@ namespace eiibd26.Pages.Contenidos
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "No se pudo construir SeoUrl; usando URL de la petición.");
+                _logger.LogWarning(ex, "No se pudo construir SeoUrl; usando URL de la peticiï¿½n.");
                 SeoUrl = HttpContext.Request.GetDisplayUrl();
             }
 
             // 5) Manual relations
-            // (rest of logic remains unchanged; omitted here for brevity — already in your file)
+            // (rest of logic remains unchanged; omitted here for brevity ï¿½ already in your file)
             var manualFrom = await _db.ContenidosRelacionados.AsNoTracking()
                 .Where(r => r.IdContenido == entity.Id && !r.Borrado)
                 .ToListAsync();
@@ -297,7 +297,7 @@ namespace eiibd26.Pages.Contenidos
                 // Construir URL SEO y agregar nota para cada contenido manual relacionado
                 foreach (var m in manualContents)
                 {
-                    // Obtener categoría primaria del contenido relacionado
+                    // Obtener categorï¿½a primaria del contenido relacionado
                     var relCatIds = await _db.ContenidosCategoriasRelacion.AsNoTracking()
                         .Where(r => r.IdContenido == m.Id && !r.Borrado && r.IdCategoria != null)
                         .Select(r => r.IdCategoria.Value)
@@ -321,13 +321,13 @@ namespace eiibd26.Pages.Contenidos
                         }
                     }
 
-                    // Fallback: si no tiene categoría, usar /c/slug
+                    // Fallback: si no tiene categorï¿½a, usar /c/slug
                     if (string.IsNullOrWhiteSpace(m.SeoUrl))
                     {
                         m.SeoUrl = $"/c/{m.Slug}";
                     }
 
-                    // Agregar nota de relación manual
+                    // Agregar nota de relaciï¿½n manual
                     var rel = allManualRelations.FirstOrDefault(r =>
                         (r.Tipo == 1) &&
                         ((r.IdContenido == entity.Id && r.IdContenidoRelacionado == m.Id) ||
@@ -371,10 +371,10 @@ namespace eiibd26.Pages.Contenidos
                         })
                         .ToListAsync();
 
-                    // Construir URL SEO para cada contenido automático relacionado
+                    // Construir URL SEO para cada contenido automï¿½tico relacionado
                     foreach (var a in automaticItems)
                     {
-                        // Obtener categoría primaria del contenido relacionado
+                        // Obtener categorï¿½a primaria del contenido relacionado
                         var relCatIds = await _db.ContenidosCategoriasRelacion.AsNoTracking()
                             .Where(r => r.IdContenido == a.Id && !r.Borrado && r.IdCategoria != null)
                             .Select(r => r.IdCategoria.Value)
@@ -398,7 +398,7 @@ namespace eiibd26.Pages.Contenidos
                             }
                         }
 
-                        // Fallback: si no tiene categoría, usar /c/slug
+                        // Fallback: si no tiene categorï¿½a, usar /c/slug
                         if (string.IsNullOrWhiteSpace(a.SeoUrl))
                         {
                             a.SeoUrl = $"/c/{a.Slug}";
@@ -504,6 +504,12 @@ namespace eiibd26.Pages.Contenidos
             Item = vm;
 
             return Page();
+        }
+
+        private static string StripWysiwygNoiseAttributes(string html)
+        {
+            if (string.IsNullOrEmpty(html)) return html;
+            return Regex.Replace(html, @"\s+data-(start|end)=""[^""]*""", "");
         }
 
         private static string StripHtml(string input)

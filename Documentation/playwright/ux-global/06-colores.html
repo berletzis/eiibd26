@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>06 — Colores · Auditoría UX EIIBD</title>
+<style>
+  body { font-family: Inter, system-ui, sans-serif; background: #f6f7f8; color: #1f2b2f; margin: 0; padding: 24px; }
+  h1 { color: #172849; font-weight: 700; font-size: 28px; }
+  h2 { color: #40545a; font-size: 18px; margin-top: 32px; border-bottom: 2px solid #e9ecef; padding-bottom: 8px; }
+  .meta { color: #546a70; font-size: 13px; margin-bottom: 24px; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-right: 4px; }
+  .tag-crit { background: #fdecea; color: #b94a42; }
+  .tag-warn { background: #fff8e1; color: #c38f3b; }
+  .tag-ok   { background: #e8f5e9; color: #2e7d32; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 16px; }
+  th { background: #f2f4f5; text-align: left; padding: 8px 10px; }
+  td { padding: 7px 10px; border-bottom: 1px solid #eef2f7; vertical-align: top; }
+  .section-card { background: #fff; border-radius: 10px; border: 1px solid #e9ecef; padding: 20px; margin-bottom: 20px; }
+  .issue-box { background: #fdecea; border-left: 4px solid #b94a42; padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 8px 0; font-size: 13px; }
+  .ok-box    { background: #e8f5e9; border-left: 4px solid #2e7d32; padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 8px 0; font-size: 13px; }
+  .swatch-grid { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
+  .swatch { border-radius: 8px; padding: 12px 16px; min-width: 140px; font-size: 12px; font-weight: 600; border: 1px solid rgba(0,0,0,.1); }
+  code { background: #f2f4f5; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<h1>Auditoría UX — Colores</h1>
+<p class="meta">CSS custom properties extraídas en runtime vía getComputedStyle · Dashboard</p>
+
+<h2>Problema central: 3 sistemas de color coexisten</h2>
+<div class="section-card">
+  <div class="issue-box">
+    <strong>COL-01 CRÍTICO — Triple sistema de tokens de color sin unificación</strong><br>
+    El sitio tiene tres familias de variables CSS completamente distintas que no se referencian entre sí:<br>
+    • <strong>Bootstrap nativo</strong>: <code>--bs-primary: #0d6efd</code> (azul) — usado por .btn-primary, .btn-danger, etc.<br>
+    • <strong>Prefijo <code>--se-*</code></strong>: sistema propio inicial (backgrounds, links, textos). <code>--se-primary: #f7f9fd</code> (blanco azulado — no es un "primario")<br>
+    • <strong>Prefijo <code>--crm-*</code></strong>: sistema más nuevo. <code>--crm-accent: #7c3aed</code> (púrpura brillante)<br>
+    • <strong>Variables globales sin prefijo</strong>: <code>--brand-color: #6a4e7a</code>, <code>--text-color: #1f2b2f</code>, etc.<br><br>
+    El color de marca real <strong>#6a4e7a</strong> NO coincide ni con el acento CRM <strong>#7c3aed</strong> ni con el primary Bootstrap <strong>#0d6efd</strong>. Los botones principales del sitio son azul Bootstrap, no el color de marca.
+  </div>
+</div>
+
+<h2>Inventario completo de tokens detectados</h2>
+<div class="section-card">
+
+  <h3 style="font-size:14px;color:#6a4e7a;text-transform:uppercase;letter-spacing:.5px;">Colores de marca y primarios</h3>
+  <div class="swatch-grid">
+    <div class="swatch" style="background:#6a4e7a;color:#fff;">--brand-color<br>#6a4e7a<br><small>Púrpura marca</small></div>
+    <div class="swatch" style="background:#40545a;color:#fff;">--brand-color-600<br>#40545a<br><small>Verde-gris oscuro</small></div>
+    <div class="swatch" style="background:#7c3aed;color:#fff;">--crm-accent<br>#7c3aed<br><small>Púrpura CRM</small></div>
+    <div class="swatch" style="background:#0d6efd;color:#fff;">--bs-primary<br>#0d6efd<br><small>Azul Bootstrap (botones!)</small></div>
+  </div>
+  <div class="issue-box">
+    Los CTAs principales del sitio (botones .btn-primary) usan <strong>#0d6efd</strong> (Bootstrap default blue), completamente desalineado con la identidad de marca en <strong>#6a4e7a</strong>. El usuario experimenta un sitio con identidad púrpura en logos/links pero botones azul genérico.
+  </div>
+
+  <h3 style="font-size:14px;color:#6a4e7a;text-transform:uppercase;letter-spacing:.5px;">Fondos y superficies</h3>
+  <div class="swatch-grid">
+    <div class="swatch" style="background:#f6f7f8;color:#1f2b2f;border:1px solid #e9ecef;">--page-bg<br>#f6f7f8<br><small>Fondo página</small></div>
+    <div class="swatch" style="background:#ffffff;color:#1f2b2f;border:1px solid #e9ecef;">--card-bg / --crm-bg<br>#ffffff<br><small>Fondo cards</small></div>
+    <div class="swatch" style="background:#f2f4f5;color:#1f2b2f;border:1px solid #e9ecef;">--muted-bg<br>#f2f4f5<br><small>Fondo muted</small></div>
+    <div class="swatch" style="background:#f4edfc;color:#1f2b2f;border:1px solid #e9ecef;">--se-bg<br>#f4edfc<br><small>Fondo lavanda SE</small></div>
+    <div class="swatch" style="background:#f7f9fd;color:#1f2b2f;border:1px solid #e9ecef;">--se-primary<br>#f7f9fd<br><small>Blanco azulado (mal nombrado)</small></div>
+    <div class="swatch" style="background:#eef6f8;color:#1f2b2f;border:1px solid #e9ecef;">--hover-bg<br>#eef6f8<br><small>Hover estado</small></div>
+  </div>
+
+  <h3 style="font-size:14px;color:#6a4e7a;text-transform:uppercase;letter-spacing:.5px;">Textos</h3>
+  <div class="swatch-grid">
+    <div class="swatch" style="background:#1f2b2f;color:#fff;">--text-color<br>#1f2b2f<br><small>Texto primario</small></div>
+    <div class="swatch" style="background:#2b3b4a;color:#fff;">--se-text<br>#2b3b4a<br><small>Texto SE (casi igual)</small></div>
+    <div class="swatch" style="background:#546a70;color:#fff;">--muted-color<br>#546a70<br><small>Texto secundario</small></div>
+    <div class="swatch" style="background:#6b7280;color:#fff;">--crm-muted / --muted<br>#6b7280<br><small>Texto CRM muted (diferente)</small></div>
+    <div class="swatch" style="background:#172849;color:#fff;">Color H1 medido<br>rgb(23,40,73)<br><small>Títulos de página</small></div>
+  </div>
+  <div class="issue-box">
+    <strong>COL-02 — Tres colores de texto "muted" diferentes</strong><br>
+    <code>--muted-color: #546a70</code>, <code>--crm-muted: #6b7280</code>, y el body text en <code>rgba(33,37,41,0.75)</code> son tres grises distintos. Visualmente similares pero técnicamente inconsistentes. Al usar zoom o modo oscuro las diferencias se amplifican.
+  </div>
+
+  <h3 style="font-size:14px;color:#6a4e7a;text-transform:uppercase;letter-spacing:.5px;">Estados semánticos</h3>
+  <div class="swatch-grid">
+    <div class="swatch" style="background:#198754;color:#fff;">--bs-success<br>#198754<br><small>Éxito Bootstrap</small></div>
+    <div class="swatch" style="background:#dc3545;color:#fff;">--bs-danger<br>#dc3545<br><small>Error Bootstrap</small></div>
+    <div class="swatch" style="background:#b94a42;color:#fff;">--danger-color<br>#b94a42<br><small>Danger custom (¡diferente!)</small></div>
+    <div class="swatch" style="background:#c92a2a;color:#fff;">--crm-danger<br>#c92a2a<br><small>Danger CRM (¡tercero!)</small></div>
+    <div class="swatch" style="background:#d33;color:#fff;">--se-red<br>#dd3333<br><small>Rojo SE (¡cuarto!)</small></div>
+    <div class="swatch" style="background:#ffc107;color:#1f2b2f;">--bs-warning<br>#ffc107<br><small>Warning Bootstrap</small></div>
+    <div class="swatch" style="background:#c38f3b;color:#fff;">--warning-color<br>#c38f3b<br><small>Warning custom (diferente)</small></div>
+  </div>
+  <div class="issue-box">
+    <strong>COL-03 CRÍTICO — 4 variantes de color "danger/error"</strong><br>
+    #dc3545 (Bootstrap) · #b94a42 (custom) · #c92a2a (CRM) · #dd3333 (SE). Cuando el usuario ve un mensaje de error o botón destructivo, el color varía según qué módulo lo generó. Rompe la consistencia semántica del color rojo = peligro.
+  </div>
+  <div class="issue-box">
+    <strong>COL-04 — 2 variantes de warning</strong><br>
+    #ffc107 (Bootstrap amarillo) vs #c38f3b (custom ámbar). El warning custom es más oscuro y serio. Sin estándar único.
+  </div>
+
+  <h3 style="font-size:14px;color:#6a4e7a;text-transform:uppercase;letter-spacing:.5px;">Links y hover</h3>
+  <div class="swatch-grid">
+    <div class="swatch" style="background:#343a40;color:#fff;">--se-link<br>#343a40<br><small>Link SE (¿link oscuro?)</small></div>
+    <div class="swatch" style="background:#6a4e7a;color:#fff;">--se-link-hover<br>#6a4e7a<br><small>Hover link = brand color ✓</small></div>
+    <div class="swatch" style="background:#005fcc;color:#fff;">--focus-outline<br>#005fcc<br><small>Focus ring</small></div>
+  </div>
+  <div class="issue-box">
+    <strong>COL-05 — Links en color oscuro neutro (#343a40) sin estado visible</strong><br>
+    Los links del buscador/SE usan <code>--se-link: #343a40</code> (casi negro). Un link que no se diferencia del texto normal confunde al usuario y reduce el escaneado visual.
+  </div>
+</div>
+
+<h2>Propuesta: paleta unificada</h2>
+<div class="section-card">
+  <div class="swatch-grid">
+    <div class="swatch" style="background:#6a4e7a;color:#fff;">Primario<br>#6a4e7a<br>Botones, links activos</div>
+    <div class="swatch" style="background:#5a3d69;color:#fff;">Primario dark<br>#5a3d69<br>Hover botón primario</div>
+    <div class="swatch" style="background:#f4edfc;color:#1f2b2f;border:1px solid #e9ecef;">Primario tint<br>#f4edfc<br>Fondos tinted</div>
+    <div class="swatch" style="background:#1f2b2f;color:#fff;">Texto principal<br>#1f2b2f<br>Body text</div>
+    <div class="swatch" style="background:#546a70;color:#fff;">Texto muted<br>#546a70<br>Metadatos, subtextos</div>
+    <div class="swatch" style="background:#f6f7f8;color:#1f2b2f;border:1px solid #e9ecef;">Fondo página<br>#f6f7f8<br>Page background</div>
+    <div class="swatch" style="background:#ffffff;color:#1f2b2f;border:1px solid #e9ecef;">Fondo card<br>#ffffff<br>Card surfaces</div>
+    <div class="swatch" style="background:#198754;color:#fff;">Éxito<br>#198754<br>Confirmaciones</div>
+    <div class="swatch" style="background:#dc3545;color:#fff;">Error<br>#dc3545<br>Errores, destructivo</div>
+    <div class="swatch" style="background:#e67e22;color:#fff;">Alerta<br>#e67e22<br>Warnings</div>
+    <div class="swatch" style="background:#0288d1;color:#fff;">Información<br>#0288d1<br>Info badges</div>
+    <div class="swatch" style="background:#e9ecef;color:#1f2b2f;">Borde<br>#e9ecef<br>Dividers, inputs</div>
+  </div>
+  <p style="font-size:13px;color:#546a70;margin-top:12px;">Con esta paleta, <code>--bs-primary</code> se sobreescribe a <code>#6a4e7a</code>. Los botones .btn-primary pasan a ser marca, no Bootstrap blue. Se elimina la dualidad de colores danger y warning.</p>
+</div>
+
+</body>
+</html>

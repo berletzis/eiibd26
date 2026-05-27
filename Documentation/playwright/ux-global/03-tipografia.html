@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>03 — Tipografía · Auditoría UX EIIBD</title>
+<style>
+  body { font-family: Inter, system-ui, sans-serif; background: #f6f7f8; color: #1f2b2f; margin: 0; padding: 24px; }
+  h1 { color: #172849; font-weight: 700; font-size: 28px; }
+  h2 { color: #40545a; font-size: 18px; margin-top: 32px; border-bottom: 2px solid #e9ecef; padding-bottom: 8px; }
+  .meta { color: #546a70; font-size: 13px; margin-bottom: 24px; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-right: 4px; }
+  .tag-crit { background: #fdecea; color: #b94a42; }
+  .tag-warn { background: #fff8e1; color: #c38f3b; }
+  .tag-ok   { background: #e8f5e9; color: #2e7d32; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 20px; }
+  th { background: #f2f4f5; text-align: left; padding: 8px 10px; }
+  td { padding: 7px 10px; border-bottom: 1px solid #eef2f7; vertical-align: top; }
+  .section-card { background: #fff; border-radius: 10px; border: 1px solid #e9ecef; padding: 20px; margin-bottom: 20px; }
+  .type-demo { margin: 8px 0; padding: 12px 16px; background: #f9f9f9; border-radius: 6px; }
+  .issue-box { background: #fdecea; border-left: 4px solid #b94a42; padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 8px 0; font-size: 13px; }
+  .ok-box    { background: #e8f5e9; border-left: 4px solid #2e7d32; padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 8px 0; font-size: 13px; }
+  code { background: #f2f4f5; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<h1>Auditoría UX — Tipografía</h1>
+<p class="meta">Valores obtenidos vía getComputedStyle en runtime · Dashboard + Contenidos + P&R</p>
+
+<h2>Sistema tipográfico detectado</h2>
+<div class="section-card">
+  <div class="issue-box">
+    <strong>PROBLEMA CRÍTICO: Dos sistemas de fuente coexisten</strong><br>
+    • Bootstrap carga <code>system-ui, -apple-system, "Segoe UI", Roboto...</code> como <code>--bs-body-font-family</code><br>
+    • El CSS custom define <code>--ui-font: "Inter", system-ui...</code> con Inter como primera opción<br>
+    Resultado: en navegadores donde Inter NO está instalada, el rendering cambia. La fuente real en producción depende del dispositivo del usuario.
+  </div>
+
+  <h3 style="font-size:14px;color:#6a4e7a;text-transform:uppercase;letter-spacing:.5px;">Escala tipográfica medida</h3>
+  <table>
+    <tr>
+      <th>Elemento</th><th>Selector / Clase</th><th>Font-size</th><th>Font-weight</th><th>Line-height</th><th>Color</th><th>Estado</th>
+    </tr>
+    <tr>
+      <td><strong>H1 Página</strong></td>
+      <td><code>h1</code></td>
+      <td>33.6px (2.1rem)</td>
+      <td><strong style="color:#b94a42">300 (light)</strong></td>
+      <td>40.32px (1.2)</td>
+      <td>rgb(23,40,73)</td>
+      <td><span class="tag tag-warn">WARN</span></td>
+    </tr>
+    <tr>
+      <td><strong>H1 Dashboard</strong></td>
+      <td><code>.se-page-title</code></td>
+      <td>~28px estimado</td>
+      <td>—</td>
+      <td>—</td>
+      <td>rgb(23,40,73)</td>
+      <td><span class="tag tag-warn">WARN</span></td>
+    </tr>
+    <tr>
+      <td><strong>Párrafo / Cuerpo</strong></td>
+      <td><code>p</code></td>
+      <td>14.4px (0.9rem)</td>
+      <td>400</td>
+      <td>21.6px (1.5)</td>
+      <td>rgba(33,37,41,0.75)</td>
+      <td><span class="tag tag-warn">WARN</span></td>
+    </tr>
+    <tr>
+      <td><strong>Botón primario</strong></td>
+      <td><code>.btn-primary</code></td>
+      <td>15.2px</td>
+      <td><strong>600</strong></td>
+      <td>—</td>
+      <td>rgb(255,255,255)</td>
+      <td><span class="tag tag-ok">OK</span></td>
+    </tr>
+    <tr>
+      <td><strong>Botón secundario</strong></td>
+      <td><code>.btn-secondary custom</code></td>
+      <td>15.2px</td>
+      <td><strong style="color:#b94a42">400</strong></td>
+      <td>—</td>
+      <td>rgb(31,43,47)</td>
+      <td><span class="tag tag-warn">WARN</span></td>
+    </tr>
+    <tr>
+      <td><strong>Botón CRM</strong></td>
+      <td><code>.crm-btn-primary</code></td>
+      <td>16.48px</td>
+      <td><strong style="color:#b94a42">100 (thin!)</strong></td>
+      <td>—</td>
+      <td>rgb(43,59,74)</td>
+      <td><span class="tag tag-crit">CRIT</span></td>
+    </tr>
+    <tr>
+      <td><strong>Input / Form</strong></td>
+      <td><code>.form-control</code></td>
+      <td>16px</td>
+      <td>400</td>
+      <td>—</td>
+      <td>—</td>
+      <td><span class="tag tag-ok">OK</span></td>
+    </tr>
+    <tr>
+      <td><strong>Tabla header</strong></td>
+      <td><code>th</code></td>
+      <td>~13px estimado</td>
+      <td>—</td>
+      <td>—</td>
+      <td>—</td>
+      <td><span class="tag tag-warn">WARN</span></td>
+    </tr>
+    <tr>
+      <td><strong>Dropdown / Menu</strong></td>
+      <td><code>.dropdown-item</code></td>
+      <td>14.4px</td>
+      <td>400</td>
+      <td>—</td>
+      <td>rgb(33,37,41)</td>
+      <td><span class="tag tag-ok">OK</span></td>
+    </tr>
+  </table>
+</div>
+
+<h2>Problemas detectados</h2>
+<div class="section-card">
+
+  <div class="issue-box">
+    <strong>TIP-01 — H1 con font-weight: 300 (Light)</strong><br>
+    El H1 principal del sitio usa peso 300, que da apariencia frágil. Para contenido médico donde la confianza es crítica, los títulos principales deben usar 600–700. El H1 del hero en /Home ("Vivir con EII...") se ve elegante pero pierde autoridad visual.
+  </div>
+
+  <div class="issue-box">
+    <strong>TIP-02 — Texto de cuerpo en rgba(33,37,41,0.75) — opacidad 75%</strong><br>
+    El texto principal de párrafos usa 75% de opacidad en lugar de color sólido. En fondos no-blancos esto reduce el contraste de forma impredecible. El ratio de contraste exacto depende del fondo. Para texto médico, usar color sólido <code>#495057</code> o <code>#343a40</code>.
+  </div>
+
+  <div class="issue-box">
+    <strong>TIP-03 — Cuerpo a 14.4px (0.9rem)</strong><br>
+    El texto de párrafos está escalado al 90% del base. Para una plataforma de salud donde pacientes leen información médica extensa, el mínimo recomendado es 16px. Pacientes adultos o con problemas de visión (frecuente en EII sistémica) se ven afectados.
+  </div>
+
+  <div class="issue-box">
+    <strong>TIP-04 — .crm-btn-primary con font-weight: 100 (UltraThin)</strong><br>
+    El botón "+" redondo del dashboard (agregar ánimo) usa peso 100. En pantallas de baja resolución o modo oscuro el ícono + es prácticamente invisible. Error de estilo severo.
+  </div>
+
+  <div class="ok-box">
+    <strong>TIP-05 ✓ — Input a 16px</strong><br>
+    Los inputs usan 16px — esto evita el zoom automático en iOS. Correcto.
+  </div>
+
+  <div class="ok-box">
+    <strong>TIP-06 ✓ — Line-height cuerpo 1.5</strong><br>
+    El interlineado de párrafos en 1.5 (21.6px) es el valor WCAG recomendado. Correcto.
+  </div>
+</div>
+
+<h2>Propuesta de escala tipográfica unificada</h2>
+<div class="section-card">
+  <table>
+    <tr><th>Nivel</th><th>Tamaño propuesto</th><th>Peso</th><th>Uso</th></tr>
+    <tr><td>Display / Hero H1</td><td>36px</td><td>700</td><td>Títulos hero de landing</td></tr>
+    <tr><td>H1 de página</td><td>28px</td><td>600</td><td>Título de cada sección/página</td></tr>
+    <tr><td>H2 sección</td><td>22px</td><td>600</td><td>Subtítulos dentro de página</td></tr>
+    <tr><td>H3 card/widget</td><td>16px</td><td>600</td><td>Títulos de cards, tablas</td></tr>
+    <tr><td>H4 label</td><td>13px</td><td>600</td><td>Labels uppercase, categorías</td></tr>
+    <tr><td>Body</td><td>16px</td><td>400</td><td>Texto de párrafos, descripciones</td></tr>
+    <tr><td>Body small</td><td>14px</td><td>400</td><td>Metadatos, fechas, notas</td></tr>
+    <tr><td>Caption</td><td>12px</td><td>400</td><td>Tooltips, ayuda inline</td></tr>
+    <tr><td>Botón</td><td>14px</td><td>600</td><td>Todos los CTAs</td></tr>
+    <tr><td>Input</td><td>16px</td><td>400</td><td>Campos de formulario (mantener)</td></tr>
+    <tr><td>Badge/Tag</td><td>11px</td><td>600</td><td>Pills, etiquetas de estado</td></tr>
+  </table>
+</div>
+
+</body>
+</html>

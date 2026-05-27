@@ -64,6 +64,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     // AI Feedback
     public DbSet<RespuestaAIFeedback> RespuestaAIFeedbacks { get; set; }
 
+    // AI Request Logs
+    public DbSet<AIRequestLog> AIRequestLogs { get; set; }
+
     // Article Ratings
     public DbSet<ArticleRating> ArticleRatings { get; set; }
 

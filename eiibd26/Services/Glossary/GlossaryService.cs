@@ -482,6 +482,14 @@ namespace eiibd26.Services.Glossary
                     var medicoIdByUser = perfiles.Where(p => p.MedicoId.HasValue)
                         .ToDictionary(p => p.UserId!.Value, p => p.MedicoId!.Value);
 
+                    // Obtener avatares del Perfil por UserId
+                    var avatarDict = await _db.Perfil
+                        .AsNoTracking()
+                        .Where(p => userGuidList.Contains(p.idUser))
+                        .Select(p => new { p.idUser, p.Avatar })
+                        .ToListAsync();
+                    var avatarByUser = avatarDict.ToDictionary(p => p.idUser, p => p.Avatar);
+
                     foreach (var v in rawComments)
                     {
                         if (!Guid.TryParse(v.UserId, out var guid)) continue;
@@ -493,13 +501,21 @@ namespace eiibd26.Services.Glossary
                         else
                             display = "Médico verificado";
 
+                        avatarByUser.TryGetValue(guid, out var avatarVal);
+                        string? avatarUrl = null;
+                        if (!string.IsNullOrWhiteSpace(avatarVal) && avatarVal != "default.jpg")
+                        {
+                            avatarUrl = avatarVal.StartsWith("/") ? avatarVal : "/" + avatarVal;
+                        }
+
                         comentariosMedicos.Add(new ValidationCommentDto
                         {
-                            UserDisplay   = display,
+                            UserDisplay    = display,
+                            AvatarUrl      = avatarUrl,
                             ValidationType = v.ValidationType,
-                            RelationType  = v.MedicalRelationTypeId,
-                            Comment       = v.Comment,
-                            CreatedAt     = v.CreatedAt
+                            RelationType   = v.MedicalRelationTypeId,
+                            Comment        = v.Comment,
+                            CreatedAt      = v.CreatedAt
                         });
                     }
                 }

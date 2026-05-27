@@ -152,12 +152,14 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             }
         }
 
-        public async Task<IActionResult> OnPostEditarFechaInicioAsync(int tratId, DateTime? nuevaFechaInicio)
+        public async Task<IActionResult> OnPostEditarFechaInicioAsync(int tratId, string? nuevaFechaInicio)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (userId == null) return Unauthorized();
 
-            if (!nuevaFechaInicio.HasValue)
+            if (!DateTime.TryParseExact(nuevaFechaInicio, "yyyy-MM-dd",
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out var fechaParsed))
                 return new JsonResult(new { ok = false, mensaje = "Fecha no válida." }) { StatusCode = 400 };
 
             var rel = await _db.tratamientoUsuario
@@ -165,7 +167,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
             if (rel != null)
             {
-                rel.fechaInicio = (nuevaFechaInicio.Value < new DateTime(1753, 1, 1)) ? DateTime.Now : nuevaFechaInicio.Value;
+                rel.fechaInicio = (fechaParsed < new DateTime(1753, 1, 1)) ? DateTime.Now : fechaParsed;
                 rel.fechaModificado = DateTime.Now;
                 await _db.SaveChangesAsync();
                 return new JsonResult(new { ok = true });

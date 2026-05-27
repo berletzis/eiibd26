@@ -66,6 +66,16 @@
             vertical-align: middle;
             white-space: nowrap;
         }
+        .termino-tipo-pill--sintoma {
+            background: var(--eii-primary-soft);
+            color: var(--eii-primary);
+            border: 1px solid var(--eii-primary-border);
+        }
+        .termino-tipo-pill--tratamiento {
+            background: var(--eii-success-soft);
+            color: var(--eii-success);
+            border: 1px solid var(--eii-success-border);
+        }
 
         .termino-title-row {
             display: flex;
@@ -266,25 +276,25 @@
         }
 
         .aviso-termino-box {
-            background: #f5f3ff;
-            border: 1px solid #ede9fe;
-            border-radius: 10px;
-            padding: 14px 16px;
-            margin-bottom: 20px;
+            background: var(--eii-primary-soft);
+            border: 1px solid var(--eii-primary-border);
+            border-radius: var(--eii-radius-md);
+            padding: var(--eii-space-4);
+            margin-bottom: var(--eii-space-5);
         }
 
-            .aviso-termino-box .aviso-title {
-                color: #6d28d9;
-                font-weight: 700;
-                font-size: 1.3rem;
-                margin-bottom: 6px;
-            }
+        .aviso-termino-box .aviso-title {
+            color: var(--eii-primary);
+            font-weight: var(--eii-fw-semibold);
+            font-size: var(--eii-text-md);
+            margin-bottom: var(--eii-space-2);
+        }
 
-            .aviso-termino-box .aviso-text {
-                color: #4c1d95;
-                font-size: .85rem;
-                margin: 0;
-            }
+        .aviso-termino-box .aviso-text {
+            color: var(--eii-primary-hover);
+            font-size: var(--eii-text-sm);
+            margin: 0;
+        }
         /* ===== User profile cards (copied from Mapa/Index for consistency) ===== */
         .cards-grid {
             display: grid;
@@ -312,7 +322,7 @@
 
         .user-card:hover {
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            border-color: #764ba2;
+            border-color: var(--eii-primary);
         }
 
         .user-card-main {
@@ -332,7 +342,7 @@
             align-items: center;
             justify-content: center;
             box-sizing: border-box;
-            border: 3px solid #764ba2;
+            border: 3px solid var(--eii-primary);
         }
 
         .user-avatar img {
@@ -397,7 +407,7 @@
             }
             .comunidad-login-cta__icon {
                 font-size: 1.4rem;
-                color: #7c3aed;
+                color: var(--eii-primary);
                 vertical-align: middle;
                 margin-right: 8px;
             }
@@ -411,27 +421,6 @@
                 gap: 10px;
                 flex-wrap: wrap;
             }
-            .btn-purple {
-                background: #7c3aed;
-                color: #fff;
-                border: 1px solid #7c3aed;
-            }
-            .btn-purple:hover, .btn-purple:focus {
-                background: #6d28d9;
-                border-color: #6d28d9;
-                color: #fff;
-            }
-            .btn-outline-purple {
-                background: transparent;
-                color: #7c3aed;
-                border: 1px solid #7c3aed;
-            }
-            .btn-outline-purple:hover, .btn-outline-purple:focus {
-                background: #f3eeff;
-                color: #6d28d9;
-                border-color: #6d28d9;
-            }
-
         </style>
     }
 
@@ -443,7 +432,7 @@
             <strong>Término no encontrado</strong>
             <p class="mb-0">El término que buscas no existe o está inactivo.</p>
         </div>
-        <a href="/Glosario" class="btn btn-primary">
+        <a href="/Glosario" class="eii-btn eii-btn--solid">
             <i class="bi bi-arrow-left"></i> Volver al Glosario
         </a>
     </div>
@@ -452,9 +441,6 @@ else
 {
     var isSintoma = Model.Term.TipoTermino == eiibd26.Models.Glossary.GlossaryTermType.Sintoma;
     var tipoLabel = isSintoma ? "Síntoma" : "Tratamiento";
-    var tipoColor = isSintoma ? "#7c3aed" : "#059669";
-    var tipoColorBg = isSintoma ? "#f3e8ff" : "#d1fae5";
-    var tipoBorder = isSintoma ? "#c4b5fd" : "#6ee7b7";
     var counts = Model.Term.ValidationCounts;
 
     <div class="conte-detail">
@@ -469,14 +455,15 @@ else
             </div>
         }
 
-        <!-- Título con pill inline -->
-        <div class="page-title">
-            <div class="termino-title-row">
-                <h1>@Model.Term.Nombre</h1>
-                <span class="termino-tipo-pill"
-                      style="background:@tipoColorBg;color:@tipoColor;border:1px solid @tipoBorder;">
-                    @tipoLabel
-                </span>
+        <!-- Título con pill tipo -->
+        <div class="eii-page-header">
+            <div class="eii-page-header__content">
+                <div class="termino-title-row">
+                    <h1 class="eii-page-title">@Model.Term.Nombre</h1>
+                    <span class="termino-tipo-pill termino-tipo-pill--@(isSintoma ? "sintoma" : "tratamiento")">
+                        @tipoLabel
+                    </span>
+                </div>
             </div>
         </div>
 
@@ -520,7 +507,7 @@ else
                                     <span class="termino-badge-validado" title="Validaciones de descripción aprobadas">✔ Validado (@counts.MeaningValidationCount)</span>
                                 }
                             </div>
-                            <h2 style="font-size: 2rem;font-weight: 500;margin:0 0 12px 0;">¿Qué es y cómo se siente?</h2>
+                            <h2 class="editorial-section-h2">¿Qué es y cómo se siente?</h2>
                             @if (!string.IsNullOrWhiteSpace(Model.Term.DefinicionMedica.DescripcionIA))
                             {
                                 <div class="medical-definition">
@@ -543,7 +530,7 @@ else
                         </p>
                     </div>
                     <!-- Relación con EII — card separado -->
-                    <div class="contenido"><h2>Relación con EII</h2></div>
+                    <h2 class="editorial-section-h2">Relación con EII</h2>
                     <div class="mb-4 eii-toggle-cards">
                         @foreach (var level in allLevels)
                         {
@@ -554,7 +541,7 @@ else
 
                             var (borderColor, label) = level switch
                             {
-                                eiibd26.Models.Glossary.MedicalRelationType.Directa   => ("#764ba2", "Directa"),
+                                eiibd26.Models.Glossary.MedicalRelationType.Directa   => ("#6a4e7a", "Directa"),
                                 eiibd26.Models.Glossary.MedicalRelationType.Indirecta => ("#c4b5fd", "Indirecta"),
                                 _ => ("#d1d5db", "Secundaria")
                             };
@@ -591,7 +578,20 @@ else
                                         var totalHuman = humanCount + (showMeaningHere ? counts.MeaningComments.Count : 0);
                                     }
 
-                                    @* 1. Comentarios de validación de RELACIÓN (tipo 2) — primero *@
+                                    @* NINA va primero si hay menos de 3 validaciones de médicos; pasa al final con 3 o más *@
+                                    @if (showNina && totalHuman < 3)
+                                    {
+                                        <div class="d-flex gap-2 align-items-start p-2 rounded mb-2"
+                                             style="background:#f8fafc;">
+                                            <span style="font-size:1rem;">🤖</span>
+                                            <div class="small">
+                                                <span class="fw-semibold text-secondary">NINA (IA)</span>
+                                                <p class="mb-0 text-dark">@counts.AiReasoning</p>
+                                            </div>
+                                        </div>
+                                    }
+
+                                    @* 1. Comentarios de validación de RELACIÓN (tipo 2) *@
                                     @foreach (var comment in humanComments)
                                     {
                                         <div class="d-flex gap-2 align-items-start p-2 rounded mb-2"
@@ -617,31 +617,17 @@ else
                                         }
                                     }
 
-                                    @* 3. NINA — primero si no hay comentarios humanos, último si los hay *@
-                                    @if (showNina)
+                                    @* 3. NINA al final cuando hay 3 o más validaciones de médicos *@
+                                    @if (showNina && totalHuman >= 3)
                                     {
-                                        if (totalHuman == 0)
-                                        {
-                                            <div class="d-flex gap-2 align-items-start p-2 rounded mb-2"
-                                                 style="background:#f8fafc;">
-                                                <span style="font-size:1rem;">🤖</span>
-                                                <div class="small">
-                                                    <span class="fw-semibold text-secondary">NINA (IA)</span>
-                                                    <p class="mb-0 text-dark">@counts.AiReasoning</p>
-                                                </div>
+                                        <div class="d-flex gap-2 align-items-start p-2 rounded mb-2 mt-1"
+                                             style="background:#f8fafc; border-top:1px dashed #e2e8f0;">
+                                            <span style="font-size:1rem;">🤖</span>
+                                            <div class="small">
+                                                <span class="fw-semibold text-secondary">NINA (IA)</span>
+                                                <p class="mb-0 text-dark">@counts.AiReasoning</p>
                                             </div>
-                                        }
-                                        else
-                                        {
-                                            <div class="d-flex gap-2 align-items-start p-2 rounded mb-2 mt-1"
-                                                 style="background:#f8fafc; border-top:1px dashed #e2e8f0;">
-                                                <span style="font-size:1rem;">🤖</span>
-                                                <div class="small">
-                                                    <span class="fw-semibold text-secondary">NINA (IA)</span>
-                                                    <p class="mb-0 text-dark">@counts.AiReasoning</p>
-                                                </div>
-                                            </div>
-                                        }
+                                        </div>
                                     }
 
                                     @* 4. Placeholder si no hay absolutamente nada *@
@@ -672,7 +658,7 @@ else
                 {
                     <div class="termino-validaciones-medicas mt-4 mb-4">
                         <div class="contenido mb-2">
-                            <h2><i class="bi bi-patch-check-fill text-primary me-1"></i>Validado por médicos</h2>
+                            <h2>@* <i class="bi bi-patch-check-fill text-primary me-1"></i> *@Validado por Profesionales de la Salud</h2>
                         </div>
 
                         @* Comentarios de MeaningValidation (tipo 1) — siempre visibles *@
@@ -682,7 +668,10 @@ else
                             {
                                 <div class="d-flex gap-2 align-items-start p-3 rounded mb-2"
                                      style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-                                    <i class="bi bi-person-badge-fill text-primary mt-1" style="font-size:1.1rem;flex-shrink:0;"></i>
+                                    <div class="user-avatar" style="width:36px;height:36px;flex:0 0 36px;">
+                                        <img src="/img/default-avatar.png" alt="Médico" loading="lazy" decoding="async"
+                                             onerror="this.onerror=null;this.src='/img/default-avatar.png';" />
+                                    </div>
                                     <div>
                                         <span class="badge bg-primary-subtle text-primary mb-1" style="font-size:.7rem;">Descripción</span>
                                         <p class="mb-0 small text-dark fst-italic">"@mc"</p>
@@ -702,7 +691,11 @@ else
                         {
                             <div class="d-flex gap-2 align-items-start p-3 rounded mb-2"
                                  style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-                                <i class="bi bi-person-badge-fill text-primary mt-1" style="font-size:1.1rem;flex-shrink:0;"></i>
+                                <div class="user-avatar" style="width:36px;height:36px;flex:0 0 36px;">
+                                    <img src="@(val.AvatarUrl ?? "/img/default-avatar.png")" alt="@val.UserDisplay"
+                                         loading="lazy" decoding="async"
+                                         onerror="this.onerror=null;this.src='/img/default-avatar.png';" />
+                                </div>
                                 <div>
                                     <span class="fw-semibold small">@val.UserDisplay</span>
                                     @if (val.RelationType.HasValue)
@@ -782,7 +775,7 @@ else
                                 <ul class="list-unstyled mt-3">
                                     @foreach (var preg in Model.Term.PreguntasRelacionadas)
                                     {
-                                        <li class="mb-3 pb-2" style="border-bottom:1px solid var(--color-border,#e5e7eb);">
+                                        <li class="mb-3 pb-2" style="border-bottom:1px solid var(--eii-border);">
                                             <a href="/Preguntas/Detalles/@preg.Slug" class="fw-semibold text-decoration-none">
                                                 @preg.Titulo
                                             </a>
@@ -807,8 +800,8 @@ else
                 }
 
                 @* Comunidad header *@
-                <div class="contenido" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
-                    <h2 style="margin:0;">Comunidad</h2>
+                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                    <h2 class="editorial-section-h2 mb-0">Comunidad</h2>
                     @{
                         var totalRelated = Model.Term.RelatedUsersCount;
                         var showing = experiencias.Count;
@@ -829,7 +822,7 @@ else
                     }
                     @if (User.Identity?.IsAuthenticated == true)
                     {
-                        <button type="button" id="btnAgregarMiMood" class="btn btn-outline-purple btn-sm ms-auto"
+                        <button type="button" id="btnAgregarMiMood" class="eii-btn eii-btn--primary eii-btn--sm ms-auto"
                                 data-tipo="@(isSintoma ? "sintoma" : "tratamiento")"
                                 data-id="@(isSintoma ? (Model.Term.SintomaId.HasValue ? Model.Term.SintomaId.Value.ToString() : "") : (Model.Term.TratamientoId.HasValue ? Model.Term.TratamientoId.Value.ToString() : ""))"
                                 data-name="@System.Text.Encodings.Web.HtmlEncoder.Default.Encode(Model.Term.Nombre)">
@@ -848,10 +841,10 @@ else
                             var currentUrl = $"{HttpContext.Request.Path}{HttpContext.Request.QueryString}";
                         }
                         <div class="comunidad-login-cta__btns">
-                            <a href="/Identity/Account/Register?returnUrl=@Uri.EscapeDataString(currentUrl)" class="btn btn-purple btn-sm">
+                            <a href="/Identity/Account/Register?returnUrl=@Uri.EscapeDataString(currentUrl)" class="eii-btn eii-btn--solid eii-btn--sm">
                                 <i class="bi bi-person-plus me-1"></i> Crear cuenta gratis
                             </a>
-                            <a href="/Identity/Account/Login?returnUrl=@Uri.EscapeDataString(currentUrl)" class="btn btn-outline-purple btn-sm">
+                            <a href="/Identity/Account/Login?returnUrl=@Uri.EscapeDataString(currentUrl)" class="eii-btn eii-btn--primary eii-btn--sm">
                                 <i class="bi bi-box-arrow-in-right me-1"></i> Iniciar sesi&oacute;n
                             </a>
                         </div>
@@ -1022,6 +1015,54 @@ else
                     </div>
                 </div>
 
+                @* ===== COMPARTIR TÉRMINO ===== *@
+                <div class="sidebar-section sidebar-static mb-3">
+                    <div class="sidebar-section-header-static">
+                        <h4 class="sidebar-section-title">Compartir Término</h4>
+                    </div>
+                    <div class="sidebar-section-content-static">
+                        <div class="share-icons" aria-label="Compartir término">
+                            @{
+                                var req = HttpContext.Request;
+                                var siteRoot = $"{req.Scheme}://{req.Host}";
+                                var terminoShareUrl = siteRoot + $"/Termino/{Model.Term.Slug}";
+                                var terminoShareTitle = Model.Term.Nombre ?? "Término médico";
+                                var tEncUrl   = System.Net.WebUtility.UrlEncode(terminoShareUrl);
+                                var tEncTitle = System.Net.WebUtility.UrlEncode(terminoShareTitle);
+                                var tWaHref   = $"https://api.whatsapp.com/send?text={tEncTitle}%20{tEncUrl}";
+                                var tFbHref   = $"https://www.facebook.com/sharer/sharer.php?u={tEncUrl}";
+                                var tTwHref   = $"https://twitter.com/intent/tweet?text={tEncTitle}&url={tEncUrl}";
+                                var tMailHref = $"mailto:?subject={tEncTitle}&body={tEncUrl}";
+                            }
+                            <a class="share-btn" href="#" data-href="@tWaHref"   title="Compartir en WhatsApp" aria-label="Compartir en WhatsApp"><i class="bi bi-whatsapp"></i></a>
+                            <a class="share-btn" href="#" data-href="@tFbHref"   title="Compartir en Facebook" aria-label="Compartir en Facebook"><i class="bi bi-facebook"></i></a>
+                            <a class="share-btn" href="#" data-href="@tTwHref"   title="Compartir en X"        aria-label="Compartir en X"><i class="bi bi-twitter"></i></a>
+                            <a class="share-btn" href="@tMailHref"               title="Enviar por email"      aria-label="Enviar por email"><i class="bi bi-envelope"></i></a>
+                        </div>
+                        <script>
+                            (function(){
+                                function openSharePopup(url){
+                                    try{
+                                        var w=600,h=600;
+                                        var left=(screen.width/2)-(w/2);
+                                        var top=(screen.height/2)-(h/2);
+                                        window.open(url,'_blank','scrollbars=yes,resizable=yes,toolbar=no,location=no,width='+w+',height='+h+',top='+top+',left='+left);
+                                    }catch(e){ window.location.href=url; }
+                                }
+                                document.addEventListener('click',function(e){
+                                    var a=e.target.closest&&e.target.closest('.share-btn');
+                                    if(!a)return;
+                                    e.preventDefault();
+                                    var href=a.getAttribute('data-href')||a.getAttribute('href');
+                                    if(!href)return;
+                                    if(href.indexOf('mailto:')===0){window.location.href=href;return;}
+                                    openSharePopup(href);
+                                },{passive:false});
+                            })();
+                        </script>
+                    </div>
+                </div>
+
                 <!-- Aviso importante -->
                 <div class="aviso-termino-box">
 
@@ -1078,7 +1119,7 @@ else
                                     <label for="comment-rel" class="form-label" style="font-weight:600;">Comentario clínico (opcional):</label>
                                     <textarea class="form-control" name="comment" id="comment-rel" rows="2" maxlength="400" placeholder="Agrega un comentario clínico (máx. 400 caracteres)"></textarea>
                                 </div>
-                                <button type="submit" class="btn btn-primary btn-sm">Validar relación</button>
+                                <button type="submit" class="eii-btn eii-btn--solid">Validar relación</button>
                             </form>
                             <!-- Validar descripción -->
                         </div>
@@ -1194,7 +1235,7 @@ else
                                     <li class="py-2 border-bottom d-flex gap-2">
                                         @if (!string.IsNullOrWhiteSpace(c.ImagenDestacada))
                                         {
-                                            <img src="@c.ImagenDestacada" alt="@c.Titulo" style="width:64px;height:48px;object-fit:cover;border-radius:6px;" loading="lazy" decoding="async" />
+                                            <img src="@c.ImagenDestacada" alt="@c.Titulo" class="sidebar-thumb" loading="lazy" decoding="async" />
                                         }
                                         <div>
                                             <a href="/Contenidos/Detalle/@c.Slug" class="text-decoration-none text-dark">

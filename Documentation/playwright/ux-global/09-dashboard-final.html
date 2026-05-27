@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>09 — Dashboard Final · Auditoría UX EIIBD</title>
+<style>
+  :root {
+    --brand: #6a4e7a;
+    --brand-tint: #f4edfc;
+    --text: #1f2b2f;
+    --text-muted: #546a70;
+    --page-bg: #f6f7f8;
+    --card-bg: #fff;
+    --border: #e9ecef;
+    --danger: #dc3545;
+    --warning: #e67e22;
+    --success: #198754;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: Inter, system-ui, sans-serif; background: var(--page-bg); color: var(--text); margin: 0; padding: 24px; font-size: 16px; line-height: 1.5; }
+  h1 { color: #172849; font-weight: 700; font-size: 28px; margin-bottom: 4px; }
+  h2 { color: var(--brand); font-size: 18px; margin-top: 36px; border-bottom: 2px solid var(--border); padding-bottom: 8px; }
+  .meta { color: var(--text-muted); font-size: 13px; margin-bottom: 24px; }
+  .section-card { background: var(--card-bg); border-radius: 10px; border: 1px solid var(--border); padding: 24px; margin-bottom: 20px; }
+  .tag { display: inline-block; padding: 2px 10px; border-radius: 100px; font-size: 11px; font-weight: 600; margin-right: 4px; }
+  .tag-crit { background: #fdecea; color: var(--danger); }
+  .tag-warn { background: #fff3e0; color: var(--warning); }
+  .tag-ok   { background: #e8f5e9; color: var(--success); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: #f2f4f5; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+
+  /* Scorecard */
+  .scorecard-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 16px 0; }
+  .scorecard { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 20px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,.06); }
+  .score-num { font-size: 42px; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+  .score-label { font-size: 12px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: .5px; }
+
+  /* Severity bar */
+  .sev-bar { display: flex; height: 12px; border-radius: 100px; overflow: hidden; margin: 8px 0; }
+
+  /* Priority table */
+  .priority-list { list-style: none; margin: 0; padding: 0; }
+  .priority-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
+  .priority-item:last-child { border-bottom: none; }
+  .priority-num { min-width: 28px; height: 28px; background: var(--brand); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .priority-body { flex: 1; }
+  .priority-body strong { font-size: 14px; display: block; margin-bottom: 2px; }
+  .priority-body span { font-size: 12px; color: var(--text-muted); }
+  .effort { display: inline-block; background: #f2f4f5; padding: 1px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; color: var(--text-muted); }
+
+  /* Section selector */
+  .nav-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+  .nav-pill { display: inline-block; padding: 4px 14px; background: #f2f4f5; border-radius: 100px; font-size: 13px; font-weight: 500; color: var(--text-muted); text-decoration: none; }
+  .nav-pill.active { background: var(--brand-tint); color: var(--brand); font-weight: 600; }
+
+  /* Category scores */
+  .cat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+  .cat-card { background: #f9f9f9; border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+  .cat-card .cat-name { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 6px; }
+  .cat-card .cat-score { font-size: 26px; font-weight: 700; }
+  .cat-card .cat-issues { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .bar-bg { height: 6px; background: #e9ecef; border-radius: 100px; margin-top: 8px; }
+  .bar-fill { height: 6px; border-radius: 100px; }
+</style>
+</head>
+<body>
+
+<h1>Dashboard Final — Auditoría UX EIIBD</h1>
+<p class="meta">Resumen ejecutivo completo · 2026-05-26 · 16 pantallas auditadas · Sesión Playwright como paciente real</p>
+
+<!-- SCORE GENERAL -->
+<div class="section-card">
+  <h2 style="margin-top:0;border:none;">Puntuación Global</h2>
+  <div class="scorecard-grid">
+    <div class="scorecard">
+      <div class="score-num" style="color:#e67e22;">5.8</div>
+      <div class="score-label">Score global<br>/10</div>
+    </div>
+    <div class="scorecard">
+      <div class="score-num" style="color:var(--danger);">8</div>
+      <div class="score-label">Críticos<br>detectados</div>
+    </div>
+    <div class="scorecard">
+      <div class="score-num" style="color:var(--warning);">12</div>
+      <div class="score-label">Altos<br>detectados</div>
+    </div>
+    <div class="scorecard">
+      <div class="score-num" style="color:var(--success);">8</div>
+      <div class="score-label">Medios<br>detectados</div>
+    </div>
+  </div>
+  <div class="sev-bar">
+    <div style="width:29%;background:#dc3545;"></div>
+    <div style="width:43%;background:#e67e22;"></div>
+    <div style="width:28%;background:#64748b;"></div>
+  </div>
+  <div style="display:flex;gap:16px;font-size:12px;color:var(--text-muted);margin-top:4px;">
+    <span>🔴 29% crítico</span>
+    <span>🟡 43% alto</span>
+    <span>⚫ 28% medio</span>
+  </div>
+</div>
+
+<!-- SCORE POR CATEGORÍA -->
+<h2>Score por Categoría</h2>
+<div class="section-card">
+  <div class="cat-grid">
+    <div class="cat-card">
+      <div class="cat-name">Colores</div>
+      <div class="cat-score" style="color:var(--danger);">3/10</div>
+      <div class="cat-issues">3 críticos · 2 altos</div>
+      <div class="bar-bg"><div class="bar-fill" style="width:30%;background:var(--danger);"></div></div>
+    </div>
+    <div class="cat-card">
+      <div class="cat-name">Botones</div>
+      <div class="cat-score" style="color:var(--danger);">4/10</div>
+      <div class="cat-issues">2 críticos · 3 altos</div>
+      <div class="bar-bg"><div class="bar-fill" style="width:40%;background:var(--danger);"></div></div>
+    </div>
+    <div class="cat-card">
+      <div class="cat-name">Tipografía</div>
+      <div class="cat-score" style="color:var(--warning);">5/10</div>
+      <div class="cat-issues">1 crítico · 3 altos</div>
+      <div class="bar-bg"><div class="bar-fill" style="width:50%;background:var(--warning);"></div></div>
+    </div>
+    <div class="cat-card">
+      <div class="cat-name">Espaciados</div>
+      <div class="cat-score" style="color:var(--warning);">6/10</div>
+      <div class="cat-issues">1 crítico · 2 altos</div>
+      <div class="bar-bg"><div class="bar-fill" style="width:60%;background:var(--warning);"></div></div>
+    </div>
+    <div class="cat-card">
+      <div class="cat-name">Front Público</div>
+      <div class="cat-score" style="color:var(--warning);">6/10</div>
+      <div class="cat-issues">2 críticos · 3 altos</div>
+      <div class="bar-bg"><div class="bar-fill" style="width:60%;background:var(--warning);"></div></div>
+    </div>
+    <div class="cat-card">
+      <div class="cat-name">Panel Paciente</div>
+      <div class="cat-score" style="color:#64748b;">7/10</div>
+      <div class="cat-issues">2 críticos · 2 altos</div>
+      <div class="bar-bg"><div class="bar-fill" style="width:70%;background:#64748b;"></div></div>
+    </div>
+    <div class="cat-card">
+      <div class="cat-name">Componentes</div>
+      <div class="cat-score" style="color:var(--warning);">5/10</div>
+      <div class="cat-issues">2 críticos · 3 altos</div>
+      <div class="bar-bg"><div class="bar-fill" style="width:50%;background:var(--warning);"></div></div>
+    </div>
+    <div class="cat-card">
+      <div class="cat-name">Navegación</div>
+      <div class="cat-score" style="color:#64748b;">7/10</div>
+      <div class="cat-issues">1 crítico · 2 altos</div>
+      <div class="bar-bg"><div class="bar-fill" style="width:70%;background:#64748b;"></div></div>
+    </div>
+    <div class="cat-card">
+      <div class="cat-name">Accesibilidad</div>
+      <div class="cat-score" style="color:var(--warning);">6/10</div>
+      <div class="cat-issues">1 crítico · 2 altos</div>
+      <div class="bar-bg"><div class="bar-fill" style="width:60%;background:var(--warning);"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- TOP 10 PRIORIDADES -->
+<h2>Top 10 Prioridades (Quick Wins primero)</h2>
+<div class="section-card">
+  <ul class="priority-list">
+    <li class="priority-item">
+      <div class="priority-num">1</div>
+      <div class="priority-body">
+        <strong>Sobrescribir --bs-primary al brand color #6a4e7a</strong>
+        <span>Todos los botones .btn-primary pasan a ser marca. Impacto visual inmediato en TODO el sitio.</span>
+      </div>
+      <span class="effort">XS · 1h</span> <span class="tag tag-crit">CRIT</span>
+    </li>
+    <li class="priority-item">
+      <div class="priority-num">2</div>
+      <div class="priority-body">
+        <strong>Cambiar body font-size de 0.9rem → 1rem (16px)</strong>
+        <span>Una línea en el CSS global. Resuelve tipografía pequeña, distorsión de escala rem, y mejora legibilidad para pacientes con EII.</span>
+      </div>
+      <span class="effort">XS · 30min</span> <span class="tag tag-crit">CRIT</span>
+    </li>
+    <li class="priority-item">
+      <div class="priority-num">3</div>
+      <div class="priority-body">
+        <strong>Cambiar H1 font-weight de 300 → 600</strong>
+        <span>Una línea CSS. Da autoridad visual a los títulos de página inmediatamente.</span>
+      </div>
+      <span class="effort">XS · 15min</span> <span class="tag tag-warn">ALTO</span>
+    </li>
+    <li class="priority-item">
+      <div class="priority-num">4</div>
+      <div class="priority-body">
+        <strong>Agregar estado vacío real al buscador con mensaje y CTA</strong>
+        <span>"No encontramos resultados para 'X'. Prueba con otro término." — sin esto el buscador confunde activamente al usuario.</span>
+      </div>
+      <span class="effort">S · 2h</span> <span class="tag tag-crit">CRIT</span>
+    </li>
+    <li class="priority-item">
+      <div class="priority-num">5</div>
+      <div class="priority-body">
+        <strong>Agregar contador de resultados al buscador: "X resultados para 'término'"</strong>
+        <span>Feedback inmediato de que el filtro funcionó. 1 línea de Razor + CSS.</span>
+      </div>
+      <span class="effort">XS · 1h</span> <span class="tag tag-warn">ALTO</span>
+    </li>
+    <li class="priority-item">
+      <div class="priority-num">6</div>
+      <div class="priority-body">
+        <strong>Colorear botones de estado de ánimo con escala verde→rojo</strong>
+        <span>CSS único. Transforma el módulo de ánimo de "invisible" a intuitivo sin cambiar lógica.</span>
+      </div>
+      <span class="effort">XS · 1h</span> <span class="tag tag-warn">ALTO</span>
+    </li>
+    <li class="priority-item">
+      <div class="priority-num">7</div>
+      <div class="priority-body">
+        <strong>Unificar los 4 colores "danger" en uno solo (#dc3545)</strong>
+        <span>Search+replace en CSS. Elimina la incoherencia semántica del color rojo.</span>
+      </div>
+      <span class="effort">S · 2h</span> <span class="tag tag-crit">CRIT</span>
+    </li>
+    <li class="priority-item">
+      <div class="priority-num">8</div>
+      <div class="priority-body">
+        <strong>Cambiar texto de body color a sólido (#495057) en lugar de rgba opacity</strong>
+        <span>Una línea CSS. Elimina el contraste impredecible sobre fondos de color.</span>
+      </div>
+      <span class="effort">XS · 30min</span> <span class="tag tag-warn">ALTO</span>
+    </li>
+    <li class="priority-item">
+      <div class="priority-num">9</div>
+      <div class="priority-body">
+        <strong>Agregar CTA en estados vacíos del panel (P&R sin respuestas, laboratorios sin datos)</strong>
+        <span>"Responder una pregunta →" / "Registrar primer laboratorio →". Convierte callejones sin salida en flujos de onboarding.</span>
+      </div>
+      <span class="effort">M · 4h</span> <span class="tag tag-crit">CRIT</span>
+    </li>
+    <li class="priority-item">
+      <div class="priority-num">10</div>
+      <div class="priority-body">
+        <strong>Agregar max-width: 720px a contenido de artículos/guías</strong>
+        <span>Una línea CSS. Líneas de lectura demasiado largas en desktop. Impacto inmediato en legibilidad de guías médicas.</span>
+      </div>
+      <span class="effort">XS · 15min</span> <span class="tag tag-warn">ALTO</span>
+    </li>
+  </ul>
+</div>
+
+<!-- RESUMEN DE FORTALEZAS -->
+<h2>Fortalezas detectadas</h2>
+<div class="section-card">
+  <table>
+    <tr><th>Área</th><th>Fortaleza</th></tr>
+    <tr><td>Navegación</td><td>Sidebar del panel bien estructurado con agrupación "Mi Salud". Íconos consistentes (Bootstrap Icons). Item activo visible.</td></tr>
+    <tr><td>Inputs</td><td>Todos los inputs usan 16px (evita zoom iOS). Border-radius consistente en forms. Bootstrap .form-control uniforme.</td></tr>
+    <tr><td>URLs semánticas</td><td>/Preguntas/cuanto-tiempo-dura-un-brote... — excelente SEO y orientación al usuario.</td></tr>
+    <tr><td>Estructura de cards de artículo</td><td>Imagen + categoría + título + extracto + autor + fecha. Anatomía de card completa y consistente.</td></tr>
+    <tr><td>Directorio Médicos</td><td>Badges de verificación, filtros, cards claras. La sección más pulida del panel.</td></tr>
+    <tr><td>Exportar PDF</td><td>Links de rango temporal + personalizado. Feature exclusivo que agrega valor real.</td></tr>
+    <tr><td>Copy hero</td><td>"Vivir con EII no debería ser tan solitario" — copy empático, directo y diferenciador.</td></tr>
+    <tr><td>Mapa comunidad</td><td>723 ubicaciones reales con filtro funcional. Dato específico que genera confianza.</td></tr>
+    <tr><td>Iconografía</td><td>Bootstrap Icons uniformes en todo el sitio. No hay mezcla de librerías.</td></tr>
+    <tr><td>Sombras</td><td>Cards usan sombra sutil consistente (rgba(0,0,0,.075) 0 2px 4px) — no intrusiva.</td></tr>
+  </table>
+</div>
+
+<!-- MAPA MENTAL DE DEPENDENCIAS -->
+<h2>Mapa de deuda técnica UX</h2>
+<div class="section-card">
+  <pre style="background:#1e2530;color:#e6edf3;padding:20px;border-radius:8px;font-size:13px;line-height:1.8;">
+RAÍZ: Tres sistemas de CSS coexisten (--bs-*, --se-*, --crm-*)
+  └─► Botones en Bootstrap blue (no brand)
+  └─► 4 colores danger distintos
+  └─► 2 colores warning distintos
+  └─► 3 colores de texto muted distintos
+  └─► 6 variantes de border-radius en botones
+  └─► 5 variantes de padding en botones
+
+RAÍZ: font-size: 0.9rem en body
+  └─► Texto a 14.4px (demasiado pequeño)
+  └─► Padding de botones distorsionado (9.6px en lugar de 10px)
+  └─► Toda la escala rem distorsionada
+
+RAÍZ: Buscador sin lógica de estado vacío
+  └─► Búsquedas sin resultado muestran todos los artículos
+  └─► Sin contador de resultados
+  └─► Sin feedback de búsqueda activa
+
+RAÍZ: States y estados vacíos no diseñados
+  └─► "No hay respuestas" sin CTA
+  └─► "—" en laboratorios sin contexto
+  └─► Ánimo sin diferenciación cromática
+  </pre>
+</div>
+
+<!-- LINKS A REPORTES -->
+<h2>Índice de Reportes</h2>
+<div class="section-card">
+  <nav class="nav-pills">
+    <a href="01-front-publico.html" class="nav-pill">01 Front Público</a>
+    <a href="02-panel-paciente.html" class="nav-pill">02 Panel Paciente</a>
+    <a href="03-tipografia.html" class="nav-pill">03 Tipografía</a>
+    <a href="04-componentes.html" class="nav-pill">04 Componentes</a>
+    <a href="05-espaciados.html" class="nav-pill">05 Espaciados</a>
+    <a href="06-colores.html" class="nav-pill">06 Colores</a>
+    <a href="07-inconsistencias.html" class="nav-pill">07 Inconsistencias</a>
+    <a href="08-estandar-propuesto.html" class="nav-pill">08 Estándar Propuesto</a>
+    <a href="09-dashboard-final.html" class="nav-pill active">09 Dashboard Final</a>
+  </nav>
+  <p style="font-size:13px;color:var(--text-muted);margin-top:8px;">Screenshots en <code>screenshots/</code> — 16 capturas de pantalla capturadas durante la sesión Playwright</p>
+</div>
+
+</body>
+</html>

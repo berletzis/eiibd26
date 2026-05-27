@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>02 — Panel Paciente · Auditoría UX EIIBD</title>
+<style>
+  body { font-family: Inter, system-ui, sans-serif; background: #f6f7f8; color: #1f2b2f; margin: 0; padding: 24px; }
+  h1 { color: #172849; font-weight: 700; font-size: 28px; margin-bottom: 4px; }
+  h2 { color: #40545a; font-size: 18px; margin-top: 32px; border-bottom: 2px solid #e9ecef; padding-bottom: 8px; }
+  h3 { font-size: 14px; color: #6a4e7a; text-transform: uppercase; letter-spacing: .5px; margin-top: 20px; }
+  .meta { color: #546a70; font-size: 13px; margin-bottom: 24px; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-right: 4px; }
+  .tag-crit { background: #fdecea; color: #b94a42; }
+  .tag-warn { background: #fff8e1; color: #c38f3b; }
+  .tag-ok   { background: #e8f5e9; color: #2e7d32; }
+  .tag-info { background: #e3f2fd; color: #1565c0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: #f2f4f5; text-align: left; padding: 8px 10px; }
+  td { padding: 7px 10px; border-bottom: 1px solid #eef2f7; }
+  .section-card { background: #fff; border-radius: 10px; border: 1px solid #e9ecef; padding: 20px; margin-bottom: 20px; }
+  .ss-row { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0; }
+  .ss-row img { border: 1px solid #e9ecef; border-radius: 6px; max-width: 48%; width: 100%; }
+</style>
+</head>
+<body>
+
+<h1>Auditoría UX — Panel Paciente</h1>
+<p class="meta">EIIBD · https://localhost:7002 · 2026-05-26 · Usuario: berletzis@gmail.com</p>
+
+<!-- SIDEBAR -->
+<h2>Sidebar de Navegación</h2>
+<div class="section-card">
+  <h3>Estructura detectada</h3>
+  <ul>
+    <li>Mi Perfil Público</li>
+    <li>Panel de Control</li>
+    <li>Mis P&amp;R</li>
+    <li>Médicos</li>
+    <li><strong>Mi Salud</strong> (label de grupo, no clickeable)</li>
+    <li>Estado de Ánimo</li>
+    <li>Mis condiciones</li>
+    <li>Mis síntomas</li>
+    <li>Seguimiento de síntomas</li>
+    <li>Mis tratamientos</li>
+    <li>Mis laboratorios</li>
+  </ul>
+  <h3>Evaluación</h3>
+  <table>
+    <tr><th>Criterio</th><th>Observación</th><th>Estado</th></tr>
+    <tr><td>Agrupación lógica</td><td>"Mi Salud" agrupa bien los módulos clínicos. Separación clara de social (P&R, Médicos) vs. clínico</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Orden intuitivo</td><td>"Estado de Ánimo" antes de "Mis condiciones" — el estado de ánimo es secundario vs. las condiciones que son el núcleo. Orden cuestionable</td><td><span class="tag tag-warn">WARN</span></td></tr>
+    <tr><td>Label "Mi Salud"</td><td>Es un texto no interactivo. Visualmente diferenciado, pero podría confundirse con ítem clickeable</td><td><span class="tag tag-warn">WARN</span></td></tr>
+    <tr><td>Iconos</td><td>Todos los ítems tienen ícono Bootstrap Icons — consistente</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Item activo</td><td>Hay indicador visual del ítem activo en el sidebar — correcto</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Médicos → Link externo</td><td>"Médicos" redirige a /DirectorioMedicos (fuera del contexto /Identity). Rompe la coherencia de URL del panel</td><td><span class="tag tag-warn">WARN</span></td></tr>
+  </table>
+</div>
+
+<!-- DASHBOARD -->
+<h2>Panel de Control (Dashboard)</h2>
+<div class="section-card">
+  <h3>Evidencia visual</h3>
+  <img src="screenshots/01-panel-control.png" alt="Dashboard" style="max-width:100%; border-radius:6px; border:1px solid #e9ecef;">
+
+  <h3>Evaluación</h3>
+  <table>
+    <tr><th>Criterio</th><th>Observación</th><th>Estado</th></tr>
+    <tr><td>KPIs / resumen</td><td>Dashboard muestra: Estado ánimo (7 días), Tabla síntomas, P&R top, Laboratorios, Exportar PDF. Buen coverage de módulos</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Banner push notifications</td><td>Card "Activa las notificaciones" con botón "Activar" aparece en la parte superior. Interrumpe el flujo antes de mostrar datos. Debería ser dismissible y no ocupar tanta jerarquía</td><td><span class="tag tag-warn">WARN</span></td></tr>
+    <tr><td>Tabla síntomas</td><td>Columnas: Síntoma / Tendencia / AYER / HOY / Condición. Funcional, pero "AYER" y "HOY" como etiquetas dentro del header son confusas — el header mezcla fecha (25/05) con etiqueta semántica (AYER)</td><td><span class="tag tag-warn">WARN</span></td></tr>
+    <tr><td>Botón "Agregar seguimiento hoy"</td><td>Presente en cada fila de la tabla — bien accesible. Pero el texto es largo para una celda de tabla</td><td><span class="tag tag-warn">WARN</span></td></tr>
+    <tr><td>Card P&R</td><td>"Top Respuestas: No hay respuestas para mostrar" — estado vacío pobre, sin CTA para responder</td><td><span class="tag tag-crit">CRIT</span></td></tr>
+    <tr><td>Card laboratorios</td><td>Muestra "—" en resultado y fecha para Calprotectina. No comunica si el dato falta o es normal</td><td><span class="tag tag-warn">WARN</span></td></tr>
+    <tr><td>Exportar PDF</td><td>Links "Último mes / 3 meses / 6 meses" + rango personalizado. Muy funcional y bien diseñado</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Scroll vertical</td><td>Dashboard requiere mucho scroll. La gráfica de ánimo está arriba, pero la tabla síntomas y laboratorios quedan below the fold</td><td><span class="tag tag-warn">WARN</span></td></tr>
+    <tr><td>Densidad</td><td>Mezcla de cards de distintos tamaños y proporciones. Sin grid system consistente entre secciones del dashboard</td><td><span class="tag tag-crit">CRIT</span></td></tr>
+  </table>
+</div>
+
+<!-- MIS CONDICIONES -->
+<h2>Mis Condiciones</h2>
+<div class="section-card">
+  <h3>Evidencia visual</h3>
+  <img src="screenshots/08-mis-condiciones.png" alt="Mis condiciones" style="max-width:100%; border-radius:6px; border:1px solid #e9ecef;">
+  <h3>Evaluación</h3>
+  <table>
+    <tr><th>Criterio</th><th>Observación</th><th>Estado</th></tr>
+    <tr><td>Listado condiciones</td><td>Condiciones registradas visibles con botones de acción. Layout tabular claro</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Formulario agregar</td><td>Autocomplete para buscar condición — correcto, evita texto libre libre</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Mensajes de feedback</td><td>No confirmado en esta captura si hay toast/snackbar al guardar</td><td><span class="tag tag-info">INFO</span></td></tr>
+    <tr><td>Espaciados formulario</td><td>Inputs con padding 6px 12px — Bootstrap estándar. Consistente</td><td><span class="tag tag-ok">OK</span></td></tr>
+  </table>
+</div>
+
+<!-- TRATAMIENTOS -->
+<h2>Mis Tratamientos</h2>
+<div class="section-card">
+  <h3>Evidencia visual</h3>
+  <img src="screenshots/09-tratamientos.png" alt="Tratamientos" style="max-width:100%; border-radius:6px; border:1px solid #e9ecef;">
+  <h3>Evaluación</h3>
+  <table>
+    <tr><th>Criterio</th><th>Observación</th><th>Estado</th></tr>
+    <tr><td>Estructura visual</td><td>Similar a Condiciones y Síntomas — template reutilizado. Positivo para consistencia</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Campo FechaFin</td><td>Tratamientos con FechaFin implementada (sesión anterior). Visible en UI</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Botones acción</td><td>Editar / Eliminar / Guardar — consistentes con el resto del módulo Mi Salud</td><td><span class="tag tag-ok">OK</span></td></tr>
+  </table>
+</div>
+
+<!-- SÍNTOMAS -->
+<h2>Mis Síntomas</h2>
+<div class="section-card">
+  <h3>Evidencia visual</h3>
+  <img src="screenshots/10-sintomas.png" alt="Síntomas" style="max-width:100%; border-radius:6px; border:1px solid #e9ecef;">
+  <h3>Evaluación</h3>
+  <table>
+    <tr><th>Criterio</th><th>Observación</th><th>Estado</th></tr>
+    <tr><td>Lista síntomas</td><td>Síntomas listados con condición relacionada. Estructura clara</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Relación síntoma-condición</td><td>Cada síntoma muestra la condición a la que pertenece (ej. "Pancolitis") — excelente para contexto médico</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Botón agregar síntoma</td><td>CTA presente. Autocomplete esperado para buscar síntoma</td><td><span class="tag tag-ok">OK</span></td></tr>
+  </table>
+</div>
+
+<!-- SEGUIMIENTO SÍNTOMAS -->
+<h2>Seguimiento de Síntomas</h2>
+<div class="section-card">
+  <h3>Evidencia visual</h3>
+  <img src="screenshots/11-seguimiento-sintomas.png" alt="Seguimiento síntomas" style="max-width:100%; border-radius:6px; border:1px solid #e9ecef;">
+  <h3>Evaluación</h3>
+  <table>
+    <tr><th>Criterio</th><th>Observación</th><th>Estado</th></tr>
+    <tr><td>Comprensión del módulo</td><td>Seguimiento diario de intensidad por síntoma. Concepto claro y valioso para pacientes EII</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Selector de intensidad</td><td>Escala Ninguno/Leve/Moderado/Severo — nomenclatura clínica apropiada</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Gráficas de tendencia</td><td>Visible en dashboard. Aquí en el módulo propio, la visualización de progreso histórico es el elemento clave</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Feedback al guardar</td><td>Botón "Agregar seguimiento hoy" en el dashboard tiene texto largo — en móvil puede truncarse</td><td><span class="tag tag-warn">WARN</span></td></tr>
+  </table>
+</div>
+
+<!-- LABORATORIOS -->
+<h2>Mis Laboratorios</h2>
+<div class="section-card">
+  <h3>Evidencia visual</h3>
+  <img src="screenshots/12-laboratorios.png" alt="Laboratorios" style="max-width:100%; border-radius:6px; border:1px solid #e9ecef;">
+  <h3>Evaluación</h3>
+  <table>
+    <tr><th>Criterio</th><th>Observación</th><th>Estado</th></tr>
+    <tr><td>Tabla de resultados</td><td>Columnas Estudio / Categoría / Resultado / Fecha / Condición — completa</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Dato "—" en resultado</td><td>Cuando resultado o fecha están vacíos muestra "—". Aceptable pero podría mostrar un badge "Pendiente" o "Sin dato" más informativo</td><td><span class="tag tag-warn">WARN</span></td></tr>
+    <tr><td>Interpretación de resultado</td><td>No hay rango normal ni indicador visual (↑↓ fuera de rango). El paciente ve el número pero no sabe si es normal</td><td><span class="tag tag-crit">CRIT</span></td></tr>
+  </table>
+</div>
+
+<!-- ESTADO DE ÁNIMO -->
+<h2>Estado de Ánimo</h2>
+<div class="section-card">
+  <h3>Evidencia visual</h3>
+  <img src="screenshots/13-estado-animo.png" alt="Estado de ánimo" style="max-width:100%; border-radius:6px; border:1px solid #e9ecef;">
+  <h3>Evaluación</h3>
+  <table>
+    <tr><th>Criterio</th><th>Observación</th><th>Estado</th></tr>
+    <tr><td>Opciones de ánimo</td><td>5 opciones: Muy bien / Bien / Neutral / Mal / Muy mal. Con íconos faciales emoji-like. Inmediatamente comprensible</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Consistencia botones ánimo</td><td>Usan .btn.btn-outline-secondary — mismo estilo para las 5 opciones. Sin distinción de color por emoción</td><td><span class="tag tag-warn">WARN</span></td></tr>
+    <tr><td>Historial / gráfica</td><td>La gráfica de 7 días aparece en el dashboard pero no confirmado si aparece también en este módulo propio</td><td><span class="tag tag-info">INFO</span></td></tr>
+  </table>
+</div>
+
+<!-- DIRECTORIO MÉDICOS -->
+<h2>Directorio Médicos</h2>
+<div class="section-card">
+  <h3>Evidencia visual</h3>
+  <img src="screenshots/14-directorio-medicos.png" alt="Directorio médicos" style="max-width:100%; border-radius:6px; border:1px solid #e9ecef;">
+  <h3>Evaluación</h3>
+  <table>
+    <tr><th>Criterio</th><th>Observación</th><th>Estado</th></tr>
+    <tr><td>Cards de médico</td><td>Foto + nombre + especialidad + país. Estructura de card médica clara y confiable</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Filtros</td><td>Filtros por país/especialidad presentes. Buena usabilidad para directorio</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Confianza</td><td>Badges de verificación presentes. El usuario sabe qué médicos están verificados</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>CTA proponer médico</td><td>Botón para proponer médico visible. Incentiva participación comunitaria</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Densidad de cards</td><td>Grid adecuado. No hay overcrowding</td><td><span class="tag tag-ok">OK</span></td></tr>
+  </table>
+</div>
+
+<!-- MIS P&R -->
+<h2>Mis Preguntas y Respuestas</h2>
+<div class="section-card">
+  <h3>Evidencia visual</h3>
+  <img src="screenshots/15-mis-pyr.png" alt="Mis P&R" style="max-width:100%; border-radius:6px; border:1px solid #e9ecef;">
+  <h3>Evaluación</h3>
+  <table>
+    <tr><th>Criterio</th><th>Observación</th><th>Estado</th></tr>
+    <tr><td>Separación preguntas / respuestas</td><td>Tabs o secciones separadas para "Top Preguntas" y "Top Respuestas" — correcto</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Estado vacío respuestas</td><td>"No hay respuestas para mostrar" sin CTA — igual que en el dashboard. Estado pobre</td><td><span class="tag tag-crit">CRIT</span></td></tr>
+    <tr><td>Console error</td><td>La página tiene 1 error en consola — posible JS roto o recurso no encontrado</td><td><span class="tag tag-warn">WARN</span></td></tr>
+  </table>
+</div>
+
+<!-- PERFIL PÚBLICO -->
+<h2>Mi Perfil Público</h2>
+<div class="section-card">
+  <h3>Evidencia visual</h3>
+  <img src="screenshots/16-perfil-publico.png" alt="Perfil público" style="max-width:100%; border-radius:6px; border:1px solid #e9ecef;">
+  <h3>Evaluación</h3>
+  <table>
+    <tr><th>Criterio</th><th>Observación</th><th>Estado</th></tr>
+    <tr><td>Presentación</td><td>Foto de perfil + nombre + rol (Fundador EIIBD) + descripción. Estructura limpia</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Legibilidad</td><td>Tipografía clara. Jerarquía nombre → rol → descripción correcta</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Espaciados</td><td>Padding interno del perfil razonable. No se perciben gaps excesivos</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Consistencia con diseño global</td><td>Usa los mismos componentes del sitio. Coherente con la identidad visual</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Privacy</td><td>Controles de privacidad no son visibles desde el perfil público (correcto — van en settings)</td><td><span class="tag tag-ok">OK</span></td></tr>
+  </table>
+</div>
+
+</body>
+</html>

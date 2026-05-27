@@ -8,7 +8,7 @@
 
         e.preventDefault();
 
-        var card = btn.closest('.blog-card');
+        var card = btn.closest('.eii-card');
         if (!card) return;
 
         var panel = card.querySelector('.more-panel');

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>01 — Auditoría Editorial</title>
+  <style>
+    :root {
+      --eii-primary: #6a4e7a; --eii-text: #111827;
+      --eii-border: #e5e7eb; --eii-surface-soft: #f9fafb;
+      --eii-danger-soft: #fef2f2; --eii-danger: #dc2626;
+      --eii-success-soft: #f0fdf4; --eii-success: #16a34a;
+      --eii-warning-soft: #fffbeb; --eii-warning: #d97706;
+    }
+    body { font-family: system-ui, sans-serif; max-width: 960px; margin: 0 auto; padding: 2rem; color: var(--eii-text); }
+    h1 { font-size: 1.5rem; font-weight: 300; letter-spacing: -0.04em; }
+    h2 { font-size: 1rem; font-weight: 600; margin-top: 2rem; border-bottom: 1px solid var(--eii-border); padding-bottom: .5rem; }
+    table { width: 100%; border-collapse: collapse; font-size: .875rem; margin: 1rem 0; }
+    th, td { text-align: left; padding: .5rem .75rem; border-bottom: 1px solid var(--eii-border); }
+    th { background: var(--eii-surface-soft); font-weight: 600; }
+    .issue { background: var(--eii-danger-soft); color: var(--eii-danger); padding: 2px 8px; border-radius: 4px; font-size: .78rem; }
+    .ok { background: var(--eii-success-soft); color: var(--eii-success); padding: 2px 8px; border-radius: 4px; font-size: .78rem; }
+    .warn { background: var(--eii-warning-soft); color: var(--eii-warning); padding: 2px 8px; border-radius: 4px; font-size: .78rem; }
+    code { background: #f1f5f9; padding: 1px 6px; border-radius: 3px; font-size: .85em; }
+  </style>
+</head>
+<body>
+<h1>Auditoría Visual Editorial — Blog + Glosario</h1>
+<p>Sesión 2026-05-26 · Archivos analizados: <code>Detalle.cshtml</code>, <code>Termino.cshtml</code>, <code>detalle.css</code></p>
+
+<h2>H1 — Título de página</h2>
+<table>
+  <tr><th>Componente</th><th>Selector actual</th><th>Valor actual</th><th>Estado</th><th>Propuesta</th></tr>
+  <tr><td>Blog H1</td><td><code>.eii-page-title</code> (en eii-page-header)</td><td>2.1rem / weight:300 / color:--eii-text-heading</td><td><span class="ok">OK</span></td><td>Mantener. Page-header ya aplicado.</td></tr>
+  <tr><td>Termino H1</td><td><code>.page-title h1.eii-page-title</code></td><td>2.1rem via eii-page-title PERO anulado por .page-title h1 (3rem/800)</td><td><span class="issue">CONFLICTO</span></td><td>Eliminar .page-title h1 en detalle.css. Aplicar eii-page-header a Termino.</td></tr>
+  <tr><td>Override de color</td><td><code>.conte-detail .page-title h1</code></td><td><code>color:#000 !important</code></td><td><span class="issue">!important hardcode</span></td><td>Eliminar. eii-page-title ya define color via token.</td></tr>
+</table>
+
+<h2>Sidebar — Títulos de sección</h2>
+<table>
+  <tr><th>Selector</th><th>Propiedad</th><th>Valor actual</th><th>Estado</th><th>Propuesta</th></tr>
+  <tr><td><code>.sidebar-section-title</code></td><td>font-weight</td><td>800</td><td><span class="issue">Negrita agresiva</span></td><td>var(--eii-fw-semibold) = 600</td></tr>
+  <tr><td><code>.sidebar-section-title</code></td><td>font-size</td><td>var(--eii-text-lg) = 1.25rem</td><td><span class="ok">OK</span></td><td>Mantener</td></tr>
+  <tr><td><code>.sidebar-section-title</code></td><td>color</td><td>#0f1419</td><td><span class="warn">Twitter-style, funcional</span></td><td>Mantener (identidad sidebar)</td></tr>
+</table>
+
+<h2>Cards y Contenedores</h2>
+<table>
+  <tr><th>Selector</th><th>Propiedad</th><th>Actual</th><th>Estado</th><th>Token correcto</th></tr>
+  <tr><td><code>.related-card</code></td><td>border-radius</td><td>10px</td><td><span class="warn">Hardcode</span></td><td>var(--eii-radius-md) = 8px</td></tr>
+  <tr><td><code>.related-card:hover</code></td><td>box-shadow</td><td>0 4px 12px rgba(0,0,0,0.08)</td><td><span class="warn">Hardcode</span></td><td>var(--eii-shadow-md)</td></tr>
+  <tr><td><code>.tabs</code></td><td>border-radius</td><td>10px</td><td><span class="warn">Hardcode</span></td><td>var(--eii-radius-md)</td></tr>
+  <tr><td><code>.pregunta-card</code></td><td>border-radius</td><td>8px</td><td><span class="ok">≈correcto</span></td><td>var(--eii-radius-md) explícito</td></tr>
+  <tr><td><code>.sidebar-section</code></td><td>border-radius</td><td>1rem = 16px</td><td><span class="ok">Equivale</span></td><td>var(--eii-radius-xl) = 16px</td></tr>
+  <tr><td><code>.sidebar-section</code></td><td>border-color</td><td>#eff3f4</td><td><span class="warn">Hardcode</span></td><td>var(--eii-border-soft)</td></tr>
+  <tr><td><code>.exp-card</code> (Termino)</td><td>border-radius</td><td>12px</td><td><span class="ok">Equivale</span></td><td>var(--eii-radius-lg) = 12px</td></tr>
+  <tr><td><code>.user-card</code> (Termino)</td><td>border-radius</td><td>8px</td><td><span class="ok">Equivale</span></td><td>var(--eii-radius-md)</td></tr>
+</table>
+
+<h2>Badges y Pills</h2>
+<table>
+  <tr><th>Selector</th><th>Propiedad</th><th>Actual</th><th>Estado</th><th>Token correcto</th></tr>
+  <tr><td><code>.detail-sub</code></td><td>background</td><td>#f4edfc</td><td><span class="warn">Hardcode ≈ eii-primary-soft</span></td><td>var(--eii-primary-soft)</td></tr>
+  <tr><td><code>.detail-sub</code></td><td>color</td><td>#24527a</td><td><span class="issue">No existe token</span></td><td>var(--eii-primary)</td></tr>
+  <tr><td><code>.badge-cat</code> (categories)</td><td>background/color</td><td>#f4edfc / #24527a</td><td><span class="issue">Hardcode sin token</span></td><td>primary-soft / primary</td></tr>
+  <tr><td><code>.termino-tipo-pill</code></td><td>background/color/border</td><td>Inline C# string interpolation</td><td><span class="issue">Inline style</span></td><td>Clases BEM modifier</td></tr>
+  <tr><td><code>.aviso-termino-box</code></td><td>background</td><td>#f5f3ff ≈ primary-soft</td><td><span class="warn">Hardcode</span></td><td>var(--eii-primary-soft)</td></tr>
+</table>
+
+<h2>Botones</h2>
+<table>
+  <tr><th>Selector</th><th>Archivo</th><th>Estado</th><th>Propuesta</th></tr>
+  <tr><td><code>.btn-purple</code></td><td>Termino.cshtml inline</td><td><span class="issue">Duplica eii-btn--solid</span></td><td>Migrar a <code>eii-btn eii-btn--solid</code></td></tr>
+  <tr><td><code>.btn-outline-purple</code></td><td>Termino.cshtml inline</td><td><span class="issue">Duplica eii-btn--primary</span></td><td>Migrar a <code>eii-btn eii-btn--primary</code></td></tr>
+  <tr><td>Rating buttons</td><td>detalle.css</td><td><span class="ok">OK — tokens usados</span></td><td>Mantener</td></tr>
+  <tr><td><code>.btn-continuar-leyendo</code></td><td>detalle.css</td><td><span class="ok">Usa var(--eii-primary)</span></td><td>Mantener</td></tr>
+</table>
+
+<h2>Metadata (autor, fecha, tiempo lectura)</h2>
+<table>
+  <tr><th>Componente</th><th>Selector</th><th>Estado</th></tr>
+  <tr><td>Blog meta-card</td><td><code>.meta-card</code></td><td><span class="ok">Usa tokens: eii-text-sm, eii-text-soft, eii-space-*</span></td></tr>
+  <tr><td>Blog inline style autor</td><td><code>style="font-weight:100;"</code></td><td><span class="warn">Inline weight — cosmético, no crítico</span></td></tr>
+  <tr><td>Termino no tiene metadata</td><td>—</td><td><span class="ok">No aplica (términos no tienen autor)</span></td></tr>
+</table>
+
+<h2>Contenido editorial HTML (contenido-html)</h2>
+<table>
+  <tr><th>Selector</th><th>Estado</th></tr>
+  <tr><td><code>.contenido-html h2</code></td><td><span class="ok">var(--eii-text-3xl), border-bottom token</span></td></tr>
+  <tr><td><code>.contenido-html h3</code></td><td><span class="ok">var(--eii-text-2xl)</span></td></tr>
+  <tr><td><code>.contenido-html p</code></td><td><span class="ok">margin-bottom var(--eii-space-7), line-height 1.7</span></td></tr>
+  <tr><td><code>.contenido-html ul/ol/li</code></td><td><span class="ok">Tokens correctos</span></td></tr>
+  <tr><td><code>.contenido-html blockquote</code></td><td><span class="ok">eii-primary, eii-primary-soft</span></td></tr>
+</table>
+
+<h2>Inconsistencias Blog vs Termino</h2>
+<table>
+  <tr><th>Elemento</th><th>Blog (Detalle)</th><th>Termino</th><th>Acción</th></tr>
+  <tr><td>H1 wrapper</td><td>eii-page-header > eii-page-header__content</td><td>&lt;div class="page-title"&gt;</td><td>Alinear Termino</td></tr>
+  <tr><td>H2 secciones</td><td>No hay H2 propios (dentro de contenido-html)</td><td>Inline styles + .contenido wrapper</td><td>Clase .editorial-section-h2</td></tr>
+  <tr><td>Breadcrumb</td><td>.breadcrumbs — tokens ✓</td><td>.breadcrumbs — tokens ✓</td><td>Igual — OK</td></tr>
+  <tr><td>Sidebar structure</td><td>sidebar-section / sidebar-section-header</td><td>sidebar-section / sidebar-section-header</td><td>Igual — OK</td></tr>
+  <tr><td>Rating</td><td>article-rating / rating-btn</td><td>glossaryRating / rating-btn</td><td>Misma CSS — OK</td></tr>
+</table>
+</body>
+</html>

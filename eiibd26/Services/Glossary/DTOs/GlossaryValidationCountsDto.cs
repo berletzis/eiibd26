@@ -46,6 +46,7 @@ namespace eiibd26.Services.Glossary.DTOs
     public class ValidationCommentDto
     {
         public string UserDisplay { get; set; } = "";
+        public string? AvatarUrl { get; set; }
         public GlossaryValidationType ValidationType { get; set; }
         public MedicalRelationType? RelationType { get; set; }
         public string? Comment { get; set; }

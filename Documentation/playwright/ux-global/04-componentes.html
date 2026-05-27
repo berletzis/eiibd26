@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>04 — Componentes · Auditoría UX EIIBD</title>
+<style>
+  body { font-family: Inter, system-ui, sans-serif; background: #f6f7f8; color: #1f2b2f; margin: 0; padding: 24px; }
+  h1 { color: #172849; font-weight: 700; font-size: 28px; }
+  h2 { color: #40545a; font-size: 18px; margin-top: 32px; border-bottom: 2px solid #e9ecef; padding-bottom: 8px; }
+  .meta { color: #546a70; font-size: 13px; margin-bottom: 24px; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-right: 4px; }
+  .tag-crit { background: #fdecea; color: #b94a42; }
+  .tag-warn { background: #fff8e1; color: #c38f3b; }
+  .tag-ok   { background: #e8f5e9; color: #2e7d32; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 16px; }
+  th { background: #f2f4f5; text-align: left; padding: 8px 10px; }
+  td { padding: 7px 10px; border-bottom: 1px solid #eef2f7; vertical-align: top; }
+  .section-card { background: #fff; border-radius: 10px; border: 1px solid #e9ecef; padding: 20px; margin-bottom: 20px; }
+  .issue-box { background: #fdecea; border-left: 4px solid #b94a42; padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 8px 0; font-size: 13px; }
+  .ok-box    { background: #e8f5e9; border-left: 4px solid #2e7d32; padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 8px 0; font-size: 13px; }
+  code { background: #f2f4f5; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+  .btn-demo { display: inline-flex; align-items: center; gap: 8px; margin: 4px; padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: 600; border: none; cursor: default; }
+  .variant-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 12px 0; }
+  .variant-item { background: #f9f9f9; border: 1px solid #e9ecef; border-radius: 8px; padding: 12px; font-size: 12px; }
+  .variant-item strong { display: block; margin-bottom: 4px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<h1>Auditoría UX — Componentes</h1>
+<p class="meta">Botones · Cards · Inputs · Tablas · Badges · Mediciones en runtime</p>
+
+<!-- BOTONES -->
+<h2>Botones — Inventario de variantes detectadas</h2>
+<div class="section-card">
+
+  <div class="issue-box">
+    <strong>COMP-01 CRÍTICO — 6 variantes de botón con estilos incompatibles</strong><br>
+    Se detectaron al menos 6 familias de botón distintas en una sola página (Dashboard), cada una con border-radius, padding, font-weight y color de fondo diferente.
+  </div>
+
+  <h3 style="font-size:14px;color:#6a4e7a;text-transform:uppercase;letter-spacing:.5px;">Variantes medidas en Dashboard</h3>
+  <table>
+    <tr>
+      <th>Clase</th><th>Texto</th><th>Border-radius</th><th>Padding</th><th>Font-weight</th><th>Bg color</th><th>Altura</th>
+    </tr>
+    <tr>
+      <td><code>.btn.btn-primary</code></td>
+      <td>"Activar"</td>
+      <td>6px</td>
+      <td>9.6px 17.6px</td>
+      <td>600</td>
+      <td>transparent (hereda Bootstrap blue)</td>
+      <td>42px</td>
+    </tr>
+    <tr>
+      <td><code>.btn.btn-outline-danger</code></td>
+      <td>"Cerrar sesión"</td>
+      <td><strong style="color:#b94a42">8px ≠ 6px</strong></td>
+      <td>7.2px 14.4px</td>
+      <td><strong style="color:#b94a42">400 ≠ 600</strong></td>
+      <td>rgb(241,244,245)</td>
+      <td>~0 (oculto)</td>
+    </tr>
+    <tr>
+      <td><code>.crm-btn.crm-btn-primary.btn-lg</code></td>
+      <td>"+" (ánimo)</td>
+      <td><strong style="color:#b94a42">50% (píldora)</strong></td>
+      <td>6px 10px</td>
+      <td><strong style="color:#b94a42">100 (ultrathin)</strong></td>
+      <td>rgb(244,245,247)</td>
+      <td>48px</td>
+    </tr>
+    <tr>
+      <td><code>.se-btn.se-btn-primary</code></td>
+      <td>"+" (búsqueda)</td>
+      <td><strong style="color:#b94a42">50% (círculo)</strong></td>
+      <td><strong style="color:#b94a42">1px 6px (mínimo)</strong></td>
+      <td>400</td>
+      <td>rgb(240,240,240)</td>
+      <td>~0</td>
+    </tr>
+    <tr>
+      <td><code>.btn.btn-outline-secondary.mood-option-btn</code></td>
+      <td>"Bien/Mal..."</td>
+      <td>6px</td>
+      <td>6px 12px</td>
+      <td>400</td>
+      <td>transparent</td>
+      <td>~0</td>
+    </tr>
+    <tr>
+      <td><code>.btn.btn-outline-secondary.btn-sm.btn-agregar</code></td>
+      <td>"Agregar seguimiento hoy"</td>
+      <td><strong style="color:#b94a42">9px ≠ todo</strong></td>
+      <td>4px 8px</td>
+      <td>400</td>
+      <td>transparent</td>
+      <td>33px</td>
+    </tr>
+  </table>
+
+  <div class="issue-box">
+    <strong>COMP-02 — .btn-primary con background: transparent</strong><br>
+    El botón primario reporta <code>background-color: rgba(0,0,0,0)</code> porque el color viene de Bootstrap via un pseudo-elemento o gradient layer, no del property directo. Funciona visualmente pero complica overrides y temas.
+  </div>
+
+  <h3 style="font-size:14px;color:#6a4e7a;text-transform:uppercase;letter-spacing:.5px;">Propuesta: 3 variantes máximo</h3>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin:12px 0;">
+    <div>
+      <span class="btn-demo" style="background:#6a4e7a;color:#fff;">Primario — #6a4e7a</span>
+      <div style="font-size:11px;color:#546a70;margin-top:2px;">radius: 6px · padding: 8px 18px · weight: 600 · altura: 40px</div>
+    </div>
+    <div>
+      <span class="btn-demo" style="background:#f2f4f5;color:#1f2b2f;border:1px solid #d0d7de;">Secundario</span>
+      <div style="font-size:11px;color:#546a70;margin-top:2px;">radius: 6px · padding: 8px 18px · weight: 600 · misma altura</div>
+    </div>
+    <div>
+      <span class="btn-demo" style="background:transparent;color:#6a4e7a;border:1.5px solid #6a4e7a;">Outline</span>
+      <div style="font-size:11px;color:#546a70;margin-top:2px;">radius: 6px · border: 1.5px · weight: 600 · misma altura</div>
+    </div>
+  </div>
+</div>
+
+<!-- CARDS -->
+<h2>Cards — Variantes detectadas</h2>
+<div class="section-card">
+
+  <table>
+    <tr><th>Tipo de card</th><th>Contexto</th><th>Padding</th><th>Border-radius</th><th>Sombra</th><th>Estado</th></tr>
+    <tr>
+      <td>Card Bootstrap <code>.card</code></td>
+      <td>Dashboard widgets</td>
+      <td>0px (en el wrapper) + padding interno variable</td>
+      <td>6px</td>
+      <td>rgba(0,0,0,.075) 0 2px 4px</td>
+      <td><span class="tag tag-warn">WARN</span></td>
+    </tr>
+    <tr>
+      <td>Card artículo (Contenidos/Home)</td>
+      <td>article.card — buscador, destacados</td>
+      <td>~16px estimado</td>
+      <td>6px</td>
+      <td>similar</td>
+      <td><span class="tag tag-ok">OK</span></td>
+    </tr>
+    <tr>
+      <td>Card médico (Directorio)</td>
+      <td>.card del directorio</td>
+      <td>~12-16px</td>
+      <td>~8-10px estimado</td>
+      <td>—</td>
+      <td><span class="tag tag-warn">WARN</span></td>
+    </tr>
+  </table>
+
+  <div class="issue-box">
+    <strong>COMP-03 — Cards sin padding estándar en el contenedor</strong><br>
+    El .card Bootstrap tiene padding: 0px. El spacing real viene del .card-body interno o clases ad-hoc. Esto produce alturas y densidades visualmente diferentes entre secciones porque cada implementador agrega su propio padding.
+  </div>
+
+  <div class="ok-box">
+    <strong>COMP-04 ✓ — Sombra consistente en cards</strong><br>
+    La mayoría de cards usan rgba(0,0,0,.075) 0 2px 4px — sombra sutil y uniforme. Positivo.
+  </div>
+</div>
+
+<!-- INPUTS -->
+<h2>Inputs y Formularios</h2>
+<div class="section-card">
+  <table>
+    <tr><th>Propiedad</th><th>Valor medido</th><th>Estado</th></tr>
+    <tr><td>Padding</td><td>6px 12px</td><td><span class="tag tag-ok">OK — Bootstrap estándar</span></td></tr>
+    <tr><td>Border-radius</td><td>6px (0.375rem)</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Border</td><td>1px solid rgb(222,226,230)</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Font-size</td><td>16px</td><td><span class="tag tag-ok">OK — previene zoom iOS</span></td></tr>
+    <tr><td>Focus ring</td><td>--focus-outline: #005fcc definida, pero no verificado su uso</td><td><span class="tag tag-warn">WARN</span></td></tr>
+  </table>
+
+  <div class="ok-box">
+    <strong>COMP-05 ✓ — Inputs consistentes</strong><br>
+    Los inputs de formulario usan Bootstrap .form-control con valores estándar. La mayor consistencia del sistema está en los inputs.
+  </div>
+</div>
+
+<!-- TABLAS -->
+<h2>Tablas</h2>
+<div class="section-card">
+  <table>
+    <tr><th>Ubicación</th><th>Observación</th><th>Estado</th></tr>
+    <tr>
+      <td>Tabla síntomas (Dashboard)</td>
+      <td>Columnas Síntoma/Tendencia/AYER/HOY/Condición. Headers con fechas + etiquetas semánticas mezcladas. Dificulta la lectura al vuelo</td>
+      <td><span class="tag tag-warn">WARN</span></td>
+    </tr>
+    <tr>
+      <td>Tabla laboratorios (Dashboard + Módulo)</td>
+      <td>Estudio/Categoría/Resultado/Fecha/Condición. Valores "—" para datos vacíos. Sin indicador de rango normal</td>
+      <td><span class="tag tag-crit">CRIT</span></td>
+    </tr>
+    <tr>
+      <td>Tablas Mi Salud (condiciones, tratamientos)</td>
+      <td>Estructura tabular simple, consistente entre módulos</td>
+      <td><span class="tag tag-ok">OK</span></td>
+    </tr>
+  </table>
+</div>
+
+<!-- BADGES -->
+<h2>Badges y Pills</h2>
+<div class="section-card">
+  <table>
+    <tr><th>Badge</th><th>Color</th><th>Uso</th><th>Estado</th></tr>
+    <tr><td>Badge info</td><td>--crm-badge-info: #e6f7ff · color: #055160</td><td>CRM widgets</td><td><span class="tag tag-ok">OK</span></td></tr>
+    <tr><td>Tag "Estable"</td><td>No medido — estimado verde</td><td>Tendencia síntoma</td><td><span class="tag tag-info">INFO</span></td></tr>
+    <tr><td>Categoría artículo</td><td>Texto color variable según sección</td><td>Cards de contenido</td><td><span class="tag tag-warn">WARN — inconsistente entre secciones</span></td></tr>
+  </table>
+</div>
+
+<!-- ICONOS -->
+<h2>Iconografía</h2>
+<div class="section-card">
+  <div class="ok-box">
+    <strong>COMP-06 ✓ — Bootstrap Icons consistente</strong><br>
+    Todo el sitio usa Bootstrap Icons (bi-*). No se detectaron mezclas de librerías de íconos. Correcto y consistente.
+  </div>
+  <div class="issue-box">
+    <strong>COMP-07 — Íconos sin aria-label en botones icon-only</strong><br>
+    Botones que solo contienen un ícono (búsqueda, agregar) necesitan <code>aria-label</code> para accesibilidad. No verificado si están presentes.
+  </div>
+</div>
+
+</body>
+</html>

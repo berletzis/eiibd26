@@ -52,6 +52,16 @@ namespace eiibd26.Jobs
                 "[AI Job] Started for PreguntaId={PreguntaId}",
                 preguntaId);
 
+            var log = new AIRequestLog
+            {
+                Id = Guid.NewGuid(),
+                PreguntaId = preguntaId,
+                Timestamp = startTime,
+                Level = Models.AI.QuestionLevel.Simple,
+                HighRisk = false,
+                Success = false
+            };
+
             try
             {
                 // Check cancellation before starting
@@ -184,6 +194,8 @@ namespace eiibd26.Jobs
 
                 }
 
+                var modeloUsado = esReutilizada ? "NINA-Reused" : _config.Model;
+
                 var respuestaIA = new Respuesta
                 {
                     Id = Guid.NewGuid(),
@@ -192,7 +204,7 @@ namespace eiibd26.Jobs
                     Cuerpo = cuerpoHtml,
                     EsAceptada = false,
                     EsIA = true,
-                    ModeloIA = esReutilizada ? "NINA-Reused" : _config.Model,
+                    ModeloIA = modeloUsado,
                     EsColapsada = false, // Mostrar expandida por defecto cuando es la única respuesta
                     Puntuacion = 0,
                     Eliminado = false,
@@ -203,12 +215,19 @@ namespace eiibd26.Jobs
 
                 _db.Respuestas.Add(respuestaIA);
 
+                log.ModelUsed = modeloUsado;
+                log.QuestionText = pregunta.Titulo ?? string.Empty;
+
                 // 9. Marcar la pregunta como que tiene respuesta de IA
                 pregunta.TieneRespuestaIA = true;
                 pregunta.FechaGeneracionIA = DateTimeOffset.UtcNow;
 
                 try
                 {
+                    log.Success = true;
+                    log.ProcessingTimeMs = (DateTimeOffset.UtcNow - startTime).TotalMilliseconds;
+                    _db.AIRequestLogs.Add(log);
+
                     await _db.SaveChangesAsync(cancellationToken);
 
                     var totalTime = (DateTimeOffset.UtcNow - startTime).TotalSeconds;
@@ -259,6 +278,20 @@ namespace eiibd26.Jobs
                 _logger.LogError(ex,
                     "[AI Job] Failed: PreguntaId={PreguntaId}",
                     preguntaId);
+
+                try
+                {
+                    log.Success = false;
+                    log.ErrorMessage = ex.Message;
+                    log.ProcessingTimeMs = (DateTimeOffset.UtcNow - startTime).TotalMilliseconds;
+                    _db.AIRequestLogs.Add(log);
+                    await _db.SaveChangesAsync(CancellationToken.None);
+                }
+                catch (Exception logEx)
+                {
+                    _logger.LogWarning(logEx, "[AI Job] Could not save error log for PreguntaId={PreguntaId}", preguntaId);
+                }
+
                 // No hacer throw para evitar reintentos infinitos en errores desconocidos
             }
         }

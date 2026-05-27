@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>04 — Implementación Editorial</title>
+  <style>
+    :root {
+      --eii-primary:#6a4e7a; --eii-text:#111827;
+      --eii-border:#e5e7eb; --eii-surface-soft:#f9fafb;
+      --eii-danger-soft:#fef2f2; --eii-danger:#dc2626;
+      --eii-success-soft:#f0fdf4; --eii-success:#16a34a;
+      --eii-warning-soft:#fffbeb; --eii-warning:#d97706;
+    }
+    body { font-family: system-ui, sans-serif; max-width: 960px; margin: 0 auto; padding: 2rem; color: var(--eii-text); }
+    h1 { font-size: 1.5rem; font-weight: 300; letter-spacing: -0.04em; }
+    h2 { font-size: 1rem; font-weight: 600; margin-top: 2rem; border-bottom: 1px solid var(--eii-border); padding-bottom: .5rem; }
+    table { width: 100%; border-collapse: collapse; font-size: .875rem; margin: 1rem 0; }
+    th, td { text-align: left; padding: .5rem .75rem; border-bottom: 1px solid var(--eii-border); vertical-align: top; }
+    th { background: var(--eii-surface-soft); font-weight: 600; }
+    code { background: #f1f5f9; padding: 1px 6px; border-radius: 3px; font-size: .82em; white-space: pre; display: block; }
+    code.inline { display: inline; white-space: normal; }
+    .tag-del { background: var(--eii-danger-soft); color: var(--eii-danger); padding: 2px 6px; border-radius: 3px; font-size: .78rem; font-weight: 600; }
+    .tag-add { background: var(--eii-success-soft); color: var(--eii-success); padding: 2px 6px; border-radius: 3px; font-size: .78rem; font-weight: 600; }
+  </style>
+</head>
+<body>
+<h1>Implementación Editorial — Cambios aplicados</h1>
+<p>Sesión 2026-05-26 · Archivos modificados: <code class="inline">detalle.css</code>, <code class="inline">Termino.cshtml</code></p>
+
+<h2>detalle.css — Conflictos eliminados</h2>
+<table>
+  <tr><th>Selector</th><th>Antes</th><th>Después</th><th>Motivo</th></tr>
+  <tr>
+    <td><code class="inline">.conte-detail .page-title h1, .display-5</code></td>
+    <td><span class="tag-del">ELIMINADO</span><code>color: #000 !important</code></td>
+    <td>—</td>
+    <td>Hardcode + !important. <code class="inline">eii-page-title</code> ya define color via token.</td>
+  </tr>
+  <tr>
+    <td><code class="inline">.page-title h1</code></td>
+    <td><span class="tag-del">ELIMINADO</span><code>font-size: 3rem; font-weight: 800; color: var(--eii-text)</code></td>
+    <td>—</td>
+    <td>Anulaba <code class="inline">eii-page-title</code> (2.1rem / weight 300). Conflicto crítico.</td>
+  </tr>
+  <tr>
+    <td><code class="inline">.page-title</code></td>
+    <td><code>margin: 8px 0 18px 0</code></td>
+    <td><code>margin: var(--eii-space-2) 0 var(--eii-space-5) 0</code></td>
+    <td>Token-ificado. Wrapper de espaciado conservado.</td>
+  </tr>
+</table>
+
+<h2>detalle.css — Tokens migrados</h2>
+<table>
+  <tr><th>Selector</th><th>Propiedad</th><th>Antes</th><th>Después</th></tr>
+  <tr><td><code class="inline">.detail-sub</code></td><td>background</td><td><code>#f4edfc</code></td><td><code>var(--eii-primary-soft)</code></td></tr>
+  <tr><td><code class="inline">.detail-sub</code></td><td>color</td><td><code>#24527a</code> (+ duplicado <code>#6b7280</code>)</td><td><code>var(--eii-primary)</code></td></tr>
+  <tr><td><code class="inline">.detail-sub</code></td><td>border-radius</td><td><code>10px</code></td><td><code>var(--eii-radius-md)</code></td></tr>
+  <tr><td><code class="inline">.sidebar-section</code></td><td>border-color</td><td><code>#eff3f4</code></td><td><code>var(--eii-border-soft)</code></td></tr>
+  <tr><td><code class="inline">.sidebar-section</code></td><td>border-radius</td><td><code>1rem</code></td><td><code>var(--eii-radius-xl)</code></td></tr>
+  <tr><td><code class="inline">.sidebar-section-title</code></td><td>font-weight</td><td><code>800</code></td><td><code>var(--eii-fw-semibold)</code></td></tr>
+  <tr><td><code class="inline">.article-index-sidebar .sidebar-section-title</code></td><td>font-weight</td><td><code>800</code></td><td><code>var(--eii-fw-semibold)</code></td></tr>
+  <tr><td><code class="inline">.related-card</code></td><td>border-radius</td><td><code>10px</code></td><td><code>var(--eii-radius-md)</code></td></tr>
+  <tr><td><code class="inline">.related-card</code></td><td>border-color</td><td><code>#eef2f7</code></td><td><code>var(--eii-border)</code></td></tr>
+  <tr><td><code class="inline">.related-card:hover</code></td><td>box-shadow</td><td><code>0 4px 12px rgba(0,0,0,0.08)</code></td><td><code>var(--eii-shadow-md)</code></td></tr>
+  <tr><td><code class="inline">.tabs</code></td><td>border-radius</td><td><code>10px</code></td><td><code>var(--eii-radius-md)</code></td></tr>
+  <tr><td><code class="inline">.tabs</code></td><td>border-color</td><td><code>#eef2f7</code></td><td><code>var(--eii-border)</code></td></tr>
+  <tr><td><code class="inline">.pregunta-card</code></td><td>border-radius</td><td><code>8px</code></td><td><code>var(--eii-radius-md)</code></td></tr>
+  <tr><td><code class="inline">.pregunta-card</code></td><td>font-weight</td><td><code>100</code></td><td><code>var(--eii-fw-normal)</code></td></tr>
+  <tr><td><code class="inline">.manual-block</code></td><td>border-radius</td><td><code>10px</code></td><td><code>var(--eii-radius-md)</code></td></tr>
+  <tr><td><code class="inline">.categories-list .badge-cat</code></td><td>background</td><td><code>#f4edfc</code></td><td><code>var(--eii-primary-soft)</code></td></tr>
+  <tr><td><code class="inline">.categories-list .badge-cat</code></td><td>color</td><td><code>#24527a</code></td><td><code>var(--eii-primary)</code></td></tr>
+  <tr><td><code class="inline">.social-list .badge-cat</code></td><td>background</td><td><code>#eef5ff</code></td><td><code>var(--eii-primary-soft)</code></td></tr>
+  <tr><td><code class="inline">.social-list .badge-cat</code></td><td>color</td><td><code>#24527a</code></td><td><code>var(--eii-primary)</code></td></tr>
+  <tr><td><code class="inline">.article-index-sidebar:hover</code></td><td>box-shadow</td><td><code>0 0 20px rgba(106,78,122,0.2)</code></td><td><code>var(--eii-shadow-md)</code></td></tr>
+</table>
+
+<h2>detalle.css — Clases nuevas agregadas</h2>
+<table>
+  <tr><th>Clase</th><th>Valores</th><th>Uso</th></tr>
+  <tr>
+    <td><code class="inline">.editorial-section-h2</code></td>
+    <td><code>font-size: var(--eii-text-xl)
+font-weight: var(--eii-fw-medium)
+color: var(--eii-text-heading)
+margin: 0 0 var(--eii-space-3) 0</code></td>
+    <td>H2 de secciones en Termino.cshtml (¿Qué es?, Relación con EII, Comunidad)</td>
+  </tr>
+  <tr>
+    <td><code class="inline">.sidebar-thumb</code></td>
+    <td><code>width: 64px; height: 48px
+object-fit: cover
+border-radius: var(--eii-radius-sm)</code></td>
+    <td>Thumbnails de artículos relacionados en sidebar</td>
+  </tr>
+</table>
+
+<h2>Termino.cshtml — Estructura</h2>
+<table>
+  <tr><th>Elemento</th><th>Antes</th><th>Después</th></tr>
+  <tr>
+    <td>Wrapper H1</td>
+    <td><code>&lt;div class="page-title"&gt;</code></td>
+    <td><code>&lt;div class="eii-page-header"&gt;&lt;div class="eii-page-header__content"&gt;</code></td>
+  </tr>
+  <tr>
+    <td>Pill tipo</td>
+    <td><code>style="background:@tipoColorBg;color:@tipoColor;border:..."</code></td>
+    <td><code>class="termino-tipo-pill termino-tipo-pill--@(isSintoma ? "sintoma" : "tratamiento")"</code></td>
+  </tr>
+  <tr>
+    <td>H2 definición</td>
+    <td><code>style="font-size:2rem;font-weight:500;margin:0 0 12px 0;"</code></td>
+    <td><code>class="editorial-section-h2"</code></td>
+  </tr>
+  <tr>
+    <td>H2 Relación con EII</td>
+    <td><code>&lt;div class="contenido"&gt;&lt;h2&gt;Relación con EII&lt;/h2&gt;&lt;/div&gt;</code></td>
+    <td><code>&lt;h2 class="editorial-section-h2"&gt;Relación con EII&lt;/h2&gt;</code></td>
+  </tr>
+  <tr>
+    <td>H2 Comunidad</td>
+    <td><code>&lt;div class="contenido" style="display:flex;..."&gt;&lt;h2 style="margin:0;"&gt;</code></td>
+    <td><code>&lt;div class="d-flex align-items-center gap-2 mb-2 flex-wrap"&gt;&lt;h2 class="editorial-section-h2 mb-0"&gt;</code></td>
+  </tr>
+  <tr>
+    <td>Sidebar thumb</td>
+    <td><code>style="width:64px;height:48px;object-fit:cover;border-radius:6px;"</code></td>
+    <td><code>class="sidebar-thumb"</code></td>
+  </tr>
+</table>
+
+<h2>Termino.cshtml — Botones migrados</h2>
+<table>
+  <tr><th>Botón</th><th>Antes</th><th>Después</th></tr>
+  <tr><td>Agregar (comunidad auth)</td><td><code class="inline">btn btn-outline-purple btn-sm</code></td><td><code class="inline">eii-btn eii-btn--primary eii-btn--sm</code></td></tr>
+  <tr><td>Crear cuenta gratis</td><td><code class="inline">btn btn-purple btn-sm</code></td><td><code class="inline">eii-btn eii-btn--solid eii-btn--sm</code></td></tr>
+  <tr><td>Iniciar sesión</td><td><code class="inline">btn btn-outline-purple btn-sm</code></td><td><code class="inline">eii-btn eii-btn--primary eii-btn--sm</code></td></tr>
+</table>
+
+<h2>Termino.cshtml — CSS inline eliminado</h2>
+<table>
+  <tr><th>Selector</th><th>Acción</th></tr>
+  <tr><td><code class="inline">.btn-purple</code> + <code class="inline">.btn-purple:hover</code></td><td><span class="tag-del">ELIMINADO</span> — migrado a eii-btn eii-btn--solid</td></tr>
+  <tr><td><code class="inline">.btn-outline-purple</code> + <code class="inline">.btn-outline-purple:hover</code></td><td><span class="tag-del">ELIMINADO</span> — migrado a eii-btn eii-btn--primary</td></tr>
+  <tr><td>Variables C# <code class="inline">tipoColor, tipoColorBg, tipoBorder</code></td><td><span class="tag-del">ELIMINADO</span> — ya no se usan con BEM modifiers</td></tr>
+  <tr><td><code class="inline">.aviso-termino-box</code> hardcodes (#f5f3ff, #ede9fe, #4c1d95)</td><td><span class="tag-add">MIGRADO</span> a tokens primary-soft, primary-border, primary-hover</td></tr>
+  <tr><td>BEM modifiers nuevos: <code class="inline">.termino-tipo-pill--sintoma / --tratamiento</code></td><td><span class="tag-add">AGREGADO</span> en inline &lt;style&gt; de Termino.cshtml</td></tr>
+</table>
+</body>
+</html>
