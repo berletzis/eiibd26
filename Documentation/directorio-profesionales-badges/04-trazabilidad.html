@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FASE 3 — Trazabilidad de Badges</title>
+<style>
+  :root { --primary:#2E86AB; --danger:#dc3545; --warning:#ffc107; --success:#2E9E5B; --muted:#6c757d; --bg:#f8f9fa; --border:#dee2e6; }
+  * { box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:14px; line-height:1.6; color:#212529; margin:0; padding:0; }
+  .container { max-width:1050px; margin:0 auto; padding:24px 32px; }
+  h1 { font-size:1.6rem; color:var(--primary); border-bottom:3px solid var(--primary); padding-bottom:8px; margin-bottom:4px; }
+  h2 { font-size:1.15rem; color:#343a40; margin-top:36px; margin-bottom:10px; border-left:4px solid var(--primary); padding-left:10px; }
+  h3 { font-size:.98rem; color:#495057; margin-top:20px; margin-bottom:6px; }
+  .meta { color:var(--muted); font-size:12px; margin-bottom:28px; }
+  table { width:100%; border-collapse:collapse; margin-bottom:18px; font-size:13px; }
+  th { background:var(--primary); color:white; padding:7px 10px; text-align:left; }
+  td { padding:6px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+  tr:nth-child(even) td { background:var(--bg); }
+  code { background:#f1f3f5; border:1px solid #ced4da; border-radius:3px; padding:1px 5px; font-family:"Consolas","Courier New",monospace; font-size:12px; color:#c7254e; }
+  pre { background:#1e1e2e; color:#cdd6f4; padding:16px; border-radius:6px; overflow-x:auto; font-size:12px; line-height:1.5; margin:12px 0; }
+  .note { background:#d1ecf1; border:1px solid #bee5eb; border-radius:6px; padding:12px 16px; margin:12px 0; font-size:13px; }
+  .warn { background:#fff3cd; border:1px solid #ffc107; border-radius:6px; padding:12px 16px; margin:12px 0; font-size:13px; }
+  .ok { color:var(--success); font-weight:700; }
+  .section-card { background:white; border:1px solid var(--border); border-radius:8px; padding:20px 24px; margin-bottom:20px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  ul li { margin-bottom:4px; }
+  .decision-box { border:2px solid var(--primary); border-radius:8px; padding:16px 20px; margin:16px 0; }
+  .decision-box h4 { color:var(--primary); margin:0 0 8px; font-size:14px; }
+  .vs { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:16px 0; }
+  .vs-option { border:1px solid var(--border); border-radius:6px; padding:14px 16px; }
+  .vs-option.selected { border-color:var(--primary); background:#f0f8ff; }
+  .vs-option h4 { margin:0 0 8px; font-size:13px; }
+  .pro { color:var(--success); }
+  .con { color:var(--danger); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>FASE 3 — Trazabilidad de Badges (Audit Log)</h1>
+<p class="meta">Proyecto EIIBD · Directorio de Profesionales · Generado 2026-05-27</p>
+
+<div class="section-card">
+<h2>Problema que resuelve</h2>
+<p>Actualmente <code>MedicoPerfilBadge</code> solo registra <em>el estado actual</em> de badges ganados. Cuando se revoca un badge, la fila se elimina y no queda registro de cuándo, quién ni por qué se revocó. Esto hace imposible:</p>
+<ul>
+  <li>Auditar si un badge fue revocado por error y necesita restaurarse.</li>
+  <li>Mostrar al admin el historial completo de un profesional.</li>
+  <li>Detectar patrones sospechosos (ej. badge otorgado y revocado múltiples veces).</li>
+  <li>Saber si la ausencia de un badge es reciente o fue siempre así.</li>
+</ul>
+</div>
+
+<div class="section-card">
+<h2>Decisión de diseño — tabla de historial separada</h2>
+
+<div class="vs">
+  <div class="vs-option">
+    <h4>Opción A — Soft delete en MedicoPerfilBadge</h4>
+    <p>Añadir <code>Revocado</code>, <code>FechaRevocacion</code>, <code>RevocadoPor</code> a la tabla existente.</p>
+    <p class="pro">+ Una sola tabla</p>
+    <p class="con">– El índice único <code>(MedicoId, BadgeId)</code> impide re-otorgar el mismo badge después de revocar (requeriría incluir <code>Revocado</code> en el índice)</p>
+    <p class="con">– Queries actuales necesitarían agregar <code>WHERE Revocado=false</code> en todos lados</p>
+    <p class="con">– Rompe la semántica actual: "una fila = un badge activo"</p>
+  </div>
+  <div class="vs-option selected">
+    <h4>Opción B — Tabla historial separada ✓ ELEGIDA</h4>
+    <p><code>MedicoBadgeHistorial</code>: registra cada evento de otorgamiento/revocación.</p>
+    <p class="pro">+ <code>MedicoPerfilBadge</code> no cambia — "una fila = badge activo"</p>
+    <p class="pro">+ Permite re-otorgar el mismo badge libremente</p>
+    <p class="pro">+ Historial completo con múltiples eventos por badge</p>
+    <p class="pro">+ Los queries existentes no cambian</p>
+    <p class="con">– Una tabla más a mantener</p>
+  </div>
+</div>
+
+<div class="decision-box">
+  <h4>Principio guía</h4>
+  <p><code>MedicoPerfilBadge</code> = estado actual (snapshot). <code>MedicoBadgeHistorial</code> = ledger de eventos. El snapshot se actualiza, el ledger solo crece.</p>
+</div>
+</div>
+
+<div class="section-card">
+<h2>Schema SQL — nueva tabla</h2>
+<pre>-- Script: SQL/add-medico-badge-historial.sql
+-- Ejecutar idempotente en producción
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.tables
+    WHERE name = 'MedicoBadgeHistorial' AND schema_id = SCHEMA_ID('dbo')
+)
+BEGIN
+    CREATE TABLE dbo.MedicoBadgeHistorial (
+        Id           INT           IDENTITY(1,1) NOT NULL,
+        MedicoId     INT           NOT NULL,
+        BadgeId      INT           NOT NULL,
+        Evento       NVARCHAR(20)  NOT NULL,   -- 'otorgado' | 'revocado'
+        Actor        NVARCHAR(100) NOT NULL,   -- 'sistema', 'admin', email del admin, etc.
+        Motivo       NVARCHAR(300) NULL,        -- razón legible (opcional)
+        FechaEvento  DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
+
+        CONSTRAINT PK_MedicoBadgeHistorial PRIMARY KEY (Id),
+        CONSTRAINT FK_MBH_Medico FOREIGN KEY (MedicoId)
+            REFERENCES dbo.MedicosDirectorio(Id) ON DELETE CASCADE,
+        CONSTRAINT FK_MBH_Badge  FOREIGN KEY (BadgeId)
+            REFERENCES dbo.MedicoBadge(Id) ON DELETE CASCADE,
+        CONSTRAINT CK_MBH_Evento CHECK (Evento IN ('otorgado', 'revocado'))
+    );
+
+    CREATE INDEX IX_MedicoBadgeHistorial_MedicoId
+        ON dbo.MedicoBadgeHistorial (MedicoId, FechaEvento DESC);
+
+    CREATE INDEX IX_MedicoBadgeHistorial_BadgeId
+        ON dbo.MedicoBadgeHistorial (BadgeId);
+
+    PRINT 'Tabla MedicoBadgeHistorial creada.';
+END
+ELSE
+    PRINT 'Tabla MedicoBadgeHistorial ya existe — sin cambios.';</pre>
+</div>
+
+<div class="section-card">
+<h2>Modelo C# — nueva entidad</h2>
+<pre>// eiibd26/Models/Medico/MedicoBadgeHistorial.cs
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using eiibd26.Models.Directorio;
+
+namespace eiibd26.Models.Medico;
+
+[Table("MedicoBadgeHistorial")]
+public class MedicoBadgeHistorial
+{
+    public int Id { get; set; }
+    public int MedicoId { get; set; }
+    public int BadgeId { get; set; }
+
+    [Required, MaxLength(20)]
+    public string Evento { get; set; } = string.Empty;  // "otorgado" | "revocado"
+
+    [Required, MaxLength(100)]
+    public string Actor { get; set; } = "sistema";
+
+    [MaxLength(300)]
+    public string? Motivo { get; set; }
+
+    public DateTime FechaEvento { get; set; } = DateTime.UtcNow;
+
+    public virtual MedicoDirectorio? Medico { get; set; }
+    public virtual MedicoBadge? Badge { get; set; }
+}</pre>
+</div>
+
+<div class="section-card">
+<h2>Cambios en ApplicationDbContext</h2>
+<pre>// En ApplicationDbContext.cs — agregar DbSet
+public DbSet&lt;eiibd26.Models.Medico.MedicoBadgeHistorial&gt; MedicosBadgeHistorial { get; set; }
+
+// En OnModelCreating
+builder.Entity&lt;eiibd26.Models.Medico.MedicoBadgeHistorial&gt;(b =>
+{
+    b.ToTable("MedicoBadgeHistorial");
+    b.HasKey(x => x.Id);
+    b.Property(x => x.Evento).HasMaxLength(20).IsRequired();
+    b.Property(x => x.Actor).HasMaxLength(100).IsRequired();
+    b.Property(x => x.Motivo).HasMaxLength(300);
+    b.HasIndex(x => new { x.MedicoId, x.FechaEvento });
+    b.HasOne(x => x.Medico)
+     .WithMany()
+     .HasForeignKey(x => x.MedicoId)
+     .OnDelete(DeleteBehavior.Cascade);
+    b.HasOne(x => x.Badge)
+     .WithMany()
+     .HasForeignKey(x => x.BadgeId)
+     .OnDelete(DeleteBehavior.Cascade);
+});</pre>
+</div>
+
+<div class="section-card">
+<h2>Cambios en IMedicoBadgeService / MedicoBadgeService</h2>
+
+<h3>Nueva firma (con motivo opcional)</h3>
+<pre>// IMedicoBadgeService.cs — agregar parámetro optional y nuevo método
+Task&lt;bool&gt; OtorgarBadgeAsync(int medicoId, string codigo, string otorgadoPor, string? motivo = null);
+Task&lt;bool&gt; RevocarBadgeAsync(int medicoId, string codigo, string revocadoPor = "admin", string? motivo = null);
+Task&lt;List&lt;MedicoBadgeHistorialDto&gt;&gt; GetHistorialAsync(int medicoId);</pre>
+
+<h3>Implementación — OtorgarBadgeAsync actualizado</h3>
+<pre>public async Task&lt;bool&gt; OtorgarBadgeAsync(int medicoId, string codigo, string otorgadoPor, string? motivo = null)
+{
+    var badge = await _db.MedicosBadge.AsNoTracking()
+        .FirstOrDefaultAsync(b => b.Codigo == codigo && b.Activo);
+    if (badge is null) return false;
+
+    var yaExiste = await _db.MedicosPerfilBadge
+        .AnyAsync(pb => pb.MedicoId == medicoId && pb.BadgeId == badge.Id);
+    if (yaExiste) return false;
+
+    _db.MedicosPerfilBadge.Add(new MedicoPerfilBadge
+    {
+        MedicoId      = medicoId,
+        BadgeId       = badge.Id,
+        FechaObtenido = DateTime.UtcNow,
+        OtorgadoPor   = otorgadoPor
+    });
+
+    // Registrar en historial
+    _db.MedicosBadgeHistorial.Add(new MedicoBadgeHistorial
+    {
+        MedicoId    = medicoId,
+        BadgeId     = badge.Id,
+        Evento      = "otorgado",
+        Actor       = otorgadoPor,
+        Motivo      = motivo,
+        FechaEvento = DateTime.UtcNow
+    });
+
+    await _db.SaveChangesAsync();
+    return true;
+}</pre>
+
+<h3>Implementación — RevocarBadgeAsync actualizado</h3>
+<pre>public async Task&lt;bool&gt; RevocarBadgeAsync(int medicoId, string codigo, string revocadoPor = "admin", string? motivo = null)
+{
+    var badge = await _db.MedicosBadge.AsNoTracking()
+        .FirstOrDefaultAsync(b => b.Codigo == codigo);
+    if (badge is null) return false;
+
+    var entry = await _db.MedicosPerfilBadge
+        .FirstOrDefaultAsync(pb => pb.MedicoId == medicoId && pb.BadgeId == badge.Id);
+    if (entry is null) return false;
+
+    _db.MedicosPerfilBadge.Remove(entry);
+
+    // Registrar revocación en historial
+    _db.MedicosBadgeHistorial.Add(new MedicoBadgeHistorial
+    {
+        MedicoId    = medicoId,
+        BadgeId     = badge.Id,
+        Evento      = "revocado",
+        Actor       = revocadoPor,
+        Motivo      = motivo,
+        FechaEvento = DateTime.UtcNow
+    });
+
+    await _db.SaveChangesAsync();
+    return true;
+}</pre>
+
+<h3>Implementación — GetHistorialAsync</h3>
+<pre>public async Task&lt;List&lt;MedicoBadgeHistorialDto&gt;&gt; GetHistorialAsync(int medicoId)
+{
+    return await _db.MedicosBadgeHistorial
+        .AsNoTracking()
+        .Where(h => h.MedicoId == medicoId)
+        .Join(_db.MedicosBadge, h => h.BadgeId, b => b.Id,
+              (h, b) => new MedicoBadgeHistorialDto
+              {
+                  BadgeCodigo   = b.Codigo,
+                  BadgeNombre   = b.Nombre,
+                  Evento        = h.Evento,
+                  Actor         = h.Actor,
+                  Motivo        = h.Motivo,
+                  FechaEvento   = h.FechaEvento
+              })
+        .OrderByDescending(h => h.FechaEvento)
+        .ToListAsync();
+}
+
+// DTO nuevo
+public class MedicoBadgeHistorialDto
+{
+    public string BadgeCodigo { get; set; } = string.Empty;
+    public string BadgeNombre { get; set; } = string.Empty;
+    public string Evento      { get; set; } = string.Empty;  // "otorgado" | "revocado"
+    public string Actor       { get; set; } = string.Empty;
+    public string? Motivo     { get; set; }
+    public DateTime FechaEvento { get; set; }
+}</pre>
+</div>
+
+<div class="section-card">
+<h2>Cambio en IMedicoBadgeService — firma con motivo</h2>
+<div class="warn">
+  <strong>Breaking change menor:</strong> La firma de <code>RevocarBadgeAsync</code> cambia de <code>(int, string)</code> a <code>(int, string, string, string?)</code>. Los llamadores actuales en el admin usan <code>RevocarBadgeAsync(id, "verificado")</code> — al añadir parámetros opcionales, estos seguirán funcionando sin cambios de llamador.
+</div>
+<p>Los llamadores en el admin que pasan solo 2 argumentos seguirán compilando porque <code>revocadoPor</code> y <code>motivo</code> tienen valor por defecto.</p>
+</div>
+
+<div class="section-card">
+<h2>Exposición en el admin — OnGetMedicoAsync</h2>
+<pre>// En Admin/Index.cshtml.cs — OnGetMedicoAsync, añadir historial
+var historial = await _badgeService.GetHistorialAsync(id);
+
+return new JsonResult(new
+{
+    // ... campos existentes ...
+    badges = badgesData,
+    badgeHistorial = historial.Select(h => new {
+        badge   = h.BadgeCodigo,
+        nombre  = h.BadgeNombre,
+        evento  = h.Evento,
+        actor   = h.Actor,
+        motivo  = h.Motivo ?? "",
+        fecha   = h.FechaEvento.ToString("dd/MM/yyyy HH:mm")
+    }).ToList()
+});</pre>
+</div>
+
+<div class="section-card">
+<h2>Resumen de cambios por archivo</h2>
+<table>
+  <tr><th>Archivo</th><th>Tipo de cambio</th></tr>
+  <tr><td><code>SQL/add-medico-badge-historial.sql</code> (nuevo)</td><td>CREATE TABLE idempotente</td></tr>
+  <tr><td><code>Models/Medico/MedicoBadgeHistorial.cs</code> (nuevo)</td><td>Entidad EF</td></tr>
+  <tr><td><code>Models/Medico/MedicoBadgeDto.cs</code> (o donde esté)</td><td>Añadir <code>MedicoBadgeHistorialDto</code></td></tr>
+  <tr><td><code>Data/ApplicationDbContext.cs</code></td><td>DbSet + OnModelCreating</td></tr>
+  <tr><td><code>Services/Medico/IMedicoBadgeService.cs</code></td><td>Actualizar firmas + GetHistorialAsync</td></tr>
+  <tr><td><code>Services/Medico/MedicoBadgeService.cs</code></td><td>Implementar cambios en Otorgar/Revocar + GetHistorial</td></tr>
+  <tr><td><code>Areas/Identity/Pages/Admin/DirectorioMedicos/Index.cshtml.cs</code></td><td>Exponer historial en OnGetMedicoAsync</td></tr>
+  <tr><td><code>Areas/Identity/Pages/Admin/DirectorioMedicos/Index.cshtml</code></td><td>Sección historial en renderPanel</td></tr>
+</table>
+
+<div class="note">
+  <strong>No hay migraciones EF.</strong> El schema se aplica con <code>SQL/add-medico-badge-historial.sql</code> directamente en producción.
+  El modelo EF existe para queries, pero la tabla ya existirá antes del deploy.
+</div>
+</div>
+
+<hr style="margin:36px 0; border-color:var(--border)">
+<p class="meta">FASE 3 completada. Próximo: FASE 4 — Revocación manual con confirmación de admin y re-sincronización de estado.</p>
+
+</div>
+</body>
+</html>

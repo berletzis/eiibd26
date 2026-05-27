@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FASE 2 — Explicación del Reset Query</title>
+<style>
+  :root { --primary:#2E86AB; --danger:#dc3545; --warning:#ffc107; --success:#2E9E5B; --muted:#6c757d; --bg:#f8f9fa; --border:#dee2e6; }
+  * { box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:14px; line-height:1.6; color:#212529; margin:0; padding:0; }
+  .container { max-width:1000px; margin:0 auto; padding:24px 32px; }
+  h1 { font-size:1.6rem; color:var(--primary); border-bottom:3px solid var(--primary); padding-bottom:8px; margin-bottom:4px; }
+  h2 { font-size:1.15rem; color:#343a40; margin-top:36px; margin-bottom:10px; border-left:4px solid var(--primary); padding-left:10px; }
+  h3 { font-size:.98rem; color:#495057; margin-top:20px; margin-bottom:6px; }
+  .meta { color:var(--muted); font-size:12px; margin-bottom:28px; }
+  table { width:100%; border-collapse:collapse; margin-bottom:18px; font-size:13px; }
+  th { background:var(--primary); color:white; padding:7px 10px; text-align:left; }
+  td { padding:6px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+  tr:nth-child(even) td { background:var(--bg); }
+  code { background:#f1f3f5; border:1px solid #ced4da; border-radius:3px; padding:1px 5px; font-family:"Consolas","Courier New",monospace; font-size:12px; color:#c7254e; }
+  pre { background:#1e1e2e; color:#cdd6f4; padding:16px; border-radius:6px; overflow-x:auto; font-size:12px; line-height:1.5; margin:12px 0; }
+  .note { background:#d1ecf1; border:1px solid #bee5eb; border-radius:6px; padding:12px 16px; margin:12px 0; font-size:13px; }
+  .warn { background:#fff3cd; border:1px solid #ffc107; border-radius:6px; padding:12px 16px; margin:12px 0; font-size:13px; }
+  .danger { background:#f8d7da; border:1px solid #f5c6cb; border-radius:6px; padding:12px 16px; margin:12px 0; font-size:13px; }
+  .ok { color:var(--success); font-weight:700; }
+  .bad { color:var(--danger); font-weight:700; }
+  .section-card { background:white; border:1px solid var(--border); border-radius:8px; padding:20px 24px; margin-bottom:20px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .step { display:flex; gap:12px; margin-bottom:16px; }
+  .step-num { background:var(--primary); color:white; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex-shrink:0; margin-top:2px; }
+  .step-body { flex:1; }
+  ul li { margin-bottom:4px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>FASE 2 — Explicación del Reset Query</h1>
+<p class="meta">Proyecto EIIBD · Directorio de Profesionales · Generado 2026-05-27</p>
+<p>Script: <code>02-reset-query.sql</code></p>
+
+<div class="section-card">
+<h2>¿Qué hace el reset?</h2>
+<p>El reset revierte el estado administrativo de un profesional al estado inicial "limpio", como si nunca hubiera pasado por el proceso de verificación o reclamación, <strong>sin eliminar datos históricos valiosos</strong>.</p>
+
+<div class="note">
+  <strong>Casos de uso legítimos:</strong>
+  <ul>
+    <li>Un médico reclamó el perfil pero resultó ser suplantación de identidad.</li>
+    <li>Se verificó una cédula por error y hay que revertir la verificación.</li>
+    <li>Un registro duplicado: se quiere deslindar el usuario vinculado antes de fusionar.</li>
+    <li>Testing / QA en entorno de producción (usar con extremo cuidado).</li>
+  </ul>
+</div>
+</div>
+
+<div class="section-card">
+<h2>Qué SE modifica</h2>
+<table>
+  <tr><th>Campo / Tabla</th><th>Valor antes</th><th>Valor después</th><th>Razón</th></tr>
+  <tr>
+    <td><code>EstatusValidacion</code></td>
+    <td>1 (Validado) o cualquier valor</td>
+    <td>0 (PendienteValidacion)</td>
+    <td>Revertir verificación de cédula</td>
+  </tr>
+  <tr>
+    <td><code>EstatusReclamacion</code></td>
+    <td>1, 2 ó 3</td>
+    <td>0 (NoReclamado)</td>
+    <td>Revertir claim</td>
+  </tr>
+  <tr>
+    <td><code>NivelConfianza</code></td>
+    <td>Cualquier valor</td>
+    <td>Recalculado desde confirmaciones activas</td>
+    <td>Sin claim/cédula, el nivel depende solo de confirmaciones</td>
+  </tr>
+  <tr>
+    <td><code>AspNetUserId</code></td>
+    <td>Guid del usuario vinculado</td>
+    <td>NULL</td>
+    <td>Desligar usuario del registro</td>
+  </tr>
+  <tr>
+    <td><code>FechaCedulaVerificada</code></td>
+    <td>DateTime</td>
+    <td>NULL</td>
+    <td>Timestamp de verificación ya no aplica</td>
+  </tr>
+  <tr>
+    <td><code>EmailSolicitudClaim</code></td>
+    <td>Email del solicitante</td>
+    <td>NULL</td>
+    <td>Solicitud de claim cancelada</td>
+  </tr>
+  <tr>
+    <td><code>FechaSolicitudClaim</code></td>
+    <td>DateTime</td>
+    <td>NULL</td>
+    <td>Ídem</td>
+  </tr>
+  <tr>
+    <td><code>FechaReclamacion</code></td>
+    <td>DateTimeOffset</td>
+    <td>NULL</td>
+    <td>Reclamación revertida</td>
+  </tr>
+  <tr>
+    <td><code>FechaModificacion</code></td>
+    <td>Cualquier valor</td>
+    <td>SYSUTCDATETIME()</td>
+    <td>Auditoría de cuándo se ejecutó el reset</td>
+  </tr>
+  <tr>
+    <td><code>MedicoPerfilBadge</code></td>
+    <td>Filas de badges ganados</td>
+    <td>Eliminadas (DELETE)</td>
+    <td>Badges derivados de la verificación/claim ya no aplican</td>
+  </tr>
+</table>
+</div>
+
+<div class="section-card">
+<h2>Qué NO se modifica (datos históricos intactos)</h2>
+<table>
+  <tr><th>Campo / Tabla</th><th>Razón de preservación</th></tr>
+  <tr>
+    <td><code>NombreCompleto</code>, <code>Especialidad</code>, <code>CedulaProfesional</code>, ubicación</td>
+    <td>Datos del profesional como entidad real — no relacionados con claim/verificación</td>
+  </tr>
+  <tr>
+    <td><code>Activo</code>, <code>VisiblePublicamente</code></td>
+    <td>El admin decide por separado si publicar o no el perfil post-reset</td>
+  </tr>
+  <tr>
+    <td><code>Eliminado</code></td>
+    <td>Reset ≠ eliminación — el registro sigue existiendo</td>
+  </tr>
+  <tr>
+    <td><code>PropuestoPorUsuarioId</code></td>
+    <td>Historial de quién propuso el médico — dato de auditoría permanente</td>
+  </tr>
+  <tr>
+    <td><code>FechaCreacion</code></td>
+    <td>Fecha de entrada al directorio — inmutable</td>
+  </tr>
+  <tr>
+    <td><code>ConfirmacionComunitaria</code></td>
+    <td>Los pacientes confirmaron atención real — se respeta aunque el médico no esté verificado</td>
+  </tr>
+  <tr>
+    <td><code>MedicoPerfilExtendido</code></td>
+    <td>Contenido del perfil (bio, foto, hospitales) — valor propio; no depende del estado del claim</td>
+  </tr>
+  <tr>
+    <td><code>MedicoExperienciaEii</code></td>
+    <td>Áreas de experiencia reportadas — no se limpian con el reset</td>
+  </tr>
+</table>
+</div>
+
+<div class="section-card">
+<h2>Cálculo de NivelConfianza post-reset</h2>
+<p>Sin claim ni cédula verificada, el NivelConfianza depende solo de las confirmaciones activas:</p>
+<pre>DECLARE @TotalConfs INT;
+SELECT @TotalConfs = COUNT(*)
+FROM ConfirmacionComunitaria
+WHERE MedicoDirectorioId = @MedicoId AND Eliminado = 0;
+
+SET @NuevoNivel =
+    CASE
+        WHEN @TotalConfs >= 5 THEN 2  -- Reconocido
+        WHEN @TotalConfs >= 3 THEN 1  -- Confirmado
+        ELSE 0                         -- Identificado
+    END;</pre>
+<p>Esto respeta la fórmula canónica de <code>CalcularNivelVerificacion</code> sin el factor de cédula verificada ni perfil reclamado, que se eliminaron en el reset.</p>
+<div class="note">
+  Si el médico tenía <code>CedulaVerificada = true</code> con menos de 5 confirmaciones y nivel 2 por esa razón, post-reset podría bajar a nivel 0 o 1. Eso es correcto: sin cédula verificada el nivel debe reflejar solo la evidencia comunitaria.
+</div>
+</div>
+
+<div class="section-card">
+<h2>Pasos de ejecución seguros</h2>
+<div class="step">
+  <div class="step-num">0</div>
+  <div class="step-body">
+    <strong>Verificar estado actual (SELECT de auditoría)</strong><br>
+    Ejecutar el PASO 0 del script para confirmar que el <code>@MedicoId</code> correcto.
+    Documentar el estado antes del cambio (screenshot o copiar resultado).
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <strong>Ver badges actuales (PASO 1)</strong><br>
+    Confirmar qué badges serán eliminados. Si hay badges que deben preservarse (p.ej. <code>creador_contenido</code> otorgado manualmente por mérito propio), el reset actual los eliminaría todos — en ese caso considerar eliminar solo los específicos.
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <strong>Ejecutar el bloque RESET dentro de transacción</strong><br>
+    Copiar el bloque <code>BEGIN TRANSACTION / COMMIT</code> y ejecutar. La transacción garantiza que si falla cualquier paso, nada se aplica parcialmente.
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <strong>Verificar estado post-reset (PASO 2)</strong><br>
+    El SELECT final muestra: todos los campos limpiados, badges_restantes = 0, confs_intactas = N (sin cambio).
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">4</div>
+  <div class="step-body">
+    <strong>(Opcional) Reset extendido — desvincular perfil extendido</strong><br>
+    Si se requiere desvincular el <code>UserId</code> de <code>MedicoPerfilExtendido</code>, descomentar el bloque opcional. Solo hacer esto si hay certeza de que el usuario vinculado no es el médico legítimo.
+  </div>
+</div>
+</div>
+
+<div class="section-card">
+<h2>Advertencias importantes</h2>
+<div class="danger">
+  <strong>⚠ Eliminar badges es destructivo e irreversible en el esquema actual.</strong><br>
+  Hasta que no se implemente la trazabilidad de revocaciones (FASE 3), no hay forma de saber después del reset cuándo/quién/por qué se eliminaron los badges. Documentar la operación manualmente (quién ejecutó el reset, fecha, motivo).
+</div>
+<div class="warn">
+  <strong>El reset afecta lo que ve el médico en su dashboard.</strong><br>
+  Si el médico tiene cuenta activa con rol <code>Medico</code>, al hacer reset ya no verá sus badges ni permisos de nivel. Considerar si se debe notificar al médico.
+</div>
+<div class="warn">
+  <strong>El reset NO revoca el rol <code>Medico</code> de AspNetRoles.</strong><br>
+  Si el usuario fraudulento tiene el rol <code>Medico</code> asignado, ese rol sigue activo después del reset. Revocar el rol es una operación separada vía el panel de administración de usuarios.
+</div>
+</div>
+
+<div class="section-card">
+<h2>Relación con las otras FASEs</h2>
+<table>
+  <tr><th>FASE</th><th>Dependencia con este script</th></tr>
+  <tr>
+    <td>FASE 3 — Trazabilidad</td>
+    <td>Una vez implementada la trazabilidad (soft delete en MedicoPerfilBadge), el paso R-01 deberá cambiar: en vez de DELETE, será un UPDATE de Revocado=true. Este script deberá actualizarse.</td>
+  </tr>
+  <tr>
+    <td>FASE 5 — RecalcularEstadoProfesional</td>
+    <td>El cálculo de NivelConfianza inline en el script debería delegarse a un stored procedure o invocarse desde el servicio canónico post-reset.</td>
+  </tr>
+</table>
+</div>
+
+<hr style="margin:36px 0; border-color:var(--border)">
+<p class="meta">FASE 2 completada. Próximo: FASE 3 — Trazabilidad de badges (audit log de otorgamientos y revocaciones).</p>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FASE 7 — Escenarios de Validación con Playwright</title>
+<style>
+  :root { --primary:#2E86AB; --danger:#dc3545; --warning:#ffc107; --success:#2E9E5B; --muted:#6c757d; --bg:#f8f9fa; --border:#dee2e6; }
+  * { box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:14px; line-height:1.6; color:#212529; margin:0; padding:0; }
+  .container { max-width:1050px; margin:0 auto; padding:24px 32px; }
+  h1 { font-size:1.6rem; color:var(--primary); border-bottom:3px solid var(--primary); padding-bottom:8px; margin-bottom:4px; }
+  h2 { font-size:1.15rem; color:#343a40; margin-top:36px; margin-bottom:10px; border-left:4px solid var(--primary); padding-left:10px; }
+  h3 { font-size:.98rem; color:#495057; margin-top:20px; margin-bottom:6px; }
+  .meta { color:var(--muted); font-size:12px; margin-bottom:28px; }
+  table { width:100%; border-collapse:collapse; margin-bottom:18px; font-size:13px; }
+  th { background:var(--primary); color:white; padding:7px 10px; text-align:left; }
+  td { padding:6px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+  tr:nth-child(even) td { background:var(--bg); }
+  code { background:#f1f3f5; border:1px solid #ced4da; border-radius:3px; padding:1px 5px; font-family:"Consolas","Courier New",monospace; font-size:12px; color:#c7254e; }
+  pre { background:#1e1e2e; color:#cdd6f4; padding:16px; border-radius:6px; overflow-x:auto; font-size:12px; line-height:1.5; margin:12px 0; }
+  .note { background:#d1ecf1; border:1px solid #bee5eb; border-radius:6px; padding:12px 16px; margin:12px 0; font-size:13px; }
+  .scenario { border:1px solid var(--border); border-radius:8px; margin-bottom:16px; overflow:hidden; }
+  .scenario-header { background:var(--primary); color:white; padding:10px 16px; display:flex; justify-content:space-between; align-items:center; }
+  .scenario-header .id { font-size:11px; opacity:.8; }
+  .scenario-header .title { font-size:13px; font-weight:600; }
+  .scenario-body { padding:14px 16px; }
+  .step-list { counter-reset:sc; list-style:none; padding:0; margin:0; }
+  .step-list li { counter-increment:sc; display:flex; gap:10px; margin-bottom:6px; }
+  .step-list li::before { content:counter(sc); background:var(--primary); color:white; width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; margin-top:1px; }
+  .assertion { background:#d4edda; border:1px solid #c3e6cb; border-radius:4px; padding:3px 8px; font-size:12px; margin-top:4px; display:inline-block; }
+  .section-card { background:white; border:1px solid var(--border); border-radius:8px; padding:20px 24px; margin-bottom:20px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>FASE 7 — Escenarios de Validación con Playwright</h1>
+<p class="meta">Proyecto EIIBD · Directorio de Profesionales · Generado 2026-05-27</p>
+
+<div class="section-card">
+<h2>Contexto</h2>
+<p>Estos escenarios cubren los flujos críticos del sistema de badges y estados, con énfasis en las discrepancias identificadas en FASE 1. Se ejecutan con Playwright MCP (<code>mcp__playwright__*</code>) contra el servidor local o de staging.</p>
+<p>Precondición: servidor corriendo en <code>https://localhost:5001</code>. Credenciales de admin disponibles.</p>
+</div>
+
+<div class="section-card">
+<h2>Escenarios de validación</h2>
+
+<!-- SC-01 -->
+<div class="scenario">
+  <div class="scenario-header">
+    <span class="title">SC-01: Verificar cédula desde botón rápido → badge verificado se otorga</span>
+    <span class="id">Cubre D-01</span>
+  </div>
+  <div class="scenario-body">
+    <p><strong>Precondición:</strong> Profesional con cédula no verificada. Sin badge <code>verificado</code>.</p>
+    <ol class="step-list">
+      <li>Navegar a <code>/Identity/Admin/DirectorioMedicos</code></li>
+      <li>Localizar profesional en el grid (buscar por nombre)</li>
+      <li>Hacer clic en el botón "Verificar cédula" de la fila del grid</li>
+      <li>Esperar respuesta JSON <code>{ success: true }</code></li>
+      <li>Abrir panel de edición del mismo profesional</li>
+      <li>Ir a sección 7 (Badges)</li>
+    </ol>
+    <span class="assertion">✓ Badge "verificado" aparece como obtenido en la sección de badges</span><br>
+    <span class="assertion">✓ <code>FechaObtenido</code> coincide con la hora de la acción</span><br>
+    <span class="assertion">✓ <code>OtorgadoPor</code> = "admin"</span>
+  </div>
+</div>
+
+<!-- SC-02 -->
+<div class="scenario">
+  <div class="scenario-header">
+    <span class="title">SC-02: Verificar cédula desde panel de edición → badge verificado se otorga</span>
+    <span class="id">Flujo base</span>
+  </div>
+  <div class="scenario-body">
+    <p><strong>Precondición:</strong> Profesional con cédula no verificada.</p>
+    <ol class="step-list">
+      <li>Abrir panel de edición del profesional</li>
+      <li>Activar switch "Cédula verificada" en sección 4</li>
+      <li>Hacer clic en "Guardar cambios"</li>
+      <li>Cerrar y reabrir panel</li>
+    </ol>
+    <span class="assertion">✓ Badge "verificado" aparece como obtenido</span><br>
+    <span class="assertion">✓ Sección 4 muestra <code>FechaCedulaVerificada</code></span>
+  </div>
+</div>
+
+<!-- SC-03 -->
+<div class="scenario">
+  <div class="scenario-header">
+    <span class="title">SC-03: Desverificar cédula → badge verificado se revoca</span>
+    <span class="id">Flujo base</span>
+  </div>
+  <div class="scenario-body">
+    <p><strong>Precondición:</strong> Profesional con badge <code>verificado</code> obtenido.</p>
+    <ol class="step-list">
+      <li>Abrir panel de edición</li>
+      <li>Desactivar switch "Cédula verificada"</li>
+      <li>Guardar cambios</li>
+      <li>Reabrir panel</li>
+    </ol>
+    <span class="assertion">✓ Badge "verificado" aparece como NO obtenido</span><br>
+    <span class="assertion">✓ Historial muestra evento "revocado" con actor "admin" (tras FASE 3)</span>
+  </div>
+</div>
+
+<!-- SC-04 -->
+<div class="scenario">
+  <div class="scenario-header">
+    <span class="title">SC-04: Aprobar claim → badge perfil_reclamado se otorga, nivel = 3</span>
+    <span class="id">Cubre D-02</span>
+  </div>
+  <div class="scenario-body">
+    <p><strong>Precondición:</strong> Profesional con solicitud de claim pendiente (<code>EstatusReclamacion = EnProceso</code>). Sin badge <code>perfil_reclamado</code>.</p>
+    <ol class="step-list">
+      <li>Filtrar grid por "Con solicitud de claim"</li>
+      <li>Abrir panel del profesional</li>
+      <li>Hacer clic en "Aprobar claim" (sección 5)</li>
+      <li>Reabrir panel</li>
+    </ol>
+    <span class="assertion">✓ Badge <code>perfil_reclamado</code> aparece como obtenido</span><br>
+    <span class="assertion">✓ <code>EstatusReclamacion</code> = "Reclamado"</span><br>
+    <span class="assertion">✓ <code>NivelConfianza</code> = 3 (Establecido)</span><br>
+    <span class="assertion">✓ Grid muestra icono de "Reclamado" en la fila</span>
+  </div>
+</div>
+
+<!-- SC-05 -->
+<div class="scenario">
+  <div class="scenario-header">
+    <span class="title">SC-05: Revocar badge manual → badge desaparece, historial registra evento</span>
+    <span class="id">Flujo base + FASE 3</span>
+  </div>
+  <div class="scenario-body">
+    <p><strong>Precondición:</strong> Profesional con badge <code>creador_contenido</code> o cualquier badge obtenido.</p>
+    <ol class="step-list">
+      <li>Abrir panel de edición del profesional</li>
+      <li>En sección 7, hacer clic en "Revocar" del badge</li>
+      <li>Confirmar en el diálogo de confirmación</li>
+      <li>Reabrir panel</li>
+    </ol>
+    <span class="assertion">✓ Badge aparece como NO obtenido</span><br>
+    <span class="assertion">✓ Historial muestra "revocado" con actor "admin" y fecha (tras FASE 3)</span><br>
+    <span class="assertion">✓ Sin error 500 ni mensaje de error en pantalla</span>
+  </div>
+</div>
+
+<!-- SC-06 -->
+<div class="scenario">
+  <div class="scenario-header">
+    <span class="title">SC-06: Evaluar badges automáticos → badges correctos se otorgan</span>
+    <span class="id">Flujo base</span>
+  </div>
+  <div class="scenario-body">
+    <p><strong>Precondición:</strong> Profesional con ≥5 confirmaciones y usuario vinculado con ≥3 respuestas en Q&A.</p>
+    <ol class="step-list">
+      <li>Abrir panel del profesional</li>
+      <li>Hacer clic en "Evaluar badges automáticos"</li>
+      <li>Reabrir panel</li>
+    </ol>
+    <span class="assertion">✓ Badge <code>activo_comunidad</code> aparece obtenido (≥5 confirmaciones)</span><br>
+    <span class="assertion">✓ Badge <code>participante_qa</code> aparece obtenido (≥3 respuestas)</span><br>
+    <span class="assertion">✓ Badge <code>verificado</code> NO cambia (no lo evalúa EvaluarBadgesAutomaticosAsync)</span>
+  </div>
+</div>
+
+<!-- SC-07 -->
+<div class="scenario">
+  <div class="scenario-header">
+    <span class="title">SC-07: Paciente ve estado correcto en "Mis aportaciones"</span>
+    <span class="id">Flujo base</span>
+  </div>
+  <div class="scenario-body">
+    <p><strong>Precondición:</strong> Paciente autenticado con propuestas en distintos estados.</p>
+    <ol class="step-list">
+      <li>Iniciar sesión como paciente</li>
+      <li>Navegar a <code>/DirectorioMedicos</code></li>
+      <li>Verificar sección "Mis aportaciones"</li>
+    </ol>
+    <span class="assertion">✓ Propuesta Propuesto → badge "En revisión" (bg-warning)</span><br>
+    <span class="assertion">✓ Propuesta Publicado → badge "Publicado en el directorio" (bg-primary)</span><br>
+    <span class="assertion">✓ Propuesta Reclamado → badge "Reclamado por el profesional" (bg-info)</span><br>
+    <span class="assertion">✓ Propuesta CedulaVerificada → badge "Cédula verificada" (bg-success)</span><br>
+    <span class="assertion">✓ Propuestas Publicado/Reclamado tienen enlace "Ver perfil"</span>
+  </div>
+</div>
+
+<!-- SC-08 -->
+<div class="scenario">
+  <div class="scenario-header">
+    <span class="title">SC-08: Grid admin — switch "Mostrar eliminados" funciona correctamente</span>
+    <span class="id">BUG-1 (ya corregido)</span>
+  </div>
+  <div class="scenario-body">
+    <p><strong>Precondición:</strong> Existen profesionales activos Y profesionales soft-deleted.</p>
+    <ol class="step-list">
+      <li>Navegar al grid admin</li>
+      <li>Verificar que con switch OFF se muestran solo activos</li>
+      <li>Activar switch "Mostrar eliminados"</li>
+      <li>Verificar que ahora se muestran solo los eliminados</li>
+    </ol>
+    <span class="assertion">✓ Con switch OFF: todos los registros tienen <code>eliminado = false</code></span><br>
+    <span class="assertion">✓ Con switch ON: todos los registros tienen <code>eliminado = true</code></span><br>
+    <span class="assertion">✓ No hay mezcla de registros activos y eliminados en ningún estado del switch</span>
+  </div>
+</div>
+
+<!-- SC-09 -->
+<div class="scenario">
+  <div class="scenario-header">
+    <span class="title">SC-09: Recalcular nivel desde panel admin → nivel refleja confirmaciones actuales</span>
+    <span class="id">FASE 5 + FASE 6</span>
+  </div>
+  <div class="scenario-body">
+    <p><strong>Precondición:</strong> Profesional con NivelConfianza desincronizado (ej. manualmente seteado a un valor incorrecto).</p>
+    <ol class="step-list">
+      <li>Abrir panel del profesional</li>
+      <li>Hacer clic en "Recalcular nivel"</li>
+      <li>Verificar respuesta y refrescar panel</li>
+    </ol>
+    <span class="assertion">✓ NivelConfianza actualizado según fórmula canónica</span><br>
+    <span class="assertion">✓ Toast muestra el nuevo nivel</span>
+  </div>
+</div>
+
+</div>
+
+<div class="section-card">
+<h2>Resumen de escenarios</h2>
+<table>
+  <tr><th>ID</th><th>Escenario</th><th>Discrepancia cubierta</th><th>Requiere</th></tr>
+  <tr><td>SC-01</td><td>Verificar cédula botón rápido → badge</td><td>D-01</td><td>FASE 5</td></tr>
+  <tr><td>SC-02</td><td>Verificar cédula desde panel → badge</td><td>Base</td><td>Actual</td></tr>
+  <tr><td>SC-03</td><td>Desverificar → badge revocado</td><td>Base</td><td>Actual</td></tr>
+  <tr><td>SC-04</td><td>Aprobar claim → badge + nivel</td><td>D-02</td><td>FASE 5</td></tr>
+  <tr><td>SC-05</td><td>Revocar badge manual → historial</td><td>D-06</td><td>FASE 3</td></tr>
+  <tr><td>SC-06</td><td>Evaluar automáticos → badges correctos</td><td>Base</td><td>Actual</td></tr>
+  <tr><td>SC-07</td><td>Paciente: estados en Mis aportaciones</td><td>BUG-2 (ya fix)</td><td>Actual</td></tr>
+  <tr><td>SC-08</td><td>Grid: switch eliminados correcto</td><td>BUG-1 (ya fix)</td><td>Actual</td></tr>
+  <tr><td>SC-09</td><td>Recalcular nivel desde panel</td><td>D-03</td><td>FASE 5+6</td></tr>
+</table>
+</div>
+
+<hr style="margin:36px 0; border-color:var(--border)">
+<p class="meta">FASE 7 completada. Próximo: 08-resumen-final.html</p>
+
+</div>
+</body>
+</html>

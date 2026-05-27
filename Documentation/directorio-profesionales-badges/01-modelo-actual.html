@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FASE 1 — Modelo Actual: Badges y Estados de Profesionales</title>
+<style>
+  :root {
+    --primary: #2E86AB;
+    --danger:  #dc3545;
+    --warning: #ffc107;
+    --success: #2E9E5B;
+    --muted:   #6c757d;
+    --bg:      #f8f9fa;
+    --border:  #dee2e6;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; line-height: 1.6; color: #212529; margin: 0; padding: 0; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px 32px; }
+  h1 { font-size: 1.7rem; color: var(--primary); border-bottom: 3px solid var(--primary); padding-bottom: 8px; margin-bottom: 4px; }
+  h2 { font-size: 1.2rem; color: #343a40; margin-top: 40px; margin-bottom: 12px; border-left: 4px solid var(--primary); padding-left: 10px; }
+  h3 { font-size: 1rem; color: #495057; margin-top: 24px; margin-bottom: 8px; }
+  .meta { color: var(--muted); font-size: 12px; margin-bottom: 32px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }
+  th { background: var(--primary); color: white; padding: 8px 10px; text-align: left; }
+  td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:nth-child(even) td { background: var(--bg); }
+  code { background: #f1f3f5; border: 1px solid #ced4da; border-radius: 3px; padding: 1px 5px; font-family: "Consolas","Courier New",monospace; font-size: 12px; color: #c7254e; }
+  pre { background: #1e1e2e; color: #cdd6f4; padding: 16px; border-radius: 6px; overflow-x: auto; font-size: 12px; line-height: 1.5; margin: 12px 0; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; margin: 1px; }
+  .badge-auto    { background: #d1ecf1; color: #0c5460; }
+  .badge-manual  { background: #fff3cd; color: #856404; }
+  .badge-derived { background: #d4edda; color: #155724; }
+  .badge-danger  { background: #f8d7da; color: #721c24; }
+  .disc { background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 14px 16px; margin: 12px 0; }
+  .disc-id { font-weight: 700; color: #856404; margin-right: 6px; }
+  .disc h4 { margin: 0 0 4px; font-size: 13px; color: #856404; }
+  .disc p  { margin: 4px 0 0; }
+  .ok  { color: var(--success); font-weight: 700; }
+  .bad { color: var(--danger);  font-weight: 700; }
+  .section-card { background: white; border: 1px solid var(--border); border-radius: 8px; padding: 20px 24px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+  .flow-step { background: var(--primary); color: white; border-radius: 4px; padding: 4px 10px; font-size: 12px; }
+  .flow-arrow { color: var(--muted); font-size: 18px; }
+  ul li { margin-bottom: 4px; }
+  .toc { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 16px 20px; margin-bottom: 32px; }
+  .toc h3 { margin: 0 0 10px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .toc ol { margin: 0; padding-left: 20px; }
+  .toc li { margin-bottom: 4px; }
+  .toc a { color: var(--primary); text-decoration: none; font-size: 13px; }
+  .toc a:hover { text-decoration: underline; }
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 16px 0; }
+  .summary-card { background: white; border: 1px solid var(--border); border-radius: 6px; padding: 12px 16px; text-align: center; }
+  .summary-card .num { font-size: 2rem; font-weight: 700; color: var(--primary); }
+  .summary-card .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>FASE 1 — Modelo Actual: Badges y Estados de Profesionales</h1>
+<p class="meta">Proyecto EIIBD · Directorio de Profesionales · Generado 2026-05-27 · eiibd26</p>
+
+<div class="toc">
+  <h3>Contenido</h3>
+  <ol>
+    <li><a href="#tablas">Tablas involucradas</a></li>
+    <li><a href="#badges">Catálogo de badges</a></li>
+    <li><a href="#niveles">NivelConfianza vs. NivelBadge</a></li>
+    <li><a href="#estado">EstadoDerivado</a></li>
+    <li><a href="#servicios">Servicios y métodos clave</a></li>
+    <li><a href="#fuentes">Fuentes de verdad por concepto</a></li>
+    <li><a href="#flujos">Flujos operacionales</a></li>
+    <li><a href="#vistas">Consumo por vista / handler</a></li>
+    <li><a href="#discrepancias">Discrepancias identificadas</a></li>
+    <li><a href="#resumen">Resumen ejecutivo</a></li>
+  </ol>
+</div>
+
+<div class="summary-grid">
+  <div class="summary-card"><div class="num">6</div><div class="lbl">Badges en catálogo</div></div>
+  <div class="summary-card"><div class="num">4</div><div class="lbl">Badges automáticos</div></div>
+  <div class="summary-card"><div class="num">2</div><div class="lbl">Recalcular-Nivel duplicados</div></div>
+  <div class="summary-card" style="border-color: #ffc107"><div class="num" style="color:#856404">7</div><div class="lbl">Discrepancias detectadas</div></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="tablas">1. Tablas involucradas</h2>
+<div class="section-card">
+<table>
+  <tr><th>Tabla BD</th><th>Modelo C#</th><th>Propósito</th><th>Filtro global (HasQueryFilter)</th></tr>
+  <tr>
+    <td><code>MedicosDirectorio</code></td>
+    <td><code>MedicoDirectorio</code></td>
+    <td>Registro principal del profesional. Contiene estado administrativo (<code>EstatusValidacion</code>, <code>EstatusReclamacion</code>, <code>NivelConfianza</code>), flags de visibilidad (<code>Activo</code>, <code>VisiblePublicamente</code>, <code>Eliminado</code>) y la FK de usuario vinculado (<code>AspNetUserId</code>).</td>
+    <td><span class="badge badge-danger">Sí — <code>!m.Eliminado</code></span></td>
+  </tr>
+  <tr>
+    <td><code>MedicoBadge</code></td>
+    <td><code>MedicoBadge</code></td>
+    <td>Catálogo de badges. 6 registros activos. Campos clave: <code>Codigo</code> (unique), <code>Nivel</code>, <code>Activo</code>, <code>Orden</code>.</td>
+    <td>Ninguno</td>
+  </tr>
+  <tr>
+    <td><code>MedicoPerfilBadge</code></td>
+    <td><code>MedicoPerfilBadge</code></td>
+    <td>Asignación de badges a profesionales. Una fila = un badge ganado. Almacena <code>FechaObtenido</code> y <code>OtorgadoPor</code>. Índice único en <code>(MedicoId, BadgeId)</code>.</td>
+    <td>Ninguno</td>
+  </tr>
+  <tr>
+    <td><code>ConfirmacionComunitaria</code></td>
+    <td><code>ConfirmacionComunitaria</code></td>
+    <td>Confirmaciones de pacientes que atendió el profesional. Fuente canónica para <code>NivelConfianza</code> y badge <code>activo_comunidad</code>. Índice único en <code>(MedicoId, UsuarioId, TipoConfirmacionId)</code>.</td>
+    <td><span class="badge badge-danger">Sí — <code>!c.Eliminado</code></span></td>
+  </tr>
+  <tr>
+    <td><code>MedicoPerfilExtendido</code></td>
+    <td><code>MedicoPerfilExtendido</code></td>
+    <td>Perfil detallado ingresado por el médico al reclamar. FK <code>UserId</code> indica que el perfil fue reclamado/vinculado. FK <code>MedicoId</code> linkea con <code>MedicosDirectorio</code>.</td>
+    <td>Ninguno</td>
+  </tr>
+  <tr>
+    <td><code>TipoConfirmacion</code></td>
+    <td><code>TipoConfirmacion</code></td>
+    <td>Catálogo de tipos de confirmación (6 tipos activos). Seed de datos en <code>ApplicationDbContext</code>.</td>
+    <td>Ninguno</td>
+  </tr>
+</table>
+
+<h3>Relaciones clave</h3>
+<pre>MedicosDirectorio (1) ──── (*) MedicoPerfilBadge ──── (1) MedicoBadge
+MedicosDirectorio (1) ──── (*) ConfirmacionComunitaria
+MedicosDirectorio (1) ──── (0..1) MedicoPerfilExtendido  [FK MedicoId]
+MedicoPerfilExtendido (*) ──── (1) AspNetUsers           [FK UserId]
+MedicosDirectorio (*) ──── (0..1) AspNetUsers            [FK AspNetUserId]</pre>
+<p><strong>Nota:</strong> <code>MedicosDirectorio.AspNetUserId</code> y <code>MedicoPerfilExtendido.UserId</code> apuntan al mismo usuario, pero son dos FK independientes. Cuando el admin aprueba un claim, se deben actualizar ambas.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="badges">2. Catálogo de badges</h2>
+<div class="section-card">
+<table>
+  <tr><th>Código</th><th>Tipo</th><th>Criterio</th><th>Otorgado por</th><th>Revocable por</th></tr>
+  <tr>
+    <td><code>perfil_reclamado</code></td>
+    <td><span class="badge badge-auto">Automático</span></td>
+    <td><code>MedicoPerfilExtendido.UserId != null</code><br><small>⚠️ No verifica <code>EstatusReclamacion == Reclamado</code></small></td>
+    <td><code>EvaluarBadgesAutomaticosAsync</code> → <code>"sistema"</code></td>
+    <td>Solo vía <code>RevocarBadgeAsync</code> o <code>OnPostRevocarBadgeAsync</code></td>
+  </tr>
+  <tr>
+    <td><code>verificado</code></td>
+    <td><span class="badge badge-derived">Determinístico</span></td>
+    <td><code>EstatusValidacion == Validado</code><br><small>Fuente canónica: campo en <code>MedicosDirectorio</code></small></td>
+    <td><code>OnPostEditarAsync</code>, <code>OnPostVerificarAsync</code> → <code>"admin"</code></td>
+    <td><code>RevocarBadgeAsync</code> cuando <code>EstatusValidacion</code> cambia a no-Validado</td>
+  </tr>
+  <tr>
+    <td><code>activo_comunidad</code></td>
+    <td><span class="badge badge-auto">Automático</span></td>
+    <td><code>ConfirmacionesComunitarias.Count(c => !c.Eliminado) >= 5</code></td>
+    <td><code>EvaluarBadgesAutomaticosAsync</code> → <code>"sistema"</code></td>
+    <td>Solo vía revocación manual</td>
+  </tr>
+  <tr>
+    <td><code>participante_qa</code></td>
+    <td><span class="badge badge-auto">Automático</span></td>
+    <td>Usuario vinculado con <code>Respuestas.Count(!EsIA, !Eliminado) >= 3</code></td>
+    <td><code>EvaluarBadgesAutomaticosAsync</code> → <code>"sistema"</code></td>
+    <td>Solo vía revocación manual</td>
+  </tr>
+  <tr>
+    <td><code>validador_contenido</code></td>
+    <td><span class="badge badge-auto">Automático</span></td>
+    <td>Usuario vinculado con <code>GlossaryValidations.Count(Approved) >= 1</code></td>
+    <td><code>EvaluarBadgesAutomaticosAsync</code> → <code>"sistema"</code></td>
+    <td>Solo vía revocación manual</td>
+  </tr>
+  <tr>
+    <td><code>creador_contenido</code></td>
+    <td><span class="badge badge-manual">Manual</span></td>
+    <td>Discreción del administrador</td>
+    <td><code>OnPostOtorgarBadgeAsync</code> → <code>"admin"</code></td>
+    <td><code>OnPostRevocarBadgeAsync</code></td>
+  </tr>
+</table>
+
+<h3>Niveles de badge (campo <code>MedicoBadge.Nivel</code>)</h3>
+<p>El nivel del badge NO es el mismo que <code>NivelConfianza</code>. Es un valor entero en la tabla catálogo que determina qué puede hacer el médico en su dashboard (<code>TienePermisoAsync</code>).</p>
+<table>
+  <tr><th>Nivel</th><th>Permiso desbloqueado (<code>TienePermisoAsync</code>)</th></tr>
+  <tr><td>1</td><td><code>editar_perfil</code></td></tr>
+  <tr><td>2</td><td><code>ver_comentarios_anonimos</code>, <code>reportar_comentarios</code></td></tr>
+  <tr><td>3</td><td><code>ver_nombre_paciente</code>, <code>responder_comentarios</code></td></tr>
+  <tr><td>4</td><td><code>participar_qa</code></td></tr>
+  <tr><td>5</td><td><code>validar_contenido</code></td></tr>
+  <tr><td>6</td><td><code>crear_contenido</code></td></tr>
+</table>
+<p><code>GetNivelActualAsync</code> devuelve <code>badges.Max(b => b.Nivel)</code> — el nivel más alto entre todos los badges ganados.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="niveles">3. NivelConfianza vs. NivelBadge</h2>
+<div class="section-card">
+<p>Son dos conceptos distintos que frecuentemente se confunden:</p>
+<table>
+  <tr><th>Concepto</th><th>Campo</th><th>Tipo</th><th>Propósito</th><th>Fuente canónica</th></tr>
+  <tr>
+    <td><strong>NivelConfianza</strong></td>
+    <td><code>MedicosDirectorio.NivelConfianza</code></td>
+    <td><code>NivelConfianzaEnum</code> (0–3)</td>
+    <td>Visibilidad pública del profesional en el directorio. Determina qué tag de confianza ve el paciente en el card.</td>
+    <td><code>ConfirmacionesComunitarias</code> + flags de <code>MedicosDirectorio</code></td>
+  </tr>
+  <tr>
+    <td><strong>NivelBadge</strong></td>
+    <td><code>GetNivelActualAsync(medicoId)</code></td>
+    <td><code>int</code> (0–6)</td>
+    <td>Permisos del médico en su dashboard. Determina qué puede ver/hacer en el área privada.</td>
+    <td><code>MedicoPerfilBadge</code> → <code>MedicoBadge.Nivel</code> (Max)</td>
+  </tr>
+</table>
+
+<h3>Fórmula NivelConfianza (implementada en dos lugares)</h3>
+<pre>static int CalcularNivelVerificacion(int total, bool tieneEII, bool cedulaVerificada, bool perfilReclamado)
+{
+    if (perfilReclamado)                              return 3; // Establecido
+    if (cedulaVerificada || total >= 5)               return 2; // Reconocido
+    if (total >= 3 && tieneEII)                       return 1; // Confirmado
+    return 0;                                                    // Identificado
+}
+
+// tieneEII = total > 0  (plataforma EII: cualquier confirmación implica contexto EII)</pre>
+
+<h3>Donde se llama RecalcularNivel — DUPLICADO</h3>
+<table>
+  <tr><th>Ubicación</th><th>Método</th><th>Se llama desde</th></tr>
+  <tr>
+    <td><code>MedicoDirectorioService</code></td>
+    <td><code>RecalcularNivelConfianzaAsync(int medicoId)</code></td>
+    <td><code>ConfirmarAtencionAsync</code> (después de nueva confirmación)</td>
+  </tr>
+  <tr>
+    <td><code>Admin/DirectorioMedicos/Index.cshtml.cs</code></td>
+    <td><code>RecalcularNivelAsync(MedicoDirectorio, int id)</code> (privado)</td>
+    <td><code>OnPostVerificarCedulaAsync</code>, <code>OnPostEditarAsync</code> (si cambioVerificacion)</td>
+  </tr>
+</table>
+<p class="bad">⚠ Ambas implementaciones tienen la misma lógica hoy. Si una cambia, la otra quedará inconsistente.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="estado">4. EstadoDerivado</h2>
+<div class="section-card">
+<p><code>EstadoProfesionalDerivado</code> es un enum <code>[NotMapped]</code> calculado desde campos existentes. Representa el ciclo de vida del registro en el directorio.</p>
+<table>
+  <tr><th>Valor</th><th>Entero</th><th>Condición</th></tr>
+  <tr><td><code>Eliminado</code></td><td>-1</td><td><code>Eliminado == true</code></td></tr>
+  <tr><td><code>Propuesto</code></td><td>0</td><td>default (no activo, no visible, cédula no verificada)</td></tr>
+  <tr><td><code>CedulaVerificada</code></td><td>1</td><td><code>EstatusValidacion == Validado</code></td></tr>
+  <tr><td><code>Publicado</code></td><td>2</td><td><code>Activo &amp;&amp; VisiblePublicamente</code></td></tr>
+  <tr><td><code>Reclamado</code></td><td>3</td><td><code>Activo &amp;&amp; VisiblePublicamente &amp;&amp; EstatusReclamacion == Reclamado</code></td></tr>
+</table>
+
+<h3>Implementaciones de EstadoDerivado — DUPLICADO</h3>
+<table>
+  <tr><th>Lugar</th><th>Tipo</th><th>Código</th></tr>
+  <tr>
+    <td><code>MedicoDirectorio.EstadoDerivado</code></td>
+    <td>Propiedad <code>[NotMapped]</code></td>
+    <td>Propiedad computada en el modelo</td>
+  </tr>
+  <tr>
+    <td><code>Pages/DirectorioMedicos/Index.cshtml.cs:61–67</code></td>
+    <td>Inline en handler</td>
+    <td>Recalcula la misma lógica para construir <code>PropuestaPacienteVm</code></td>
+  </tr>
+</table>
+<p class="bad">⚠ La lógica inline del handler no delega a la propiedad del modelo.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="servicios">5. Servicios y métodos clave</h2>
+<div class="section-card">
+
+<h3><code>IMedicoBadgeService</code> / <code>MedicoBadgeService</code></h3>
+<table>
+  <tr><th>Método</th><th>Propósito</th><th>Observaciones</th></tr>
+  <tr>
+    <td><code>GetBadgesGanadosAsync(medicoId)</code></td>
+    <td>Lista de badges que tiene el médico</td>
+    <td>JOIN con catálogo. AsNoTracking.</td>
+  </tr>
+  <tr>
+    <td><code>GetTodosLosBadgesAsync(medicoId)</code></td>
+    <td>Catálogo completo + flag Obtenido para cada uno</td>
+    <td>Usado en Dashboard médico.</td>
+  </tr>
+  <tr>
+    <td><code>GetNivelActualAsync(medicoId)</code></td>
+    <td>Nivel máximo de badges ganados</td>
+    <td>Llama a <code>GetBadgesGanadosAsync</code> → <code>Max(Nivel)</code>. No es NivelConfianza.</td>
+  </tr>
+  <tr>
+    <td><code>OtorgarBadgeAsync(medicoId, codigo, otorgadoPor)</code></td>
+    <td>Otorga badge si no existe ya</td>
+    <td>Idempotente: si ya existe devuelve false sin error.</td>
+  </tr>
+  <tr>
+    <td><code>RevocarBadgeAsync(medicoId, codigo)</code></td>
+    <td>Elimina badge (sin registro de revocación)</td>
+    <td>Sin auditoría de quién/cuándo/por qué se revocó.</td>
+  </tr>
+  <tr>
+    <td><code>EvaluarBadgesAutomaticosAsync(medicoId)</code></td>
+    <td>Evalúa y otorga los 4 badges automáticos</td>
+    <td>Solo otorga, nunca revoca. No evalúa <code>verificado</code>.</td>
+  </tr>
+  <tr>
+    <td><code>TienePermisoAsync(medicoId, permiso)</code></td>
+    <td>Verifica permisos del médico por nivel de badge</td>
+    <td>Usado en Dashboard médico para control de acceso a funciones.</td>
+  </tr>
+</table>
+
+<h3><code>IMedicoDirectorioService</code> / <code>MedicoDirectorioService</code></h3>
+<table>
+  <tr><th>Método</th><th>Propósito</th><th>Llama a RecalcularNivel</th></tr>
+  <tr>
+    <td><code>GetListadoAsync</code></td>
+    <td>Listado paginado público (directorio)</td>
+    <td>No</td>
+  </tr>
+  <tr>
+    <td><code>GetDetalleAsync</code></td>
+    <td>Ficha detalle pública</td>
+    <td>No</td>
+  </tr>
+  <tr>
+    <td><code>ProponerMedicoAsync</code></td>
+    <td>Crea nuevo registro propuesto por paciente</td>
+    <td>No (estado inicial: Activo=false, Visible=false)</td>
+  </tr>
+  <tr>
+    <td><code>ConfirmarAtencionAsync</code></td>
+    <td>Registra confirmación de paciente</td>
+    <td><span class="ok">Sí — RecalcularNivelConfianzaAsync</span></td>
+  </tr>
+  <tr>
+    <td><code>RecalcularNivelConfianzaAsync</code></td>
+    <td>Recalcula NivelConfianza desde confirmaciones</td>
+    <td>Es el método canónico</td>
+  </tr>
+</table>
+
+<h3>Handlers admin (<code>Admin/DirectorioMedicos/Index.cshtml.cs</code>)</h3>
+<table>
+  <tr><th>Handler</th><th>Acción badge/nivel</th><th>Problemas</th></tr>
+  <tr>
+    <td><code>OnPostEditarAsync</code></td>
+    <td>Sincroniza badge <code>verificado</code> si cambia <code>cedulaVerificada</code>. Llama <code>RecalcularNivelAsync</code> (privado).</td>
+    <td><span class="ok">Correcto</span></td>
+  </tr>
+  <tr>
+    <td><code>OnPostVerificarAsync</code></td>
+    <td>Toggle verificación. Sincroniza badge <code>verificado</code>.</td>
+    <td><span class="ok">Correcto</span></td>
+  </tr>
+  <tr>
+    <td><code>OnPostVerificarCedulaAsync</code></td>
+    <td>Verifica cédula. Llama <code>RecalcularNivelAsync</code>.</td>
+    <td><span class="bad">NO sincroniza badge verificado</span></td>
+  </tr>
+  <tr>
+    <td><code>OnPostAprobarClaimAsync</code></td>
+    <td>Fija <code>EstatusReclamacion = Reclamado</code>, <code>NivelConfianza = Establecido</code> directamente.</td>
+    <td><span class="bad">NO evalúa badges, NO otorga perfil_reclamado</span></td>
+  </tr>
+  <tr>
+    <td><code>OnPostOtorgarBadgeAsync</code></td>
+    <td>Llama <code>_badgeService.OtorgarBadgeAsync</code>. Correcto.</td>
+    <td><span class="ok">Correcto — delega al servicio</span></td>
+  </tr>
+  <tr>
+    <td><code>OnPostRevocarBadgeAsync</code></td>
+    <td>Duplica lógica de <code>RevocarBadgeAsync</code> inline en lugar de delegar.</td>
+    <td><span class="bad">Duplicación — no delega a <code>_badgeService</code></span></td>
+  </tr>
+  <tr>
+    <td><code>OnPostEvaluarBadgesAsync</code></td>
+    <td>Llama <code>EvaluarBadgesAutomaticosAsync</code> para un médico.</td>
+    <td><span class="ok">Correcto</span></td>
+  </tr>
+  <tr>
+    <td><code>OnPostEvaluarTodosAsync</code></td>
+    <td>Evalúa todos los no eliminados.</td>
+    <td><span class="ok">Correcto</span></td>
+  </tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="fuentes">6. Fuentes de verdad por concepto</h2>
+<div class="section-card">
+<table>
+  <tr><th>Concepto</th><th>Fuente canónica</th><th>Derivados</th></tr>
+  <tr>
+    <td>¿Cédula verificada?</td>
+    <td><code>MedicosDirectorio.EstatusValidacion == Validado</code></td>
+    <td>Badge <code>verificado</code> (debe derivarse, no ser independiente)</td>
+  </tr>
+  <tr>
+    <td>¿Perfil reclamado?</td>
+    <td><code>MedicosDirectorio.EstatusReclamacion == Reclamado</code></td>
+    <td>Badge <code>perfil_reclamado</code>, NivelConfianza = 3</td>
+  </tr>
+  <tr>
+    <td>¿Usurio vinculado?</td>
+    <td><code>MedicoPerfilExtendido.UserId != null</code></td>
+    <td>Habilita badges <code>participante_qa</code>, <code>validador_contenido</code></td>
+  </tr>
+  <tr>
+    <td>Confirmaciones</td>
+    <td><code>ConfirmacionComunitaria (!Eliminado)</code></td>
+    <td>NivelConfianza, badge <code>activo_comunidad</code></td>
+  </tr>
+  <tr>
+    <td>NivelConfianza</td>
+    <td>Calculado desde confirmaciones + cédula + claim</td>
+    <td>Tag en card público, permisos visibilidad dashboard médico</td>
+  </tr>
+  <tr>
+    <td>Estado visible</td>
+    <td><code>Activo &amp;&amp; VisiblePublicamente &amp;&amp; !Eliminado</code></td>
+    <td>Si aparece en el directorio público</td>
+  </tr>
+  <tr>
+    <td>EstadoDerivado</td>
+    <td><code>[NotMapped]</code> en modelo</td>
+    <td>Label/badge en vista paciente "Mis propuestas"</td>
+  </tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="flujos">7. Flujos operacionales</h2>
+<div class="section-card">
+
+<h3>A. Paciente propone médico</h3>
+<div class="flow">
+  <span class="flow-step">ProponerMedicoAsync</span><span class="flow-arrow">→</span>
+  <span class="flow-step">Crea MedicosDirectorio<br>Activo=false, Visible=false</span><span class="flow-arrow">→</span>
+  <span class="flow-step">Estado: Propuesto</span>
+</div>
+<p>No hay badges ni nivel calculado en esta etapa.</p>
+
+<h3>B. Paciente confirma atención</h3>
+<div class="flow">
+  <span class="flow-step">ConfirmarAtencionAsync</span><span class="flow-arrow">→</span>
+  <span class="flow-step">INSERT ConfirmacionComunitaria</span><span class="flow-arrow">→</span>
+  <span class="flow-step">RecalcularNivelConfianzaAsync</span><span class="flow-arrow">→</span>
+  <span class="flow-step">UPDATE NivelConfianza</span>
+</div>
+<p>Badge <code>activo_comunidad</code> NO se evalúa aquí. Se evalúa solo cuando admin ejecuta "Evaluar badges".</p>
+
+<h3>C. Admin verifica cédula (botón rápido grid)</h3>
+<div class="flow">
+  <span class="flow-step">OnPostVerificarCedulaAsync</span><span class="flow-arrow">→</span>
+  <span class="flow-step">EstatusValidacion = Validado</span><span class="flow-arrow">→</span>
+  <span class="flow-step">RecalcularNivelAsync</span>
+</div>
+<p class="bad">⚠ Badge <code>verificado</code> NO se otorga en este flujo.</p>
+
+<h3>D. Admin verifica cédula (panel de edición)</h3>
+<div class="flow">
+  <span class="flow-step">OnPostEditarAsync</span><span class="flow-arrow">→</span>
+  <span class="flow-step">cambioVerificacion = true</span><span class="flow-arrow">→</span>
+  <span class="flow-step">EstatusValidacion = Validado</span><span class="flow-arrow">→</span>
+  <span class="flow-step">SaveChanges</span><span class="flow-arrow">→</span>
+  <span class="flow-step">OtorgarBadgeAsync("verificado")</span><span class="flow-arrow">→</span>
+  <span class="flow-step">RecalcularNivelAsync</span>
+</div>
+<p class="ok">✓ Badge verificado sincronizado correctamente.</p>
+
+<h3>E. Admin aprueba reclamación de médico</h3>
+<div class="flow">
+  <span class="flow-step">OnPostAprobarClaimAsync</span><span class="flow-arrow">→</span>
+  <span class="flow-step">EstatusReclamacion = Reclamado</span><span class="flow-arrow">→</span>
+  <span class="flow-step">NivelConfianza = Establecido (hardcode 3)</span><span class="flow-arrow">→</span>
+  <span class="flow-step">SaveChanges</span>
+</div>
+<p class="bad">⚠ NO se evalúan badges. Badge <code>perfil_reclamado</code> no se otorga.<br>
+⚠ NivelConfianza se setea directamente a 3 sin pasar por la fórmula canónica.</p>
+
+<h3>F. Toggle verificado rápido (botón en grid)</h3>
+<div class="flow">
+  <span class="flow-step">OnPostVerificarAsync</span><span class="flow-arrow">→</span>
+  <span class="flow-step">Toggle EstatusValidacion</span><span class="flow-arrow">→</span>
+  <span class="flow-step">SaveChanges</span><span class="flow-arrow">→</span>
+  <span class="flow-step">Otorgar/Revocar badge "verificado"</span>
+</div>
+<p class="ok">✓ Badge verificado sincronizado correctamente. No recalcula NivelConfianza.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="vistas">8. Consumo por vista / handler</h2>
+<div class="section-card">
+<table>
+  <tr><th>Vista / Componente</th><th>Qué consume</th><th>Query</th></tr>
+  <tr>
+    <td>Directorio público — Grid de cards</td>
+    <td><code>NivelConfianza</code>, <code>EstatusValidacion</code>, <code>BadgesGanados</code>, <code>TotalConfirmaciones</code></td>
+    <td>Batch query en <code>Pages/Index.cshtml.cs:OnGetAsync</code>. JOIN <code>MedicosPerfilBadge → MedicosBadge</code> en un query por página.</td>
+  </tr>
+  <tr>
+    <td>Mis aportaciones (paciente)</td>
+    <td><code>EstadoDerivado</code> derivado inline desde <code>Activo</code>, <code>VisiblePublicamente</code>, <code>EstatusReclamacion</code>, <code>EstatusValidacion</code></td>
+    <td>Query individual por usuario, filtra <code>!m.Eliminado</code>. Usa <code>IgnoreQueryFilters()</code>.</td>
+  </tr>
+  <tr>
+    <td>Dashboard médico</td>
+    <td><code>GetNivelActualAsync</code>, <code>GetTodosLosBadgesAsync</code>, <code>TotalRecomendaciones</code></td>
+    <td>Por MedicoId del perfil vinculado. Carga lista de badges del catálogo + ganados.</td>
+  </tr>
+  <tr>
+    <td>Admin — Grid DataTable</td>
+    <td><code>Verificado</code>, <code>NivelConfianza</code>, <code>SolicitudClaim</code>, <code>PerfilReclamado</code>, <code>Confirmaciones</code> (inline count), <code>Activo</code>, <code>Visible</code></td>
+    <td><code>OnGetGridDataAsync</code>. Subquery de confirmaciones dentro del SELECT.</td>
+  </tr>
+  <tr>
+    <td>Admin — Panel detalle médico</td>
+    <td>Datos completos del registro + badges completos (catálogo + ganados con <code>OtorgadoPor</code> y <code>FechaObtenido</code>)</td>
+    <td><code>OnGetMedicoAsync</code>. Carga catálogo + ganados + confirmadores + aportante.</td>
+  </tr>
+</table>
+
+<h3>Campo <code>activo</code>/<code>visible</code> en respuesta JSON del admin</h3>
+<p>Agregados en sesión previa (<code>OnGetMedicoAsync</code>): <code>activo = m.Activo, visible = m.VisiblePublicamente</code>. Permiten al panel renderizar el estado real del profesional.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="discrepancias">9. Discrepancias identificadas</h2>
+<div class="section-card">
+
+<div class="disc">
+  <h4><span class="disc-id">D-01</span> <code>OnPostVerificarCedulaAsync</code> no sincroniza badge <code>verificado</code></h4>
+  <p><strong>Escenario:</strong> Admin hace clic en el botón "Verificar cédula" del grid (acción rápida).</p>
+  <p><strong>Resultado actual:</strong> <code>EstatusValidacion = Validado</code>, recalcula nivel, pero badge <code>verificado</code> NO se otorga.</p>
+  <p><strong>Resultado esperado:</strong> Igual que <code>OnPostEditarAsync</code> y <code>OnPostVerificarAsync</code> — badge debe sincronizarse.</p>
+  <p><strong>Fix:</strong> Agregar <code>await _badgeService.OtorgarBadgeAsync(m.Id, "verificado", "admin");</code> en <code>OnPostVerificarCedulaAsync</code>.</p>
+</div>
+
+<div class="disc">
+  <h4><span class="disc-id">D-02</span> <code>OnPostAprobarClaimAsync</code> no evalúa badges ni delega a fórmula canónica</h4>
+  <p><strong>Escenario:</strong> Admin aprueba la reclamación de un médico.</p>
+  <p><strong>Resultado actual:</strong> <code>EstatusReclamacion = Reclamado</code>, <code>NivelConfianza = 3</code> hardcodeado. Badge <code>perfil_reclamado</code> no se otorga.</p>
+  <p><strong>Resultado esperado:</strong> Se debe llamar <code>EvaluarBadgesAutomaticosAsync</code> (que otorga <code>perfil_reclamado</code> si <code>UserId != null</code>) y recalcular el nivel mediante la fórmula canónica.</p>
+  <p><strong>Nota:</strong> El hardcode de <code>NivelConfianza = 3</code> es funcionalmente correcto (claim aprobado → Establecido), pero rompe la regla de fuente única y puede divergir si la fórmula cambia.</p>
+</div>
+
+<div class="disc">
+  <h4><span class="disc-id">D-03</span> Duplicación de <code>RecalcularNivel</code></h4>
+  <p><strong>Escenario:</strong> La misma lógica de cálculo existe en dos lugares.</p>
+  <p><strong>Lugar 1:</strong> <code>MedicoDirectorioService.RecalcularNivelConfianzaAsync</code> — canónico, usa método privado <code>CalcularNivelVerificacion</code>.</p>
+  <p><strong>Lugar 2:</strong> <code>Admin/Index.cshtml.cs:RecalcularNivelAsync</code> — privado, misma fórmula inline.</p>
+  <p><strong>Riesgo:</strong> Si la fórmula cambia (p.ej. nuevo umbral de confirmaciones), el admin podría quedar desincronizado.</p>
+  <p><strong>Fix:</strong> El handler admin debe delegar a <code>_service.RecalcularNivelConfianzaAsync(id)</code> (necesita inyectar <code>IMedicoDirectorioService</code> en el admin).</p>
+</div>
+
+<div class="disc">
+  <h4><span class="disc-id">D-04</span> <code>OnPostRevocarBadgeAsync</code> en admin duplica lógica del servicio</h4>
+  <p><strong>Escenario:</strong> Admin revoca un badge desde el panel.</p>
+  <p><strong>Resultado actual:</strong> El handler duplica 4 líneas de <code>RevocarBadgeAsync</code> en lugar de llamar <code>_badgeService.RevocarBadgeAsync</code>.</p>
+  <p><strong>Fix:</strong> Reemplazar con <code>await _badgeService.RevocarBadgeAsync(medicoId, codigo);</code>.</p>
+</div>
+
+<div class="disc">
+  <h4><span class="disc-id">D-05</span> Badge <code>perfil_reclamado</code> no verifica <code>EstatusReclamacion</code></h4>
+  <p><strong>Criterio actual en <code>EvaluarBadgesAutomaticosAsync</code>:</strong> <code>MedicoPerfilExtendido.UserId != null</code>.</p>
+  <p><strong>Problema:</strong> Un perfil puede tener <code>UserId</code> vinculado pero <code>EstatusReclamacion = Rechazado</code> o incluso <code>NoReclamado</code> (si el admin vinculó manualmente). El badge se otorgaría incorrectamente.</p>
+  <p><strong>Fix:</strong> Agregar <code>&amp;&amp; m.EstatusReclamacion == EstatusReclamacion.Reclamado</code> al join o lookup del profesional.</p>
+</div>
+
+<div class="disc">
+  <h4><span class="disc-id">D-06</span> Sin trazabilidad de revocaciones de badges</h4>
+  <p><strong>Escenario:</strong> Admin revoca badge <code>verificado</code> de un médico.</p>
+  <p><strong>Resultado actual:</strong> Fila de <code>MedicoPerfilBadge</code> se elimina. No queda registro de cuándo, quién ni por qué se revocó.</p>
+  <p><strong>Impacto:</strong> Imposible auditar historial de badges. No hay FASE 3 de trazabilidad sin resolver esto primero.</p>
+  <p><strong>Opciones:</strong> (a) Soft delete en <code>MedicoPerfilBadge</code> con campos <code>Revocado</code>, <code>FechaRevocacion</code>, <code>RevocadoPor</code>; (b) Tabla de log separada.</p>
+</div>
+
+<div class="disc">
+  <h4><span class="disc-id">D-07</span> <code>EstadoDerivado</code> duplicado en vista paciente</h4>
+  <p><strong>Escenario:</strong> <code>Pages/DirectorioMedicos/Index.cshtml.cs:61–67</code> recalcula la misma lógica inline que ya existe en <code>MedicoDirectorio.[NotMapped].EstadoDerivado</code>.</p>
+  <p><strong>Fix:</strong> Usar directamente <code>m.EstadoDerivado</code> si la entidad se carga completa, o al menos centralizar el cálculo en un helper estático.</p>
+  <p><strong>Nota:</strong> La query usa proyección anónima (solo campos necesarios), por lo que no puede llamar la propiedad <code>[NotMapped]</code> directamente. La solución correcta es hacer el cálculo en el <code>Select()</code> client-side o cargar la entidad completa y usar la propiedad.</p>
+</div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="resumen">10. Resumen ejecutivo</h2>
+<div class="section-card">
+
+<h3>Sistema en estado "funcional pero inconsistente"</h3>
+<p>El sistema de badges opera correctamente en los flujos más frecuentes (verificar desde el panel de edición, toggle verificar desde el grid). Sin embargo existen 7 discrepancias que producen datos incorrectos en escenarios menos frecuentes pero no excepcionales.</p>
+
+<h3>Prioridades de corrección</h3>
+<table>
+  <tr><th>#</th><th>Discrepancia</th><th>Riesgo</th><th>Esfuerzo</th></tr>
+  <tr><td>1</td><td>D-01 VerificarCedula no sincroniza badge</td><td>Medio — badge en BD diverge de realidad</td><td>Bajo (1 línea)</td></tr>
+  <tr><td>2</td><td>D-02 AprobarClaim no evalúa badges</td><td>Medio — claim aprobado sin badge</td><td>Bajo (2 líneas)</td></tr>
+  <tr><td>3</td><td>D-04 RevocarBadge duplica lógica</td><td>Bajo — código smells</td><td>Bajo (cambio simple)</td></tr>
+  <tr><td>4</td><td>D-03 RecalcularNivel duplicado</td><td>Medio — divergencia futura</td><td>Medio (inyectar servicio)</td></tr>
+  <tr><td>5</td><td>D-05 perfil_reclamado sin verificar EstatusReclamacion</td><td>Bajo — badge fantasma en edge case</td><td>Bajo (1 condición)</td></tr>
+  <tr><td>6</td><td>D-06 Sin trazabilidad de revocaciones</td><td>Alto — bloqueador para FASE 3</td><td>Alto (schema change + lógica)</td></tr>
+  <tr><td>7</td><td>D-07 EstadoDerivado duplicado</td><td>Bajo — código smells</td><td>Bajo</td></tr>
+</table>
+
+<h3>Regla de oro establecida en sesión previa</h3>
+<p><strong><code>EstatusValidacion</code> es y debe seguir siendo la única fuente de verdad para "verificado".</strong> El badge <code>verificado</code> es un efecto secundario de cambiar ese campo, no tiene semántica propia independiente. Cualquier corrección debe respetar esta regla.</p>
+
+<h3>Qué NO tocar</h3>
+<ul>
+  <li>La tabla de badges y su catálogo — correcta</li>
+  <li>El método <code>OtorgarBadgeAsync</code> — idempotente y correcto</li>
+  <li>El cálculo de <code>GetNivelActualAsync</code> — correcto para su propósito (permisos del dashboard médico)</li>
+  <li>La fórmula de <code>CalcularNivelVerificacion</code> — correcta, solo necesita un solo punto de invocación</li>
+</ul>
+
+<h3>Dependencias entre FASEs</h3>
+<ul>
+  <li>FASE 2 (reset query) puede hacerse de forma independiente con la información de este documento</li>
+  <li>FASE 3 (trazabilidad) requiere resolver D-06 (schema change en <code>MedicoPerfilBadge</code>)</li>
+  <li>FASE 4 (revocación manual con confirmación) requiere FASE 3</li>
+  <li>FASE 5 (RecalcularEstadoProfesional canónico) debe consolidar D-03 y el hardcode de D-02</li>
+</ul>
+</div>
+
+<hr style="margin: 40px 0; border-color: var(--border)">
+<p class="meta">FASE 1 completada. Próximo: FASE 2 — Query SQL de reset seguro de un profesional.</p>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FASE 5 — RecalcularEstadoProfesional Canónico</title>
+<style>
+  :root { --primary:#2E86AB; --danger:#dc3545; --warning:#ffc107; --success:#2E9E5B; --muted:#6c757d; --bg:#f8f9fa; --border:#dee2e6; }
+  * { box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:14px; line-height:1.6; color:#212529; margin:0; padding:0; }
+  .container { max-width:1050px; margin:0 auto; padding:24px 32px; }
+  h1 { font-size:1.6rem; color:var(--primary); border-bottom:3px solid var(--primary); padding-bottom:8px; margin-bottom:4px; }
+  h2 { font-size:1.15rem; color:#343a40; margin-top:36px; margin-bottom:10px; border-left:4px solid var(--primary); padding-left:10px; }
+  h3 { font-size:.98rem; color:#495057; margin-top:20px; margin-bottom:6px; }
+  .meta { color:var(--muted); font-size:12px; margin-bottom:28px; }
+  table { width:100%; border-collapse:collapse; margin-bottom:18px; font-size:13px; }
+  th { background:var(--primary); color:white; padding:7px 10px; text-align:left; }
+  td { padding:6px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+  tr:nth-child(even) td { background:var(--bg); }
+  code { background:#f1f3f5; border:1px solid #ced4da; border-radius:3px; padding:1px 5px; font-family:"Consolas","Courier New",monospace; font-size:12px; color:#c7254e; }
+  pre { background:#1e1e2e; color:#cdd6f4; padding:16px; border-radius:6px; overflow-x:auto; font-size:12px; line-height:1.5; margin:12px 0; }
+  .note { background:#d1ecf1; border:1px solid #bee5eb; border-radius:6px; padding:12px 16px; margin:12px 0; font-size:13px; }
+  .warn { background:#fff3cd; border:1px solid #ffc107; border-radius:6px; padding:12px 16px; margin:12px 0; font-size:13px; }
+  .ok { color:var(--success); font-weight:700; }
+  .bad { color:var(--danger); font-weight:700; }
+  .section-card { background:white; border:1px solid var(--border); border-radius:8px; padding:20px 24px; margin-bottom:20px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  ul li { margin-bottom:4px; }
+  .callers { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:10px; margin:12px 0; }
+  .caller { border:1px solid var(--border); border-radius:6px; padding:10px 14px; font-size:13px; }
+  .caller .where { font-weight:700; color:var(--primary); }
+  .caller .change { color:var(--danger); font-size:12px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>FASE 5 — RecalcularEstadoProfesional Canónico</h1>
+<p class="meta">Proyecto EIIBD · Directorio de Profesionales · Generado 2026-05-27</p>
+
+<div class="section-card">
+<h2>Problema</h2>
+<p>La lógica de recalcular el nivel de confianza de un profesional existe en dos lugares distintos del código (discrepancia D-03 de FASE 1):</p>
+<table>
+  <tr><th>Método</th><th>Archivo</th><th>Llamado desde</th></tr>
+  <tr>
+    <td><code>RecalcularNivelConfianzaAsync(int medicoId)</code></td>
+    <td><code>MedicoDirectorioService</code></td>
+    <td><code>ConfirmarAtencionAsync</code></td>
+  </tr>
+  <tr>
+    <td><code>RecalcularNivelAsync(MedicoDirectorio, int)</code> (privado)</td>
+    <td><code>Admin/DirectorioMedicos/Index.cshtml.cs</code></td>
+    <td><code>OnPostVerificarCedulaAsync</code>, <code>OnPostEditarAsync</code></td>
+  </tr>
+</table>
+<p>Adicionalmente, <code>OnPostAprobarClaimAsync</code> hace un hardcode directo: <code>medico.NivelConfianza = NivelConfianzaEnum.Establecido</code>, saltándose la fórmula por completo.</p>
+</div>
+
+<div class="section-card">
+<h2>Solución — Punto único de recálculo</h2>
+<p>El método canónico <strong>ya existe</strong> en <code>MedicoDirectorioService.RecalcularNivelConfianzaAsync</code>. La corrección es simple: todos los callers deben usar ese único método. No hay que crear nada nuevo.</p>
+
+<h3>Plan de migración</h3>
+<table>
+  <tr><th>Caller actual</th><th>Cambio requerido</th></tr>
+  <tr>
+    <td><code>OnPostVerificarCedulaAsync</code> → <code>RecalcularNivelAsync(m, id)</code></td>
+    <td>Delegar a <code>await _service.RecalcularNivelConfianzaAsync(id)</code></td>
+  </tr>
+  <tr>
+    <td><code>OnPostEditarAsync</code> → <code>RecalcularNivelAsync(medico, id)</code></td>
+    <td>Delegar a <code>await _service.RecalcularNivelConfianzaAsync(id)</code></td>
+  </tr>
+  <tr>
+    <td><code>OnPostAprobarClaimAsync</code> → hardcode <code>NivelConfianza = Establecido</code></td>
+    <td>Reemplazar hardcode con <code>await _service.RecalcularNivelConfianzaAsync(id)</code> después de guardar el claim</td>
+  </tr>
+</table>
+
+<div class="warn">
+  <strong>Nota sobre OnPostAprobarClaimAsync:</strong> El hardcode a <code>Establecido (3)</code> es <em>funcionalmente correcto</em> para el caso normal (claim aprobado implica perfil reclamado, que vale nivel 3). Sin embargo, delegar al servicio canónico es más seguro: si la fórmula cambia (p.ej. se añade un nivel 4), el claim seguirá calculando el valor correcto.
+</div>
+</div>
+
+<div class="section-card">
+<h2>Cambio 1 — Inyectar servicio en el admin</h2>
+<p>El admin handler no tiene acceso a <code>IMedicoDirectorioService</code>. Debe inyectarse:</p>
+<pre>// Admin/DirectorioMedicos/Index.cshtml.cs
+private readonly ApplicationDbContext _db;
+private readonly string _googleMapsApiKey;
+private readonly IMedicoBadgeService _badgeService;
+private readonly IMedicoDirectorioService _service;  // NUEVO
+
+public IndexModel(
+    ApplicationDbContext db,
+    IConfiguration cfg,
+    IMedicoBadgeService badgeService,
+    IMedicoDirectorioService service)  // NUEVO
+{
+    _db = db;
+    _googleMapsApiKey = cfg["GoogleMaps:ApiKey"] ?? string.Empty;
+    _badgeService = badgeService;
+    _service = service;  // NUEVO
+}</pre>
+</div>
+
+<div class="section-card">
+<h2>Cambio 2 — OnPostVerificarCedulaAsync</h2>
+<pre>// ANTES
+public async Task&lt;IActionResult&gt; OnPostVerificarCedulaAsync()
+{
+    if (!Request.HasFormContentType || string.IsNullOrWhiteSpace(Request.Form["id"])) return BadRequest();
+    var id = int.Parse(Request.Form["id"]!);
+    var m = await _db.MedicosDirectorio.FirstOrDefaultAsync(x => x.Id == id);
+    if (m is null) return new JsonResult(new { success = false });
+    m.EstatusValidacion = EstatusValidacionCedula.Validado;
+    m.FechaCedulaVerificada = DateTime.UtcNow;
+    m.FechaModificacion = DateTimeOffset.UtcNow;
+    await RecalcularNivelAsync(m, id);  // ← privado
+    return new JsonResult(new { success = true });
+}
+
+// DESPUÉS
+public async Task&lt;IActionResult&gt; OnPostVerificarCedulaAsync()
+{
+    if (!Request.HasFormContentType || string.IsNullOrWhiteSpace(Request.Form["id"])) return BadRequest();
+    var id = int.Parse(Request.Form["id"]!);
+    var m = await _db.MedicosDirectorio.FirstOrDefaultAsync(x => x.Id == id);
+    if (m is null) return new JsonResult(new { success = false });
+    m.EstatusValidacion = EstatusValidacionCedula.Validado;
+    m.FechaCedulaVerificada = DateTime.UtcNow;
+    m.FechaModificacion = DateTimeOffset.UtcNow;
+    await _db.SaveChangesAsync();
+    // FIX D-01: sincronizar badge verificado (faltaba)
+    try { await _badgeService.OtorgarBadgeAsync(id, "verificado", "admin"); } catch { }
+    // FIX D-03: delegar a servicio canónico
+    await _service.RecalcularNivelConfianzaAsync(id);
+    return new JsonResult(new { success = true });
+}</pre>
+</div>
+
+<div class="section-card">
+<h2>Cambio 3 — OnPostEditarAsync</h2>
+<pre>// En OnPostEditarAsync — reemplazar llamada privada
+// ANTES:
+await RecalcularNivelAsync(medico, id);
+
+// DESPUÉS:
+await _service.RecalcularNivelConfianzaAsync(id);</pre>
+</div>
+
+<div class="section-card">
+<h2>Cambio 4 — OnPostAprobarClaimAsync (FIX D-02)</h2>
+<pre>// ANTES
+public async Task&lt;IActionResult&gt; OnPostAprobarClaimAsync()
+{
+    if (!Request.HasFormContentType || string.IsNullOrWhiteSpace(Request.Form["id"])) return BadRequest();
+    var id = int.Parse(Request.Form["id"]!);
+    var m = await _db.MedicosDirectorio.FirstOrDefaultAsync(x => x.Id == id);
+    if (m is null) return new JsonResult(new { success = false });
+    m.EstatusReclamacion = EstatusReclamacion.Reclamado;
+    m.FechaReclamacion = DateTimeOffset.UtcNow;
+    m.NivelConfianza = NivelConfianzaEnum.Establecido;  // hardcode
+    m.FechaModificacion = DateTimeOffset.UtcNow;
+    await _db.SaveChangesAsync();
+    return new JsonResult(new { success = true });
+}
+
+// DESPUÉS — FIX D-02: delegar nivel + evaluar badges
+public async Task&lt;IActionResult&gt; OnPostAprobarClaimAsync()
+{
+    if (!Request.HasFormContentType || string.IsNullOrWhiteSpace(Request.Form["id"])) return BadRequest();
+    var id = int.Parse(Request.Form["id"]!);
+    var m = await _db.MedicosDirectorio.FirstOrDefaultAsync(x => x.Id == id);
+    if (m is null) return new JsonResult(new { success = false });
+    m.EstatusReclamacion = EstatusReclamacion.Reclamado;
+    m.FechaReclamacion = DateTimeOffset.UtcNow;
+    m.FechaModificacion = DateTimeOffset.UtcNow;
+    await _db.SaveChangesAsync();
+    // FIX D-03: usar fórmula canónica (PerfilReclamado=true → devuelve 3 igualmente)
+    await _service.RecalcularNivelConfianzaAsync(id);
+    // FIX D-02: evaluar badges automáticos (otorga perfil_reclamado si UserId vinculado)
+    try { await _badgeService.EvaluarBadgesAutomaticosAsync(id); } catch { }
+    return new JsonResult(new { success = true });
+}</pre>
+</div>
+
+<div class="section-card">
+<h2>Cambio 5 — Eliminar método privado RecalcularNivelAsync</h2>
+<p>Una vez que todos los callers deleguen al servicio, el método privado puede eliminarse del admin handler:</p>
+<pre>// ELIMINAR este método de Admin/Index.cshtml.cs:
+private async Task RecalcularNivelAsync(MedicoDirectorio medico, int id)
+{
+    var total    = await _db.ConfirmacionesComunitarias.CountAsync(c => c.MedicoDirectorioId == id && !c.Eliminado);
+    var tieneEII = total > 0;
+    var nivel = medico.PerfilReclamado ? 3
+        : (medico.CedulaVerificada || total >= 5) ? 2
+        : (total >= 3 && tieneEII) ? 1
+        : 0;
+    medico.NivelConfianza = (NivelConfianzaEnum)nivel;
+    await _db.SaveChangesAsync();
+}</pre>
+</div>
+
+<div class="section-card">
+<h2>Cambio 6 — OnPostRevocarBadgeAsync (FIX D-04)</h2>
+<p>El admin handler duplica la lógica de <code>_badgeService.RevocarBadgeAsync</code>. Simplificar:</p>
+<pre>// ANTES (duplicado)
+public async Task&lt;IActionResult&gt; OnPostRevocarBadgeAsync(int medicoId, string codigo)
+{
+    var badge = await _db.MedicosBadge.AsNoTracking()
+        .FirstOrDefaultAsync(b => b.Codigo == codigo);
+    if (badge is null) return new JsonResult(new { success = false });
+    var entry = await _db.MedicosPerfilBadge
+        .FirstOrDefaultAsync(pb => pb.MedicoId == medicoId && pb.BadgeId == badge.Id);
+    if (entry is null) return new JsonResult(new { success = false });
+    _db.MedicosPerfilBadge.Remove(entry);
+    await _db.SaveChangesAsync();
+    return new JsonResult(new { success = true });
+}
+
+// DESPUÉS — delega al servicio (que además registrará en historial tras FASE 3)
+public async Task&lt;IActionResult&gt; OnPostRevocarBadgeAsync(int medicoId, string codigo)
+{
+    var result = await _badgeService.RevocarBadgeAsync(medicoId, codigo, "admin");
+    return new JsonResult(new { success = result });
+}</pre>
+</div>
+
+<div class="section-card">
+<h2>Resumen de cambios por archivo</h2>
+<table>
+  <tr><th>Archivo</th><th>Cambio</th></tr>
+  <tr>
+    <td><code>Admin/DirectorioMedicos/Index.cshtml.cs</code></td>
+    <td>
+      + Inyectar <code>IMedicoDirectorioService _service</code><br>
+      ~ <code>OnPostVerificarCedulaAsync</code>: + badge, + delegar RecalcularNivel<br>
+      ~ <code>OnPostEditarAsync</code>: delegar RecalcularNivel<br>
+      ~ <code>OnPostAprobarClaimAsync</code>: delegar RecalcularNivel + evaluar badges<br>
+      ~ <code>OnPostRevocarBadgeAsync</code>: delegar a <code>_badgeService</code><br>
+      - Eliminar <code>RecalcularNivelAsync</code> privado
+    </td>
+  </tr>
+  <tr>
+    <td><code>Services/Medico/IMedicoBadgeService.cs</code></td>
+    <td>Actualizar firmas de <code>RevocarBadgeAsync</code> con parámetros opcionales (FASE 3)</td>
+  </tr>
+</table>
+
+<div class="note">
+  El servicio <code>MedicoDirectorioService</code> NO cambia en esta fase. Solo se reencauzan los callers hacia él.
+</div>
+</div>
+
+<div class="section-card">
+<h2>Verificación — build limpio</h2>
+<p>Después de aplicar los cambios:</p>
+<pre>dotnet build --no-restore
+# Esperado: 0 errores CS, 0 warnings CS8600/CS8602 nuevos</pre>
+<p>Casos a verificar manualmente:</p>
+<ul>
+  <li>Verificar cédula desde botón rápido del grid → badge <code>verificado</code> aparece en panel</li>
+  <li>Aprobar claim → badge <code>perfil_reclamado</code> aparece, nivel = 3</li>
+  <li>Revocar badge desde panel → se elimina, sin error 500</li>
+  <li>Confirmar atención desde público → nivel se recalcula correctamente</li>
+</ul>
+</div>
+
+<hr style="margin:36px 0; border-color:var(--border)">
+<p class="meta">FASE 5 completada. Próximo: FASE 6 — Vista de detalle de badges en el grid admin con controles de recálculo.</p>
+
+</div>
+</body>
+</html>

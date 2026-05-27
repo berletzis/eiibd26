@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resumen Final — Sistema de Badges y Estados de Profesionales</title>
+<style>
+  :root { --primary:#2E86AB; --danger:#dc3545; --warning:#ffc107; --success:#2E9E5B; --muted:#6c757d; --bg:#f8f9fa; --border:#dee2e6; }
+  * { box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:14px; line-height:1.6; color:#212529; margin:0; padding:0; }
+  .container { max-width:1050px; margin:0 auto; padding:24px 32px; }
+  h1 { font-size:1.7rem; color:var(--primary); border-bottom:3px solid var(--primary); padding-bottom:8px; margin-bottom:4px; }
+  h2 { font-size:1.2rem; color:#343a40; margin-top:40px; margin-bottom:12px; border-left:4px solid var(--primary); padding-left:10px; }
+  h3 { font-size:.98rem; color:#495057; margin-top:20px; margin-bottom:6px; }
+  .meta { color:var(--muted); font-size:12px; margin-bottom:32px; }
+  table { width:100%; border-collapse:collapse; margin-bottom:18px; font-size:13px; }
+  th { background:var(--primary); color:white; padding:7px 10px; text-align:left; }
+  td { padding:7px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+  tr:nth-child(even) td { background:var(--bg); }
+  code { background:#f1f3f5; border:1px solid #ced4da; border-radius:3px; padding:1px 5px; font-family:"Consolas","Courier New",monospace; font-size:12px; color:#c7254e; }
+  .section-card { background:white; border:1px solid var(--border); border-radius:8px; padding:20px 24px; margin-bottom:20px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .phase-row { display:flex; gap:16px; margin-bottom:12px; }
+  .phase-num { background:var(--primary); color:white; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex-shrink:0; }
+  .phase-body { flex:1; }
+  .phase-body strong { color:var(--primary); }
+  .disc-tag { display:inline-block; background:#fff3cd; border:1px solid #ffc107; border-radius:4px; padding:1px 7px; font-size:11px; font-weight:600; color:#856404; margin:1px; }
+  .ok-tag  { display:inline-block; background:#d4edda; border:1px solid #c3e6cb; border-radius:4px; padding:1px 7px; font-size:11px; font-weight:600; color:#155724; margin:1px; }
+  .file-tag { display:inline-block; background:#e2e3e5; border:1px solid #d6d8db; border-radius:4px; padding:1px 7px; font-size:11px; color:#383d41; margin:1px; }
+  .priority-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:16px 0; }
+  .priority-card { border-radius:6px; padding:14px 16px; }
+  .priority-card.high   { background:#f8d7da; border:1px solid #f5c6cb; }
+  .priority-card.medium { background:#fff3cd; border:1px solid #ffc107; }
+  .priority-card.low    { background:#d4edda; border:1px solid #c3e6cb; }
+  .priority-card .plabel { font-size:11px; text-transform:uppercase; letter-spacing:.5px; font-weight:700; margin-bottom:6px; }
+  .priority-card.high   .plabel { color:#721c24; }
+  .priority-card.medium .plabel { color:#856404; }
+  .priority-card.low    .plabel { color:#155724; }
+  ul li { margin-bottom:4px; }
+  .toc { background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:16px 20px; margin-bottom:28px; }
+  .toc h3 { margin:0 0 8px; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+  .toc ol { margin:0; padding-left:20px; }
+  .toc li { margin-bottom:3px; }
+  .toc a { color:var(--primary); text-decoration:none; font-size:13px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Resumen Final — Sistema de Badges y Estados de Profesionales</h1>
+<p class="meta">Proyecto EIIBD · Directorio de Profesionales · Completado 2026-05-27</p>
+
+<div class="toc">
+  <h3>Documentos generados</h3>
+  <ol>
+    <li><a href="01-modelo-actual.html">01-modelo-actual.html</a> — Inventario completo: tablas, badges, discrepancias</li>
+    <li><a href="02-reset-query.sql">02-reset-query.sql</a> — Script SQL de reset seguro</li>
+    <li><a href="03-explicacion-reset.html">03-explicacion-reset.html</a> — Guía de uso del reset</li>
+    <li><a href="04-trazabilidad.html">04-trazabilidad.html</a> — Diseño de tabla de historial de badges</li>
+    <li><a href="05-sincronizacion.html">05-sincronizacion.html</a> — RecalcularEstadoProfesional canónico</li>
+    <li><a href="06-grid-admin.html">06-grid-admin.html</a> — Vista de badges en grid admin</li>
+    <li><a href="07-validacion-playwright.html">07-validacion-playwright.html</a> — Escenarios de validación</li>
+  </ol>
+</div>
+
+<div class="section-card">
+<h2>Qué se analizó (FASE 1)</h2>
+<p>Se hizo un inventario completo del sistema de badges y estados del directorio de profesionales. Se identificaron <strong>7 discrepancias</strong>:</p>
+<table>
+  <tr><th>#</th><th>Discrepancia</th><th>Tipo</th><th>Prioridad</th></tr>
+  <tr><td>D-01</td><td><code>OnPostVerificarCedulaAsync</code> no sincroniza badge <code>verificado</code></td><td>Bug de consistencia</td><td>Alta</td></tr>
+  <tr><td>D-02</td><td><code>OnPostAprobarClaimAsync</code> no evalúa badges ni delega a fórmula</td><td>Bug de consistencia</td><td>Alta</td></tr>
+  <tr><td>D-03</td><td>Duplicación de <code>RecalcularNivel</code> en dos lugares</td><td>Deuda técnica</td><td>Media</td></tr>
+  <tr><td>D-04</td><td><code>OnPostRevocarBadgeAsync</code> duplica lógica del servicio</td><td>Deuda técnica</td><td>Baja</td></tr>
+  <tr><td>D-05</td><td>Badge <code>perfil_reclamado</code> no verifica <code>EstatusReclamacion</code></td><td>Bug lógico edge case</td><td>Baja</td></tr>
+  <tr><td>D-06</td><td>Sin trazabilidad de revocaciones de badges</td><td>Funcionalidad faltante</td><td>Alta (bloqueador FASE 3+)</td></tr>
+  <tr><td>D-07</td><td><code>EstadoDerivado</code> duplicado en vista paciente</td><td>Deuda técnica</td><td>Baja</td></tr>
+</table>
+</div>
+
+<div class="section-card">
+<h2>Qué se diseñó (FASEs 2–7)</h2>
+
+<div class="phase-row">
+  <div class="phase-num">2</div>
+  <div class="phase-body">
+    <strong>Reset seguro de profesional</strong><br>
+    Script SQL idempotente con transacción. Limpia claim/verificación/badges sin tocar datos históricos (confirmaciones, perfil extendido). Incluye SELECT de auditoría pre y post.
+    <br><span class="file-tag">02-reset-query.sql</span> <span class="file-tag">03-explicacion-reset.html</span>
+  </div>
+</div>
+
+<div class="phase-row">
+  <div class="phase-num">3</div>
+  <div class="phase-body">
+    <strong>Trazabilidad de badges</strong> — resuelve D-06<br>
+    Nueva tabla <code>MedicoBadgeHistorial</code> (schema SQL + modelo C# + DbSet). Cada otorgamiento y revocación queda registrado con actor, motivo y fecha. <code>OtorgarBadgeAsync</code> y <code>RevocarBadgeAsync</code> actualizados para insertar en el historial.
+    <br><span class="file-tag">04-trazabilidad.html</span>
+    <br><span class="disc-tag">D-06 resuelto</span>
+  </div>
+</div>
+
+<div class="phase-row">
+  <div class="phase-num">5</div>
+  <div class="phase-body">
+    <strong>RecalcularEstadoProfesional canónico</strong> — resuelve D-01, D-02, D-03, D-04<br>
+    Todos los callers del admin delegan a <code>_service.RecalcularNivelConfianzaAsync</code>. Se elimina el método privado duplicado. <code>OnPostVerificarCedulaAsync</code> añade sincronización de badge. <code>OnPostAprobarClaimAsync</code> evalúa badges automáticos.
+    <br><span class="file-tag">05-sincronizacion.html</span>
+    <br><span class="disc-tag">D-01 resuelto</span> <span class="disc-tag">D-02 resuelto</span> <span class="disc-tag">D-03 resuelto</span> <span class="disc-tag">D-04 resuelto</span>
+  </div>
+</div>
+
+<div class="phase-row">
+  <div class="phase-num">6</div>
+  <div class="phase-body">
+    <strong>Vista de badges en grid admin</strong><br>
+    Sección 7 ampliada con tabla de historial (disponible tras FASE 3), botón Revocar en badges obtenidos con confirmación, botón "Recalcular nivel" con handler <code>OnPostRecalcularNivelAsync</code>.
+    <br><span class="file-tag">06-grid-admin.html</span>
+  </div>
+</div>
+
+<div class="phase-row">
+  <div class="phase-num">7</div>
+  <div class="phase-body">
+    <strong>Escenarios de validación Playwright</strong><br>
+    9 escenarios que cubren todos los flujos críticos: verificar cédula, aprobar claim, revocar badge, evaluar automáticos, estados en vista paciente, switch eliminados.
+    <br><span class="file-tag">07-validacion-playwright.html</span>
+  </div>
+</div>
+</div>
+
+<div class="section-card">
+<h2>Orden de implementación recomendado</h2>
+<div class="priority-grid">
+  <div class="priority-card high">
+    <div class="plabel">Sprint 1 — Crítico</div>
+    <ul>
+      <li>D-01: VerificarCedulaAsync + badge</li>
+      <li>D-02: AprobarClaimAsync + badges</li>
+      <li>D-04: Delegar RevocarBadge al servicio</li>
+    </ul>
+    <p style="font-size:12px;margin:6px 0 0;color:#721c24">Correcciones de 1-3 líneas cada una. Build + validar SC-01, SC-03, SC-04.</p>
+  </div>
+  <div class="priority-card medium">
+    <div class="plabel">Sprint 2 — Trazabilidad</div>
+    <ul>
+      <li>FASE 3: SQL + modelo + DbSet + OtorgarBadge + RevocarBadge</li>
+      <li>FASE 6: Tabla historial en panel admin</li>
+    </ul>
+    <p style="font-size:12px;margin:6px 0 0;color:#856404">Schema change requiere coordinación. Validar SC-05.</p>
+  </div>
+  <div class="priority-card low">
+    <div class="plabel">Sprint 3 — Limpieza</div>
+    <ul>
+      <li>D-03: Inyectar servicio y eliminar RecalcularNivelAsync privado</li>
+      <li>D-05: Verificar EstatusReclamacion en EvaluarBadgesAuto</li>
+      <li>D-07: EstadoDerivado duplicado</li>
+      <li>FASE 6: Botón Recalcular nivel</li>
+    </ul>
+    <p style="font-size:12px;margin:6px 0 0;color:#155724">Deuda técnica. No afecta funcionalidad actual.</p>
+  </div>
+</div>
+</div>
+
+<div class="section-card">
+<h2>Archivos afectados en implementación</h2>
+<table>
+  <tr><th>Archivo</th><th>Sprint</th><th>Cambios</th></tr>
+  <tr>
+    <td><code>Areas/Identity/Pages/Admin/DirectorioMedicos/Index.cshtml.cs</code></td>
+    <td>1, 2, 3</td>
+    <td>VerificarCedula, AprobarClaim, RevocarBadge, inyectar servicio, RecalcularNivel handler</td>
+  </tr>
+  <tr>
+    <td><code>Areas/Identity/Pages/Admin/DirectorioMedicos/Index.cshtml</code></td>
+    <td>2</td>
+    <td>Sección historial + botón revocar + botón recalcular</td>
+  </tr>
+  <tr>
+    <td><code>Services/Medico/IMedicoBadgeService.cs</code></td>
+    <td>2</td>
+    <td>Actualizar firmas + GetHistorialAsync</td>
+  </tr>
+  <tr>
+    <td><code>Services/Medico/MedicoBadgeService.cs</code></td>
+    <td>2</td>
+    <td>Historial en Otorgar/Revocar + implementar GetHistorial</td>
+  </tr>
+  <tr>
+    <td><code>Models/Medico/MedicoBadgeHistorial.cs</code> (nuevo)</td>
+    <td>2</td>
+    <td>Modelo entidad</td>
+  </tr>
+  <tr>
+    <td><code>Data/ApplicationDbContext.cs</code></td>
+    <td>2</td>
+    <td>DbSet + OnModelCreating</td>
+  </tr>
+  <tr>
+    <td><code>SQL/add-medico-badge-historial.sql</code> (nuevo)</td>
+    <td>2</td>
+    <td>CREATE TABLE</td>
+  </tr>
+</table>
+</div>
+
+<div class="section-card">
+<h2>Reglas canónicas establecidas</h2>
+<ul>
+  <li><strong>Fuente única para "verificado":</strong> <code>EstatusValidacion == Validado</code> en <code>MedicosDirectorio</code>. El badge <code>verificado</code> es siempre un efecto secundario de cambiar ese campo.</li>
+  <li><strong>Fuente única para NivelConfianza:</strong> <code>MedicoDirectorioService.RecalcularNivelConfianzaAsync</code>. Nadie calcula el nivel directamente — siempre se delega al servicio.</li>
+  <li><strong>Badges son derivados:</strong> los automáticos se otorgan desde <code>EvaluarBadgesAutomaticosAsync</code>. Solo <code>creador_contenido</code> es verdaderamente manual.</li>
+  <li><strong>Sin hardcode de nivel:</strong> no escribir <code>NivelConfianza = Establecido</code> — siempre llamar al servicio.</li>
+  <li><strong>Historial es immutable:</strong> solo se insertan filas en <code>MedicoBadgeHistorial</code>, nunca se modifican.</li>
+</ul>
+</div>
+
+<hr style="margin:40px 0; border-color:var(--border)">
+<p class="meta">Análisis y diseño arquitectónico completado · EIIBD Directorio de Profesionales · 2026-05-27</p>
+
+</div>
+</body>
+</html>
