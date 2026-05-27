@@ -93,6 +93,22 @@ public class MedicoDirectorio
     [NotMapped]
     public int NivelVerificacion => (int)NivelConfianza;
 
+    [NotMapped]
+    public EstadoProfesionalDerivado EstadoDerivado
+    {
+        get
+        {
+            if (Eliminado) return EstadoProfesionalDerivado.Eliminado;
+            if (Activo && VisiblePublicamente && EstatusReclamacion == EstatusReclamacion.Reclamado)
+                return EstadoProfesionalDerivado.Reclamado;
+            if (Activo && VisiblePublicamente)
+                return EstadoProfesionalDerivado.Publicado;
+            if (EstatusValidacion == EstatusValidacionCedula.Validado)
+                return EstadoProfesionalDerivado.CedulaVerificada;
+            return EstadoProfesionalDerivado.Propuesto;
+        }
+    }
+
     [Display(Name = "Visible públicamente")]
     public bool VisiblePublicamente { get; set; } = true;
 

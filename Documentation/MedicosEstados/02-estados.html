@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Directorio Profesionales — 02 Estados</title>
+<style>
+  :root {
+    --primary:#2E86AB;--secondary:#A23B72;--accent:#F18F01;
+    --success:#2E9E5B;--danger:#c92a2a;--warn:#b45309;
+    --bg:#f7fbfc;--card:#fff;--text:#1A1A2E;--muted:#6B7280;
+    --border:#e5e7eb;--code-bg:#f1f5f9;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+  .page{max-width:1100px;margin:0 auto;padding:32px 20px 60px}
+  h1{font-size:2rem;font-weight:700;color:var(--primary);margin-bottom:4px}
+  .subtitle{color:var(--muted);font-size:.95rem;margin-bottom:32px}
+  h2{font-size:1.3rem;font-weight:700;color:var(--text);margin:32px 0 12px;border-left:4px solid var(--primary);padding-left:10px}
+  h3{font-size:1rem;font-weight:700;color:var(--secondary);margin:18px 0 8px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+  .card-title{font-size:1rem;font-weight:700;color:var(--primary);margin-bottom:12px}
+  table{width:100%;border-collapse:collapse;font-size:.88rem;margin-top:8px}
+  th{background:#eef4fa;color:#3d436c;font-weight:700;padding:8px 10px;text-align:left;border-bottom:2px solid #ddeaf7}
+  td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+  tr:hover td{background:#f9fbfc}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.76rem;font-weight:600}
+  .badge-ok{background:#d1fae5;color:#065f46}
+  .badge-warn{background:#fef3c7;color:#92400e}
+  .badge-err{background:#fee2e2;color:#991b1b}
+  .badge-info{background:#dbeafe;color:#1e40af}
+  .badge-gray{background:#f3f4f6;color:#374151;border:1px solid #e5e7eb}
+  code{background:var(--code-bg);border-radius:4px;padding:2px 6px;font-size:.85em;font-family:'Cascadia Code',Consolas,monospace;color:var(--secondary)}
+  pre{background:var(--code-bg);border-radius:8px;padding:16px;overflow-x:auto;font-size:.83rem;font-family:'Cascadia Code',Consolas,monospace;border:1px solid var(--border);margin:8px 0 16px;color:#1e293b}
+  /* State machine SVG-like boxes */
+  .state-flow{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0;align-items:flex-start}
+  .state-box{border-radius:10px;padding:12px 16px;min-width:160px;position:relative;border:2px solid transparent}
+  .state-box.pending{background:#fef3c7;border-color:#f59e0b;color:#78350f}
+  .state-box.progress{background:#dbeafe;border-color:#3b82f6;color:#1e3a8a}
+  .state-box.verified{background:#d1fae5;border-color:#10b981;color:#064e3b}
+  .state-box.published{background:#ede9fe;border-color:#8b5cf6;color:#4c1d95}
+  .state-box.claimed{background:#fce7f3;border-color:#ec4899;color:#831843}
+  .state-box.deleted{background:#f3f4f6;border-color:#9ca3af;color:#374151}
+  .state-name{font-weight:700;font-size:.9rem}
+  .state-trigger{font-size:.78rem;margin-top:4px;opacity:.85}
+  .arrow{font-size:1.4rem;color:var(--muted);align-self:center}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  hr{border:none;border-top:1px solid var(--border);margin:28px 0}
+  .note{background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 16px;margin:10px 0;font-size:.88rem}
+  .note strong{color:#c2410c}
+  @media(max-width:700px){.grid-2{grid-template-columns:1fr}.state-flow{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>Directorio de Profesionales de la Salud</h1>
+  <p class="subtitle">FASE 2 — Fuente canónica y máquina de estados unificada · EIIBD.com · Mayo 2026</p>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2>El problema: cuántas fuentes de verdad existen hoy</h2>
+
+  <div class="card">
+    <div class="card-title">Diagnóstico previo — 4 definiciones de "Verificado"</div>
+    <table>
+      <thead><tr><th>Pantalla</th><th>Condición que usa</th><th>Campo fuente</th></tr></thead>
+      <tbody>
+        <tr><td>Admin panel — checkbox superior</td><td><code>m.CedulaVerificada</code></td><td><code>EstatusValidacion == Validado</code></td></tr>
+        <tr><td>Admin panel — sección Badges</td><td>Badge <code>"verificado"</code> en <code>MedicoPerfilBadge</code></td><td>Tabla <code>MedicoPerfilBadge</code></td></tr>
+        <tr><td>Admin grid — tri-badges visuales</td><td><code>cedulaVerificada || totalConfirmaciones >= 5</code></td><td>Lógica JS inline</td></tr>
+        <tr><td>Detalle público — badge "Verificado"</td><td><code>NivelConfianza >= Reconocido</code> o <code>EstatusValidacion == Validado</code></td><td><code>NivelConfianza</code></td></tr>
+      </tbody>
+    </table>
+    <div class="note" style="margin-top:12px">
+      <strong>Decisión de diseño:</strong> La fuente canónica para "Cédula verificada" es y debe ser <code>MedicoDirectorio.EstatusValidacion</code>. El badge <code>"verificado"</code> debe derivarse automáticamente de esta fuente, no ser independiente.
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2>Máquina de estados propuesta — Profesional</h2>
+
+  <div class="card">
+    <div class="card-title">Estados del registro del profesional (derivados de campos existentes)</div>
+    <p style="font-size:.88rem;color:var(--muted);margin-bottom:14px">No se agrega un nuevo campo <code>EstadoProfesional</code> a la BD. El estado se deriva en tiempo de ejecución desde los campos existentes. Esto evita migraciones complejas y mantiene la fuente de verdad distribuida en campos bien definidos.</p>
+
+    <div class="state-flow">
+      <div class="state-box pending">
+        <div class="state-name">📋 PROPUESTO</div>
+        <div class="state-trigger">Condición:<br/><code>Activo=false, VisiblePublicamente=false</code></div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="state-box verified">
+        <div class="state-name">✅ CEDULA_VERIFICADA</div>
+        <div class="state-trigger">Condición:<br/><code>EstatusValidacion=Validado</code><br/>Admin marca cédula</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="state-box published">
+        <div class="state-name">🌐 PUBLICADO</div>
+        <div class="state-trigger">Condición:<br/><code>Activo=true, VisiblePublicamente=true</code></div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="state-box claimed">
+        <div class="state-name">🔐 RECLAMADO</div>
+        <div class="state-trigger">Condición:<br/><code>EstatusReclamacion=Reclamado</code></div>
+      </div>
+    </div>
+    <div class="state-flow" style="margin-top:4px">
+      <div class="state-box deleted">
+        <div class="state-name">🗑 ELIMINADO</div>
+        <div class="state-trigger">Condición:<br/><code>Eliminado=true</code><br/>Soft delete admin</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Función canónica — <code>DerivarEstadoProfesional()</code></div>
+    <p style="margin-bottom:8px">Esta función reemplaza toda lógica dispersa. Todas las pantallas la consumen.</p>
+    <pre>// En MedicoDirectorio (NotMapped) o en un helper estático
+
+public enum EstadoProfesionalDerivado
+{
+    Propuesto        = 0,  // Activo=false, VisiblePublicamente=false
+    CedulaVerificada = 1,  // EstatusValidacion=Validado (aún no publicado)
+    Publicado        = 2,  // Activo=true, VisiblePublicamente=true
+    Reclamado        = 3,  // EstatusReclamacion=Reclamado (+ publicado)
+    Eliminado        = -1  // Eliminado=true
+}
+
+[NotMapped]
+public EstadoProfesionalDerivado EstadoDerivado
+{
+    get
+    {
+        if (Eliminado)                                           return EstadoProfesionalDerivado.Eliminado;
+        if (Activo && VisiblePublicamente
+            && EstatusReclamacion == EstatusReclamacion.Reclamado) return EstadoProfesionalDerivado.Reclamado;
+        if (Activo && VisiblePublicamente)                       return EstadoProfesionalDerivado.Publicado;
+        if (EstatusValidacion == EstatusValidacionCedula.Validado) return EstadoProfesionalDerivado.CedulaVerificada;
+        return EstadoProfesionalDerivado.Propuesto;
+    }
+}</pre>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2>Máquina de estados — Vista del Paciente</h2>
+
+  <div class="card">
+    <div class="card-title">Lo que el paciente proponente debe ver en "Mis propuestas"</div>
+    <table>
+      <thead><tr><th>EstadoDerivado</th><th>Label para el paciente</th><th>Badge color</th><th>Descripción</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>Propuesto</code></td>
+          <td>En revisión</td>
+          <td><span class="badge" style="background:#fef3c7;color:#78350f">En revisión</span></td>
+          <td>El equipo EIIBD está revisando la propuesta</td>
+        </tr>
+        <tr>
+          <td><code>CedulaVerificada</code></td>
+          <td>Cédula verificada</td>
+          <td><span class="badge" style="background:#d1fae5;color:#065f46">Cédula verificada ✓</span></td>
+          <td>El admin verificó la cédula — pronto estará visible</td>
+        </tr>
+        <tr>
+          <td><code>Publicado</code></td>
+          <td>Publicado en el directorio</td>
+          <td><span class="badge" style="background:#ede9fe;color:#4c1d95">Publicado ✓</span></td>
+          <td>Ya aparece en el directorio público</td>
+        </tr>
+        <tr>
+          <td><code>Reclamado</code></td>
+          <td>Perfil reclamado por el profesional</td>
+          <td><span class="badge" style="background:#fce7f3;color:#831843">Reclamado ✓</span></td>
+          <td>El profesional tomó control de su perfil</td>
+        </tr>
+        <tr>
+          <td><code>Eliminado</code></td>
+          <td><em>No mostrar en la lista del paciente</em></td>
+          <td>—</td>
+          <td>No debe aparecer en "Mis propuestas"</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="note">
+      <strong>Regla:</strong> El componente "Mis propuestas" en <code>Pages/DirectorioMedicos/Index.cshtml</code> debe mostrar todos los estados salvo <code>Eliminado</code>. El badge y el texto deben derivarse de <code>EstadoDerivado</code>.
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2>Unificación de "Verificado" — Una sola verdad</h2>
+
+  <div class="card">
+    <div class="card-title">Regla canónica: EstatusValidacion es la única fuente</div>
+    <p>La fuente de verdad para "cédula verificada" es <strong>únicamente</strong> <code>MedicoDirectorio.EstatusValidacion</code>.</p>
+    <p style="margin-top:8px">El badge <code>"verificado"</code> en <code>MedicoPerfilBadge</code> debe ser un <strong>efecto secundario automático</strong> de cambiar <code>EstatusValidacion</code>.</p>
+
+    <h3>Cambio en OnPostEditarAsync — sincronización automática de badge</h3>
+    <pre>// En Admin/DirectorioMedicos/Index.cshtml.cs
+// ANTES:
+if (cambioVerificacion)
+{
+    if (cedulaVerificada) { medico.EstatusValidacion = EstatusValidacionCedula.Validado; medico.FechaCedulaVerificada = DateTime.UtcNow; }
+    else { medico.EstatusValidacion = EstatusValidacionCedula.PendienteValidacion; medico.FechaCedulaVerificada = null; }
+}
+
+// DESPUÉS (agregar sincronización de badge):
+if (cambioVerificacion)
+{
+    if (cedulaVerificada)
+    {
+        medico.EstatusValidacion     = EstatusValidacionCedula.Validado;
+        medico.FechaCedulaVerificada = DateTime.UtcNow;
+        await _badgeService.OtorgarBadgeAsync(medico.Id, "verificado", "admin");  // ← NUEVO
+    }
+    else
+    {
+        medico.EstatusValidacion     = EstatusValidacionCedula.PendienteValidacion;
+        medico.FechaCedulaVerificada = null;
+        await _badgeService.RevocarBadgeAsync(medico.Id, "verificado");           // ← NUEVO
+    }
+}</pre>
+
+    <h3>Mismo fix para OnPostVerificarAsync (handler de toggle rápido)</h3>
+    <pre>public async Task&lt;IActionResult&gt; OnPostVerificarAsync()
+{
+    var id = int.Parse(Request.Form["id"]!);
+    var m  = await _db.MedicosDirectorio.FirstOrDefaultAsync(x => x.Id == id);
+    if (m is null) return new JsonResult(new { success = false });
+
+    var toggleVerificado = m.EstatusValidacion != EstatusValidacionCedula.Validado;
+    m.EstatusValidacion     = toggleVerificado ? EstatusValidacionCedula.Validado : EstatusValidacionCedula.PendienteValidacion;
+    m.FechaCedulaVerificada = toggleVerificado ? DateTime.UtcNow : null;
+    m.FechaModificacion     = DateTimeOffset.UtcNow;
+    await _db.SaveChangesAsync();
+
+    // Sincronizar badge "verificado" — FUENTE CANÓNICA
+    if (toggleVerificado)
+        await _badgeService.OtorgarBadgeAsync(m.Id, "verificado", "admin");
+    else
+        await _badgeService.RevocarBadgeAsync(m.Id, "verificado");
+
+    await RecalcularNivelAsync(m, id);
+    return new JsonResult(new { success = true });
+}</pre>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2>Eliminación de lógica duplicada en el Admin panel</h2>
+
+  <div class="card">
+    <div class="card-title">Tri-badges del Admin grid — unificar con EstadoDerivado</div>
+    <p>Actualmente la función JavaScript <code>triBadges(row)</code> en el Admin grid calcula:</p>
+    <pre style="font-size:.82rem">const comunidadOk = d.totalConfirmaciones >= 3 && d.tieneConfirmacionEII;
+const verificadoOk = d.cedulaVerificada || d.totalConfirmaciones >= 5;  // ← lógica diferente
+const reclamadoOk  = d.perfilReclamado;</pre>
+    <p>La condición <code>verificadoOk</code> mezcla cédula verificada con confirmaciones — no corresponde al badge real. Debe simplificarse:</p>
+    <pre>// CORRECCIÓN:
+const comunidadOk = row.totalConfirmaciones >= 3;
+const verificadoOk = row.cedulaVerificada;   // ← solo la fuente canónica
+const reclamadoOk  = row.perfilReclamado;
+
+// El servidor ya devuelve:
+// row.cedulaVerificada = (EstatusValidacion == Validado)
+// row.perfilReclamado  = (EstatusReclamacion == Reclamado)</pre>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2>Resumen de cambios en Fase 2</h2>
+
+  <div class="card">
+    <table>
+      <thead><tr><th>Cambio</th><th>Archivo</th><th>Tipo</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Agregar <code>EstadoProfesionalDerivado</code> enum + propiedad <code>[NotMapped]</code></td>
+          <td><code>Models/Directorio/MedicoDirectorio.cs</code></td>
+          <td><span class="badge badge-info">Backend</span></td>
+        </tr>
+        <tr>
+          <td>Sincronizar badge "verificado" al cambiar EstatusValidacion</td>
+          <td><code>Admin/DirectorioMedicos/Index.cshtml.cs</code></td>
+          <td><span class="badge badge-info">Backend</span></td>
+        </tr>
+        <tr>
+          <td>Usar <code>EstadoDerivado</code> en <code>GetMisPropuestasAsync()</code></td>
+          <td><code>Services/Directorio/MedicoDirectorioService.cs</code></td>
+          <td><span class="badge badge-info">Backend</span></td>
+        </tr>
+        <tr>
+          <td>Componente "Mis propuestas" usa estados con label dinámico</td>
+          <td><code>Pages/DirectorioMedicos/Index.cshtml</code></td>
+          <td><span class="badge badge-ok">Frontend</span></td>
+        </tr>
+        <tr>
+          <td>Simplificar <code>triBadges()</code> en Admin grid</td>
+          <td><code>Admin/DirectorioMedicos/Index.cshtml</code> (JS)</td>
+          <td><span class="badge badge-ok">Frontend</span></td>
+        </tr>
+        <tr>
+          <td>Cambio semántico de textos "médico" → "profesional"</td>
+          <td>Múltiples vistas (.cshtml)</td>
+          <td><span class="badge badge-ok">Frontend</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+</body>
+</html>

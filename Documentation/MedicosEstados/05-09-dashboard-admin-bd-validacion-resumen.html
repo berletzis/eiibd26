@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Directorio Profesionales — 05 Dashboard / 06 Admin / 07 BD / 08 Validación</title>
+<style>
+  :root{--primary:#2E86AB;--secondary:#A23B72;--accent:#F18F01;--success:#2E9E5B;--danger:#c92a2a;--warn:#b45309;--bg:#f7fbfc;--card:#fff;--text:#1A1A2E;--muted:#6B7280;--border:#e5e7eb;--code-bg:#f1f5f9}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+  .page{max-width:1100px;margin:0 auto;padding:32px 20px 60px}
+  h1{font-size:2rem;font-weight:700;color:var(--primary);margin-bottom:4px}
+  .subtitle{color:var(--muted);font-size:.95rem;margin-bottom:32px}
+  h2{font-size:1.3rem;font-weight:700;color:var(--text);margin:32px 0 12px;border-left:4px solid var(--primary);padding-left:10px}
+  h3{font-size:1rem;font-weight:700;color:var(--secondary);margin:18px 0 8px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+  .card-title{font-size:1rem;font-weight:700;color:var(--primary);margin-bottom:12px}
+  table{width:100%;border-collapse:collapse;font-size:.88rem;margin-top:8px}
+  th{background:#eef4fa;color:#3d436c;font-weight:700;padding:8px 10px;text-align:left;border-bottom:2px solid #ddeaf7}
+  td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+  tr:hover td{background:#f9fbfc}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.76rem;font-weight:600}
+  .badge-ok{background:#d1fae5;color:#065f46}.badge-warn{background:#fef3c7;color:#92400e}.badge-err{background:#fee2e2;color:#991b1b}.badge-info{background:#dbeafe;color:#1e40af}.badge-gray{background:#f3f4f6;color:#374151;border:1px solid #e5e7eb}
+  code{background:var(--code-bg);border-radius:4px;padding:2px 6px;font-size:.85em;font-family:'Cascadia Code',Consolas,monospace;color:var(--secondary)}
+  pre{background:var(--code-bg);border-radius:8px;padding:16px;overflow-x:auto;font-size:.83rem;font-family:'Cascadia Code',Consolas,monospace;border:1px solid var(--border);margin:8px 0 16px;color:#1e293b}
+  .problem-box{background:#fff5f5;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;margin:10px 0}
+  .problem-box strong{color:var(--danger)}
+  .fix-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 16px;margin:10px 0}
+  .fix-box strong{color:#15803d}
+  hr{border:none;border-top:1px solid var(--border);margin:28px 0}
+  .note{background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 16px;margin:10px 0;font-size:.88rem}
+  .section-divider{text-align:center;font-size:1.6rem;color:var(--muted);margin:40px 0 10px;letter-spacing:.2em}
+  .admin-section-order{counter-reset:section}
+  .admin-section{counter-increment:section;background:var(--code-bg);border-radius:8px;padding:12px 16px;margin:8px 0;border-left:3px solid var(--primary)}
+  .admin-section::before{content:counter(section)". ";font-weight:700;color:var(--primary)}
+  .playwright-step{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:8px 14px;margin:6px 0;font-size:.87rem}
+  .playwright-step strong{color:#15803d}
+  @media(max-width:700px){.grid-2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>Directorio de Profesionales de la Salud</h1>
+  <p class="subtitle">FASES 5–8 — Dashboard Paciente · Admin Reordenamiento · BD · Validación · EIIBD.com · Mayo 2026</p>
+
+  <!-- ═══ FASE 5 ═══════════════════════════════════════════════════ -->
+  <div class="section-divider">●</div>
+  <h2>FASE 5 — Dashboard Paciente: "Mis propuestas"</h2>
+
+  <div class="card">
+    <div class="card-title">Fix BUG-2 — GetMisPropuestasAsync debe proyectar el estado real</div>
+    <p>El método actual en <code>MedicoDirectorioService</code> solo filtra por <code>PropuestoPorUsuarioId</code> y devuelve todos los registros sin importar su estado. La vista los muestra todos como "pendiente".</p>
+
+    <h3>Nuevo ViewModel para propuestas del paciente</h3>
+    <pre>// En DirectorioViewModels.cs — nuevo VM
+public class PropuestaPacienteVm
+{
+    public int    Id          { get; set; }
+    public string Nombre      { get; set; } = string.Empty;
+    public string? Especialidad { get; set; }
+    public string? Estado       { get; set; }
+    public DateTimeOffset Fecha { get; set; }
+    public EstadoProfesionalDerivado EstadoDerivado { get; set; }
+
+    public string EstadoLabel => EstadoDerivado switch
+    {
+        EstadoProfesionalDerivado.Propuesto        => "En revisión",
+        EstadoProfesionalDerivado.CedulaVerificada => "Cédula verificada",
+        EstadoProfesionalDerivado.Publicado        => "Publicado en el directorio",
+        EstadoProfesionalDerivado.Reclamado        => "Reclamado por el profesional",
+        _                                          => "En revisión"
+    };
+
+    public string EstadoBadgeClass => EstadoDerivado switch
+    {
+        EstadoProfesionalDerivado.Propuesto        => "bg-warning text-dark",
+        EstadoProfesionalDerivado.CedulaVerificada => "bg-success",
+        EstadoProfesionalDerivado.Publicado        => "bg-primary",
+        EstadoProfesionalDerivado.Reclamado        => "bg-info text-dark",
+        _                                          => "bg-secondary"
+    };
+}</pre>
+
+    <h3>Query corregida en el servicio</h3>
+    <pre>// En MedicoDirectorioService.cs
+public async Task&lt;List&lt;PropuestaPacienteVm&gt;&gt; GetMisPropuestasAsync(Guid usuarioId)
+{
+    return await _db.MedicosDirectorio
+        .AsNoTracking()
+        .IgnoreQueryFilters()                       // ← incluir eliminados para no mostrarlos
+        .Where(m => m.PropuestoPorUsuarioId == usuarioId
+                 && !m.Eliminado)                   // ← excluir eliminados del dashboard
+        .OrderByDescending(m => m.FechaCreacion)
+        .Select(m => new PropuestaPacienteVm
+        {
+            Id          = m.Id,
+            Nombre      = m.NombreCompleto,
+            Especialidad = m.Especialidad,
+            Estado       = m.Estado,
+            Fecha        = m.FechaCreacion,
+            // Calcular EstadoDerivado en C# (no en SQL)
+            EstadoDerivado = m.Eliminado ? EstadoProfesionalDerivado.Eliminado
+                           : m.Activo && m.VisiblePublicamente && m.EstatusReclamacion == EstatusReclamacion.Reclamado
+                             ? EstadoProfesionalDerivado.Reclamado
+                           : m.Activo && m.VisiblePublicamente
+                             ? EstadoProfesionalDerivado.Publicado
+                           : m.EstatusValidacion == EstatusValidacionCedula.Validado
+                             ? EstadoProfesionalDerivado.CedulaVerificada
+                           : EstadoProfesionalDerivado.Propuesto
+        })
+        .ToListAsync();
+}
+// Nota: EF Core puede evaluar expresiones condicionales simples en SQL.
+// Si hay problemas de traducción, cargar los campos y calcular en memoria con AsEnumerable().</pre>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Vista — Componente "Mis propuestas" actualizado</div>
+    <pre>@* En Pages/DirectorioMedicos/Index.cshtml — reemplazar el alert de propuestas *@
+@if (Model.MisPropuestas.Any())
+{
+    &lt;div class="alert alert-info mb-4" role="alert"&gt;
+        &lt;div class="d-flex align-items-center gap-2 mb-2"&gt;
+            &lt;i class="bi bi-person-plus"&gt;&lt;/i&gt;
+            &lt;strong&gt;Mis aportaciones al directorio (@Model.MisPropuestas.Count)&lt;/strong&gt;
+        &lt;/div&gt;
+        &lt;ul class="mb-0 ps-3" style="font-size:0.9rem"&gt;
+            @foreach (var p in Model.MisPropuestas)
+            {
+                &lt;li&gt;
+                    &lt;strong&gt;@p.Nombre&lt;/strong&gt;
+                    @if (!string.IsNullOrWhiteSpace(p.Especialidad)) { &lt;span class="text-muted"&gt; · @p.Especialidad&lt;/span&gt; }
+                    @if (!string.IsNullOrWhiteSpace(p.Estado)) { &lt;span class="text-muted"&gt; · @p.Estado&lt;/span&gt; }
+                    &lt;span class="badge @p.EstadoBadgeClass ms-1" style="font-size:0.72rem"&gt;@p.EstadoLabel&lt;/span&gt;
+                    &lt;small class="text-muted ms-1"&gt;@p.Fecha.ToLocalTime().ToString("dd/MM/yyyy")&lt;/small&gt;
+                    @if (p.EstadoDerivado == EstadoProfesionalDerivado.Publicado
+                      || p.EstadoDerivado == EstadoProfesionalDerivado.Reclamado)
+                    {
+                        &lt;a href="/DirectorioMedicos/@p.Id" class="ms-2 small"&gt;Ver perfil&lt;/a&gt;
+                    }
+                &lt;/li&gt;
+            }
+        &lt;/ul&gt;
+    &lt;/div&gt;
+}</pre>
+  </div>
+
+  <!-- ═══ FASE 6 ═══════════════════════════════════════════════════ -->
+  <div class="section-divider">●</div>
+  <h2>FASE 6 — Reordenamiento del Panel Admin</h2>
+
+  <div class="card">
+    <div class="card-title">Orden actual (mezclado) vs. orden propuesto (semántico)</div>
+    <p style="margin-bottom:12px">El panel lateral del admin mezcla datos personales, verificación, badges y auditoría sin jerarquía clara. El nuevo orden agrupa información relacionada:</p>
+
+    <div class="admin-section-order">
+      <div class="admin-section">Datos profesionales — Nombre, Especialidad, Subespecialidad, Cédula, País</div>
+      <div class="admin-section">Ubicación — Ciudad (Google Maps autocomplete), Estado, Hospital/Clínica, Latitud/Longitud</div>
+      <div class="admin-section">Verificación y publicación — Cédula verificada (checkbox) + fecha, Estado publicación (Activo + VisiblePublicamente), EstadoDerivado label</div>
+      <div class="admin-section">Claim — Estatus reclamación, Email solicitud, Botones aprobar/rechazar, Fecha reclamación</div>
+      <div class="admin-section">Comunidad — Total confirmaciones, Pacientes que confirmaron (lista)</div>
+      <div class="admin-section">Badges — Lista de 6 badges con estado read-only / manual según tipo</div>
+      <div class="admin-section">Experiencias EII reportadas — checkboxes por área</div>
+      <div class="admin-section">Auditoría — Soft delete, Fecha creación, Propuesto por, Fecha modificación</div>
+    </div>
+
+    <div class="note" style="margin-top:12px">
+      <strong>Principio:</strong> La sección de Verificación y Publicación agrupa el checkpoint más importante del flujo admin. El admin debe ver de un vistazo: ¿Cédula OK? ¿Publicado? ¿Reclamado? — sin bajar scroll.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Nueva sección "Verificación y Publicación" — HTML del panel</div>
+    <pre>// Reemplazar la sección actual en renderPanel(d):
+
+// SECCIÓN 3: Verificación y Publicación (nueva, agrupada)
+`&lt;p class="panel-section-title"&gt;Verificación y Publicación&lt;/p&gt;
+
+&lt;!-- Estado derivado -- visual rápido --&gt;
+&lt;div class="mb-2"&gt;
+    &lt;label class="crm-label d-block mb-1"&gt;Estado actual&lt;/label&gt;
+    &lt;span class="badge ${estadoBadge(d)}"&gt;${estadoLabel(d)}&lt;/span&gt;
+&lt;/div&gt;
+
+&lt;!-- Cédula verificada --&gt;
+&lt;div class="form-check mb-1"&gt;
+    &lt;input class="form-check-input" type="checkbox" id="ep_cedulaVerificada" ${d.cedulaVerificada ? 'checked' : ''}&gt;
+    &lt;label class="form-check-label crm-label" for="ep_cedulaVerificada"&gt;Cédula verificada&lt;/label&gt;
+&lt;/div&gt;
+${d.cedulaVerificada && d.fechaCedulaVerificada ? '&lt;p class="text-muted small mb-2"&gt;Verificada: ' + d.fechaCedulaVerificada + '&lt;/p&gt;' : ''}
+
+&lt;!-- SECCIÓN 4: Claim --&gt;
+&lt;p class="panel-section-title mt-2"&gt;Claim&lt;/p&gt;
+...`
+
+// Helper JS para estado derivado:
+function estadoLabel(d) {
+    if (d.eliminado)      return '🗑 Eliminado';
+    if (d.perfilReclamado)    return '🔐 Reclamado';
+    if (d.activo && d.visible) return '🌐 Publicado';
+    if (d.cedulaVerificada)   return '✅ Cédula verificada';
+    return '📋 Propuesto / En revisión';
+}
+function estadoBadge(d) {
+    if (d.eliminado)          return 'bg-secondary';
+    if (d.perfilReclamado)    return 'bg-success';
+    if (d.activo && d.visible) return 'bg-primary';
+    if (d.cedulaVerificada)   return 'bg-info text-dark';
+    return 'bg-warning text-dark';
+}</pre>
+    <div class="note">
+      <strong>Nota:</strong> El JSON que devuelve <code>OnGetMedicoAsync</code> necesita incluir los campos <code>activo</code> y <code>visible</code> que actualmente no están en la respuesta. Agregarlos al Select.
+    </div>
+  </div>
+
+  <!-- ═══ FASE 7 ═══════════════════════════════════════════════════ -->
+  <div class="section-divider">●</div>
+  <h2>FASE 7 — Base de Datos</h2>
+
+  <div class="card">
+    <div class="card-title">Cambios de esquema requeridos — análisis completo</div>
+    <table>
+      <thead><tr><th>Cambio</th><th>Tabla</th><th>Tipo</th><th>Necesario</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Agregar campo <code>TipoProfesional</code> (nvarchar(50) nullable)</td>
+          <td><code>MedicosDirectorio</code></td>
+          <td><span class="badge badge-info">ALTER TABLE</span></td>
+          <td><span class="badge badge-warn">Futuro — no urgente</span></td>
+        </tr>
+        <tr>
+          <td>Verificar que <code>Activo</code> y <code>VisiblePublicamente</code> existen</td>
+          <td><code>MedicosDirectorio</code></td>
+          <td>Verificación</td>
+          <td><span class="badge badge-ok">Ya existen</span></td>
+        </tr>
+        <tr>
+          <td>Verificar que <code>Eliminado</code> existe y tiene valor default <code>0</code></td>
+          <td><code>MedicosDirectorio</code></td>
+          <td>Verificación</td>
+          <td><span class="badge badge-ok">Ya existe</span></td>
+        </tr>
+        <tr>
+          <td>No se requieren nuevas tablas ni columnas para los bugs 1–3</td>
+          <td>—</td>
+          <td>—</td>
+          <td><span class="badge badge-ok">Confirmado</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">SQL de auditoría — estado actual de datos</div>
+    <pre>-- 1. Cuántos profesionales por estado derivado
+SELECT
+    SUM(CASE WHEN Eliminado = 1 THEN 1 ELSE 0 END) AS Eliminados,
+    SUM(CASE WHEN Eliminado = 0 AND Activo = 1 AND VisiblePublicamente = 1
+             AND EstatusReclamacion = 2 THEN 1 ELSE 0 END) AS Reclamados,
+    SUM(CASE WHEN Eliminado = 0 AND Activo = 1 AND VisiblePublicamente = 1
+             AND EstatusReclamacion != 2 THEN 1 ELSE 0 END) AS Publicados,
+    SUM(CASE WHEN Eliminado = 0 AND (Activo = 0 OR VisiblePublicamente = 0)
+             AND EstatusValidacion = 1 THEN 1 ELSE 0 END) AS CedulaVerificados,
+    SUM(CASE WHEN Eliminado = 0 AND (Activo = 0 OR VisiblePublicamente = 0)
+             AND EstatusValidacion != 1 THEN 1 ELSE 0 END) AS Propuestos
+FROM MedicosDirectorio;
+
+-- 2. Inconsistencias badge "verificado" vs EstatusValidacion
+SELECT md.Id, md.NombreCompleto, md.EstatusValidacion,
+    (SELECT COUNT(*) FROM MedicoPerfilBadge mpb
+     JOIN MedicoBadge mb ON mpb.BadgeId = mb.Id
+     WHERE mpb.MedicoId = md.Id AND mb.Codigo = 'verificado') AS TieneBadgeVerificado
+FROM MedicosDirectorio md
+WHERE md.Eliminado = 0
+  AND (
+    -- Tiene cédula verificada pero no tiene badge
+    (md.EstatusValidacion = 1 AND NOT EXISTS (
+        SELECT 1 FROM MedicoPerfilBadge mpb
+        JOIN MedicoBadge mb ON mpb.BadgeId = mb.Id
+        WHERE mpb.MedicoId = md.Id AND mb.Codigo = 'verificado'))
+    OR
+    -- Tiene badge pero no tiene cédula verificada
+    (md.EstatusValidacion != 1 AND EXISTS (
+        SELECT 1 FROM MedicoPerfilBadge mpb
+        JOIN MedicoBadge mb ON mpb.BadgeId = mb.Id
+        WHERE mpb.MedicoId = md.Id AND mb.Codigo = 'verificado'))
+  );</pre>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Script de reparación de inconsistencias badge "verificado"</div>
+    <pre>-- Ejecutar DESPUÉS de implementar el fix en C#.
+-- Esto sincroniza datos históricos inconsistentes.
+
+DECLARE @BadgeId INT = (SELECT Id FROM MedicoBadge WHERE Codigo = 'verificado');
+
+-- Otorgar badge "verificado" a profesionales con cédula verificada que no lo tienen
+INSERT INTO MedicoPerfilBadge (MedicoId, BadgeId, FechaObtenido, OtorgadoPor)
+SELECT md.Id, @BadgeId, GETUTCDATE(), 'sistema-repair'
+FROM MedicosDirectorio md
+WHERE md.EstatusValidacion = 1   -- Validado
+  AND md.Eliminado = 0
+  AND NOT EXISTS (
+      SELECT 1 FROM MedicoPerfilBadge mpb
+      WHERE mpb.MedicoId = md.Id AND mpb.BadgeId = @BadgeId
+  );
+
+-- Revocar badge "verificado" de profesionales sin cédula verificada
+DELETE FROM MedicoPerfilBadge
+WHERE BadgeId = @BadgeId
+  AND MedicoId IN (
+      SELECT md.Id FROM MedicosDirectorio md
+      WHERE md.EstatusValidacion != 1  -- No validado
+  );
+
+PRINT 'Sincronización badge verificado completada.';</pre>
+  </div>
+
+  <!-- ═══ FASE 8 ═══════════════════════════════════════════════════ -->
+  <div class="section-divider">●</div>
+  <h2>FASE 8 — Validación: Escenario Completo</h2>
+
+  <div class="card">
+    <div class="card-title">Caso de prueba E2E — flujo completo</div>
+
+    <h3>Escenario 1: Paciente propone → Admin verifica → Paciente ve estado actualizado</h3>
+    <div class="playwright-step"><strong>GIVEN</strong> paciente autenticado en /DirectorioMedicos</div>
+    <div class="playwright-step"><strong>WHEN</strong> propone "Dr. Alejandro Reyes Ortiz"</div>
+    <div class="playwright-step"><strong>THEN</strong> aparece en "Mis aportaciones" con badge <strong>"En revisión"</strong></div>
+    <div class="playwright-step"><strong>WHEN</strong> admin abre admin grid, abre panel lateral del profesional, marca "Cédula verificada"</div>
+    <div class="playwright-step"><strong>THEN</strong> en el panel: sección Verificación muestra ✅, badge "verificado" aparece en sección Badges, EstadoDerivado dice "Cédula verificada"</div>
+    <div class="playwright-step"><strong>WHEN</strong> paciente refresca /DirectorioMedicos</div>
+    <div class="playwright-step"><strong>THEN</strong> badge del profesional dice <strong>"Cédula verificada"</strong> (NO "En revisión")</div>
+
+    <h3 style="margin-top:16px">Escenario 2: Soft delete y restauración</h3>
+    <div class="playwright-step"><strong>GIVEN</strong> admin grid con profesionales activos</div>
+    <div class="playwright-step"><strong>WHEN</strong> admin hace clic en eliminar sobre un registro</div>
+    <div class="playwright-step"><strong>THEN</strong> el registro desaparece del grid principal</div>
+    <div class="playwright-step"><strong>WHEN</strong> admin activa switch "Eliminados"</div>
+    <div class="playwright-step"><strong>THEN</strong> el registro eliminado APARECE en el grid con badge "Eliminado"</div>
+    <div class="playwright-step"><strong>THEN</strong> solo aparece el botón "Restaurar" (no "Eliminar") para ese registro</div>
+    <div class="playwright-step"><strong>WHEN</strong> admin hace clic en "Restaurar"</div>
+    <div class="playwright-step"><strong>THEN</strong> el registro desaparece del grid de eliminados</div>
+    <div class="playwright-step"><strong>WHEN</strong> admin desactiva el switch "Eliminados"</div>
+    <div class="playwright-step"><strong>THEN</strong> el registro restaurado REAPARECE en el grid principal</div>
+
+    <h3 style="margin-top:16px">Escenario 3: Consistencia de badges</h3>
+    <div class="playwright-step"><strong>GIVEN</strong> profesional con EstatusValidacion=Pendiente y sin badge "verificado"</div>
+    <div class="playwright-step"><strong>WHEN</strong> admin abre panel → sección Badges muestra "verificado = Pendiente"</div>
+    <div class="playwright-step"><strong>WHEN</strong> admin marca checkbox "Cédula verificada" y guarda</div>
+    <div class="playwright-step"><strong>THEN</strong> panel se recarga → sección Badges muestra "verificado = Obtenido"</div>
+    <div class="playwright-step"><strong>THEN</strong> sección superior muestra ✅ Cédula verificada</div>
+    <div class="playwright-step"><strong>THEN</strong> ambas secciones son CONSISTENTES</div>
+    <div class="playwright-step"><strong>WHEN</strong> admin desmarca checkbox y guarda</div>
+    <div class="playwright-step"><strong>THEN</strong> badge "verificado" vuelve a "Pendiente" en ambas secciones</div>
+  </div>
+
+  <!-- ═══ RESUMEN FINAL ═══════════════════════════════════════════ -->
+  <div class="section-divider">●</div>
+  <h2>RESUMEN FINAL — Plan de implementación</h2>
+
+  <div class="card" style="border-color:var(--primary)">
+    <div class="card-title">Orden de implementación recomendado</div>
+    <table>
+      <thead><tr><th>#</th><th>Tarea</th><th>Archivo(s)</th><th>Prioridad</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>Verificar Global Query Filter en DbContext para MedicosDirectorio</td>
+          <td><code>Data/ApplicationDbContext.cs</code></td>
+          <td><span class="badge badge-err">Crítico — BUG-1</span></td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>Fix <code>OnGetGridDataAsync</code> con <code>IgnoreQueryFilters()</code></td>
+          <td><code>Admin/DirectorioMedicos/Index.cshtml.cs</code></td>
+          <td><span class="badge badge-err">Crítico — BUG-1</span></td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>Fix <code>OnPostRestaurarAsync</code> y <code>OnGetMedicoAsync</code> con <code>IgnoreQueryFilters()</code></td>
+          <td><code>Admin/DirectorioMedicos/Index.cshtml.cs</code></td>
+          <td><span class="badge badge-err">Crítico — BUG-1</span></td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>Agregar <code>EstadoProfesionalDerivado</code> enum y propiedad <code>[NotMapped]</code></td>
+          <td><code>Models/Directorio/MedicoDirectorio.cs</code></td>
+          <td><span class="badge badge-warn">Alta — base para BUG-2 y BUG-3</span></td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>Sincronizar badge "verificado" en <code>OnPostEditarAsync</code> y <code>OnPostVerificarAsync</code></td>
+          <td><code>Admin/DirectorioMedicos/Index.cshtml.cs</code></td>
+          <td><span class="badge badge-warn">Alta — BUG-3</span></td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td>Nuevo <code>PropuestaPacienteVm</code> y query corregida en <code>GetMisPropuestasAsync()</code></td>
+          <td><code>Services/Directorio/MedicoDirectorioService.cs</code> + <code>DirectorioViewModels.cs</code></td>
+          <td><span class="badge badge-warn">Alta — BUG-2</span></td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td>Actualizar vista "Mis aportaciones" con estados dinámicos</td>
+          <td><code>Pages/DirectorioMedicos/Index.cshtml</code></td>
+          <td><span class="badge badge-warn">Alta — BUG-2</span></td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td>Reordenar panel admin (secciones 1–8)</td>
+          <td><code>Admin/DirectorioMedicos/Index.cshtml</code> (JS <code>renderPanel</code>)</td>
+          <td><span class="badge badge-info">Media</span></td>
+        </tr>
+        <tr>
+          <td>9</td>
+          <td>Cambio semántico textos UI "médico" → "profesional"</td>
+          <td>Múltiples vistas</td>
+          <td><span class="badge badge-info">Media</span></td>
+        </tr>
+        <tr>
+          <td>10</td>
+          <td>SQL repair script — sincronizar badge "verificado" en datos históricos</td>
+          <td>SQL directo en BD</td>
+          <td><span class="badge badge-info">Media — post-fix</span></td>
+        </tr>
+        <tr>
+          <td>11</td>
+          <td>Agregar campo <code>Activo</code> y <code>VisiblePublicamente</code> al JSON de <code>OnGetMedicoAsync</code></td>
+          <td><code>Admin/DirectorioMedicos/Index.cshtml.cs</code></td>
+          <td><span class="badge badge-info">Media</span></td>
+        </tr>
+        <tr>
+          <td>12</td>
+          <td>Hook badges en Q&A service y GlossaryService</td>
+          <td>Servicios respectivos</td>
+          <td><span class="badge badge-gray">Sprint siguiente</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card" style="border-color:var(--success)">
+    <div class="card-title" style="color:var(--success)">Resultado esperado al completar todas las fases</div>
+    <ul style="margin:0 0 0 20px;line-height:2.2">
+      <li>✅ <strong>Una sola fuente de verdad</strong>: <code>EstatusValidacion</code> controla el badge "verificado"</li>
+      <li>✅ <strong>Estados consistentes</strong>: Admin, paciente y público muestran el mismo estado derivado</li>
+      <li>✅ <strong>Soft delete funcional</strong>: Admin puede filtrar activos / eliminados / todos</li>
+      <li>✅ <strong>Paciente informado</strong>: Ve el estado real de su propuesta (En revisión / Cédula verificada / Publicado / Reclamado)</li>
+      <li>✅ <strong>Admin panel ordenado</strong>: Flujo lógico — datos → verificación → publicación → claim → comunidad → badges → auditoría</li>
+      <li>✅ <strong>Preparado para más profesionales</strong>: Médicos, Nutriólogos, Dietistas, Psicólogos — sin cambios de esquema urgentes</li>
+      <li>✅ <strong>Sin rutas públicas rotas</strong>: /DirectorioMedicos/* permanece intacto</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>

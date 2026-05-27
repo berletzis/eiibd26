@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Directorio Profesionales — 01 Modelo Actual</title>
+<style>
+  :root {
+    --primary: #2E86AB; --secondary: #A23B72; --accent: #F18F01;
+    --success: #2E9E5B; --danger: #c92a2a; --warn: #b45309;
+    --bg: #f7fbfc; --card: #fff; --text: #1A1A2E; --muted: #6B7280;
+    --border: #e5e7eb; --code-bg: #f1f5f9;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+  .page { max-width: 1100px; margin: 0 auto; padding: 32px 20px 60px; }
+  h1 { font-size: 2rem; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
+  .subtitle { color: var(--muted); font-size: .95rem; margin-bottom: 32px; }
+  h2 { font-size: 1.3rem; font-weight: 700; color: var(--text); margin: 32px 0 12px; border-left: 4px solid var(--primary); padding-left: 10px; }
+  h3 { font-size: 1rem; font-weight: 700; color: var(--secondary); margin: 20px 0 8px; }
+  p { margin-bottom: 10px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+  .card-title { font-size: 1rem; font-weight: 700; color: var(--primary); margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; margin-top: 8px; }
+  th { background: #eef4fa; color: #3d436c; font-weight: 700; padding: 8px 10px; text-align: left; border-bottom: 2px solid #ddeaf7; }
+  td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:hover td { background: #f9fbfc; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: .76rem; font-weight: 600; }
+  .badge-ok   { background: #d1fae5; color: #065f46; }
+  .badge-warn { background: #fef3c7; color: #92400e; }
+  .badge-err  { background: #fee2e2; color: #991b1b; }
+  .badge-info { background: #dbeafe; color: #1e40af; }
+  .badge-gray { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; }
+  code { background: var(--code-bg); border-radius: 4px; padding: 2px 6px; font-size: .85em; font-family: 'Cascadia Code', 'Consolas', monospace; color: var(--secondary); }
+  pre { background: var(--code-bg); border-radius: 8px; padding: 16px; overflow-x: auto; font-size: .83rem; font-family: 'Cascadia Code', 'Consolas', monospace; border: 1px solid var(--border); margin: 8px 0 16px; color: #1e293b; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .tag { display: inline-block; font-size: .75rem; padding: 2px 7px; border-radius: 10px; margin: 2px; }
+  .problem-box { background: #fff5f5; border: 1px solid #fecaca; border-radius: 8px; padding: 12px 16px; margin: 8px 0; }
+  .problem-box strong { color: var(--danger); }
+  .flow-step { display: flex; align-items: flex-start; gap: 10px; margin: 6px 0; }
+  .flow-num  { width: 24px; height: 24px; border-radius: 50%; background: var(--primary); color: #fff; font-size: .75rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .toc { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px; padding: 16px 20px; margin-bottom: 32px; }
+  .toc ul { list-style: none; margin: 8px 0 0; }
+  .toc li { margin: 4px 0; }
+  .toc a { color: var(--primary); text-decoration: none; font-size: .9rem; }
+  .toc a:hover { text-decoration: underline; }
+  .section-anchor { scroll-margin-top: 20px; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+  @media (max-width: 700px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>Directorio de Profesionales de la Salud</h1>
+  <p class="subtitle">FASE 1 — Inventario completo del modelo actual · EIIBD.com · Mayo 2026</p>
+
+  <div class="toc">
+    <strong>Índice de análisis</strong>
+    <ul>
+      <li><a href="#entidades">1. Entidades y tablas</a></li>
+      <li><a href="#enums">2. Enums y estados</a></li>
+      <li><a href="#campos">3. Inventario de campos — fuente y uso</a></li>
+      <li><a href="#servicios">4. Servicios y lógica de negocio</a></li>
+      <li><a href="#pantallas">5. Pantallas y flujos</a></li>
+      <li><a href="#bugs">6. Bugs identificados con causa raíz</a></li>
+      <li><a href="#duplicados">7. Duplicados y conflictos de fuente de verdad</a></li>
+      <li><a href="#scope">8. Cambio semántico — Directorio de Profesionales</a></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2 id="entidades" class="section-anchor">1. Entidades y Tablas</h2>
+
+  <div class="card">
+    <div class="card-title">Mapa de tablas involucradas en el módulo</div>
+    <table>
+      <thead><tr><th>Tabla (EF DbSet)</th><th>Entidad C#</th><th>Rol</th><th>Soft Delete</th></tr></thead>
+      <tbody>
+        <tr><td><code>MedicosDirectorio</code></td><td><code>MedicoDirectorio</code></td><td>Entidad principal del profesional</td><td><span class="badge badge-ok">✓ Eliminado</span></td></tr>
+        <tr><td><code>MedicosPerfilExtendido</code></td><td><code>MedicoPerfilExtendido</code></td><td>Datos que ingresa el médico al reclamar (foto, bio, redes)</td><td><span class="badge badge-gray">No</span></td></tr>
+        <tr><td><code>MedicoExperienciaEii</code></td><td><code>MedicoExperienciaEii</code></td><td>Áreas EII reportadas por pacientes (M:N con MedicosDirectorio)</td><td><span class="badge badge-gray">No</span></td></tr>
+        <tr><td><code>ConfirmacionesComunitarias</code></td><td><code>ConfirmacionComunitaria</code></td><td>Pacientes que confirman atención — fuente del NivelConfianza</td><td><span class="badge badge-ok">✓ Eliminado</span></td></tr>
+        <tr><td><code>TiposConfirmacion</code></td><td><code>TipoConfirmacion</code></td><td>Catálogo de tipos de confirmación (atención, referencia, etc.)</td><td><span class="badge badge-gray">No</span></td></tr>
+        <tr><td><code>AreasExperienciaEii</code></td><td><code>AreaExperienciaEii</code></td><td>Catálogo de áreas EII (EC, CU, etc.)</td><td><span class="badge badge-gray">No (campo Activo)</span></td></tr>
+        <tr><td><code>MedicoBadge</code></td><td><code>MedicoBadge</code></td><td>Catálogo de 6 badges disponibles</td><td><span class="badge badge-gray">No (campo Activo)</span></td></tr>
+        <tr><td><code>MedicoPerfilBadge</code></td><td><code>MedicoPerfilBadge</code></td><td>Badges otorgados a cada médico (M:N con MedicoBadge)</td><td><span class="badge badge-gray">No</span></td></tr>
+        <tr><td><code>MedicoReclamacionToken</code></td><td><code>MedicoReclamacionToken</code></td><td>Tokens de 72h para que el médico reclame su perfil</td><td><span class="badge badge-gray">No (campo Activo)</span></td></tr>
+        <tr><td><code>MedicoAreaEii</code></td><td><code>MedicoAreaEii</code></td><td>Áreas EII del perfil extendido del médico (diferente de ExperienciaEii)</td><td><span class="badge badge-warn">⚠ Potencial confusión</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2 id="enums" class="section-anchor">2. Enums y Estados</h2>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">EstatusValidacionCedula</div>
+      <table>
+        <thead><tr><th>Valor</th><th>Int</th><th>Significado</th></tr></thead>
+        <tbody>
+          <tr><td><code>PendienteValidacion</code></td><td>0</td><td>Aún no revisada por admin</td></tr>
+          <tr><td><code>Validado</code></td><td>1</td><td>Admin verificó la cédula</td></tr>
+          <tr><td><code>NoVerificado</code></td><td>2</td><td>Admin marcó como no verificable</td></tr>
+          <tr><td><code>Rechazado</code></td><td>3</td><td>Cédula inválida / rechazada</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:10px;font-size:.85rem;color:var(--muted)">Fuente: <code>MedicoDirectorio.EstatusValidacion</code></p>
+    </div>
+    <div class="card">
+      <div class="card-title">EstatusReclamacion</div>
+      <table>
+        <thead><tr><th>Valor</th><th>Int</th><th>Significado</th></tr></thead>
+        <tbody>
+          <tr><td><code>NoReclamado</code></td><td>0</td><td>Perfil propuesto, sin dueño</td></tr>
+          <tr><td><code>EnProceso</code></td><td>1</td><td>Solicitud de claim pendiente de aprobar</td></tr>
+          <tr><td><code>Reclamado</code></td><td>2</td><td>Médico activó el token y es dueño</td></tr>
+          <tr><td><code>Rechazado</code></td><td>3</td><td>Admin rechazó la solicitud</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:10px;font-size:.85rem;color:var(--muted)">Fuente: <code>MedicoDirectorio.EstatusReclamacion</code></p>
+    </div>
+    <div class="card">
+      <div class="card-title">NivelConfianzaEnum</div>
+      <table>
+        <thead><tr><th>Valor</th><th>Int</th><th>Label público</th></tr></thead>
+        <tbody>
+          <tr><td><code>Identificado</code></td><td>0</td><td>Identificado por pacientes con EII</td></tr>
+          <tr><td><code>Confirmado</code></td><td>1</td><td>Confirmado por la comunidad EII</td></tr>
+          <tr><td><code>Reconocido</code></td><td>2</td><td>Reconocido con experiencia en EII</td></tr>
+          <tr><td><code>Establecido</code></td><td>3</td><td>Experiencia establecida y sostenida en EII</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:10px;font-size:.85rem;color:var(--muted)">Calculado por <code>RecalcularNivelConfianzaAsync()</code></p>
+    </div>
+    <div class="card">
+      <div class="card-title">Badges — 6 niveles</div>
+      <table>
+        <thead><tr><th>Código</th><th>Nivel</th><th>Tipo</th></tr></thead>
+        <tbody>
+          <tr><td><code>perfil_reclamado</code></td><td>1</td><td><span class="badge badge-info">Auto</span></td></tr>
+          <tr><td><code>verificado</code></td><td>2</td><td><span class="badge badge-warn">Manual admin</span></td></tr>
+          <tr><td><code>activo_comunidad</code></td><td>3</td><td><span class="badge badge-info">Auto (≥5 pctes)</span></td></tr>
+          <tr><td><code>participante_qa</code></td><td>4</td><td><span class="badge badge-info">Auto (≥3 resp.)</span></td></tr>
+          <tr><td><code>validador_contenido</code></td><td>5</td><td><span class="badge badge-info">Auto (≥5 valid.)</span></td></tr>
+          <tr><td><code>creador_contenido</code></td><td>6</td><td><span class="badge badge-warn">Manual admin</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2 id="campos" class="section-anchor">3. Inventario de Campos — Fuente y Uso</h2>
+
+  <div class="card">
+    <div class="card-title">MedicoDirectorio — todos los campos y su estado</div>
+    <table>
+      <thead><tr><th>Campo</th><th>Tipo</th><th>Pantalla</th><th>Estado</th><th>Fuente verdad</th></tr></thead>
+      <tbody>
+        <tr><td><code>Id</code></td><td>int PK</td><td>Todas</td><td><span class="badge badge-ok">OK</span></td><td>BD</td></tr>
+        <tr><td><code>NombreCompleto</code></td><td>string 300</td><td>Index, Detalle, Admin</td><td><span class="badge badge-ok">OK</span></td><td>Propuesta/Admin</td></tr>
+        <tr><td><code>CedulaProfesional</code></td><td>string? 50</td><td>Admin, Detalle</td><td><span class="badge badge-ok">OK</span></td><td>Propuesta/Admin</td></tr>
+        <tr><td><code>Especialidad / Subespecialidad</code></td><td>string? 200</td><td>Index, Detalle, Admin</td><td><span class="badge badge-ok">OK</span></td><td>Propuesta/Admin</td></tr>
+        <tr><td><code>Estado / Ciudad / MunicipioAlcaldia</code></td><td>string? 100</td><td>Index, Detalle, Admin</td><td><span class="badge badge-ok">OK</span></td><td>Propuesta/Admin</td></tr>
+        <tr><td><code>HospitalClinica</code></td><td>string? 300</td><td>Detalle, Admin</td><td><span class="badge badge-ok">OK</span></td><td>Propuesta/Admin</td></tr>
+        <tr><td><code>NombrePais</code></td><td>string? 100</td><td>Admin</td><td><span class="badge badge-ok">OK</span></td><td>Propuesta/Admin</td></tr>
+        <tr><td><code>Latitud / Longitud</code></td><td>decimal?(9,6)</td><td>Admin (Maps)</td><td><span class="badge badge-ok">OK</span></td><td>Admin/Maps</td></tr>
+        <tr><td><code>EstatusValidacion</code></td><td>EstatusValidacionCedula</td><td>Admin, Detalle, Badge</td><td><span class="badge badge-err">BUG-3: duplicado</span></td><td><strong>CONFLICTO</strong></td></tr>
+        <tr><td><code>NivelConfianza</code></td><td>NivelConfianzaEnum</td><td>Index, Detalle, Card</td><td><span class="badge badge-ok">OK — calculado</span></td><td>RecalcularAsync()</td></tr>
+        <tr><td><code>EstatusReclamacion</code></td><td>EstatusReclamacion</td><td>Admin, Detalle</td><td><span class="badge badge-ok">OK</span></td><td>BD</td></tr>
+        <tr><td><code>AspNetUserId</code></td><td>Guid?</td><td>Admin</td><td><span class="badge badge-ok">OK</span></td><td>Token/Claim</td></tr>
+        <tr><td><code>FechaReclamacion</code></td><td>DateTimeOffset?</td><td>Admin</td><td><span class="badge badge-ok">OK</span></td><td>Activar.cshtml</td></tr>
+        <tr><td><code>FechaCedulaVerificada</code></td><td>DateTime?</td><td>Admin</td><td><span class="badge badge-ok">OK</span></td><td>Admin POST</td></tr>
+        <tr><td><code>EmailSolicitudClaim / FechaSolicitudClaim</code></td><td>string?, DateTime?</td><td>Admin</td><td><span class="badge badge-ok">OK</span></td><td>Solicitud claim</td></tr>
+        <tr><td><code>VisiblePublicamente</code></td><td>bool</td><td>Index (filtro)</td><td><span class="badge badge-warn">⚠ Sin UI paciente</span></td><td>Admin</td></tr>
+        <tr><td><code>Activo</code></td><td>bool</td><td>Index (filtro)</td><td><span class="badge badge-warn">⚠ Sin UI paciente</span></td><td>Admin</td></tr>
+        <tr><td><code>Eliminado</code></td><td>bool</td><td>Admin (soft delete)</td><td><span class="badge badge-err">BUG-1: grid roto</span></td><td>Admin</td></tr>
+        <tr><td><code>FechaCreacion</code></td><td>DateTimeOffset</td><td>Admin</td><td><span class="badge badge-ok">OK</span></td><td>BD auto</td></tr>
+        <tr><td><code>FechaModificacion</code></td><td>DateTimeOffset?</td><td>Admin</td><td><span class="badge badge-ok">OK</span></td><td>BD manual</td></tr>
+        <tr><td><code>PropuestoPorUsuarioId</code></td><td>Guid?</td><td>Admin, Paciente Index</td><td><span class="badge badge-err">BUG-2: estado no se actualiza</span></td><td>BD Proponer</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Propiedades [NotMapped] — computadas en entidad</div>
+    <table>
+      <thead><tr><th>Propiedad</th><th>Cálculo</th><th>Uso</th></tr></thead>
+      <tbody>
+        <tr><td><code>CedulaVerificada</code></td><td><code>EstatusValidacion == Validado</code></td><td>Admin panel, Detalle (duplicado con badge "verificado")</td></tr>
+        <tr><td><code>PerfilReclamado</code></td><td><code>EstatusReclamacion == Reclamado</code></td><td>Admin grid, Detalle, Badges</td></tr>
+        <tr><td><code>SolicitudClaimPendiente</code></td><td><code>EstatusReclamacion == EnProceso</code></td><td>Admin grid</td></tr>
+        <tr><td><code>UsuarioMedicoId</code></td><td>alias de AspNetUserId</td><td>Redundante — solo alias</td></tr>
+        <tr><td><code>NivelVerificacion</code></td><td><code>(int)NivelConfianza</code></td><td>Admin JSON response</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2 id="servicios" class="section-anchor">4. Servicios y Lógica de Negocio</h2>
+
+  <div class="card">
+    <div class="card-title">MedicoDirectorioService — métodos inventariados</div>
+    <table>
+      <thead><tr><th>Método</th><th>Responsabilidad</th><th>Observaciones</th></tr></thead>
+      <tbody>
+        <tr><td><code>GetDirectorioAsync()</code></td><td>Index paginado para el público</td><td>Filtra <code>VisiblePublicamente && Activo</code> — NO muestra eliminados</td></tr>
+        <tr><td><code>GetDetalleAsync()</code></td><td>Ficha detalle de un profesional</td><td>Filtra <code>VisiblePublicamente && Activo</code></td></tr>
+        <tr><td><code>ProponerMedicoAsync()</code></td><td>Crear propuesta de paciente</td><td>Crea con <code>VisiblePublicamente=false, Activo=false</code></td></tr>
+        <tr><td><code>ConfirmarAtencionAsync()</code></td><td>Paciente confirma atención</td><td>Llama <code>RecalcularNivelConfianzaAsync()</code></td></tr>
+        <tr><td><code>RecalcularNivelConfianzaAsync()</code></td><td>Recalcular NivelConfianza desde BD</td><td><strong>Fuente canónica para NivelConfianza</strong></td></tr>
+        <tr><td><code>GetMisPropuestasAsync()</code></td><td>Propuestas del paciente autenticado</td><td><span class="badge badge-err">BUG-2: filtra solo por usuario, no por estado</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">IMedicoBadgeService — métodos inventariados</div>
+    <table>
+      <thead><tr><th>Método</th><th>Responsabilidad</th></tr></thead>
+      <tbody>
+        <tr><td><code>OtorgarBadgeAsync(medicoId, codigo, otorgadoPor)</code></td><td>Otorga un badge específico (idempotente)</td></tr>
+        <tr><td><code>RevocarBadgeAsync(medicoId, codigo)</code></td><td>Revoca un badge</td></tr>
+        <tr><td><code>EvaluarBadgesAutomaticosAsync(medicoId)</code></td><td>Evalúa y otorga/revoca badges automáticos</td></tr>
+        <tr><td><code>EvaluarTodosAsync()</code></td><td>Re-evalúa todos los médicos activos</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2 id="pantallas" class="section-anchor">5. Pantallas y Flujos</h2>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Flujo Paciente — Proponer médico</div>
+      <div class="flow-step"><div class="flow-num">1</div><div>Paciente va a <code>/DirectorioMedicos/Proponer</code></div></div>
+      <div class="flow-step"><div class="flow-num">2</div><div>Llena formulario (<code>ProponerMedicoVm</code>)</div></div>
+      <div class="flow-step"><div class="flow-num">3</div><div>Se crea <code>MedicoDirectorio</code> con <code>Activo=false, VisiblePublicamente=false</code></div></div>
+      <div class="flow-step"><div class="flow-num">4</div><div>Paciente ve en Index: <strong>"Mis propuestas pendientes de revisión"</strong></div></div>
+      <div class="flow-step"><div class="flow-num" style="background:var(--danger)">!</div><div><span class="badge badge-err">BUG-2</span> Aunque admin cambie la cédula, el paciente <em>sigue</em> viendo "pendiente"</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Flujo Admin — Verificar cédula</div>
+      <div class="flow-step"><div class="flow-num">1</div><div>Admin abre <code>/Identity/Admin/DirectorioMedicos</code></div></div>
+      <div class="flow-step"><div class="flow-num">2</div><div>Marca checkbox "Cédula verificada" en el panel lateral</div></div>
+      <div class="flow-step"><div class="flow-num">3</div><div><code>OnPostEditarAsync()</code> actualiza <code>EstatusValidacion = Validado</code> y <code>FechaCedulaVerificada</code></div></div>
+      <div class="flow-step"><div class="flow-num">4</div><div>Llama <code>RecalcularNivelAsync()</code></div></div>
+      <div class="flow-step"><div class="flow-num" style="background:var(--danger)">!</div><div><span class="badge badge-err">BUG-3</span> Panel arriba muestra "Cédula verificada ✓" pero Badges muestra "Verificado = Pendiente"</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Flujo Admin — Soft Delete</div>
+      <div class="flow-step"><div class="flow-num">1</div><div>Admin hace clic en botón "Eliminar" en la grid</div></div>
+      <div class="flow-step"><div class="flow-num">2</div><div><code>OnPostEliminarAsync()</code> pone <code>Eliminado = true</code></div></div>
+      <div class="flow-step"><div class="flow-num">3</div><div>Admin activa switch "Eliminados" en la grid</div></div>
+      <div class="flow-step"><div class="flow-num" style="background:var(--danger)">!</div><div><span class="badge badge-err">BUG-1</span> El médico eliminado NO aparece aunque el switch esté activo</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Flujo Médico — Reclamar perfil</div>
+      <div class="flow-step"><div class="flow-num">1</div><div>Admin genera token desde <code>/directorio/reclamar/{id}</code></div></div>
+      <div class="flow-step"><div class="flow-num">2</div><div>Token tiene vigencia de 72h</div></div>
+      <div class="flow-step"><div class="flow-num">3</div><div>Médico accede a <code>/directorio/activar?token=</code></div></div>
+      <div class="flow-step"><div class="flow-num">4</div><div>Se vincula <code>MedicoPerfilExtendido</code> + <code>EstatusReclamacion = Reclamado</code></div></div>
+      <div class="flow-step"><div class="flow-num">5</div><div>Se otorga badge <code>perfil_reclamado</code> automáticamente</div></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2 id="bugs" class="section-anchor">6. Bugs Identificados — Causa Raíz</h2>
+
+  <div class="problem-box">
+    <strong>BUG-1 — Admin Grid: Eliminados no aparecen</strong>
+    <p style="margin-top:6px">El switch <code>#switchEliminados</code> en el frontend envía <code>mostrarEliminados=true</code> al handler <code>OnGetGridDataAsync(bool mostrarEliminados)</code>. El código del handler luce correcto:</p>
+    <pre>var query = _db.MedicosDirectorio.AsNoTracking()
+    .Where(m => mostrarEliminados || !m.Eliminado);</pre>
+    <p><strong>Causa raíz probable:</strong> El parámetro booleano llega como string <code>"true"</code> desde la URL de DataTables (GET), pero el model binder de ASP.NET convierte <code>"true"</code> a <code>true</code> correctamente en teoría. Sin embargo, si hay un <strong>Global Query Filter</strong> en EF sobre <code>MedicosDirectorio</code> que siempre filtra <code>!Eliminado</code>, ese filtro PREVALECE aunque el código diga <code>|| !m.Eliminado</code>. La query no usa <code>IgnoreQueryFilters()</code>.</p>
+    <p><strong>Acción requerida:</strong> Verificar <code>ApplicationDbContext.OnModelCreating()</code> — si hay un <code>HasQueryFilter(m => !m.Eliminado)</code> sobre <code>MedicosDirectorio</code>, el handler debe usar <code>.IgnoreQueryFilters()</code> cuando <code>mostrarEliminados=true</code>, igual que hace <code>Contenidos.cshtml.cs</code>.</p>
+  </div>
+
+  <div class="problem-box">
+    <strong>BUG-2 — Paciente sigue viendo "pendiente" aunque la cédula haya sido verificada</strong>
+    <p style="margin-top:6px">En <code>Pages/DirectorioMedicos/Index.cshtml.cs</code>, el método <code>GetMisPropuestasAsync()</code> carga todos los médicos propuestos por el usuario <strong>sin importar su estado</strong>. La vista los muestra con badge fijo "En revisión".</p>
+    <p><strong>Causa raíz:</strong> No existe un campo <code>EstatusPropuesta</code> ni un estado semántico que refleje "qué sabe el paciente". El estado administrativo (<code>Activo</code>, <code>EstatusValidacion</code>) existe, pero <strong>no se proyecta al paciente</strong>. El componente de "Mis propuestas" usa lógica hardcoded: si el profesional fue propuesto por el usuario, siempre muestra "pendiente".</p>
+    <p><strong>Acción requerida:</strong> Crear lógica de derivación: si <code>Activo=true && VisiblePublicamente=true</code> → estado "Publicado"; si <code>EstatusValidacion=Validado</code> → "Cédula verificada"; si ninguno → "En revisión".</p>
+  </div>
+
+  <div class="problem-box">
+    <strong>BUG-3 — Admin panel: dos verdades sobre "Verificado"</strong>
+    <p style="margin-top:6px">En el panel lateral del Admin, hay <strong>dos fuentes independientes</strong> que definen si un profesional está "verificado":</p>
+    <ul style="margin:6px 0 0 20px;">
+      <li><strong>Arriba del panel:</strong> Checkbox <code>ep_cedulaVerificada</code> ← lee <code>d.cedulaVerificada</code> (from <code>m.CedulaVerificada</code> = <code>EstatusValidacion == Validado</code>)</li>
+      <li><strong>Sección Badges:</strong> Badge <code>verificado</code> ← lee <code>MedicoPerfilBadge</code> donde <code>Codigo="verificado"</code></li>
+    </ul>
+    <p style="margin-top:6px">Estas dos fuentes <strong>no se sincronizan automáticamente</strong>. El admin puede marcar la cédula como verificada SIN que se otorgue el badge "verificado", o viceversa.</p>
+    <p><strong>Causa raíz:</strong> El badge "verificado" es manual (requiere que admin lo otorgue desde el panel de badges). El checkbox "Cédula verificada" actualiza solo <code>EstatusValidacion</code>. No hay un hook que los una.</p>
+    <p><strong>Acción requerida:</strong> Cuando admin activa "Cédula verificada", debe dispararse automáticamente <code>OtorgarBadgeAsync(id, "verificado", "admin")</code>. Y viceversa: revocar badge al desmarcar.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2 id="duplicados" class="section-anchor">7. Duplicados y Conflictos de Fuente de Verdad</h2>
+
+  <div class="card">
+    <div class="card-title">Mapa de conflictos — qué significa "Verificado" hoy</div>
+    <table>
+      <thead><tr><th>Concepto</th><th>Campo en BD</th><th>Pantalla que lo muestra</th><th>Estado</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Cédula verificada</td>
+          <td><code>MedicoDirectorio.EstatusValidacion == Validado</code></td>
+          <td>Admin panel superior, Detalle público</td>
+          <td><span class="badge badge-warn">⚠ Parcial</span></td>
+        </tr>
+        <tr>
+          <td>Badge "verificado" otorgado</td>
+          <td><code>MedicoPerfilBadge WHERE Codigo='verificado'</code></td>
+          <td>Admin panel Badges, Card pública, Detalle</td>
+          <td><span class="badge badge-err">Desincronizado</span></td>
+        </tr>
+        <tr>
+          <td>Estado de publicación</td>
+          <td><code>VisiblePublicamente && Activo && !Eliminado</code></td>
+          <td>Index público (filtro), NO mostrado al paciente proponente</td>
+          <td><span class="badge badge-warn">⚠ Sin semántica para paciente</span></td>
+        </tr>
+        <tr>
+          <td>"Verificado" en badge visual (tri-badges)</td>
+          <td><code>cedulaVerificada || totalConfirmaciones >= 5</code></td>
+          <td>Grid admin (columna badges visuales)</td>
+          <td><span class="badge badge-err">Lógica diferente al badge real</span></td>
+        </tr>
+        <tr>
+          <td>Nivel Confianza ≥ Reconocido</td>
+          <td><code>NivelConfianza >= 2</code></td>
+          <td>Detalle público (badge "Verificado")</td>
+          <td><span class="badge badge-warn">Otra definición de verificado</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="margin-top:12px; color: var(--danger); font-weight:600">Resultado: hay 4 definiciones distintas de "verificado" en el sistema.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Dos tablas de Áreas EII — posible confusión</div>
+    <table>
+      <thead><tr><th>Tabla</th><th>Llenada por</th><th>Semántica</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>MedicoExperienciaEii</code></td>
+          <td>Paciente al proponer</td>
+          <td>"Áreas EII que este paciente reporta que el médico maneja"</td>
+        </tr>
+        <tr>
+          <td><code>MedicoAreaEii</code></td>
+          <td>Médico en su perfil extendido</td>
+          <td>"Áreas EII que el médico mismo declara"</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="margin-top:8px;font-size:.85rem;color:var(--muted)">Son semánticamente distintas y tienen razón de existir. No deben fusionarse. Pero ambas se muestran en el directorio sin distinción clara.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2 id="scope" class="section-anchor">8. Cambio Semántico — Directorio de Profesionales de la Salud</h2>
+
+  <div class="card">
+    <div class="card-title">Alcance del cambio de nombre</div>
+    <p>El módulo pasa de llamarse <strong>"Directorio de Médicos"</strong> a <strong>"Directorio de Profesionales de la Salud"</strong>. El sistema debe prepararse para:</p>
+    <ul style="margin: 8px 0 0 20px; line-height: 1.9;">
+      <li>Médicos (especialistas, gastroenterólogos)</li>
+      <li>Nutriólogos y Dietistas</li>
+      <li>Psicólogos</li>
+      <li>Otros profesionales vinculados a EII</li>
+    </ul>
+
+    <table style="margin-top:14px">
+      <thead><tr><th>Elemento</th><th>Acción requerida</th><th>Riesgo SEO</th></tr></thead>
+      <tbody>
+        <tr><td>Tablas de BD (<code>MedicosDirectorio</code>, etc.)</td><td><strong>NO renombrar</strong> — compatibility risk alto</td><td>Ninguno</td></tr>
+        <tr><td>Clases C# (<code>MedicoDirectorio</code>)</td><td>Mantener por ahora; agregar campo <code>TipoProfesional</code> futuro</td><td>Ninguno</td></tr>
+        <tr><td>Rutas públicas (<code>/DirectorioMedicos/</code>)</td><td><strong>NO cambiar</strong> — SEO en producción</td><td><span class="badge badge-err">Alto</span></td></tr>
+        <tr><td>Textos UI en vistas</td><td>Cambiar "médico" → "profesional" donde sea display</td><td>Ninguno</td></tr>
+        <tr><td>Admin panel title</td><td>"Directorio Médicos — Admin" → "Directorio Profesionales — Admin"</td><td>Ninguno</td></tr>
+        <tr><td>Campo <code>Especialidad</code></td><td>Sigue funcionando — aplica a cualquier profesional</td><td>Ninguno</td></tr>
+        <tr><td>Badge "Médico verificado" en Detalle</td><td>Cambiar label a "Profesional verificado"</td><td>Ninguno</td></tr>
+        <tr><td>Agregar <code>TipoProfesional</code> enum</td><td>Campo opcional para clasificar el tipo (en fase de BD)</td><td>Ninguno</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <hr/>
+
+  <div class="card" style="border-color: var(--primary)">
+    <div class="card-title" style="color:var(--primary)">Resumen Ejecutivo — Fase 1</div>
+    <p><strong>3 bugs confirmados con causa raíz identificada:</strong></p>
+    <ul style="margin: 6px 0 12px 20px; line-height: 2;">
+      <li><strong>BUG-1 (Soft Delete):</strong> Probable Global Query Filter sin <code>IgnoreQueryFilters()</code> en el handler del admin grid</li>
+      <li><strong>BUG-2 (Estado propuesta paciente):</strong> No existe proyección del estado administrativo al paciente proponente</li>
+      <li><strong>BUG-3 (Dos verdades "Verificado"):</strong> 4 definiciones distintas de "verificado" — badge, estatus validación, nivel confianza, lógica visual</li>
+    </ul>
+    <p><strong>Próximos documentos a generar:</strong></p>
+    <ul style="margin: 6px 0 0 20px; line-height: 2;">
+      <li><code>02-estados.html</code> — Máquina de estados unificada</li>
+      <li><code>03-softdelete.html</code> — Fix del BUG-1 con código</li>
+      <li><code>04-badges.html</code> — Unificación de la lógica de badges</li>
+      <li><code>05-dashboard.html</code> — Estados del paciente</li>
+      <li><code>06-admin.html</code> — Reordenamiento del panel admin</li>
+      <li><code>07-bd.html</code> — Cambios de esquema requeridos</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>

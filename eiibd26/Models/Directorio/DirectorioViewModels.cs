@@ -174,6 +174,34 @@ public class ProponerMedicoVm
     public List<AreaExperienciaEii> AreasDisponibles { get; set; } = new();
 }
 
+// ── PROPUESTA PACIENTE (estado dinámico) ─────────────────────────────────
+
+public class PropuestaPacienteVm
+{
+    public int Id { get; set; }
+    public string Nombre { get; set; } = string.Empty;
+    public string? Especialidad { get; set; }
+    public string? Estado { get; set; }
+    public DateTimeOffset Fecha { get; set; }
+    public EstadoProfesionalDerivado EstadoDerivado { get; set; }
+
+    public string EstadoLabel => EstadoDerivado switch
+    {
+        EstadoProfesionalDerivado.CedulaVerificada => "Cédula verificada",
+        EstadoProfesionalDerivado.Publicado        => "Publicado en el directorio",
+        EstadoProfesionalDerivado.Reclamado        => "Reclamado por el profesional",
+        _                                          => "En revisión"
+    };
+
+    public string EstadoBadgeClass => EstadoDerivado switch
+    {
+        EstadoProfesionalDerivado.CedulaVerificada => "bg-success",
+        EstadoProfesionalDerivado.Publicado        => "bg-primary",
+        EstadoProfesionalDerivado.Reclamado        => "bg-info text-dark",
+        _                                          => "bg-warning text-dark"
+    };
+}
+
 // ── CONFIRMAR ATENCIÓN ───────────────────────────────────────────────────
 
 public class ConfirmarAtencionVm

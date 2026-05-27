@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Directorio Profesionales — 03 Soft Delete Fix</title>
+<style>
+  :root{--primary:#2E86AB;--secondary:#A23B72;--accent:#F18F01;--success:#2E9E5B;--danger:#c92a2a;--warn:#b45309;--bg:#f7fbfc;--card:#fff;--text:#1A1A2E;--muted:#6B7280;--border:#e5e7eb;--code-bg:#f1f5f9}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+  .page{max-width:1100px;margin:0 auto;padding:32px 20px 60px}
+  h1{font-size:2rem;font-weight:700;color:var(--primary);margin-bottom:4px}
+  .subtitle{color:var(--muted);font-size:.95rem;margin-bottom:32px}
+  h2{font-size:1.3rem;font-weight:700;color:var(--text);margin:32px 0 12px;border-left:4px solid var(--primary);padding-left:10px}
+  h3{font-size:1rem;font-weight:700;color:var(--secondary);margin:18px 0 8px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+  .card-title{font-size:1rem;font-weight:700;color:var(--primary);margin-bottom:12px}
+  table{width:100%;border-collapse:collapse;font-size:.88rem;margin-top:8px}
+  th{background:#eef4fa;color:#3d436c;font-weight:700;padding:8px 10px;text-align:left;border-bottom:2px solid #ddeaf7}
+  td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.76rem;font-weight:600}
+  .badge-ok{background:#d1fae5;color:#065f46}.badge-warn{background:#fef3c7;color:#92400e}.badge-err{background:#fee2e2;color:#991b1b}.badge-info{background:#dbeafe;color:#1e40af}
+  code{background:var(--code-bg);border-radius:4px;padding:2px 6px;font-size:.85em;font-family:'Cascadia Code',Consolas,monospace;color:var(--secondary)}
+  pre{background:var(--code-bg);border-radius:8px;padding:16px;overflow-x:auto;font-size:.83rem;font-family:'Cascadia Code',Consolas,monospace;border:1px solid var(--border);margin:8px 0 16px;color:#1e293b}
+  .problem-box{background:#fff5f5;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;margin:10px 0}
+  .problem-box strong{color:var(--danger)}
+  .fix-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 16px;margin:10px 0}
+  .fix-box strong{color:#15803d}
+  .diff-del{background:#fee2e2;color:#991b1b;display:block;padding:2px 6px;border-radius:3px;font-family:monospace;font-size:.84rem;margin:1px 0}
+  .diff-add{background:#d1fae5;color:#065f46;display:block;padding:2px 6px;border-radius:3px;font-family:monospace;font-size:.84rem;margin:1px 0}
+  hr{border:none;border-top:1px solid var(--border);margin:28px 0}
+  .note{background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 16px;margin:10px 0;font-size:.88rem}
+  .note strong{color:#c2410c}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>Directorio de Profesionales de la Salud</h1>
+  <p class="subtitle">FASE 3 — Fix BUG-1: Soft Delete en Admin Grid · EIIBD.com · Mayo 2026</p>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2>Diagnóstico definitivo del BUG-1</h2>
+
+  <div class="problem-box">
+    <strong>Síntoma:</strong> Admin activa switch "Eliminados" → Los profesionales eliminados NO aparecen en el grid.<br/>
+    <strong>Causa raíz:</strong> La query en <code>OnGetGridDataAsync</code> dice:
+    <pre style="margin-top:8px">var query = _db.MedicosDirectorio.AsNoTracking()
+    .Where(m => mostrarEliminados || !m.Eliminado);</pre>
+    <p style="margin-top:6px">Esta condición es lógicamente correcta <em>en teoría</em>. Sin embargo, si <code>ApplicationDbContext</code> tiene un <strong>Global Query Filter</strong> como:</p>
+    <pre>builder.Entity&lt;MedicoDirectorio&gt;().HasQueryFilter(m => !m.Eliminado);</pre>
+    <p>ese filtro se aplica <strong>automáticamente a toda query</strong> sobre esa entidad, incluso cuando el código C# no lo incluye. El <code>.Where(m => mostrarEliminados || !m.Eliminado)</code> no cancela el Global Query Filter — solo añade otra condición encima. El resultado: <code>!m.Eliminado AND (mostrarEliminados OR !m.Eliminado)</code> — siempre filtra eliminados.</p>
+  </div>
+
+  <h3>Paso 1: Verificar si existe el Global Query Filter</h3>
+  <p>Buscar en <code>Data/ApplicationDbContext.cs</code> el método <code>OnModelCreating</code> para <code>MedicosDirectorio</code>:</p>
+  <pre>// Buscar esto:
+builder.Entity&lt;MedicoDirectorio&gt;()
+    .HasQueryFilter(m => !m.Eliminado);  // ← si existe, es la causa raíz</pre>
+
+  <div class="note">
+    <strong>Nota:</strong> El Global Query Filter existe en Contenidos (confirmado por el código de <code>Contenidos.cshtml.cs</code> que usa <code>IgnoreQueryFilters()</code> cuando <code>mostrarEliminados=true</code>). Es muy probable que también exista para <code>MedicosDirectorio</code> o que el handler no esté usando el parámetro correctamente desde DataTables GET.
+  </div>
+
+  <h3>Paso 2: Causa alternativa — parámetro no llega como bool</h3>
+  <p>DataTables envía el parámetro vía GET como string. El model binder de ASP.NET Core convierte <code>"true"</code> a <code>true</code> para parámetros <code>bool</code> en handlers GET. Pero hay un caso edge: si el JS envía <code>mostrarEliminados=false</code> como string vacío o no lo envía cuando está unchecked, el default <code>false</code> prevalece correctamente. Verificar que el JS envía el valor en ambos estados:</p>
+  <pre>// En Index.cshtml — verificar que data function envía el bool
+ajax: {
+    url: '@Url.Page(null, "GridData")', type: 'GET',
+    data: d => {
+        d.mostrarEliminados = $('#switchEliminados').is(':checked');  // ← envía true/false
+        d.filtroVerificado  = $('#filtroVerificado').val();
+    }
+}</pre>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2>Fix completo — OnGetGridDataAsync</h2>
+
+  <div class="fix-box">
+    <strong>Solución:</strong> Usar <code>IgnoreQueryFilters()</code> cuando <code>mostrarEliminados=true</code> y aplicar el filtro manualmente, exactamente igual que hace <code>Contenidos.cshtml.cs</code>.
+  </div>
+
+  <pre>// Areas/Identity/Pages/Admin/DirectorioMedicos/Index.cshtml.cs
+
+public async Task&lt;IActionResult&gt; OnGetGridDataAsync(
+    bool mostrarEliminados = false, string? filtroVerificado = null)
+{
+    var draw   = int.TryParse(Request.Query["draw"],   out var d) ? d : 1;
+    var start  = int.TryParse(Request.Query["start"],  out var s) ? s : 0;
+    var length = int.TryParse(Request.Query["length"], out var l) ? l : 25;
+    var search = Request.Query["search[value]"].ToString();
+
+    // ── FIX BUG-1: respetar Global Query Filter ──────────────────────
+    IQueryable&lt;MedicoDirectorio&gt; query = mostrarEliminados
+        ? _db.MedicosDirectorio.IgnoreQueryFilters().AsNoTracking()   // ← muestra TODOS (incl. eliminados)
+        : _db.MedicosDirectorio.AsNoTracking();                        // ← respeta el filter (solo activos)
+
+    // Cuando mostramos eliminados, queremos SOLO los eliminados (no mezclar)
+    // Si el admin activa el switch, espera ver ÚNICAMENTE los eliminados.
+    // Si quiere ver todos, necesita un tercer modo — por ahora: switch ON = solo eliminados
+    if (mostrarEliminados)
+        query = query.Where(m => m.Eliminado);
+    // else: el Global Query Filter ya filtra !m.Eliminado automáticamente
+
+    // ─────────────────────────────────────────────────────────────────
+    if (!string.IsNullOrWhiteSpace(search))
+        query = query.Where(m =>
+            m.NombreCompleto.Contains(search) ||
+            (m.Especialidad != null && m.Especialidad.Contains(search)) ||
+            (m.Estado       != null && m.Estado.Contains(search))       ||
+            (m.Ciudad       != null && m.Ciudad.Contains(search)));
+
+    if (filtroVerificado == "verificado")
+        query = query.Where(m => m.EstatusValidacion == EstatusValidacionCedula.Validado);
+    else if (filtroVerificado == "pendiente")
+        query = query.Where(m => m.EstatusValidacion != EstatusValidacionCedula.Validado);
+    else if (filtroVerificado == "claim")
+        query = query.Where(m => m.EstatusReclamacion == EstatusReclamacion.EnProceso);
+
+    var total = await query.CountAsync();
+
+    var rows = await query
+        .OrderByDescending(m => m.FechaCreacion)
+        .Skip(start).Take(length)
+        .Select(m => new
+        {
+            m.Id,
+            m.NombreCompleto,
+            Especialidad         = m.Especialidad ?? string.Empty,
+            Estado               = m.Estado       ?? string.Empty,
+            Ciudad               = m.Ciudad       ?? string.Empty,
+            Ubicacion            = string.Join(", ", new[] { m.Ciudad, m.Estado }.Where(x => !string.IsNullOrEmpty(x))),
+            verificado           = m.EstatusValidacion == EstatusValidacionCedula.Validado,
+            solicitudClaim       = m.EstatusReclamacion == EstatusReclamacion.EnProceso,
+            perfilReclamado      = m.EstatusReclamacion == EstatusReclamacion.Reclamado,
+            totalConfirmaciones  = _db.ConfirmacionesComunitarias
+                                     .Count(c => c.MedicoDirectorioId == m.Id && !c.Eliminado),
+            tieneConfirmacionEII = _db.ConfirmacionesComunitarias
+                                     .Any(c => c.MedicoDirectorioId == m.Id && !c.Eliminado),
+            m.Eliminado,
+            FechaCreacion        = m.FechaCreacion.ToString("dd/MM/yyyy")
+        })
+        .ToListAsync();
+
+    return new JsonResult(new
+    {
+        draw,
+        recordsTotal    = total,
+        recordsFiltered = total,
+        data            = rows
+    });
+}</pre>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2>Fix en el handler de Restaurar</h2>
+
+  <div class="card">
+    <div class="card-title">OnPostRestaurarAsync — debe usar IgnoreQueryFilters</div>
+    <p>El handler de restaurar también puede fallar si usa la query normal, porque el registro eliminado no será encontrado:</p>
+    <pre>public async Task&lt;IActionResult&gt; OnPostRestaurarAsync()
+{
+    if (!Request.HasFormContentType) return BadRequest();
+    var id = int.Parse(Request.Form["id"]!);
+
+    // ← CRÍTICO: usar IgnoreQueryFilters para encontrar el registro eliminado
+    var m = await _db.MedicosDirectorio
+        .IgnoreQueryFilters()
+        .FirstOrDefaultAsync(x => x.Id == id);
+
+    if (m is null) return new JsonResult(new { success = false, message = "Registro no encontrado." });
+    if (!m.Eliminado) return new JsonResult(new { success = false, message = "El registro no está eliminado." });
+
+    m.Eliminado         = false;
+    m.FechaModificacion = DateTimeOffset.UtcNow;
+    await _db.SaveChangesAsync();
+
+    return new JsonResult(new { success = true });
+}</pre>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2>Fix en el handler de Detalle (OnGetMedicoAsync)</h2>
+
+  <div class="card">
+    <div class="card-title">OnGetMedicoAsync — abrir panel de un registro eliminado</div>
+    <p>Cuando el admin abre el panel de detalle de un registro eliminado (para restaurarlo), la query actual no lo encontrará:</p>
+    <pre>// ANTES:
+var m = await _db.MedicosDirectorio.FirstOrDefaultAsync(m => m.Id == id);
+
+// DESPUÉS:
+var m = await _db.MedicosDirectorio
+    .IgnoreQueryFilters()        // ← encuentra registros eliminados también
+    .FirstOrDefaultAsync(m => m.Id == id);</pre>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2>Verificación: ¿Existe el Global Query Filter?</h2>
+
+  <div class="card">
+    <div class="card-title">Qué buscar en ApplicationDbContext.OnModelCreating</div>
+    <p>Si el Global Query Filter <strong>no existe</strong> para <code>MedicosDirectorio</code>, el fix del handler sigue siendo correcto (la condición <code>mostrarEliminados ? IgnoreQueryFilters() : normal</code> funciona en ambos casos). Si el filter <strong>sí existe</strong>, el fix es indispensable.</p>
+    <p style="margin-top:8px">Buscar en <code>Data/ApplicationDbContext.cs</code>:</p>
+    <pre>// ¿Existe algo así?
+modelBuilder.Entity&lt;MedicoDirectorio&gt;()
+    .HasQueryFilter(m => !m.Eliminado);
+// o
+modelBuilder.Entity&lt;MedicoDirectorio&gt;()
+    .HasQueryFilter(m => m.Activo && !m.Eliminado);</pre>
+
+    <div class="note" style="margin-top:8px">
+      <strong>Acción:</strong> Si no existe el Global Query Filter, el bug puede tener otra causa: posiblemente el parámetro <code>mostrarEliminados</code> no llega como <code>true</code> desde el JS. Verificar con las DevTools del navegador que la URL del DataTables incluya <code>mostrarEliminados=true</code> cuando el switch está activado.
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2>SQL de verificación directa en la BD</h2>
+
+  <div class="card">
+    <div class="card-title">Confirmar que existen registros con Eliminado=1</div>
+    <pre>-- Ejecutar en SQL Server Management Studio
+SELECT Id, NombreCompleto, Eliminado, FechaModificacion
+FROM MedicosDirectorio
+WHERE Eliminado = 1
+ORDER BY FechaModificacion DESC;
+
+-- Si hay resultados, confirma que el bug es en la query/filter de EF
+-- Si no hay resultados, el soft delete tampoco funcionó al eliminar</pre>
+
+    <pre>-- Verificar el registro de c.berletzis@dological.com
+SELECT md.Id, md.NombreCompleto, md.Eliminado, u.Email
+FROM MedicosDirectorio md
+LEFT JOIN AspNetUsers u ON md.AspNetUserId = u.Id
+WHERE u.Email = 'c.berletzis@dological.com'
+   OR md.NombreCompleto LIKE '%berletzis%';
+
+-- Si no aparece con WHERE normal pero sí sin el WHERE, puede ser un filter EF</pre>
+  </div>
+
+  <hr/>
+
+  <div class="card" style="border-color:var(--success)">
+    <div class="card-title" style="color:var(--success)">Checklist del Fix BUG-1</div>
+    <table>
+      <thead><tr><th>Item</th><th>Acción</th><th>Estado</th></tr></thead>
+      <tbody>
+        <tr><td>Verificar Global Query Filter en DbContext</td><td>Revisar <code>OnModelCreating</code></td><td><span class="badge badge-warn">Pendiente</span></td></tr>
+        <tr><td>Aplicar <code>IgnoreQueryFilters()</code> en <code>OnGetGridDataAsync</code></td><td>Ver código arriba</td><td><span class="badge badge-warn">Pendiente</span></td></tr>
+        <tr><td>Aplicar <code>IgnoreQueryFilters()</code> en <code>OnPostRestaurarAsync</code></td><td>Ver código arriba</td><td><span class="badge badge-warn">Pendiente</span></td></tr>
+        <tr><td>Aplicar <code>IgnoreQueryFilters()</code> en <code>OnGetMedicoAsync</code></td><td>Ver código arriba</td><td><span class="badge badge-warn">Pendiente</span></td></tr>
+        <tr><td>Verificar en BD que existen registros con <code>Eliminado=1</code></td><td>SQL de verificación</td><td><span class="badge badge-warn">Pendiente</span></td></tr>
+        <tr><td>Probar el switch en Admin grid</td><td>QA manual</td><td><span class="badge badge-warn">Pendiente</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+</body>
+</html>

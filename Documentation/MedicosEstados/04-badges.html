@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Directorio Profesionales — 04 Badges</title>
+<style>
+  :root{--primary:#2E86AB;--secondary:#A23B72;--accent:#F18F01;--success:#2E9E5B;--danger:#c92a2a;--bg:#f7fbfc;--card:#fff;--text:#1A1A2E;--muted:#6B7280;--border:#e5e7eb;--code-bg:#f1f5f9}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+  .page{max-width:1100px;margin:0 auto;padding:32px 20px 60px}
+  h1{font-size:2rem;font-weight:700;color:var(--primary);margin-bottom:4px}
+  .subtitle{color:var(--muted);font-size:.95rem;margin-bottom:32px}
+  h2{font-size:1.3rem;font-weight:700;color:var(--text);margin:32px 0 12px;border-left:4px solid var(--primary);padding-left:10px}
+  h3{font-size:1rem;font-weight:700;color:var(--secondary);margin:18px 0 8px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+  .card-title{font-size:1rem;font-weight:700;color:var(--primary);margin-bottom:12px}
+  table{width:100%;border-collapse:collapse;font-size:.88rem;margin-top:8px}
+  th{background:#eef4fa;color:#3d436c;font-weight:700;padding:8px 10px;text-align:left;border-bottom:2px solid #ddeaf7}
+  td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.76rem;font-weight:600}
+  .badge-ok{background:#d1fae5;color:#065f46}.badge-warn{background:#fef3c7;color:#92400e}.badge-err{background:#fee2e2;color:#991b1b}.badge-info{background:#dbeafe;color:#1e40af}
+  code{background:var(--code-bg);border-radius:4px;padding:2px 6px;font-size:.85em;font-family:'Cascadia Code',Consolas,monospace;color:var(--secondary)}
+  pre{background:var(--code-bg);border-radius:8px;padding:16px;overflow-x:auto;font-size:.83rem;font-family:'Cascadia Code',Consolas,monospace;border:1px solid var(--border);margin:8px 0 16px;color:#1e293b}
+  .problem-box{background:#fff5f5;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;margin:10px 0}
+  .problem-box strong{color:var(--danger)}
+  .fix-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 16px;margin:10px 0}
+  .fix-box strong{color:#15803d}
+  .badge-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:.82rem;font-weight:600;margin:3px}
+  hr{border:none;border-top:1px solid var(--border);margin:28px 0}
+  .note{background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 16px;margin:10px 0;font-size:.88rem}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>Directorio de Profesionales de la Salud</h1>
+  <p class="subtitle">FASE 4 — Unificación de lógica de Badges · EIIBD.com · Mayo 2026</p>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2>El problema: lógica de badges en 3 lugares distintos</h2>
+
+  <div class="problem-box">
+    <strong>Situación actual — 3 fuentes distintas que definen los mismos badges:</strong>
+    <ol style="margin:8px 0 0 20px;line-height:2">
+      <li><strong>Panel Admin superior</strong> — usa <code>comunidadOk, verificadoOk, reclamadoOk</code> calculados desde datos del JSON</li>
+      <li><strong>Panel Admin sección Badges</strong> — lee <code>MedicoPerfilBadge</code> de BD directamente</li>
+      <li><strong>Card pública / Detalle público</strong> — combina <code>NivelConfianza</code> con <code>BadgesGanados</code> (HashSet de strings)</li>
+    </ol>
+    <p style="margin-top:8px">El resultado: los 3 lugares pueden mostrar estados diferentes para el mismo profesional.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2>Solución: IMedicoBadgeService como única fuente</h2>
+
+  <div class="card">
+    <div class="card-title">Definición canónica de cada badge — lógica que ya existe en EvaluarBadgesAutomaticosAsync</div>
+    <table>
+      <thead><tr><th>Badge</th><th>Tipo</th><th>Condición canónica</th><th>Disparador</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="badge-pill" style="background:#4f46e520;border:1.5px solid #4f46e5;color:#4f46e5"><i>🛡</i> perfil_reclamado</span></td>
+          <td><span class="badge badge-info">Auto</span></td>
+          <td><code>EstatusReclamacion == Reclamado</code></td>
+          <td>Al activar token en <code>/directorio/activar</code></td>
+        </tr>
+        <tr>
+          <td><span class="badge-pill" style="background:#0ea5e920;border:1.5px solid #0ea5e9;color:#0ea5e9"><i>✅</i> verificado</span></td>
+          <td><span class="badge badge-warn">Manual admin</span></td>
+          <td><code>EstatusValidacion == Validado</code> ← <strong>NUEVO:</strong> vincular al campo</td>
+          <td>Admin marca "Cédula verificada" → dispara badge automáticamente</td>
+        </tr>
+        <tr>
+          <td><span class="badge-pill" style="background:#22c55e20;border:1.5px solid #22c55e;color:#22c55e"><i>👥</i> activo_comunidad</span></td>
+          <td><span class="badge badge-info">Auto</span></td>
+          <td>≥5 pacientes únicos confirmados</td>
+          <td><code>ConfirmarAtencionAsync()</code> → <code>RecalcularNivelConfianzaAsync()</code></td>
+        </tr>
+        <tr>
+          <td><span class="badge-pill" style="background:#f59e0b20;border:1.5px solid #f59e0b;color:#f59e0b"><i>💬</i> participante_qa</span></td>
+          <td><span class="badge badge-info">Auto</span></td>
+          <td>≥3 respuestas en Q&A de la comunidad</td>
+          <td><span class="badge badge-warn">⚠ Hook pendiente en QA service</span></td>
+        </tr>
+        <tr>
+          <td><span class="badge-pill" style="background:#8b5cf620;border:1.5px solid #8b5cf6;color:#8b5cf6"><i>✔</i> validador_contenido</span></td>
+          <td><span class="badge badge-info">Auto</span></td>
+          <td>≥5 validaciones de glosario/contenido</td>
+          <td><span class="badge badge-warn">⚠ Hook pendiente en GlossaryService</span></td>
+        </tr>
+        <tr>
+          <td><span class="badge-pill" style="background:#ec489920;border:1.5px solid #ec4899;color:#ec4899"><i>✏</i> creador_contenido</span></td>
+          <td><span class="badge badge-warn">Manual admin</span></td>
+          <td>Admin lo otorga discrecionalmente</td>
+          <td>Solo desde admin panel — sin condición automática</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2>Fix BUG-3: Sincronizar badge "verificado" con EstatusValidacion</h2>
+
+  <div class="fix-box">
+    <strong>El cambio clave</strong>: el badge <code>"verificado"</code> pasa de ser <em>manual puro</em> a ser <em>automático condicionado</em> — se otorga cuando admin marca la cédula como verificada, y se revoca cuando la desmarca. El admin puede seguir viéndolo en el panel de badges pero no puede otorgarlo/revocarlo desde ahí — solo a través del campo de cédula.
+  </div>
+
+  <div class="card">
+    <div class="card-title">Cambio en la renderización del panel de badges</div>
+    <p>En el JSON que devuelve <code>OnGetMedicoAsync</code>, el badge <code>"verificado"</code> actualmente aparece como <code>esManual=true</code>, lo que muestra botones de otorgar/revocar en el UI. Debe cambiarse:</p>
+    <pre>// ANTES en OnGetMedicoAsync:
+var badgesData = catalogo.Select(b => {
+    var ganado = ganadosIds.FirstOrDefault(g => g.BadgeId == b.Id);
+    return new {
+        ...
+        esManual = b.Codigo == "verificado" || b.Codigo == "creador_contenido"  // verificado era manual
+    };
+}).ToList();
+
+// DESPUÉS:
+var badgesData = catalogo.Select(b => {
+    var ganado = ganadosIds.FirstOrDefault(g => g.BadgeId == b.Id);
+    return new {
+        id           = b.Id,
+        codigo       = b.Codigo,
+        nombre       = b.Nombre,
+        nivel        = b.Nivel,
+        icono        = b.Icono,
+        obtenido     = ganado != null,
+        fechaObtenido = ganado?.FechaObtenido.ToString("dd/MM/yyyy"),
+        otorgadoPor  = ganado?.OtorgadoPor,
+        // "verificado" ya NO es manual — se controla desde el checkbox de cédula
+        esManual     = b.Codigo == "creador_contenido"  // ← solo este queda manual
+    };
+}).ToList();</pre>
+
+    <div class="note">
+      <strong>UX en el panel admin:</strong> El badge "verificado" debe aparecer en el panel de badges como <em>read-only</em> con un texto: "Este badge se otorga automáticamente al verificar la cédula profesional". No debe tener botones de otorgar/revocar.
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2>Hook pendiente: badge "participante_qa"</h2>
+
+  <div class="card">
+    <div class="card-title">Conectar el badge al servicio de Q&A</div>
+    <p>Actualmente <code>EvaluarBadgesAutomaticosAsync</code> evalúa si el médico tiene ≥3 respuestas, pero ese método solo se llama cuando alguien llama explícitamente a re-evaluar. Debe conectarse al flujo cuando el médico responde en Q&A.</p>
+    <div class="note">
+      <strong>Pendiente (sprint siguiente):</strong> En el servicio de Q&A, después de guardar la respuesta de un médico, agregar:
+      <pre style="margin-top:8px">await _badgeService.EvaluarBadgesAutomaticosAsync(medicoId);</pre>
+      Este es uno de los pendientes de sprint anotados en CLAUDE.md.
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2>Hook pendiente: badge "validador_contenido"</h2>
+
+  <div class="card">
+    <div class="card-title">Conectar el badge a GlossaryService.AddValidationAsync</div>
+    <p>Ya está identificado en los pendientes de sprint de CLAUDE.md:</p>
+    <pre>// En GlossaryService.AddValidationAsync (pendiente):
+// Después de guardar la validación:
+await _badgeService.EvaluarBadgesAutomaticosAsync(medicoId);</pre>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <h2>Admin Panel — Sección Badges reordenada</h2>
+
+  <div class="card">
+    <div class="card-title">Renderización del panel de badges en el admin — nueva lógica</div>
+    <p>La función JavaScript <code>renderPanel(d)</code> genera el HTML de los badges. Debe actualizar la sección de badges para reflejar las nuevas reglas:</p>
+    <pre>// Dentro de renderPanel(d) — sección de badges:
+const badgesHtml = (d.badges || []).map(b => {
+    const icon  = b.obtenido
+        ? `&lt;i class="bi ${b.icono}" style="color:#22c55e"&gt;&lt;/i&gt;`
+        : `&lt;i class="bi ${b.icono}" style="color:#d1d5db"&gt;&lt;/i&gt;`;
+    const fecha = b.obtenido ? `&lt;small class="text-muted"&gt;${b.fechaObtenido}&lt;/small&gt;` : '';
+    const estadoLabel = b.obtenido
+        ? `&lt;span class="badge badge-ok"&gt;Obtenido&lt;/span&gt;`
+        : `&lt;span class="badge badge-gray"&gt;Pendiente&lt;/span&gt;`;
+
+    // Badge "verificado" — read-only, controlado por cédula
+    if (b.codigo === 'verificado') {
+        return `&lt;div class="d-flex align-items-center gap-2 py-2 border-bottom"&gt;
+            ${icon} &lt;span&gt;${b.nombre}&lt;/span&gt; ${estadoLabel} ${fecha}
+            &lt;small class="text-muted ms-auto"&gt;Se activa al verificar cédula&lt;/small&gt;
+        &lt;/div&gt;`;
+    }
+
+    // Badges manuales (solo creador_contenido)
+    if (b.esManual) {
+        const btn = b.obtenido
+            ? `&lt;button class="btn btn-sm btn-outline-danger ms-auto" onclick="revocarBadge(${d.id},'${b.codigo}')"&gt;Revocar&lt;/button&gt;`
+            : `&lt;button class="btn btn-sm btn-outline-success ms-auto" onclick="otorgarBadge(${d.id},'${b.codigo}')"&gt;Otorgar&lt;/button&gt;`;
+        return `&lt;div class="d-flex align-items-center gap-2 py-2 border-bottom"&gt;
+            ${icon} &lt;span&gt;${b.nombre}&lt;/span&gt; ${estadoLabel} ${fecha} ${btn}
+        &lt;/div&gt;`;
+    }
+
+    // Badges automáticos — read-only
+    return `&lt;div class="d-flex align-items-center gap-2 py-2 border-bottom"&gt;
+        ${icon} &lt;span&gt;${b.nombre}&lt;/span&gt; ${estadoLabel} ${fecha}
+        &lt;small class="text-muted ms-auto"&gt;Automático&lt;/small&gt;
+    &lt;/div&gt;`;
+}).join('');</pre>
+  </div>
+
+  <hr/>
+
+  <div class="card" style="border-color:var(--success)">
+    <div class="card-title" style="color:var(--success)">Checklist del Fix BUG-3 — Badges</div>
+    <table>
+      <thead><tr><th>Item</th><th>Estado</th></tr></thead>
+      <tbody>
+        <tr><td>Badge "verificado" se otorga automáticamente al verificar cédula</td><td><span class="badge badge-warn">Pendiente</span></td></tr>
+        <tr><td>Badge "verificado" se revoca al desmarcar cédula</td><td><span class="badge badge-warn">Pendiente</span></td></tr>
+        <tr><td>Panel admin — badge "verificado" es read-only (sin botones)</td><td><span class="badge badge-warn">Pendiente</span></td></tr>
+        <tr><td><code>esManual</code> solo aplica a <code>creador_contenido</code></td><td><span class="badge badge-warn">Pendiente</span></td></tr>
+        <tr><td>Hook <code>EvaluarBadgesAutomaticosAsync</code> en Q&A service</td><td><span class="badge badge-warn">Sprint siguiente</span></td></tr>
+        <tr><td>Hook <code>EvaluarBadgesAutomaticosAsync</code> en GlossaryService</td><td><span class="badge badge-warn">Sprint siguiente</span></td></tr>
+        <tr><td>Admin panel — badge "verificado" en panel superior YA coincide con sección Badges</td><td><span class="badge badge-warn">Pendiente (tras fix)</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+</body>
+</html>

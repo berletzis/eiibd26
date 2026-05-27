@@ -36,8 +36,10 @@ public class IndexModel : PageModel
         var length = int.TryParse(Request.Query["length"], out var l) ? l : 25;
         var search = Request.Query["search[value]"].ToString();
 
-        var query = _db.MedicosDirectorio.AsNoTracking()
-            .Where(m => mostrarEliminados || !m.Eliminado);
+        // FIX BUG-1: switch ON → solo eliminados; switch OFF → solo activos
+        IQueryable<MedicoDirectorio> query = mostrarEliminados
+            ? _db.MedicosDirectorio.IgnoreQueryFilters().AsNoTracking().Where(m => m.Eliminado)
+            : _db.MedicosDirectorio.AsNoTracking().Where(m => !m.Eliminado);
 
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(m =>
@@ -118,7 +120,7 @@ public class IndexModel : PageModel
     // ── Cargar médico para el panel de edición ───────────────────────────
     public async Task<IActionResult> OnGetMedicoAsync(int id)
     {
-        var m = await _db.MedicosDirectorio.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+        var m = await _db.MedicosDirectorio.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
         if (m is null) return NotFound();
 
         // Contadores y listado desde ConfirmacionesComunitarias (fuente canónica)
@@ -176,7 +178,7 @@ public class IndexModel : PageModel
                 obtenido     = ganado != null,
                 fechaObtenido = ganado?.FechaObtenido.ToString("dd/MM/yyyy"),
                 otorgadoPor  = ganado?.OtorgadoPor,
-                esManual     = b.Codigo == "verificado" || b.Codigo == "creador_contenido"
+                esManual     = b.Codigo == "creador_contenido"  // FIX BUG-3: "verificado" se controla desde cédula, no desde badges
             };
         }).ToList();
 
@@ -190,6 +192,8 @@ public class IndexModel : PageModel
             nivelVerificacion = (int)m.NivelConfianza,
             cedulaVerificada = m.CedulaVerificada,
             fechaCedulaVerificada = m.FechaCedulaVerificada?.ToString("dd/MM/yyyy HH:mm"),
+            activo = m.Activo,
+            visible = m.VisiblePublicamente,
             totalConfirmaciones = confs.Count,
             tieneConfirmacionEII = confs.Any(),
             estatusReclamacion = m.EstatusReclamacion.ToString(),
@@ -235,7 +239,18 @@ public class IndexModel : PageModel
         }
 
         await _db.SaveChangesAsync();
-        if (cambioVerificacion) await RecalcularNivelAsync(medico, id);
+
+        if (cambioVerificacion)
+        {
+            // FIX BUG-3: badge "verificado" sigue a EstatusValidacion como única fuente canónica
+            try
+            {
+                if (cedulaVerificada) await _badgeService.OtorgarBadgeAsync(medico.Id, "verificado", "admin");
+                else await _badgeService.RevocarBadgeAsync(medico.Id, "verificado");
+            }
+            catch { }
+            await RecalcularNivelAsync(medico, id);
+        }
 
         return new JsonResult(new { ok = true });
     }
@@ -247,8 +262,17 @@ public class IndexModel : PageModel
         var id = int.Parse(Request.Form["id"]!);
         var m = await _db.MedicosDirectorio.FirstOrDefaultAsync(x => x.Id == id);
         if (m is null) return new JsonResult(new { success = false });
-        m.EstatusValidacion = m.EstatusValidacion == EstatusValidacionCedula.Validado ? EstatusValidacionCedula.PendienteValidacion : EstatusValidacionCedula.Validado;
-        m.FechaModificacion = DateTimeOffset.UtcNow; await _db.SaveChangesAsync();
+        var toggleVerificado = m.EstatusValidacion != EstatusValidacionCedula.Validado;
+        m.EstatusValidacion = toggleVerificado ? EstatusValidacionCedula.Validado : EstatusValidacionCedula.PendienteValidacion;
+        m.FechaModificacion = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+        // FIX BUG-3: sincronizar badge "verificado"
+        try
+        {
+            if (toggleVerificado) await _badgeService.OtorgarBadgeAsync(m.Id, "verificado", "admin");
+            else await _badgeService.RevocarBadgeAsync(m.Id, "verificado");
+        }
+        catch { }
         return new JsonResult(new { success = true, verificado = m.EstatusValidacion == EstatusValidacionCedula.Validado });
     }
     public async Task<IActionResult> OnPostEliminarAsync()
@@ -264,7 +288,7 @@ public class IndexModel : PageModel
     {
         if (!Request.HasFormContentType || string.IsNullOrWhiteSpace(Request.Form["id"])) return BadRequest();
         var id = int.Parse(Request.Form["id"]!);
-        var m = await _db.MedicosDirectorio.FirstOrDefaultAsync(x => x.Id == id);
+        var m = await _db.MedicosDirectorio.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Id == id);
         if (m is null) return new JsonResult(new { success = false });
         m.Eliminado = false; m.FechaModificacion = DateTimeOffset.UtcNow; await _db.SaveChangesAsync();
         return new JsonResult(new { success = true });

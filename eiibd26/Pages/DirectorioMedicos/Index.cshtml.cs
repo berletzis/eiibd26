@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using eiibd26.Data;
 using eiibd26.Services.Directorio;
 using eiibd26.Models.Directorio;
+using eiibd26.Models.Directorio.Enums;
 using System.Security.Claims;
 
 namespace eiibd26.Pages.DirectorioMedicos;
@@ -27,8 +28,8 @@ public class IndexModel : PageModel
     // Badges ganados por médico (código del badge)
     public Dictionary<int, HashSet<string>> BadgesPorMedico { get; set; } = new();
 
-    // Propuestas pendientes del usuario autenticado
-    public List<(int Id, string Nombre, string? Especialidad, string? Estado, DateTimeOffset Fecha)> MisPropuestas { get; set; } = new();
+    // Propuestas del usuario autenticado con estado dinámico
+    public List<PropuestaPacienteVm> MisPropuestas { get; set; } = new();
 
     [BindProperty(SupportsGet = true)] public string? Busqueda     { get; set; }
     [BindProperty(SupportsGet = true)] public string? Estado       { get; set; }
@@ -44,14 +45,36 @@ public class IndexModel : PageModel
         if (Guid.TryParse(rawId, out var userId))
         {
             var rows = await _db.MedicosDirectorio
+                .IgnoreQueryFilters()
                 .AsNoTracking()
-                .Where(m => m.PropuestoPorUsuarioId == userId && !m.Activo)
+                .Where(m => m.PropuestoPorUsuarioId == userId && !m.Eliminado)
                 .OrderByDescending(m => m.FechaCreacion)
-                .Select(m => new { m.Id, m.NombreCompleto, m.Especialidad, m.Estado, m.FechaCreacion })
+                .Select(m => new
+                {
+                    m.Id, m.NombreCompleto, m.Especialidad, m.Estado, m.FechaCreacion,
+                    m.Activo, m.VisiblePublicamente, m.EstatusReclamacion, m.EstatusValidacion
+                })
                 .ToListAsync();
-            MisPropuestas = rows
-                .Select(m => (m.Id, m.NombreCompleto, m.Especialidad, m.Estado, m.FechaCreacion))
-                .ToList();
+
+            MisPropuestas = rows.Select(m =>
+            {
+                var estado = m.Activo && m.VisiblePublicamente && m.EstatusReclamacion == EstatusReclamacion.Reclamado
+                    ? EstadoProfesionalDerivado.Reclamado
+                    : m.Activo && m.VisiblePublicamente
+                      ? EstadoProfesionalDerivado.Publicado
+                    : m.EstatusValidacion == EstatusValidacionCedula.Validado
+                      ? EstadoProfesionalDerivado.CedulaVerificada
+                    : EstadoProfesionalDerivado.Propuesto;
+                return new PropuestaPacienteVm
+                {
+                    Id             = m.Id,
+                    Nombre         = m.NombreCompleto,
+                    Especialidad   = m.Especialidad,
+                    Estado         = m.Estado,
+                    Fecha          = m.FechaCreacion,
+                    EstadoDerivado = estado
+                };
+            }).ToList();
         }
 
         if (Directorio.Medicos.Any())

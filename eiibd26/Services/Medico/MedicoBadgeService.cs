@@ -90,6 +90,21 @@ public class MedicoBadgeService : IMedicoBadgeService
         return true;
     }
 
+    public async Task<bool> RevocarBadgeAsync(int medicoId, string codigo)
+    {
+        var badge = await _db.MedicosBadge.AsNoTracking()
+            .FirstOrDefaultAsync(b => b.Codigo == codigo);
+        if (badge is null) return false;
+
+        var entry = await _db.MedicosPerfilBadge
+            .FirstOrDefaultAsync(pb => pb.MedicoId == medicoId && pb.BadgeId == badge.Id);
+        if (entry is null) return false;
+
+        _db.MedicosPerfilBadge.Remove(entry);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
     public async Task EvaluarBadgesAutomaticosAsync(int medicoId)
     {
         // perfil_reclamado: MedicoPerfilExtendido con UserId != null

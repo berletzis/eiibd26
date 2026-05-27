@@ -1,7 +1,7 @@
 @page
 @model eiibd26.Areas.Identity.Pages.Admin.DirectorioMedicos.IndexModel
 @{
-    ViewData["Title"] = "Admin — Directorio Médicos";
+    ViewData["Title"] = "Admin — Directorio Profesionales";
     Layout = "_Layout";
 }
 
@@ -41,7 +41,7 @@
 
 <div class="crm-container-admin">
     <div class="d-flex justify-content-between align-items-center mb-2">
-        <h2 class="crm-title-admin">Directorio Médicos — Admin</h2>
+        <h2 class="crm-title-admin">Directorio Profesionales — Admin</h2>
         <button class="btn btn-outline-secondary btn-sm" onclick="evaluarTodos()">
             <i class="bi bi-arrow-repeat me-1"></i> Re-evaluar todos los badges
         </button>
@@ -80,7 +80,7 @@
 
         <div class="side-panel" id="editPanel">
             <div class="side-panel-header">
-                <h3>Editar médico</h3>
+                <h3>Editar profesional</h3>
                 <button type="button" class="btn-close-panel" onclick="cerrarPanel()"><i class="bi bi-x-lg"></i></button>
             </div>
             <div id="panelContent"></div>
@@ -106,15 +106,31 @@
         }).then(r => r.json());
     }
 
+    // FIX BUG-3: verificadoOk usa solo la fuente canónica (cedulaVerificada)
     function triBadges(row) {
-        const comunidadOk = row.totalConfirmaciones >= 3 && row.tieneConfirmacionEII;
-        const verificadoOk = row.cedulaVerificada || row.totalConfirmaciones >= 5;
+        const comunidadOk = row.totalConfirmaciones >= 3;
+        const verificadoOk = row.cedulaVerificada;
         const reclamadoOk  = row.perfilReclamado;
         return `<div class="badge-tri">
             <span class="badge ${comunidadOk ? '' : 'bg-light text-secondary border'}" style="${comunidadOk ? 'background:#6a4e7a;color:#fff;' : ''}"><i class="bi bi-people-fill"></i></span>
             <span class="badge ${verificadoOk ? 'bg-primary' : 'bg-light text-secondary border'}"><i class="bi bi-patch-check"></i></span>
             <span class="badge ${reclamadoOk ? 'bg-success' : 'bg-light text-secondary border'}"><i class="bi bi-patch-check-fill"></i></span>
         </div>`;
+    }
+
+    function estadoLabel(d) {
+        if (d.eliminado)               return '🗑 Eliminado';
+        if (d.perfilReclamado)         return '🔐 Reclamado';
+        if (d.activo && d.visible)     return '🌐 Publicado';
+        if (d.cedulaVerificada)        return '✅ Cédula verificada';
+        return '📋 En revisión';
+    }
+    function estadoBadge(d) {
+        if (d.eliminado)               return 'bg-secondary';
+        if (d.perfilReclamado)         return 'bg-success';
+        if (d.activo && d.visible)     return 'bg-primary';
+        if (d.cedulaVerificada)        return 'bg-info text-dark';
+        return 'bg-warning text-dark';
     }
 
     $(function () {
@@ -215,10 +231,6 @@
     }
 
     function renderPanel(d, paisOptions) {
-        const comunidadOk = d.totalConfirmaciones >= 3 && d.tieneConfirmacionEII;
-        const verificadoOk = d.cedulaVerificada || d.totalConfirmaciones >= 5;
-        const reclamadoOk  = d.perfilReclamado;
-
         const expHtml = (d.expContadores || []).map(e =>
             `<div class="col-6"><div class="d-flex align-items-center gap-2 py-1">
                 <input type="checkbox" class="form-check-input" ${e.total > 0 ? 'checked' : ''} disabled />
@@ -228,9 +240,9 @@
         ).join('');
 
         const confHtml = (d.confirmadores || []).length > 0
-            ? `<div class="table-responsive mt-2" id="confirmadoresContainer">
+            ? `<div class="table-responsive mt-2">
                 <table class="table table-sm table-hover align-middle mb-1">
-                    <thead class="table-light"><tr><th style="font-size:.8rem;">Email</th><th style="font-size:.8rem;">Fecha</th><th style="font-size:.8rem;">Experiencias</th></tr></thead>
+                    <thead class="table-light"><tr><th style="font-size:.8rem;">Email</th><th style="font-size:.8rem;">Fecha</th><th style="font-size:.8rem;">Tipo</th></tr></thead>
                     <tbody>${(d.confirmadores || []).map(c =>
                         `<tr><td style="font-size:.8rem;">${esc(c.email)}</td><td style="font-size:.8rem;white-space:nowrap;">${esc(c.fecha)}</td><td style="font-size:.78rem;">${c.exps.join(', ') || '—'}</td></tr>`
                     ).join('')}</tbody>
@@ -239,16 +251,23 @@
                </div>`
             : '<small class="text-muted">Sin confirmaciones aún.</small>';
 
-        // HTML para badges
         const badgesHtml = (d.badges || []).map(b => {
             const obtenidoHtml = b.obtenido
                 ? `<span class="badge bg-success-subtle text-success border">&#10003; ${esc(b.fechaObtenido || '')} &mdash; ${esc(b.otorgadoPor || '')}</span>`
                 : '<span class="text-muted small">Pendiente</span>';
+            if (b.codigo === 'verificado') {
+                return `<div class="d-flex align-items-center gap-2 py-1 border-bottom">
+                    <i class="${esc(b.icono)}" style="font-size:1rem;color:${b.obtenido ? '#6a4e7a' : '#9ca3af'};width:18px;"></i>
+                    <span style="font-size:.82rem;flex:1;">${esc(b.nombre)}</span>
+                    ${obtenidoHtml}
+                    <small class="text-muted ms-auto" style="font-size:.74rem;">Se activa al verificar cédula</small>
+                </div>`;
+            }
             const btnsHtml = b.esManual
                 ? (b.obtenido
                     ? `<button class="btn btn-sm btn-outline-danger ms-auto" onclick="revocarBadge(${d.id},'${esc(b.codigo)}')">Revocar</button>`
                     : `<button class="btn btn-sm btn-outline-primary ms-auto" onclick="otorgarBadge(${d.id},'${esc(b.codigo)}')">Otorgar</button>`)
-                : '';
+                : `<small class="text-muted ms-auto" style="font-size:.74rem;">Automático</small>`;
             return `<div class="d-flex align-items-center gap-2 py-1 border-bottom">
                 <i class="${esc(b.icono)}" style="font-size:1rem;color:${b.obtenido ? '#6a4e7a' : '#9ca3af'};width:18px;"></i>
                 <span style="font-size:.82rem;flex:1;">${esc(b.nombre)}</span>
@@ -262,6 +281,7 @@
 <div id="msgError" class="alert alert-danger d-none mb-3">Error al guardar.</div>
 <input type="hidden" id="ep_id" value="${d.id}">
 
+<!-- 1. Datos profesionales -->
 <p class="panel-section-title">Datos profesionales</p>
 <div class="mb-2"><label class="crm-label d-block mb-1">Nombre completo <span class="text-danger">*</span></label>
     <input type="text" id="ep_nombre" class="form-control form-control-sm" value="${esc(d.nombreCompleto)}" required></div>
@@ -272,6 +292,7 @@
 <div class="mb-2"><label class="crm-label d-block mb-1">Cédula profesional</label>
     <input type="text" id="ep_cedula" class="form-control form-control-sm" value="${esc(d.cedulaProfesional)}"></div>
 
+<!-- 2. Ubicación -->
 <p class="panel-section-title">Ubicación</p>
 <div class="row g-2 mb-2">
     <div class="col-6"><label class="crm-label d-block mb-1">País</label>
@@ -280,54 +301,51 @@
         <input type="text" id="admin-dir-ciudad-input" class="form-control form-control-sm" autocomplete="off"
                value="${esc(d.ciudad)}" placeholder="Buscar ciudad..."></div>
 </div>
-<div class="mb-2">
-    <label class="crm-label d-block mb-1">Hospital / Clínica</label>
+<div class="mb-2"><label class="crm-label d-block mb-1">Hospital / Clínica</label>
     <input type="text" id="ep_hospital" class="form-control form-control-sm" value="${esc(d.hospitalClinica)}">
 </div>
 <input type="hidden" id="admin-dir-estado"   value="${esc(d.estado)}">
 <input type="hidden" id="admin-dir-latitud"  value="">
 <input type="hidden" id="admin-dir-longitud" value="">
 
-<p class="panel-section-title">Verificación</p>
-<div class="badge-tri mb-2">
-    <span class="badge ${comunidadOk ? '' : 'bg-light text-secondary border'}" style="${comunidadOk ? 'background:#6a4e7a;color:#fff;' : ''}"><i class="bi bi-people-fill"></i> Comunidad</span>
-    <span class="badge ${verificadoOk ? 'bg-primary' : 'bg-light text-secondary border'}"><i class="bi bi-patch-check"></i> Verificado</span>
-    <span class="badge ${reclamadoOk ? 'bg-success' : 'bg-light text-secondary border'}"><i class="bi bi-patch-check-fill"></i> Médico</span>
+<div class="d-flex gap-2 mt-3 mb-1">
+    <button class="btn btn-primary btn-sm" onclick="guardarCambios()"><i class="bi bi-floppy me-1"></i> Guardar</button>
+    <button class="btn btn-outline-secondary btn-sm" onclick="cerrarPanel()">Cancelar</button>
+</div>
+
+<!-- 3. Verificación y Publicación -->
+<p class="panel-section-title">Verificación y Publicación</p>
+<div class="mb-2">
+    <label class="crm-label d-block mb-1">Estado actual</label>
+    <span class="badge ${estadoBadge(d)}">${estadoLabel(d)}</span>
 </div>
 <div class="form-check mb-1">
     <input class="form-check-input" type="checkbox" id="ep_cedulaVerificada" ${d.cedulaVerificada ? 'checked' : ''}>
     <label class="form-check-label crm-label" for="ep_cedulaVerificada">Cédula verificada</label>
 </div>
 ${d.cedulaVerificada && d.fechaCedulaVerificada ? `<p class="text-muted small mb-2">Verificada: ${d.fechaCedulaVerificada}</p>` : ''}
+
+<!-- 4. Claim -->
+<p class="panel-section-title">Claim</p>
+<div class="mb-2">
+    ${d.perfilReclamado
+        ? `<span class="badge bg-success">Reclamado ✓ ${d.fechaReclamacion ? '('+d.fechaReclamacion+')' : ''}</span>`
+        : d.solicitudClaim
+          ? `<span class="badge bg-warning text-dark">Pendiente — ${esc(d.emailClaim)}</span>
+             <div class="d-flex gap-2 mt-1">
+               <button class="btn btn-sm btn-success" onclick="accionClaim('AprobarClaim',${d.id})"><i class="bi bi-check-circle-fill me-1"></i>Aprobar</button>
+               <button class="btn btn-sm btn-danger" onclick="accionClaim('RechazarClaim',${d.id})"><i class="bi bi-x-circle-fill me-1"></i>Rechazar</button>
+             </div>`
+          : '<span class="text-muted small">Sin solicitud de claim</span>'}
+</div>
+
+<!-- 5. Comunidad -->
+<p class="panel-section-title">Comunidad</p>
 <div class="mb-2"><label class="crm-label d-block mb-1">Confirmaciones</label>
     <div class="field-readonly">${d.totalConfirmaciones}</div></div>
-<div class="mb-2"><label class="crm-label d-block mb-1">Claim</label>
-    <div>${d.perfilReclamado ? `<span class="badge bg-success">Reclamado ✓ ${d.fechaReclamacion ? '('+d.fechaReclamacion+')' : ''}</span>`
-        : d.solicitudClaim ? `<span class="badge bg-warning text-dark">Pendiente — ${esc(d.emailClaim)}</span>
-                              <div class="d-flex gap-2 mt-1">
-                                <button class="btn btn-sm btn-success" onclick="accionClaim('AprobarClaim',${d.id})"><i class="bi bi-check-circle-fill me-1"></i>Aprobar</button>
-                                <button class="btn btn-sm btn-danger" onclick="accionClaim('RechazarClaim',${d.id})"><i class="bi bi-x-circle-fill me-1"></i>Rechazar</button>
-                              </div>`
-        : '<span class="text-muted">Sin solicitud</span>'}</div></div>
+${confHtml}
 
-<p class="panel-section-title">Experiencias EII reportadas por pacientes</p>
-<div class="row g-0" id="expEIIGrid">${expHtml}</div>
-
-<p class="panel-section-title">Estado del registro</p>
-<div class="form-check mb-2">
-    <input class="form-check-input" type="checkbox" id="ep_eliminado" ${d.eliminado ? 'checked' : ''}>
-    <label class="form-check-label crm-label" for="ep_eliminado">Eliminado (soft delete)</label>
-</div>
-<div class="row g-2 mb-2">
-    <div class="col-6"><label class="crm-label d-block mb-1">Creado</label><div class="field-readonly">${d.fechaCreacion}</div></div>
-    <div class="col-6"><label class="crm-label d-block mb-1">Propuesto por</label><div class="field-readonly">${esc(d.aportante)}</div></div>
-</div>
-
-<div class="d-flex gap-2 mt-3">
-    <button class="btn btn-primary btn-sm" onclick="guardarCambios()"><i class="bi bi-floppy me-1"></i> Guardar</button>
-    <button class="btn btn-outline-secondary btn-sm" onclick="cerrarPanel()">Cancelar</button>
-</div>
-
+<!-- 6. Badges -->
 <p class="panel-section-title mt-3">Badges</p>
 <div class="d-flex gap-2 mb-2">
     <button class="btn btn-sm btn-outline-primary" onclick="evaluarBadges(${d.id})">
@@ -336,8 +354,20 @@ ${d.cedulaVerificada && d.fechaCedulaVerificada ? `<p class="text-muted small mb
 </div>
 <div id="badgesContainer">${badgesHtml}</div>
 
-<p class="panel-section-title mt-3">Pacientes que confirmaron</p>
-${confHtml}`;
+<!-- 7. Experiencias EII -->
+<p class="panel-section-title mt-3">Experiencias EII reportadas por pacientes</p>
+<div class="row g-0" id="expEIIGrid">${expHtml}</div>
+
+<!-- 8. Auditoría -->
+<p class="panel-section-title mt-3">Auditoría</p>
+<div class="form-check mb-2">
+    <input class="form-check-input" type="checkbox" id="ep_eliminado" ${d.eliminado ? 'checked' : ''}>
+    <label class="form-check-label crm-label" for="ep_eliminado">Eliminado (soft delete)</label>
+</div>
+<div class="row g-2 mb-3">
+    <div class="col-6"><label class="crm-label d-block mb-1">Creado</label><div class="field-readonly">${d.fechaCreacion}</div></div>
+    <div class="col-6"><label class="crm-label d-block mb-1">Propuesto por</label><div class="field-readonly">${esc(d.aportante)}</div></div>
+</div>`;
 
         // Init Google Maps si ya cargó
         if (window.google && window.google.maps) initAdminAutocomplete();
