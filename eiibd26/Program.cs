@@ -885,19 +885,6 @@ try
         Authorization = new[] { new eiibd26.Helpers.HangfireAdminAuthFilter() }
     });
 
-    // Redirigir médicos a su dashboard cuando aterrizan en "/"
-    app.Use(async (context, next) =>
-    {
-        if (context.User.Identity?.IsAuthenticated == true
-            && context.User.IsInRole("Medico")
-            && context.Request.Path == "/")
-        {
-            context.Response.Redirect("/Identity/Medico/Dashboard");
-            return;
-        }
-        await next();
-    });
-
     app.MapControllers();
     app.MapRazorPages();
 
