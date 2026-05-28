@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using eiibd26.Data;
 using eiibd26.Models.Medico;
+using eiibd26.Models.Validacion;
 
 namespace eiibd26.Services.Medico;
 
@@ -152,11 +153,17 @@ public class MedicoBadgeService : IMedicoBadgeService
             if (respuestas >= 3)
                 await OtorgarBadgeAsync(medicoId, "participante_qa", "sistema");
 
-            // validador_contenido: >= 1 validación aprobada en GlossaryValidations
+            // validador_terminos: >= 3 términos del glosario validados (GlossaryValidations)
             var userIdStr = perfil.UserId.Value.ToString();
-            var validaciones = await _db.GlossaryValidations
+            var validacionesTerminos = await _db.GlossaryValidations
                 .CountAsync(v => v.UserId == userIdStr && v.Approved);
-            if (validaciones >= 1)
+            if (validacionesTerminos >= 3)
+                await OtorgarBadgeAsync(medicoId, "validador_terminos", "sistema");
+
+            // validador_contenido: >= 3 contenidos validados (ValidacionesContenidoProfesional)
+            var validacionesContenido = await _db.ValidacionesContenidoProfesional
+                .CountAsync(v => v.UsuarioMedicoId == userIdStr && v.Estado == EstadoValidacion.Validado);
+            if (validacionesContenido >= 3)
                 await OtorgarBadgeAsync(medicoId, "validador_contenido", "sistema");
         }
     }
