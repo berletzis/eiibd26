@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using eiibd26.Data;
+using eiibd26.Helpers;
 using eiibd26.Models.Validacion;
 using eiibd26.Services.Directorio;
 using eiibd26.Services.Medico;
@@ -46,10 +47,59 @@ public class DetalleModel : PageModel
     public List<UbicacionMedicoVm> UbicacionesCombinadas { get; private set; } = new();
     public List<MedicoBadgeDto> BadgesDirectorio { get; private set; } = new();
 
-    public async Task<IActionResult> OnGetAsync(int id)
+    public async Task<IActionResult> OnGetAsync(int? id, string? slug)
     {
         var usuarioId = ObtenerUsuarioId();
-        Medico = await _service.GetDetalleAsync(id, usuarioId);
+
+        // Resolver medicoId desde slug (ruta canónica) o desde id (ruta vieja → 301)
+        int medicoId;
+        if (!string.IsNullOrWhiteSpace(slug))
+        {
+            var perfilPorSlug = await _db.MedicosPerfilExtendido
+                .AsNoTracking()
+                .Where(p => p.Slug == slug && p.MedicoId != null)
+                .Select(p => p.MedicoId!.Value)
+                .FirstOrDefaultAsync();
+            if (perfilPorSlug == 0) return NotFound();
+            medicoId = perfilPorSlug;
+        }
+        else if (id.HasValue)
+        {
+            // Ruta vieja: redirigir 301 al slug canónico si existe
+            var slugCanonico = await _db.MedicosPerfilExtendido
+                .AsNoTracking()
+                .Where(p => p.MedicoId == id.Value)
+                .Select(p => p.Slug)
+                .FirstOrDefaultAsync();
+
+            if (!string.IsNullOrWhiteSpace(slugCanonico))
+                return RedirectPermanent($"/medicos/{slugCanonico}");
+
+            // Médico sin slug: lazy backfill — generar, guardar y redirigir
+            var perfilSinSlug = await _db.MedicosPerfilExtendido
+                .FirstOrDefaultAsync(p => p.MedicoId == id.Value);
+            if (perfilSinSlug != null)
+            {
+                var medicoNombre = await _db.MedicosDirectorio
+                    .Where(m => m.Id == id.Value)
+                    .Select(m => m.NombreCompleto)
+                    .FirstOrDefaultAsync();
+                if (!string.IsNullOrWhiteSpace(medicoNombre))
+                {
+                    perfilSinSlug.Slug = await SlugHelper.GenerateUniqueSlugForMedico(_db, medicoNombre, perfilSinSlug.Id);
+                    await _db.SaveChangesAsync();
+                    return RedirectPermanent($"/medicos/{perfilSinSlug.Slug}");
+                }
+            }
+            // Sin perfil extendido o sin nombre: servir por id como fallback
+            medicoId = id.Value;
+        }
+        else
+        {
+            return NotFound();
+        }
+
+        Medico = await _service.GetDetalleAsync(medicoId, usuarioId);
         if (Medico is null) return NotFound();
 
         IsMedico   = User.IsInRole("Medico");
@@ -59,29 +109,29 @@ public class DetalleModel : PageModel
         if (IsMedico && usuarioId.HasValue)
         {
             IsOwnerMedico = await _db.MedicosPerfilExtendido
-                .AnyAsync(p => p.MedicoId == id && p.UserId == usuarioId.Value);
+                .AnyAsync(p => p.MedicoId == medicoId && p.UserId == usuarioId.Value);
         }
 
         CanInteractAsPaciente = (IsPaciente || IsAdmin) && !IsMedico;
 
         TiposConfirmacion = await _service.GetTiposConfirmacionActivosAsync();
-        ConfirmarVm.MedicoDirectorioId = id;
+        ConfirmarVm.MedicoDirectorioId = medicoId;
 
         TotalConfirmaciones = await _db.ConfirmacionesComunitarias
-            .CountAsync(c => c.MedicoDirectorioId == id && !c.Eliminado);
+            .CountAsync(c => c.MedicoDirectorioId == medicoId && !c.Eliminado);
 
         PerfilYaVinculado = await _db.MedicosPerfilExtendido
-            .AnyAsync(p => p.MedicoId == id && p.UserId != null);
+            .AnyAsync(p => p.MedicoId == medicoId && p.UserId != null);
 
         if (usuarioId.HasValue)
             YaConfirme = await _db.ConfirmacionesComunitarias
-                .AnyAsync(c => c.MedicoDirectorioId == id && c.UsuarioId == usuarioId.Value && !c.Eliminado);
+                .AnyAsync(c => c.MedicoDirectorioId == medicoId && c.UsuarioId == usuarioId.Value && !c.Eliminado);
 
         // Fase 2: Ubicaciones combinadas
-        await CargarUbicacionesAsync(id);
+        await CargarUbicacionesAsync(medicoId);
 
         // Fase 4: Badges del directorio
-        BadgesDirectorio = await _badgeService.GetTodosLosBadgesAsync(id);
+        BadgesDirectorio = await _badgeService.GetTodosLosBadgesAsync(medicoId);
 
         // Verificar si el médico validó su propio perfil
         try
@@ -89,7 +139,7 @@ public class DetalleModel : PageModel
             PerfilValidado = await _db.ValidacionesContenidoProfesional
                 .AnyAsync(v =>
                     v.TipoContenido == TipoContenidoValidado.PerfilMedico
-                    && v.ContenidoId == id
+                    && v.ContenidoId == medicoId
                     && v.Estado == EstadoValidacion.Validado);
         }
         catch { }

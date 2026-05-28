@@ -161,6 +161,8 @@ try
         {
             // Map SEO-friendly route /Preguntas/{slug} -> /Preguntas/Detalles
             options.Conventions.AddPageRoute("/Preguntas/Detalles", "/Preguntas/{slug}");
+            // Map SEO-friendly route /medicos/{slug} -> /DirectorioMedicos/Detalle
+            options.Conventions.AddPageRoute("/DirectorioMedicos/Detalle", "/medicos/{slug}");
 
             // PROTECCIÓN: autorizar TODO el área Identity por defecto
             options.Conventions.AuthorizeAreaFolder("Identity", "/");

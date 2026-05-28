@@ -106,7 +106,7 @@
                                 <i class="bi bi-arrow-repeat me-1"></i> Restaurar vínculo ahora
                             </button>
                         </form>
-                        <a asp-page="/DirectorioMedicos/Detalle" asp-route-id="@Model.PerfilHuerfanoId" class="btn btn-outline-secondary btn-sm ms-2">
+                        <a href="/DirectorioMedicos/Detalle/@Model.PerfilHuerfanoId" class="btn btn-outline-secondary btn-sm ms-2">
                             <i class="bi bi-eye me-1"></i> Ver perfil público
                         </a>
                     </div>
@@ -125,44 +125,6 @@
     }
 
     <div class="row g-3">
-
-        @* Sección 1: Mi Perfil — Nivel ≥ 1 *@
-        <div class="col-md-6 col-lg-4">
-            @if (Model.NivelActual >= 1)
-            {
-                <div class="dash-card">
-                    <div class="dash-card-title"><i class="bi bi-person-circle text-primary"></i> Mi Perfil</div>
-                    <div class="d-flex gap-3 align-items-center mb-3">
-                        <img src="@(string.IsNullOrWhiteSpace(Model.FotoUrl) ? "https://ui-avatars.com/api/?name=M&size=48" : Model.FotoUrl)"
-                             class="rounded-circle" width="48" height="48" style="object-fit:cover;" alt="avatar" />
-                        <div>
-                            <div class="fw-semibold">@(Model.NombreMedico ?? "Sin nombre")</div>
-                            <div class="text-muted small">Médico EII</div>
-                        </div>
-                    </div>
-                    <a asp-area="Identity" asp-page="/Account/Manage/PerfilMedico" class="btn btn-outline-primary btn-sm w-100">
-                        <i class="bi bi-pencil me-1"></i> Editar mi perfil
-                    </a>
-                    @if (Model.TienePerfilVinculado && Model.MedicoDirectorioId.HasValue)
-                    {
-                        <a asp-page="/DirectorioMedicos/Detalle" asp-route-id="@Model.MedicoDirectorioId"
-                           class="btn btn-outline-secondary btn-sm w-100 mt-2">
-                            <i class="bi bi-eye me-1"></i> Ver perfil público
-                        </a>
-                    }
-                </div>
-            }
-            else
-            {
-                <div class="dash-card dash-card-locked">
-                    <div class="dash-card-title">
-                        <i class="bi bi-lock text-secondary"></i> Mi Perfil
-                        <span class="dash-lock-badge ms-auto"><i class="bi bi-lock-fill"></i> Nivel 1</span>
-                    </div>
-                    <p class="text-muted small mb-0">Reclama tu perfil del directorio para desbloquear esta sección.</p>
-                </div>
-            }
-        </div>
 
         @* Sección 2: Mis Badges — Nivel ≥ 1 *@
         <div class="col-md-6 col-lg-4">
@@ -286,15 +248,39 @@
             }
         </div>
 
-        @* Sección 5: Validar Contenido — Nivel ≥ 5 *@
+        @* Sección 5: Validar Términos del glosario — Nivel ≥ 5 *@
         <div class="col-md-6 col-lg-4">
             @if (Model.NivelActual >= 5)
             {
                 <div class="dash-card">
-                    <div class="dash-card-title"><i class="bi bi-check-circle-fill" style="color:var(--eii-primary);"></i> Validar Contenido</div>
-                    <p class="text-muted small mb-3">Revisa y valida términos médicos del glosario EII.</p>
+                    <div class="dash-card-title"><i class="bi bi-book-half" style="color:var(--eii-primary);"></i> Validar Términos</div>
+                    <p class="text-muted small mb-3">Revisa y valida términos médicos del glosario EII (síntomas y tratamientos).</p>
                     <a asp-page="/Glosario/Index" class="btn btn-primary btn-sm w-100">
                         <i class="bi bi-book me-1"></i> Ir al glosario
+                    </a>
+                </div>
+            }
+            else
+            {
+                <div class="dash-card dash-card-locked">
+                    <div class="dash-card-title">
+                        <i class="bi bi-lock text-secondary"></i> Validar Términos
+                        <span class="dash-lock-badge ms-auto"><i class="bi bi-lock-fill"></i> Nivel 5</span>
+                    </div>
+                    <p class="text-muted small mb-0">Disponible en Nivel 5. Valida 3 o más términos del glosario para ganar el badge Validador de Términos.</p>
+                </div>
+            }
+        </div>
+
+        @* Sección 5b: Validar Contenido (artículos/noticias) — Nivel ≥ 5 *@
+        <div class="col-md-6 col-lg-4">
+            @if (Model.NivelActual >= 5)
+            {
+                <div class="dash-card">
+                    <div class="dash-card-title"><i class="bi bi-file-earmark-check-fill" style="color:var(--eii-primary);"></i> Validar Contenido</div>
+                    <p class="text-muted small mb-3">Revisa y valida artículos, noticias y contenido educativo de la plataforma.</p>
+                    <a asp-page="/Contenidos/Index" class="btn btn-primary btn-sm w-100">
+                        <i class="bi bi-journal-text me-1"></i> Ir a contenidos
                     </a>
                 </div>
             }
@@ -305,7 +291,7 @@
                         <i class="bi bi-lock text-secondary"></i> Validar Contenido
                         <span class="dash-lock-badge ms-auto"><i class="bi bi-lock-fill"></i> Nivel 5</span>
                     </div>
-                    <p class="text-muted small mb-0">Disponible en Nivel 5: Validador de Contenido.</p>
+                    <p class="text-muted small mb-0">Disponible en Nivel 5. Valida 3 o más contenidos para ganar el badge Validador de Contenido.</p>
                 </div>
             }
         </div>

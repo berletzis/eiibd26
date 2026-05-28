@@ -73,5 +73,33 @@ namespace eiibd26.Helpers
 
             return slug;
         }
+
+        /// <summary>
+        /// Genera un slug único para un perfil médico (agrega sufijo numérico si ya existe).
+        /// Deduplicación contra MedicoPerfilExtendido.Slug.
+        /// </summary>
+        public static async Task<string> GenerateUniqueSlugForMedico(ApplicationDbContext db, string nombre, int? perfilExtId = null)
+        {
+            var baseSlug = GenerateSlug(nombre);
+            if (string.IsNullOrWhiteSpace(baseSlug) || baseSlug == "pregunta")
+                baseSlug = "medico";
+
+            var slug = baseSlug;
+            var counter = 1;
+
+            while (true)
+            {
+                var exists = await db.MedicosPerfilExtendido
+                    .AsNoTracking()
+                    .AnyAsync(p => p.Slug == slug && (!perfilExtId.HasValue || p.Id != perfilExtId.Value));
+
+                if (!exists) break;
+
+                slug = $"{baseSlug}-{counter}";
+                counter++;
+            }
+
+            return slug;
+        }
     }
 }

@@ -3,7 +3,7 @@
 @{
     // Clasificación: primarios (críticos para paciente) vs secundarios (complementarios)
     var primaryCodes = new[] { "perfil_reclamado", "verificado", "activo_comunidad" };
-    var secondaryCodes = new[] { "participante_qa", "validador_contenido", "creador_contenido" };
+    var secondaryCodes = new[] { "participante_qa", "validador_terminos", "validador_contenido", "creador_contenido" };
 
     var primaries = Model?.Where(b => primaryCodes.Contains(b.Codigo)).OrderBy(b => Array.IndexOf(primaryCodes, b.Codigo)).ToList() ?? new List<eiibd26.Models.Medico.MedicoBadgeDto>();
     var secondaries = Model?.Where(b => secondaryCodes.Contains(b.Codigo)).OrderBy(b => Array.IndexOf(secondaryCodes, b.Codigo)).ToList() ?? new List<eiibd26.Models.Medico.MedicoBadgeDto>();
@@ -15,7 +15,8 @@
         { "verificado",          ("#0ea5e9", "#dbeafe", "#0ea5e9") },
         { "activo_comunidad",    ("#16a34a", "#d1fae5", "#16a34a") },
         { "participante_qa",     ("#f59e0b", "#fef3c7", "#f59e0b") },
-        { "validador_contenido", ("#8b5cf6", "#f3e8ff", "#8b5cf6") },
+        { "validador_terminos",  ("#8b5cf6", "#f3e8ff", "#8b5cf6") },
+        { "validador_contenido", ("#0d9488", "#ccfbf1", "#0d9488") },
         { "creador_contenido",   ("#ec4899", "#fce7f3", "#ec4899") }
     };
 
@@ -48,12 +49,12 @@
     </div>
 }
 
-@if (secondaries.Any(b => b.Obtenido))
+@if (secondaries.Any())
 {
     <div class="medico-badges-secondary d-flex flex-wrap gap-2">
-        @foreach (var badge in secondaries.Where(b => b.Obtenido))
+        @foreach (var badge in secondaries)
         {
-            <span class="badge-medico-pill badge-secondary obtained"
+            <span class="badge-medico-pill badge-secondary @(badge.Obtenido ? "obtained" : "not-obtained")"
                   data-badge-code="@badge.Codigo"
                   style="@GetBadgeStyle(badge)"
                   title="@badge.Descripcion"
