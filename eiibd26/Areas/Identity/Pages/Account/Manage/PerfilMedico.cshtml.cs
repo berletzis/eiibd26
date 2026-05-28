@@ -65,11 +65,11 @@ public class PerfilMedicoModel : PageModel
         ILogger<PerfilMedicoModel> logger,
         IConfiguration configuration)
     {
-        _db = db;
-        _badgeService = badgeService;
-        _env = env;
-        _logger = logger;
-        _configuration = configuration;
+        _db               = db;
+        _badgeService     = badgeService;
+        _env              = env;
+        _logger           = logger;
+        _configuration    = configuration;
         _googleMapsApiKey = configuration["GoogleMaps:ApiKey"] ?? string.Empty;
     }
 
@@ -261,6 +261,68 @@ public class PerfilMedicoModel : PageModel
         }
 
         return Page();
+    }
+
+    public async Task<IActionResult> OnPostSubirFotoAsync(IFormFile? fotoFile)
+    {
+        if (fotoFile is null || fotoFile.Length == 0)
+            return new JsonResult(new { success = false, error = "No se recibió ningún archivo." });
+
+        var userId = GetUserId();
+
+        try
+        {
+            var fileName   = $"medico-{userId:N}.jpg";
+            var uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "medicos");
+            Directory.CreateDirectory(uploadsDir);
+            var filePath = Path.Combine(uploadsDir, fileName);
+
+            using var image = await SixLabors.ImageSharp.Image.LoadAsync(fotoFile.OpenReadStream());
+            image.Mutate(x => x.Resize(new ResizeOptions { Size = new Size(400, 400), Mode = ResizeMode.Crop }));
+            await image.SaveAsJpegAsync(filePath);
+
+            var fotoUrl = $"/uploads/medicos/{fileName}";
+
+            var perfil = await _db.MedicosPerfilExtendido
+                .FirstOrDefaultAsync(p => p.UserId == userId);
+            if (perfil is null)
+            {
+                perfil = new MedicoPerfilExtendido { UserId = userId, FechaCreado = DateTime.UtcNow };
+                _db.MedicosPerfilExtendido.Add(perfil);
+            }
+            perfil.Foto            = fotoUrl;
+            perfil.FechaModificado = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            var perfilBd = await _db.Perfil.FirstOrDefaultAsync(p => p.idUser == userId);
+            if (perfilBd == null)
+            {
+                perfilBd = new eiibd26.Models.Perfil
+                {
+                    idUser = userId, Avatar = fotoUrl,
+                    Nombre = string.Empty, FechaCreacion = DateTime.UtcNow
+                };
+                _db.Perfil.Add(perfilBd);
+            }
+            else
+            {
+                perfilBd.Avatar = fotoUrl;
+            }
+            await _db.SaveChangesAsync();
+
+            if (perfil.MedicoId.HasValue)
+            {
+                try { await _badgeService.EvaluarBadgesAutomaticosAsync(perfil.MedicoId.Value); }
+                catch (Exception ex) { _logger.LogWarning(ex, "Error evaluando badges tras subir foto {UserId}", userId); }
+            }
+
+            return new JsonResult(new { success = true, url = fotoUrl });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al subir foto de perfil médico para {UserId}", userId);
+            return new JsonResult(new { success = false, error = "Error al procesar la imagen." });
+        }
     }
 
     public async Task<IActionResult> OnPostAsync()

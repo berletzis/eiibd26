@@ -101,7 +101,7 @@
                             </form>
                         </div>
                         <div class="crm-card-section mb-2">
-                            <div class="crm-card-subtitle" style="font-size:.98em; color:#315686;">
+                            <div class="crm-card-subtitle">
                                 Condiciones
                                 <button type="button" class="crm-btn crm-btn-secondary open-modal-cond ms-1" style="padding:0 8px;" data-sintid="@sint.Id" title="Asociar condiciones">
                                     <i class="bi bi-plus-circle"></i>
@@ -127,7 +127,7 @@
                             </div>
                         </div>
                         <div class="crm-card-section mb-2">
-                            <div class="crm-card-subtitle" style="font-size:.98em; color:#315686;">
+                            <div class="crm-card-subtitle">
                                 Tratamientos
                                 <button type="button" class="crm-btn crm-btn-secondary open-modal-trat ms-1" style="padding:0 8px;" data-sintid="@sint.Id" title="Asociar tratamientos">
                                     <i class="bi bi-plus-circle"></i>
@@ -152,40 +152,37 @@
                                 }
                             </div>
                         </div>
-                        <!-- Seguimiento: leyenda tipo fuente y tamaño igual a Sin seguimiento -->
-                        <div class="mt-auto pt-2 d-flex align-items-start flex-wrap justify-content-start">
-                                <div class="crm-card-subtitle" style="font-size:.98em; color:#315686;">
-                                    <div>Seguimiento</div>
-                                    <div class="crm-seguimiento-value" style="margin-top:6px;">
-                                        @if (ultimoTracking != null)
-                                        {
-                                            <span>@(ultimoTracking.Estado) (@ultimoTracking.Fecha.ToString("dd/MM/yyyy"))</span>
-                                        }
-                                        else
-                                        {
-                                            <span>Sin seguimiento</span>
-                                        }
-                                    </div>
-                                    @{
-                                        Model.TendenciasPorSintoma.TryGetValue(sint.Nombre.Trim(), out var sintTrend);
-                                        var sintTendTxt = sintTrend?.Tendencia ?? "Sin datos suficientes";
-                                        var (sintDotClass, sintTextClass, sintTendShort) = sintTendTxt switch
-                                        {
-                                            "Empeorando" => ("tendencia-empeorando", "text-empeorando", "Empeorando"),
-                                            "Mejorando"  => ("tendencia-mejorando",  "text-mejorando",  "Mejorando"),
-                                            "Estable"    => ("tendencia-estable",    "text-estable",    "Estable"),
-                                            _            => ("tendencia-sin",        "text-sin",        "Sin datos")
-                                        };
-                                    }
-                                    <div style="margin-top:6px;" title="Basado en la evolución del síntoma durante el período (no solo el último día)">
-                                        <span style="font-size:.85em; color:#666;">Tendencia</span><br />
-                                        <span class="tendencia-cell">
-                                            <span class="tendencia-dot @sintDotClass"></span>
-                                            <strong class="tendencia-label @sintTextClass">@sintTendShort</strong>
-                                        </span>
-                                    </div>
-                                </div>
-                            <button type="button" class="btn-track-sintoma" 
+                        <div class="crm-card-section">
+                            <div class="crm-card-subtitle">Seguimiento</div>
+                            <div class="crm-seguimiento-value">
+                                @if (ultimoTracking != null)
+                                {
+                                    <span>@(ultimoTracking.Estado) (@ultimoTracking.Fecha.ToString("dd/MM/yyyy"))</span>
+                                }
+                                else
+                                {
+                                    <span>Sin seguimiento</span>
+                                }
+                            </div>
+                            @{
+                                Model.TendenciasPorSintoma.TryGetValue(sint.Nombre.Trim(), out var sintTrend);
+                                var sintTendTxt = sintTrend?.Tendencia ?? "Sin datos suficientes";
+                                var (sintDotClass, sintTextClass, sintTendShort) = sintTendTxt switch
+                                {
+                                    "Empeorando" => ("tendencia-empeorando", "text-empeorando", "Empeorando"),
+                                    "Mejorando"  => ("tendencia-mejorando",  "text-mejorando",  "Mejorando"),
+                                    "Estable"    => ("tendencia-estable",    "text-estable",    "Estable"),
+                                    _            => ("tendencia-sin",        "text-sin",        "Sin datos")
+                                };
+                            }
+                            <div class="crm-tendencia-block" title="Basado en la evolución del síntoma durante el período (no solo el último día)">
+                                <span class="crm-tendencia-title">Tendencia</span>
+                                <span class="tendencia-cell">
+                                    <span class="tendencia-dot @sintDotClass"></span>
+                                    <strong class="tendencia-label @sintTextClass">@sintTendShort</strong>
+                                </span>
+                            </div>
+                            <button type="button" class="btn-track-sintoma"
                                     data-id="@sint.Id"
                                     data-nombre="@sint.Nombre"
                                     data-tipo="@sint.TipoSintoma"
@@ -221,7 +218,7 @@
 
 <!-- MODAL CONDICIONES -->
 <div class="modal fade" id="modalCondiciones" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered">
         <div class="modal-content">
             <form id="formAsociaCond">
                 <div class="modal-header">
@@ -241,7 +238,7 @@
 
 <!-- MODAL TRATAMIENTOS -->
 <div class="modal fade" id="modalTratamientos" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered">
         <div class="modal-content">
             <form id="formAsociaTrat">
                 <div class="modal-header">
@@ -260,7 +257,6 @@
 </div>
 
 @section Styles {
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" />
     <link rel="stylesheet" href="~/css/usuario-condiciones-crm.css" asp-append-version="true" />
 }
 

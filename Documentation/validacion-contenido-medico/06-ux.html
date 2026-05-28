@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>06 — UX: Flujo de Validación del Perfil</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<style>
+  body { padding: 2rem; max-width: 1000px; margin: 0 auto; }
+  pre { background:#1e293b; color:#f1f5f9; border-radius:8px; padding:1rem; font-size:.84em; overflow-x:auto; }
+  code { background:#f1f5f9; border-radius:4px; padding:1px 5px; font-size:.87em; }
+  h2 { border-left: 4px solid #6a4e7a; padding-left:.75rem; margin-top:2rem; }
+  .step { display:flex; gap:.75rem; align-items:flex-start; margin:.5rem 0; }
+  .step-num { background:#6a4e7a; color:#fff; border-radius:50%; width:28px; height:28px;
+              display:flex; align-items:center; justify-content:center; font-weight:700;
+              font-size:.8rem; flex-shrink:0; margin-top:2px; }
+</style>
+</head>
+<body>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <a href="00-indice.html" class="btn btn-sm btn-outline-secondary">&larr; Índice</a>
+  <span class="text-muted small">Validación Perfil Médico — EIIBD.com</span>
+</div>
+
+<h1 class="mb-1">06 — UX: Flujo de Validación</h1>
+<p class="text-muted">Experiencia del médico en PerfilMedico y experiencia del visitante en Detalle.</p>
+
+<h2>1. Flujo: Primera validación</h2>
+
+<div class="card p-3 mb-3">
+  <div class="step"><div class="step-num">1</div><span>Médico autenticado abre <code>/Identity/Account/Manage/PerfilMedico</code></span></div>
+  <div class="step"><div class="step-num">2</div><span>Completa o revisa sus datos de perfil (nombre, especialidad, foto, etc.)</span></div>
+  <div class="step"><div class="step-num">3</div><span>Debajo del botón "Guardar perfil" aparece la sección <strong>"Validar contenido"</strong></span></div>
+  <div class="step"><div class="step-num">4</div><span>La sección muestra: título, descripción breve, campo de comentario opcional, botón "✓ Validar mi perfil"</span></div>
+  <div class="step"><div class="step-num">5</div><span>Médico hace clic en el botón</span></div>
+  <div class="step"><div class="step-num">6</div><span>POST a <code>?handler=ValidarContenido</code> — el sistema crea el registro en BD con <code>Estado = Validado</code></span></div>
+  <div class="step"><div class="step-num">7</div><span>Redirect de vuelta a PerfilMedico con TempData: <em>"Perfil validado correctamente. Ya aparece el indicador en tu perfil público."</em></span></div>
+  <div class="step"><div class="step-num">8</div><span>La sección ahora muestra badge verde <strong>"✓ Validado"</strong> + fecha + botón "Actualizar validación"</span></div>
+</div>
+
+<h2>2. Flujo: Actualización de validación</h2>
+
+<div class="card p-3 mb-3">
+  <div class="step"><div class="step-num">1</div><span>Médico regresa a PerfilMedico (ya validó antes)</span></div>
+  <div class="step"><div class="step-num">2</div><span>La sección muestra badge verde + el comentario anterior prellenado en el textarea</span></div>
+  <div class="step"><div class="step-num">3</div><span>Médico edita el comentario (opcional) y hace clic en "Actualizar validación"</span></div>
+  <div class="step"><div class="step-num">4</div><span>POST — el servicio actualiza <code>Comentario</code> y <code>ActualizadoEn</code>. No modifica el Estado.</span></div>
+  <div class="step"><div class="step-num">5</div><span>Redirect con mensaje: <em>"Validación actualizada."</em></span></div>
+  <div class="step"><div class="step-num">6</div><span>No se crea un registro duplicado — es el mismo registro actualizado.</span></div>
+</div>
+
+<h2>3. Flujo: Validación en revisión (moderada por admin)</h2>
+
+<div class="card p-3 mb-3">
+  <div class="step"><div class="step-num">1</div><span>Admin cambia el estado a <code>EnRevision</code> o <code>Oculto</code></span></div>
+  <div class="step"><div class="step-num">2</div><span>Médico regresa a PerfilMedico</span></div>
+  <div class="step"><div class="step-num">3</div><span>La sección muestra alerta amarilla: <em>"Validación en revisión por el equipo."</em></span></div>
+  <div class="step"><div class="step-num">4</div><span>El botón de validar no está disponible mientras esté en revisión (previene sobrescribir el estado de moderación)</span></div>
+</div>
+
+<h2>4. Perfil público: Detalle del médico</h2>
+
+<p>Página: <code>/DirectorioMedicos/Detalle/{id}</code></p>
+
+<p>Cuando <code>Estado == Validado</code>, se muestra el badge:</p>
+
+<div class="card p-3 mb-3" style="max-width:400px">
+  <span class="badge bg-success fs-6">✓ Perfil validado por el profesional</span>
+  <p class="text-muted small mt-2 mb-0">El médico ha certificado que la información de este perfil es correcta.</p>
+</div>
+
+<p>Cuando <code>Estado != Validado</code> (o no existe validación): el badge simplemente no se renderiza.
+El visitante no ve ningún mensaje de "no validado" — ausencia del badge es suficiente.</p>
+
+<h2>5. Texto y microcopy</h2>
+
+<table class="table table-bordered table-sm">
+  <thead class="table-dark">
+    <tr><th>Elemento</th><th>Texto</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Título de sección (PerfilMedico)</td><td>"Validar contenido de mi perfil"</td></tr>
+    <tr><td>Descripción breve</td><td>"Al validar, confirmas que la información de tu perfil es verídica y está actualizada."</td></tr>
+    <tr><td>Botón primera vez</td><td>"✓ Validar mi perfil"</td></tr>
+    <tr><td>Botón si ya validó</td><td>"Actualizar validación"</td></tr>
+    <tr><td>Badge público</td><td>"✓ Perfil validado por el profesional"</td></tr>
+    <tr><td>Tooltip público</td><td>"El médico ha certificado que la información es correcta."</td></tr>
+    <tr><td>Estado EnRevision (para médico)</td><td>"Validación en revisión por el equipo. Contacta a soporte si tienes dudas."</td></tr>
+    <tr><td>Mensaje POST éxito (primera vez)</td><td>"Perfil validado correctamente. Ya aparece el indicador en tu perfil público."</td></tr>
+    <tr><td>Mensaje POST éxito (actualización)</td><td>"Validación actualizada."</td></tr>
+  </tbody>
+</table>
+
+<div class="d-flex justify-content-between mt-4">
+  <a href="05-admin-moderacion.html" class="btn btn-outline-secondary btn-sm">&larr; 05 Admin</a>
+  <a href="07-bd.html" class="btn btn-outline-primary btn-sm">07 BD &rarr;</a>
+</div>
+
+</body>
+</html>

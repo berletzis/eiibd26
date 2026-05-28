@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>09 — Resumen Final: Validar Contenido — PerfilMedico</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<style>
+  body { padding: 2rem; max-width: 1000px; margin: 0 auto; }
+  pre { background:#1e293b; color:#f1f5f9; border-radius:8px; padding:1rem; font-size:.84em; overflow-x:auto; }
+  code { background:#f1f5f9; border-radius:4px; padding:1px 5px; font-size:.87em; }
+  h2 { border-left: 4px solid #6a4e7a; padding-left:.75rem; margin-top:2rem; }
+</style>
+</head>
+<body>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <a href="00-indice.html" class="btn btn-sm btn-outline-secondary">&larr; Índice</a>
+  <span class="text-muted small">Validación Perfil Médico — EIIBD.com</span>
+</div>
+
+<h1 class="mb-1">09 — Resumen Final</h1>
+<p class="text-muted">Alcance, archivos modificados y principios de diseño de la feature.</p>
+
+<h2>1. Alcance de la feature</h2>
+
+<div class="alert alert-success">
+  <strong>Feature:</strong> Un médico puede auto-certificar el contenido de su propio perfil desde
+  <code>/Identity/Account/Manage/PerfilMedico</code>. La certificación usa el modelo canónico
+  <code>ValidacionContenidoProfesional</code> con <code>TipoContenido = PerfilMedico (3)</code>.
+  El resultado es visible públicamente en <code>/DirectorioMedicos/Detalle/{id}</code> como badge
+  <strong>"✓ Perfil validado por el profesional"</strong>. El admin puede moderar el estado desde
+  el panel existente.
+</div>
+
+<h2>2. Archivos modificados</h2>
+
+<table class="table table-bordered table-sm">
+  <thead class="table-dark">
+    <tr><th>Archivo</th><th>Cambio</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>Models/Validacion/TipoContenidoValidado.cs</code></td>
+      <td>Agregar <code>PerfilMedico = 3</code> al enum</td>
+    </tr>
+    <tr>
+      <td><code>Services/Validacion/ValidacionContenidoService.cs</code></td>
+      <td>Ya existía — sin cambios de lógica, funciona genéricamente con el nuevo tipo</td>
+    </tr>
+    <tr>
+      <td><code>Pages/Shared/_ValidacionContenidoMedico.cshtml</code></td>
+      <td>Partial view reutilizado — sin cambios o ajuste mínimo de texto para PerfilMedico</td>
+    </tr>
+    <tr>
+      <td><code>Areas/Identity/Pages/Account/Manage/PerfilMedico.cshtml</code></td>
+      <td>Agregar inclusión del partial <code>_ValidacionContenidoMedico</code> bajo el botón Guardar</td>
+    </tr>
+    <tr>
+      <td><code>Areas/Identity/Pages/Account/Manage/PerfilMedico.cshtml.cs</code></td>
+      <td>Inyectar <code>IValidacionContenidoService</code>, cargar validación existente en OnGetAsync,
+          agregar <code>OnPostValidarContenidoAsync</code></td>
+    </tr>
+    <tr>
+      <td><code>Pages/DirectorioMedicos/Detalle.cshtml</code></td>
+      <td>Agregar renderizado condicional del badge "Perfil validado por el profesional"</td>
+    </tr>
+    <tr>
+      <td><code>Pages/DirectorioMedicos/Detalle.cshtml.cs</code></td>
+      <td>Agregar query para verificar si existe validación de tipo PerfilMedico con Estado=Validado</td>
+    </tr>
+    <tr>
+      <td><code>Areas/Identity/Pages/Admin/DirectorioMedicos/Index.cshtml.cs</code></td>
+      <td>Agregar carga de validaciones PerfilMedico en el drawer, agregar <code>OnPostCambiarEstadoValidacionAsync</code></td>
+    </tr>
+    <tr>
+      <td><code>Areas/Identity/Pages/Admin/DirectorioMedicos/Index.cshtml</code></td>
+      <td>Agregar sección "Contenido Validado" con tabla de validaciones y botones de estado</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>3. Sin nuevas tablas en BD</h2>
+
+<div class="alert alert-info">
+  La feature no requiere nuevas tablas ni nuevos índices. La tabla <code>ValidacionesContenidoProfesional</code>
+  y su índice único <code>(TipoContenido, ContenidoId, UsuarioMedicoId)</code> ya cubren el caso
+  <code>PerfilMedico = 3</code> sin modificación de esquema.
+</div>
+
+<h2>4. Principios de diseño aplicados</h2>
+
+<table class="table table-bordered table-sm">
+  <thead class="table-dark">
+    <tr><th>Principio</th><th>Aplicación</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Reutilización máxima</td>
+      <td>Mismo servicio, mismo partial view, misma tabla, mismo modelo para los tres tipos de contenido</td>
+    </tr>
+    <tr>
+      <td>Sin duplicados garantizados</td>
+      <td>Índice único en BD + lógica Upsert en el servicio</td>
+    </tr>
+    <tr>
+      <td>No-destructivo</td>
+      <td>Los registros nunca se borran — solo cambia el estado</td>
+    </tr>
+    <tr>
+      <td>Auditable</td>
+      <td><code>ModeradoPorId</code>, <code>FechaModeracion</code>, <code>NotaModeracion</code> en cada cambio admin</td>
+    </tr>
+    <tr>
+      <td>Estabilidad antes que velocidad</td>
+      <td>Build clean entre cada fase. Sin migraciones EF Core — solo modificación de enum C#.</td>
+    </tr>
+    <tr>
+      <td>Default seguro</td>
+      <td>Estado inicial = Validado. El badge aparece inmediatamente sin aprobación admin.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>5. Relación con el sistema de badges existente</h2>
+
+<p>El badge "Perfil validado por el profesional" es un indicador visual independiente de los badges
+del sistema <code>MedicoBadge</code> (que evalúan criterios como confirmaciones, cédula verificada, etc.).
+No modifica ni interfiere con <code>IMedicoBadgeService</code>.</p>
+
+<p>Es un badge estático renderizado en Detalle.cshtml basado en la consulta directa a
+<code>ValidacionesContenidoProfesional</code>. Sin caché adicional necesaria dado el bajo volumen.</p>
+
+<h2>6. Checklist de verificación post-implementación</h2>
+
+<ul>
+  <li>Build limpio: <code>dotnet build --no-restore</code> — cero errores CS</li>
+  <li>Escenario 1 Playwright: médico valida → badge aparece en Detalle</li>
+  <li>Escenario 2 Playwright: segunda validación → sin duplicado en BD</li>
+  <li>Escenario 3-4 Playwright: admin modera → badge desaparece del público</li>
+  <li>Escenario 5 Playwright: admin reactiva → badge reaparece</li>
+  <li>Query de verificación BD retorna 0 duplicados</li>
+  <li>La sección RelationValidation de Termino.cshtml no fue tocada</li>
+</ul>
+
+<div class="d-flex justify-content-between mt-4">
+  <a href="08-validacion-playwright.html" class="btn btn-outline-secondary btn-sm">&larr; 08 Playwright</a>
+  <a href="00-indice.html" class="btn btn-outline-primary btn-sm">Índice &rarr;</a>
+</div>
+
+</body>
+</html>

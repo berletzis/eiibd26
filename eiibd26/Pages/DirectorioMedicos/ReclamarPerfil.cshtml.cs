@@ -23,13 +23,23 @@ public class ReclamarPerfilModel : PageModel
 
     public async Task<IActionResult> OnGetAsync(int id)
     {
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
         Medico = await _db.MedicosDirectorio.AsNoTracking()
             .FirstOrDefaultAsync(m => m.Id == id && !m.Eliminado);
 
         if (Medico is null) return NotFound();
 
+        // Si el perfil fue reclamado POR ESTE MISMO USUARIO, permitir re-reclamar
         if (Medico.PerfilReclamado)
         {
+            if (Medico.AspNetUserId == userId)
+            {
+                // Es el mismo médico que lo reclamó antes, permitir re-vinculación
+                TempData["Info"] = "Este es tu perfil. Si perdiste el vínculo, puedes restaurarlo desde tu Dashboard.";
+                return RedirectToPage("/Identity/Medico/Dashboard", new { area = "Identity" });
+            }
+
             TempData["Error"] = "Este perfil ya fue reclamado por el médico titular.";
             return RedirectToPage("Detalle", new { id });
         }
@@ -41,12 +51,8 @@ public class ReclamarPerfilModel : PageModel
         }
 
         // Pre-llenar con el email del usuario autenticado
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (userId is not null)
-        {
-            var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id.ToString() == userId);
-            EmailContacto = user?.Email ?? string.Empty;
-        }
+        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+        EmailContacto = user?.Email ?? string.Empty;
 
         return Page();
     }

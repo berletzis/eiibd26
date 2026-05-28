@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FASE 1: Auditoría Detalle — Badges Directorio Profesionales</title>
+    <style>
+        :root {
+            --eii-primary: #6366f1;
+            --danger: #dc3545;
+            --warning: #f59e0b;
+            --success: #16a34a;
+            --info: #0ea5e9;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.6; color: #1f2937; background: #f9fafb; padding: 2rem; }
+        .container { max-width: 1200px; margin: 0 auto; background: #fff; padding: 3rem; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+        h1 { font-size: 2.5rem; color: var(--eii-primary); margin-bottom: 1rem; border-bottom: 3px solid var(--eii-primary); padding-bottom: 1rem; }
+        h2 { font-size: 1.8rem; color: #374151; margin: 2.5rem 0 1rem; padding-left: 1rem; border-left: 4px solid var(--eii-primary); }
+        h3 { font-size: 1.3rem; color: #4b5563; margin: 2rem 0 1rem; }
+        h4 { font-size: 1.1rem; color: #6b7280; margin: 1.5rem 0 .75rem; font-weight: 600; }
+        .meta { display: flex; gap: 2rem; margin: 1.5rem 0; padding: 1rem; background: #f3f4f6; border-radius: 8px; font-size: .9rem; color: #6b7280; }
+        .meta strong { color: #374151; }
+        .badge-table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: .9rem; }
+        .badge-table th { background: #f9fafb; color: #374151; text-align: left; padding: 12px; border-bottom: 2px solid #e5e7eb; font-weight: 600; }
+        .badge-table td { padding: 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+        .badge-table tr:hover { background: #f9fafb; }
+        .badge-pill { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; font-size: .75rem; font-weight: 600; white-space: nowrap; }
+        .badge-pill i { font-size: .8rem; }
+        .redundancia { background: #fee; color: #dc3545; border: 1px solid #fcc; padding: 6px 10px; border-radius: 6px; font-weight: 600; }
+        .problema-ux { background: #fef3cd; color: #856404; border: 1px solid #ffeaa7; padding: 6px 10px; border-radius: 6px; font-weight: 600; }
+        .problema-consistencia { background: #e0f2ff; color: #0369a1; border: 1px solid #bae6fd; padding: 6px 10px; border-radius: 6px; font-weight: 600; }
+        .origen-auto { color: var(--success); font-weight: 600; }
+        .origen-manual { color: var(--warning); font-weight: 600; }
+        .screen-location { background: #f3f4f6; padding: 8px 12px; border-radius: 6px; font-family: 'Consolas', monospace; font-size: .85rem; display: inline-block; margin: .5rem 0; }
+        .alert { padding: 1rem 1.25rem; border-radius: 8px; margin: 1.5rem 0; border-left: 4px solid; }
+        .alert-danger { background: #fee; border-color: var(--danger); color: #7f1d1d; }
+        .alert-warning { background: #fef3cd; border-color: var(--warning); color: #854d0e; }
+        .alert-info { background: #e0f2ff; border-color: var(--info); color: #0c4a6e; }
+        code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: 'Consolas', monospace; font-size: .9rem; }
+        ul, ol { margin: 1rem 0 1rem 2rem; }
+        li { margin: .5rem 0; }
+        .visual-density-box { background: #fef3cd; border: 2px dashed #f59e0b; padding: 1.5rem; border-radius: 8px; margin: 1.5rem 0; }
+        .visual-density-box h4 { margin-top: 0; color: #92400e; }
+        .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin: 1.5rem 0; }
+        .compare-card { background: #f9fafb; padding: 1rem; border-radius: 8px; border: 1px solid #e5e7eb; }
+        .compare-card h4 { margin-top: 0; font-size: 1rem; }
+        .code-location { background: #1f2937; color: #f3f4f6; padding: .75rem 1rem; border-radius: 6px; font-family: 'Consolas', monospace; font-size: .85rem; margin: 1rem 0; }
+        .finding { background: #fef3cd; border-left: 4px solid var(--warning); padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 4px; }
+        .finding strong { color: #92400e; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>FASE 1: Auditoría Completa — Badges Detalle Profesional</h1>
+
+        <div class="meta">
+            <div><strong>Fecha:</strong> 2025-06-04</div>
+            <div><strong>Pantalla:</strong> /DirectorioMedicos/Detalle/{id}</div>
+            <div><strong>Rol:</strong> Arquitecto UX/UI + DDD Expert</div>
+            <div><strong>Objetivo:</strong> Inventariar TODOS los badges, detectar redundancias, documentar origen/lógica</div>
+        </div>
+
+        <div class="alert alert-danger">
+            <strong>⚠️ PROBLEMA CRÍTICO DETECTADO:</strong> Existen <strong>TRES sistemas de badges</strong> operando simultáneamente en la misma pantalla, generando redundancia, confusión semántica y sobrecarga cognitiva.
+        </div>
+
+        <h2>1. INVENTARIO COMPLETO DE BADGES</h2>
+
+        <h3>Sistema 1: Badges del Catálogo (Partial <code>_MedicoBadges</code>)</h3>
+
+        <div class="screen-location">
+            📂 Archivo: <code>eiibd26\Pages\Shared\_MedicoBadges.cshtml</code><br>
+            📂 Servicio: <code>eiibd26\Services\Medico\MedicoBadgeService.cs</code><br>
+            📍 Líneas Detalle.cshtml: <strong>78-83</strong>
+        </div>
+
+        <table class="badge-table">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Label</th>
+                    <th>Ícono</th>
+                    <th>Color</th>
+                    <th>Origen</th>
+                    <th>Condición de Activación</th>
+                    <th>Pantallas</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>perfil_reclamado</code></td>
+                    <td><strong>Perfil Reclamado</strong></td>
+                    <td>bi-shield-check</td>
+                    <td>#4f46e5</td>
+                    <td class="origen-auto">Automático</td>
+                    <td>
+                        <code>MedicoPerfilExtendido.UserId != null</code><br>
+                        <strong>Y</strong><br>
+                        <code>EstatusReclamacion == Reclamado</code>
+                    </td>
+                    <td>Detalle, Listado</td>
+                </tr>
+                <tr>
+                    <td><code>verificado</code></td>
+                    <td><strong>Verificado</strong></td>
+                    <td>bi-patch-check-fill</td>
+                    <td>#0ea5e9</td>
+                    <td class="origen-manual">Manual (Admin)</td>
+                    <td>Otorgado manualmente por administrador</td>
+                    <td>Detalle, Listado</td>
+                </tr>
+                <tr>
+                    <td><code>activo_comunidad</code></td>
+                    <td><strong>Activo en Comunidad</strong></td>
+                    <td>bi-people-fill</td>
+                    <td>#22c55e</td>
+                    <td class="origen-auto">Automático</td>
+                    <td>
+                        <code>ConfirmacionesComunitarias.Count >= 5</code>
+                    </td>
+                    <td>Detalle, Listado</td>
+                </tr>
+                <tr>
+                    <td><code>participante_qa</code></td>
+                    <td><strong>Participa en Q&A</strong></td>
+                    <td>bi-chat-dots-fill</td>
+                    <td>#f59e0b</td>
+                    <td class="origen-auto">Automático</td>
+                    <td>
+                        <code>Respuestas.Count >= 3</code><br>
+                        (del UserId vinculado, excluye IA/eliminadas)
+                    </td>
+                    <td>Detalle, Listado</td>
+                </tr>
+                <tr>
+                    <td><code>validador_contenido</code></td>
+                    <td><strong>Valida Contenido</strong></td>
+                    <td>bi-check2-circle</td>
+                    <td>#8b5cf6</td>
+                    <td class="origen-auto">Automático</td>
+                    <td>
+                        <code>GlossaryValidations.Count >= 1</code><br>
+                        (Approved == true)
+                    </td>
+                    <td>Detalle, Listado</td>
+                </tr>
+                <tr>
+                    <td><code>creador_contenido</code></td>
+                    <td><strong>Crea Contenido</strong></td>
+                    <td>bi-pencil-square</td>
+                    <td>#ec4899</td>
+                    <td class="origen-manual">Manual (Admin)</td>
+                    <td>Otorgado manualmente por administrador</td>
+                    <td>Detalle, Listado</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="finding">
+            <strong>HALLAZGO:</strong> Este sistema es <strong>sólido, estructurado y basado en catálogo DB</strong>. Tiene lógica clara, niveles, historial. Problema: <strong>NO ES EL ÚNICO</strong>.
+        </div>
+
+        <h3>Sistema 2: Badges Inline Hardcodeados (Líneas 84-131 Detalle.cshtml)</h3>
+
+        <div class="screen-location">
+            📂 Archivo: <code>eiibd26\Pages\DirectorioMedicos\Detalle.cshtml</code><br>
+            📍 Líneas: <strong>84-131</strong>
+        </div>
+
+        <table class="badge-table">
+            <thead>
+                <tr>
+                    <th>Badge Visual</th>
+                    <th>Condición</th>
+                    <th>Estilo</th>
+                    <th>Redundancia con Sistema 1</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Validado por la comunidad</strong></td>
+                    <td>
+                        <code>activo_comunidad == obtenido</code><br>
+                        (consulta el Sistema 1)
+                    </td>
+                    <td>
+                        <code>background-color:var(--eii-primary)</code><br>
+                        Pill filled
+                    </td>
+                    <td>
+                        <span class="redundancia">DUPLICA "Activo en Comunidad"</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>Verificado</strong></td>
+                    <td>
+                        <code>verificado == obtenido</code><br>
+                        (consulta el Sistema 1)
+                    </td>
+                    <td>
+                        <code>bg-primary</code><br>
+                        Pill filled
+                    </td>
+                    <td>
+                        <span class="redundancia">DUPLICA "Verificado"</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>Médico verificado</strong></td>
+                    <td>
+                        <code>perfil_reclamado == obtenido</code><br>
+                        (consulta el Sistema 1)
+                    </td>
+                    <td>
+                        <code>bg-success</code><br>
+                        Pill filled
+                    </td>
+                    <td>
+                        <span class="redundancia">DUPLICA "Perfil Reclamado"</span><br>
+                        <span class="problema-consistencia">NOMBRE CONFUSO</span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="alert alert-danger">
+            <strong>REDUNDANCIA CRÍTICA:</strong> Este segundo sistema <strong>re-renderiza los mismos badges</strong> que el Sistema 1, pero con:
+            <ul style="margin-top:.5rem;">
+                <li>Nombres diferentes ("Médico verificado" vs "Perfil Reclamado")</li>
+                <li>Estilos diferentes (filled vs outlined)</li>
+                <li>Íconos diferentes</li>
+                <li>Lógica duplicada en Razor</li>
+            </ul>
+            Este patrón rompe DRY y genera <strong>confusión semántica</strong>.
+        </div>
+
+        <h3>Sistema 3: Badge de Confirmaciones (Contador Dinámico)</h3>
+
+        <div class="screen-location">
+            📂 Archivo: <code>eiibd26\Pages\DirectorioMedicos\Detalle.cshtml</code><br>
+            📍 Líneas: <strong>91-103</strong>
+        </div>
+
+        <table class="badge-table">
+            <thead>
+                <tr>
+                    <th>Badge</th>
+                    <th>Tipo</th>
+                    <th>Lógica</th>
+                    <th>Visual</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Validado por la comunidad (con contador)</strong></td>
+                    <td>Dinámico (obtenido/no-obtenido)</td>
+                    <td>
+                        Si <code>activo_comunidad</code> obtenido:<br>
+                        → Badge filled<br><br>
+                        Si NO obtenido:<br>
+                        → Badge outlined con <code>(X/3)</code> progreso
+                    </td>
+                    <td>
+                        Obtenido: <code>background:var(--eii-primary)</code><br>
+                        No obtenido: <code>bg-light border text-secondary</code>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="finding">
+            <strong>HALLAZGO:</strong> Este badge muestra progreso (<code>X/3</code>) cuando NO está obtenido. Concepto útil, pero:
+            <ul style="margin-top:.5rem;">
+                <li>Genera <strong>confusión con el badge del Sistema 1</strong> que ya muestra el estado</li>
+                <li><strong>El umbral (3) no coincide con el umbral automático (5)</strong> en MedicoBadgeService.cs línea 139</li>
+                <li>Mezcla concepto de <strong>meta</strong> (progreso hacia algo) con <strong>estado</strong> (ya obtenido)</li>
+            </ul>
+        </div>
+
+        <h2>2. MAPA DE REDUNDANCIAS SEMÁNTICAS</h2>
+
+        <div class="compare-grid">
+            <div class="compare-card">
+                <h4>❌ REDUNDANCIA 1</h4>
+                <p><strong>Sistema 1:</strong> "Verificado"</p>
+                <p><strong>Sistema 2:</strong> "Verificado"</p>
+                <p><strong>Sistema 2:</strong> "Médico verificado"</p>
+                <p style="margin-top:.5rem;color:#dc3545;font-weight:600;">
+                    → TRES badges transmitiendo conceptos similares
+                </p>
+            </div>
+            <div class="compare-card">
+                <h4>❌ REDUNDANCIA 2</h4>
+                <p><strong>Sistema 1:</strong> "Activo en Comunidad"</p>
+                <p><strong>Sistema 2:</strong> "Validado por la comunidad"</p>
+                <p style="margin-top:.5rem;color:#dc3545;font-weight:600;">
+                    → Mismo concepto, dos nombres
+                </p>
+            </div>
+            <div class="compare-card">
+                <h4>❌ REDUNDANCIA 3</h4>
+                <p><strong>Sistema 1:</strong> "Perfil Reclamado"</p>
+                <p><strong>Sistema 2:</strong> "Médico verificado"</p>
+                <p style="margin-top:.5rem;color:#dc3545;font-weight:600;">
+                    → Mismo dato, semántica confusa
+                </p>
+            </div>
+            <div class="compare-card">
+                <h4>⚠️ INCONSISTENCIA</h4>
+                <p>Sistema 1: outlined cuando obtenido (borde color + fondo suave)</p>
+                <p>Sistema 2: filled cuando obtenido (fondo sólido)</p>
+                <p style="margin-top:.5rem;color:#f59e0b;font-weight:600;">
+                    → Patrón visual contradictorio
+                </p>
+            </div>
+        </div>
+
+        <h2>3. PROBLEMAS UX DETECTADOS</h2>
+
+        <div class="visual-density-box">
+            <h4>🚨 SOBRECARGA VISUAL</h4>
+            <p>La pantalla de detalle muestra:</p>
+            <ul>
+                <li><strong>Fila 1:</strong> Partial _MedicoBadges → 6 badges (Sistema 1)</li>
+                <li><strong>Fila 2:</strong> Badges inline → 3 badges (Sistema 2, duplicados)</li>
+                <li><strong>Total:</strong> Hasta <strong>9 badges visibles</strong> simultáneamente</li>
+            </ul>
+            <p style="margin-top:1rem;"><strong>Resultado:</strong> Ruido visual, pérdida de jerarquía, sobrecarga cognitiva para el paciente.</p>
+        </div>
+
+        <h3>Problemas de Consistencia Visual</h3>
+        <ul>
+            <li><strong>Sistema 1:</strong> Todos outlined con borde color + fondo suave (cuando obtenidos)</li>
+            <li><strong>Sistema 2:</strong> Todos filled con fondo sólido (cuando obtenidos)</li>
+            <li><strong>Íconos:</strong> Algunos duplicados usan íconos distintos para el mismo concepto</li>
+            <li><strong>Tamaños:</strong> Sistema 1 usa <code>font-size: 0.75rem</code>, Sistema 2 usa <code>font-size: 0.8rem</code></li>
+            <li><strong>Padding:</strong> Sistema 1 <code>4px 10px</code>, Sistema 2 <code>5px 10px</code></li>
+        </ul>
+
+        <h3>Problemas Semánticos</h3>
+        <ul>
+            <li><strong>"Perfil Reclamado" vs "Médico verificado":</strong> ambos activados por la misma condición (<code>perfil_reclamado</code>), pero transmiten mensajes diferentes</li>
+            <li><strong>"Verificado" (azul) vs "Médico verificado" (verde):</strong> paciente no entiende la diferencia</li>
+            <li><strong>"Activo en Comunidad" vs "Validado por la comunidad":</strong> literalmente el mismo badge, dos textos</li>
+            <li><strong>No queda claro:</strong>
+                <ul>
+                    <li>¿Qué badges son automáticos?</li>
+                    <li>¿Qué badges son administrativos?</li>
+                    <li>¿Qué badges representan reputación comunitaria?</li>
+                    <li>¿Qué badges representan contribuciones?</li>
+                </ul>
+            </li>
+        </ul>
+
+        <h2>4. ORIGEN Y LÓGICA DE CADA BADGE</h2>
+
+        <h3>Badges Automáticos (Sistema)</h3>
+        <table class="badge-table">
+            <thead>
+                <tr>
+                    <th>Badge</th>
+                    <th>Método Evaluador</th>
+                    <th>Archivo Lógica</th>
+                    <th>Línea</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>perfil_reclamado</code></td>
+                    <td><code>EvaluarBadgesAutomaticosAsync</code></td>
+                    <td><code>MedicoBadgeService.cs</code></td>
+                    <td>129-134</td>
+                </tr>
+                <tr>
+                    <td><code>activo_comunidad</code></td>
+                    <td><code>EvaluarBadgesAutomaticosAsync</code></td>
+                    <td><code>MedicoBadgeService.cs</code></td>
+                    <td>136-140</td>
+                </tr>
+                <tr>
+                    <td><code>participante_qa</code></td>
+                    <td><code>EvaluarBadgesAutomaticosAsync</code></td>
+                    <td><code>MedicoBadgeService.cs</code></td>
+                    <td>149-153</td>
+                </tr>
+                <tr>
+                    <td><code>validador_contenido</code></td>
+                    <td><code>EvaluarBadgesAutomaticosAsync</code></td>
+                    <td><code>MedicoBadgeService.cs</code></td>
+                    <td>155-160</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Badges Manuales (Admin)</h3>
+        <table class="badge-table">
+            <thead>
+                <tr>
+                    <th>Badge</th>
+                    <th>Método</th>
+                    <th>Actor</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>verificado</code></td>
+                    <td><code>OtorgarBadgeAsync</code></td>
+                    <td>Administrador</td>
+                </tr>
+                <tr>
+                    <td><code>creador_contenido</code></td>
+                    <td><code>OtorgarBadgeAsync</code></td>
+                    <td>Administrador</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>5. CONCLUSIONES DE LA AUDITORÍA</h2>
+
+        <div class="alert alert-warning">
+            <strong>DIAGNÓSTICO:</strong>
+            <ul style="margin-top:.5rem;">
+                <li>✅ El <strong>Sistema 1</strong> (catálogo de badges) es sólido, escalable, con lógica DB y niveles</li>
+                <li>❌ El <strong>Sistema 2</strong> (badges inline) es <strong>redundante</strong>, duplica información del Sistema 1</li>
+                <li>⚠️ El <strong>Sistema 3</strong> (contador progreso) mezcla estados con metas</li>
+                <li>❌ Existen <strong>3 badges para "verificación"</strong> con semántica confusa</li>
+                <li>❌ Existen <strong>2 badges para "comunidad"</strong> con el mismo significado</li>
+                <li>❌ <strong>Inconsistencia visual total:</strong> outlined vs filled, tamaños distintos, íconos distintos</li>
+                <li>❌ <strong>Sobrecarga cognitiva:</strong> hasta 9 badges en pantalla simultáneamente</li>
+            </ul>
+        </div>
+
+        <h3>Próximos Pasos</h3>
+        <ol>
+            <li><strong>FASE 2:</strong> Mapeo semántico → clasificar badges por categoría (identidad, validación, reputación, contribución)</li>
+            <li><strong>FASE 3:</strong> Propuesta de simplificación → eliminar duplicados, unificar conceptos</li>
+            <li><strong>FASE 4:</strong> Jerarquía visual → primarios vs secundarios</li>
+            <li><strong>FASE 5:</strong> Consistencia visual → unificar estilos</li>
+            <li><strong>FASE 6:</strong> Reordenamiento UI → reducir densidad</li>
+            <li><strong>FASE 7:</strong> Validación Playwright → medir antes/después</li>
+        </ol>
+
+        <div class="code-location">
+            📁 Siguiente documento: <strong>10-mapeo-semantico.html</strong>
+        </div>
+
+    </div>
+</body>
+</html>

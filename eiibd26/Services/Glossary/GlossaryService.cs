@@ -1,4 +1,5 @@
 using eiibd26.Models.Glossary;
+using eiibd26.Models.Validacion;
 using eiibd26.Services.Community;
 using eiibd26.Services.Glossary.Adapters;
 using eiibd26.Services.Glossary.DTOs;
@@ -368,20 +369,20 @@ namespace eiibd26.Services.Glossary
                     _logger.LogDebug(ex, "Columna AiReasoning no disponible aún para término {TermId}", termId);
                 }
 
-                var meaningValidations = await _db.GlossaryValidations
+                var meaningValidations = await _db.ValidacionesContenidoProfesional
                     .AsNoTracking()
                     .Where(v =>
-                        v.GlossaryTermId == termId
-                        && v.ValidationType == GlossaryValidationType.MeaningValidation
-                        && v.Approved)
-                    .Select(v => new { v.Comment, v.UserId })
+                        v.TipoContenido == TipoContenidoValidado.Termino
+                        && v.ContenidoId == termId
+                        && v.Estado == EstadoValidacion.Validado)
+                    .Select(v => new { v.Comentario, v.UsuarioMedicoId })
                     .ToListAsync();
 
                 var meaningCount = meaningValidations.Count;
 
                 // Solo mostrar texto de médicos con badge verificado/reclamado — mismo filtro que ComentariosMedicos
                 var meaningComments = await FilterCommentsByVerifiedDoctorAsync(
-                    meaningValidations.Select(v => (v.Comment, v.UserId)));
+                    meaningValidations.Select(v => (v.Comentario, (string?)v.UsuarioMedicoId)));
 
                 // Agrupar validaciones humanas de relación con sus comentarios
                 var rawGroups = await _db.GlossaryValidations
@@ -439,20 +440,37 @@ namespace eiibd26.Services.Glossary
                     })
                     .ToList();
 
-                // ComentariosMedicos: validaciones aprobadas con comentario no vacío
-                var rawComments = await _db.GlossaryValidations
-                    .Where(v => v.GlossaryTermId == termId && v.Approved && v.Comment != null && v.Comment != "")
-                    .Select(v => new { v.UserId, v.ValidationType, v.MedicalRelationTypeId, v.Comment, v.CreatedAt })
+                // ComentariosMedicos: tipo=1 desde nueva tabla; tipo=2 sigue en GlossaryValidations
+                var meaningWithDate = await _db.ValidacionesContenidoProfesional
+                    .AsNoTracking()
+                    .Where(v =>
+                        v.TipoContenido == TipoContenidoValidado.Termino
+                        && v.ContenidoId == termId
+                        && v.Estado == EstadoValidacion.Validado
+                        && v.Comentario != null && v.Comentario != "")
+                    .Select(v => new { v.UsuarioMedicoId, v.Comentario, v.CreadoEn })
+                    .ToListAsync();
+
+                var rawRelationComments = await _db.GlossaryValidations
+                    .Where(v => v.GlossaryTermId == termId
+                        && v.ValidationType == GlossaryValidationType.RelationValidation
+                        && v.Approved && v.Comment != null && v.Comment != "")
+                    .Select(v => new { v.UserId, v.MedicalRelationTypeId, v.Comment, v.CreatedAt })
                     .ToListAsync();
 
                 List<ValidationCommentDto> comentariosMedicos = new();
-                if (rawComments.Any())
+
+                var allUserIds = meaningWithDate.Select(v => v.UsuarioMedicoId)
+                    .Concat(rawRelationComments.Select(v => v.UserId ?? ""))
+                    .Where(s => !string.IsNullOrEmpty(s))
+                    .Distinct().ToList();
+
+                if (allUserIds.Any())
                 {
-                    var userGuidList = rawComments
-                        .Select(v => Guid.TryParse(v.UserId, out var g) ? (Guid?)g : null)
+                    var userGuidList = allUserIds
+                        .Select(s => Guid.TryParse(s, out var g) ? (Guid?)g : null)
                         .Where(g => g.HasValue).Select(g => g!.Value).Distinct().ToList();
 
-                    // Médico perfiles vinculados
                     var perfiles = await _db.MedicosPerfilExtendido
                         .AsNoTracking()
                         .Where(p => p.UserId.HasValue && userGuidList.Contains(p.UserId.Value) && p.MedicoId != null)
@@ -461,7 +479,6 @@ namespace eiibd26.Services.Glossary
 
                     var medicoIds = perfiles.Where(p => p.MedicoId.HasValue).Select(p => p.MedicoId!.Value).ToList();
 
-                    // Médicos con badge perfil_reclamado o verificado
                     var badgesVerificados = await _db.MedicosPerfilBadge
                         .AsNoTracking()
                         .Where(pb => medicoIds.Contains(pb.MedicoId))
@@ -471,7 +488,6 @@ namespace eiibd26.Services.Glossary
                         .Distinct()
                         .ToListAsync();
 
-                    // Nombres de los médicos del directorio
                     var nombresMedico = await _db.MedicosDirectorio
                         .AsNoTracking()
                         .Where(m => medicoIds.Contains(m.Id))
@@ -482,7 +498,6 @@ namespace eiibd26.Services.Glossary
                     var medicoIdByUser = perfiles.Where(p => p.MedicoId.HasValue)
                         .ToDictionary(p => p.UserId!.Value, p => p.MedicoId!.Value);
 
-                    // Obtener avatares del Perfil por UserId
                     var avatarDict = await _db.Perfil
                         .AsNoTracking()
                         .Where(p => userGuidList.Contains(p.idUser))
@@ -490,29 +505,46 @@ namespace eiibd26.Services.Glossary
                         .ToListAsync();
                     var avatarByUser = avatarDict.ToDictionary(p => p.idUser, p => p.Avatar);
 
-                    foreach (var v in rawComments)
+                    string ResolveDisplay(Guid guid)
                     {
-                        if (!Guid.TryParse(v.UserId, out var guid)) continue;
-                        if (!medicoIdByUser.TryGetValue(guid, out var medicoId)) continue;
+                        if (medicoIdByUser.TryGetValue(guid, out var mId)
+                            && badgesVerificados.Contains(mId)
+                            && nombreDict.TryGetValue(mId, out var nombre))
+                            return $"Dr. {nombre}";
+                        return "Médico verificado";
+                    }
 
-                        string display;
-                        if (badgesVerificados.Contains(medicoId) && nombreDict.TryGetValue(medicoId, out var nombre))
-                            display = $"Dr. {nombre}";
-                        else
-                            display = "Médico verificado";
+                    string? ResolveAvatar(Guid guid)
+                    {
+                        avatarByUser.TryGetValue(guid, out var av);
+                        if (string.IsNullOrWhiteSpace(av) || av == "default.jpg") return null;
+                        return av.StartsWith("/") ? av : "/" + av;
+                    }
 
-                        avatarByUser.TryGetValue(guid, out var avatarVal);
-                        string? avatarUrl = null;
-                        if (!string.IsNullOrWhiteSpace(avatarVal) && avatarVal != "default.jpg")
-                        {
-                            avatarUrl = avatarVal.StartsWith("/") ? avatarVal : "/" + avatarVal;
-                        }
-
+                    foreach (var v in meaningWithDate)
+                    {
+                        if (!Guid.TryParse(v.UsuarioMedicoId, out var guid)) continue;
+                        if (!medicoIdByUser.ContainsKey(guid)) continue;
                         comentariosMedicos.Add(new ValidationCommentDto
                         {
-                            UserDisplay    = display,
-                            AvatarUrl      = avatarUrl,
-                            ValidationType = v.ValidationType,
+                            UserDisplay    = ResolveDisplay(guid),
+                            AvatarUrl      = ResolveAvatar(guid),
+                            ValidationType = GlossaryValidationType.MeaningValidation,
+                            RelationType   = null,
+                            Comment        = v.Comentario,
+                            CreatedAt      = v.CreadoEn
+                        });
+                    }
+
+                    foreach (var v in rawRelationComments)
+                    {
+                        if (!Guid.TryParse(v.UserId, out var guid)) continue;
+                        if (!medicoIdByUser.ContainsKey(guid)) continue;
+                        comentariosMedicos.Add(new ValidationCommentDto
+                        {
+                            UserDisplay    = ResolveDisplay(guid),
+                            AvatarUrl      = ResolveAvatar(guid),
+                            ValidationType = GlossaryValidationType.RelationValidation,
                             RelationType   = v.MedicalRelationTypeId,
                             Comment        = v.Comment,
                             CreatedAt      = v.CreatedAt

@@ -90,12 +90,38 @@
 
     @if (!Model.TienePerfilVinculado)
     {
-        <div class="alert alert-info mb-4">
-            <i class="bi bi-info-circle me-2"></i>
-            Tu cuenta no está vinculada a un perfil del directorio todavía.
-            <a asp-page="/DirectorioMedicos/Index" class="alert-link ms-1">Busca tu perfil</a>
-            y haz clic en "Reclamar perfil" para desbloquear todas las secciones.
-        </div>
+        @if (Model.PerfilHuerfanoId.HasValue)
+        {
+            <div class="alert alert-warning mb-4">
+                <div class="d-flex align-items-start gap-2">
+                    <i class="bi bi-exclamation-triangle-fill fs-4"></i>
+                    <div class="flex-grow-1">
+                        <strong>Tu perfil se desvinculó por mantenimiento</strong>
+                        <p class="mb-2 mt-1">
+                            Detectamos que tu perfil <strong>@Model.PerfilHuerfanoNombre</strong> estaba vinculado anteriormente.
+                            Puedes restaurar el vínculo automáticamente.
+                        </p>
+                        <form method="post" asp-page-handler="RevincularPerfil" class="d-inline">
+                            <button type="submit" class="btn btn-warning btn-sm">
+                                <i class="bi bi-arrow-repeat me-1"></i> Restaurar vínculo ahora
+                            </button>
+                        </form>
+                        <a asp-page="/DirectorioMedicos/Detalle" asp-route-id="@Model.PerfilHuerfanoId" class="btn btn-outline-secondary btn-sm ms-2">
+                            <i class="bi bi-eye me-1"></i> Ver perfil público
+                        </a>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-info mb-4">
+                <i class="bi bi-info-circle me-2"></i>
+                Tu cuenta no está vinculada a un perfil del directorio todavía.
+                <a asp-page="/DirectorioMedicos/Index" class="alert-link ms-1">Busca tu perfil</a>
+                y haz clic en "Reclamar perfil" para desbloquear todas las secciones.
+            </div>
+        }
     }
 
     <div class="row g-3">
@@ -231,7 +257,7 @@
                         <span class="fw-bold" style="font-size:1.5rem;color:#9ca3af;">@Model.TotalRecomendaciones</span>
                         <span class="text-muted small ms-1">confirmaciones</span>
                     </div>
-                    <p class="text-muted small mb-0">Obtén el badge <strong>Verificado</strong> para ver el detalle.</p>
+                    <p class="text-muted small mb-0">Obtén el badge <strong>Cédula Verificada</strong> para ver el detalle.</p>
                 </div>
             }
         </div>

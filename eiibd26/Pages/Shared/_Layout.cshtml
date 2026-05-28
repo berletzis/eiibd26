@@ -137,7 +137,7 @@
             width: 260px;
             min-width: 220px;
             max-width: 320px;
-            border-right: 1px solid #ececec;
+            border-right: 1px solid var(--eii-border);
         }
 
         /* Keep offcanvas sidebar full height for scroll if big */
@@ -160,24 +160,86 @@
             }
         }
 
-        /* Floating small-screen toggle button (if you want it visible even when top menu doesn't include) */
-        .sidebar-toggle-sm {
+        /* ===== FAB SIDEBAR — páginas sin sidebar (home, contenidos, etc.) ===== */
+        .sidebar-fab {
             display: none;
-            position: fixed;
-            z-index: 1100;
-            right: 12px;
-            bottom: 18px;
-            border-radius: 50%;
-            width: 48px;
-            height: 48px;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 6px 18px rgba(25,45,85,0.08);
         }
 
         @@media (max-width: 991.98px) {
-            .sidebar-toggle-sm {
+            .sidebar-fab {
                 display: flex;
+                position: fixed;
+                bottom: 16px;
+                right: 16px;
+                width: 48px;
+                height: 48px;
+                border-radius: 12px;
+                background: var(--eii-primary);
+                color: #fff;
+                border: none;
+                cursor: pointer;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.35rem;
+                z-index: 1050;
+                box-shadow: 0 4px 16px rgba(106,78,122,.28);
+                transition: box-shadow .2s, transform .15s;
+            }
+
+            .sidebar-fab:hover,
+            .sidebar-fab:focus-visible {
+                box-shadow: 0 6px 20px rgba(106,78,122,.4);
+                transform: translateY(-2px);
+                color: #fff;
+            }
+
+            /* scroll-to-top sube para no tapar el FAB */
+            .scroll-to-top {
+                bottom: 72px;
+                right: 16px;
+            }
+        }
+
+        /* ===== DASHBOARD MOBILE BAR — trigger contextual en páginas con sidebar ===== */
+        .dashboard-mobile-bar {
+            display: none;
+        }
+
+        @@media (max-width: 767.98px) {
+            .dashboard-mobile-bar {
+                display: flex;
+                align-items: center;
+                padding: var(--eii-space-2) 0 var(--eii-space-3) 0;
+                margin-bottom: var(--eii-space-3);
+                border-bottom: 1px solid var(--eii-border);
+            }
+
+            .dashboard-mobile-trigger {
+                display: inline-flex;
+                align-items: center;
+                gap: var(--eii-space-2);
+                padding: var(--eii-space-2) var(--eii-space-3);
+                background: var(--eii-surface);
+                border: 1px solid var(--eii-border);
+                border-radius: var(--eii-radius-md);
+                color: var(--eii-text-soft);
+                font-size: var(--eii-text-sm);
+                font-weight: 500;
+                cursor: pointer;
+                line-height: 1.4;
+                transition: background var(--eii-transition-base), color var(--eii-transition-base), border-color var(--eii-transition-base);
+            }
+
+            .dashboard-mobile-trigger:hover,
+            .dashboard-mobile-trigger:focus-visible {
+                background: var(--eii-primary-soft);
+                border-color: var(--eii-primary-border);
+                color: var(--eii-primary);
+                outline: none;
+            }
+
+            .dashboard-mobile-trigger i {
+                font-size: 1.15rem;
             }
         }
 
@@ -227,8 +289,6 @@
             .scroll-to-top {
                 width: 45px;
                 height: 45px;
-                bottom: 20px;
-                right: 20px;
                 font-size: 1.3rem;
             }
         }
@@ -272,10 +332,17 @@
 
                         @* Main content column occupies remaining space (full width on small screens) *@
                         <div class="col ps-3 align-self-start">
-                            @* Small-screen toggle: opens offcanvas sidebar for mobile *@
-                            <div class="d-md-none mb-2 d-flex justify-content-end">
-                                <button class="btn btn-outline-primary" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarOffcanvas" aria-controls="sidebarOffcanvas" aria-label="Abrir menú del sidebar">
-                                    <i class="bi bi-list"></i>
+
+                            @* Mobile: trigger contextual del panel de control *@
+                            <div class="dashboard-mobile-bar" role="navigation" aria-label="Navegación del panel">
+                                <button class="dashboard-mobile-trigger"
+                                        type="button"
+                                        data-bs-toggle="offcanvas"
+                                        data-bs-target="#sidebarOffcanvas"
+                                        aria-controls="sidebarOffcanvas"
+                                        aria-label="Abrir panel de control">
+                                    <i class="bi bi-list" aria-hidden="true"></i>
+                                    <span>Panel de control</span>
                                 </button>
                             </div>
 
@@ -314,14 +381,6 @@
                 @await Html.PartialAsync("Shared/_SidebarMenu")
             </div>
         </div>
-    }
-
-    <!-- Small-screen floating toggle (optional UX helper) -->
-    @if (showSidebar)
-    {
-        <button class="btn btn-primary sidebar-toggle-sm d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarOffcanvas" aria-controls="sidebarOffcanvas" aria-label="Abrir menú del sidebar">
-            <i class="bi bi-list" style="font-size:1.2rem;color:#fff;"></i>
-        </button>
     }
 
     <!-- ===== PERFORMANCE: JavaScript con defer para no bloquear renderizado ===== -->
@@ -516,7 +575,18 @@
     <script src="~/js/pwa.js" defer></script>
 
     @await RenderSectionAsync("Scripts", required: false)
-    @await Html.PartialAsync("~/Pages/Shared/_FloatingHamburger.cshtml", model: null)
+    @* ===== FAB SIDEBAR — solo en páginas sin sidebar (home, contenidos, etc.) ===== *@
+    @if (isAuthenticated && !showSidebar)
+    {
+        <button class="sidebar-fab"
+                type="button"
+                data-bs-toggle="offcanvas"
+                data-bs-target="#sidebarOffcanvas"
+                aria-controls="sidebarOffcanvas"
+                aria-label="Abrir menú personal">
+            <i class="bi bi-list" aria-hidden="true"></i>
+        </button>
+    }
 
     @* ===== SCROLL TO TOP BUTTON ===== *@
     <button id="scrollToTopBtn" class="scroll-to-top" aria-label="Volver arriba" title="Volver arriba">

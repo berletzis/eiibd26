@@ -285,6 +285,7 @@ try
     // Directorio comunitario de médicos EII
     builder.Services.AddScoped<eiibd26.Services.Directorio.IMedicoDirectorioService, eiibd26.Services.Directorio.MedicoDirectorioService>();
     builder.Services.AddScoped<eiibd26.Services.Medico.IMedicoBadgeService, eiibd26.Services.Medico.MedicoBadgeService>();
+    builder.Services.AddScoped<eiibd26.Services.Validacion.IValidacionContenidoService, eiibd26.Services.Validacion.ValidacionContenidoService>();
 
     // Register HttpClient for Anthropic API
     builder.Services.AddHttpClient("AnthropicClient", (serviceProvider, client) =>

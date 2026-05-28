@@ -5,6 +5,8 @@ namespace eiibd26.Models.Directorio;
 
 // ── LISTADO ──────────────────────────────────────────────────────────────
 
+public record BadgeDisplayInfo(string Icono, string Color, bool IsPrimary);
+
 public class DirectorioIndexVm
 {
     public List<MedicoCardVm> Medicos { get; set; } = new();
@@ -51,6 +53,27 @@ public class MedicoCardVm
     public int TotalPacientesUnicos { get; set; }
     public List<string> AreasExperiencia { get; set; } = new();
     public HashSet<string> BadgesGanados { get; set; } = new();
+
+    // Badge display definitions (canonical source)
+    public static readonly Dictionary<string, BadgeDisplayInfo> BadgeDefinitions = new()
+    {
+        ["perfil_reclamado"]    = new("bi-shield-check",     "#4f46e5", true),
+        ["verificado"]          = new("bi-patch-check-fill", "#0ea5e9", true),
+        ["activo_comunidad"]    = new("bi-people-fill",      "#22c55e", true),
+        ["participante_qa"]     = new("bi-chat-dots-fill",   "#f59e0b", false),
+        ["validador_contenido"] = new("bi-check2-circle",    "#8b5cf6", false),
+        ["creador_contenido"]   = new("bi-pencil-square",    "#ec4899", false),
+    };
+
+    public IEnumerable<(string codigo, BadgeDisplayInfo info)> BadgesPrimariosObtenidos =>
+        BadgesGanados
+            .Where(codigo => BadgeDefinitions.TryGetValue(codigo, out var info) && info.IsPrimary)
+            .Select(codigo => (codigo, BadgeDefinitions[codigo]));
+
+    public IEnumerable<(string codigo, BadgeDisplayInfo info)> BadgesSecundariosObtenidos =>
+        BadgesGanados
+            .Where(codigo => BadgeDefinitions.TryGetValue(codigo, out var info) && !info.IsPrimary)
+            .Select(codigo => (codigo, BadgeDefinitions[codigo]));
 }
 
 // ── UBICACIONES COMBINADAS (médico + pacientes) ──────────────────────────

@@ -1,4 +1,4 @@
-﻿@using Microsoft.AspNetCore.Http
+@using Microsoft.AspNetCore.Http
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Hosting
 @using Microsoft.EntityFrameworkCore
@@ -35,7 +35,6 @@
                     if (!string.IsNullOrWhiteSpace(perfil.Nombre))
                         displayName = perfil.Nombre + (string.IsNullOrWhiteSpace(perfil.Apellidos) ? "" : " " + perfil.Apellidos);
 
-                    // Usar Perfil.Avatar si es una ruta de archivo subido (cubre foto de médico y paciente)
                     if (!string.IsNullOrWhiteSpace(perfil.Avatar) && perfil.Avatar.StartsWith("/uploads/"))
                         avatarSrc = Url.Content("~" + perfil.Avatar);
                 }
@@ -43,7 +42,6 @@
             catch { }
         }
 
-        // Para médicos: Perfil.Nombre está vacío; el nombre real viene de MedicosDirectorio
         if (string.IsNullOrWhiteSpace(displayName) && User.IsInRole("Medico") && Guid.TryParse(userId, out var medicoGuidTop))
         {
             try
@@ -61,7 +59,6 @@
 
         displayName = displayName ?? User?.FindFirst(ClaimTypes.Name)?.Value ?? User?.Identity?.Name ?? "Usuario";
 
-        // Fallback al archivo de avatar de paciente solo si Perfil.Avatar no resolvió
         if (avatarSrc == Url.Content("~/img/default-avatar.png"))
         {
             var env = Context.RequestServices.GetService(typeof(IWebHostEnvironment)) as IWebHostEnvironment;
@@ -77,7 +74,6 @@
         }
     }
 
-    // helper to mark active item
     var rawPath = (Context.Request.Path.Value ?? "").TrimEnd('/');
     if (string.IsNullOrEmpty(rawPath)) rawPath = "/";
     string GetFirstSegment(string path)
@@ -100,62 +96,106 @@
 }
 <header>
     <style>
+        /* ── TOPBAR DESKTOP ─────────────────────────────────────────────── */
         .topbar {
-            background: #f8fafc;
-            border-bottom: 1px solid #e9ecef;
+            background: var(--eii-surface);
+            border-bottom: 1px solid var(--eii-border);
+            box-shadow: 0 1px 6px rgba(0,0,0,.04);
             z-index: 1100;
             width: 100%;
+        }
+
+        .topbar .container {
+            display: flex;
+            align-items: center;
+            height: 56px;
             position: relative;
         }
 
-            /* Contenedor principal alineado con footer */
-            .topbar .container {
-                display: flex;
-                align-items: center;
-                position: relative;
-            }
-
-        /* Logo */
         .topbar-brand {
             flex-shrink: 0;
-            margin-right: 2rem;
+            margin-right: 1.5rem;
         }
 
         .brand-img {
-            height: 38px;
+            height: 36px;
             object-fit: contain;
         }
 
-        /* Menú principal centrado */
         .topbar-nav-center {
             flex: 1;
             display: flex;
             justify-content: center;
         }
 
-        /* Menú de usuario FUERA del container, pegado a la derecha absoluta */
+        /* FIX: user menu is now part of normal flex flow (was position:fixed — caused sticky avatar bug) */
         .topbar-nav-right {
-            position: fixed;
-            right: 15px;
-            top: 0;
+            flex-shrink: 0;
             display: flex;
             align-items: center;
-            height: 58px;
-            z-index: 1101;
+            margin-left: auto;
         }
 
-        /* Dropdowns se muestran encima sin desplazar contenido */
         .topbar .dropdown-menu {
             position: absolute;
             z-index: 1050;
         }
 
-        .mobile-avatar {
-            width: 36px;
-            height: 36px;
+        /* Nav links */
+        .topbar .navbar-nav .nav-link {
+            font-size: .875rem;
+            color: var(--eii-text-soft);
+            transition: color var(--eii-transition-base);
+            padding: 0.35rem 0.55rem;
+        }
+
+        .topbar .navbar-nav .nav-link:hover {
+            color: var(--eii-primary);
+        }
+
+        .topbar .nav-link.active {
+            color: var(--eii-primary);
+            font-weight: 600;
+        }
+
+        .topbar .dropdown-menu .dropdown-item {
+            font-size: .875rem;
+        }
+
+        /* Avatar sizes */
+        .topbar-avatar-sm {
+            height: 28px;
+            width: 28px;
             border-radius: 50%;
             object-fit: cover;
-            border: 1px solid rgba(0,0,0,0.06);
+            border: 1.5px solid var(--eii-border);
+        }
+
+        .topbar-avatar-md {
+            height: 36px;
+            width: 36px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1.5px solid var(--eii-border);
+        }
+
+        .topbar-panel-icon {
+            color: var(--eii-primary);
+        }
+
+        /* ── MOBILE TOPBAR (shared styles, rendered alongside desktop) ─── */
+        .mobile-avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1.5px solid var(--eii-border);
+        }
+
+        /* ── OFFCANVAS (mobile drawer) ──────────────────────────────────── */
+        .offcanvas {
+            width: 300px;
+            max-width: 85%;
         }
 
         .offcanvas-menu .offcanvas-body {
@@ -163,41 +203,26 @@
         }
 
         .offcanvas-user {
-            border-top: 1px solid #e9ecef;
+            border-top: 1px solid var(--eii-border);
             padding-top: 12px;
             margin-top: 12px;
         }
 
-            .offcanvas-user .avatar {
-                width: 40px;
-                height: 40px;
-                border-radius: 50%;
-                object-fit: cover;
-            }
+        .offcanvas-user .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1.5px solid var(--eii-border);
+        }
 
         .offcanvas-nav .nav-link {
-            padding: 6px 0;
+            padding: 7px 0;
             display: block;
-            color: #0f172a;
+            color: var(--eii-text);
             font-size: .9rem;
         }
 
-        /* Desktop menu links */
-        .topbar .navbar-nav .nav-link {
-            font-size: .9rem;
-        }
-
-        .topbar .nav-link.active {
-            color: #6a4e7a;
-            font-weight: 600;
-        }
-
-        /* Dropdown items */
-        .dropdown-menu .dropdown-item {
-            font-size: .9rem;
-        }
-
-        /* Tree / submenu styling for offcanvas */
         .offcanvas-nav ul {
             list-style: none;
             padding-left: 0;
@@ -205,118 +230,102 @@
         }
 
         .offcanvas-nav li {
-            margin: 4px 0;
+            margin: 2px 0;
         }
 
         .offcanvas-nav .submenu {
             padding-left: 14px;
-            margin-top: 6px;
+            margin-top: 4px;
         }
 
         .offcanvas-nav .has-children > .nav-link::after {
             content: '▾';
             float: right;
             font-size: 0.9rem;
-            color: #6b7280;
+            color: var(--eii-text-soft);
         }
 
-        .offcanvas-nav .collapse-sub {
-            display: block;
-        }
+        .offcanvas-nav .collapse-sub { display: block; }
 
         .offcanvas-nav a {
             text-decoration: none;
             color: inherit;
         }
-
-        .offcanvas {
-            width: 320px;
-            max-width: 86%;
-        }
     </style>
 
     @* Desktop topbar: visible only on lg+ *@
-    <nav class="navbar topbar d-none d-lg-flex">
+    <nav class="navbar topbar d-none d-lg-flex" role="banner">
         <div class="container">
             <a class="topbar-brand" href="/">
-                <img src="~/img/logo.png" class="brand-img" alt="eiibd26 logo" />
+                <img src="~/img/logo.png" class="brand-img" alt="EIIBD logo" />
             </a>
 
             <div class="topbar-nav-center">
                 <ul class="navbar-nav d-flex flex-row align-items-center mb-0">
-                    @* <li class="nav-item"><a class="nav-link@(ActiveClass("/"))" href="/"><i class="bi bi-house-door-fill"></i>&nbsp;Inicio</a></li> *@
-                    <li class="nav-item"><a class="nav-link d-flex align-items-center@(ActiveClass("/Contenidos"))" href="/Contenidos" @(IsActivePath("/Contenidos") ? "aria-current=\"page\"" : "")><i class="bi bi-search"></i><span>&nbsp;Buscador</span></a></li>
-                    <li class="nav-item"><a class="nav-link d-flex align-items-center@(ActiveClass("/Preguntas"))" href="/Preguntas" @(IsActivePath("/Preguntas") ? "aria-current=\"page\"" : "")><i class="bi bi-view-stacked"></i><span>&nbsp;Preguntas y Respuestas</span></a></li>
-
-                    @* ⭐ NUEVO: Glosario Médico *@
-                    <li class="nav-item"><a class="nav-link d-flex align-items-center@(ActiveClass("/Glosario"))" href="/Glosario" @(IsActivePath("/Glosario") ? "aria-current=\"page\"" : "")><i class="bi bi-book"></i><span>&nbsp;Glosario</span></a></li>
-
-                    @* Existing partial menus *@
+                    <li class="nav-item"><a class="nav-link d-flex align-items-center gap-1@(ActiveClass("/Contenidos"))" href="/Contenidos" @(IsActivePath("/Contenidos") ? "aria-current=\"page\"" : "")><i class="bi bi-search"></i><span>Buscador</span></a></li>
+                    <li class="nav-item"><a class="nav-link d-flex align-items-center gap-1@(ActiveClass("/Preguntas"))" href="/Preguntas" @(IsActivePath("/Preguntas") ? "aria-current=\"page\"" : "")><i class="bi bi-view-stacked"></i><span>Preguntas y Respuestas</span></a></li>
+                    <li class="nav-item"><a class="nav-link d-flex align-items-center gap-1@(ActiveClass("/Glosario"))" href="/Glosario" @(IsActivePath("/Glosario") ? "aria-current=\"page\"" : "")><i class="bi bi-book"></i><span>Glosario</span></a></li>
                     <partial name="~/Pages/Shared/_CategoryMenuPartial.cshtml" />
                     <partial name="~/Pages/Shared/_menuContenidoPartial.cshtml" />
-                    <li class="nav-item"><a class="nav-link d-flex align-items-center@(ActiveClass("/Mapa"))" href="/Mapa" @(IsActivePath("/Mapa") ? "aria-current=\"page\"" : "")><i class="bi bi-globe"></i><span>&nbsp;Comunidad</span></a></li>
+                    <li class="nav-item"><a class="nav-link d-flex align-items-center gap-1@(ActiveClass("/Mapa"))" href="/Mapa" @(IsActivePath("/Mapa") ? "aria-current=\"page\"" : "")><i class="bi bi-globe"></i><span>Comunidad</span></a></li>
                     @if (isAuth)
                     {
                         var panelHref = User.IsInRole("Medico")
                             ? "/Identity/Medico/Dashboard"
                             : "/Identity/Usuario/Dashboard";
-                        <li><a class="nav-link" href="@panelHref">&nbsp;<i class="bi bi-motherboard" style="color:#7522ca; font-size:1.3em"></i>&nbsp;Panel de Control</a></li>
+                        <li class="nav-item"><a class="nav-link d-flex align-items-center gap-1" href="@panelHref"><i class="bi bi-motherboard topbar-panel-icon"></i><span>Panel</span></a></li>
                     }
                 </ul>
             </div>
-        </div>
 
-        @* Menú de usuario FUERA del container *@
-        <div class="topbar-nav-right">
-            <ul class="navbar-nav d-flex flex-row align-items-center mb-0">
-                @if (!isAuth)
-                {
-                    <li class="nav-item">
-                        <a class="nav-link@(ActiveClass("/Identity/Account/Login"))" href="/Identity/Account/Login?ReturnUrl=@Uri.EscapeDataString(Context.Request.Path + Context.Request.QueryString)"><i class="bi bi-box-arrow-in-right me-1"></i> Iniciar sesión</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link@(ActiveClass("/Identity/Account/Register"))" href="/Identity/Account/Register?ReturnUrl=@Uri.EscapeDataString(Context.Request.Path + Context.Request.QueryString)"><i class="bi bi-person-plus me-1"></i> Registro</a>
-                    </li>
-                }
-                else
-                {
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle d-flex align-items-center@(ActiveClass("/Identity/Account/Manage"))" href="#" id="perfilDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <img src="@avatarSrc" alt="Mi avatar" class="rounded-circle me-2" style="height:28px;width:28px;object-fit:cover;border:1px solid rgba(0,0,0,0.06);" />
-                            <span class="me-1">@displayName</span>
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="perfilDropdown">
-                            <li class="px-3 py-2">
-                                <div class="d-flex align-items-start">
-                                    <img src="@avatarSrc" alt="Avatar" class="rounded-circle me-2" style="height:36px;width:36px;object-fit:cover;border:1px solid rgba(0,0,0,0.06);" />
-                                    <div>
-                                        <div class="fw-semibold">@displayName</div>
-                                        @if (!string.IsNullOrEmpty(userName))
-                                        {
-                                            <div class="small text-muted">Usuario: @userName</div>
-                                        }
-                                        else if (!string.IsNullOrEmpty(userId))
-                                        {
-                                            <div class="small text-muted">Usuario: @userId</div>
-                                        }
+            @* User menu now INSIDE container — fixes sticky/floating avatar bug *@
+            <div class="topbar-nav-right">
+                <ul class="navbar-nav d-flex flex-row align-items-center mb-0">
+                    @if (!isAuth)
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-1@(ActiveClass("/Identity/Account/Login"))" href="/Identity/Account/Login?ReturnUrl=@Uri.EscapeDataString(Context.Request.Path + Context.Request.QueryString)"><i class="bi bi-box-arrow-in-right"></i> Iniciar sesión</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-1@(ActiveClass("/Identity/Account/Register"))" href="/Identity/Account/Register?ReturnUrl=@Uri.EscapeDataString(Context.Request.Path + Context.Request.QueryString)"><i class="bi bi-person-plus"></i> Registro</a>
+                        </li>
+                    }
+                    else
+                    {
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle d-flex align-items-center gap-2@(ActiveClass("/Identity/Account/Manage"))" href="#" id="perfilDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <img src="@avatarSrc" alt="Mi avatar" class="topbar-avatar-sm" />
+                                <span>@displayName</span>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="perfilDropdown">
+                                <li class="px-3 py-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <img src="@avatarSrc" alt="Avatar" class="topbar-avatar-md" />
+                                        <div>
+                                            <div class="fw-semibold" style="font-size:.9rem;">@displayName</div>
+                                            @if (!string.IsNullOrEmpty(userName))
+                                            {
+                                                <div class="small text-muted">@@@userName</div>
+                                            }
+                                        </div>
                                     </div>
-                                </div>
-                            </li>
-                            <li><hr class="dropdown-divider" /></li>
-                            <li><a class="dropdown-item" href="/Identity/Account/Manage/UsuarioPerfil">Editar - Perfil público</a></li>
-                            <li><a class="dropdown-item" href="/Identity/Account/Manage">Usuario/Registro</a></li>
-                            <li><a class="dropdown-item" href="/Identity/Account/Manage/Email">Cambiar email</a></li>
-                            <li><a class="dropdown-item" href="/Identity/Account/Manage/ChangePassword">Cambiar contraseña</a></li>
-                            <li><hr class="dropdown-divider" /></li>
-                            <li>
-                                <form method="post" asp-area="Identity" asp-page="/Account/Logout" class="d-inline">
-                                    <button type="submit" class="dropdown-item d-flex align-items-center"><i class="bi bi-box-arrow-right me-1"></i> Cerrar sesión</button>
-                                </form>
-                            </li>
-                        </ul>
-                    </li>
-                }
-            </ul>
+                                </li>
+                                <li><hr class="dropdown-divider" /></li>
+                                <li><a class="dropdown-item" href="/Identity/Account/Manage/UsuarioPerfil">Editar perfil público</a></li>
+                                <li><a class="dropdown-item" href="/Identity/Account/Manage">Mi cuenta</a></li>
+                                <li><a class="dropdown-item" href="/Identity/Account/Manage/Email">Cambiar email</a></li>
+                                <li><a class="dropdown-item" href="/Identity/Account/Manage/ChangePassword">Cambiar contraseña</a></li>
+                                <li><hr class="dropdown-divider" /></li>
+                                <li>
+                                    <form method="post" asp-area="Identity" asp-page="/Account/Logout" class="d-inline">
+                                        <button type="submit" class="dropdown-item d-flex align-items-center gap-1"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </li>
+                    }
+                </ul>
+            </div>
         </div>
     </nav>
 </header>

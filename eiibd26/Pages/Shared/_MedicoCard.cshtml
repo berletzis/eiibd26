@@ -1,9 +1,6 @@
 @model eiibd26.Models.Directorio.MedicoCardVm
 
 @{
-    var _badgeComunidad = ViewData["BadgeComunidad"] as bool? ?? false;
-    var _badgeVerificado = ViewData["BadgeVerificado"] as bool? ?? false;
-    var _badgeMedico = ViewData["BadgeMedico"] as bool? ?? false;
     var _ubicacion = string.Join(", ", new[] { Model.Ciudad, Model.Estado }.Where(x => !string.IsNullOrWhiteSpace(x)));
 }
 
@@ -62,38 +59,41 @@
         }
     </div>
 
-    <div class="medico-card__status-badges">
-        <span class="medico-status-badge @(_badgeComunidad ? "badge-status-comunidad" : "badge-status-inactivo")">
-            <i class="bi bi-people-fill"></i> Comunidad
-        </span>
-        <span class="medico-status-badge @(_badgeVerificado ? "badge-status-verificado" : "badge-status-inactivo")">
-            <i class="bi bi-patch-check"></i> Verificado
-        </span>
-        <span class="medico-status-badge @(_badgeMedico ? "badge-status-medico" : "badge-status-inactivo")">
-            <i class="bi bi-patch-check-fill"></i> Médico
-        </span>
-    </div>
-
     @if (Model.BadgesGanados.Any())
     {
-        var badgeDefs = new[]
+        var primarios = Model.BadgesPrimariosObtenidos.ToList();
+        var secundarios = Model.BadgesSecundariosObtenidos.ToList();
+
+        @if (primarios.Any() || secundarios.Any())
         {
-            new { Clave = "perfil_reclamado",    Icono = "bi-shield-check",      Color = "#4f46e5", Label = "Perfil Reclamado" },
-            new { Clave = "verificado",          Icono = "bi-patch-check-fill",  Color = "#0ea5e9", Label = "Verificado" },
-            new { Clave = "activo_comunidad",    Icono = "bi-people-fill",       Color = "#22c55e", Label = "Activo en Comunidad" },
-            new { Clave = "participante_qa",     Icono = "bi-chat-dots-fill",    Color = "#f59e0b", Label = "Participa en Q&A" },
-            new { Clave = "validador_contenido", Icono = "bi-check2-circle",     Color = "#8b5cf6", Label = "Valida Contenido" },
-            new { Clave = "creador_contenido",   Icono = "bi-pencil-square",     Color = "#ec4899", Label = "Crea Contenido" },
-        };
-        <div class="d-flex flex-wrap gap-1 mt-2">
-            @foreach (var bd in badgeDefs.Where(b => Model.BadgesGanados.Contains(b.Clave)))
-            {
-                <span class="badge-medico-pill badge-compact"
-                      style="background:@(bd.Color)20; border:1.5px solid @(bd.Color); color:@(bd.Color);"
-                      title="@bd.Label" data-bs-toggle="tooltip" data-bs-placement="top">
-                    <i class="bi @bd.Icono"></i>
-                </span>
-            }
-        </div>
+            <div class="medico-card__badges mt-2">
+                @if (primarios.Any())
+                {
+                    <div class="d-flex flex-wrap gap-1">
+                        @foreach (var (codigo, info) in primarios)
+                        {
+                            <span class="badge-medico-pill badge-compact badge-primary"
+                                  style="background:@(info.Color)20; border:1.5px solid @(info.Color); color:@(info.Color);"
+                                  data-bs-toggle="tooltip" data-bs-placement="top">
+                                <i class="bi @info.Icono"></i>
+                            </span>
+                        }
+                    </div>
+                }
+                @if (secundarios.Any())
+                {
+                    <div class="d-flex flex-wrap gap-1 @(primarios.Any() ? "mt-1" : "")">
+                        @foreach (var (codigo, info) in secundarios)
+                        {
+                            <span class="badge-medico-pill badge-compact badge-secondary"
+                                  style="background:@(info.Color)15; border:1.5px solid @(info.Color)60; color:@(info.Color);"
+                                  data-bs-toggle="tooltip" data-bs-placement="top">
+                                <i class="bi @info.Icono"></i>
+                            </span>
+                        }
+                    </div>
+                }
+            </div>
+        }
     }
 </article>

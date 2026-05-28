@@ -1,6 +1,8 @@
 using eiibd26.Models.Glossary;
+using eiibd26.Models.Validacion;
 using eiibd26.Services.Glossary;
 using eiibd26.Services.Glossary.DTOs;
+using eiibd26.Services.Validacion;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -11,6 +13,7 @@ namespace eiibd26.Pages.Glosario
     public class TerminoModel : PageModel
     {
         private readonly IGlossaryService _glossaryService;
+        private readonly IValidacionContenidoService _validacionService;
         private readonly ILogger<TerminoModel> _logger;
         private readonly UserManager<eiibd26.Models.ApplicationUser> _userManager;
 
@@ -19,18 +22,23 @@ namespace eiibd26.Pages.Glosario
 
         public TerminoModel(
             IGlossaryService glossaryService,
+            IValidacionContenidoService validacionService,
             ILogger<TerminoModel> logger,
             UserManager<eiibd26.Models.ApplicationUser> userManager)
         {
-            _glossaryService = glossaryService;
-            _logger = logger;
-            _userManager = userManager;
+            _glossaryService    = glossaryService;
+            _validacionService  = validacionService;
+            _logger             = logger;
+            _userManager        = userManager;
         }
 
         public GlossaryTermDetailDto? Term { get; set; }
 
         /// <summary>Indica si el usuario actual puede validar (Médico o Administrador)</summary>
         public bool CanValidate { get; set; }
+
+        /// <summary>Validación de contenido existente del médico para pre-cargar el formulario</summary>
+        public ValidacionExistenteDto? MiValidacionDesc { get; set; }
 
         [TempData]
         public string? ValidationMessage { get; set; }
@@ -125,6 +133,54 @@ namespace eiibd26.Pages.Glosario
             return RedirectToPage(new { slug });
         }
 
+        /// <summary>
+        /// POST: guardar o actualizar validación de contenido (descripción del término).
+        /// Solo roles Médico / Administrador. Usa el nuevo servicio canónico.
+        /// </summary>
+        public async Task<IActionResult> OnPostGuardarValidacionAsync(
+            int? contenidoId,
+            string? slug,
+            string? comentario)
+        {
+            if (!User.Identity?.IsAuthenticated ?? true)
+                return Challenge();
+
+            if (contenidoId == null || string.IsNullOrWhiteSpace(slug))
+            {
+                ValidationMessage = "Datos de término inválidos.";
+                ValidationSuccess = false;
+                return RedirectToPage(new { slug });
+            }
+
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+                return Challenge();
+
+            var roles = await _userManager.GetRolesAsync(user);
+            if (!roles.Any(r => _validationRoles.Contains(r)))
+            {
+                ValidationMessage = "No tienes permiso para validar contenido. Se requiere rol Médico o Administrador.";
+                ValidationSuccess = false;
+                return RedirectToPage(new { slug });
+            }
+
+            var result = await _validacionService.GuardarValidacionAsync(
+                TipoContenidoValidado.Termino,
+                contenidoId.Value,
+                user.Id.ToString(),
+                comentario);
+
+            (ValidationSuccess, ValidationMessage) = result switch
+            {
+                UpsertResult.Creada      => (true,  "Validación registrada correctamente."),
+                UpsertResult.Actualizada => (true,  "Comentario actualizado correctamente."),
+                UpsertResult.SinCambios  => (true,  "No hay cambios que guardar."),
+                _                        => (false, "Error al guardar la validación. Intenta de nuevo.")
+            };
+
+            return RedirectToPage(new { slug });
+        }
+
         private async Task LoadValidationPermissionAsync()
         {
             if (!User.Identity?.IsAuthenticated ?? true)
@@ -136,6 +192,21 @@ namespace eiibd26.Pages.Glosario
 
             var roles = await _userManager.GetRolesAsync(user);
             CanValidate = roles.Any(r => _validationRoles.Contains(r));
+
+            if (CanValidate && Term != null)
+            {
+                try
+                {
+                    MiValidacionDesc = await _validacionService.ObtenerMiValidacionAsync(
+                        TipoContenidoValidado.Termino,
+                        Term.Id,
+                        user.Id.ToString());
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "No se pudo cargar validación existente para término {TermId}", Term.Id);
+                }
+            }
         }
     }
 }

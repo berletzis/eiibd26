@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>01 — Análisis Actual: Perfil Médico y Página Pública</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<style>
+  body { padding: 2rem; max-width: 1000px; margin: 0 auto; }
+  pre { background:#1e293b; color:#f1f5f9; border-radius:8px; padding:1rem; font-size:.84em; overflow-x:auto; }
+  code { background:#f1f5f9; border-radius:4px; padding:1px 5px; font-size:.87em; }
+  h2 { border-left: 4px solid #6a4e7a; padding-left:.75rem; margin-top:2rem; }
+</style>
+</head>
+<body>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <a href="00-indice.html" class="btn btn-sm btn-outline-secondary">&larr; Índice</a>
+  <span class="text-muted small">Validación Perfil Médico — EIIBD.com</span>
+</div>
+
+<h1 class="mb-1">01 — Análisis Actual</h1>
+<p class="text-muted">Estado de PerfilMedico y página pública Detalle antes de la feature. Mayo 2026.</p>
+
+<h2>1. Página de gestión: PerfilMedico</h2>
+
+<p>Ruta: <code>/Identity/Account/Manage/PerfilMedico</code><br>
+Archivo backend: <code>Areas/Identity/Pages/Account/Manage/PerfilMedico.cshtml.cs</code><br>
+Autorización: rol <code>Medico</code> requerido.</p>
+
+<p>La página permite al médico editar:</p>
+<ul>
+  <li>Datos personales (nombre, especialidad, cédula, CURP, RFC)</li>
+  <li>Foto de perfil (upload a <code>/uploads/medicos/medico-{guid}.jpg</code>)</li>
+  <li>Áreas de EII que atiende (<code>MedicoAreaEii</code> — delete-all + insert-new)</li>
+  <li>Hospitales (JSON serializado en <code>MedicoPerfilExtendido.Hospitales</code>)</li>
+  <li>Flags de privacidad (<code>PrivPermitirTelefono</code>, etc.) como <code>[BindProperty] bool</code></li>
+</ul>
+
+<div class="alert alert-warning">
+  <strong>Faltante antes de esta feature:</strong> No existía ninguna sección de auto-certificación. El médico podía guardar su perfil pero no podía declarar formalmente que el contenido era verídico y completo.
+</div>
+
+<h2>2. Modelo: MedicoPerfilExtendido</h2>
+
+<p>Tabla: <code>MedicoPerfilExtendido</code></p>
+<pre>
+public class MedicoPerfilExtendido
+{
+    public int Id { get; set; }
+    public int MedicoId { get; set; }          // FK → MedicosDirectorio
+    public string UserId { get; set; }         // FK → AspNetUsers
+    public string? Foto { get; set; }          // path relativo
+    public string? Hospitales { get; set; }    // JSON: ["hosp1","hosp2"]
+    public string? Cedula { get; set; }
+    public string? Especialidad { get; set; }
+    // ... más campos de perfil ...
+}
+</pre>
+
+<h2>3. Modelo: MedicoDirectorio</h2>
+
+<p>Tabla: <code>MedicosDirectorio</code> — es el registro público del médico en el directorio.</p>
+<ul>
+  <li><code>AspNetUserId</code> (Guid?) — se setea cuando admin aprueba la reclamación</li>
+  <li><code>Id</code> (int) — PK que se usa como <code>ContenidoId</code> en la validación</li>
+  <li>Campos públicos: nombre, especialidad, ciudad, foto pública, nivel de confianza</li>
+</ul>
+
+<h2>4. Página pública: DirectorioMedicos/Detalle</h2>
+
+<p>Ruta: <code>/DirectorioMedicos/Detalle/{id}</code><br>
+Archivo: <code>Pages/DirectorioMedicos/Detalle.cshtml</code></p>
+
+<p>Muestra al médico públicamente con badges de confianza. Antes de esta feature los badges eran:</p>
+<ul>
+  <li>Cédula Verificada (admin verifica documento)</li>
+  <li>Perfil Reclamado (médico reclamó su ficha)</li>
+  <li>Validado por Pacientes (≥5 confirmaciones comunitarias)</li>
+</ul>
+
+<div class="alert alert-warning">
+  <strong>Faltante:</strong> No existía ningún indicador de que el <em>propio profesional</em> había certificado la veracidad del contenido de su perfil.
+</div>
+
+<h2>5. Lo que existía vs. lo que faltaba</h2>
+
+<table class="table table-bordered table-sm">
+  <thead class="table-dark">
+    <tr><th>Aspecto</th><th>Estado previo</th><th>Resultado de la feature</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Auto-certificación en PerfilMedico</td>
+      <td class="text-danger">No existía</td>
+      <td class="text-success">Sección "Validar contenido" debajo del botón Guardar</td>
+    </tr>
+    <tr>
+      <td>Indicador público en Detalle</td>
+      <td class="text-danger">No existía</td>
+      <td class="text-success">Badge "Perfil validado por el profesional"</td>
+    </tr>
+    <tr>
+      <td>Moderación admin</td>
+      <td class="text-danger">No existía para perfiles</td>
+      <td class="text-success">Estado gestionable desde panel admin</td>
+    </tr>
+    <tr>
+      <td>Tabla de validaciones de perfil</td>
+      <td class="text-danger">No existía</td>
+      <td class="text-success">Reutiliza <code>ValidacionesContenidoProfesional</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>6. Servicio de validación preexistente</h2>
+
+<p>El servicio <code>IValidacionContenidoService</code> y la tabla <code>ValidacionesContenidoProfesional</code> ya existían
+para validación de Términos del Glosario (<code>TipoContenido = Termino = 1</code>) y Artículos (<code>Articulo = 2</code>).
+Esta feature añade <code>TipoContenido = PerfilMedico = 3</code> sin crear nueva infraestructura.</p>
+
+<div class="d-flex justify-content-between mt-4">
+  <a href="00-indice.html" class="btn btn-outline-secondary btn-sm">&larr; Índice</a>
+  <a href="02-modelo-canonico.html" class="btn btn-outline-primary btn-sm">02 Modelo &rarr;</a>
+</div>
+
+</body>
+</html>

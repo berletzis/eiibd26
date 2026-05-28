@@ -1,0 +1,55 @@
+@using eiibd26.Services.Validacion
+@model ValidacionContenidoPartialVm
+
+@{
+    var yaValido = Model.Existente != null;
+    var enRevision = Model.Existente?.EnRevisionOOculta ?? false;
+    var comentarioExistente = Model.Existente?.Comentario ?? "";
+    var btnTexto = yaValido ? "Actualizar validación" : "Validar contenido";
+}
+
+<div class="sidebar-section sidebar-static mb-3">
+    <div class="sidebar-section-header-static d-flex align-items-center gap-2">
+        <span class="sidebar-section-title">Validar contenido</span>
+        @if (yaValido && !enRevision)
+        {
+            <span class="badge bg-success-subtle text-success border border-success-subtle"
+                  style="font-size:.7rem;">
+                <i class="bi bi-check-circle-fill me-1"></i>Validado
+            </span>
+        }
+        else if (enRevision)
+        {
+            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle"
+                  style="font-size:.7rem;">
+                <i class="bi bi-clock-fill me-1"></i>En revisión
+            </span>
+        }
+    </div>
+    <div class="sidebar-section-content-static">
+        @if (enRevision)
+        {
+            <p class="text-warning-emphasis small mb-2">
+                <i class="bi bi-info-circle me-1"></i>Tu validación está siendo revisada por el equipo.
+            </p>
+        }
+        <form method="post" asp-page-handler="@Model.PageHandler">
+            <input type="hidden" name="contenidoId" value="@Model.ContenidoId" />
+            <input type="hidden" name="slug" value="@Model.Slug" />
+            <div class="mb-2">
+                <label for="comentario-contenido" class="form-label" style="font-weight:600;">
+                    Comentario sobre el contenido <span class="text-muted fw-normal">(opcional)</span>:
+                </label>
+                <textarea class="form-control"
+                          name="comentario"
+                          id="comentario-contenido"
+                          rows="2"
+                          maxlength="800"
+                          placeholder="Agrega un comentario clínico (máx. 800 caracteres)">@comentarioExistente</textarea>
+            </div>
+            <button type="submit" class="btn btn-success btn-sm">
+                <i class="bi @(yaValido ? "bi-pencil-fill" : "bi-check-circle-fill") me-1"></i>@btnTexto
+            </button>
+        </form>
+    </div>
+</div>

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using eiibd26.Data;
+using eiibd26.Models.Validacion;
 using eiibd26.Services.Directorio;
 using eiibd26.Services.Medico;
 using eiibd26.Models.Directorio;
@@ -15,6 +16,8 @@ public class DetalleModel : PageModel
     private readonly IMedicoDirectorioService _service;
     private readonly ApplicationDbContext _db;
     private readonly IMedicoBadgeService _badgeService;
+
+    public bool PerfilValidado { get; private set; }
 
     public DetalleModel(IMedicoDirectorioService service, ApplicationDbContext db, IMedicoBadgeService badgeService)
     {
@@ -79,6 +82,17 @@ public class DetalleModel : PageModel
 
         // Fase 4: Badges del directorio
         BadgesDirectorio = await _badgeService.GetTodosLosBadgesAsync(id);
+
+        // Verificar si el médico validó su propio perfil
+        try
+        {
+            PerfilValidado = await _db.ValidacionesContenidoProfesional
+                .AnyAsync(v =>
+                    v.TipoContenido == TipoContenidoValidado.PerfilMedico
+                    && v.ContenidoId == id
+                    && v.Estado == EstadoValidacion.Validado);
+        }
+        catch { }
 
         return Page();
     }

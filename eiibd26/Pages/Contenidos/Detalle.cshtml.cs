@@ -8,21 +8,34 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using eiibd26.Data;
 using eiibd26.Models;
+using eiibd26.Models.Validacion;
+using eiibd26.Services.Validacion;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.AspNetCore.Identity;
 
 namespace eiibd26.Pages.Contenidos
 {
     public class DetalleModel : PageModel
     {
         private readonly ApplicationDbContext _db;
+        private readonly IValidacionContenidoService _validacionService;
+        private readonly UserManager<eiibd26.Models.ApplicationUser> _userManager;
         private readonly ILogger<DetalleModel> _logger;
         private const int WordsPerMinute = 200;
 
-        public DetalleModel(ApplicationDbContext db, ILogger<DetalleModel> logger)
+        private static readonly string[] _validationRoles = ["Medico", "Administrador"];
+
+        public DetalleModel(
+            ApplicationDbContext db,
+            IValidacionContenidoService validacionService,
+            UserManager<eiibd26.Models.ApplicationUser> userManager,
+            ILogger<DetalleModel> logger)
         {
-            _db = db;
-            _logger = logger;
+            _db                = db;
+            _validacionService = validacionService;
+            _userManager       = userManager;
+            _logger            = logger;
         }
 
         [BindProperty(SupportsGet = true)]
@@ -36,6 +49,10 @@ namespace eiibd26.Pages.Contenidos
 
         public ContenidoDetailViewModel Item { get; set; }
         public List<BreadcrumbItem> CategoryCrumbs { get; set; } = new List<BreadcrumbItem>();
+
+        public bool CanValidate { get; set; }
+        public ValidacionExistenteDto? MiValidacionDesc { get; set; }
+        public List<ValidacionPublicaDto> ValidacionesPublicas { get; set; } = new();
 
         // Relative canonical path (e.g. "/categoria/slug")
         public string CanonicalUrl { get; set; }
@@ -503,7 +520,77 @@ namespace eiibd26.Pages.Contenidos
 
             Item = vm;
 
+            // Cargar estado de validación de contenido por profesionales
+            try
+            {
+                ValidacionesPublicas = await _validacionService.ObtenerValidacionesPublicasAsync(
+                    TipoContenidoValidado.Articulo, entity.Id);
+
+                if (User.Identity?.IsAuthenticated == true)
+                {
+                    var user = await _userManager.GetUserAsync(User);
+                    if (user != null)
+                    {
+                        var roles = await _userManager.GetRolesAsync(user);
+                        CanValidate = roles.Any(r => _validationRoles.Contains(r));
+                        if (CanValidate)
+                        {
+                            MiValidacionDesc = await _validacionService.ObtenerMiValidacionAsync(
+                                TipoContenidoValidado.Articulo, entity.Id, user.Id.ToString());
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudo cargar info de validación para artículo {ContentId}", entity.Id);
+            }
+
             return Page();
+        }
+
+        public async Task<IActionResult> OnPostGuardarValidacionAsync(
+            int? contenidoId,
+            string? slug,
+            string? comentario)
+        {
+            if (!User.Identity?.IsAuthenticated ?? true)
+                return Challenge();
+
+            if (contenidoId == null)
+            {
+                TempData["ValidationMessage"] = "Datos de artículo inválidos.";
+                TempData["ValidationSuccess"]  = false;
+                return RedirectToPage(new { slug });
+            }
+
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+                return Challenge();
+
+            var roles = await _userManager.GetRolesAsync(user);
+            if (!roles.Any(r => _validationRoles.Contains(r)))
+            {
+                TempData["ValidationMessage"] = "No tienes permiso para validar contenido.";
+                TempData["ValidationSuccess"]  = false;
+                return RedirectToPage(new { slug });
+            }
+
+            var result = await _validacionService.GuardarValidacionAsync(
+                TipoContenidoValidado.Articulo,
+                contenidoId.Value,
+                user.Id.ToString(),
+                comentario);
+
+            (TempData["ValidationSuccess"], TempData["ValidationMessage"]) = result switch
+            {
+                UpsertResult.Creada      => ((object)true, (object)"Validación registrada correctamente."),
+                UpsertResult.Actualizada => (true,  "Comentario actualizado correctamente."),
+                UpsertResult.SinCambios  => (true,  "No hay cambios que guardar."),
+                _                        => (false, "Error al guardar la validación. Intenta de nuevo.")
+            };
+
+            return RedirectToPage(new { slug });
         }
 
         private static string StripWysiwygNoiseAttributes(string html)

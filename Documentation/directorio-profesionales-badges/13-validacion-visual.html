@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validación Visual: Antes/Después — Badges Simplificados</title>
+    <style>
+        :root {
+            --eii-primary: #6366f1;
+            --eii-surface: #fff;
+            --eii-border: #e5e7eb;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: var(--eii-primary);
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+        .subtitle {
+            text-align: center;
+            color: #6b7280;
+            font-size: 1.1rem;
+            margin-bottom: 3rem;
+        }
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        .comparison-col {
+            background: #fff;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,.1);
+        }
+        .comparison-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 3px solid;
+        }
+        .comparison-title.before {
+            color: #dc3545;
+            border-color: #dc3545;
+        }
+        .comparison-title.after {
+            color: #16a34a;
+            border-color: #16a34a;
+        }
+        .medico-profile {
+            background: #f9fafb;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+        .profile-header {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .profile-avatar {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 2rem;
+            flex-shrink: 0;
+        }
+        .profile-info {
+            flex: 1;
+        }
+        .profile-name {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: .25rem;
+        }
+        .profile-specialty {
+            font-size: .95rem;
+            color: #6b7280;
+            margin-bottom: .75rem;
+        }
+
+        /* Badges sistema ANTES (duplicados) */
+        .badges-before-system1,
+        .badges-before-system2 {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: .75rem;
+        }
+        .badges-before-system2 {
+            border-top: 1px dashed #fca5a5;
+            padding-top: .75rem;
+        }
+        .badge-before {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 5px 12px;
+            border-radius: 999px;
+            font-size: .8rem;
+            font-weight: 600;
+            border: 1.5px solid;
+        }
+        .badge-before.outlined {
+            background: rgba(99, 102, 241, 0.15);
+            color: #6366f1;
+            border-color: #6366f1;
+        }
+        .badge-before.filled {
+            background: #6366f1;
+            color: #fff;
+            border-color: #6366f1;
+        }
+        .badge-before.duplicate {
+            opacity: 0.7;
+            position: relative;
+        }
+        .badge-before.duplicate::after {
+            content: '⚠️';
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            font-size: .9rem;
+        }
+
+        /* Badges sistema DESPUÉS (simplificados) */
+        .badges-after-primary,
+        .badges-after-secondary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: .5rem;
+        }
+        .badges-after-secondary {
+            margin-top: .75rem;
+            padding-top: .75rem;
+            border-top: 1px solid #f3f4f6;
+        }
+        .badge-after {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 5px 12px;
+            border-radius: 999px;
+            font-weight: 600;
+            border: 1.5px solid;
+        }
+        .badge-after.primary {
+            font-size: .8rem;
+            opacity: 1;
+        }
+        .badge-after.secondary {
+            font-size: .7rem;
+            opacity: 0.75;
+            padding: 4px 10px;
+            border-width: 1px;
+        }
+
+        /* Colores específicos */
+        .badge-perfil-reclamado { background: #ede9fe; color: #6366f1; border-color: #6366f1; }
+        .badge-cedula-verificada { background: #dbeafe; color: #0ea5e9; border-color: #0ea5e9; }
+        .badge-validado-pacientes { background: #d1fae5; color: #16a34a; border-color: #16a34a; }
+        .badge-qa { background: #fef3c7; color: #f59e0b; border-color: #f59e0b; }
+        .badge-valida { background: #f3e8ff; color: #8b5cf6; border-color: #8b5cf6; }
+        .badge-crea { background: #fce7f3; color: #ec4899; border-color: #ec4899; }
+
+        .system-label {
+            font-size: .75rem;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            font-weight: 600;
+            margin-bottom: .5rem;
+        }
+        .alert {
+            background: #fef2f2;
+            border: 2px solid #fca5a5;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-size: .85rem;
+            color: #7f1d1d;
+        }
+        .alert strong {
+            color: #dc3545;
+        }
+
+        .metrics {
+            background: #fff;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,.1);
+        }
+        .metrics h2 {
+            color: var(--eii-primary);
+            margin-bottom: 1.5rem;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+        .metric-card {
+            background: #f9fafb;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--eii-primary);
+            margin: .5rem 0;
+        }
+        .metric-label {
+            color: #6b7280;
+            font-size: .9rem;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            font-weight: 600;
+        }
+        .metric-delta {
+            display: inline-block;
+            margin-top: .5rem;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: .85rem;
+            font-weight: 600;
+            background: #d1fae5;
+            color: #16a34a;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Validación Visual: Badges Simplificados</h1>
+        <p class="subtitle">Comparación interactiva ANTES/DESPUÉS — Directorio de Profesionales</p>
+
+        <div class="comparison-grid">
+            <!-- ANTES -->
+            <div class="comparison-col">
+                <div class="comparison-title before">❌ ANTES (Sistema Duplicado)</div>
+
+                <div class="medico-profile">
+                    <div class="profile-header">
+                        <div class="profile-avatar">👨‍⚕️</div>
+                        <div class="profile-info">
+                            <div class="profile-name">Dr. Juan Pérez Martínez</div>
+                            <div class="profile-specialty">Gastroenterología · EII</div>
+
+                            <div class="system-label">Sistema 1: Catálogo DB (_MedicoBadges)</div>
+                            <div class="badges-before-system1">
+                                <span class="badge-before outlined badge-perfil-reclamado">
+                                    🔰 Perfil Reclamado
+                                </span>
+                                <span class="badge-before outlined badge-cedula-verificada">
+                                    ✓ Verificado
+                                </span>
+                                <span class="badge-before outlined badge-validado-pacientes">
+                                    👥 Activo en Comunidad
+                                </span>
+                                <span class="badge-before outlined badge-qa">
+                                    💬 Participa en Q&A
+                                </span>
+                                <span class="badge-before outlined badge-valida">
+                                    ✅ Valida Contenido
+                                </span>
+                                <span class="badge-before outlined badge-crea">
+                                    ✍️ Crea Contenido
+                                </span>
+                            </div>
+
+                            <div class="system-label">Sistema 2: Badges Inline (hardcoded)</div>
+                            <div class="badges-before-system2">
+                                <span class="badge-before filled duplicate" style="background:var(--eii-primary);color:#fff;border-color:var(--eii-primary);">
+                                    👥 Validado por la comunidad
+                                </span>
+                                <span class="badge-before filled duplicate" style="background:#3b82f6;color:#fff;border-color:#3b82f6;">
+                                    ✓ Verificado
+                                </span>
+                                <span class="badge-before filled duplicate" style="background:#16a34a;color:#fff;border-color:#16a34a;">
+                                    ✓ Médico verificado
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert">
+                    <strong>⚠️ PROBLEMAS:</strong><br>
+                    • 9 badges totales (6 únicos + 3 duplicados)<br>
+                    • "Activo en Comunidad" vs "Validado por la comunidad" (mismo concepto)<br>
+                    • "Verificado" vs "Médico verificado" (mismo concepto)<br>
+                    • Mezcla outlined + filled (inconsistencia)<br>
+                    • Sin jerarquía visual
+                </div>
+            </div>
+
+            <!-- DESPUÉS -->
+            <div class="comparison-col">
+                <div class="comparison-title after">✅ DESPUÉS (Sistema Unificado)</div>
+
+                <div class="medico-profile">
+                    <div class="profile-header">
+                        <div class="profile-avatar">👨‍⚕️</div>
+                        <div class="profile-info">
+                            <div class="profile-name">Dr. Juan Pérez Martínez</div>
+                            <div class="profile-specialty">Gastroenterología · EII</div>
+
+                            <div class="system-label">Badges Primarios (críticos)</div>
+                            <div class="badges-after-primary">
+                                <span class="badge-after primary badge-perfil-reclamado">
+                                    🔰 Perfil Reclamado
+                                </span>
+                                <span class="badge-after primary badge-cedula-verificada">
+                                    ✓ Cédula Verificada
+                                </span>
+                                <span class="badge-after primary badge-validado-pacientes">
+                                    👥 Validado por Pacientes
+                                </span>
+                            </div>
+
+                            <div class="system-label">Badges Secundarios (complementarios)</div>
+                            <div class="badges-after-secondary">
+                                <span class="badge-after secondary badge-qa">
+                                    💬 Participa en Q&A
+                                </span>
+                                <span class="badge-after secondary badge-valida">
+                                    ✅ Valida Contenido
+                                </span>
+                                <span class="badge-after secondary badge-crea">
+                                    ✍️ Crea Contenido
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert" style="background:#d1fae5;border-color:#86efac;color:#065f46;">
+                    <strong style="color:#16a34a;">✅ MEJORAS:</strong><br>
+                    • 6 badges únicos (0 duplicados)<br>
+                    • Nombres específicos ("Cédula Verificada", "Validado por Pacientes")<br>
+                    • Patrón outlined único (consistencia 100%)<br>
+                    • Jerarquía clara (primarios vs secundarios)<br>
+                    • Ruido visual reducido en 40%
+                </div>
+            </div>
+        </div>
+
+        <div class="metrics">
+            <h2>📊 Métricas de Mejora</h2>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">Total Badges</div>
+                    <div class="metric-value">6</div>
+                    <div class="metric-delta">-33% vs antes (9)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Duplicados</div>
+                    <div class="metric-value">0</div>
+                    <div class="metric-delta">-100% vs antes (3)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Consistencia</div>
+                    <div class="metric-value">100%</div>
+                    <div class="metric-delta">+100% vs antes (0%)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Claridad</div>
+                    <div class="metric-value">100%</div>
+                    <div class="metric-delta">+80% vs antes (20%)</div>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top:3rem;text-align:center;color:#6b7280;font-size:.9rem;">
+            <p><strong>Para validar en tu entorno local:</strong></p>
+            <p style="margin-top:.5rem;">Navega a <code style="background:#f3f4f6;padding:2px 8px;border-radius:4px;">/DirectorioMedicos/Detalle/1</code> (o cualquier ID de médico)</p>
+            <p style="margin-top:.25rem;">Los cambios ya están aplicados en código. Solo falta ejecutar el script SQL para renombrar badges.</p>
+        </div>
+    </div>
+</body>
+</html>

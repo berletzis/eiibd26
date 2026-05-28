@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FASE 2: Mapeo Semántico — Clasificación de Badges</title>
+    <style>
+        :root {
+            --eii-primary: #6366f1;
+            --danger: #dc3545;
+            --warning: #f59e0b;
+            --success: #16a34a;
+            --info: #0ea5e9;
+            --purple: #8b5cf6;
+            --pink: #ec4899;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.6; color: #1f2937; background: #f9fafb; padding: 2rem; }
+        .container { max-width: 1200px; margin: 0 auto; background: #fff; padding: 3rem; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+        h1 { font-size: 2.5rem; color: var(--eii-primary); margin-bottom: 1rem; border-bottom: 3px solid var(--eii-primary); padding-bottom: 1rem; }
+        h2 { font-size: 1.8rem; color: #374151; margin: 2.5rem 0 1rem; padding-left: 1rem; border-left: 4px solid var(--eii-primary); }
+        h3 { font-size: 1.3rem; color: #4b5563; margin: 2rem 0 1rem; }
+        .meta { display: flex; gap: 2rem; margin: 1.5rem 0; padding: 1rem; background: #f3f4f6; border-radius: 8px; font-size: .9rem; color: #6b7280; }
+        .meta strong { color: #374151; }
+        .category-section { background: #f9fafb; border: 2px solid #e5e7eb; border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0; }
+        .category-header { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; }
+        .category-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+        .category-title { font-size: 1.4rem; font-weight: 700; color: #374151; }
+        .category-description { color: #6b7280; font-size: .95rem; margin-bottom: 1.5rem; line-height: 1.6; }
+        .badge-card { background: #fff; border: 1.5px solid #e5e7eb; border-radius: 8px; padding: 1rem 1.25rem; margin: .75rem 0; }
+        .badge-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; }
+        .badge-name { font-size: 1.1rem; font-weight: 600; color: #374151; }
+        .badge-status { font-size: .75rem; font-weight: 600; padding: 3px 8px; border-radius: 6px; text-transform: uppercase; letter-spacing: .5px; }
+        .status-auto { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+        .status-manual { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+        .badge-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: .85rem; margin-top: .75rem; }
+        .badge-meta-item { display: flex; flex-direction: column; gap: .25rem; }
+        .badge-meta-label { color: #9ca3af; font-weight: 600; font-size: .75rem; text-transform: uppercase; letter-spacing: .5px; }
+        .badge-meta-value { color: #374151; font-family: 'Consolas', monospace; font-size: .85rem; }
+        .duplicate-alert { background: #fee; border: 2px solid #fca5a5; border-radius: 8px; padding: .75rem 1rem; margin-top: .75rem; }
+        .duplicate-alert strong { color: #dc3545; }
+        .recommendation { background: #e0f2ff; border-left: 4px solid var(--info); padding: 1rem 1.25rem; border-radius: 4px; margin: 1.5rem 0; }
+        .recommendation strong { color: #0c4a6e; }
+        .alert { padding: 1rem 1.25rem; border-radius: 8px; margin: 1.5rem 0; border-left: 4px solid; }
+        .alert-danger { background: #fee; border-color: var(--danger); color: #7f1d1d; }
+        .alert-success { background: #d1fae5; border-color: var(--success); color: #065f46; }
+        .comparison-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+        .comparison-card { background: #fff; border: 2px solid #e5e7eb; border-radius: 8px; padding: 1rem; }
+        .comparison-card.duplicate { border-color: #fca5a5; background: #fef2f2; }
+        .comparison-title { font-weight: 600; color: #374151; margin-bottom: .5rem; }
+        code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: 'Consolas', monospace; font-size: .9rem; }
+        ul { margin: 1rem 0 1rem 2rem; }
+        li { margin: .5rem 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>FASE 2: Mapeo Semántico — Clasificación de Badges</h1>
+
+        <div class="meta">
+            <div><strong>Fecha:</strong> 2025-06-04</div>
+            <div><strong>Objetivo:</strong> Clasificar badges por categoría semántica y eliminar duplicados conceptuales</div>
+            <div><strong>Input:</strong> 09-auditoria-detalle.html</div>
+        </div>
+
+        <div class="alert alert-danger">
+            <strong>🎯 OBJETIVO DE ESTA FASE:</strong> Agrupar badges por <strong>función semántica</strong> (identidad, validación, reputación, contribución) para identificar qué badges transmiten el mismo concepto con nombres distintos.
+        </div>
+
+        <h2>1. CATEGORÍA: IDENTIDAD</h2>
+
+        <div class="category-section">
+            <div class="category-header">
+                <div class="category-icon" style="background:#ede9fe;color:var(--purple);">
+                    🆔
+                </div>
+                <div class="category-title">Identidad del Perfil</div>
+            </div>
+            <div class="category-description">
+                Badges que indican <strong>ownership</strong> o <strong>control del perfil</strong>. Responden a la pregunta: <em>"¿Este perfil ha sido reclamado por el médico real?"</em>
+            </div>
+
+            <div class="badge-card">
+                <div class="badge-card-header">
+                    <div class="badge-name">🔰 Perfil Reclamado</div>
+                    <div class="badge-status status-auto">Automático</div>
+                </div>
+                <div class="badge-meta">
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Código</div>
+                        <div class="badge-meta-value">perfil_reclamado</div>
+                    </div>
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Condición</div>
+                        <div class="badge-meta-value">UserId vinculado + EstatusReclamacion == Reclamado</div>
+                    </div>
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Ícono</div>
+                        <div class="badge-meta-value">bi-shield-check</div>
+                    </div>
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Color</div>
+                        <div class="badge-meta-value">#4f46e5 (índigo)</div>
+                    </div>
+                </div>
+                <div class="duplicate-alert">
+                    <strong>⚠️ DUPLICADO EN SISTEMA 2:</strong> "Médico verificado" (bg-success, ícono bi-patch-check-fill) usa la MISMA condición (<code>perfil_reclamado == obtenido</code>) pero con nombre y color distintos.
+                </div>
+            </div>
+        </div>
+
+        <div class="recommendation">
+            <strong>💡 RECOMENDACIÓN:</strong> Mantener <strong>SOLO "Perfil Reclamado"</strong>. Eliminar "Médico verificado" del Sistema 2. Razón: "Médico verificado" suena a validación administrativa (confunde con verificación de cédula).
+        </div>
+
+        <h2>2. CATEGORÍA: VALIDACIÓN ADMINISTRATIVA</h2>
+
+        <div class="category-section">
+            <div class="category-header">
+                <div class="category-icon" style="background:#dbeafe;color:var(--info);">
+                    ✅
+                </div>
+                <div class="category-title">Validación Oficial / Administrativa</div>
+            </div>
+            <div class="category-description">
+                Badges que indican <strong>verificación manual por administradores</strong>. Típicamente: validación de cédula profesional, identidad, credenciales.
+            </div>
+
+            <div class="badge-card">
+                <div class="badge-card-header">
+                    <div class="badge-name">✓ Verificado</div>
+                    <div class="badge-status status-manual">Manual (Admin)</div>
+                </div>
+                <div class="badge-meta">
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Código</div>
+                        <div class="badge-meta-value">verificado</div>
+                    </div>
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Condición</div>
+                        <div class="badge-meta-value">Otorgado manualmente por admin</div>
+                    </div>
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Ícono</div>
+                        <div class="badge-meta-value">bi-patch-check-fill</div>
+                    </div>
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Color</div>
+                        <div class="badge-meta-value">#0ea5e9 (azul cielo)</div>
+                    </div>
+                </div>
+                <div class="duplicate-alert">
+                    <strong>⚠️ DUPLICADO EN SISTEMA 2:</strong> "Verificado" (bg-primary, ícono bi-patch-check) renderizado OTRA VEZ en líneas 105-116 de Detalle.cshtml.
+                </div>
+            </div>
+        </div>
+
+        <div class="recommendation">
+            <strong>💡 RECOMENDACIÓN:</strong> Mantener <strong>SOLO el badge del Sistema 1</strong>. Eliminar la duplicación inline del Sistema 2. Si se requiere badge "premium" para cédula verificada, renombrar a <strong>"Cédula Verificada"</strong> para claridad semántica.
+        </div>
+
+        <h2>3. CATEGORÍA: REPUTACIÓN COMUNITARIA</h2>
+
+        <div class="category-section">
+            <div class="category-header">
+                <div class="category-icon" style="background:#d1fae5;color:var(--success);">
+                    👥
+                </div>
+                <div class="category-title">Reputación y Validación Comunitaria</div>
+            </div>
+            <div class="category-description">
+                Badges que indican <strong>validación por pacientes</strong>: confirmaciones, votos positivos, reputación construida por la comunidad.
+            </div>
+
+            <div class="badge-card">
+                <div class="badge-card-header">
+                    <div class="badge-name">👥 Activo en Comunidad</div>
+                    <div class="badge-status status-auto">Automático</div>
+                </div>
+                <div class="badge-meta">
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Código</div>
+                        <div class="badge-meta-value">activo_comunidad</div>
+                    </div>
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Condición</div>
+                        <div class="badge-meta-value">ConfirmacionesComunitarias >= 5</div>
+                    </div>
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Ícono</div>
+                        <div class="badge-meta-value">bi-people-fill</div>
+                    </div>
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Color</div>
+                        <div class="badge-meta-value">#22c55e (verde)</div>
+                    </div>
+                </div>
+                <div class="duplicate-alert">
+                    <strong>⚠️ DUPLICADO EN SISTEMA 2:</strong> "Validado por la comunidad" (var(--eii-primary), ícono bi-people-fill) usa la MISMA condición (<code>activo_comunidad == obtenido</code>) en líneas 91-96.
+                </div>
+            </div>
+        </div>
+
+        <div class="alert alert-danger">
+            <strong>🚨 PROBLEMA CRÍTICO:</strong>
+            <ul style="margin-top:.5rem;">
+                <li><strong>Nombre 1:</strong> "Activo en Comunidad" (Sistema 1)</li>
+                <li><strong>Nombre 2:</strong> "Validado por la comunidad" (Sistema 2)</li>
+                <li><strong>Condición:</strong> La misma en ambos casos</li>
+                <li><strong>Resultado:</strong> Confusión total para el paciente</li>
+            </ul>
+        </div>
+
+        <div class="recommendation">
+            <strong>💡 RECOMENDACIÓN:</strong> Eliminar duplicado. Decidir UN solo nombre:
+            <ul style="margin-top:.5rem;">
+                <li><strong>Opción A:</strong> "Validado por Pacientes" (más claro que "comunidad")</li>
+                <li><strong>Opción B:</strong> "Confirmado por Comunidad" (neutro)</li>
+                <li><strong>Descartar:</strong> "Activo en Comunidad" (ambiguo: ¿activo en redes? ¿activo en Q&A?)</li>
+            </ul>
+        </div>
+
+        <h2>4. CATEGORÍA: CONTRIBUCIÓN AL ECOSISTEMA</h2>
+
+        <div class="category-section">
+            <div class="category-header">
+                <div class="category-icon" style="background:#fef3c7;color:var(--warning);">
+                    🎯
+                </div>
+                <div class="category-title">Participación y Contribución</div>
+            </div>
+            <div class="category-description">
+                Badges que indican <strong>participación activa</strong> del médico en el ecosistema EIIBD: Q&A, validación de contenido, creación de artículos.
+            </div>
+
+            <div class="badge-card">
+                <div class="badge-card-header">
+                    <div class="badge-name">💬 Participa en Q&A</div>
+                    <div class="badge-status status-auto">Automático</div>
+                </div>
+                <div class="badge-meta">
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Código</div>
+                        <div class="badge-meta-value">participante_qa</div>
+                    </div>
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Condición</div>
+                        <div class="badge-meta-value">Respuestas >= 3 (del UserId vinculado, no IA)</div>
+                    </div>
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Ícono</div>
+                        <div class="badge-meta-value">bi-chat-dots-fill</div>
+                    </div>
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Color</div>
+                        <div class="badge-meta-value">#f59e0b (ámbar)</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="badge-card">
+                <div class="badge-card-header">
+                    <div class="badge-name">✅ Valida Contenido</div>
+                    <div class="badge-status status-auto">Automático</div>
+                </div>
+                <div class="badge-meta">
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Código</div>
+                        <div class="badge-meta-value">validador_contenido</div>
+                    </div>
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Condición</div>
+                        <div class="badge-meta-value">GlossaryValidations >= 1 (Approved)</div>
+                    </div>
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Ícono</div>
+                        <div class="badge-meta-value">bi-check2-circle</div>
+                    </div>
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Color</div>
+                        <div class="badge-meta-value">#8b5cf6 (púrpura)</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="badge-card">
+                <div class="badge-card-header">
+                    <div class="badge-name">✍️ Crea Contenido</div>
+                    <div class="badge-status status-manual">Manual (Admin)</div>
+                </div>
+                <div class="badge-meta">
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Código</div>
+                        <div class="badge-meta-value">creador_contenido</div>
+                    </div>
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Condición</div>
+                        <div class="badge-meta-value">Otorgado manualmente por admin</div>
+                    </div>
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Ícono</div>
+                        <div class="badge-meta-value">bi-pencil-square</div>
+                    </div>
+                    <div class="badge-meta-item">
+                        <div class="badge-meta-label">Color</div>
+                        <div class="badge-meta-value">#ec4899 (rosa)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="recommendation">
+            <strong>💡 RECOMENDACIÓN:</strong> Estos badges de <strong>contribución son secundarios</strong> en el contexto del directorio de médicos (pantalla pública). Considerar:
+            <ul style="margin-top:.5rem;">
+                <li><strong>Opción A:</strong> Agruparlos visualmente con menor prominencia (más pequeños, menos saturación)</li>
+                <li><strong>Opción B:</strong> Mostrarlos solo en el dashboard del médico, NO en detalle público</li>
+                <li><strong>Razón:</strong> Pacientes buscan médicos por <strong>especialidad</strong> y <strong>reputación clínica</strong>, no por participación en Q&A</li>
+            </ul>
+        </div>
+
+        <h2>5. RESUMEN: DUPLICADOS SEMÁNTICOS</h2>
+
+        <div class="comparison-grid">
+            <div class="comparison-card duplicate">
+                <div class="comparison-title">❌ DUPLICADO 1</div>
+                <p><strong>Sistema 1:</strong> "Verificado"</p>
+                <p><strong>Sistema 2:</strong> "Verificado"</p>
+                <p style="margin-top:.5rem;color:#dc3545;font-weight:600;">
+                    → Eliminar versión del Sistema 2
+                </p>
+            </div>
+            <div class="comparison-card duplicate">
+                <div class="comparison-title">❌ DUPLICADO 2</div>
+                <p><strong>Sistema 1:</strong> "Perfil Reclamado"</p>
+                <p><strong>Sistema 2:</strong> "Médico verificado"</p>
+                <p style="margin-top:.5rem;color:#dc3545;font-weight:600;">
+                    → Eliminar "Médico verificado"
+                </p>
+            </div>
+            <div class="comparison-card duplicate">
+                <div class="comparison-title">❌ DUPLICADO 3</div>
+                <p><strong>Sistema 1:</strong> "Activo en Comunidad"</p>
+                <p><strong>Sistema 2:</strong> "Validado por la comunidad"</p>
+                <p style="margin-top:.5rem;color:#dc3545;font-weight:600;">
+                    → Unificar en "Validado por Pacientes"
+                </p>
+            </div>
+        </div>
+
+        <h2>6. CONCLUSIÓN DE MAPEO SEMÁNTICO</h2>
+
+        <div class="alert alert-success">
+            <strong>✅ CATEGORIZACIÓN COMPLETA:</strong>
+            <ul style="margin-top:.5rem;">
+                <li><strong>IDENTIDAD:</strong> 1 badge (Perfil Reclamado)</li>
+                <li><strong>VALIDACIÓN ADMIN:</strong> 1 badge (Verificado / Cédula Verificada)</li>
+                <li><strong>REPUTACIÓN COMUNIDAD:</strong> 1 badge (Validado por Pacientes)</li>
+                <li><strong>CONTRIBUCIÓN:</strong> 3 badges (Q&A, Valida Contenido, Crea Contenido)</li>
+            </ul>
+            <p style="margin-top:1rem;"><strong>Total badges únicos necesarios:</strong> <strong>6 badges</strong> (vs 9 actuales duplicados)</p>
+        </div>
+
+        <div class="recommendation">
+            <strong>🎯 PRÓXIMO PASO:</strong> FASE 3 — Propuesta de Simplificación. Definir qué badges mantener, cuáles renombrar, cuáles fusionar, y cuáles eliminar completamente.
+        </div>
+
+    </div>
+</body>
+</html>

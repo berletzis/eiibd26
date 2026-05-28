@@ -6,6 +6,9 @@ using Microsoft.Extensions.Configuration;
 using eiibd26.Data;
 using eiibd26.Models.Directorio;
 using eiibd26.Models.Directorio.Enums;
+using eiibd26.Models.Validacion;
+using eiibd26.Services.Directorio;
+using eiibd26.Services.Validacion;
 
 namespace eiibd26.Areas.Identity.Pages.Admin.DirectorioMedicos;
 
@@ -15,14 +18,21 @@ public class IndexModel : PageModel
     private readonly ApplicationDbContext _db;
     private readonly string _googleMapsApiKey;
     private readonly eiibd26.Services.Medico.IMedicoBadgeService _badgeService;
+    private readonly IMedicoDirectorioService _dirService;
+    private readonly IValidacionContenidoService _validacionService;
 
     public string GoogleMapsApiKey => _googleMapsApiKey;
 
-    public IndexModel(ApplicationDbContext db, IConfiguration cfg, eiibd26.Services.Medico.IMedicoBadgeService badgeService)
+    public IndexModel(ApplicationDbContext db, IConfiguration cfg,
+        eiibd26.Services.Medico.IMedicoBadgeService badgeService,
+        IMedicoDirectorioService dirService,
+        IValidacionContenidoService validacionService)
     {
         _db = db;
         _googleMapsApiKey = cfg["GoogleMaps:ApiKey"] ?? string.Empty;
         _badgeService = badgeService;
+        _dirService = dirService;
+        _validacionService = validacionService;
     }
 
     public void OnGet() { }
@@ -124,9 +134,9 @@ public class IndexModel : PageModel
         if (m is null) return NotFound();
 
         // Contadores y listado desde ConfirmacionesComunitarias (fuente canónica)
-        var confs = await _db.ConfirmacionesComunitarias.AsNoTracking()
+        var confs = await _db.ConfirmacionesComunitarias.IgnoreQueryFilters().AsNoTracking()
             .Include(c => c.TipoConfirmacion)
-            .Where(c => c.MedicoDirectorioId == id && !c.Eliminado)
+            .Where(c => c.MedicoDirectorioId == id)
             .ToListAsync();
 
         // Confirmadores — join con Users para email
@@ -142,11 +152,14 @@ public class IndexModel : PageModel
 
         var confirmadoresList = confs.OrderByDescending(c => c.FechaCreacion).Select(c => new
         {
+            id = c.Id,
             email = users.TryGetValue(c.UsuarioId, out var em) ? em : "—",
             fecha = c.FechaCreacion.ToString("dd/MM/yyyy"),
             exps  = c.TipoConfirmacion != null
                 ? new List<string?> { c.TipoConfirmacion.Nombre }
-                : new List<string?>()
+                : new List<string?>(),
+            eliminado = c.Eliminado,
+            enRevision = c.Eliminado  // alias para claridad en UI
         }).ToList();
 
         string? aportante = null;
@@ -182,6 +195,18 @@ public class IndexModel : PageModel
             };
         }).ToList();
 
+        // Validaciones de contenido vinculadas al médico (si tiene perfil reclamado)
+        List<ValidacionAdminDto> validacionesContenido = new();
+        try
+        {
+            var perfil = await _db.MedicosPerfilExtendido.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.MedicoId == id && p.UserId != null);
+            if (perfil?.UserId != null)
+                validacionesContenido = await _validacionService.ObtenerValidacionesMedicoAsync(
+                    perfil.UserId.Value.ToString());
+        }
+        catch { }
+
         return new JsonResult(new
         {
             id = m.Id, nombreCompleto = m.NombreCompleto,
@@ -194,8 +219,9 @@ public class IndexModel : PageModel
             fechaCedulaVerificada = m.FechaCedulaVerificada?.ToString("dd/MM/yyyy HH:mm"),
             activo = m.Activo,
             visible = m.VisiblePublicamente,
-            totalConfirmaciones = confs.Count,
-            tieneConfirmacionEII = confs.Any(),
+            totalConfirmaciones = confs.Count(c => !c.Eliminado),
+            totalConfirmacionesIncRevision = confs.Count,
+            tieneConfirmacionEII = confs.Any(c => !c.Eliminado),
             estatusReclamacion = m.EstatusReclamacion.ToString(),
             solicitudClaim = m.SolicitudClaimPendiente, perfilReclamado = m.PerfilReclamado,
             emailClaim = m.EmailSolicitudClaim ?? "", fechaReclamacion = m.FechaReclamacion?.ToString("dd/MM/yyyy"),
@@ -203,7 +229,26 @@ public class IndexModel : PageModel
             aportante = aportante ?? "—",
             expContadores,
             confirmadores = confirmadoresList,
-            badges = badgesData
+            badges = badgesData,
+            validacionesContenido = validacionesContenido.Select(v => new {
+                id            = v.Id,
+                tipo          = v.TipoContenido.ToString(),
+                contenidoTitulo = v.ContenidoTitulo,
+                contenidoUrl  = v.ContenidoUrl,
+                comentario    = v.Comentario,
+                estado        = v.Estado.ToString(),
+                estadoNum     = (int)v.Estado,
+                creadoEn      = v.CreadoEn.ToString("dd/MM/yyyy"),
+                notaModeracion = v.NotaModeracion
+            }).ToList(),
+            badgeHistorial = (await _badgeService.GetHistorialAsync(id)).Select(h => new {
+                badge  = h.BadgeCodigo,
+                nombre = h.BadgeNombre,
+                evento = h.Evento,
+                actor  = h.Actor,
+                motivo = h.Motivo ?? "",
+                fecha  = h.FechaEvento.ToString("dd/MM/yyyy HH:mm")
+            }).ToList()
         });
     }
 
@@ -246,10 +291,10 @@ public class IndexModel : PageModel
             try
             {
                 if (cedulaVerificada) await _badgeService.OtorgarBadgeAsync(medico.Id, "verificado", "admin");
-                else await _badgeService.RevocarBadgeAsync(medico.Id, "verificado");
+                else await _badgeService.RevocarBadgeAsync(medico.Id, "verificado", "admin");
             }
             catch { }
-            await RecalcularNivelAsync(medico, id);
+            await _dirService.RecalcularNivelConfianzaAsync(medico.Id);
         }
 
         return new JsonResult(new { ok = true });
@@ -300,7 +345,10 @@ public class IndexModel : PageModel
         var m = await _db.MedicosDirectorio.FirstOrDefaultAsync(x => x.Id == id);
         if (m is null) return new JsonResult(new { success = false });
         m.EstatusValidacion = EstatusValidacionCedula.Validado; m.FechaCedulaVerificada = DateTime.UtcNow; m.FechaModificacion = DateTimeOffset.UtcNow;
-        await RecalcularNivelAsync(m, id);
+        await _db.SaveChangesAsync();
+        // D-01: sincronizar badge verificado y recalcular nivel desde el servicio canónico
+        try { await _badgeService.OtorgarBadgeAsync(id, "verificado", "admin"); } catch { }
+        await _dirService.RecalcularNivelConfianzaAsync(id);
         return new JsonResult(new { success = true });
     }
     public async Task<IActionResult> OnPostAprobarClaimAsync()
@@ -309,9 +357,12 @@ public class IndexModel : PageModel
         var id = int.Parse(Request.Form["id"]!);
         var m = await _db.MedicosDirectorio.FirstOrDefaultAsync(x => x.Id == id);
         if (m is null) return new JsonResult(new { success = false });
-        m.EstatusReclamacion = EstatusReclamacion.Reclamado; m.FechaReclamacion = DateTimeOffset.UtcNow;
-        m.NivelConfianza = NivelConfianzaEnum.Establecido; m.FechaModificacion = DateTimeOffset.UtcNow;
+        // D-02: no hardcodear NivelConfianza — delegar al servicio canónico
+        m.EstatusReclamacion = EstatusReclamacion.Reclamado; m.FechaReclamacion = DateTimeOffset.UtcNow; m.FechaModificacion = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
+        await _dirService.RecalcularNivelConfianzaAsync(id);
+        // D-02: evaluar badges automáticos ahora que el claim fue aprobado
+        try { await _badgeService.EvaluarBadgesAutomaticosAsync(id); } catch { }
         return new JsonResult(new { success = true });
     }
     public async Task<IActionResult> OnPostRechazarClaimAsync()
@@ -350,28 +401,48 @@ public class IndexModel : PageModel
 
     public async Task<IActionResult> OnPostRevocarBadgeAsync(int medicoId, string codigo)
     {
-        var badge = await _db.MedicosBadge.AsNoTracking()
-            .FirstOrDefaultAsync(b => b.Codigo == codigo);
-        if (badge is null) return new JsonResult(new { success = false });
+        // D-04: delegar al servicio (registra trazabilidad en historial)
+        var result = await _badgeService.RevocarBadgeAsync(medicoId, codigo, "admin");
+        return new JsonResult(new { success = result });
+    }
 
-        var entry = await _db.MedicosPerfilBadge
-            .FirstOrDefaultAsync(pb => pb.MedicoId == medicoId && pb.BadgeId == badge.Id);
-        if (entry is null) return new JsonResult(new { success = false });
+    public async Task<IActionResult> OnPostToggleConfirmacionAsync(int confirmacionId)
+    {
+        var conf = await _db.ConfirmacionesComunitarias.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.Id == confirmacionId);
 
-        _db.MedicosPerfilBadge.Remove(entry);
+        if (conf is null)
+            return new JsonResult(new { success = false, message = "Confirmación no encontrada." });
+
+        // Toggle del estado: si está eliminado (en revisión), activar; si está activo, poner en revisión
+        conf.Eliminado = !conf.Eliminado;
         await _db.SaveChangesAsync();
+
+        // Recalcular el nivel de confianza del médico porque cambió el conteo de confirmaciones activas
+        await _dirService.RecalcularNivelConfianzaAsync(conf.MedicoDirectorioId);
+
+        // Re-evaluar badges automáticos (badge comunidad podría cambiar con el nuevo conteo)
+        try { await _badgeService.EvaluarBadgesAutomaticosAsync(conf.MedicoDirectorioId); } catch { }
+
         return new JsonResult(new { success = true });
     }
 
-    private async Task RecalcularNivelAsync(MedicoDirectorio medico, int id)
+    public async Task<IActionResult> OnPostCambiarEstadoValidacionAsync(
+        int? validacionId,
+        string? nuevoEstado,
+        string? nota)
     {
-        var total    = await _db.ConfirmacionesComunitarias.CountAsync(c => c.MedicoDirectorioId == id && !c.Eliminado);
-        var tieneEII = total > 0; // plataforma EII: cualquier confirmación implica experiencia EII
-        var nivel = medico.PerfilReclamado ? 3
-            : (medico.CedulaVerificada || total >= 5) ? 2
-            : (total >= 3 && tieneEII) ? 1
-            : 0;
-        medico.NivelConfianza = (NivelConfianzaEnum)nivel;
-        await _db.SaveChangesAsync();
+        if (validacionId == null || string.IsNullOrWhiteSpace(nuevoEstado))
+            return new JsonResult(new { success = false, message = "Parámetros inválidos." });
+
+        if (!Enum.TryParse<EstadoValidacion>(nuevoEstado, ignoreCase: true, out var estado))
+            return new JsonResult(new { success = false, message = "Estado no válido." });
+
+        var adminId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+
+        var ok = await _validacionService.CambiarEstadoAsync(validacionId.Value, estado, adminId, nota);
+        return new JsonResult(new { success = ok });
     }
 }
+
+

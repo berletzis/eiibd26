@@ -656,57 +656,57 @@ else
                 }
                 @if (tieneMeaning || tieneRelacion || tieneComentariosRelacion)
                 {
-                    <div class="termino-validaciones-medicas mt-4 mb-4">
-                        <div class="contenido mb-2">
-                            <h2>@* <i class="bi bi-patch-check-fill text-primary me-1"></i> *@Validado por Profesionales de la Salud</h2>
+                    <div class="validaciones-profesionales mt-4 mb-4">
+                        <div class="validaciones-profesionales__header">
+                            <div class="validaciones-profesionales__header-icon">
+                                <i class="bi bi-patch-check-fill"></i>
+                            </div>
+                            <h4 class="validaciones-profesionales__title">Validado por Profesionales de la Salud</h4>
                         </div>
-
-                        @* Comentarios de MeaningValidation (tipo 1) — siempre visibles *@
-                        @if (counts.MeaningComments.Any())
-                        {
-                            @foreach (var mc in counts.MeaningComments)
+                        <div class="validaciones-profesionales__body">
+                            @* Comentarios de MeaningValidation (tipo 1) *@
+                            @if (counts.MeaningComments.Any())
                             {
-                                <div class="d-flex gap-2 align-items-start p-3 rounded mb-2"
-                                     style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-                                    <div class="user-avatar" style="width:36px;height:36px;flex:0 0 36px;">
-                                        <img src="/img/default-avatar.png" alt="Médico" loading="lazy" decoding="async"
-                                             onerror="this.onerror=null;this.src='/img/default-avatar.png';" />
+                                @foreach (var mc in counts.MeaningComments)
+                                {
+                                    <div class="validacion-item">
+                                        <div class="validacion-avatar-placeholder">
+                                            <i class="bi bi-person-fill"></i>
+                                        </div>
+                                        <div>
+                                            <span class="validacion-badge" style="margin-left:0;">Descripción</span>
+                                            <p class="validacion-comment mb-0">"@mc"</p>
+                                        </div>
                                     </div>
+                                }
+                            }
+                            else if (tieneMeaning)
+                            {
+                                <p class="small mb-2" style="color:var(--eii-text-soft);">
+                                    @counts.MeaningValidationCount médico@(counts.MeaningValidationCount != 1 ? "s" : "") validaron la descripción de este término.
+                                </p>
+                            }
+
+                            @* Comentarios de RelationValidation (tipo 2) con nombre médico *@
+                            @foreach (var val in counts.ComentariosMedicos.Where(c => !string.IsNullOrWhiteSpace(c.Comment)))
+                            {
+                                <div class="validacion-item">
+                                    <img src="@(val.AvatarUrl ?? "/img/default-avatar.png")" alt="@val.UserDisplay"
+                                         class="validacion-avatar" loading="lazy" decoding="async"
+                                         onerror="this.onerror=null;this.src='/img/default-avatar.png';" />
                                     <div>
-                                        <span class="badge bg-primary-subtle text-primary mb-1" style="font-size:.7rem;">Descripción</span>
-                                        <p class="mb-0 small text-dark fst-italic">"@mc"</p>
+                                        <div class="validacion-name">@val.UserDisplay
+                                            @if (val.RelationType.HasValue)
+                                            {
+                                                <span class="validacion-badge">@val.RelationType.Value.ToString()</span>
+                                            }
+                                        </div>
+                                        <p class="validacion-comment mb-0">"@val.Comment"</p>
+                                        <span class="validacion-date">@val.CreatedAt.ToString("MMMM yyyy")</span>
                                     </div>
                                 </div>
                             }
-                        }
-                        else if (tieneMeaning)
-                        {
-                            <p class="small text-muted mb-2">
-                                @counts.MeaningValidationCount médico@(counts.MeaningValidationCount != 1 ? "s" : "") validaron la descripción de este término.
-                            </p>
-                        }
-
-                        @* Comentarios de RelationValidation (tipo 2) con nombre médico *@
-                        @foreach (var val in counts.ComentariosMedicos.Where(c => !string.IsNullOrWhiteSpace(c.Comment)))
-                        {
-                            <div class="d-flex gap-2 align-items-start p-3 rounded mb-2"
-                                 style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-                                <div class="user-avatar" style="width:36px;height:36px;flex:0 0 36px;">
-                                    <img src="@(val.AvatarUrl ?? "/img/default-avatar.png")" alt="@val.UserDisplay"
-                                         loading="lazy" decoding="async"
-                                         onerror="this.onerror=null;this.src='/img/default-avatar.png';" />
-                                </div>
-                                <div>
-                                    <span class="fw-semibold small">@val.UserDisplay</span>
-                                    @if (val.RelationType.HasValue)
-                                    {
-                                        <span class="badge bg-secondary-subtle ms-1" style="font-size:.65rem;">@val.RelationType.Value.ToString()</span>
-                                    }
-                                    <p class="mb-0 mt-1 small text-dark fst-italic">"@val.Comment"</p>
-                                    <small class="text-muted">@val.CreatedAt.ToString("MMMM yyyy")</small>
-                                </div>
-                            </div>
-                        }
+                        </div>
                     </div>
                 }
 
@@ -1077,23 +1077,12 @@ else
                 @if (Model.CanValidate)
                 {
 
-                    <div class="sidebar-section sidebar-static mb-3">
-                        <div class="sidebar-section-header-static">
-                            <span class="sidebar-section-title">Validar descripción</span>
-                        </div>
-                        <div class="sidebar-section-content-static">
-                            <form method="post" asp-page-handler="AddValidation">
-                                <input type="hidden" name="termId" value="@Model.Term.Id" />
-                                <input type="hidden" name="slug" value="@Model.Term.Slug" />
-                                <input type="hidden" name="validationType" value="1" />
-                                <div class="mb-2">
-                                    <label for="comment-desc" class="form-label" style="font-weight:600;">Comentario sobre la descripción (opcional):</label>
-                                    <textarea class="form-control" name="comment" id="comment-desc" rows="2" maxlength="400" placeholder="Comentario sobre la definición médica (máx. 400 caracteres)"></textarea>
-                                </div>
-                                <button type="submit" class="btn btn-success btn-sm">Validar descripción</button>
-                            </form>
-                        </div>
-                    </div>
+                    @await Html.PartialAsync("_ValidacionContenidoMedico", new eiibd26.Services.Validacion.ValidacionContenidoPartialVm
+                    {
+                        ContenidoId = Model.Term.Id,
+                        Slug        = Model.Term.Slug,
+                        Existente   = Model.MiValidacionDesc
+                    })
 
 
                     <div class="sidebar-section sidebar-static mb-3">

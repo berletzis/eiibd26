@@ -2,6 +2,7 @@
 @model eiibd26.Pages.Contenidos.DetalleModel
 @using System.Globalization
 @using Microsoft.AspNetCore.Http.Extensions;
+@using eiibd26.Services.Validacion
 
 @{
     ViewData["Title"] = (Model.Item?.Title != null ? Model.Item.Title + " - #HazViralLoQueImporta" : "Contenido");
@@ -354,52 +355,20 @@
         }
     </div>
 
-    <div class="meta-card" role="complementary" aria-label="Meta del artículo">
-        <div class="author">
-            @{ 
-                var authorName = Model.Item?.Author ?? "Autor";
-                var authorUrl = "";
-                if (!string.IsNullOrWhiteSpace(Model.Item?.AuthorSlug))
-                {
-                    authorUrl = "/u/" + Model.Item.AuthorSlug;
-                }
-                else if (Model.Item?.AuthorId != null)
-                {
-                    authorUrl = "/u/" + Model.Item.AuthorId.ToString();
-                }
-
-                // ===== USAR FUNCIÓN ResolveAvatar (corrige el problema) =====
-                var authorImg = ResolveAvatar(Model.Item?.AuthorImageUrl);
-            }
-
-            <img src="@authorImg" 
-                 alt="@authorName" 
-                 loading="lazy" 
-                 decoding="async" 
-                 width="40" 
-                 height="40"
-                 onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
-            <div>
-                <div style="font-weight:100;">
-                    por 
-                    @if (!string.IsNullOrWhiteSpace(authorUrl))
-                    {
-                        <a href="@authorUrl">@authorName</a>
-                    }
-                    else
-                    {
-                        @authorName
-                    }
-                    | <i class="bi bi-calendar"></i>
-                    @if (Model.Item != null && Model.Item.CreatedAt != default(DateTime))
-                    {
-                        <time datetime="@Model.Item.CreatedAt.ToString("yyyy-MM-dd")">@Model.Item.CreatedAt.ToString("d 'de' MMMM 'de' yyyy", new System.Globalization.CultureInfo("es-ES"))</time>
-                    }
-                    | <i class="bi bi-clock"></i> @Model.Item?.ReadMinutes min de lectura (aprox).
-                </div>
-            </div>
-        </div>
-    </div>
+    @* Breadcrumb: Home -> category -> current content title *@
+    <nav class="breadcrumbs" aria-label="breadcrumbs">
+        <a href="@Url.Content("~/")">Inicio</a>
+        @{
+            var lastCat = (Model.CategoryCrumbs != null && Model.CategoryCrumbs.Count > 0) ? Model.CategoryCrumbs.Last() : null;
+        }
+        @if (lastCat != null)
+        {
+            <span class="sep">›</span>
+            <a href="@(lastCat.Url ?? "/contenidos")">@lastCat.Title</a>
+        }
+        <span class="sep">›</span>
+        <span>@Model.Item?.Title</span>
+    </nav>
 
     <div class="detail-grid" role="main">
         <article class="content-panel" aria-labelledby="article-title">
@@ -412,7 +381,52 @@
                 </div>
             }
 
-            @* Índice inline: visible solo en responsive, aparece sobre el breadcrumb *@
+            @* Meta: autor, fecha, tiempo de lectura — alineado a la derecha *@
+            <div class="meta-card" role="complementary" aria-label="Meta del artículo">
+                <div class="author">
+                    @{
+                        var authorName = Model.Item?.Author ?? "Autor";
+                        var authorUrl = "";
+                        if (!string.IsNullOrWhiteSpace(Model.Item?.AuthorSlug))
+                        {
+                            authorUrl = "/u/" + Model.Item.AuthorSlug;
+                        }
+                        else if (Model.Item?.AuthorId != null)
+                        {
+                            authorUrl = "/u/" + Model.Item.AuthorId.ToString();
+                        }
+                        var authorImg = ResolveAvatar(Model.Item?.AuthorImageUrl);
+                    }
+                    <img src="@authorImg"
+                         alt="@authorName"
+                         loading="lazy"
+                         decoding="async"
+                         width="32"
+                         height="32"
+                         onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")';" />
+                    <div class="meta-byline">
+                        por
+                        @if (!string.IsNullOrWhiteSpace(authorUrl))
+                        {
+                            <a href="@authorUrl">@authorName</a>
+                        }
+                        else
+                        {
+                            @authorName
+                        }
+                        <span class="meta-sep">·</span>
+                        <i class="bi bi-calendar"></i>
+                        @if (Model.Item != null && Model.Item.CreatedAt != default(DateTime))
+                        {
+                            <time datetime="@Model.Item.CreatedAt.ToString("yyyy-MM-dd")">@Model.Item.CreatedAt.ToString("d 'de' MMMM 'de' yyyy", new System.Globalization.CultureInfo("es-ES"))</time>
+                        }
+                        <span class="meta-sep">·</span>
+                        <i class="bi bi-clock"></i> @Model.Item?.ReadMinutes min de lectura
+                    </div>
+                </div>
+            </div>
+
+            @* Índice inline: visible solo en responsive *@
             <div class="article-index-inline article-index-sidebar" id="articleIndexInline" role="navigation" aria-label="Índice del artículo">
                 <div class="sidebar-section-header" onclick="toggleSidebarSection('articleIndexContentInline')">
                     <h4 class="sidebar-section-title">
@@ -426,21 +440,6 @@
                     </ul>
                 </div>
             </div>
-
-            @* Breadcrumb: Home -> category parents -> category (all links) -> current content title (plain) *@
-            <nav class="breadcrumbs" aria-label="breadcrumbs">
-                <a href="@Url.Content("~/")">Inicio</a>
-                @{
-                    var lastCat = (Model.CategoryCrumbs != null && Model.CategoryCrumbs.Count > 0) ? Model.CategoryCrumbs.Last() : null;
-                }
-                @if (lastCat != null)
-                {
-                    <span class="sep">›</span>
-                    <a href="@(lastCat.Url ?? "/contenidos")">@lastCat.Title</a>
-                }
-                <span class="sep">›</span>
-                <span>@Model.Item?.Title</span>
-            </nav>
 
             @if (!string.IsNullOrWhiteSpace(Model.Item?.Excerpt))
             {
@@ -563,6 +562,42 @@
                     }
                 </section>
             }
+            @if (Model.ValidacionesPublicas.Any())
+            {
+                <section class="validaciones-profesionales mt-4" aria-label="Validado por profesionales médicos">
+                    <div class="validaciones-profesionales__header">
+                        <div class="validaciones-profesionales__header-icon">
+                            <i class="bi bi-patch-check-fill"></i>
+                        </div>
+                        <h4 class="validaciones-profesionales__title">Validado por Profesionales de la Salud</h4>
+                    </div>
+                    <div class="validaciones-profesionales__body">
+                        @foreach (var v in Model.ValidacionesPublicas)
+                        {
+                            <div class="validacion-item">
+                                @if (!string.IsNullOrWhiteSpace(v.AvatarUrl))
+                                {
+                                    <img src="@v.AvatarUrl" alt="@v.UserDisplay" class="validacion-avatar">
+                                }
+                                else
+                                {
+                                    <div class="validacion-avatar-placeholder">
+                                        <i class="bi bi-person-fill"></i>
+                                    </div>
+                                }
+                                <div>
+                                    <div class="validacion-name">@v.UserDisplay</div>
+                                    @if (!string.IsNullOrWhiteSpace(v.Comentario))
+                                    {
+                                        <p class="validacion-comment mb-1">"@v.Comentario"</p>
+                                    }
+                                    <span class="validacion-date">@v.CreadoEn.ToString("MMMM yyyy", new System.Globalization.CultureInfo("es-MX"))</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </section>
+            }
         </article>
         <aside class="right-panel" aria-labelledby="related-heading">
             @* ===== ÍNDICE AUTOMÁTICO DE SECCIONES (ARRIBA DEL SIDEBAR, solo desktop) ===== *@
@@ -579,6 +614,18 @@
                     </ul>
                 </div>
             </div>
+
+            @* ===== VALIDAR CONTENIDO (solo médicos/admins) ===== *@
+            @if (Model.CanValidate)
+            {
+                @await Html.PartialAsync("_ValidacionContenidoMedico", new ValidacionContenidoPartialVm
+                {
+                    ContenidoId = Model.Item.Id,
+                    Slug        = Model.Item.Slug,
+                    PageHandler = "GuardarValidacion",
+                    Existente   = Model.MiValidacionDesc
+                })
+            }
 
             @* ===== CALIFICAR ARTÍCULO (SIEMPRE VISIBLE) ===== *@
             <div class="sidebar-section sidebar-static">

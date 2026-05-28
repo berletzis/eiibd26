@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FASES 4-6: Jerarquía Visual + Consistencia + Reordenamiento</title>
+    <style>
+        :root {
+            --eii-primary: #6366f1;
+            --danger: #dc3545;
+            --warning: #f59e0b;
+            --success: #16a34a;
+            --info: #0ea5e9;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.6; color: #1f2937; background: #f9fafb; padding: 2rem; }
+        .container { max-width: 1200px; margin: 0 auto; background: #fff; padding: 3rem; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+        h1 { font-size: 2.5rem; color: var(--eii-primary); margin-bottom: 1rem; border-bottom: 3px solid var(--eii-primary); padding-bottom: 1rem; }
+        h2 { font-size: 1.8rem; color: #374151; margin: 2.5rem 0 1rem; padding-left: 1rem; border-left: 4px solid var(--eii-primary); }
+        h3 { font-size: 1.3rem; color: #4b5563; margin: 2rem 0 1rem; }
+        .meta { display: flex; gap: 2rem; margin: 1.5rem 0; padding: 1rem; background: #f3f4f6; border-radius: 8px; font-size: .9rem; color: #6b7280; }
+        .meta strong { color: #374151; }
+        .visual-demo { background: #f9fafb; border: 2px solid #e5e7eb; border-radius: 12px; padding: 2rem; margin: 2rem 0; }
+        .visual-demo-title { font-size: 1.2rem; font-weight: 700; color: #374151; margin-bottom: 1.5rem; }
+        .badge-demo { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: .8rem; font-weight: 600; margin: 4px; border: 1.5px solid; }
+        .badge-primary { background: #eff6ff; color: #1e40af; border-color: #3b82f6; }
+        .badge-secondary { background: #f9fafb; color: #6b7280; border-color: #d1d5db; font-size: .7rem; opacity: .8; }
+        .hierarchy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin: 2rem 0; }
+        .hierarchy-col { background: #fff; border: 2px solid #e5e7eb; border-radius: 12px; padding: 1.5rem; }
+        .hierarchy-col-title { font-weight: 700; color: #374151; margin-bottom: 1rem; padding-bottom: .75rem; border-bottom: 2px solid #e5e7eb; }
+        .spec-table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: .9rem; }
+        .spec-table th { background: #f9fafb; color: #374151; text-align: left; padding: 12px; border-bottom: 2px solid #e5e7eb; font-weight: 600; }
+        .spec-table td { padding: 12px; border-bottom: 1px solid #e5e7eb; }
+        .spec-table tr:hover { background: #f9fafb; }
+        .layout-mockup { background: #fff; border: 2px solid #e5e7eb; border-radius: 12px; padding: 1.5rem; margin: 2rem 0; }
+        .mockup-header { display: flex; gap: 1rem; align-items: start; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid #e5e7eb; }
+        .mockup-avatar { width: 64px; height: 64px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 2rem; flex-shrink: 0; }
+        .mockup-info { flex: 1; }
+        .mockup-name { font-size: 1.4rem; font-weight: 700; color: #1f2937; margin-bottom: .25rem; }
+        .mockup-specialty { font-size: .95rem; color: #6b7280; margin-bottom: .75rem; }
+        .mockup-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: .5rem; }
+        .mockup-secondary { margin-top: .5rem; padding-top: .75rem; border-top: 1px solid #f3f4f6; }
+        .alert { padding: 1rem 1.25rem; border-radius: 8px; margin: 1.5rem 0; border-left: 4px solid; }
+        .alert-success { background: #d1fae5; border-color: var(--success); color: #065f46; }
+        .alert-info { background: #e0f2ff; border-color: var(--info); color: #0c4a6e; }
+        .alert-warning { background: #fef3cd; border-color: var(--warning); color: #854d0e; }
+        code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: 'Consolas', monospace; font-size: .9rem; }
+        ul { margin: 1rem 0 1rem 2rem; }
+        li { margin: .5rem 0; }
+        .code-block { background: #1f2937; color: #f3f4f6; padding: 1.5rem; border-radius: 8px; margin: 1.5rem 0; font-family: 'Consolas', monospace; font-size: .85rem; overflow-x: auto; }
+        .code-block pre { margin: 0; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>FASES 4-6: Jerarquía Visual + Consistencia + Reordenamiento</h1>
+
+        <div class="meta">
+            <div><strong>Fecha:</strong> 2025-06-04</div>
+            <div><strong>Input:</strong> 11-simplificacion.html</div>
+            <div><strong>Objetivo:</strong> Definir estilos, jerarquía visual y layout final</div>
+        </div>
+
+        <h2>FASE 4: Jerarquía Visual</h2>
+
+        <div class="alert alert-info">
+            <strong>🎯 OBJETIVO:</strong> Separar badges por <strong>importancia visual</strong> para reducir ruido y mejorar escaneo rápido por parte del paciente.
+        </div>
+
+        <h3>4.1. Definición de Niveles de Jerarquía</h3>
+
+        <div class="hierarchy-grid">
+            <div class="hierarchy-col">
+                <div class="hierarchy-col-title">🔵 PRIMARIOS</div>
+                <p style="color:#6b7280;font-size:.9rem;margin-bottom:1rem;">
+                    Información <strong>crítica</strong> para la decisión del paciente. Siempre visibles, peso visual completo.
+                </p>
+                <div style="display:flex;flex-direction:column;gap:.5rem;">
+                    <div class="badge-demo badge-primary">
+                        🔰 Perfil Reclamado
+                    </div>
+                    <div class="badge-demo badge-primary">
+                        ✓ Cédula Verificada
+                    </div>
+                    <div class="badge-demo badge-primary">
+                        👥 Validado por Pacientes
+                    </div>
+                </div>
+            </div>
+            <div class="hierarchy-col">
+                <div class="hierarchy-col-title">⚪ SECUNDARIOS</div>
+                <p style="color:#6b7280;font-size:.9rem;margin-bottom:1rem;">
+                    Información <strong>complementaria</strong>. Menor tamaño, menor saturación, peso visual reducido.
+                </p>
+                <div style="display:flex;flex-direction:column;gap:.5rem;">
+                    <div class="badge-demo badge-secondary">
+                        💬 Participa en Q&A
+                    </div>
+                    <div class="badge-demo badge-secondary">
+                        ✅ Valida Contenido
+                    </div>
+                    <div class="badge-demo badge-secondary">
+                        ✍️ Crea Contenido
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h3>4.2. Especificaciones Visuales</h3>
+
+        <table class="spec-table">
+            <thead>
+                <tr>
+                    <th>Propiedad</th>
+                    <th>Primarios</th>
+                    <th>Secundarios</th>
+                    <th>Justificación</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Padding</strong></td>
+                    <td><code>5px 12px</code></td>
+                    <td><code>4px 10px</code></td>
+                    <td>Primarios más prominentes</td>
+                </tr>
+                <tr>
+                    <td><strong>Font Size</strong></td>
+                    <td><code>0.8rem</code></td>
+                    <td><code>0.7rem</code></td>
+                    <td>Secundarios más discretos</td>
+                </tr>
+                <tr>
+                    <td><strong>Font Weight</strong></td>
+                    <td><code>600</code></td>
+                    <td><code>500</code></td>
+                    <td>Primarios más legibles</td>
+                </tr>
+                <tr>
+                    <td><strong>Border Width</strong></td>
+                    <td><code>1.5px</code></td>
+                    <td><code>1px</code></td>
+                    <td>Primarios más definidos</td>
+                </tr>
+                <tr>
+                    <td><strong>Opacity</strong></td>
+                    <td><code>1</code></td>
+                    <td><code>0.75</code></td>
+                    <td>Secundarios visualmente subordinados</td>
+                </tr>
+                <tr>
+                    <td><strong>Border Radius</strong></td>
+                    <td><code>999px</code></td>
+                    <td><code>999px</code></td>
+                    <td>Consistencia pill-shape</td>
+                </tr>
+                <tr>
+                    <td><strong>Gap entre badges</strong></td>
+                    <td><code>6px</code></td>
+                    <td><code>6px</code></td>
+                    <td>Consistencia spacing</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>FASE 5: Consistencia Visual</h2>
+
+        <div class="alert alert-warning">
+            <strong>⚠️ PROBLEMA ACTUAL:</strong> Sistema 1 usa <strong>outlined</strong>, Sistema 2 usa <strong>filled</strong>. Debemos unificar.
+        </div>
+
+        <h3>5.1. Patrón Visual Único: Outlined con Fondo Suave</h3>
+
+        <div class="visual-demo">
+            <div class="visual-demo-title">✅ Patrón Recomendado (Cuando Badge Obtenido)</div>
+            <p style="color:#6b7280;margin-bottom:1rem;">
+                Background: color transparente (20-30% opacity)<br>
+                Border: color sólido (1.5px)<br>
+                Text: color primario del badge
+            </p>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                <span class="badge-demo" style="background:#ede9fe;color:#6366f1;border-color:#6366f1;">
+                    🔰 Perfil Reclamado
+                </span>
+                <span class="badge-demo" style="background:#dbeafe;color:#0ea5e9;border-color:#0ea5e9;">
+                    ✓ Cédula Verificada
+                </span>
+                <span class="badge-demo" style="background:#d1fae5;color:#16a34a;border-color:#16a34a;">
+                    👥 Validado por Pacientes
+                </span>
+            </div>
+        </div>
+
+        <div class="visual-demo">
+            <div class="visual-demo-title">⚪ Cuando Badge NO Obtenido (Greyed Out)</div>
+            <p style="color:#6b7280;margin-bottom:1rem;">
+                Background: gris muy claro (#f9fafb)<br>
+                Border: gris suave (#d1d5db)<br>
+                Text: gris medio (#9ca3af)
+            </p>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                <span class="badge-demo" style="background:#f9fafb;color:#9ca3af;border-color:#d1d5db;">
+                    🔰 Perfil Reclamado
+                </span>
+                <span class="badge-demo" style="background:#f9fafb;color:#9ca3af;border-color:#d1d5db;">
+                    ✓ Cédula Verificada
+                </span>
+                <span class="badge-demo" style="background:#f9fafb;color:#9ca3af;border-color:#d1d5db;">
+                    👥 Validado por Pacientes
+                </span>
+            </div>
+        </div>
+
+        <h3>5.2. Paleta de Colores por Badge</h3>
+
+        <table class="spec-table">
+            <thead>
+                <tr>
+                    <th>Badge</th>
+                    <th>Color Principal</th>
+                    <th>Background (20%)</th>
+                    <th>Border</th>
+                    <th>Justificación</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Perfil Reclamado</strong></td>
+                    <td><code>#6366f1</code> (índigo)</td>
+                    <td><code>#ede9fe</code></td>
+                    <td><code>#6366f1</code></td>
+                    <td>Identidad / Ownership</td>
+                </tr>
+                <tr>
+                    <td><strong>Cédula Verificada</strong></td>
+                    <td><code>#0ea5e9</code> (azul cielo)</td>
+                    <td><code>#dbeafe</code></td>
+                    <td><code>#0ea5e9</code></td>
+                    <td>Oficial / Administrativo</td>
+                </tr>
+                <tr>
+                    <td><strong>Validado por Pacientes</strong></td>
+                    <td><code>#16a34a</code> (verde)</td>
+                    <td><code>#d1fae5</code></td>
+                    <td><code>#16a34a</code></td>
+                    <td>Comunitario / Confianza</td>
+                </tr>
+                <tr>
+                    <td><strong>Participa en Q&A</strong></td>
+                    <td><code>#f59e0b</code> (ámbar)</td>
+                    <td><code>#fef3c7</code></td>
+                    <td><code>#f59e0b</code></td>
+                    <td>Participación</td>
+                </tr>
+                <tr>
+                    <td><strong>Valida Contenido</strong></td>
+                    <td><code>#8b5cf6</code> (púrpura)</td>
+                    <td><code>#f3e8ff</code></td>
+                    <td><code>#8b5cf6</code></td>
+                    <td>Curación</td>
+                </tr>
+                <tr>
+                    <td><strong>Crea Contenido</strong></td>
+                    <td><code>#ec4899</code> (rosa)</td>
+                    <td><code>#fce7f3</code></td>
+                    <td><code>#ec4899</code></td>
+                    <td>Creación</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>5.3. Iconografía Consistente</h3>
+
+        <table class="spec-table">
+            <thead>
+                <tr>
+                    <th>Badge</th>
+                    <th>Ícono Bootstrap Icons</th>
+                    <th>Justificación</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Perfil Reclamado</strong></td>
+                    <td><code>bi-shield-check</code></td>
+                    <td>Protección / Ownership</td>
+                </tr>
+                <tr>
+                    <td><strong>Cédula Verificada</strong></td>
+                    <td><code>bi-patch-check-fill</code></td>
+                    <td>Verificación oficial</td>
+                </tr>
+                <tr>
+                    <td><strong>Validado por Pacientes</strong></td>
+                    <td><code>bi-people-fill</code></td>
+                    <td>Comunidad</td>
+                </tr>
+                <tr>
+                    <td><strong>Participa en Q&A</strong></td>
+                    <td><code>bi-chat-dots-fill</code></td>
+                    <td>Conversación</td>
+                </tr>
+                <tr>
+                    <td><strong>Valida Contenido</strong></td>
+                    <td><code>bi-check2-circle</code></td>
+                    <td>Aprobación</td>
+                </tr>
+                <tr>
+                    <td><strong>Crea Contenido</strong></td>
+                    <td><code>bi-pencil-square</code></td>
+                    <td>Edición</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>FASE 6: Reordenamiento y Layout</h2>
+
+        <div class="alert alert-warning">
+            <strong>⚠️ PROBLEMA ACTUAL:</strong> Badges aparecen en <strong>3 filas desordenadas</strong> con densidad excesiva en la parte superior del card.
+        </div>
+
+        <h3>6.1. Propuesta de Layout Jerárquico</h3>
+
+        <div class="layout-mockup">
+            <div class="mockup-header">
+                <div class="mockup-avatar">👨‍⚕️</div>
+                <div class="mockup-info">
+                    <div class="mockup-name">Dr. Juan Pérez Martínez</div>
+                    <div class="mockup-specialty">Gastroenterología · Enfermedad Inflamatoria Intestinal</div>
+                    <div class="mockup-badges">
+                        <span class="badge-demo badge-primary" style="background:#ede9fe;color:#6366f1;border-color:#6366f1;">
+                            🔰 Perfil Reclamado
+                        </span>
+                        <span class="badge-demo badge-primary" style="background:#dbeafe;color:#0ea5e9;border-color:#0ea5e9;">
+                            ✓ Cédula Verificada
+                        </span>
+                        <span class="badge-demo badge-primary" style="background:#d1fae5;color:#16a34a;border-color:#16a34a;">
+                            👥 Validado por Pacientes
+                        </span>
+                    </div>
+                    <div class="mockup-secondary">
+                        <span class="badge-demo badge-secondary">
+                            💬 Participa en Q&A
+                        </span>
+                        <span class="badge-demo badge-secondary">
+                            ✅ Valida Contenido
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div style="padding:.75rem 1rem;background:#f9fafb;border-radius:8px;font-size:.85rem;color:#6b7280;">
+                <strong style="color:#374151;">📍 Ciudad de México, CDMX</strong><br>
+                <strong style="color:#374151;">🏥 Hospital ABC, Centro Médico Torre B</strong><br>
+                <span style="color:#16a34a;font-weight:600;">✓ 12 confirmaciones de pacientes</span>
+            </div>
+        </div>
+
+        <h3>6.2. Orden de Presentación</h3>
+
+        <ol>
+            <li><strong>Nombre del médico</strong> (H1 o nombre destacado)</li>
+            <li><strong>Especialidad / Subespecialidad</strong> (texto secundario)</li>
+            <li><strong>Badges primarios</strong> (una fila, flex-wrap, gap 6px)</li>
+            <li><strong>Badges secundarios</strong> (una fila separada, visualmente subordinada)</li>
+            <li><strong>Ubicación / Hospital</strong></li>
+            <li><strong>Confirmaciones comunitarias</strong></li>
+        </ol>
+
+        <div class="alert alert-success">
+            <strong>✅ BENEFICIOS DE ESTE LAYOUT:</strong>
+            <ul style="margin-top:.5rem;">
+                <li>Jerarquía visual clara: información crítica primero</li>
+                <li>Menor densidad: espaciado vertical entre secciones</li>
+                <li>Badges agrupados por importancia</li>
+                <li>Fácil escaneo: paciente identifica datos clave en 2-3 segundos</li>
+            </ul>
+        </div>
+
+        <h3>6.3. Cambios Específicos en Detalle.cshtml</h3>
+
+        <div class="code-block">
+<pre>ANTES (líneas 84-131):
+- Sistema 1: _MedicoBadges partial (6 badges)
+- Sistema 2: 3 badges inline duplicados
+- Total: 9 badges en 2-3 filas desordenadas
+
+DESPUÉS:
+1. Eliminar Sistema 2 completo (líneas 89-131)
+2. Mantener SOLO el partial _MedicoBadges
+3. Modificar _MedicoBadges.cshtml para:
+   - Separar badges primarios de secundarios
+   - Aplicar clases CSS .badge-primary y .badge-secondary
+   - Renderizar en DOS filas separadas</pre>
+        </div>
+
+        <h3>6.4. Especificación de Código para _MedicoBadges.cshtml</h3>
+
+        <div class="code-block">
+<pre>@model IEnumerable&lt;eiibd26.Models.Medico.MedicoBadgeDto&gt;
+
+@{
+    var primaryCodes = new[] { "perfil_reclamado", "verificado", "activo_comunidad" };
+    var secondaryCodes = new[] { "participante_qa", "validador_contenido", "creador_contenido" };
+
+    var primaries = Model?.Where(b => primaryCodes.Contains(b.Codigo)).ToList() ?? new();
+    var secondaries = Model?.Where(b => secondaryCodes.Contains(b.Codigo)).ToList() ?? new();
+}
+
+&lt;!-- Badges Primarios --&gt;
+@if (primaries.Any())
+{
+    &lt;div class="medico-badges-primary d-flex flex-wrap gap-2 mb-2"&gt;
+        @foreach (var badge in primaries)
+        {
+            var obtenido = badge.Obtenido;
+            &lt;span class="badge-medico-pill badge-primary @(obtenido ? "obtained" : "not-obtained")"
+                  data-badge-code="@badge.Codigo"
+                  title="@badge.Descripcion"&gt;
+                &lt;i class="bi @badge.Icono"&gt;&lt;/i&gt;
+                &lt;span class="badge-label"&gt;@badge.Nombre&lt;/span&gt;
+            &lt;/span&gt;
+        }
+    &lt;/div&gt;
+}
+
+&lt;!-- Badges Secundarios --&gt;
+@if (secondaries.Any(b => b.Obtenido))
+{
+    &lt;div class="medico-badges-secondary d-flex flex-wrap gap-2"&gt;
+        @foreach (var badge in secondaries.Where(b => b.Obtenido))
+        {
+            &lt;span class="badge-medico-pill badge-secondary obtained"
+                  data-badge-code="@badge.Codigo"
+                  title="@badge.Descripcion"&gt;
+                &lt;i class="bi @badge.Icono"&gt;&lt;/i&gt;
+                &lt;span class="badge-label"&gt;@badge.Nombre&lt;/span&gt;
+            &lt;/span&gt;
+        }
+    &lt;/div&gt;
+}</pre>
+        </div>
+
+        <h3>6.5. CSS Actualizado para directorio-medicos.css</h3>
+
+        <div class="code-block">
+<pre>/* Badges primarios: peso visual completo */
+.badge-medico-pill.badge-primary {
+    padding: 5px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1.5px solid;
+    opacity: 1;
+}
+
+/* Badges secundarios: peso visual reducido */
+.badge-medico-pill.badge-secondary {
+    padding: 4px 10px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    border: 1px solid;
+    opacity: 0.75;
+}
+
+/* Estado: obtenido (colores específicos por badge via inline styles) */
+.badge-medico-pill.obtained {
+    /* Colores aplicados inline en Razor */
+}
+
+/* Estado: no obtenido (greyed out) */
+.badge-medico-pill.not-obtained {
+    background: #f9fafb !important;
+    color: #9ca3af !important;
+    border-color: #d1d5db !important;
+}</pre>
+        </div>
+
+        <div class="alert alert-info">
+            <strong>🎯 PRÓXIMO PASO:</strong> FASE 7 — Validación Playwright. Crear tests automatizados para comparar antes/después y medir mejora en claridad, densidad y jerarquía.
+        </div>
+
+    </div>
+</body>
+</html>

@@ -1,286 +1,40 @@
-﻿@model eiibd26.Models.DashboardViewModel
+@model eiibd26.Models.DashboardViewModel
 @using Newtonsoft.Json
 @{
     // Partial: Dashboard column — últimos N días.
     // Responsive: en móvil mostramos sólo los últimos 3 días (anteayer + ayer + hoy).
 }
 
-<style>
-    .dashboard-col1-card {
-        background: #fff;
-        border-radius: 12px;
-        padding: 1rem;
-        box-shadow: 0 2px 14px rgba(0,0,0,0.06);
-        margin-bottom: 1rem;
-        box-sizing: border-box;
-        font-weight: 400;
-    }
-
-    .dashboard-col1-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .dashboard-col1-header > div:first-child {
-        min-width: 0;
-        flex: 1 1 auto;
-    }
-
-    .dashboard-col1-header > button {
-        flex-shrink: 0;
-    }
-
-    .dashboard-col1-title {
-        font-size: 1.1rem;
-        font-weight: 400;
-        margin: 0;
-        color: #172849;
-    }
-
-    .small-muted {
-        font-weight: 400;
-    }
-
-    .chart-wrapper {
-        height: 335px;
-        position: relative;
-        margin-top: 12px;
-        box-sizing: border-box;
-        width: 100%;
-        padding: 0;
-    }
-
-        .chart-wrapper canvas {
-            width: 100% !important;
-            max-width: 100% !important;
-            height: 100% !important;
-            display: block;
-            box-sizing: border-box;
-        }
-
-    .mood-leyenda-row {
-        display: flex;
-        gap: 18px;
-        margin-top: 12px;
-        flex-wrap: wrap;
-        align-items: center;
-    }
-
-    .mood-leyenda-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-weight: 400;
-        color: #333;
-    }
-
-    .mood-leyenda-img {
-        width: 28px;
-        height: 28px;
-        object-fit: contain;
-        border-radius: 8px;
-        box-shadow: 0 1px 6px #e6e8ef77;
-        background: #fff;
-        padding: 3px;
-    }
-
-    .btn-add-mood {
-        background: #fff;
-        color: #6a4e7a;
-        border: 1.5px solid #d4b8e6;
-        padding: 7px 13px;
-        border-radius: 8px;
-        cursor: pointer;
-        font-weight: 500;
-        box-shadow: 0 1px 3px rgba(106,78,122,0.08);
-        transition: background .15s, border-color .15s, box-shadow .15s;
-    }
-    .btn-add-mood:hover, .btn-add-mood:focus {
-        background: #f5eefb;
-        border-color: #6a4e7a;
-        color: #5a3d69;
-        box-shadow: 0 2px 8px rgba(106,78,122,0.14);
-    }
-
-    .se-btn.se-btn-primary {
-        background: #fff;
-        color: #6a4e7a;
-        border: 1.5px solid #d4b8e6;
-        border-radius: 50%;
-        box-shadow: 0 1px 3px rgba(106,78,122,0.08);
-        transition: background .15s, border-color .15s, box-shadow .15s;
-    }
-    .se-btn.se-btn-primary:hover, .se-btn.se-btn-primary:focus {
-        background: #f5eefb;
-        border-color: #6a4e7a;
-        color: #5a3d69;
-        box-shadow: 0 2px 8px rgba(106,78,122,0.14);
-    }
-
-    .no-chart-msg {
-        padding: 30px 10px;
-        text-align: center;
-        color: #6b7280;
-        font-weight: 400;
-    }
-
-    .mood-toast {
-        position: fixed;
-        right: 20px;
-        bottom: 20px;
-        z-index: 1200;
-        min-width: 220px;
-    }
-
-    @@media (max-width: 767.98px) {
-        .chart-wrapper {
-            height: 220px;
-        }
-
-        .mood-leyenda-img {
-            width: 24px;
-            height: 24px;
-        }
-    }
-
-    .modal-dialog-centered {
-        display: flex;
-        align-items: center;
-        min-height: calc(100% - 1rem);
-    }
-
-    .modal-content {
-        max-height: calc(100vh - 3.5rem);
-        overflow: auto;
-    }
-
-    /* Custom Select Dropdown - MISMO ESTILO QUE LA PÁGINA PRINCIPAL */
-    .custom-select-wrapper {
-        position: relative;
-    }
-
-    .custom-select-display {
-        width: 100%;
-        padding: 0.375rem 2.25rem 0.375rem 0.75rem;
-        font-size: 1rem;
-        font-weight: 400;
-        line-height: 1.5;
-        color: #212529;
-        background-color: #fff;
-        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
-        background-repeat: no-repeat;
-        background-position: right 0.75rem center;
-        background-size: 16px 12px;
-        border: 1px solid #ced4da;
-        border-radius: 0.25rem;
-        cursor: pointer;
-        transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
-    }
-
-        .custom-select-display:hover {
-            border-color: #86b7fe;
-        }
-
-        .custom-select-display.active {
-            border-color: #86b7fe;
-            outline: 0;
-            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
-        }
-
-    .custom-select-dropdown {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        z-index: 1050;
-        display: none;
-        max-height: 250px;
-        margin-top: 0.125rem;
-        background-color: #fff;
-        border: 1px solid rgba(0,0,0,.15);
-        border-radius: 0.25rem;
-        box-shadow: 0 0.5rem 1rem rgba(0,0,0,.175);
-        overflow: hidden;
-    }
-
-        .custom-select-dropdown.show {
-            display: block;
-        }
-
-    .custom-select-search {
-        width: 100%;
-        padding: 0.5rem 0.75rem;
-        border: none;
-        border-bottom: 1px solid #dee2e6;
-        outline: none;
-        font-size: 0.95rem;
-    }
-
-        .custom-select-search:focus {
-            background-color: #f8f9fa;
-        }
-
-    .custom-select-options {
-        max-height: 200px;
-        overflow-y: auto;
-        padding: 0.25rem 0;
-    }
-
-    .custom-select-option {
-        padding: 0.5rem 0.75rem;
-        cursor: pointer;
-        transition: background-color 0.15s ease-in-out;
-    }
-
-        .custom-select-option:hover {
-            background-color: #f8f9fa;
-        }
-
-        .custom-select-option.selected {
-            background-color: #e7f1ff;
-            font-weight: 500;
-        }
-
-    .custom-select-no-results {
-        padding: 0.5rem 0.75rem;
-        color: #6c757d;
-        font-style: italic;
-        text-align: center;
-    }
-</style>
-
-<div class="dashboard-col1-card">
-    <div class="dashboard-col1-header">
+<div class="eii-card eii-card--elevated">
+    <div class="eii-card__header">
         <div>
-            <div class="dashboard-col1-title">Mi estado de ánimo (últimos 7 días)</div>
-            <div class="small-muted" style="font-size:.9rem;">Se muestran registros reales del período.</div>
+            <div class="eii-card__title">Mi estado de ánimo (últimos 7 días)</div>
+            <div class="eii-text-sm eii-text-muted">Se muestran registros reales del período.</div>
             @if (Model.HealthStats != null && Model.HealthStats.Mood.TotalRegistros > 0)
             {
-                <div class="small-muted mt-1" style="font-size:.85rem;">
+                <div class="eii-text-sm eii-text-muted mt-1">
                     <strong>@Model.HealthStats.Mood.Promedio</strong>
                     — @Model.HealthStats.Mood.TotalRegistros registro@(Model.HealthStats.Mood.TotalRegistros == 1 ? "" : "s")
                 </div>
             }
             else if (Model.HealthStats != null)
             {
-                <div class="small-muted mt-1" style="font-size:.85rem;">Sin registros en los últimos 7 días</div>
+                <div class="eii-text-sm eii-text-muted mt-1">Sin registros en los últimos 7 días</div>
             }
         </div>
-        <button id="col1OpenMoodBtn" class="crm-btn crm-btn-primary btn-lg" type="button">+<i class="bi bi-emoji-wink"></i></button>
+        <button id="col1OpenMoodBtn" class="eii-btn eii-btn--primary eii-btn--icon eii-btn--circle" type="button">+<i class="bi bi-emoji-wink"></i></button>
     </div>
 
-    <div class="chart-wrapper" id="col1ChartWrapper">
+    <div class="dash-chart-wrapper" id="col1ChartWrapper">
         <canvas id="col1MoodChart" aria-label="Gráfica últimos días"></canvas>
     </div>
 
-    <div class="mood-leyenda-row" aria-hidden="true">
-        <span class="mood-leyenda-item"><img class="mood-leyenda-img" src="/img/muybien.svg" alt="Muy bien" /> Muy bien</span>
-        <span class="mood-leyenda-item"><img class="mood-leyenda-img" src="/img/bien.svg" alt="Bien" /> Bien</span>
-        <span class="mood-leyenda-item"><img class="mood-leyenda-img" src="/img/neutral.svg" alt="Neutral" /> Neutral</span>
-        <span class="mood-leyenda-item"><img class="mood-leyenda-img" src="/img/mal.svg" alt="Mal" /> Mal</span>
-        <span class="mood-leyenda-item"><img class="mood-leyenda-img" src="/img/muymal.svg" alt="Muy mal" /> Muy mal</span>
+    <div class="dash-mood-legend" aria-hidden="true">
+        <span class="dash-mood-legend__item"><img class="dash-mood-legend__img" src="/img/muybien.svg" alt="Muy bien" /> Muy bien</span>
+        <span class="dash-mood-legend__item"><img class="dash-mood-legend__img" src="/img/bien.svg" alt="Bien" /> Bien</span>
+        <span class="dash-mood-legend__item"><img class="dash-mood-legend__img" src="/img/neutral.svg" alt="Neutral" /> Neutral</span>
+        <span class="dash-mood-legend__item"><img class="dash-mood-legend__img" src="/img/mal.svg" alt="Mal" /> Mal</span>
+        <span class="dash-mood-legend__item"><img class="dash-mood-legend__img" src="/img/muymal.svg" alt="Muy mal" /> Muy mal</span>
     </div>
 </div>
 
@@ -295,7 +49,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body">
-                    <div id="col1MoodAlert" style="display:none;" class="alert" role="alert"></div>
+                    <div id="col1MoodAlert" class="dash-modal-alert" role="alert"></div>
 
                     <div class="mb-3">
                         <label class="form-label">Selecciona tu estado</label>
@@ -355,19 +109,19 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button id="col1MoodSubmit" type="submit" class="se-btn se-btn-primary" style="font-size:28px; border-radius:50%;"><i class="bi bi-check"></i></button>
+                    <button id="col1MoodSubmit" type="submit" class="eii-btn eii-btn--solid eii-btn--icon eii-btn--circle"><i class="bi bi-check"></i></button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-<div id="col1MoodToast" class="mood-toast" style="display:none;">
-    <div class="toast align-items-center text-white bg-success border-0 show" role="alert" aria-live="assertive" aria-atomic="true">
-        <div class="d-flex">
-            <div class="toast-body" id="col1MoodToastBody"></div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" aria-label="Close" onclick="document.getElementById('col1MoodToast').style.display='none'"></button>
-        </div>
+<div id="col1MoodToast" class="dash-toast" style="display:none;" role="status" aria-live="polite">
+    <div class="dash-toast__inner">
+        <span id="col1MoodToastBody"></span>
+        <button type="button" class="dash-toast__close" aria-label="Cerrar" onclick="document.getElementById('col1MoodToast').style.display='none'">
+            <i class="bi bi-x" aria-hidden="true"></i>
+        </button>
     </div>
 </div>
 
@@ -387,7 +141,7 @@
       const ENDPOINT_SINTOMAS = "/api/EstadoAnimoUsuario/sintomas-usuario";
       const ENDPOINT_TRATAMIENTOS = "/api/EstadoAnimoUsuario/tratamientos-usuario";
       const DAY_MS = 24 * 60 * 60 * 1000;
-      
+
       // Variables globales para las listas
       let col1CondicionesData = [];
       let col1SintomasData = [];
@@ -430,10 +184,10 @@
         (list || []).forEach(x => {
           let estadoNum = x.estadoMood ?? x.EstadoMood ?? null;
           if (estadoNum === null || estadoNum === undefined) return;
-          
+
           estadoNum = parseInt(estadoNum);
           if (isNaN(estadoNum) || estadoNum < 1 || estadoNum > 5) return;
-          
+
           const fecha = parseDateString(x.fechaRegistro ?? x.FechaRegistro ?? x.FechaIso ?? x.Fecha ?? null);
           if (!fecha) return;
           const ts = fecha.getTime();
@@ -535,7 +289,7 @@
         const canvas = document.getElementById('col1MoodChart');
         if (!canvas) {
           const wrapper = document.getElementById('col1ChartWrapper');
-          if (wrapper) wrapper.innerHTML = '<div class="no-chart-msg">No se encontró el canvas para dibujar la gráfica.</div>';
+          if (wrapper) wrapper.innerHTML = '<div class="dash-no-chart">No se encontró el canvas para dibujar la gráfica.</div>';
           return;
         }
         const ctx = canvas.getContext('2d');
@@ -774,21 +528,21 @@
         form.addEventListener("submit", async function(ev){
           ev.preventDefault();
           const selected = document.getElementById("col1MoodSelected").value;
-          
+
           const moodNum = parseInt(selected);
           if (!selected || isNaN(moodNum) || moodNum < 1 || moodNum > 5) {
             const alertEl = document.getElementById("col1MoodAlert");
-            alertEl.className="alert alert-danger";
+            alertEl.className="dash-modal-alert dash-modal-alert--danger";
             alertEl.textContent="Selecciona un estado de ánimo.";
             alertEl.style.display="block";
             return;
           }
-          
+
           const texto = document.getElementById("col1MoodText").value || "";
           const condicionId = document.getElementById("col1CondicionSelectedId").value || "";
           const sintomaId = document.getElementById("col1SintomaSelectedId").value || "";
           const tratamientoId = document.getElementById("col1TratamientoSelectedId").value || "";
-          
+
           const fd = new FormData();
           fd.append("mood", selected);
           fd.append("texto", texto);
@@ -800,7 +554,7 @@
             const resp = await fetch(ENDPOINT_NUEVO, { method: "POST", body: fd });
             if (!resp.ok) {
               const alertEl = document.getElementById("col1MoodAlert");
-              alertEl.className="alert alert-danger";
+              alertEl.className="dash-modal-alert dash-modal-alert--danger";
               alertEl.textContent="Error al guardar. Código: "+resp.status;
               alertEl.style.display="block";
               return;
@@ -809,16 +563,16 @@
             const modalEl = document.getElementById('col1MoodModal');
             const modalInstance = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
             if (modalInstance) modalInstance.hide();
-            
+
             document.getElementById('col1MoodToastBody').textContent = "Estado guardado";
             document.getElementById('col1MoodToast').style.display = 'block';
             setTimeout(()=> document.getElementById('col1MoodToast').style.display='none', 2000);
-            
+
             // Reset form
             document.getElementById('col1MoodSelected').value = '';
             document.getElementById('col1MoodText').value = '';
             document.querySelectorAll('#col1MoodOptions .mood-option-btn').forEach(x=>x.classList.remove('active'));
-            
+
             // Reset custom selects
             const condicionWrapper = document.querySelector('[data-field="condicion"]');
             const sintomaWrapper = document.querySelector('[data-field="sintoma"]');
@@ -826,13 +580,13 @@
             if (condicionWrapper && condicionWrapper.resetSelect) condicionWrapper.resetSelect();
             if (sintomaWrapper && sintomaWrapper.resetSelect) sintomaWrapper.resetSelect();
             if (tratamientoWrapper && tratamientoWrapper.resetSelect) tratamientoWrapper.resetSelect();
-            
+
             await loadAndRenderHistorico();
             try { window.dispatchEvent(new CustomEvent('mood:added', { detail: { created } })); } catch(e) {}
           } catch (e) {
             console.error(e);
             const alertEl = document.getElementById("col1MoodAlert");
-            alertEl.className = "alert alert-danger";
+            alertEl.className = "dash-modal-alert dash-modal-alert--danger";
             alertEl.textContent = "Error de red al guardar.";
             alertEl.style.display = "block";
           }

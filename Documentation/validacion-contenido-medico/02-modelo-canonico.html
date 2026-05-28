@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>02 — Modelo Canónico: ValidacionContenidoProfesional</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<style>
+  body { padding: 2rem; max-width: 1000px; margin: 0 auto; }
+  pre { background:#1e293b; color:#f1f5f9; border-radius:8px; padding:1rem; font-size:.84em; overflow-x:auto; }
+  code { background:#f1f5f9; border-radius:4px; padding:1px 5px; font-size:.87em; }
+  h2 { border-left: 4px solid #6a4e7a; padding-left:.75rem; margin-top:2rem; }
+</style>
+</head>
+<body>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <a href="00-indice.html" class="btn btn-sm btn-outline-secondary">&larr; Índice</a>
+  <span class="text-muted small">Validación Perfil Médico — EIIBD.com</span>
+</div>
+
+<h1 class="mb-1">02 — Modelo Canónico</h1>
+<p class="text-muted">ValidacionContenidoProfesional y enums relacionados.</p>
+
+<h2>1. Enum: TipoContenidoValidado</h2>
+
+<p>Archivo: <code>Models/Validacion/TipoContenidoValidado.cs</code></p>
+<pre>
+public enum TipoContenidoValidado : byte
+{
+    Termino      = 1,   // Términos del glosario médico
+    Articulo     = 2,   // Artículos de Contenidos/Detalle
+    PerfilMedico = 3    // Perfil de médico en el directorio ← NUEVO
+}
+</pre>
+
+<p>Para PerfilMedico se usa <code>TipoContenido = 3</code>. Se almacena como <code>TINYINT</code> en SQL Server.</p>
+
+<h2>2. Enum: EstadoValidacion</h2>
+
+<pre>
+public enum EstadoValidacion : byte
+{
+    Validado   = 1,   // Visible públicamente — estado inicial
+    EnRevision = 2,   // Admin revisa — indicador oculto del público
+    Oculto     = 3    // Admin ocultó — indicador oculto del público
+}
+</pre>
+
+<p>Solo <code>EstadoValidacion.Validado</code> hace visible el badge en el perfil público. Los estados 2 y 3 ocultan el badge pero preservan el registro en BD.</p>
+
+<h2>3. Modelo: ValidacionContenidoProfesional</h2>
+
+<p>Archivo: <code>Models/Validacion/ValidacionContenidoProfesional.cs</code><br>
+Tabla SQL: <code>ValidacionesContenidoProfesional</code></p>
+
+<pre>
+[Table("ValidacionesContenidoProfesional")]
+public class ValidacionContenidoProfesional
+{
+    public int Id { get; set; }
+
+    [Required]
+    public TipoContenidoValidado TipoContenido { get; set; }
+
+    // Para PerfilMedico: ContenidoId = MedicoDirectorio.Id
+    public int ContenidoId { get; set; }
+
+    [Required][MaxLength(450)]
+    public string UsuarioMedicoId { get; set; } = "";   // FK → AspNetUsers
+
+    [MaxLength(800)]
+    public string? Comentario { get; set; }             // Nota interna del médico (opcional)
+
+    public EstadoValidacion Estado { get; set; } = EstadoValidacion.Validado;
+
+    public DateTime CreadoEn { get; set; }
+    public DateTime ActualizadoEn { get; set; }
+
+    // Moderación (nullable — solo admin rellena)
+    [MaxLength(450)]
+    public string? ModeradoPorId { get; set; }          // FK → AspNetUsers (admin)
+    public DateTime? FechaModeracion { get; set; }
+
+    [MaxLength(500)]
+    public string? NotaModeracion { get; set; }         // Razón del cambio de estado
+
+    // Navegación
+    public ApplicationUser? UsuarioMedico { get; set; }
+    public ApplicationUser? ModeradoPor { get; set; }
+}
+</pre>
+
+<h2>4. Índice único en ApplicationDbContext</h2>
+
+<pre>
+// En ApplicationDbContext.OnModelCreating:
+modelBuilder.Entity&lt;ValidacionContenidoProfesional&gt;(e =>
+{
+    e.HasIndex(v => new { v.TipoContenido, v.ContenidoId, v.UsuarioMedicoId })
+     .IsUnique()
+     .HasDatabaseName("IX_ValidacionesContenido_Tipo_Contenido_Usuario");
+});
+</pre>
+
+<p>Este índice garantiza que un médico tenga <strong>máximo una validación por perfil</strong>. El mismo índice cubre los casos Termino y Articulo.</p>
+
+<h2>5. Mapeo de campos para PerfilMedico</h2>
+
+<table class="table table-bordered table-sm">
+  <thead class="table-dark">
+    <tr><th>Campo</th><th>Valor al auto-certificar perfil</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>TipoContenido</code></td><td><code>TipoContenidoValidado.PerfilMedico</code> (3)</td></tr>
+    <tr><td><code>ContenidoId</code></td><td><code>MedicoDirectorio.Id</code> del médico reclamante</td></tr>
+    <tr><td><code>UsuarioMedicoId</code></td><td>UserId del médico autenticado en ASP.NET Identity</td></tr>
+    <tr><td><code>Comentario</code></td><td>Opcional — campo libre en el formulario</td></tr>
+    <tr><td><code>Estado</code></td><td><code>EstadoValidacion.Validado</code> por defecto</td></tr>
+    <tr><td><code>CreadoEn</code></td><td><code>DateTime.UtcNow</code> al crear</td></tr>
+    <tr><td><code>ActualizadoEn</code></td><td><code>DateTime.UtcNow</code> al crear o actualizar</td></tr>
+    <tr><td><code>ModeradoPorId</code>, <code>FechaModeracion</code>, <code>NotaModeracion</code></td><td><code>null</code> — solo admin los escribe</td></tr>
+  </tbody>
+</table>
+
+<div class="d-flex justify-content-between mt-4">
+  <a href="01-analisis-actual.html" class="btn btn-outline-secondary btn-sm">&larr; 01 Análisis</a>
+  <a href="03-reglas-negocio.html" class="btn btn-outline-primary btn-sm">03 Reglas &rarr;</a>
+</div>
+
+</body>
+</html>

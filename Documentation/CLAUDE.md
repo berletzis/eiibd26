@@ -200,3 +200,76 @@ IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Tabla'
 ## Referencia de conexión BD (local dev)
 Servidor: user secrets (`ConnectionStrings:DefaultConnection`)
 No hardcodear credenciales. Ver `SECRETS.md` en raíz del repo (no commitear).
+
+---
+
+## SESIONES REGISTRADAS
+
+### 📅 Sesión: Admin Directory - Badges y Confirmaciones (Enero 2025)
+
+**Contexto**: Revisión completa de la sección de administración de médicos para aplicar la misma normalización de badges del directorio público y agregar moderación de confirmaciones comunitarias.
+
+**Archivos modificados**:
+- `Areas/Identity/Pages/Admin/DirectorioMedicos/Index.cshtml`
+- `Areas/Identity/Pages/Admin/DirectorioMedicos/Index.cshtml.cs`
+
+**Cambios implementados**:
+
+1. **Normalización de badges en admin grid**
+   - Actualizada función `triBadges(row)` con tooltips canónicos:
+     - 🟢 "Validado por Pacientes (≥5 confirmaciones)"
+     - 🔵 "Cédula Verificada"  
+     - 🟢 "Perfil Reclamado"
+   - Eliminada ambigüedad entre nombres duplicados
+   - Umbral de confirmaciones actualizado a 5 (coherente con badge DB)
+
+2. **Sistema de moderación de confirmaciones comunitarias**
+   - Nueva tabla mejorada en panel lateral con columnas:
+     - Email (usuario confirmador)
+     - Fecha (de la confirmación)
+     - Tipo (tipo de confirmación)
+     - **Estado** (badge visual: Activa/En revisión)
+     - **Acción** (botón toggle por confirmación)
+   - Contador inteligente: `Total: 12 (10 activas, 2 en revisión)`
+   - Reutilización de campo `ConfirmacionComunitaria.Eliminado`:
+     - `false` → Confirmación activa (cuenta para badges y nivel)
+     - `true` → Confirmación en revisión (preservada pero no cuenta)
+
+3. **Handler de moderación** (`OnPostToggleConfirmacionAsync`)
+   - Toggle reversible del estado de confirmación
+   - Recalculo automático de nivel de confianza del médico
+   - Re-evaluación automática de badges (badge comunidad puede cambiar)
+   - Logging implícito vía EF Core SaveChanges
+
+4. **Flujo de datos actualizado**
+   - Query usa `.IgnoreQueryFilters()` para mostrar todas las confirmaciones
+   - DTO distingue `totalConfirmaciones` (activas) vs `totalConfirmacionesIncRevision`
+   - Confirmaciones en revisión aparecen con fondo amarillo en tabla
+
+**Documentación generada**:
+- `Documentation/directorio-profesionales-badges/admin-confirmaciones-revision.md`
+  - Flujo de moderación completo
+  - Impacto en badges y nivel de confianza
+  - Casos de uso (spam, disputas, errores, reactivación)
+  - Código relevante (backend + frontend)
+
+**Ventajas del sistema**:
+- ✅ No destructivo (confirmaciones se preservan, no se borran)
+- ✅ Reversible (admin puede reactivar en cualquier momento)
+- ✅ Automático (nivel y badges se recalculan inmediatamente)
+- ✅ Auditable (todas las confirmaciones quedan en DB con su estado)
+- ✅ Transparente (admin ve desglose exacto activas vs revisión)
+
+**Estado**: Compilación exitosa (solo warning Hot Reload, no errores)
+
+**Próximos pasos sugeridos**:
+- Reiniciar aplicación para aplicar cambios (o detener debugger)
+- Verificar flujo de moderación en browser
+- Considerar agregar log explícito de cambios de estado en futuras iteraciones
+
+---
+
+## Referencias rápidas de sesiones anteriores
+
+Ver carpeta `Documentation/sesiones/` para sesiones anteriores detalladas.
+Ver carpeta `Documentation/directorio-profesionales-badges/` para todo el análisis de badges.

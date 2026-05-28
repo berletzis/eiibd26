@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>07 — Base de Datos: ValidacionesContenidoProfesional</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<style>
+  body { padding: 2rem; max-width: 1000px; margin: 0 auto; }
+  pre { background:#1e293b; color:#f1f5f9; border-radius:8px; padding:1rem; font-size:.84em; overflow-x:auto; }
+  code { background:#f1f5f9; border-radius:4px; padding:1px 5px; font-size:.87em; }
+  h2 { border-left: 4px solid #6a4e7a; padding-left:.75rem; margin-top:2rem; }
+</style>
+</head>
+<body>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <a href="00-indice.html" class="btn btn-sm btn-outline-secondary">&larr; Índice</a>
+  <span class="text-muted small">Validación Perfil Médico — EIIBD.com</span>
+</div>
+
+<h1 class="mb-1">07 — Base de Datos</h1>
+<p class="text-muted">Sin nuevas tablas. TipoContenidoValidado.PerfilMedico=3 en tabla existente.</p>
+
+<h2>1. No se crea nueva tabla</h2>
+
+<div class="alert alert-success">
+  <strong>Cero nuevas tablas.</strong> La feature reutiliza la tabla <code>ValidacionesContenidoProfesional</code>
+  ya existente. Solo se agrega el valor <code>PerfilMedico = 3</code> al enum <code>TipoContenidoValidado</code>,
+  que se almacena como <code>TINYINT</code> en la columna <code>TipoContenido</code>.
+</div>
+
+<h2>2. Estructura de la tabla existente</h2>
+
+<pre>
+CREATE TABLE dbo.ValidacionesContenidoProfesional (
+    Id               INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    TipoContenido    TINYINT NOT NULL,          -- 1=Termino, 2=Articulo, 3=PerfilMedico
+    ContenidoId      INT NOT NULL,
+    UsuarioMedicoId  NVARCHAR(450) NOT NULL,    -- FK → AspNetUsers
+    Comentario       NVARCHAR(800) NULL,
+    Estado           TINYINT NOT NULL DEFAULT 1, -- 1=Validado, 2=EnRevision, 3=Oculto
+    CreadoEn         DATETIME2 NOT NULL,
+    ActualizadoEn    DATETIME2 NOT NULL,
+    ModeradoPorId    NVARCHAR(450) NULL,        -- FK → AspNetUsers (admin)
+    FechaModeracion  DATETIME2 NULL,
+    NotaModeracion   NVARCHAR(500) NULL
+);
+</pre>
+
+<h2>3. Índice único existente</h2>
+
+<pre>
+-- Previene que el mismo médico valide el mismo contenido más de una vez
+CREATE UNIQUE INDEX IX_ValidacionesContenido_Tipo_Contenido_Usuario
+    ON dbo.ValidacionesContenidoProfesional (TipoContenido, ContenidoId, UsuarioMedicoId);
+</pre>
+
+<p>Este índice ya cubre el caso <code>PerfilMedico (3)</code> sin modificación. Un médico con
+<code>UserId = 'abc'</code> solo puede tener UN registro donde <code>TipoContenido = 3</code>
+y <code>ContenidoId = &lt;su MedicoDirectorio.Id&gt;</code>.</p>
+
+<h2>4. Query de verificación: datos de PerfilMedico en BD</h2>
+
+<pre>
+-- Ver validaciones de perfil médico activas
+SELECT v.Id, v.ContenidoId, v.UsuarioMedicoId,
+       v.Estado, v.CreadoEn, v.ActualizadoEn,
+       v.ModeradoPorId, v.NotaModeracion
+FROM dbo.ValidacionesContenidoProfesional v
+WHERE v.TipoContenido = 3   -- PerfilMedico
+ORDER BY v.CreadoEn DESC;
+</pre>
+
+<h2>5. Relación con MedicosDirectorio</h2>
+
+<p>No hay FK formal entre <code>ValidacionesContenidoProfesional.ContenidoId</code> y
+<code>MedicosDirectorio.Id</code>. Esta es la misma decisión de diseño usada para Termino y Articulo:
+la FK es semántica (por convención de tipo), no estructural en la BD.</p>
+
+<p>Esto evita complejidad de FK multi-tabla y mantiene la tabla genérica para todos los tipos de contenido.</p>
+
+<h2>6. Impacto de agregar TipoContenido = 3</h2>
+
+<table class="table table-bordered table-sm">
+  <thead class="table-dark">
+    <tr><th>Aspecto</th><th>Impacto</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Tabla en SQL Server</td><td class="text-success">Ninguno — la columna TINYINT ya acepta el valor 3</td></tr>
+    <tr><td>Índice único</td><td class="text-success">Ninguno — ya cubre el caso con el composite key</td></tr>
+    <tr><td>EF Core DbSet</td><td class="text-success">Ninguno — el DbSet ya existe</td></tr>
+    <tr><td>Enum C#</td><td class="text-warning">Agregar <code>PerfilMedico = 3</code> al archivo del enum</td></tr>
+    <tr><td>Registros existentes</td><td class="text-success">Ninguno — no se tocan los Termino y Articulo existentes</td></tr>
+  </tbody>
+</table>
+
+<h2>7. Script de verificación post-feature</h2>
+
+<pre>
+-- Confirmar que el índice único funciona (intentar insertar duplicado debe fallar):
+SELECT TipoContenido, ContenidoId, UsuarioMedicoId, COUNT(*) AS Total
+FROM dbo.ValidacionesContenidoProfesional
+WHERE TipoContenido = 3
+GROUP BY TipoContenido, ContenidoId, UsuarioMedicoId
+HAVING COUNT(*) > 1;
+-- Debe retornar 0 filas.
+
+-- Conteo de validaciones de perfil por estado:
+SELECT Estado, COUNT(*) AS Total
+FROM dbo.ValidacionesContenidoProfesional
+WHERE TipoContenido = 3
+GROUP BY Estado;
+</pre>
+
+<div class="d-flex justify-content-between mt-4">
+  <a href="06-ux.html" class="btn btn-outline-secondary btn-sm">&larr; 06 UX</a>
+  <a href="08-validacion-playwright.html" class="btn btn-outline-primary btn-sm">08 Playwright &rarr;</a>
+</div>
+
+</body>
+</html>

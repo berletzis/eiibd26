@@ -22,9 +22,6 @@ public class IndexModel : PageModel
 
     public DirectorioIndexVm Directorio { get; set; } = new();
 
-    // Para los badges públicos: EII por medico
-    public Dictionary<int, bool> MedicosConEII { get; set; } = new();
-
     // Badges ganados por médico (código del badge)
     public Dictionary<int, HashSet<string>> BadgesPorMedico { get; set; } = new();
 
@@ -58,6 +55,7 @@ public class IndexModel : PageModel
 
             MisPropuestas = rows.Select(m =>
             {
+                // D-07: misma fórmula que MedicoDirectorio.EstadoDerivado para evitar divergencia
                 var estado = m.Activo && m.VisiblePublicamente && m.EstatusReclamacion == EstatusReclamacion.Reclamado
                     ? EstadoProfesionalDerivado.Reclamado
                     : m.Activo && m.VisiblePublicamente
@@ -80,13 +78,6 @@ public class IndexModel : PageModel
         if (Directorio.Medicos.Any())
         {
             var ids = Directorio.Medicos.Select(m => m.Id).ToList();
-            var conEII = await _db.ConfirmacionesComunitarias
-                .AsNoTracking()
-                .Where(c => ids.Contains(c.MedicoDirectorioId) && !c.Eliminado)
-                .Select(c => c.MedicoDirectorioId)
-                .Distinct()
-                .ToListAsync();
-            MedicosConEII = conEII.ToDictionary(id => id, _ => true);
 
             // Badges ganados en batch (evita N+1)
             var badgesRows = await _db.MedicosPerfilBadge

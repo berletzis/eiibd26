@@ -106,15 +106,25 @@
         }).then(r => r.json());
     }
 
-    // FIX BUG-3: verificadoOk usa solo la fuente canónica (cedulaVerificada)
+    // Badges: Mostrar nombres canónicos en tooltips
     function triBadges(row) {
-        const comunidadOk = row.totalConfirmaciones >= 3;
+        const comunidadOk = row.totalConfirmaciones >= 5;  // umbral actualizado a 5
         const verificadoOk = row.cedulaVerificada;
         const reclamadoOk  = row.perfilReclamado;
         return `<div class="badge-tri">
-            <span class="badge ${comunidadOk ? '' : 'bg-light text-secondary border'}" style="${comunidadOk ? 'background:#6a4e7a;color:#fff;' : ''}"><i class="bi bi-people-fill"></i></span>
-            <span class="badge ${verificadoOk ? 'bg-primary' : 'bg-light text-secondary border'}"><i class="bi bi-patch-check"></i></span>
-            <span class="badge ${reclamadoOk ? 'bg-success' : 'bg-light text-secondary border'}"><i class="bi bi-patch-check-fill"></i></span>
+            <span class="badge ${comunidadOk ? '' : 'bg-light text-secondary border'}" 
+                  style="${comunidadOk ? 'background:#22c55e;color:#fff;' : ''}"
+                  title="Validado por Pacientes (≥5 confirmaciones)">
+                <i class="bi bi-people-fill"></i>
+            </span>
+            <span class="badge ${verificadoOk ? 'bg-primary' : 'bg-light text-secondary border'}"
+                  title="Cédula Verificada">
+                <i class="bi bi-patch-check"></i>
+            </span>
+            <span class="badge ${reclamadoOk ? 'bg-success' : 'bg-light text-secondary border'}"
+                  title="Perfil Reclamado">
+                <i class="bi bi-patch-check-fill"></i>
+            </span>
         </div>`;
     }
 
@@ -242,12 +252,38 @@
         const confHtml = (d.confirmadores || []).length > 0
             ? `<div class="table-responsive mt-2">
                 <table class="table table-sm table-hover align-middle mb-1">
-                    <thead class="table-light"><tr><th style="font-size:.8rem;">Email</th><th style="font-size:.8rem;">Fecha</th><th style="font-size:.8rem;">Tipo</th></tr></thead>
+                    <thead class="table-light"><tr>
+                        <th style="font-size:.8rem;">Email</th>
+                        <th style="font-size:.8rem;">Fecha</th>
+                        <th style="font-size:.8rem;">Tipo</th>
+                        <th style="font-size:.8rem;">Estado</th>
+                        <th style="font-size:.8rem;">Acción</th>
+                    </tr></thead>
                     <tbody>${(d.confirmadores || []).map(c =>
-                        `<tr><td style="font-size:.8rem;">${esc(c.email)}</td><td style="font-size:.8rem;white-space:nowrap;">${esc(c.fecha)}</td><td style="font-size:.78rem;">${c.exps.join(', ') || '—'}</td></tr>`
+                        `<tr class="${c.enRevision ? 'table-warning' : ''}">
+                            <td style="font-size:.8rem;">${esc(c.email)}</td>
+                            <td style="font-size:.8rem;white-space:nowrap;">${esc(c.fecha)}</td>
+                            <td style="font-size:.78rem;">${c.exps.join(', ') || '—'}</td>
+                            <td style="font-size:.78rem;">
+                                ${c.enRevision 
+                                    ? '<span class="badge bg-warning text-dark">En revisión</span>'
+                                    : '<span class="badge bg-success-subtle text-success border">Activa</span>'}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm ${c.enRevision ? 'btn-outline-success' : 'btn-outline-warning'}" 
+                                        onclick="toggleConfirmacion(${c.id}, ${c.enRevision})"
+                                        title="${c.enRevision ? 'Marcar como activa' : 'Marcar en revisión'}">
+                                    <i class="bi ${c.enRevision ? 'bi-check-circle' : 'bi-exclamation-triangle'}"></i>
+                                </button>
+                            </td>
+                        </tr>`
                     ).join('')}</tbody>
                 </table>
-                <small class="text-muted">Información privada — solo visible para administradores.</small>
+                <small class="text-muted">
+                    Total: ${d.totalConfirmacionesIncRevision || (d.confirmadores || []).length} 
+                    (${d.totalConfirmaciones} activas, ${(d.totalConfirmacionesIncRevision || 0) - (d.totalConfirmaciones || 0)} en revisión)
+                    · Información privada — solo visible para administradores.
+                </small>
                </div>`
             : '<small class="text-muted">Sin confirmaciones aún.</small>';
 
@@ -345,6 +381,47 @@ ${d.cedulaVerificada && d.fechaCedulaVerificada ? `<p class="text-muted small mb
     <div class="field-readonly">${d.totalConfirmaciones}</div></div>
 ${confHtml}
 
+<!-- 5b. Contenido Validado -->
+<p class="panel-section-title mt-3">Contenido Validado por este Profesional</p>
+${(d.validacionesContenido || []).length > 0
+    ? `<div class="table-responsive mt-1">
+        <table class="table table-sm table-hover align-middle mb-1">
+            <thead class="table-light"><tr>
+                <th style="font-size:.78rem;">Tipo</th>
+                <th style="font-size:.78rem;">Contenido</th>
+                <th style="font-size:.78rem;">Estado</th>
+                <th style="font-size:.78rem;">Fecha</th>
+                <th style="font-size:.78rem;">Acción</th>
+            </tr></thead>
+            <tbody>${(d.validacionesContenido || []).map(v =>
+                `<tr class="${v.estadoNum === 3 ? 'table-secondary' : v.estadoNum === 2 ? 'table-warning' : ''}">
+                    <td style="font-size:.78rem;">${esc(v.tipo)}</td>
+                    <td style="font-size:.78rem;">
+                        ${v.contenidoUrl
+                            ? `<a href="${esc(v.contenidoUrl)}" target="_blank" style="font-size:.78rem;">${esc(v.contenidoTitulo)}</a>`
+                            : esc(v.contenidoTitulo)}
+                    </td>
+                    <td style="font-size:.78rem;">
+                        ${v.estadoNum === 1
+                            ? '<span class="badge bg-success-subtle text-success border">Validado</span>'
+                            : v.estadoNum === 2
+                                ? '<span class="badge bg-warning text-dark">En revisión</span>'
+                                : '<span class="badge bg-secondary-subtle text-secondary border">Oculto</span>'}
+                    </td>
+                    <td style="font-size:.78rem;white-space:nowrap;">${esc(v.creadoEn)}</td>
+                    <td>
+                        <div class="d-flex gap-1">
+                            ${v.estadoNum !== 1 ? `<button class="btn btn-sm btn-outline-success py-0 px-1" style="font-size:.75rem;" onclick="cambiarEstadoValidacion(${v.id},'Validado')" title="Aprobar"><i class="bi bi-check-circle"></i></button>` : ''}
+                            ${v.estadoNum !== 2 ? `<button class="btn btn-sm btn-outline-warning py-0 px-1" style="font-size:.75rem;" onclick="cambiarEstadoValidacion(${v.id},'EnRevision')" title="Poner en revisión"><i class="bi bi-clock"></i></button>` : ''}
+                            ${v.estadoNum !== 3 ? `<button class="btn btn-sm btn-outline-secondary py-0 px-1" style="font-size:.75rem;" onclick="cambiarEstadoValidacion(${v.id},'Oculto')" title="Ocultar"><i class="bi bi-eye-slash"></i></button>` : ''}
+                        </div>
+                    </td>
+                </tr>`
+            ).join('')}</tbody>
+        </table>
+       </div>`
+    : '<small class="text-muted">Este médico no ha validado contenido aún.</small>'}
+
 <!-- 6. Badges -->
 <p class="panel-section-title mt-3">Badges</p>
 <div class="d-flex gap-2 mb-2">
@@ -436,6 +513,32 @@ ${confHtml}
         const r = await postJson('@Url.Page(null, "EvaluarTodos")', {});
         if (r.success) { alert(`Re-evaluados: ${r.total} médicos.`); tabla.ajax.reload(null, false); }
         else alert('Error.');
+    }
+
+    async function toggleConfirmacion(confirmacionId, estaEnRevision) {
+        const accion = estaEnRevision ? 'activar' : 'marcar en revisión';
+        if (!confirm(`¿Confirmar ${accion} esta confirmación comunitaria?`)) return;
+        const r = await postJson('@Url.Page(null, "ToggleConfirmacion")', { confirmacionId });
+        if (r.success) {
+            // Re-abrir panel para refrescar datos
+            const medicoId = document.getElementById('ep_id')?.value;
+            if (medicoId) await abrirEditar(parseInt(medicoId));
+            tabla.ajax.reload(null, false);
+        } else {
+            alert(r.message || 'Error al cambiar estado de confirmación.');
+        }
+    }
+
+    async function cambiarEstadoValidacion(validacionId, nuevoEstado) {
+        const labels = { Validado: 'aprobar', EnRevision: 'poner en revisión', Oculto: 'ocultar' };
+        if (!confirm(`¿Confirmar ${labels[nuevoEstado] || nuevoEstado} esta validación?`)) return;
+        const r = await postJson('@Url.Page(null, "CambiarEstadoValidacion")', { validacionId, nuevoEstado });
+        if (r.success) {
+            const medicoId = document.getElementById('ep_id')?.value;
+            if (medicoId) await abrirEditar(parseInt(medicoId));
+        } else {
+            alert(r.message || 'Error al cambiar estado.');
+        }
     }
 
     // Google Maps autocomplete para el panel admin

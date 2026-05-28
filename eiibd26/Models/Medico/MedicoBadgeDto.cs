@@ -12,3 +12,13 @@ public class MedicoBadgeDto
     public bool Obtenido { get; set; }
     public DateTime? FechaObtenido { get; set; }
 }
+
+public class MedicoBadgeHistorialDto
+{
+    public string BadgeCodigo   { get; set; } = string.Empty;
+    public string BadgeNombre   { get; set; } = string.Empty;
+    public string Evento        { get; set; } = string.Empty;  // "otorgado" | "revocado"
+    public string Actor         { get; set; } = string.Empty;
+    public string? Motivo       { get; set; }
+    public DateTime FechaEvento { get; set; }
+}

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>04 — Reutilización: IValidacionContenidoService y Partial View</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<style>
+  body { padding: 2rem; max-width: 1000px; margin: 0 auto; }
+  pre { background:#1e293b; color:#f1f5f9; border-radius:8px; padding:1rem; font-size:.84em; overflow-x:auto; }
+  code { background:#f1f5f9; border-radius:4px; padding:1px 5px; font-size:.87em; }
+  h2 { border-left: 4px solid #6a4e7a; padding-left:.75rem; margin-top:2rem; }
+</style>
+</head>
+<body>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <a href="00-indice.html" class="btn btn-sm btn-outline-secondary">&larr; Índice</a>
+  <span class="text-muted small">Validación Perfil Médico — EIIBD.com</span>
+</div>
+
+<h1 class="mb-1">04 — Reutilización</h1>
+<p class="text-muted">Cómo el servicio y el partial view son compartidos entre Termino, Articulo y PerfilMedico.</p>
+
+<h2>1. IValidacionContenidoService — interfaz compartida</h2>
+
+<p>Archivo: <code>Services/Validacion/IValidacionContenidoService.cs</code></p>
+<pre>
+public interface IValidacionContenidoService
+{
+    // Upsert: inserta si no existe, actualiza si ya existe
+    // Retorna true = creado, false = actualizado
+    Task&lt;bool&gt; UpsertAsync(
+        TipoContenidoValidado tipo,
+        int contenidoId,
+        string usuarioMedicoId,
+        string? comentario);
+
+    // Devuelve el registro si existe y es visible (Estado == Validado)
+    Task&lt;ValidacionContenidoProfesional?&gt; ObtenerValidadoAsync(
+        TipoContenidoValidado tipo,
+        int contenidoId);
+
+    // Devuelve el registro del médico (cualquier estado) — para el panel manage
+    Task&lt;ValidacionContenidoProfesional?&gt; ObtenerDelMedicoAsync(
+        TipoContenidoValidado tipo,
+        int contenidoId,
+        string usuarioMedicoId);
+
+    // Admin: cambiar estado
+    Task CambiarEstadoAsync(
+        int validacionId,
+        EstadoValidacion nuevoEstado,
+        string adminId,
+        string? nota);
+}
+</pre>
+
+<p>Esta interfaz es la misma para los tres tipos de contenido. El parámetro <code>tipo</code> diferencia el contexto.
+No se duplica lógica.</p>
+
+<h2>2. ValidacionContenidoService — implementación única</h2>
+
+<p>Archivo: <code>Services/Validacion/ValidacionContenidoService.cs</code></p>
+<pre>
+public class ValidacionContenidoService : IValidacionContenidoService
+{
+    private readonly ApplicationDbContext _context;
+
+    public ValidacionContenidoService(ApplicationDbContext context)
+        => _context = context;
+
+    public async Task&lt;bool&gt; UpsertAsync(
+        TipoContenidoValidado tipo, int contenidoId,
+        string usuarioMedicoId, string? comentario)
+    {
+        var existente = await _context.ValidacionesContenidoProfesional
+            .FirstOrDefaultAsync(v =>
+                v.TipoContenido == tipo
+                &amp;&amp; v.ContenidoId == contenidoId
+                &amp;&amp; v.UsuarioMedicoId == usuarioMedicoId);
+
+        if (existente is null)
+        {
+            _context.ValidacionesContenidoProfesional.Add(new ValidacionContenidoProfesional
+            {
+                TipoContenido  = tipo,
+                ContenidoId    = contenidoId,
+                UsuarioMedicoId = usuarioMedicoId,
+                Comentario     = comentario,
+                Estado         = EstadoValidacion.Validado,
+                CreadoEn       = DateTime.UtcNow,
+                ActualizadoEn  = DateTime.UtcNow
+            });
+            await _context.SaveChangesAsync();
+            return true;   // creado
+        }
+
+        existente.Comentario    = comentario;
+        existente.ActualizadoEn = DateTime.UtcNow;
+        // NOTA: NO se resetea el Estado — si admin lo puso EnRevision, se respeta
+        await _context.SaveChangesAsync();
+        return false;  // actualizado
+    }
+
+    // ... ObtenerValidadoAsync, ObtenerDelMedicoAsync, CambiarEstadoAsync ...
+}
+</pre>
+
+<h2>3. ViewModel compartido: ValidacionContenidoPartialVm</h2>
+
+<pre>
+public class ValidacionContenidoPartialVm
+{
+    public TipoContenidoValidado TipoContenido { get; set; }
+    public int ContenidoId { get; set; }
+    // null si el médico aún no ha validado
+    public ValidacionContenidoProfesional? ValidacionExistente { get; set; }
+    // Texto del botón y del handler POST
+    public string HandlerPage { get; set; } = "";
+}
+</pre>
+
+<h2>4. Partial view compartido: _ValidacionContenidoMedico.cshtml</h2>
+
+<p>Archivo: <code>Pages/Shared/_ValidacionContenidoMedico.cshtml</code></p>
+<pre>
+@model ValidacionContenidoPartialVm
+
+@if (Model.ValidacionExistente is null)
+{
+    &lt;!-- Primera validación --&gt;
+    &lt;form method="post" asp-page-handler="ValidarContenido"&gt;
+        &lt;input type="hidden" name="tipoContenido" value="@((int)Model.TipoContenido)" /&gt;
+        &lt;input type="hidden" name="contenidoId"   value="@Model.ContenidoId" /&gt;
+        &lt;textarea name="comentario" class="form-control mb-2"
+                  placeholder="Nota interna (opcional)" maxlength="800"&gt;&lt;/textarea&gt;
+        &lt;button type="submit" class="btn btn-success btn-sm"&gt;
+            ✓ Validar mi perfil
+        &lt;/button&gt;
+    &lt;/form&gt;
+}
+else if (Model.ValidacionExistente.Estado == EstadoValidacion.Validado)
+{
+    &lt;!-- Ya validado — mostrar estado y opción de actualizar --&gt;
+    &lt;div class="alert alert-success py-2"&gt;
+        &lt;strong&gt;✓ Validado&lt;/strong&gt; — @Model.ValidacionExistente.ActualizadoEn.ToLocalTime().ToString("dd/MM/yyyy")
+    &lt;/div&gt;
+    &lt;form method="post" asp-page-handler="ValidarContenido"&gt;
+        &lt;input type="hidden" name="tipoContenido" value="@((int)Model.TipoContenido)" /&gt;
+        &lt;input type="hidden" name="contenidoId"   value="@Model.ContenidoId" /&gt;
+        &lt;textarea name="comentario" class="form-control mb-2" maxlength="800"
+            &gt;@Model.ValidacionExistente.Comentario&lt;/textarea&gt;
+        &lt;button type="submit" class="btn btn-outline-success btn-sm"&gt;Actualizar validación&lt;/button&gt;
+    &lt;/form&gt;
+}
+else
+{
+    &lt;div class="alert alert-warning py-2"&gt;
+        Validación en revisión por el equipo. Contacta a soporte si tienes dudas.
+    &lt;/div&gt;
+}
+</pre>
+
+<h2>5. Uso por página</h2>
+
+<table class="table table-bordered table-sm">
+  <thead class="table-dark">
+    <tr><th>Página que incluye el partial</th><th>TipoContenido</th><th>ContenidoId</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>Pages/Glosario/Termino.cshtml</code></td>
+      <td><code>Termino (1)</code></td>
+      <td><code>GlossaryTerm.Id</code></td>
+    </tr>
+    <tr>
+      <td><code>Pages/Contenidos/Detalle.cshtml</code></td>
+      <td><code>Articulo (2)</code></td>
+      <td><code>Contenido.Id</code></td>
+    </tr>
+    <tr>
+      <td><code>Areas/.../Manage/PerfilMedico.cshtml</code></td>
+      <td><code>PerfilMedico (3)</code></td>
+      <td><code>MedicoDirectorio.Id</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>El partial se incluye con <code>&lt;partial name="_ValidacionContenidoMedico" model="..." /&gt;</code>
+en cada página. El handler POST <code>OnPostValidarContenidoAsync</code> es idéntico en las tres páginas.</p>
+
+<div class="d-flex justify-content-between mt-4">
+  <a href="03-reglas-negocio.html" class="btn btn-outline-secondary btn-sm">&larr; 03 Reglas</a>
+  <a href="05-admin-moderacion.html" class="btn btn-outline-primary btn-sm">05 Admin &rarr;</a>
+</div>
+
+</body>
+</html>

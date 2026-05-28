@@ -1,4 +1,4 @@
-﻿@page
+@page
 @model eiibd26.Areas.Identity.Pages.Usuario.DashboardModel
 
 @{
@@ -16,109 +16,42 @@
 
       gtag('config', 'AW-11417573828');
     </script>
+    <link rel="stylesheet" href="~/css/dashboard-paciente.css" asp-append-version="true" />
 }
 
-<style>
-    /* Estilos tomados y ajustados (sin negritas) para título y card principal */
-    .conte-page {
-        padding-top: 16px;
-        padding-bottom: 24px;
-    }
-
-    /* LEGACY — se-page-title migrado a eii-page-title 2026-05 */
-
-    .se-header {
-        /* background: #fff;
-        border: 1px solid #eef2f7; */
-        /* border-radius: 8px;
-        padding: 18px;
-        box-sizing: border-box;
-        margin-bottom: 12px;
-        font-weight: 400; */
-    }
-
-    .dashboard-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 16px;
-    }
-
-    @@media (min-width: 900px) {
-        .dashboard-grid {
-            grid-template-columns: 1fr 1fr;
-        }
-    }
-</style>
-
-<main class="conte-page" style="overflow-x: hidden;">
+<main>
     <div class="container py-4">
-        <!-- Título centrado -->
         <h1 class="eii-page-title">Mi Panel de Control</h1>
 
-        <!-- PWA Push Notifications Card -->
         @await Html.PartialAsync("_PushNotificationCard")
 
-        <!-- Card de notificaciones centrado -->
-        <div class="se-header">
-            @await Html.PartialAsync("_DashboardNotifications", Model.VM)
-        </div>
+        @await Html.PartialAsync("_DashboardNotifications", Model.VM)
 
-        <div class="dashboard-grid">
+        <div class="dash-grid">
             <div>
                 @await Html.PartialAsync("_DashboardColumn1", Model.VM)
             </div>
 
             <div>
-                <div class="card p-3">
+                <div class="eii-card eii-card--elevated">
                     @await Html.PartialAsync("_SintomasTop5Seguimiento", Model.VM)
                 </div>
             </div>
 
             <div>
-                <div class="card p-3">
-                    <div class="d-flex flex-wrap justify-content-between align-items-center">
+                <div class="eii-card eii-card--elevated">
+                    <div class="eii-card__header">
                         <div>
-                            <div class="dashboard-col1-title">Preguntas y Respuestas</div>
-                            <div class="small-muted" style="font-size:.9rem;">Se muestran registros  en orden con Mayor Votación.</div>
+                            <div class="eii-card__title">Preguntas y Respuestas</div>
+                            <div class="eii-text-sm eii-text-muted">Se muestran registros en orden con Mayor Votación.</div>
                         </div>
-                        <style>
-                            .circle-btn {
-                                width: 44px;
-                                height: 44px;
-                                border-radius: 50%;
-                                border: 1.5px solid #d4b8e6;
-                                background: #fff;
-                                color: #6a4e7a;
-                                display: flex;
-                                align-items: center;
-                                justify-content: center;
-                                font-size: 1.3rem;
-                                transition: background .15s, border-color .15s, box-shadow .15s;
-                                box-shadow: 0 1px 3px rgba(106,78,122,0.08);
-                                padding: 0;
-                            }
-                            .circle-btn:hover, .circle-btn:focus, .circle-btn:active {
-                                background: #f5eefb;
-                                border-color: #6a4e7a;
-                                color: #5a3d69;
-                                box-shadow: 0 2px 8px rgba(106,78,122,0.14);
-                            }
-                            .circle-btn i {
-                                color: #6a4e7a;
-                                font-size: 1.3rem;
-                                transition: color .15s;
-                            }
-                            .circle-btn:hover i, .circle-btn:focus i, .circle-btn:active i {
-                                color: #5a3d69;
-                            }
-                        </style>
-                        <div class="d-inline-flex align-items-center">
-                            <a class="circle-btn me-0" href="/Identity/Usuario/UusuarioPreguntaDetalle" title="Ver preguntas">
+                        <div class="d-inline-flex align-items-center gap-1">
+                            <a class="eii-btn eii-btn--primary eii-btn--icon eii-btn--circle" href="/Identity/Usuario/UusuarioPreguntaDetalle" title="Ver preguntas">
                                 <i class="bi bi-question"></i>
                             </a>
-                            <button id="btnModalPregunta" type="button" class="circle-btn ms-1"
+                            <button id="btnModalPregunta" type="button" class="eii-btn eii-btn--primary eii-btn--icon eii-btn--circle"
                                     data-bs-toggle="modal" data-bs-target="#preguntaModal" title="Agregar pregunta rápida">
-                                <i class="btn-icon alert-light bi bi-lightning"></i>
+                                <i class="bi bi-lightning"></i>
                             </button>
                         </div>
                     </div>
@@ -128,12 +61,12 @@
             </div>
 
             <div>
-                <div class="card p-3">
+                <div class="eii-card eii-card--elevated">
                     <div class="sintomas-top5">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
+                        <div class="eii-card__header">
                             <div>
-                                <div class="dashboard-col1-title">Resultados de laboratorio</div>
-                                <div class="small-muted" style="font-size:.9rem;">
+                                <div class="eii-card__title">Resultados de laboratorio</div>
+                                <div class="eii-text-sm eii-text-muted">
                                     @if (Model.VM.TotalLaboratorios > 0)
                                     {
                                         <span>@Model.VM.TotalLaboratorios resultado@(Model.VM.TotalLaboratorios == 1 ? "" : "s") registrado@(Model.VM.TotalLaboratorios == 1 ? "" : "s").</span>
@@ -144,7 +77,7 @@
                                     }
                                 </div>
                             </div>
-                            <a href="/Identity/Usuario/UsuarioLaboratorios" class="crm-btn crm-btn-primary btn-lg" title="Ver laboratorios">
+                            <a href="/Identity/Usuario/UsuarioLaboratorios" class="eii-btn eii-btn--primary eii-btn--icon eii-btn--circle" title="Ver laboratorios">
                                 <i class="bi bi-file-earmark-medical"></i>
                             </a>
                         </div>
@@ -163,7 +96,7 @@
                                     @if (!Model.VM.UltimosLaboratorios.Any())
                                     {
                                         <tr>
-                                            <td colspan="4" class="text-muted small" style="font-style:italic;">No hay resultados para mostrar.</td>
+                                            <td colspan="4" class="text-muted small fst-italic">No hay resultados para mostrar.</td>
                                         </tr>
                                     }
                                     else
@@ -171,14 +104,14 @@
                                         @foreach (var lab in Model.VM.UltimosLaboratorios)
                                         {
                                             <tr>
-                                                <td class="text-start sintoma-col">
-                                                    <span style="font-size:.9rem; color:#111827;">@lab.Estudio</span>
+                                                <td class="text-start sintoma-col eii-text-sm">
+                                                    @lab.Estudio
                                                     @if (!string.IsNullOrWhiteSpace(lab.Categoria) && lab.Categoria != lab.Estudio)
                                                     {
                                                         <br /><small class="text-muted">@lab.Categoria</small>
                                                     }
                                                 </td>
-                                                <td class="text-start date-col" style="font-size:.85rem;">
+                                                <td class="text-start date-col eii-text-sm">
                                                     @if (!string.IsNullOrWhiteSpace(lab.Resultado))
                                                     {
                                                         <strong>@lab.Resultado</strong>
@@ -189,10 +122,10 @@
                                                     }
                                                     else
                                                     {
-                                                        <span class="text-muted small" style="font-style:italic;">—</span>
+                                                        <span class="text-muted small fst-italic">—</span>
                                                     }
                                                 </td>
-                                                <td class="text-center date-col" style="font-size:.85rem;">
+                                                <td class="text-center date-col eii-text-sm">
                                                     @(lab.FechaResultado.HasValue ? lab.FechaResultado.Value.ToString("dd/MM/yy") : "—")
                                                 </td>
                                                 <td class="wrap-condiciones cond-col">
@@ -216,13 +149,11 @@
             </div>
 
             <div>
-                <div class="card p-3" id="cardResumenMedico">
-                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
+                <div class="eii-card eii-card--elevated" id="cardResumenMedico">
+                    <div class="eii-card__header">
                         <div>
-                            <div class="dashboard-col1-title">
-                                Mi Salud en un Vistazo
-                            </div>
-                            <div class="small-muted" style="font-size:.85rem;">Exporta tu historial médico en PDF para llevar a consulta.</div>
+                            <div class="eii-card__title">Mi Salud en un Vistazo</div>
+                            <div class="eii-text-sm eii-text-muted">Exporta tu historial médico en PDF para llevar a consulta.</div>
                         </div>
                     </div>
 
@@ -240,15 +171,15 @@
 
                     <hr class="my-2" />
 
-                    <div class="small-muted mb-1" style="font-size:.85rem;">Rango personalizado</div>
+                    <div class="eii-text-sm eii-text-muted mb-1">Rango personalizado</div>
                     <div class="d-flex flex-wrap align-items-center gap-2">
                         <input type="date" id="resumenDesde" class="form-control form-control-sm" style="max-width:150px;" />
-                        <span class="text-muted" style="font-size:.85rem;">al</span>
+                        <span class="eii-text-sm eii-text-muted">al</span>
                         <input type="date" id="resumenHasta" class="form-control form-control-sm" style="max-width:150px;" />
                         <button type="button" id="btnExportarPersonalizado" class="btn btn-sm btn-primary">
                             <i class="bi bi-file-earmark-pdf me-1"></i>Exportar
                         </button>
-                        <span id="resumenExportError" class="text-danger" style="font-size:.8rem;display:none;"></span>
+                        <span id="resumenExportError" class="text-danger eii-text-sm" style="display:none;"></span>
                     </div>
                 </div>
             </div>

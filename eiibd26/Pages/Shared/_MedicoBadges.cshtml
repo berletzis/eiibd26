@@ -1,32 +1,67 @@
 @model IEnumerable<eiibd26.Models.Medico.MedicoBadgeDto>
 
 @{
-    var todosBadges = new[]
+    // Clasificación: primarios (críticos para paciente) vs secundarios (complementarios)
+    var primaryCodes = new[] { "perfil_reclamado", "verificado", "activo_comunidad" };
+    var secondaryCodes = new[] { "participante_qa", "validador_contenido", "creador_contenido" };
+
+    var primaries = Model?.Where(b => primaryCodes.Contains(b.Codigo)).OrderBy(b => Array.IndexOf(primaryCodes, b.Codigo)).ToList() ?? new List<eiibd26.Models.Medico.MedicoBadgeDto>();
+    var secondaries = Model?.Where(b => secondaryCodes.Contains(b.Codigo)).OrderBy(b => Array.IndexOf(secondaryCodes, b.Codigo)).ToList() ?? new List<eiibd26.Models.Medico.MedicoBadgeDto>();
+
+    // Mapa de colores por badge (patrón outlined con fondo suave)
+    var badgeColors = new Dictionary<string, (string Primary, string BgSoft, string Border)>
     {
-        new { Clave = "perfil_reclamado",    Icono = "bi-shield-check",      Label = "Perfil Reclamado",    Color = "#4f46e5" },
-        new { Clave = "verificado",          Icono = "bi-patch-check-fill",  Label = "Verificado",          Color = "#0ea5e9" },
-        new { Clave = "activo_comunidad",    Icono = "bi-people-fill",       Label = "Activo en Comunidad", Color = "#22c55e" },
-        new { Clave = "participante_qa",     Icono = "bi-chat-dots-fill",    Label = "Participa en Q&A",    Color = "#f59e0b" },
-        new { Clave = "validador_contenido", Icono = "bi-check2-circle",     Label = "Valida Contenido",    Color = "#8b5cf6" },
-        new { Clave = "creador_contenido",   Icono = "bi-pencil-square",     Label = "Crea Contenido",      Color = "#ec4899" },
+        { "perfil_reclamado",    ("#6366f1", "#ede9fe", "#6366f1") },
+        { "verificado",          ("#0ea5e9", "#dbeafe", "#0ea5e9") },
+        { "activo_comunidad",    ("#16a34a", "#d1fae5", "#16a34a") },
+        { "participante_qa",     ("#f59e0b", "#fef3c7", "#f59e0b") },
+        { "validador_contenido", ("#8b5cf6", "#f3e8ff", "#8b5cf6") },
+        { "creador_contenido",   ("#ec4899", "#fce7f3", "#ec4899") }
     };
 
-    var clavesObtenidas = Model?.Where(b => b.Obtenido).Select(b => b.Codigo).ToHashSet() ?? new HashSet<string>();
+    // Estado: obtenido vs no-obtenido (greyed out)
+    string GetBadgeStyle(eiibd26.Models.Medico.MedicoBadgeDto badge)
+    {
+        if (badge.Obtenido && badgeColors.TryGetValue(badge.Codigo, out var colors))
+        {
+            return $"background:{colors.BgSoft};color:{colors.Primary};border-color:{colors.Border};";
+        }
+        return "background:#f9fafb;color:#9ca3af;border-color:#d1d5db;";
+    }
 }
 
-<div class="medico-badges-row d-flex flex-wrap gap-2">
-    @foreach (var badge in todosBadges)
-    {
-        var tiene = clavesObtenidas.Contains(badge.Clave);
-        var style = tiene
-            ? $"background:{badge.Color}20; border:1.5px solid {badge.Color}; color:{badge.Color};"
-            : "background:#f3f4f6; border:1.5px solid #d1d5db; color:#9ca3af;";
-        var title = tiene ? badge.Label : $"{badge.Label} (no obtenido)";
+@if (primaries.Any())
+{
+    <div class="medico-badges-primary d-flex flex-wrap gap-2 mb-2">
+        @foreach (var badge in primaries)
+        {
+            <span class="badge-medico-pill badge-primary @(badge.Obtenido ? "obtained" : "not-obtained")"
+                  data-badge-code="@badge.Codigo"
+                  style="@GetBadgeStyle(badge)"
+                  title="@badge.Descripcion"
+                  data-bs-toggle="tooltip"
+                  data-bs-placement="top">
+                <i class="bi @badge.Icono"></i>
+                <span class="badge-label d-none d-md-inline">@badge.Nombre</span>
+            </span>
+        }
+    </div>
+}
 
-        <span class="badge-medico-pill" style="@style" title="@title"
-              data-bs-toggle="tooltip" data-bs-placement="top">
-            <i class="bi @badge.Icono me-1"></i>
-            <span class="badge-label d-none d-md-inline">@badge.Label</span>
-        </span>
-    }
-</div>
+@if (secondaries.Any(b => b.Obtenido))
+{
+    <div class="medico-badges-secondary d-flex flex-wrap gap-2">
+        @foreach (var badge in secondaries.Where(b => b.Obtenido))
+        {
+            <span class="badge-medico-pill badge-secondary obtained"
+                  data-badge-code="@badge.Codigo"
+                  style="@GetBadgeStyle(badge)"
+                  title="@badge.Descripcion"
+                  data-bs-toggle="tooltip"
+                  data-bs-placement="top">
+                <i class="bi @badge.Icono"></i>
+                <span class="badge-label d-none d-md-inline">@badge.Nombre</span>
+            </span>
+        }
+    </div>
+}

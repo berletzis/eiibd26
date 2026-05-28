@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FASE 3: Propuesta de Simplificación — Badges Directorio</title>
+    <style>
+        :root {
+            --eii-primary: #6366f1;
+            --danger: #dc3545;
+            --warning: #f59e0b;
+            --success: #16a34a;
+            --info: #0ea5e9;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.6; color: #1f2937; background: #f9fafb; padding: 2rem; }
+        .container { max-width: 1200px; margin: 0 auto; background: #fff; padding: 3rem; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+        h1 { font-size: 2.5rem; color: var(--eii-primary); margin-bottom: 1rem; border-bottom: 3px solid var(--eii-primary); padding-bottom: 1rem; }
+        h2 { font-size: 1.8rem; color: #374151; margin: 2.5rem 0 1rem; padding-left: 1rem; border-left: 4px solid var(--eii-primary); }
+        h3 { font-size: 1.3rem; color: #4b5563; margin: 2rem 0 1rem; }
+        .meta { display: flex; gap: 2rem; margin: 1.5rem 0; padding: 1rem; background: #f3f4f6; border-radius: 8px; font-size: .9rem; color: #6b7280; }
+        .meta strong { color: #374151; }
+        .decision-card { background: #fff; border: 2px solid #e5e7eb; border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0; }
+        .decision-card.keep { border-color: var(--success); background: #f0fdf4; }
+        .decision-card.rename { border-color: var(--info); background: #eff6ff; }
+        .decision-card.remove { border-color: var(--danger); background: #fef2f2; }
+        .decision-card.demote { border-color: var(--warning); background: #fffbeb; }
+        .decision-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+        .decision-badge { padding: 4px 12px; border-radius: 6px; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+        .badge-keep { background: var(--success); color: #fff; }
+        .badge-rename { background: var(--info); color: #fff; }
+        .badge-remove { background: var(--danger); color: #fff; }
+        .badge-demote { background: var(--warning); color: #fff; }
+        .decision-title { font-size: 1.3rem; font-weight: 700; color: #374151; }
+        .decision-body { color: #4b5563; font-size: .95rem; line-height: 1.7; }
+        .decision-body strong { color: #1f2937; }
+        .rationale { background: #f9fafb; border-left: 3px solid #6b7280; padding: 1rem 1.25rem; margin: 1rem 0; border-radius: 4px; }
+        .rationale-title { font-weight: 600; color: #374151; margin-bottom: .5rem; }
+        .before-after { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin: 2rem 0; }
+        .before-after-col { background: #f9fafb; border: 2px solid #e5e7eb; border-radius: 12px; padding: 1.5rem; }
+        .before-after-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 1rem; padding-bottom: .75rem; border-bottom: 2px solid #e5e7eb; }
+        .before-after-title.before { color: var(--danger); }
+        .before-after-title.after { color: var(--success); }
+        .badge-list { list-style: none; margin: 0; padding: 0; }
+        .badge-list li { padding: .75rem 1rem; margin: .5rem 0; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; display: flex; align-items: center; gap: .75rem; }
+        .badge-list .badge-icon { font-size: 1.2rem; }
+        .badge-list .badge-name { font-weight: 600; color: #374151; }
+        .badge-list .badge-note { font-size: .8rem; color: #6b7280; margin-left: auto; font-style: italic; }
+        .badge-list li.removed { opacity: .5; text-decoration: line-through; background: #fef2f2; border-color: #fca5a5; }
+        .badge-list li.renamed { background: #eff6ff; border-color: #93c5fd; }
+        .badge-list li.demoted { background: #fffbeb; border-color: #fde68a; }
+        .alert { padding: 1rem 1.25rem; border-radius: 8px; margin: 1.5rem 0; border-left: 4px solid; }
+        .alert-success { background: #d1fae5; border-color: var(--success); color: #065f46; }
+        .alert-warning { background: #fef3cd; border-color: var(--warning); color: #854d0e; }
+        .alert-info { background: #e0f2ff; border-color: var(--info); color: #0c4a6e; }
+        code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: 'Consolas', monospace; font-size: .9rem; }
+        ul { margin: 1rem 0 1rem 2rem; }
+        li { margin: .5rem 0; }
+        table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; }
+        th { background: #f9fafb; color: #374151; text-align: left; padding: 12px; border-bottom: 2px solid #e5e7eb; font-weight: 600; font-size: .9rem; }
+        td { padding: 12px; border-bottom: 1px solid #e5e7eb; font-size: .9rem; }
+        tr:hover { background: #f9fafb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>FASE 3: Propuesta de Simplificación</h1>
+
+        <div class="meta">
+            <div><strong>Fecha:</strong> 2025-06-04</div>
+            <div><strong>Input:</strong> 10-mapeo-semantico.html</div>
+            <div><strong>Objetivo:</strong> Definir qué badges MANTENER, RENOMBRAR, FUSIONAR o ELIMINAR</div>
+        </div>
+
+        <div class="alert alert-success">
+            <strong>🎯 META DE SIMPLIFICACIÓN:</strong>
+            <ul style="margin-top:.5rem;">
+                <li>Reducir de <strong>9 badges duplicados</strong> a <strong>4 badges primarios</strong></li>
+                <li>Eliminar redundancia conceptual total</li>
+                <li>Mantener solo badges útiles para pacientes</li>
+                <li>Jerarquía clara: primarios (siempre visibles) vs secundarios (contextuales)</li>
+            </ul>
+        </div>
+
+        <h2>1. DECISIONES POR BADGE</h2>
+
+        <div class="decision-card keep">
+            <div class="decision-header">
+                <span class="decision-badge badge-keep">✅ MANTENER</span>
+                <div class="decision-title">Perfil Reclamado</div>
+            </div>
+            <div class="decision-body">
+                <p><strong>Código:</strong> <code>perfil_reclamado</code></p>
+                <p><strong>Función:</strong> Indica que el médico ha reclamado su perfil y tiene control sobre la información.</p>
+                <p><strong>Relevancia para paciente:</strong> Alta. El paciente sabe que la información (biografía, horarios, contacto) es directa del médico.</p>
+                <div class="rationale">
+                    <div class="rationale-title">Por qué mantener:</div>
+                    <ul>
+                        <li>Concepto único: <strong>ownership</strong> del perfil</li>
+                        <li>NO se solapa con ningún otro badge</li>
+                        <li>Información valiosa para pacientes</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="decision-card rename">
+            <div class="decision-header">
+                <span class="decision-badge badge-rename">✏️ RENOMBRAR</span>
+                <div class="decision-title">Verificado → Cédula Verificada</div>
+            </div>
+            <div class="decision-body">
+                <p><strong>Código:</strong> <code>verificado</code></p>
+                <p><strong>Nombre actual:</strong> "Verificado"</p>
+                <p><strong>Nombre propuesto:</strong> <strong>"Cédula Verificada"</strong></p>
+                <p><strong>Función:</strong> Indica validación administrativa de credenciales profesionales por parte de administradores.</p>
+                <div class="rationale">
+                    <div class="rationale-title">Por qué renombrar:</div>
+                    <ul>
+                        <li>"Verificado" es <strong>demasiado ambiguo</strong> (¿verificado qué? ¿email? ¿identidad? ¿cédula?)</li>
+                        <li>"Cédula Verificada" es <strong>específico y claro</strong></li>
+                        <li>Evita confusión con "Perfil Reclamado" o "Validado por Pacientes"</li>
+                        <li>Alinea semántica con validación administrativa real</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="decision-card rename">
+            <div class="decision-header">
+                <span class="decision-badge badge-rename">✏️ RENOMBRAR + FUSIONAR</span>
+                <div class="decision-title">Activo en Comunidad → Validado por Pacientes</div>
+            </div>
+            <div class="decision-body">
+                <p><strong>Código:</strong> <code>activo_comunidad</code></p>
+                <p><strong>Nombre actual:</strong> "Activo en Comunidad"</p>
+                <p><strong>Nombre propuesto:</strong> <strong>"Validado por Pacientes"</strong></p>
+                <p><strong>Función:</strong> Indica que >= 5 pacientes han confirmado atención con este médico.</p>
+                <div class="rationale">
+                    <div class="rationale-title">Por qué renombrar y fusionar:</div>
+                    <ul>
+                        <li>"Activo en Comunidad" es <strong>ambiguo</strong> (¿activo en redes? ¿en foros? ¿en Q&A?)</li>
+                        <li>Actualmente duplicado con "Validado por la comunidad" (Sistema 2)</li>
+                        <li>"Validado por Pacientes" es <strong>directo y honesto</strong></li>
+                        <li>Clarifica que es <strong>validación comunitaria</strong>, no administrativa</li>
+                        <li><strong>ACCIÓN:</strong> Renombrar en DB <code>MedicoBadge.Nombre</code> de "Activo en Comunidad" → "Validado por Pacientes"</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="decision-card remove">
+            <div class="decision-header">
+                <span class="decision-badge badge-remove">🗑️ ELIMINAR</span>
+                <div class="decision-title">"Médico verificado" (Sistema 2)</div>
+            </div>
+            <div class="decision-body">
+                <p><strong>Ubicación:</strong> <code>Detalle.cshtml</code> líneas 118-129</p>
+                <p><strong>Condición:</strong> <code>perfil_reclamado == obtenido</code></p>
+                <p><strong>Problema:</strong> Duplica "Perfil Reclamado" con nombre confuso.</p>
+                <div class="rationale">
+                    <div class="rationale-title">Por qué eliminar:</div>
+                    <ul>
+                        <li><strong>Redundancia total:</strong> usa la MISMA condición que "Perfil Reclamado"</li>
+                        <li><strong>Confusión semántica:</strong> "verificado" suena a validación administrativa (pero no lo es)</li>
+                        <li><strong>Duplicación innecesaria:</strong> el badge del Sistema 1 ya comunica esta información</li>
+                        <li><strong>ACCIÓN:</strong> Eliminar bloque completo de HTML (líneas 118-129)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="decision-card remove">
+            <div class="decision-header">
+                <span class="decision-badge badge-remove">🗑️ ELIMINAR</span>
+                <div class="decision-title">"Validado por la comunidad" (Sistema 2)</div>
+            </div>
+            <div class="decision-body">
+                <p><strong>Ubicación:</strong> <code>Detalle.cshtml</code> líneas 91-103</p>
+                <p><strong>Condición:</strong> <code>activo_comunidad == obtenido</code></p>
+                <p><strong>Problema:</strong> Duplica "Activo en Comunidad" del Sistema 1.</p>
+                <div class="rationale">
+                    <div class="rationale-title">Por qué eliminar:</div>
+                    <ul>
+                        <li><strong>Redundancia total:</strong> misma condición que badge del Sistema 1</li>
+                        <li><strong>Contador (X/3) inconsistente:</strong> umbral no coincide con lógica automática (5 confirmaciones)</li>
+                        <li><strong>Mezcla estado con meta:</strong> badge filled (obtenido) vs outlined con progreso (no obtenido)</li>
+                        <li><strong>ACCIÓN:</strong> Eliminar bloque completo (líneas 91-103)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="decision-card remove">
+            <div class="decision-header">
+                <span class="decision-badge badge-remove">🗑️ ELIMINAR</span>
+                <div class="decision-title">"Verificado" (Sistema 2 inline)</div>
+            </div>
+            <div class="decision-body">
+                <p><strong>Ubicación:</strong> <code>Detalle.cshtml</code> líneas 105-116</p>
+                <p><strong>Condición:</strong> <code>verificado == obtenido</code></p>
+                <p><strong>Problema:</strong> Duplica badge del Sistema 1.</p>
+                <div class="rationale">
+                    <div class="rationale-title">Por qué eliminar:</div>
+                    <ul>
+                        <li><strong>Redundancia total:</strong> re-renderiza el mismo badge del Sistema 1</li>
+                        <li><strong>Estilos inconsistentes:</strong> Sistema 1 usa outlined, Sistema 2 usa filled</li>
+                        <li><strong>ACCIÓN:</strong> Eliminar bloque completo (líneas 105-116)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="decision-card demote">
+            <div class="decision-header">
+                <span class="decision-badge badge-demote">⬇️ SECUNDARIOS</span>
+                <div class="decision-title">Badges de Contribución (Q&A, Valida, Crea)</div>
+            </div>
+            <div class="decision-body">
+                <p><strong>Badges:</strong></p>
+                <ul>
+                    <li><code>participante_qa</code> — Participa en Q&A</li>
+                    <li><code>validador_contenido</code> — Valida Contenido</li>
+                    <li><code>creador_contenido</code> — Crea Contenido</li>
+                </ul>
+                <p><strong>Decisión:</strong> Mantener en catálogo DB, pero <strong>reducir prominencia visual</strong> en detalle público.</p>
+                <div class="rationale">
+                    <div class="rationale-title">Por qué demotar (NO eliminar):</div>
+                    <ul>
+                        <li><strong>Relevancia baja para pacientes:</strong> buscan médicos por especialidad y reputación clínica, NO por participación en Q&A</li>
+                        <li><strong>Valor para médicos:</strong> sí tienen valor en dashboard privado del médico (motivación, gamificación)</li>
+                        <li><strong>Solución:</strong> Mostrar estos badges con <strong>menor tamaño</strong>, <strong>menor saturación</strong>, al final de la lista</li>
+                        <li><strong>ACCIÓN:</strong> Mantener en <code>_MedicoBadges.cshtml</code> pero agregar clase CSS <code>.badge-secondary</code> para reducir peso visual</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <h2>2. COMPARACIÓN ANTES / DESPUÉS</h2>
+
+        <div class="before-after">
+            <div class="before-after-col">
+                <div class="before-after-title before">❌ ANTES (9 badges, 3 duplicados)</div>
+                <ul class="badge-list">
+                    <li>
+                        <span class="badge-icon">🔰</span>
+                        <span class="badge-name">Perfil Reclamado</span>
+                        <span class="badge-note">Sistema 1</span>
+                    </li>
+                    <li class="removed">
+                        <span class="badge-icon">✅</span>
+                        <span class="badge-name">Médico verificado</span>
+                        <span class="badge-note">Sistema 2 - DUPLICADO</span>
+                    </li>
+                    <li class="renamed">
+                        <span class="badge-icon">✓</span>
+                        <span class="badge-name">Verificado</span>
+                        <span class="badge-note">Sistema 1 - RENOMBRAR</span>
+                    </li>
+                    <li class="removed">
+                        <span class="badge-icon">✓</span>
+                        <span class="badge-name">Verificado</span>
+                        <span class="badge-note">Sistema 2 - DUPLICADO</span>
+                    </li>
+                    <li class="renamed">
+                        <span class="badge-icon">👥</span>
+                        <span class="badge-name">Activo en Comunidad</span>
+                        <span class="badge-note">Sistema 1 - RENOMBRAR</span>
+                    </li>
+                    <li class="removed">
+                        <span class="badge-icon">👥</span>
+                        <span class="badge-name">Validado por la comunidad</span>
+                        <span class="badge-note">Sistema 2 - DUPLICADO</span>
+                    </li>
+                    <li class="demoted">
+                        <span class="badge-icon">💬</span>
+                        <span class="badge-name">Participa en Q&A</span>
+                        <span class="badge-note">SECUNDARIO</span>
+                    </li>
+                    <li class="demoted">
+                        <span class="badge-icon">✅</span>
+                        <span class="badge-name">Valida Contenido</span>
+                        <span class="badge-note">SECUNDARIO</span>
+                    </li>
+                    <li class="demoted">
+                        <span class="badge-icon">✍️</span>
+                        <span class="badge-name">Crea Contenido</span>
+                        <span class="badge-note">SECUNDARIO</span>
+                    </li>
+                </ul>
+            </div>
+            <div class="before-after-col">
+                <div class="before-after-title after">✅ DESPUÉS (4 primarios + 3 secundarios)</div>
+                <ul class="badge-list">
+                    <li style="background:#f0fdf4;border-color:#86efac;">
+                        <span class="badge-icon">🔰</span>
+                        <span class="badge-name">Perfil Reclamado</span>
+                        <span class="badge-note">PRIMARIO</span>
+                    </li>
+                    <li style="background:#eff6ff;border-color:#93c5fd;">
+                        <span class="badge-icon">✓</span>
+                        <span class="badge-name">Cédula Verificada</span>
+                        <span class="badge-note">PRIMARIO (renombrado)</span>
+                    </li>
+                    <li style="background:#eff6ff;border-color:#93c5fd;">
+                        <span class="badge-icon">👥</span>
+                        <span class="badge-name">Validado por Pacientes</span>
+                        <span class="badge-note">PRIMARIO (renombrado)</span>
+                    </li>
+                    <li style="background:#fffbeb;border-color:#fde68a;opacity:.7;">
+                        <span class="badge-icon" style="font-size:1rem;">💬</span>
+                        <span class="badge-name" style="font-size:.85rem;">Participa en Q&A</span>
+                        <span class="badge-note">SECUNDARIO</span>
+                    </li>
+                    <li style="background:#fffbeb;border-color:#fde68a;opacity:.7;">
+                        <span class="badge-icon" style="font-size:1rem;">✅</span>
+                        <span class="badge-name" style="font-size:.85rem;">Valida Contenido</span>
+                        <span class="badge-note">SECUNDARIO</span>
+                    </li>
+                    <li style="background:#fffbeb;border-color:#fde68a;opacity:.7;">
+                        <span class="badge-icon" style="font-size:1rem;">✍️</span>
+                        <span class="badge-name" style="font-size:.85rem;">Crea Contenido</span>
+                        <span class="badge-note">SECUNDARIO</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <h2>3. RESUMEN DE ACCIONES</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Acción</th>
+                    <th>Badge / Elemento</th>
+                    <th>Archivo</th>
+                    <th>Tipo de Cambio</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>RENOMBRAR (DB)</strong></td>
+                    <td>"Verificado" → "Cédula Verificada"</td>
+                    <td><code>MedicoBadge</code> tabla (UPDATE SQL)</td>
+                    <td>DB Update</td>
+                </tr>
+                <tr>
+                    <td><strong>RENOMBRAR (DB)</strong></td>
+                    <td>"Activo en Comunidad" → "Validado por Pacientes"</td>
+                    <td><code>MedicoBadge</code> tabla (UPDATE SQL)</td>
+                    <td>DB Update</td>
+                </tr>
+                <tr>
+                    <td><strong>ELIMINAR (Razor)</strong></td>
+                    <td>"Médico verificado" (Sistema 2)</td>
+                    <td><code>Detalle.cshtml</code> líneas 118-129</td>
+                    <td>Eliminar bloque HTML</td>
+                </tr>
+                <tr>
+                    <td><strong>ELIMINAR (Razor)</strong></td>
+                    <td>"Validado por la comunidad" (Sistema 2)</td>
+                    <td><code>Detalle.cshtml</code> líneas 91-103</td>
+                    <td>Eliminar bloque HTML</td>
+                </tr>
+                <tr>
+                    <td><strong>ELIMINAR (Razor)</strong></td>
+                    <td>"Verificado" (Sistema 2 inline)</td>
+                    <td><code>Detalle.cshtml</code> líneas 105-116</td>
+                    <td>Eliminar bloque HTML</td>
+                </tr>
+                <tr>
+                    <td><strong>DEMOTAR (CSS)</strong></td>
+                    <td>Badges de contribución</td>
+                    <td><code>_MedicoBadges.cshtml</code></td>
+                    <td>Agregar clase <code>.badge-secondary</code></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="alert alert-warning">
+            <strong>⚠️ IMPORTANTE:</strong> NO eliminar badges del catálogo DB <code>MedicoBadge</code>. Solo:
+            <ul style="margin-top:.5rem;">
+                <li>✅ Renombrar 2 badges (UPDATE SQL)</li>
+                <li>✅ Eliminar duplicados inline del Sistema 2 (Razor)</li>
+                <li>✅ Reducir prominencia visual de secundarios (CSS)</li>
+            </ul>
+        </div>
+
+        <h2>4. SCRIPTS SQL PARA RENOMBRAR BADGES</h2>
+
+        <div style="background:#1f2937;color:#f3f4f6;padding:1.5rem;border-radius:8px;margin:1.5rem 0;font-family:'Consolas',monospace;font-size:.9rem;">
+<pre style="margin:0;">-- Renombrar "Verificado" → "Cédula Verificada"
+UPDATE MedicoBadge
+SET Nombre = 'Cédula Verificada'
+WHERE Codigo = 'verificado';
+
+-- Renombrar "Activo en Comunidad" → "Validado por Pacientes"
+UPDATE MedicoBadge
+SET Nombre = 'Validado por Pacientes'
+WHERE Codigo = 'activo_comunidad';</pre>
+        </div>
+
+        <div class="alert alert-info">
+            <strong>🎯 PRÓXIMO PASO:</strong> FASE 4 — Jerarquía Visual. Definir estilos, tamaños, saturación y orden de presentación para badges primarios vs secundarios.
+        </div>
+
+    </div>
+</body>
+</html>

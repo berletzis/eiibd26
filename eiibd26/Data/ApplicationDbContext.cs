@@ -93,8 +93,12 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<eiibd26.Models.Medico.MedicoPerfilExtendido> MedicosPerfilExtendido { get; set; }
     public DbSet<eiibd26.Models.Medico.MedicoBadge> MedicosBadge { get; set; }
     public DbSet<eiibd26.Models.Medico.MedicoPerfilBadge> MedicosPerfilBadge { get; set; }
+    public DbSet<eiibd26.Models.Medico.MedicoBadgeHistorial> MedicosBadgeHistorial { get; set; }
     public DbSet<eiibd26.Models.Medico.MedicoReclamacionToken> MedicosReclamacionToken { get; set; }
     public DbSet<eiibd26.Models.Medico.MedicoAreaEii> MedicoAreasEii { get; set; }
+
+    // Validaciones de contenido por profesionales médicos
+    public DbSet<eiibd26.Models.Validacion.ValidacionContenidoProfesional> ValidacionesContenidoProfesional { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -431,6 +435,19 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
              .OnDelete(DeleteBehavior.Cascade);
         });
 
+        builder.Entity<eiibd26.Models.Validacion.ValidacionContenidoProfesional>(b =>
+        {
+            b.ToTable("ValidacionesContenidoProfesional");
+            b.HasKey(v => v.Id);
+            b.HasIndex(v => new { v.TipoContenido, v.ContenidoId, v.UsuarioMedicoId })
+             .IsUnique()
+             .HasDatabaseName("IX_VCP_Unique_TipoContenidoId_Medico");
+            b.HasIndex(v => v.UsuarioMedicoId)
+             .HasDatabaseName("IX_VCP_UsuarioMedicoId");
+            b.HasIndex(v => new { v.TipoContenido, v.ContenidoId })
+             .HasDatabaseName("IX_VCP_TipoContenido_ContenidoId");
+        });
+
         // LaboratoryType — catálogo jerárquico
         builder.Entity<LaboratoryType>(b =>
         {
@@ -710,6 +727,23 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
              .WithMany(b2 => b2.PerfilesBadges)
              .HasForeignKey(x => x.BadgeId)
              .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<eiibd26.Models.Medico.MedicoBadgeHistorial>(b =>
+        {
+            b.ToTable("MedicoBadgeHistorial");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Evento).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Actor).HasMaxLength(200);
+            b.Property(x => x.Motivo).HasMaxLength(500);
+            b.HasOne(x => x.Medico)
+             .WithMany()
+             .HasForeignKey(x => x.MedicoId)
+             .OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Badge)
+             .WithMany()
+             .HasForeignKey(x => x.BadgeId)
+             .OnDelete(DeleteBehavior.NoAction);
         });
 
         builder.Entity<eiibd26.Models.Medico.MedicoReclamacionToken>(b =>

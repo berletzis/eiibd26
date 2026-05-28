@@ -32,6 +32,10 @@ public class DashboardModel : PageModel
     public List<RecomendacionDashboardVm> Recomendaciones { get; set; } = new();
     public string QaUrl { get; set; } = "/Preguntas/Index";
 
+    // Perfil huérfano: existe en directorio con AspNetUserId pero MedicoPerfilExtendido.MedicoId es NULL
+    public int? PerfilHuerfanoId { get; set; }
+    public string? PerfilHuerfanoNombre { get; set; }
+
     private Guid GetUserId() =>
         Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
@@ -50,6 +54,23 @@ public class DashboardModel : PageModel
             TienePerfilVinculado = perfil.MedicoId.HasValue;
             MedicoDirectorioId   = perfil.MedicoId;
             NombreMedico         = perfil.Medico?.NombreCompleto;
+
+            // Si NO tiene vínculo, buscar si existe un perfil huérfano en el directorio
+            if (!perfil.MedicoId.HasValue)
+            {
+                var perfilHuerfano = await _db.MedicosDirectorio
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(m =>
+                        m.AspNetUserId == userId &&
+                        m.EstatusReclamacion == eiibd26.Models.Directorio.Enums.EstatusReclamacion.Reclamado &&
+                        !m.Eliminado);
+
+                if (perfilHuerfano is not null)
+                {
+                    PerfilHuerfanoId = perfilHuerfano.Id;
+                    PerfilHuerfanoNombre = perfilHuerfano.NombreCompleto;
+                }
+            }
 
             if (perfil.MedicoId.HasValue)
             {
@@ -119,6 +140,46 @@ public class DashboardModel : PageModel
         }
 
         return Page();
+    }
+
+    public async Task<IActionResult> OnPostRevincularPerfilAsync()
+    {
+        var userId = GetUserId();
+
+        // Buscar perfil extendido del usuario
+        var perfil = await _db.MedicosPerfilExtendido
+            .FirstOrDefaultAsync(p => p.UserId == userId);
+
+        if (perfil is null)
+        {
+            TempData["Error"] = "No se encontró tu perfil extendido. Contacta al soporte.";
+            return RedirectToPage();
+        }
+
+        // Buscar perfil huérfano en el directorio
+        var perfilHuerfano = await _db.MedicosDirectorio
+            .FirstOrDefaultAsync(m =>
+                m.AspNetUserId == userId &&
+                m.EstatusReclamacion == eiibd26.Models.Directorio.Enums.EstatusReclamacion.Reclamado &&
+                !m.Eliminado);
+
+        if (perfilHuerfano is null)
+        {
+            TempData["Error"] = "No se encontró un perfil del directorio asociado a tu cuenta.";
+            return RedirectToPage();
+        }
+
+        // Restaurar vínculo
+        perfil.MedicoId = perfilHuerfano.Id;
+        perfil.FechaModificado = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "Perfil re-vinculado automáticamente: UserId={UserId}, MedicoId={MedicoId}, Nombre={Nombre}",
+            userId, perfilHuerfano.Id, perfilHuerfano.NombreCompleto);
+
+        TempData["Success"] = $"Tu perfil '{perfilHuerfano.NombreCompleto}' fue re-vinculado exitosamente.";
+        return RedirectToPage();
     }
 
     public async Task<IActionResult> OnPostSolicitarContenidoAsync(string tituloSolicitud)

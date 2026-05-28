@@ -523,15 +523,40 @@
             });
         }
 
-        // ── Foto preview ──
+        // ── Foto preview + auto-upload ──
         function previewMedicoAvatar(input) {
-            if (input.files && input.files[0]) {
-                var r = new FileReader();
-                r.onload = function (e) {
-                    document.getElementById('medico-avatar-preview').src = e.target.result;
-                };
-                r.readAsDataURL(input.files[0]);
-            }
+            if (!input.files || !input.files[0]) return;
+            var file = input.files[0];
+
+            // Mostrar preview local inmediatamente
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                document.getElementById('medico-avatar-preview').src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+
+            // Subir al servidor sin esperar "Guardar"
+            var fd = new FormData();
+            fd.append('fotoFile', file);
+            var token = document.querySelector('input[name="__RequestVerificationToken"]');
+            if (token) fd.append('__RequestVerificationToken', token.value);
+
+            fetch('?handler=SubirFoto', { method: 'POST', body: fd })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.success && data.url) {
+                        var url = data.url + '?v=' + Date.now();
+                        document.getElementById('medico-avatar-preview').src = url;
+                        // Actualizar miniaturas del top-menu en la misma pestaña
+                        document.querySelectorAll('img').forEach(function (img) {
+                            var s = img.getAttribute('src') || '';
+                            if (s.indexOf('default-avatar') !== -1 || s.indexOf('/uploads/medicos/') !== -1) {
+                                img.src = url;
+                            }
+                        });
+                    }
+                })
+                .catch(function (err) { console.error('Error al subir foto:', err); });
         }
     </script>
     <script src="~/js/usuario-perfil.js" asp-append-version="true"></script>

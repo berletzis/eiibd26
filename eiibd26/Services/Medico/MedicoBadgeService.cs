@@ -86,11 +86,19 @@ public class MedicoBadgeService : IMedicoBadgeService
             FechaObtenido = DateTime.UtcNow,
             OtorgadoPor   = otorgadoPor
         });
+        _db.MedicosBadgeHistorial.Add(new MedicoBadgeHistorial
+        {
+            MedicoId    = medicoId,
+            BadgeId     = badge.Id,
+            Evento      = "otorgado",
+            Actor       = otorgadoPor,
+            FechaEvento = DateTime.UtcNow
+        });
         await _db.SaveChangesAsync();
         return true;
     }
 
-    public async Task<bool> RevocarBadgeAsync(int medicoId, string codigo)
+    public async Task<bool> RevocarBadgeAsync(int medicoId, string codigo, string revocadoPor = "admin", string? motivo = null)
     {
         var badge = await _db.MedicosBadge.AsNoTracking()
             .FirstOrDefaultAsync(b => b.Codigo == codigo);
@@ -101,16 +109,28 @@ public class MedicoBadgeService : IMedicoBadgeService
         if (entry is null) return false;
 
         _db.MedicosPerfilBadge.Remove(entry);
+        _db.MedicosBadgeHistorial.Add(new MedicoBadgeHistorial
+        {
+            MedicoId    = medicoId,
+            BadgeId     = badge.Id,
+            Evento      = "revocado",
+            Actor       = revocadoPor,
+            Motivo      = motivo,
+            FechaEvento = DateTime.UtcNow
+        });
         await _db.SaveChangesAsync();
         return true;
     }
 
     public async Task EvaluarBadgesAutomaticosAsync(int medicoId)
     {
-        // perfil_reclamado: MedicoPerfilExtendido con UserId != null
+        // perfil_reclamado: MedicoPerfilExtendido con UserId vinculado
+        // y EstatusReclamacion == Reclamado (D-05: evitar badge fantasma en claims rechazados/pendientes)
         var tienePerfilVinculado = await _db.MedicosPerfilExtendido
             .AnyAsync(p => p.MedicoId == medicoId && p.UserId != null);
-        if (tienePerfilVinculado)
+        var claimAprobado = await _db.MedicosDirectorio
+            .AnyAsync(m => m.Id == medicoId && m.EstatusReclamacion == eiibd26.Models.Directorio.Enums.EstatusReclamacion.Reclamado);
+        if (tienePerfilVinculado && claimAprobado)
             await OtorgarBadgeAsync(medicoId, "perfil_reclamado", "sistema");
 
         // activo_comunidad: >= 5 confirmaciones de pacientes
@@ -156,5 +176,26 @@ public class MedicoBadgeService : IMedicoBadgeService
             "crear_contenido"          => nivel >= 6,
             _                          => false
         };
+    }
+
+    public async Task<List<MedicoBadgeHistorialDto>> GetHistorialAsync(int medicoId)
+    {
+        return await _db.MedicosBadgeHistorial
+            .AsNoTracking()
+            .Where(h => h.MedicoId == medicoId)
+            .Join(_db.MedicosBadge,
+                  h => h.BadgeId,
+                  b => b.Id,
+                  (h, b) => new MedicoBadgeHistorialDto
+                  {
+                      BadgeCodigo = b.Codigo,
+                      BadgeNombre = b.Nombre,
+                      Evento      = h.Evento,
+                      Actor       = h.Actor,
+                      Motivo      = h.Motivo,
+                      FechaEvento = h.FechaEvento
+                  })
+            .OrderByDescending(h => h.FechaEvento)
+            .ToListAsync();
     }
 }
