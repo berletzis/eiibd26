@@ -30,6 +30,7 @@ public class MedicoCardVm
     public string? Estado { get; set; }
     public string? Ciudad { get; set; }
     public string? HospitalClinica { get; set; }
+    public string? FotoUrl { get; set; }
     public NivelConfianzaEnum NivelConfianza { get; set; }
     public string NivelConfianzaLabel => NivelConfianza switch
     {

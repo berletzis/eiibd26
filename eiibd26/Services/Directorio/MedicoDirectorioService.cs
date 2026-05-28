@@ -81,6 +81,10 @@ public class MedicoDirectorioService : IMedicoDirectorioService
                 m.HospitalClinica,
                 m.NivelConfianza,
                 m.EstatusValidacion,
+                FotoUrl = _db.MedicosPerfilExtendido
+                    .Where(p => p.MedicoId == m.Id)
+                    .Select(p => p.Foto)
+                    .FirstOrDefault(),
                 AreasExperiencia = m.AreasExperiencia
                     .Select(ae => ae.AreaExperienciaEii.Nombre)
                     .ToList()
@@ -101,6 +105,7 @@ public class MedicoDirectorioService : IMedicoDirectorioService
                 HospitalClinica      = m.HospitalClinica,
                 NivelConfianza       = m.NivelConfianza,
                 EstatusValidacion    = m.EstatusValidacion,
+                FotoUrl              = m.FotoUrl,
                 TotalConfirmaciones  = conf?.Total ?? 0,
                 TotalPacientesUnicos = conf?.PacientesUnicos ?? 0,
                 AreasExperiencia     = m.AreasExperiencia
