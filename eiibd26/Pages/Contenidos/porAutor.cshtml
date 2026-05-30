@@ -1,0 +1,76 @@
+@page "/contenidos/porAutor/{slug}"
+@model eiibd26.Pages.Contenidos.PorAutorModel
+@using System.Globalization
+@{
+    ViewData["Title"] = $"Artículos de {Model.AutorNombre}";
+    var totalPages = Model.PageSize > 0 ? (int)Math.Ceiling((double)Model.TotalCount / Model.PageSize) : 1;
+    var avatarSrc = !string.IsNullOrWhiteSpace(Model.AutorAvatar) ? Model.AutorAvatar : Url.Content("~/img/avatar-placeholder.png");
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/contenidos-cards.css" asp-append-version="true" />
+    <style>
+        .autor-items-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            align-items: start;
+        }
+        @@media (max-width: 991.98px) { .autor-items-grid { grid-template-columns: repeat(2, 1fr); } }
+        @@media (max-width: 575.98px) { .autor-items-grid { grid-template-columns: 1fr; } }
+    </style>
+}
+
+<main class="container py-4" role="main" aria-label="Artículos por autor">
+
+    <div class="eii-card mb-4 p-3 d-flex align-items-center gap-3">
+        <img src="@avatarSrc"
+             alt="@Model.AutorNombre"
+             width="56" height="56"
+             style="border-radius:50%; object-fit:cover; flex-shrink:0;"
+             onerror="this.onerror=null;this.src='@Url.Content("~/img/avatar-placeholder.png")'" />
+        <div>
+            <h1 class="eii-page-title mb-0">Artículos de @Model.AutorNombre</h1>
+            <span class="eii-text-sm" style="color:var(--eii-text-disabled);">
+                @Model.TotalCount artículo@(Model.TotalCount == 1 ? "" : "s") publicado@(Model.TotalCount == 1 ? "" : "s")
+            </span>
+        </div>
+    </div>
+
+    @if (Model.Items == null || !Model.Items.Any())
+    {
+        <div class="eii-card text-center py-4">
+            <p class="mb-0" style="color:var(--eii-text-soft);">Este autor aún no tiene artículos publicados.</p>
+        </div>
+    }
+    else
+    {
+        <div class="autor-items-grid">
+            @await Html.PartialAsync("~/Pages/Shared/_BlogItems.cshtml", Model.Items)
+        </div>
+
+        @if (totalPages > 1)
+        {
+            <nav class="eii-pagination" aria-label="Paginación de artículos">
+                <div class="eii-pagination__bar">
+                    @for (int p = 1; p <= totalPages; p++)
+                    {
+                        if (p == Model.PageNumber)
+                        {
+                            <span class="eii-pagination__num is-active" aria-current="page">@p</span>
+                        }
+                        else
+                        {
+                            <a class="eii-pagination__num" href="/contenidos/porAutor/@Model.AutorSlug?pageNumber=@p">@p</a>
+                        }
+                    }
+                </div>
+            </nav>
+        }
+    }
+
+</main>
+
+@section Scripts {
+    <script src="~/js/content-meta-loader.js" asp-append-version="true"></script>
+}
