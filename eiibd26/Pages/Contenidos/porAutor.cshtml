@@ -3,7 +3,6 @@
 @using System.Globalization
 @{
     ViewData["Title"] = $"Artículos de {Model.AutorNombre}";
-    var totalPages = Model.PageSize > 0 ? (int)Math.Ceiling((double)Model.TotalCount / Model.PageSize) : 1;
     var avatarSrc = !string.IsNullOrWhiteSpace(Model.AutorAvatar) ? Model.AutorAvatar : Url.Content("~/img/avatar-placeholder.png");
 }
 
@@ -49,28 +48,52 @@
             @await Html.PartialAsync("~/Pages/Shared/_BlogItems.cshtml", Model.Items)
         </div>
 
-        @if (totalPages > 1)
-        {
-            <nav class="eii-pagination" aria-label="Paginación de artículos">
-                <div class="eii-pagination__bar">
-                    @for (int p = 1; p <= totalPages; p++)
-                    {
-                        if (p == Model.PageNumber)
-                        {
-                            <span class="eii-pagination__num is-active" aria-current="page">@p</span>
-                        }
-                        else
-                        {
-                            <a class="eii-pagination__num" href="/contenidos/porAutor/@Model.AutorSlug?pageNumber=@p">@p</a>
-                        }
-                    }
-                </div>
-            </nav>
-        }
+        <div class="load-more-wrap text-center mt-4" id="loadMoreWrap"
+             style="display:@(Model.TotalCount > (Model.Items?.Count ?? 0) ? "block" : "none")">
+            <button id="loadMoreBtn" class="eii-btn eii-btn--primary"
+                    data-pagesize="@Model.PageSize" data-total="@Model.TotalCount">
+                Cargar más
+            </button>
+        </div>
     }
 
 </main>
 
 @section Scripts {
     <script src="~/js/content-meta-loader.js" asp-append-version="true"></script>
+    <script>
+    (function () {
+        var page = 1;
+        var pageSize = @Model.PageSize;
+        var total = @Model.TotalCount;
+        var btn = document.getElementById('loadMoreBtn');
+        var container = document.querySelector('.autor-items-grid');
+        if (!btn || !container) return;
+        btn.addEventListener('click', function () {
+            page++;
+            var url = '?handler=Items&slug=@Model.AutorSlug&pageNumber=' + page + '&pageSize=' + pageSize;
+            btn.disabled = true; btn.textContent = 'Cargando…';
+            fetch(url, { credentials: 'same-origin' })
+                .then(function (r) {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    var totalHeader = r.headers.get('X-Total-Count');
+                    var serverTotal = totalHeader ? parseInt(totalHeader, 10) : NaN;
+                    return r.text().then(function (html) { return { html: html, serverTotal: serverTotal }; });
+                })
+                .then(function (result) {
+                    var temp = document.createElement('div');
+                    temp.innerHTML = result.html;
+                    Array.prototype.forEach.call(temp.children, function (c) { container.appendChild(c); });
+                    var effectiveTotal = isNaN(result.serverTotal) ? total : result.serverTotal;
+                    if (page * pageSize >= effectiveTotal) btn.style.display = 'none';
+                })
+                .catch(function (e) { console.error('Error cargando más artículos:', e); })
+                .finally(function () {
+                    if (btn.style.display !== 'none') {
+                        btn.disabled = false; btn.textContent = 'Cargar más';
+                    }
+                });
+        });
+    })();
+    </script>
 }
