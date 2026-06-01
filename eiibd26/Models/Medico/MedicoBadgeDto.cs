@@ -11,6 +11,8 @@ public class MedicoBadgeDto
     public int Nivel { get; set; }
     public bool Obtenido { get; set; }
     public DateTime? FechaObtenido { get; set; }
+    public bool EnRevision { get; set; }
+    public string? RevisionMotivo { get; set; }
 }
 
 public class MedicoBadgeHistorialDto

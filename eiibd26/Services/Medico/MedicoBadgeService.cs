@@ -29,15 +29,17 @@ public class MedicoBadgeService : IMedicoBadgeService
             var ganado = ganados.FirstOrDefault(g => g.BadgeId == b.Id);
             return new MedicoBadgeDto
             {
-                Id            = b.Id,
-                Codigo        = b.Codigo,
-                Nombre        = b.Nombre,
-                Descripcion   = b.Descripcion,
-                ComoObtenerlo = b.ComoObtenerlo,
-                Icono         = b.Icono,
-                Nivel         = b.Nivel,
-                Obtenido      = ganado != null,
-                FechaObtenido = ganado?.FechaObtenido
+                Id             = b.Id,
+                Codigo         = b.Codigo,
+                Nombre         = b.Nombre,
+                Descripcion    = b.Descripcion,
+                ComoObtenerlo  = b.ComoObtenerlo,
+                Icono          = b.Icono,
+                Nivel          = b.Nivel,
+                Obtenido       = ganado != null,
+                FechaObtenido  = ganado?.FechaObtenido,
+                EnRevision     = ganado?.EnRevision ?? false,
+                RevisionMotivo = ganado?.RevisionMotivo
             };
         }).ToList();
     }
@@ -50,15 +52,17 @@ public class MedicoBadgeService : IMedicoBadgeService
             .Join(_db.MedicosBadge, pb => pb.BadgeId, b => b.Id,
                 (pb, b) => new MedicoBadgeDto
                 {
-                    Id            = b.Id,
-                    Codigo        = b.Codigo,
-                    Nombre        = b.Nombre,
-                    Descripcion   = b.Descripcion,
-                    ComoObtenerlo = b.ComoObtenerlo,
-                    Icono         = b.Icono,
-                    Nivel         = b.Nivel,
-                    Obtenido      = true,
-                    FechaObtenido = pb.FechaObtenido
+                    Id             = b.Id,
+                    Codigo         = b.Codigo,
+                    Nombre         = b.Nombre,
+                    Descripcion    = b.Descripcion,
+                    ComoObtenerlo  = b.ComoObtenerlo,
+                    Icono          = b.Icono,
+                    Nivel          = b.Nivel,
+                    Obtenido       = true,
+                    FechaObtenido  = pb.FechaObtenido,
+                    EnRevision     = pb.EnRevision,
+                    RevisionMotivo = pb.RevisionMotivo
                 })
             .OrderBy(d => d.Nivel)
             .ToListAsync();
@@ -116,6 +120,33 @@ public class MedicoBadgeService : IMedicoBadgeService
             BadgeId     = badge.Id,
             Evento      = "revocado",
             Actor       = revocadoPor,
+            Motivo      = motivo,
+            FechaEvento = DateTime.UtcNow
+        });
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> MarcarEnRevisionAsync(int medicoId, string codigo, bool enRevision, string actor, string? motivo = null)
+    {
+        var badge = await _db.MedicosBadge.AsNoTracking().FirstOrDefaultAsync(b => b.Codigo == codigo);
+        if (badge is null) return false;
+
+        var entry = await _db.MedicosPerfilBadge
+            .FirstOrDefaultAsync(pb => pb.MedicoId == medicoId && pb.BadgeId == badge.Id);
+        if (entry is null) return false;
+
+        entry.EnRevision     = enRevision;
+        entry.RevisionMotivo = enRevision ? motivo : null;
+        entry.RevisionPor    = enRevision ? actor  : null;
+        entry.FechaRevision  = enRevision ? DateTime.UtcNow : null;
+
+        _db.MedicosBadgeHistorial.Add(new MedicoBadgeHistorial
+        {
+            MedicoId    = medicoId,
+            BadgeId     = badge.Id,
+            Evento      = enRevision ? "en_revision" : "revision_quitada",
+            Actor       = actor,
             Motivo      = motivo,
             FechaEvento = DateTime.UtcNow
         });
