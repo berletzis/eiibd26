@@ -50,7 +50,7 @@
             @if (mostrarRevision && badge.Obtenido && badge.EnRevision)
             {
                 <i class="bi bi-hourglass-split text-warning"
-                   title="En revisión@(string.IsNullOrEmpty(badge.RevisionMotivo) ? "" : ": " + badge.RevisionMotivo)"
+                   title="En revisión"
                    style="font-size:.85rem;align-self:center;"></i>
             }
         }
@@ -74,9 +74,28 @@
             @if (mostrarRevision && badge.Obtenido && badge.EnRevision)
             {
                 <i class="bi bi-hourglass-split text-warning"
-                   title="En revisión@(string.IsNullOrEmpty(badge.RevisionMotivo) ? "" : ": " + badge.RevisionMotivo)"
+                   title="En revisión"
                    style="font-size:.85rem;align-self:center;"></i>
             }
         }
     </div>
+}
+
+@if (mostrarRevision)
+{
+    var enRevisionConMotivo = (Model ?? Enumerable.Empty<eiibd26.Models.Medico.MedicoBadgeDto>())
+        .Where(b => b.Obtenido && b.EnRevision && !string.IsNullOrWhiteSpace(b.RevisionMotivo))
+        .ToList();
+    if (enRevisionConMotivo.Any())
+    {
+        <div class="medico-badges-revision mt-2">
+            @foreach (var b in enRevisionConMotivo)
+            {
+                <p class="badge-revision-motivo mb-1">
+                    <i class="bi bi-hourglass-split text-warning me-1"></i>
+                    <strong>@b.Nombre:</strong> @b.RevisionMotivo
+                </p>
+            }
+        </div>
+    }
 }
