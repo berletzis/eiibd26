@@ -288,11 +288,13 @@
             : '<small class="text-muted">Sin confirmaciones aún.</small>';
 
         const badgesHtml = (d.badges || []).map(b => {
+            const revStyle    = b.obtenido && b.enRevision ? 'background:#fffbeb;border-left:3px solid #f59e0b;padding-left:6px;' : '';
+            const revBadge    = (b.obtenido && b.enRevision) ? ` <i class="bi bi-hourglass-split text-warning" title="En revisión${b.revisionMotivo ? ': ' + esc(b.revisionMotivo) : ''}"></i>` : '';
             const obtenidoHtml = b.obtenido
-                ? `<span class="badge bg-success-subtle text-success border">&#10003; ${esc(b.fechaObtenido || '')} &mdash; ${esc(b.otorgadoPor || '')}</span>`
+                ? `<span class="badge bg-success-subtle text-success border">&#10003; ${esc(b.fechaObtenido || '')} &mdash; ${esc(b.otorgadoPor || '')}</span>${revBadge}`
                 : '<span class="text-muted small">Pendiente</span>';
             if (b.codigo === 'verificado') {
-                return `<div class="d-flex align-items-center gap-2 py-1 border-bottom">
+                return `<div class="d-flex align-items-center gap-2 py-1 border-bottom" style="${revStyle}">
                     <i class="${esc(b.icono)}" style="font-size:1rem;color:${b.obtenido ? '#6a4e7a' : '#9ca3af'};width:18px;"></i>
                     <span style="font-size:.82rem;flex:1;">${esc(b.nombre)}</span>
                     ${obtenidoHtml}
@@ -301,14 +303,29 @@
             }
             const btnsHtml = b.esManual
                 ? (b.obtenido
-                    ? `<button class="btn btn-sm btn-outline-danger ms-auto" onclick="revocarBadge(${d.id},'${esc(b.codigo)}')">Revocar</button>`
-                    : `<button class="btn btn-sm btn-outline-primary ms-auto" onclick="otorgarBadge(${d.id},'${esc(b.codigo)}')">Otorgar</button>`)
+                    ? `<button class="btn btn-sm btn-outline-danger ms-auto" style="font-size:.75rem;" onclick="revocarBadge(${d.id},'${esc(b.codigo)}')">Revocar</button>`
+                    : `<button class="btn btn-sm btn-outline-primary ms-auto" style="font-size:.75rem;" onclick="otorgarBadge(${d.id},'${esc(b.codigo)}')">Otorgar</button>`)
                 : `<small class="text-muted ms-auto" style="font-size:.74rem;">Automático</small>`;
-            return `<div class="d-flex align-items-center gap-2 py-1 border-bottom">
-                <i class="${esc(b.icono)}" style="font-size:1rem;color:${b.obtenido ? '#6a4e7a' : '#9ca3af'};width:18px;"></i>
+            const revCtrl = b.obtenido
+                ? (b.enRevision
+                    ? `<button class="btn btn-sm btn-outline-success py-0" style="font-size:.74rem;" title="Quitar revisión"
+                           onclick="marcarRevisionBadge(${d.id},'${esc(b.codigo)}',false,'')"><i class="bi bi-check-circle"></i></button>`
+                    : `<button class="btn btn-sm btn-outline-warning py-0" style="font-size:.74rem;" title="Marcar en revisión"
+                           onclick="mostrarMotivoBadge('${esc(b.codigo)}')"><i class="bi bi-hourglass-split"></i></button>
+                       <div id="badge-motivo-${esc(b.codigo)}" class="d-none w-100 mt-1 ms-4">
+                         <div class="input-group input-group-sm">
+                           <input type="text" class="form-control" id="badge-motivo-input-${esc(b.codigo)}" placeholder="Motivo (opcional)" style="font-size:.76rem;">
+                           <button class="btn btn-warning" style="font-size:.76rem;" onclick="confirmarRevisionBadge(${d.id},'${esc(b.codigo)}')">Confirmar</button>
+                           <button class="btn btn-outline-secondary" style="font-size:.76rem;" onclick="cancelarMotivoBadge('${esc(b.codigo)}')">✕</button>
+                         </div>
+                       </div>`)
+                : '';
+            return `<div class="d-flex flex-wrap align-items-center gap-2 py-1 border-bottom" style="${revStyle}">
+                <i class="${esc(b.icono)}" style="font-size:1rem;color:${b.obtenido ? '#6a4e7a' : '#9ca3af'};width:18px;flex-shrink:0;"></i>
                 <span style="font-size:.82rem;flex:1;">${esc(b.nombre)}</span>
                 ${obtenidoHtml}
                 ${btnsHtml}
+                ${revCtrl}
             </div>`;
         }).join('');
 
@@ -496,6 +513,23 @@ ${(d.validacionesContenido || []).length > 0
         const r = await postJson('@Url.Page(null, "RevocarBadge")', { medicoId, codigo });
         if (r.success) abrirEditar(medicoId);
         else alert('Error al revocar badge.');
+    }
+
+    async function marcarRevisionBadge(medicoId, codigo, enRevision, motivo) {
+        const r = await postJson('@Url.Page(null, "MarcarRevisionBadge")', { medicoId, codigo, enRevision, motivo });
+        if (r.success) abrirEditar(medicoId);
+        else alert('Error al cambiar estado de revisión.');
+    }
+    function mostrarMotivoBadge(codigo) {
+        document.getElementById(`badge-motivo-${codigo}`)?.classList.remove('d-none');
+    }
+    function cancelarMotivoBadge(codigo) {
+        const el = document.getElementById(`badge-motivo-${codigo}`);
+        if (el) { el.classList.add('d-none'); const inp = document.getElementById(`badge-motivo-input-${codigo}`); if (inp) inp.value = ''; }
+    }
+    async function confirmarRevisionBadge(medicoId, codigo) {
+        const motivo = document.getElementById(`badge-motivo-input-${codigo}`)?.value || '';
+        await marcarRevisionBadge(medicoId, codigo, true, motivo);
     }
 
     async function evaluarBadges(medicoId) {

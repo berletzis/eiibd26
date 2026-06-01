@@ -177,21 +177,23 @@ public class IndexModel : PageModel
 
         var ganadosIds = await _db.MedicosPerfilBadge.AsNoTracking()
             .Where(pb => pb.MedicoId == id)
-            .Select(pb => new { pb.BadgeId, pb.FechaObtenido, pb.OtorgadoPor })
+            .Select(pb => new { pb.BadgeId, pb.FechaObtenido, pb.OtorgadoPor, pb.EnRevision, pb.RevisionMotivo })
             .ToListAsync();
 
         var badgesData = catalogo.Select(b => {
             var ganado = ganadosIds.FirstOrDefault(g => g.BadgeId == b.Id);
             return new {
-                id           = b.Id,
-                codigo       = b.Codigo,
-                nombre       = b.Nombre,
-                nivel        = b.Nivel,
-                icono        = b.Icono,
-                obtenido     = ganado != null,
-                fechaObtenido = ganado?.FechaObtenido.ToString("dd/MM/yyyy"),
-                otorgadoPor  = ganado?.OtorgadoPor,
-                esManual     = b.Codigo == "creador_contenido"  // FIX BUG-3: "verificado" se controla desde cédula, no desde badges
+                id             = b.Id,
+                codigo         = b.Codigo,
+                nombre         = b.Nombre,
+                nivel          = b.Nivel,
+                icono          = b.Icono,
+                obtenido       = ganado != null,
+                fechaObtenido  = ganado?.FechaObtenido.ToString("dd/MM/yyyy"),
+                otorgadoPor    = ganado?.OtorgadoPor,
+                esManual       = b.Codigo == "creador_contenido",  // FIX BUG-3: "verificado" se controla desde cédula
+                enRevision     = ganado?.EnRevision ?? false,
+                revisionMotivo = ganado?.RevisionMotivo
             };
         }).ToList();
 
@@ -403,6 +405,14 @@ public class IndexModel : PageModel
     {
         // D-04: delegar al servicio (registra trazabilidad en historial)
         var result = await _badgeService.RevocarBadgeAsync(medicoId, codigo, "admin");
+        return new JsonResult(new { success = result });
+    }
+
+    public async Task<IActionResult> OnPostMarcarRevisionBadgeAsync(int medicoId, string? codigo, bool enRevision, string? motivo)
+    {
+        if (string.IsNullOrWhiteSpace(codigo))
+            return new JsonResult(new { success = false, message = "Código de badge requerido." });
+        var result = await _badgeService.MarcarEnRevisionAsync(medicoId, codigo, enRevision, "admin", motivo);
         return new JsonResult(new { success = result });
     }
 
