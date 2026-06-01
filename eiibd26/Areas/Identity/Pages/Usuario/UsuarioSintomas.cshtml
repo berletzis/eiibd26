@@ -1,4 +1,4 @@
-﻿@page
+@page
 @model eiibd26.Areas.Identity.Pages.Usuario.UsuarioSintomasModel
 @{
     ViewData["Title"] = "Mis síntomas";
@@ -8,21 +8,21 @@
     <h1 class="eii-page-title">Mis síntomas</h1>
     <div class="qp-wrapper-flex">
 
-        <div class="crm-card">
-            <label for="sintomaBuscar" class="crm-label">
+        <div class="eii-card">
+            <label for="sintomaBuscar" class="eii-label">
                 Busca y agregar el Sintoma que tienes o recuerdes haber tenido.
             </label>
-        <form id="agregarSintomaForm" autocomplete="off" class="crm-form-row" onsubmit="return false;">
-            <div class="crm-search-group crm-col-8">
- 
-                <div class="crm-search-horizontal">
-                        <input id="sintomaBuscar" type="text" class="crm-input" placeholder="Ej: Dolor de cabeza, Tos..." autocomplete="off" />
-                        <button id="btnAgregarSintoma" class="crm-btn crm-btn-primary" type="button">
+        <form id="agregarSintomaForm" autocomplete="off" class="d-flex flex-wrap gap-3" onsubmit="return false;">
+            <div class="position-relative w-100 col-8">
+
+                <div class="d-flex flex-row align-items-end gap-3">
+                        <input id="sintomaBuscar" type="text" class="eii-input" placeholder="Ej: Dolor de cabeza, Tos..." autocomplete="off" />
+                        <button id="btnAgregarSintoma" class="eii-btn eii-btn--primary eii-btn--icon eii-btn--circle" type="button">
                             <i class="bi bi-zoom-in"></i>
                     </button>
                 </div>
                 <input id="sintomaIdSeleccionado" type="hidden" />
-                <ul id="sintomaSugerencias" class="crm-list-suggest"></ul>
+                <ul id="sintomaSugerencias" class="eii-autocomplete__dropdown"></ul>
             </div>
         </form>
     </div>
@@ -34,26 +34,26 @@
             <div class="condiciones-cards" aria-label="Condiciones">
     @if (Model.MisSintomas.Any())
     {
-        <div class="crm-card-row">
+        <div class="eii-grid eii-grid--cards">
             @foreach (var sint in Model.MisSintomas)
             {
                 var ultimoTracking = sint.UltimoTracking;
-                <div class="crm-card-condicion">
-                    <div class="crm-card-inner">
-                        <div class="crm-card-header">
-                            <span class="crm-card-title">
+                <div class="d-flex flex-column h-100">
+                    <div class="eii-card eii-card--elevated">
+                        <div class="eii-card__header">
+                            <span class="eii-card__title">
                                 @sint.Nombre
                             </span>
                             <div class="d-flex gap-1 align-items-center">
                                 <button type="button"
-                                        class="btn-star-sintoma crm-btn"
+                                        class="btn-star-sintoma eii-btn eii-btn--neutral"
                                         style="border:none;background:transparent;font-size:1.15rem;padding:0 4px;line-height:1;"
                                         data-id="@sint.Id"
                                         data-principal="@sint.EsPrincipal.ToString().ToLower()"
                                         title="@(sint.EsPrincipal ? "Quitar como síntoma principal" : "Marcar como síntoma principal")">
                                     @(sint.EsPrincipal ? "⭐" : "☆")
                                 </button>
-                                <button type="button" class="crm-btn crm-btn-delete btn-eliminar-sintoma"
+                                <button type="button" class="eii-btn eii-btn--neutral btn-eliminar-sintoma"
                                         style="border:none;background:#f3f5f8;box-shadow:none;"
                                         data-id="@sint.Id"
                                         data-nombre="@sint.Nombre"
@@ -64,57 +64,57 @@
                                 </button>
                             </div>
                         </div>
-                        <div class="crm-card-fecha">
-                                <span class="crm-card-label">
+                        <div class="d-flex flex-column gap-1">
+                                <span class="eii-card__label">
                                     <i class="bi bi-calendar2-date"></i>
                                     Fecha de Inicio del Sintoma
                                 </span>
                             <form method="post" class="form-editar-fecha" data-id="@sint.Id" asp-page-handler="EditarFechaInicio">
-                                <div class="crm-input-group" style="column-gap:3px;">
+                                <div class="d-flex align-items-center flex-wrap" style="column-gap:3px;">
                                     <input type="hidden" name="sintId" value="@sint.Id" />
                                     <input type="date"
-                                           class="crm-input-date fecha-inicio"
+                                           class="eii-input fecha-inicio"
                                            style="width:150px; min-width:140px; max-width:170px;"
                                            name="nuevaFechaInicio"
                                            value="@sint.FechaInicio.ToString("yyyy-MM-dd")"
                                            disabled />
                                     <button type="button"
-                                            class="crm-btn crm-btn-secondary btn-editar-fecha"
+                                            class="eii-btn eii-btn--ghost eii-btn--sm btn-editar-fecha"
                                             style="border:none;"
                                             title="Editar fecha de inicio">
                                    Editar
                                     </button>
                                     <button type="submit"
-                                            class="crm-btn crm-btn-success d-none btn-guardar-fecha"
+                                            class="eii-btn eii-btn--primary eii-btn--sm d-none btn-guardar-fecha"
                                             style="border:none;"
                                             title="Guardar nueva fecha">
                                Guardar
                                     </button>
                                     <button type="button"
-                                            class="crm-btn crm-btn-cancel d-none btn-cancelar-fecha"
+                                            class="eii-btn eii-btn--ghost eii-btn--sm d-none btn-cancelar-fecha"
                                             style="border:none;"
                                             title="Cancelar edición de fecha">
                                             Cancelar
                                     </button>
-        
+
                                 </div>
                             </form>
                         </div>
-                        <div class="crm-card-section mb-2">
-                            <div class="crm-card-subtitle">
+                        <div class="mt-2 mb-2">
+                            <div class="eii-card__subtitle">
                                 Condiciones
-                                <button type="button" class="crm-btn crm-btn-secondary open-modal-cond ms-1" style="padding:0 8px;" data-sintid="@sint.Id" title="Asociar condiciones">
+                                <button type="button" class="eii-btn eii-btn--ghost eii-btn--sm open-modal-cond ms-1" style="padding:0 8px;" data-sintid="@sint.Id" title="Asociar condiciones">
                                     <i class="bi bi-plus-circle"></i>
                                 </button>
                             </div>
-                            <div class="crm-card-badges mt-2" id="cond-list-@sint.Id">
+                            <div class="mt-3" id="cond-list-@sint.Id">
                                 @if (sint.Condiciones.Any())
                                 {
                                     @foreach (var cond in sint.Condiciones)
                                     {
-                                        <a href="#" class="crm-badge crm-badge-label bg-info mb-1 d-inline-flex align-items-center">
+                                        <a href="#" class="eii-badge eii-card__label bg-info mb-1 d-inline-flex align-items-center">
                                             @cond.Nombre
-                                            <button type="button" class="crm-btn btn-sm btn-link p-0 ms-1 badge-cond-del" style="color:red; border:none;" data-condid="@cond.Id" data-sintid="@sint.Id" title="Quitar condición">
+                                            <button type="button" class="eii-btn eii-btn--neutral btn-sm btn-link p-0 ms-1 badge-cond-del" style="color:red; border:none;" data-condid="@cond.Id" data-sintid="@sint.Id" title="Quitar condición">
                                                 <i class="bi bi-x-circle"></i>
                                             </button>
                                         </a>
@@ -126,21 +126,21 @@
                                 }
                             </div>
                         </div>
-                        <div class="crm-card-section mb-2">
-                            <div class="crm-card-subtitle">
+                        <div class="mt-2 mb-2">
+                            <div class="eii-card__subtitle">
                                 Tratamientos
-                                <button type="button" class="crm-btn crm-btn-secondary open-modal-trat ms-1" style="padding:0 8px;" data-sintid="@sint.Id" title="Asociar tratamientos">
+                                <button type="button" class="eii-btn eii-btn--ghost eii-btn--sm open-modal-trat ms-1" style="padding:0 8px;" data-sintid="@sint.Id" title="Asociar tratamientos">
                                     <i class="bi bi-plus-circle"></i>
                                 </button>
                             </div>
-                            <div class="crm-card-badges mt-2" id="trat-list-@sint.Id">
+                            <div class="mt-3" id="trat-list-@sint.Id">
                                 @if (sint.Tratamientos.Any())
                                 {
                                     @foreach (var trat in sint.Tratamientos)
                                     {
-                                        <a href="#" class="crm-badge crm-badge-label bg-success text-white mb-1 d-inline-flex align-items-center">
+                                        <a href="#" class="eii-badge eii-card__label bg-success text-white mb-1 d-inline-flex align-items-center">
                                             @trat.Nombre
-                                            <button type="button" class="crm-btn btn-sm btn-link p-0 ms-1 badge-trat-del" style="color:red; border:none;" data-tratid="@trat.Id" data-sintid="@sint.Id" title="Quitar tratamiento">
+                                            <button type="button" class="eii-btn eii-btn--neutral btn-sm btn-link p-0 ms-1 badge-trat-del" style="color:red; border:none;" data-tratid="@trat.Id" data-sintid="@sint.Id" title="Quitar tratamiento">
                                                 <i class="bi bi-x-circle"></i>
                                             </button>
                                         </a>
@@ -152,9 +152,9 @@
                                 }
                             </div>
                         </div>
-                        <div class="crm-card-section">
-                            <div class="crm-card-subtitle">Seguimiento</div>
-                            <div class="crm-seguimiento-value">
+                        <div class="mt-2">
+                            <div class="eii-card__subtitle">Seguimiento</div>
+                            <div class="eii-text-muted eii-text-xs">
                                 @if (ultimoTracking != null)
                                 {
                                     <span>@(ultimoTracking.Estado) (@ultimoTracking.Fecha.ToString("dd/MM/yyyy"))</span>
@@ -169,17 +169,17 @@
                                 var sintTendTxt = sintTrend?.Tendencia ?? "Sin datos suficientes";
                                 var (sintDotClass, sintTextClass, sintTendShort) = sintTendTxt switch
                                 {
-                                    "Empeorando" => ("tendencia-empeorando", "text-empeorando", "Empeorando"),
-                                    "Mejorando"  => ("tendencia-mejorando",  "text-mejorando",  "Mejorando"),
-                                    "Estable"    => ("tendencia-estable",    "text-estable",    "Estable"),
-                                    _            => ("tendencia-sin",        "text-sin",        "Sin datos")
+                                    "Empeorando" => ("track-trend-dot--empeorando", "track-trend-label--empeorando", "Empeorando"),
+                                    "Mejorando"  => ("track-trend-dot--mejorando",  "track-trend-label--mejorando",  "Mejorando"),
+                                    "Estable"    => ("track-trend-dot--estable",    "track-trend-label--estable",    "Estable"),
+                                    _            => ("track-trend-dot--sin",        "track-trend-label--sin",        "Sin datos")
                                 };
                             }
-                            <div class="crm-tendencia-block" title="Basado en la evolución del síntoma durante el período (no solo el último día)">
-                                <span class="crm-tendencia-title">Tendencia</span>
-                                <span class="tendencia-cell">
-                                    <span class="tendencia-dot @sintDotClass"></span>
-                                    <strong class="tendencia-label @sintTextClass">@sintTendShort</strong>
+                            <div class="track-trend-block" title="Basado en la evolución del síntoma durante el período (no solo el último día)">
+                                <span class="track-trend-title">Tendencia</span>
+                                <span class="track-trend-cell">
+                                    <span class="track-trend-dot @sintDotClass"></span>
+                                    <strong class="track-trend-label @sintTextClass">@sintTendShort</strong>
                                 </span>
                             </div>
                             <button type="button" class="btn-track-sintoma"
@@ -197,8 +197,8 @@
     }
     else
     {
-        <div class="crm-card mb-2">
-            <div class="fw-light text-muted crm-empty">
+        <div class="eii-card mb-2">
+            <div class="fw-light text-muted eii-text-disabled py-2">
                 Aún no has agregado ningún síntoma.
             </div>
         </div>
@@ -292,7 +292,7 @@
             const { sintomaUsuarioId, estado } = ev.detail;
             const btnTrack = document.querySelector('.btn-track-sintoma[data-id="' + sintomaUsuarioId + '"]');
             if (btnTrack) {
-                const segEl = btnTrack.closest('.crm-card-inner')?.querySelector('.crm-seguimiento-value');
+                const segEl = btnTrack.closest('.eii-card--elevated')?.querySelector('.eii-text-muted.eii-text-xs');
                 if (segEl) {
                     const hoy = new Date();
                     const fecha = hoy.getDate().toString().padStart(2,'0') + '/'
@@ -324,7 +324,7 @@
             let datos = await resp.json();
             datos.forEach(item => {
                 let li = document.createElement('li');
-                li.className = 'crm-list-item list-group-item';
+                li.className = 'eii-autocomplete__item';
                 li.innerText = item.nombre;
                 li.onclick = function () {
                     document.getElementById('sintomaBuscar').value = item.nombre;
@@ -458,7 +458,7 @@
                     e.preventDefault();
                     let sintid = document.getElementById('modalCondSintId').value;
                     let condidsChecked = Array.from(document.querySelectorAll('#cond-list-modal input[type=checkbox]:checked')).map(x => x.value);
-                    let badges = document.querySelectorAll(`#cond-list-${sintid} .crm-badge`);
+                    let badges = document.querySelectorAll('#cond-list-' + sintid + ' .eii-badge');
                     let yaRelacionadas = Array.from(badges).map(b => b.childNodes[0].textContent.trim());
                     let todosCondIds = Array.from(new Set([...yaRelacionadas, ...condidsChecked]));
                     let formData = new FormData();
@@ -477,7 +477,7 @@
                     if (condicionesUsuario.length === 0) {
                         html = `<div class="alert alert-info"><i class="bi bi-exclamation-circle"></i>Debes agregar primero alguna condición en la sección "Condiciones".</div>`;
                     } else {
-                        let badges = document.querySelectorAll("#cond-list-" + sintid + " .crm-badge");
+                        let badges = document.querySelectorAll("#cond-list-" + sintid + " .eii-badge");
                         let seleccionadas = Array.from(badges).map(b => b.querySelector('.badge-cond-del')?.dataset.condid).filter(Boolean);
                         condicionesUsuario.forEach(c => {
                             let checked = seleccionadas.includes(String(c.Id)) ? 'checked' : '';
@@ -514,7 +514,7 @@
                     e.preventDefault();
                     let sintid = document.getElementById('modalTratSintId').value;
                     let tratidsChecked = Array.from(document.querySelectorAll('#trat-list-modal input[type=checkbox]:checked')).map(x => x.value);
-                    let badges = document.querySelectorAll(`#trat-list-${sintid} .crm-badge`);
+                    let badges = document.querySelectorAll('#trat-list-' + sintid + ' .eii-badge');
                     let yaRelacionadas = Array.from(badges).map(b => b.childNodes[0].textContent.trim());
                     let todosTratIds = Array.from(new Set([...yaRelacionadas, ...tratidsChecked]));
                     let formData = new FormData();
@@ -533,7 +533,7 @@
                     if (tratamientosUsuario.length === 0) {
                         html = `<div class="alert alert-info"><i class="bi bi-exclamation-circle"></i>Debes agregar primero algún tratamiento en la sección "Tratamientos".</div>`;
                     } else {
-                        let badges = document.querySelectorAll("#trat-list-" + sintid + " .crm-badge");
+                        let badges = document.querySelectorAll("#trat-list-" + sintid + " .eii-badge");
                         let seleccionadas = Array.from(badges).map(b => b.childNodes[0].textContent.trim());
                         tratamientosUsuario.forEach(t => {
                             let checked = seleccionadas.includes(t.Nombre) ? 'checked' : '';

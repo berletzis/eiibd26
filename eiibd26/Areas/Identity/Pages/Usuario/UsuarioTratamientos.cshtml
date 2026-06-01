@@ -1,4 +1,4 @@
-﻿@page
+@page
 @model eiibd26.Areas.Identity.Pages.Usuario.UsuarioTratamientosModel
 @{
     ViewData["Title"] = "Mis tratamientos";
@@ -7,21 +7,21 @@
 <div class="container py-4">
     <h1 class="eii-page-title">Mis tratamientos</h1>
     <div class="qp-wrapper-flex">
-    <div class="crm-card">
-            <label for="tratamientoBuscar" class="crm-label">
+    <div class="eii-card">
+            <label for="tratamientoBuscar" class="eii-label">
                 Busca y agregar el Tratamiento que te recetaron para tu Condicion o Sintoma.
             </label>
-        <form id="agregarTratamientoForm" autocomplete="off" class="crm-form-row" onsubmit="return false;">
-            <div class="crm-search-group crm-col-8">
-         
-                <div class="crm-search-horizontal">
-                    <input id="tratamientoBuscar" type="text" class="crm-input" placeholder="Ej: Amoxicilina, Ibuprofeno..." autocomplete="off" />
-                        <button id="btnAgregarTratamiento" class="crm-btn crm-btn-primary" type="button">
+        <form id="agregarTratamientoForm" autocomplete="off" class="d-flex flex-wrap gap-3" onsubmit="return false;">
+            <div class="position-relative w-100 col-8">
+
+                <div class="d-flex flex-row align-items-end gap-3">
+                    <input id="tratamientoBuscar" type="text" class="eii-input" placeholder="Ej: Amoxicilina, Ibuprofeno..." autocomplete="off" />
+                        <button id="btnAgregarTratamiento" class="eii-btn eii-btn--primary eii-btn--icon eii-btn--circle" type="button">
                             <i class="bi bi-zoom-in"></i>
                     </button>
                 </div>
                 <input id="tratamientoIdSeleccionado" type="hidden" />
-                <ul id="tratamientoSugerencias" class="crm-list-suggest"></ul>
+                <ul id="tratamientoSugerencias" class="eii-autocomplete__dropdown"></ul>
             </div>
         </form>
     </div>
@@ -33,26 +33,26 @@
     <div class="condiciones-cards" aria-label="Condiciones">
     @if (Model.MisTratamientos.Any())
     {
-        <div class="crm-card-row">
+        <div class="eii-grid eii-grid--cards">
             @foreach (var trat in Model.MisTratamientos)
             {
-                <div class="crm-card-condicion">
-                    <div class="crm-card-inner">
-                        <div class="crm-card-header">
-                            <span class="crm-card-title">
+                <div class="d-flex flex-column h-100">
+                    <div class="eii-card eii-card--elevated">
+                        <div class="eii-card__header">
+                            <span class="eii-card__title">
 
                                 @trat.Nombre
                             </span>
                             <div class="d-flex gap-1 align-items-center">
                                 <button type="button"
-                                        class="btn-star-trat crm-btn"
+                                        class="btn-star-trat eii-btn eii-btn--neutral"
                                         style="border:none;background:transparent;font-size:1.15rem;padding:0 4px;line-height:1;"
                                         data-id="@trat.Id"
                                         data-principal="@trat.EsPrincipal.ToString().ToLower()"
                                         title="@(trat.EsPrincipal ? "Quitar como tratamiento principal" : "Marcar como tratamiento principal")">
                                     @(trat.EsPrincipal ? "⭐" : "☆")
                                 </button>
-                                <button type="button" class="crm-btn crm-btn-delete btn-eliminar-trat"
+                                <button type="button" class="eii-btn eii-btn--neutral btn-eliminar-trat"
                                         style="border:none;background:#f3f5f8;box-shadow:none;"
                                         data-id="@trat.Id"
                                         data-nombre="@trat.Nombre"
@@ -63,34 +63,34 @@
                                 </button>
                             </div>
                         </div>
-                        <div class="crm-card-fecha">
-                                <span class="crm-card-label">
+                        <div class="d-flex flex-column gap-1">
+                                <span class="eii-card__label">
                                     <i class="bi bi-calendar2-date"></i>
                                     Fecha inicio del Tratamiento
                                 </span>
                             <form method="post" class="form-editar-fecha" data-id="@trat.Id" asp-page-handler="EditarFechaInicio">
-                                <div class="crm-input-group" style="column-gap:3px;">
-                                   
+                                <div class="d-flex align-items-center flex-wrap" style="column-gap:3px;">
+
                                     <input type="date"
-                                           class="crm-input-date fecha-inicio"
+                                           class="eii-input fecha-inicio"
                                            style="width:150px; min-width:140px; max-width:170px;"
                                            name="nuevaFechaInicio"
                                            value="@trat.FechaInicio.ToString("yyyy-MM-dd")"
                                            disabled />
                                     <button type="button"
-                                            class="crm-btn crm-btn-secondary btn-editar-fecha"
+                                            class="eii-btn eii-btn--ghost eii-btn--sm btn-editar-fecha"
                                             style="border:none;"
                                             title="Editar fecha de inicio">
                                        Editar
                                     </button>
                                     <button type="submit"
-                                            class="crm-btn crm-btn-success d-none btn-guardar-fecha"
+                                            class="eii-btn eii-btn--primary eii-btn--sm d-none btn-guardar-fecha"
                                             style="border:none;"
                                             title="Guardar nueva fecha">
                                   Guardar
                                     </button>
                                     <button type="button"
-                                            class="crm-btn crm-btn-cancel d-none btn-cancelar-fecha"
+                                            class="eii-btn eii-btn--ghost eii-btn--sm d-none btn-cancelar-fecha"
                                             style="border:none;"
                                             title="Cancelar edición de fecha">
                                     Cancelar
@@ -99,33 +99,33 @@
                                 </div>
                             </form>
                         </div>
-                        <div class="crm-card-fecha">
-                            <span class="crm-card-label">
+                        <div class="d-flex flex-column gap-1">
+                            <span class="eii-card__label">
                                 <i class="bi bi-calendar2-date"></i>
                                 Fecha fin del Tratamiento
                             </span>
                             <form method="post" class="form-editar-fecha-fin" data-id="@trat.Id" asp-page-handler="EditarFechaFin">
-                                <div class="crm-input-group" style="column-gap:3px;">
+                                <div class="d-flex align-items-center flex-wrap" style="column-gap:3px;">
                                     <input type="date"
-                                           class="crm-input-date fecha-fin"
+                                           class="eii-input fecha-fin"
                                            style="width:150px; min-width:140px; max-width:170px;"
                                            name="nuevaFechaFin"
                                            value="@(trat.FechaFin.HasValue ? trat.FechaFin.Value.ToString("yyyy-MM-dd") : "")"
                                            disabled />
                                     <button type="button"
-                                            class="crm-btn crm-btn-secondary btn-editar-fecha-fin"
+                                            class="eii-btn eii-btn--ghost eii-btn--sm btn-editar-fecha-fin"
                                             style="border:none;"
                                             title="Editar fecha de fin">
                                         Editar
                                     </button>
                                     <button type="submit"
-                                            class="crm-btn crm-btn-success d-none btn-guardar-fecha-fin"
+                                            class="eii-btn eii-btn--primary eii-btn--sm d-none btn-guardar-fecha-fin"
                                             style="border:none;"
                                             title="Guardar nueva fecha fin">
                                         Guardar
                                     </button>
                                     <button type="button"
-                                            class="crm-btn crm-btn-cancel d-none btn-cancelar-fecha-fin"
+                                            class="eii-btn eii-btn--ghost eii-btn--sm d-none btn-cancelar-fecha-fin"
                                             style="border:none;"
                                             title="Cancelar edición de fecha fin">
                                         Cancelar
@@ -135,21 +135,21 @@
                             </form>
                         </div>
                         <!-- Síntomas asociados -->
-                        <div class="crm-card-section mb-2">
-                            <div class="crm-card-subtitle">
+                        <div class="mt-2 mb-2">
+                            <div class="eii-card__subtitle">
                                 Síntomas
-                                <button type="button" class="crm-btn crm-btn-secondary open-modal-sint ms-1" style="padding:0 8px;" data-tratid="@trat.Id" title="Asociar síntomas">
+                                <button type="button" class="eii-btn eii-btn--ghost eii-btn--sm open-modal-sint ms-1" style="padding:0 8px;" data-tratid="@trat.Id" title="Asociar síntomas">
                                     <i class="bi bi-plus-circle"></i>
                                 </button>
                             </div>
-                            <div class="crm-card-badges mt-2" id="sint-list-@trat.Id">
+                            <div class="mt-3" id="sint-list-@trat.Id">
                                 @if (trat.Sintomas.Any())
                                 {
                                     @foreach (var sint in trat.Sintomas)
                                     {
-                                        <a href="#" class="crm-badge crm-badge-label bg-info mb-1 d-inline-flex align-items-center">
+                                        <a href="#" class="eii-badge eii-card__label bg-info mb-1 d-inline-flex align-items-center">
                                             @sint.Nombre
-                                            <button type="button" class="crm-btn btn-sm btn-link p-0 ms-1 badge-sint-del" style="color:red; border:none;" data-sintid="@sint.Id" data-tratid="@trat.Id" title="Quitar síntoma">
+                                            <button type="button" class="eii-btn eii-btn--neutral btn-sm btn-link p-0 ms-1 badge-sint-del" style="color:red; border:none;" data-sintid="@sint.Id" data-tratid="@trat.Id" title="Quitar síntoma">
                                                 <i class="bi bi-x-circle"></i>
                                             </button>
                                         </a>
@@ -162,21 +162,21 @@
                             </div>
                         </div>
                         <!-- Condiciones asociadas -->
-                        <div class="crm-card-section mb-2">
-                            <div class="crm-card-subtitle">
+                        <div class="mt-2 mb-2">
+                            <div class="eii-card__subtitle">
                                 Condiciones
-                                <button type="button" class="crm-btn crm-btn-secondary open-modal-cond ms-1" style="padding:0 8px;" data-tratid="@trat.Id" title="Asociar condiciones">
+                                <button type="button" class="eii-btn eii-btn--ghost eii-btn--sm open-modal-cond ms-1" style="padding:0 8px;" data-tratid="@trat.Id" title="Asociar condiciones">
                                     <i class="bi bi-plus-circle"></i>
                                 </button>
                             </div>
-                            <div class="crm-card-badges mt-2" id="cond-list-@trat.Id">
+                            <div class="mt-3" id="cond-list-@trat.Id">
                                 @if (trat.Condiciones.Any())
                                 {
                                     @foreach (var cond in trat.Condiciones)
                                     {
-                                        <a href="#" class="crm-badge crm-badge-label bg-success text-white mb-1 d-inline-flex align-items-center">
+                                        <a href="#" class="eii-badge eii-card__label bg-success text-white mb-1 d-inline-flex align-items-center">
                                             @cond.Nombre
-                                            <button type="button" class="crm-btn btn-sm btn-link p-0 ms-1 badge-cond-del" style="color:red; border:none;" data-condid="@cond.Id" data-tratid="@trat.Id" title="Quitar condición">
+                                            <button type="button" class="eii-btn eii-btn--neutral btn-sm btn-link p-0 ms-1 badge-cond-del" style="color:red; border:none;" data-condid="@cond.Id" data-tratid="@trat.Id" title="Quitar condición">
                                                 <i class="bi bi-x-circle"></i>
                                             </button>
                                         </a>
@@ -195,8 +195,8 @@
     }
     else
     {
-        <div class="crm-card mb-2">
-            <div class="fw-light text-muted crm-empty">
+        <div class="eii-card mb-2">
+            <div class="fw-light text-muted eii-text-disabled py-2">
                 Aún no has agregado ningún tratamiento.
             </div>
         </div>
@@ -296,7 +296,7 @@
                 seen.add(item.id);
 
                 let li = document.createElement('li');
-                li.className = 'crm-list-item list-group-item';
+                li.className = 'eii-autocomplete__item';
                 li.innerText = item.nombre;
                 li.onclick = function () {
                     document.getElementById('tratamientoBuscar').value = item.nombre;
@@ -464,7 +464,7 @@
                             Debes agregar primero algún síntoma en la sección "Síntomas".
                             </div>`;
                 } else {
-                    let sintlist = document.querySelectorAll("#sint-list-" + tratid + " .crm-badge");
+                    let sintlist = document.querySelectorAll("#sint-list-" + tratid + " .eii-badge");
                     let seleccionadas = Array.from(sintlist).map(b => b.innerText);
                     sintomasUsuario.forEach(s => {
                         let checked = seleccionadas.includes(s.Nombre) ? 'checked' : '';
@@ -522,7 +522,7 @@
                         Debes agregar primero alguna condición en la sección "Condiciones".
                         </div>`;
                 } else {
-                    let condlist = document.querySelectorAll("#cond-list-" + tratid + " .crm-badge");
+                    let condlist = document.querySelectorAll("#cond-list-" + tratid + " .eii-badge");
                     let seleccionadas = Array.from(condlist).map(b => b.innerText);
                     condicionesUsuario.forEach(c => {
                         let checked = seleccionadas.includes(c.Nombre) ? 'checked' : '';
