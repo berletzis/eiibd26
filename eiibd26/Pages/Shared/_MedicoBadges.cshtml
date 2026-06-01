@@ -1,6 +1,8 @@
 @model IEnumerable<eiibd26.Models.Medico.MedicoBadgeDto>
 
 @{
+    var mostrarRevision = ViewData["mostrarRevision"] as bool? ?? false;
+
     // Clasificación: primarios (críticos para paciente) vs secundarios (complementarios)
     var primaryCodes = new[] { "perfil_reclamado", "verificado", "activo_comunidad" };
     var secondaryCodes = new[] { "participante_qa", "validador_terminos", "validador_contenido", "creador_contenido" };
@@ -45,6 +47,12 @@
                 <i class="bi @badge.Icono"></i>
                 <span class="badge-label d-none d-md-inline">@badge.Nombre</span>
             </span>
+            @if (mostrarRevision && badge.Obtenido && badge.EnRevision)
+            {
+                <i class="bi bi-hourglass-split text-warning"
+                   title="En revisión@(string.IsNullOrEmpty(badge.RevisionMotivo) ? "" : ": " + badge.RevisionMotivo)"
+                   style="font-size:.85rem;align-self:center;"></i>
+            }
         }
     </div>
 }
@@ -63,6 +71,12 @@
                 <i class="bi @badge.Icono"></i>
                 <span class="badge-label d-none d-md-inline">@badge.Nombre</span>
             </span>
+            @if (mostrarRevision && badge.Obtenido && badge.EnRevision)
+            {
+                <i class="bi bi-hourglass-split text-warning"
+                   title="En revisión@(string.IsNullOrEmpty(badge.RevisionMotivo) ? "" : ": " + badge.RevisionMotivo)"
+                   style="font-size:.85rem;align-self:center;"></i>
+            }
         }
     </div>
 }
