@@ -61,8 +61,9 @@ public class MedicoCardVm
         ["perfil_reclamado"]    = new("bi-shield-check",     "#4f46e5", true),
         ["verificado"]          = new("bi-patch-check-fill", "#0ea5e9", true),
         ["activo_comunidad"]    = new("bi-people-fill",      "#22c55e", true),
-        ["participante_qa"]     = new("bi-chat-dots-fill",   "#f59e0b", false),
-        ["validador_contenido"] = new("bi-check2-circle",    "#8b5cf6", false),
+        ["participante_qa"]     = new("bi-chat-dots-fill",    "#f59e0b", false),
+        ["validador_terminos"]  = new("bi-check-circle-fill", "#8b5cf6", false),
+        ["validador_contenido"] = new("bi-check2-circle",    "#0d9488", false),
         ["creador_contenido"]   = new("bi-pencil-square",    "#ec4899", false),
     };
 
