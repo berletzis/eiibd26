@@ -46,26 +46,34 @@ public class MedicoBadgeService : IMedicoBadgeService
 
     public async Task<List<MedicoBadgeDto>> GetBadgesGanadosAsync(int medicoId)
     {
-        return await _db.MedicosPerfilBadge
+        // Two-step: fetch with Orden (for stable ThenBy) then project to DTO in memory
+        var rows = await _db.MedicosPerfilBadge
             .AsNoTracking()
             .Where(pb => pb.MedicoId == medicoId)
             .Join(_db.MedicosBadge, pb => pb.BadgeId, b => b.Id,
-                (pb, b) => new MedicoBadgeDto
+                (pb, b) => new
                 {
-                    Id             = b.Id,
-                    Codigo         = b.Codigo,
-                    Nombre         = b.Nombre,
-                    Descripcion    = b.Descripcion,
-                    ComoObtenerlo  = b.ComoObtenerlo,
-                    Icono          = b.Icono,
-                    Nivel          = b.Nivel,
-                    Obtenido       = true,
-                    FechaObtenido  = pb.FechaObtenido,
-                    EnRevision     = pb.EnRevision,
-                    RevisionMotivo = pb.RevisionMotivo
+                    b.Id, b.Codigo, b.Nombre, b.Descripcion, b.ComoObtenerlo,
+                    b.Icono, b.Nivel, b.Orden,
+                    pb.FechaObtenido, pb.EnRevision, pb.RevisionMotivo
                 })
-            .OrderBy(d => d.Nivel)
+            .OrderBy(x => x.Nivel).ThenBy(x => x.Orden)
             .ToListAsync();
+
+        return rows.Select(x => new MedicoBadgeDto
+        {
+            Id             = x.Id,
+            Codigo         = x.Codigo,
+            Nombre         = x.Nombre,
+            Descripcion    = x.Descripcion,
+            ComoObtenerlo  = x.ComoObtenerlo,
+            Icono          = x.Icono,
+            Nivel          = x.Nivel,
+            Obtenido       = true,
+            FechaObtenido  = x.FechaObtenido,
+            EnRevision     = x.EnRevision,
+            RevisionMotivo = x.RevisionMotivo
+        }).ToList();
     }
 
     public async Task<int> GetNivelActualAsync(int medicoId)
