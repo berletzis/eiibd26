@@ -1,4 +1,4 @@
-﻿@page
+@page
 @model eiibd26.Areas.Identity.Pages.Usuario.UsuarioCondicionesModel
 @{
     ViewData["Title"] = "Mis condiciones";
@@ -7,21 +7,21 @@
 <div class="container py-4">
     <h1 class="eii-page-title">Mis condiciones</h1>
     <div class="qp-wrapper-flex">
-        <div class="crm-card">
-            <label for="condicionBuscar" class="crm-label">
+        <div class="eii-card">
+            <label for="condicionBuscar" class="eii-label">
                 Busca y agregar la condición con la que fuiste diagnosticad@@
             </label>
-            <form id="agregarCondicionForm" autocomplete="off" class="crm-form-row" onsubmit="return false;">
+            <form id="agregarCondicionForm" autocomplete="off" class="d-flex flex-wrap gap-3" onsubmit="return false;">
                 @Html.AntiForgeryToken()
-                <div class="crm-search-group crm-col-8">
-                    <div class="crm-search-horizontal">
-                        <input id="condicionBuscar" type="text" class="crm-input" placeholder="Ej: Colitis Ulcerativa, Crohn, etc..." autocomplete="off" />
-                        <button id="btnAgregarCondicion" class="crm-btn crm-btn-primary" type="button">
+                <div class="position-relative w-100 col-8">
+                    <div class="d-flex flex-row align-items-end gap-3">
+                        <input id="condicionBuscar" type="text" class="eii-input" placeholder="Ej: Colitis Ulcerativa, Crohn, etc..." autocomplete="off" />
+                        <button id="btnAgregarCondicion" class="eii-btn eii-btn--primary eii-btn--icon eii-btn--circle" type="button">
                             <i class="bi bi-zoom-in"></i>
                         </button>
                     </div>
                     <input id="condicionIdSeleccionada" type="hidden" />
-                    <ul id="condicionSugerencias" class="crm-list-suggest"></ul>
+                    <ul id="condicionSugerencias" class="eii-autocomplete__dropdown"></ul>
                 </div>
             </form>
         </div>
@@ -34,27 +34,28 @@
         <!-- Cards grid -->
         @if (Model.MisCondicionesAgrupadas.Any())
         {
-            <div class="crm-card-row">
+            <div class="eii-grid eii-grid--cards">
                 @foreach (var grupo in Model.MisCondicionesAgrupadas)
                 {
                     @foreach (var hijo in grupo.Hijos)
                     {
-                        <div class="crm-card-condicion">
-                            <div class="crm-card-inner">
-                                <div class="crm-card-header">
-                                    <span class="crm-card-title">
+                        <div class="d-flex flex-column h-100">
+                            <div class="eii-card eii-card--elevated">
+                                <div class="eii-card__header">
+                                    <span class="eii-card__title">
                                         @hijo.Nombre
                                     </span>
                                     <div class="d-flex gap-1 align-items-center">
                                         <button type="button"
-                                                class="btn-star-condicion crm-btn"
+                                                class="btn-star-condicion eii-btn eii-btn--neutral"
                                                 style="border:none;background:transparent;font-size:1.15rem;padding:0 4px;line-height:1;"
                                                 data-id="@hijo.CondicionUsuarioId"
                                                 data-principal="@hijo.EsPrincipal.ToString().ToLower()"
                                                 title="@(hijo.EsPrincipal ? "Quitar como condición principal" : "Marcar como condición principal")">
                                             @(hijo.EsPrincipal ? "⭐" : "☆")
                                         </button>
-                                        <button type="button" class="crm-btn crm-btn-delete btn-eliminar"
+                                        <button type="button" class="eii-btn eii-btn--neutral btn-eliminar"
+                                                style="border:none;background:transparent;color:var(--eii-danger);opacity:0.65;"
                                                 data-id="@hijo.CondicionUsuarioId"
                                                 data-nombre="@hijo.Nombre"
                                                 data-tratamientos="@hijo.TratamientosCount"
@@ -64,32 +65,32 @@
                                         </button>
                                     </div>
                                 </div>
-                                <div class="crm-card-fecha">
-                                    <span class="crm-card-label"><i class="bi bi-diagram-3"></i> Grupo</span>
-                                    <span class="crm-card-value">@grupo.PadreNombre</span>
+                                <div class="d-flex flex-column gap-1">
+                                    <span class="eii-card__label"><i class="bi bi-diagram-3"></i> Grupo</span>
+                                    <span class="small text-body">@grupo.PadreNombre</span>
                                 </div>
-                                <div class="crm-card-fecha">
-                                    <span class="crm-card-label">
+                                <div class="d-flex flex-column gap-1">
+                                    <span class="eii-card__label">
                                         <i class="bi bi-calendar2-date"></i> Fecha de Diagonostico:</span>
                                     <form method="post" class="form-editar-fecha" data-id="@hijo.CondicionUsuarioId" asp-page-handler="EditarFechaInicio">
-                                        <div class="crm-input-group">
+                                        <div class="d-flex align-items-center flex-wrap" style="column-gap:3px;">
                                             <input type="date"
-                                                   class="crm-input-date fecha-inicio"
+                                                   class="eii-input fecha-inicio"
                                                    name="nuevaFechaInicio"
                                                    value="@hijo.FechaInicio.ToString("yyyy-MM-dd")"
                                                    disabled />
                                             <button type="button"
-                                                    class="crm-btn crm-btn-secondary btn-editar-fecha"
+                                                    class="eii-btn eii-btn--ghost eii-btn--sm btn-editar-fecha"
                                                     title="Editar fecha de inicio">
                                                 Editar
                                             </button>
                                             <button type="submit"
-                                                    class="crm-btn crm-btn-success d-none btn-guardar-fecha"
+                                                    class="eii-btn eii-btn--primary eii-btn--sm d-none btn-guardar-fecha"
                                                     title="Guardar nueva fecha">
                                                 Guardar
                                             </button>
                                             <button type="button"
-                                                    class="crm-btn crm-btn-cancel d-none btn-cancelar-fecha"
+                                                    class="eii-btn eii-btn--ghost eii-btn--sm d-none btn-cancelar-fecha"
                                                     title="Cancelar edición de fecha">
                                                 Cancelar
                                             </button>
@@ -105,21 +106,21 @@
                                         </div>
                                     }
                                 </div>
-                                <div class="crm-card-section">
-                                    <div class="crm-card-subtitle">Relacionados</div>
-                                    <div class="crm-card-badges">
-                                        <div class="crm-badge-row">
-                                            <span class="crm-badge crm-badge-label">Tratamientos</span>
+                                <div class="mt-2">
+                                    <div class="eii-card__subtitle">Relacionados</div>
+                                    <div class="mt-3">
+                                        <div class="d-flex flex-wrap gap-2">
+                                            <span class="eii-badge eii-card__label">Tratamientos</span>
                                             @if (hijo.TratamientosCount > 0)
                                             {
-                                                <span class="crm-badge-count">@hijo.TratamientosCount</span>
+                                                <span class="eii-badge--count">@hijo.TratamientosCount</span>
                                             }
                                         </div>
-                                        <div class="crm-badge-row">
-                                            <span class="crm-badge crm-badge-label">Síntomas</span>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            <span class="eii-badge eii-card__label">Síntomas</span>
                                             @if (hijo.SintomasCount > 0)
                                             {
-                                                <span class="crm-badge-count">@hijo.SintomasCount</span>
+                                                <span class="eii-badge--count">@hijo.SintomasCount</span>
                                             }
                                         </div>
                                     </div>
@@ -132,15 +133,15 @@
         }
         else
         {
-            <div class="crm-card mb-2">
-                <div class="fw-light text-muted crm-empty">
+            <div class="eii-card mb-2">
+                <div class="fw-light text-muted eii-text-disabled py-2">
                     <i class="bi bi-emoji-neutral"></i>
                     Aún no has agregado ninguna condición.
                 </div>
             </div>
         }
-    
-    
+
+
     </div>
 
     @section Styles {
@@ -198,7 +199,7 @@
                     ? item.padreNombre + ' > ' + item.nombre
                     : item.nombre;
                 let li = document.createElement('li');
-                li.className = 'list-group-item crm-list-item';
+                li.className = 'eii-autocomplete__item';
                 li.innerText = display;
                 if (item.esPadre) {
                     li.classList.add('disabled', 'text-muted');
