@@ -1,6 +1,8 @@
 using eiibd26.Models.Glossary;
+using eiibd26.Models.Validacion;
 using eiibd26.Services.Glossary;
 using eiibd26.Services.Glossary.DTOs;
+using eiibd26.Services.Validacion;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -9,13 +11,16 @@ namespace eiibd26.Pages.Glosario
     public class SintomasModel : PageModel
     {
         private readonly IGlossaryService _glossaryService;
+        private readonly IValidacionContenidoService _validacionSvc;
         private readonly ILogger<SintomasModel> _logger;
 
         public SintomasModel(
             IGlossaryService glossaryService,
+            IValidacionContenidoService validacionSvc,
             ILogger<SintomasModel> logger)
         {
             _glossaryService = glossaryService;
+            _validacionSvc = validacionSvc;
             _logger = logger;
         }
 
@@ -47,6 +52,12 @@ namespace eiibd26.Pages.Glosario
             {
                 Terminos = await _glossaryService.GetTermsByTypeAsync(GlossaryTermType.Sintoma);
                 _logger.LogInformation("Página de síntomas cargada con {Count} términos", Terminos.Count);
+
+                var ids = Terminos.Select(t => t.Id).ToList();
+                var validadoresDict = await _validacionSvc.ObtenerValidadoresGlosarioPorTerminosAsync(ids);
+                foreach (var t in Terminos)
+                    if (validadoresDict.TryGetValue(t.Id, out var v))
+                        t.Validadores = v;
             }
             catch (Exception ex)
             {

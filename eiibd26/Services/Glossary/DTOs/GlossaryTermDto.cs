@@ -1,4 +1,5 @@
 using eiibd26.Models.Glossary;
+using eiibd26.Services.Validacion;
 
 namespace eiibd26.Services.Glossary.DTOs
 {
@@ -21,5 +22,7 @@ namespace eiibd26.Services.Glossary.DTOs
         /// Primera letra para agrupar alfabéticamente
         /// </summary>
         public char LetraInicial => string.IsNullOrEmpty(Nombre) ? '#' : char.ToUpper(Nombre[0]);
+
+        public List<ValidacionPublicaDto> Validadores { get; set; } = new();
     }
 }

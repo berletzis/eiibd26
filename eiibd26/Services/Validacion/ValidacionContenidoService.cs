@@ -1,4 +1,5 @@
 using eiibd26.Data;
+using eiibd26.Models.Glossary;
 using eiibd26.Models.Validacion;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -441,6 +442,117 @@ namespace eiibd26.Services.Validacion
                 if (!result.ContainsKey(v.ContenidoId))
                     result[v.ContenidoId] = new List<ValidacionPublicaDto>();
                 result[v.ContenidoId].Add(dto);
+            }
+
+            return result;
+        }
+
+        public async Task<Dictionary<int, List<ValidacionPublicaDto>>> ObtenerValidadoresGlosarioPorTerminosAsync(
+            List<int> terminoIds)
+        {
+            if (!terminoIds.Any()) return new();
+
+            // Fuente 1: ValidacionesContenidoProfesional (Termino + Validado)
+            var rawContenido = await _db.ValidacionesContenidoProfesional
+                .AsNoTracking()
+                .Where(v => v.TipoContenido == TipoContenidoValidado.Termino
+                         && terminoIds.Contains(v.ContenidoId)
+                         && v.Estado == EstadoValidacion.Validado)
+                .Select(v => new { TermId = v.ContenidoId, v.UsuarioMedicoId, v.CreadoEn })
+                .ToListAsync();
+
+            // Fuente 2: GlossaryValidations (Approved)
+            var rawGlosario = await _db.GlossaryValidations
+                .AsNoTracking()
+                .Where(v => terminoIds.Contains(v.GlossaryTermId) && v.Approved)
+                .Select(v => new { TermId = v.GlossaryTermId, UserId = v.UserId, CreatedAt = v.CreatedAt })
+                .ToListAsync();
+
+            // Combinar todas las entradas (independientes, sin deduplicar)
+            var allEntries = rawContenido
+                .Select(v => (TermId: v.TermId, UserId: v.UsuarioMedicoId, CreadoEn: v.CreadoEn))
+                .Concat(rawGlosario
+                    .Select(v => (TermId: v.TermId, UserId: v.UserId, CreadoEn: v.CreatedAt)))
+                .ToList();
+
+            if (!allEntries.Any()) return new();
+
+            var userGuidList = allEntries
+                .Select(e => Guid.TryParse(e.UserId, out var g) ? (Guid?)g : null)
+                .Where(g => g.HasValue).Select(g => g!.Value).Distinct().ToList();
+
+            var perfiles = await _db.MedicosPerfilExtendido
+                .AsNoTracking()
+                .Where(p => p.UserId.HasValue && userGuidList.Contains(p.UserId.Value) && p.MedicoId != null)
+                .Select(p => new { p.UserId, p.MedicoId, p.Slug })
+                .ToListAsync();
+
+            var medicoIds = perfiles.Where(p => p.MedicoId.HasValue).Select(p => p.MedicoId!.Value).ToList();
+
+            var badgesVerificados = medicoIds.Any()
+                ? await _db.MedicosPerfilBadge
+                    .AsNoTracking()
+                    .Where(pb => medicoIds.Contains(pb.MedicoId))
+                    .Join(_db.MedicosBadge, pb => pb.BadgeId, b => b.Id, (pb, b) => new { pb.MedicoId, b.Codigo })
+                    .Where(x => x.Codigo == "perfil_reclamado" || x.Codigo == "verificado")
+                    .Select(x => x.MedicoId).Distinct().ToListAsync()
+                : new List<int>();
+
+            var nombresMedico = medicoIds.Any()
+                ? await _db.MedicosDirectorio
+                    .AsNoTracking()
+                    .Where(m => medicoIds.Contains(m.Id))
+                    .Select(m => new { m.Id, m.NombreCompleto })
+                    .ToListAsync()
+                : new();
+
+            var nombreDict     = nombresMedico.ToDictionary(m => m.Id, m => m.NombreCompleto);
+            var medicoIdByUser = perfiles.Where(p => p.MedicoId.HasValue)
+                .ToDictionary(p => p.UserId!.Value, p => p.MedicoId!.Value);
+            var slugByMedico   = perfiles.Where(p => p.MedicoId.HasValue && p.Slug != null)
+                .ToDictionary(p => p.MedicoId!.Value, p => p.Slug);
+
+            var avatarDict = await _db.Perfil
+                .AsNoTracking()
+                .Where(p => userGuidList.Contains(p.idUser))
+                .Select(p => new { p.idUser, p.Avatar })
+                .ToListAsync();
+            var avatarByUser = avatarDict.ToDictionary(p => p.idUser, p => p.Avatar);
+
+            var result = new Dictionary<int, List<ValidacionPublicaDto>>();
+
+            foreach (var e in allEntries)
+            {
+                if (!Guid.TryParse(e.UserId, out var guid)) continue;
+
+                string display;
+                if (medicoIdByUser.TryGetValue(guid, out var medicoId)
+                    && badgesVerificados.Contains(medicoId)
+                    && nombreDict.TryGetValue(medicoId, out var nombre))
+                    display = $"Dr. {nombre}";
+                else
+                    display = "Médico verificado";
+
+                string? avatarUrl = null;
+                if (avatarByUser.TryGetValue(guid, out var avatarVal)
+                    && !string.IsNullOrWhiteSpace(avatarVal) && avatarVal != "default.jpg")
+                    avatarUrl = avatarVal.StartsWith("/") ? avatarVal : "/" + avatarVal;
+
+                string? slug = null;
+                if (medicoIdByUser.TryGetValue(guid, out var midForSlug))
+                    slugByMedico.TryGetValue(midForSlug, out slug);
+
+                var dto = new ValidacionPublicaDto
+                {
+                    UserDisplay   = display,
+                    AvatarUrl     = avatarUrl,
+                    Slug          = slug,
+                    CreadoEn      = e.CreadoEn
+                };
+
+                if (!result.ContainsKey(e.TermId))
+                    result[e.TermId] = new List<ValidacionPublicaDto>();
+                result[e.TermId].Add(dto);
             }
 
             return result;

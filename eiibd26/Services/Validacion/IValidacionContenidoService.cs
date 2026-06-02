@@ -74,5 +74,8 @@ namespace eiibd26.Services.Validacion
         Task<Dictionary<int, List<ValidacionPublicaDto>>> ObtenerValidadoresPorContenidosAsync(
             TipoContenidoValidado tipo,
             List<int> contenidoIds);
+
+        Task<Dictionary<int, List<ValidacionPublicaDto>>> ObtenerValidadoresGlosarioPorTerminosAsync(
+            List<int> terminoIds);
     }
 }
