@@ -69,6 +69,9 @@ namespace eiibd26.Pages.Preguntas
             // AI Fields
             public bool EsIA { get; set; } = false;
             public string? ModeloIA { get; set; }
+
+            // Distintivo de profesional de salud (médico verificado)
+            public bool EsProfesionalSalud { get; set; } = false;
         }
 
         [BindProperty(SupportsGet = true)]
@@ -630,6 +633,64 @@ namespace eiibd26.Pages.Preguntas
                 _logger.LogWarning(ex, "Error verificando estado de respuesta IA");
             }
             // =========================================================
+
+            // ===== Batch: detectar médicos verificados entre respondedores (1 query, no N+1) =====
+            // Patrón replicado de GlossaryService.FilterCommentsByVerifiedDoctorAsync
+            try
+            {
+                var nonIaUserIds = Respuestas
+                    .Where(r => !r.EsIA).Select(r => r.UsuarioId)
+                    .Concat(AcceptedAnswer != null && !AcceptedAnswer.EsIA
+                        ? new[] { AcceptedAnswer.UsuarioId }
+                        : Array.Empty<Guid>())
+                    .Concat(TopSuggestedAnswers.Where(r => !r.EsIA).Select(r => r.UsuarioId))
+                    .Distinct().ToList();
+
+                if (nonIaUserIds.Any())
+                {
+                    var perfilesMedico = await _db.MedicosPerfilExtendido
+                        .AsNoTracking()
+                        .Where(p => p.UserId.HasValue && nonIaUserIds.Contains(p.UserId.Value) && p.MedicoId != null)
+                        .Select(p => new { p.UserId, p.MedicoId })
+                        .ToListAsync();
+
+                    var medicoIds = perfilesMedico.Where(p => p.MedicoId.HasValue).Select(p => p.MedicoId!.Value).ToList();
+                    var medicoVerificadoUserIds = new HashSet<Guid>();
+
+                    if (medicoIds.Any())
+                    {
+                        var idsConBadge = await _db.MedicosPerfilBadge
+                            .AsNoTracking()
+                            .Where(pb => medicoIds.Contains(pb.MedicoId))
+                            .Join(_db.MedicosBadge, pb => pb.BadgeId, b => b.Id,
+                                  (pb, b) => new { pb.MedicoId, b.Codigo })
+                            .Where(x => x.Codigo == "perfil_reclamado" || x.Codigo == "verificado")
+                            .Select(x => x.MedicoId)
+                            .Distinct()
+                            .ToListAsync();
+
+                        medicoVerificadoUserIds = perfilesMedico
+                            .Where(p => p.MedicoId.HasValue && idsConBadge.Contains(p.MedicoId!.Value))
+                            .Select(p => p.UserId!.Value)
+                            .ToHashSet();
+                    }
+
+                    if (medicoVerificadoUserIds.Any())
+                    {
+                        foreach (var r in Respuestas.Where(r => !r.EsIA && medicoVerificadoUserIds.Contains(r.UsuarioId)))
+                            r.EsProfesionalSalud = true;
+                        if (AcceptedAnswer != null && !AcceptedAnswer.EsIA && medicoVerificadoUserIds.Contains(AcceptedAnswer.UsuarioId))
+                            AcceptedAnswer.EsProfesionalSalud = true;
+                        foreach (var r in TopSuggestedAnswers.Where(r => !r.EsIA && medicoVerificadoUserIds.Contains(r.UsuarioId)))
+                            r.EsProfesionalSalud = true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error detectando médicos verificados para respuestas de pregunta {PreguntaId}", preguntaId);
+            }
+            // =====================================================================
 
             // ===== NUEVO: Cargar contenido relacionado =====
             try
