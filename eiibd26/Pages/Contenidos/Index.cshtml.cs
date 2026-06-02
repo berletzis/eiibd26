@@ -9,13 +9,20 @@ using System.Security.Claims;
 using eiibd26.Data;
 using eiibd26.Models;
 using eiibd26.Domain.Constants;
+using eiibd26.Services.Validacion;
+using eiibd26.Models.Validacion;
 
 namespace eiibd26.Pages.Contenidos
 {
     public class IndexModel : PageModel
     {
         private readonly ApplicationDbContext _db;
-        public IndexModel(ApplicationDbContext db) { _db = db; }
+        private readonly IValidacionContenidoService _validacionSvc;
+        public IndexModel(ApplicationDbContext db, IValidacionContenidoService validacionSvc)
+        {
+            _db = db;
+            _validacionSvc = validacionSvc;
+        }
 
         // Paging and filters
         [BindProperty(SupportsGet = true)]
@@ -384,6 +391,13 @@ namespace eiibd26.Pages.Contenidos
                         }
                     }
                 }
+
+                // Batch-load médicos validadores (1 query set for all items)
+                var validadoresDict = await _validacionSvc.ObtenerValidadoresPorContenidosAsync(
+                    TipoContenidoValidado.Articulo, contentIds);
+                foreach (var it in Items)
+                    if (validadoresDict.TryGetValue(it.Id, out var v))
+                        it.Validadores = v;
             }
 
             return Page();

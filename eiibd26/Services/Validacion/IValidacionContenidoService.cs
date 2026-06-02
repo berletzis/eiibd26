@@ -17,6 +17,7 @@ namespace eiibd26.Services.Validacion
         public int Id { get; set; }
         public string UserDisplay { get; set; } = "";
         public string? AvatarUrl { get; set; }
+        public string? Slug { get; set; }
         public string? Comentario { get; set; }
         public DateTime CreadoEn { get; set; }
         public DateTime? ActualizadoEn { get; set; }
@@ -69,5 +70,9 @@ namespace eiibd26.Services.Validacion
 
         Task<List<ValidacionAdminDto>> ObtenerValidacionesMedicoAsync(
             string usuarioMedicoId);
+
+        Task<Dictionary<int, List<ValidacionPublicaDto>>> ObtenerValidadoresPorContenidosAsync(
+            TipoContenidoValidado tipo,
+            List<int> contenidoIds);
     }
 }

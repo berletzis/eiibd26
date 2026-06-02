@@ -134,7 +134,7 @@ namespace eiibd26.Services.Validacion
             var perfiles = await _db.MedicosPerfilExtendido
                 .AsNoTracking()
                 .Where(p => p.UserId.HasValue && userGuidList.Contains(p.UserId.Value) && p.MedicoId != null)
-                .Select(p => new { p.UserId, p.MedicoId })
+                .Select(p => new { p.UserId, p.MedicoId, p.Slug })
                 .ToListAsync();
 
             var medicoIds = perfiles.Where(p => p.MedicoId.HasValue).Select(p => p.MedicoId!.Value).ToList();
@@ -158,6 +158,9 @@ namespace eiibd26.Services.Validacion
 
             var medicoIdByUser = perfiles.Where(p => p.MedicoId.HasValue)
                 .ToDictionary(p => p.UserId!.Value, p => p.MedicoId!.Value);
+
+            var slugByMedico = perfiles.Where(p => p.MedicoId.HasValue && p.Slug != null)
+                .ToDictionary(p => p.MedicoId!.Value, p => p.Slug);
 
             var avatarDict = await _db.Perfil
                 .AsNoTracking()
@@ -185,13 +188,18 @@ namespace eiibd26.Services.Validacion
                     && !string.IsNullOrWhiteSpace(avatarVal) && avatarVal != "default.jpg")
                     avatarUrl = avatarVal.StartsWith("/") ? avatarVal : "/" + avatarVal;
 
+                string? slug = null;
+                if (medicoIdByUser.TryGetValue(guid, out var midForSlug))
+                    slugByMedico.TryGetValue(midForSlug, out slug);
+
                 result.Add(new ValidacionPublicaDto
                 {
-                    Id           = v.Id,
-                    UserDisplay  = display,
-                    AvatarUrl    = avatarUrl,
-                    Comentario   = v.Comentario,
-                    CreadoEn     = v.CreadoEn,
+                    Id            = v.Id,
+                    UserDisplay   = display,
+                    AvatarUrl     = avatarUrl,
+                    Slug          = slug,
+                    Comentario    = v.Comentario,
+                    CreadoEn      = v.CreadoEn,
                     ActualizadoEn = v.ActualizadoEn
                 });
             }
@@ -335,6 +343,107 @@ namespace eiibd26.Services.Validacion
                     NotaModeracion  = v.NotaModeracion
                 };
             }).ToList();
+        }
+
+        public async Task<Dictionary<int, List<ValidacionPublicaDto>>> ObtenerValidadoresPorContenidosAsync(
+            TipoContenidoValidado tipo,
+            List<int> contenidoIds)
+        {
+            if (!contenidoIds.Any()) return new();
+
+            var validaciones = await _db.ValidacionesContenidoProfesional
+                .AsNoTracking()
+                .Where(v => v.TipoContenido == tipo
+                         && contenidoIds.Contains(v.ContenidoId)
+                         && v.Estado == EstadoValidacion.Validado)
+                .OrderByDescending(v => v.CreadoEn)
+                .Select(v => new { v.Id, v.ContenidoId, v.UsuarioMedicoId, v.Comentario, v.CreadoEn, v.ActualizadoEn })
+                .ToListAsync();
+
+            if (!validaciones.Any()) return new();
+
+            var userGuidList = validaciones
+                .Select(v => Guid.TryParse(v.UsuarioMedicoId, out var g) ? (Guid?)g : null)
+                .Where(g => g.HasValue).Select(g => g!.Value).Distinct().ToList();
+
+            var perfiles = await _db.MedicosPerfilExtendido
+                .AsNoTracking()
+                .Where(p => p.UserId.HasValue && userGuidList.Contains(p.UserId.Value) && p.MedicoId != null)
+                .Select(p => new { p.UserId, p.MedicoId, p.Slug })
+                .ToListAsync();
+
+            var medicoIds = perfiles.Where(p => p.MedicoId.HasValue).Select(p => p.MedicoId!.Value).ToList();
+
+            var badgesVerificados = medicoIds.Any()
+                ? await _db.MedicosPerfilBadge
+                    .AsNoTracking()
+                    .Where(pb => medicoIds.Contains(pb.MedicoId))
+                    .Join(_db.MedicosBadge, pb => pb.BadgeId, b => b.Id, (pb, b) => new { pb.MedicoId, b.Codigo })
+                    .Where(x => x.Codigo == "perfil_reclamado" || x.Codigo == "verificado")
+                    .Select(x => x.MedicoId).Distinct().ToListAsync()
+                : new List<int>();
+
+            var nombresMedico = medicoIds.Any()
+                ? await _db.MedicosDirectorio
+                    .AsNoTracking()
+                    .Where(m => medicoIds.Contains(m.Id))
+                    .Select(m => new { m.Id, m.NombreCompleto })
+                    .ToListAsync()
+                : new();
+
+            var nombreDict    = nombresMedico.ToDictionary(m => m.Id, m => m.NombreCompleto);
+            var medicoIdByUser = perfiles.Where(p => p.MedicoId.HasValue)
+                .ToDictionary(p => p.UserId!.Value, p => p.MedicoId!.Value);
+            var slugByMedico  = perfiles.Where(p => p.MedicoId.HasValue && p.Slug != null)
+                .ToDictionary(p => p.MedicoId!.Value, p => p.Slug);
+
+            var avatarDict = await _db.Perfil
+                .AsNoTracking()
+                .Where(p => userGuidList.Contains(p.idUser))
+                .Select(p => new { p.idUser, p.Avatar })
+                .ToListAsync();
+            var avatarByUser = avatarDict.ToDictionary(p => p.idUser, p => p.Avatar);
+
+            var result = new Dictionary<int, List<ValidacionPublicaDto>>();
+
+            foreach (var v in validaciones)
+            {
+                if (!Guid.TryParse(v.UsuarioMedicoId, out var guid)) continue;
+
+                string display;
+                if (medicoIdByUser.TryGetValue(guid, out var medicoId)
+                    && badgesVerificados.Contains(medicoId)
+                    && nombreDict.TryGetValue(medicoId, out var nombre))
+                    display = $"Dr. {nombre}";
+                else
+                    display = "Médico verificado";
+
+                string? avatarUrl = null;
+                if (avatarByUser.TryGetValue(guid, out var avatarVal)
+                    && !string.IsNullOrWhiteSpace(avatarVal) && avatarVal != "default.jpg")
+                    avatarUrl = avatarVal.StartsWith("/") ? avatarVal : "/" + avatarVal;
+
+                string? slug = null;
+                if (medicoIdByUser.TryGetValue(guid, out var midForSlug))
+                    slugByMedico.TryGetValue(midForSlug, out slug);
+
+                var dto = new ValidacionPublicaDto
+                {
+                    Id            = v.Id,
+                    UserDisplay   = display,
+                    AvatarUrl     = avatarUrl,
+                    Slug          = slug,
+                    Comentario    = v.Comentario,
+                    CreadoEn      = v.CreadoEn,
+                    ActualizadoEn = v.ActualizadoEn
+                };
+
+                if (!result.ContainsKey(v.ContenidoId))
+                    result[v.ContenidoId] = new List<ValidacionPublicaDto>();
+                result[v.ContenidoId].Add(dto);
+            }
+
+            return result;
         }
     }
 }

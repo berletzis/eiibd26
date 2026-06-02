@@ -6,13 +6,20 @@ using eiibd26.Data;
 using eiibd26.Models;
 using System.Collections.Generic;
 using System;
+using eiibd26.Services.Validacion;
+using eiibd26.Models.Validacion;
 
 namespace eiibd26.Pages.Contenidos
 {
     public class PorAutorModel : PageModel
     {
         private readonly ApplicationDbContext _db;
-        public PorAutorModel(ApplicationDbContext db) { _db = db; }
+        private readonly IValidacionContenidoService _validacionSvc;
+        public PorAutorModel(ApplicationDbContext db, IValidacionContenidoService validacionSvc)
+        {
+            _db = db;
+            _validacionSvc = validacionSvc;
+        }
 
         [BindProperty(SupportsGet = true)]
         public int PageNumber { get; set; } = 1;
@@ -45,6 +52,14 @@ namespace eiibd26.Pages.Contenidos
             (TotalCount, Items) = await QueryItemsAsync(autor.idUser, PageNumber, PageSize);
             await PopularCategoriasAsync(Items);
 
+            // Batch-load médicos validadores (1 query set for all items)
+            var ids = Items.Select(i => i.Id).ToList();
+            var validadoresDict = await _validacionSvc.ObtenerValidadoresPorContenidosAsync(
+                TipoContenidoValidado.Articulo, ids);
+            foreach (var it in Items)
+                if (validadoresDict.TryGetValue(it.Id, out var v))
+                    it.Validadores = v;
+
             return Page();
         }
 
@@ -60,6 +75,13 @@ namespace eiibd26.Pages.Contenidos
 
             var (total, items) = await QueryItemsAsync(autor.idUser, pageNumber, pageSize);
             await PopularCategoriasAsync(items);
+
+            var ajaxIds = items.Select(i => i.Id).ToList();
+            var ajaxValidadores = await _validacionSvc.ObtenerValidadoresPorContenidosAsync(
+                TipoContenidoValidado.Articulo, ajaxIds);
+            foreach (var it in items)
+                if (ajaxValidadores.TryGetValue(it.Id, out var v))
+                    it.Validadores = v;
 
             Response.Headers["X-Total-Count"] = total.ToString();
             return Partial("~/Pages/Shared/_BlogItems.cshtml", (IEnumerable<BlogItemVm>)items);

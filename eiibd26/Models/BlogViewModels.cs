@@ -1,6 +1,7 @@
 ﻿// eiibd26/Models/BlogViewModels.cs
 using System;
 using System.Collections.Generic;
+using eiibd26.Services.Validacion;
 
 namespace eiibd26.Models
 {
@@ -37,6 +38,8 @@ namespace eiibd26.Models
         // Number of distinct related questions for this content
         public int RelatedQuestionsCount { get; set; } = 0;
 
+        // Médicos validadores (batch-loaded by PageModel; empty if none)
+        public List<ValidacionPublicaDto> Validadores { get; set; } = new();
     }
 
     public class BlogListViewModel

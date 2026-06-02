@@ -8,13 +8,20 @@ using eiibd26.Models;
 using System.Collections.Generic;
 using System.Security.Claims;
 using System;
+using eiibd26.Services.Validacion;
+using eiibd26.Models.Validacion;
 
 namespace eiibd26.Pages.Contenidos
 {
     public class PorCategoriaModel : PageModel
     {
         private readonly ApplicationDbContext _db;
-        public PorCategoriaModel(ApplicationDbContext db) { _db = db; }
+        private readonly IValidacionContenidoService _validacionSvc;
+        public PorCategoriaModel(ApplicationDbContext db, IValidacionContenidoService validacionSvc)
+        {
+            _db = db;
+            _validacionSvc = validacionSvc;
+        }
 
         [BindProperty(SupportsGet = true)]
         public string categorySegment { get; set; }
@@ -287,6 +294,14 @@ namespace eiibd26.Pages.Contenidos
                 .ToListAsync();
 
             await AttachCategoriesAsync(items);
+
+            // Batch-load médicos validadores (1 query set for all items)
+            var ids = items.Select(i => i.Id).ToList();
+            var validadoresDict = await _validacionSvc.ObtenerValidadoresPorContenidosAsync(
+                TipoContenidoValidado.Articulo, ids);
+            foreach (var it in items)
+                if (validadoresDict.TryGetValue(it.Id, out var v))
+                    it.Validadores = v;
 
             Items = items;
             return Page();

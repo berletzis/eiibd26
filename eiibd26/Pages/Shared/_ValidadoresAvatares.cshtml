@@ -1,0 +1,99 @@
+@model List<eiibd26.Services.Validacion.ValidacionPublicaDto>
+@if (Model == null || !Model.Any()) { return; }
+@{
+    const int maxVisible = 5;
+    var visible = Model.Take(maxVisible).ToList();
+    var overflow = Model.Count - maxVisible;
+}
+<div class="validadores-row">
+    <span class="eii-text-xs eii-text-muted">Validado por</span>
+    <div class="validadores-stack">
+        @for (int i = 0; i < visible.Count; i++)
+        {
+            var v = visible[i];
+            var stackStyle = i > 0 ? "margin-left:-8px;" : "";
+            if (!string.IsNullOrWhiteSpace(v.AvatarUrl))
+            {
+                if (v.Slug != null)
+                {
+                    <a href="/medicos/@v.Slug" class="validador-link" title="@v.UserDisplay">
+                        <img src="@v.AvatarUrl" alt="@v.UserDisplay" title="@v.UserDisplay"
+                             class="validador-avatar" style="@stackStyle" loading="lazy"
+                             onerror="this.onerror=null;this.src='/img/avatar-placeholder.png'" />
+                    </a>
+                }
+                else
+                {
+                    <img src="@v.AvatarUrl" alt="@v.UserDisplay" title="@v.UserDisplay"
+                         class="validador-avatar" style="@stackStyle" loading="lazy"
+                         onerror="this.onerror=null;this.src='/img/avatar-placeholder.png'" />
+                }
+            }
+            else
+            {
+                if (v.Slug != null)
+                {
+                    <a href="/medicos/@v.Slug" class="validador-link" title="@v.UserDisplay" style="@stackStyle">
+                        <span class="validador-avatar validador-avatar--icon" title="@v.UserDisplay">
+                            <i class="bi bi-person-circle"></i>
+                        </span>
+                    </a>
+                }
+                else
+                {
+                    <span class="validador-avatar validador-avatar--icon" title="@v.UserDisplay" style="@stackStyle">
+                        <i class="bi bi-person-circle"></i>
+                    </span>
+                }
+            }
+        }
+        @if (overflow > 0)
+        {
+            <span class="validador-avatar validador-avatar--overflow eii-text-xs" style="margin-left:-8px;"
+                  title="@overflow validadores más">+@overflow</span>
+        }
+    </div>
+</div>
+
+<style>
+    .validadores-row {
+        display: flex;
+        align-items: center;
+        gap: var(--eii-space-2);
+        margin-top: var(--eii-space-2);
+    }
+    .validadores-stack {
+        display: flex;
+        align-items: center;
+    }
+    .validador-avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: var(--eii-radius-full);
+        border: 2px solid var(--eii-surface);
+        object-fit: cover;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--eii-surface-soft);
+        color: var(--eii-text-soft);
+        font-size: 1.1rem;
+        vertical-align: middle;
+        flex-shrink: 0;
+    }
+    .validador-avatar--overflow {
+        font-size: var(--eii-text-xs);
+        font-weight: var(--eii-fw-semibold);
+        padding: 0 5px;
+        cursor: default;
+    }
+    .validador-link {
+        display: inline-flex;
+        line-height: 0;
+    }
+    .validador-link:hover .validador-avatar,
+    .validador-link:focus .validador-avatar {
+        border-color: var(--eii-primary-border);
+        outline: none;
+    }
+</style>
