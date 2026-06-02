@@ -520,10 +520,18 @@ namespace eiibd26.Services.Validacion
             var avatarByUser = avatarDict.ToDictionary(p => p.idUser, p => p.Avatar);
 
             var result = new Dictionary<int, List<ValidacionPublicaDto>>();
+            // Deduplicar por médico dentro de cada término: ordenar más reciente primero y
+            // tomar solo el primer avatar de cada guid por termId.
+            var seenByTerm = new Dictionary<int, HashSet<Guid>>();
 
-            foreach (var e in allEntries)
+            foreach (var e in allEntries.OrderByDescending(x => x.CreadoEn))
             {
                 if (!Guid.TryParse(e.UserId, out var guid)) continue;
+
+                if (!seenByTerm.TryGetValue(e.TermId, out var seen))
+                    seenByTerm[e.TermId] = seen = new HashSet<Guid>();
+
+                if (!seen.Add(guid)) continue; // mismo médico ya incluido para este término
 
                 string display;
                 if (medicoIdByUser.TryGetValue(guid, out var medicoId)
