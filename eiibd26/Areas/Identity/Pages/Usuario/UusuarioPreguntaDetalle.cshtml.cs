@@ -250,9 +250,10 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     TempData["CreatedQuestionSlug"] = nueva.Slug;
                 }
 
-                // use TempData and redirect (PRG) so the page becomes the edit state and further saves update
                 TempData["SuccessMessage"] = "✅ Pregunta creada exitosamente. La IA está procesando tu pregunta...";
-                return RedirectToPage(new { id = nueva.Id });
+                if (!string.IsNullOrWhiteSpace(nueva.Slug))
+                    return RedirectToPage("/Preguntas/Detalles", new { slug = nueva.Slug });
+                return RedirectToPage("/Preguntas/Detalles", new { id = nueva.Id });
             }
         }
 
