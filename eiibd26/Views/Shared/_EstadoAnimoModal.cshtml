@@ -9,7 +9,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body px-3 py-2">
-                    <div id="alertMoodAdded" class="alert alert-mood-added py-2 mb-2" style="display:none"></div>
+                    <div id="alertMoodAdded" class="alert mood-alert py-2 mb-2" style="display:none"></div>
 
                     <!-- Estado de ánimo -->
                     <div class="mb-2">
@@ -93,11 +93,6 @@
     </div>
 </div>
 
-<style>
-    #moodModal .mood-btn-option { padding:4px 10px; font-size:.8rem; }
-    #moodModal .mood-btn-option img { width:20px; height:20px; }
-    #moodModal .mood-btn-option.active { background:#f5eefb; border-color:#6a4e7a; color:#5a3d69; }
-</style>
 
 <script>
 (function(){
@@ -243,10 +238,10 @@
         MOOD_OPTS.forEach(o => {
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'btn btn-outline-secondary mood-btn-option';
+            btn.className = 'btn btn-outline-secondary mood-btn mood-btn--sm';
             btn.innerHTML = '<img src="' + o.img + '" alt="' + o.label + '" width="24" height="24" loading="lazy" decoding="async" style="vertical-align:middle;margin-right:5px;"> ' + o.label;
             btn.addEventListener('click', function(){
-                c.querySelectorAll('.mood-btn-option').forEach(b => b.classList.remove('active'));
+                c.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 document.getElementById('moodSelected').value = o.val;
             });
@@ -259,7 +254,7 @@
         const el = document.getElementById('alertMoodAdded');
         if (!el) return;
         el.textContent = msg;
-        el.className = esError ? 'alert alert-danger alert-mood-added' : 'alert alert-success alert-mood-added';
+        el.className = esError ? 'alert alert-danger mood-alert' : 'alert alert-success mood-alert';
         el.style.display = 'block';
     }
 
@@ -281,7 +276,7 @@
         document.getElementById('moodText').value = '';
         const alertEl = document.getElementById('alertMoodAdded');
         if (alertEl) alertEl.style.display = 'none';
-        document.getElementById('moodOptionsBtns')?.querySelectorAll('.mood-btn-option').forEach(b => b.classList.remove('active'));
+        document.getElementById('moodOptionsBtns')?.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
         document.getElementById('btnAddSintoma')?.classList.add('d-none');
         document.getElementById('btnAddTratamiento')?.classList.add('d-none');
         hideQuickAddRow('sintoma');
