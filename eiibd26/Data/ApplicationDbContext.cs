@@ -99,6 +99,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
 
     // Validaciones de contenido por profesionales médicos
     public DbSet<eiibd26.Models.Validacion.ValidacionContenidoProfesional> ValidacionesContenidoProfesional { get; set; }
+    public DbSet<eiibd26.Models.Validacion.ValidacionRespuestaProfesional> ValidacionesRespuestaProfesional { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

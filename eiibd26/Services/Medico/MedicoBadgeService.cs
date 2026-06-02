@@ -204,6 +204,12 @@ public class MedicoBadgeService : IMedicoBadgeService
                 .CountAsync(v => v.UsuarioMedicoId == userIdStr && v.Estado == EstadoValidacion.Validado);
             if (validacionesContenido >= 3)
                 await OtorgarBadgeAsync(medicoId, "validador_contenido", "sistema");
+
+            // validador_respuestas: >= 3 respuestas validadas (ValidacionRespuestaProfesional)
+            var validacionesRespuestas = await _db.ValidacionesRespuestaProfesional
+                .CountAsync(v => v.UsuarioMedicoId == userIdStr && v.Estado == EstadoValidacion.Validado);
+            if (validacionesRespuestas >= 3)
+                await OtorgarBadgeAsync(medicoId, "validador_respuestas", "sistema");
         }
     }
 
@@ -219,6 +225,7 @@ public class MedicoBadgeService : IMedicoBadgeService
             "responder_comentarios"    => nivel >= 3,
             "participar_qa"            => nivel >= 4,
             "validar_contenido"        => nivel >= 5,
+            "validar_respuestas"       => nivel >= 4,
             "crear_contenido"          => nivel >= 6,
             _                          => false
         };
