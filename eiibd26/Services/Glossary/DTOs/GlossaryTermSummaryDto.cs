@@ -1,3 +1,5 @@
+using eiibd26.Services.Validacion;
+
 namespace eiibd26.Services.Glossary.DTOs
 {
     public record GlossaryTermSummaryDto
@@ -18,5 +20,7 @@ namespace eiibd26.Services.Glossary.DTOs
         public int RelationIndirectCount { get; init; }
         public int RelationSecondaryCount { get; init; }
         public int RelationTotalCount => RelationDirectCount + RelationIndirectCount + RelationSecondaryCount;
+
+        public List<ValidacionPublicaDto> Validadores { get; set; } = new();
     }
 }

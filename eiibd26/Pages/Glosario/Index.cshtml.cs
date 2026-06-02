@@ -1,5 +1,6 @@
 using eiibd26.Services.Glossary;
 using eiibd26.Services.Glossary.DTOs;
+using eiibd26.Services.Validacion;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace eiibd26.Pages.Glosario
@@ -15,13 +16,16 @@ namespace eiibd26.Pages.Glosario
     public class IndexModel : PageModel
     {
         private readonly IGlossaryService _glossaryService;
+        private readonly IValidacionContenidoService _validacionSvc;
         private readonly ILogger<IndexModel> _logger;
 
         public IndexModel(
             IGlossaryService glossaryService,
+            IValidacionContenidoService validacionSvc,
             ILogger<IndexModel> logger)
         {
             _glossaryService = glossaryService;
+            _validacionSvc = validacionSvc;
             _logger = logger;
         }
 
@@ -37,6 +41,15 @@ namespace eiibd26.Pages.Glosario
                 // Load top lists (quality filtered)
                 TopSymptoms = await _glossaryService.GetTopTermsByQualityAsync(Models.Glossary.GlossaryTermType.Sintoma, 20);
                 TopTreatments = await _glossaryService.GetTopTermsByQualityAsync(Models.Glossary.GlossaryTermType.Tratamiento, 20);
+
+                // Batch-load validators: una sola query para ambas listas combinadas
+                var allIds = TopSymptoms.Select(t => t.Id)
+                    .Union(TopTreatments.Select(t => t.Id)).ToList();
+                var validadoresDict = await _validacionSvc.ObtenerValidadoresGlosarioPorTerminosAsync(allIds);
+                foreach (var t in TopSymptoms)
+                    if (validadoresDict.TryGetValue(t.Id, out var v)) t.Validadores = v;
+                foreach (var t in TopTreatments)
+                    if (validadoresDict.TryGetValue(t.Id, out var v)) t.Validadores = v;
             }
             catch (Exception ex)
             {
