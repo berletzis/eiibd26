@@ -9,6 +9,7 @@
 
 @section Styles {
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500" />
+    <link rel="stylesheet" href="~/css/estado-animo.css" asp-append-version="true" />
     <style>
         html, body {
             overflow-x: hidden;
@@ -307,23 +308,11 @@
             line-height: 1.2;
         }
 
-        .user-card-mood-text {
-            font-size: 0.85rem;
-            color: #4b5563;
-            font-weight: 400;
-            font-style: italic;
-        }
-
         .user-card-bottom {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-top: auto;
-        }
-
-        .user-card-mood-icon {
-            width: 24px;
-            height: 24px;
         }
 
         .user-card-country {
@@ -424,62 +413,6 @@
             .mapa-controls { flex-direction: column; gap: 10px; }
             .mapa-controls > div { width: 100%; }
             .mapa-controls .form-select { min-width: 0 !important; width: 100% !important; }
-        }
-
-        /* ====== BANDA HORIZONTAL DE MOOD ====== */
-        .mood-band-wrap {
-            padding: 0 18px 14px 18px;
-        }
-
-        .mood-band {
-            display: flex;
-            gap: 4px;
-            height: 52px;
-            width: 100%;
-            align-items: stretch;
-        }
-
-        .mood-band-seg {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            cursor: default;
-            transition: filter 0.15s ease;
-            min-width: 0;
-        }
-
-            .mood-band-seg:first-child { border-radius: 8px 0 0 8px; }
-            .mood-band-seg:last-child  { border-radius: 0 8px 8px 0; }
-            .mood-band-seg:only-child  { border-radius: 8px; }
-            .mood-band-seg:hover       { filter: brightness(0.9); }
-
-        .mood-band-seg-label {
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: #fff;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            padding: 0 8px;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
-            pointer-events: none;
-        }
-
-        .mood-band-empty {
-            height: 52px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #9ca3af;
-            font-size: 0.875rem;
-            background: #f9fafb;
-            border-radius: 8px;
-            border: 1px dashed #e5e7eb;
-        }
-
-        @@media (max-width: 576px) {
-            .mood-band-wrap { padding-left: 6px; padding-right: 6px; }
         }
 
         .loading-indicator {
@@ -777,7 +710,7 @@
 
     @if (estaAutenticado)
     {
-        <div class="mood-band-wrap" aria-label="Distribución de estado de ánimo">
+        <div class="mood-band-container" aria-label="Distribución de estado de ánimo">
             <div id="moodBand" class="mood-band"></div>
             <div id="moodBandEmpty" class="mood-band-empty" style="display:none;">Sin datos de estado de ánimo para este filtro</div>
         </div>
@@ -1041,12 +974,12 @@
                 html += '</div></div>';
 
                 if (moodText) {
-                    html += '<div class="user-card-mood-text">' + escapeHtml(moodText) + '</div>';
+                    html += '<div class="mood-entry-text">' + escapeHtml(moodText) + '</div>';
                 }
 
                 html += '<div class="user-card-bottom">';
                 if (moodValue) {
-                    html += '<img src="' + moodImage + '" alt="Mood ' + moodValue + '" class="user-card-mood-icon" />';
+                    html += '<img src="' + moodImage + '" alt="Mood ' + moodValue + '" class="mood-entry-icon" />';
                 } else {
                     html += '<span></span>';
                 }
