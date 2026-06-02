@@ -101,5 +101,23 @@ namespace eiibd26.Helpers
 
             return slug;
         }
+
+        /// <summary>
+        /// Genera un slug único para un perfil de usuario (deduplicación contra Perfil.slug).
+        /// </summary>
+        public static async Task<string> GenerateUniqueSlugForUsuario(ApplicationDbContext db, string nombre, Guid? idUser = null)
+        {
+            var baseSlug = GenerateSlug(nombre);
+            if (string.IsNullOrWhiteSpace(baseSlug) || baseSlug == "pregunta") baseSlug = "autor";
+            var slug = baseSlug; var counter = 1;
+            while (true)
+            {
+                var exists = await db.Perfil.AsNoTracking()
+                    .AnyAsync(p => p.slug == slug && (!idUser.HasValue || p.idUser != idUser.Value));
+                if (!exists) break;
+                slug = $"{baseSlug}-{counter}"; counter++;
+            }
+            return slug;
+        }
     }
 }

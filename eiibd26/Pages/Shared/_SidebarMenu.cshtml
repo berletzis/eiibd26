@@ -1,4 +1,4 @@
-﻿@* Shared sidebar menu *@
+@* Shared sidebar menu *@
 
 @using Microsoft.AspNetCore.Http
 @using Microsoft.AspNetCore.Identity
@@ -10,8 +10,6 @@
 
 @{
     var path = ViewContext.HttpContext.Request.Path.ToString();
-    // Mustard color for the icon
-    var mustard = "#D4A017";
 
     // Helpers for active states
     bool IsActive(string p) => string.Equals(path, p, StringComparison.OrdinalIgnoreCase);
@@ -52,139 +50,50 @@
     }
 }
 
-<style>
-    /* Sidebar sizing (desktop) - more width so items don't wrap and reduce white area */
-    .sidebar-menu {
-        width: 260px;
-        min-width: 260px;
-        max-width: 320px;
-        box-sizing: border-box;
-        font-size: .9rem;
-        font-weight: 400;
-    }
-
-        /* Tighter nav item spacing */
-        .sidebar-menu .nav-link {
-            padding: .45rem .6rem;
-            font-size: .9rem;
-            font-weight: 400;
-        }
-
-            /* Ensure icons keep consistent space */
-            .sidebar-menu .nav-link .me-2 {
-                min-width: 30px;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-    /* Offcanvas (mobile) width: make it wider and remove big blank margins */
-    #sidebarOffcanvas.offcanvas {
-        --bs-offcanvas-width: 320px; /* bootstrap 5 variable */
-        max-width: 92%;
-    }
-
-    /* Slightly reduce padding inside offcanvas body so content fills space */
-    #sidebarOffcanvas .offcanvas-body {
-        padding-top: .75rem;
-        padding-bottom: .75rem;
-        padding-left: .6rem;
-        padding-right: .6rem;
-    }
-
-    /* When sidebar-menu is rendered inside the offcanvas, make it use the full offcanvas width */
-    #sidebarOffcanvas .sidebar-menu {
-        width: 100%;
-        min-height: calc(100vh - 56px);
-        border-right: none;
-        box-shadow: none;
-    }
-
-    /* Remove duplicate inline toggler from inside the offcanvas (visual safety) -
-                       script already attempts to remove duplicates, esto evita ver un botón encima */
-    #sidebarOffcanvas .sidebar-toggle-inline {
-        display: none !important;
-    }
-
-    /* Reduce the large blank vertical spacing between items inside offcanvas */
-    #sidebarOffcanvas .nav {
-        gap: .25rem;
-    }
-
-    /* Position close button visually consistent */
-    #sidebarOffcanvas .btn-close {
-        position: absolute;
-        top: .5rem;
-        right: .5rem;
-    }
-
-    /* Responsive tweaks: on narrow devices, let offcanvas take a bit more width */
-    @@media (max-width: 768px) {
-        .sidebar-menu {
-            width: auto;
-            min-width: 0;
-        }
-
-        #sidebarOffcanvas.offcanvas {
-            --bs-offcanvas-width: 85%;
-            max-width: 420px;
-        }
-    }
-
-    /* Accessibility & small styling */
-    .sidebar-menu .nav-link .visually-hidden {
-        margin-left: .25rem;
-    }
-</style>
-
-<div class="d-flex flex-column flex-shrink-0 p-3 bg-light sidebar-menu" style="min-height: 100vh; border-right: 1px solid #ececec; position:relative;">
+<div class="d-flex flex-column flex-shrink-0 p-3 sidebar-menu" style="min-height:100vh; position:relative;">
     <ul class="nav nav-pills flex-column mb-auto">
         <!-- Admin encabezado (solo escudo rojo en cuadro, palabra normal) -->
         @if (User.Identity?.IsAuthenticated == true && User.IsInRole("Administrador") && !IsStartingWith("/u/"))
         {
-            <li class="nav-item mt-2 mb-1">
-                <span class="nav-link disabled d-flex align-items-center" style="opacity:1; font-size:.9rem; font-weight:400;">
-                    <span class="d-inline-flex align-items-center justify-content-center rounded border admin-icon me-2" style="width:30px;height:30px; border-width:2px;">
-                        <i class="bi bi-shield-shaded" style="color:#c92a2a; font-size:1.3em"></i>
+            <li class="nav-item">
+                <span class="sidebar-section-label">
+                    <span class="sidebar-icon sidebar-icon--admin">
+                        <i class="bi bi-shield-shaded"></i>
                     </span>
-                    <span>Admin</span>
+                    Admin
                 </span>
             </li>
 
             @* Contenidos parent with collapsible submenu *@
             <li class="nav-item">
-                <a class="nav-link admin d-flex ms-2 text-dark @(contenidosOpen ? "active" : "")"
+                <a class="nav-link d-flex align-items-center ms-2 @(contenidosOpen ? "active" : "")"
                        data-bs-toggle="collapse"
                        href="#submenuContenidos"
                        role="button"
                        aria-expanded="@(contenidosOpen.ToString().ToLower())"
-                       aria-controls="submenuContenidos"
-                       style="gap:.5rem; font-size:.9rem; font-weight:400;">
+                       aria-controls="submenuContenidos">
                     <i class="bi bi-folder2-open me-2"></i>
                     <span>Contenidos</span>
                     <i class="bi bi-chevron-down ms-auto"></i>
                 </a>
 
                 <div class="collapse @(contenidosOpen ? "show" : "")" id="submenuContenidos">
-                    <ul class="btn-toggle-nav list-unstyled fw-normal pb-1 small" style="font-size:.9rem; font-weight:400;">
+                    <ul class="btn-toggle-nav list-unstyled fw-normal pb-1 small">
                         <li>
                             <a href="/Identity/Admin/Contenidos/Index"
-                                   class="nav-link ms-4 text-dark @(IsActive("/Identity/Admin/Contenidos/Index") ? "active" : "")"
-                                   style="font-size:.9rem; font-weight:400;">
+                                   class="nav-link ms-4 @(IsActive("/Identity/Admin/Contenidos/Index") ? "active" : "")">
                                 <i class="bi bi-file-earmark-text"></i> Contenidos
                             </a>
                         </li>
                         <li>
                             <a href="/Identity/Admin/Contenidos/ContenidosCategorias"
-                                   class="nav-link ms-4 text-dark @(IsActive("/Identity/Admin/Contenidos/ContenidosCategorias") ? "active" : "")"
-                                   style="font-size:.9rem; font-weight:400;">
+                                   class="nav-link ms-4 @(IsActive("/Identity/Admin/Contenidos/ContenidosCategorias") ? "active" : "")">
                                 <i class="bi bi-tags"></i> Categorías de Contenido
                             </a>
                         </li>
                         <li>
                             <a href="/Identity/Admin/BannersInicio/Index"
-                                   class="nav-link ms-4 text-dark @(IsActive("/Identity/Admin/BannersInicio/Index") ? "active" : "")"
-                                   style="font-size:.9rem; font-weight:400;">
+                                   class="nav-link ms-4 @(IsActive("/Identity/Admin/BannersInicio/Index") ? "active" : "")">
                                 <i class="bi bi-images"></i> Banners Inicio
                             </a>
                         </li>
@@ -193,28 +102,27 @@
             </li>
 
             <li>
-                <a href="/Identity/Admin/Usuarios/Index" class="nav-link admin ms-4 text-dark @(IsActive("/Identity/Admin/Usuarios/Index") ? "active" : "")" style="font-size:.9rem; font-weight:400;">
+                <a href="/Identity/Admin/Usuarios/Index" class="nav-link ms-4 @(IsActive("/Identity/Admin/Usuarios/Index") ? "active" : "")">
                     <i class="bi bi-person-vcard"></i> Usuarios
                 </a>
             </li>
             <li>
-                <a href="/Identity/Admin/Condiciones/Index" class="nav-link admin ms-4 text-dark @(IsActive("/Identity/Admin/Condiciones/Index") ? "active" : "")" style="font-size:.9rem; font-weight:400;">
+                <a href="/Identity/Admin/Condiciones/Index" class="nav-link ms-4 @(IsActive("/Identity/Admin/Condiciones/Index") ? "active" : "")">
                     <i class="bi bi-hospital"></i> Condiciones
                 </a>
             </li>
             <li>
-                <a href="/Identity/Admin/Sintomas/Index" class="nav-link admin ms-4 text-dark @(IsActive("/Identity/Admin/Sintomas/Index") ? "active" : "")" style="font-size:.9rem; font-weight:400;">
+                <a href="/Identity/Admin/Sintomas/Index" class="nav-link ms-4 @(IsActive("/Identity/Admin/Sintomas/Index") ? "active" : "")">
                     <i class="bi bi-activity"></i> Síntomas
                 </a>
             </li>
             <li>
-                <a href="/Identity/Admin/Tratamientos/Index" class="nav-link admin ms-4 text-dark @(IsActive("/Identity/Admin/Tratamientos/Index") ? "active" : "")" style="font-size:.9rem; font-weight:400;">
+                <a href="/Identity/Admin/Tratamientos/Index" class="nav-link ms-4 @(IsActive("/Identity/Admin/Tratamientos/Index") ? "active" : "")">
                     <i class="bi bi-prescription2"></i> Tratamientos
                 </a>
             </li>
             <li class="nav-item">
-                <button class="nav-link admin ms-4 text-dark w-100 text-start d-flex justify-content-between align-items-center border-0 bg-transparent"
-                        style="font-size:.9rem; font-weight:400;"
+                <button class="nav-link ms-4 w-100 text-start d-flex justify-content-between align-items-center border-0 bg-transparent"
                         data-bs-toggle="collapse" data-bs-target="#labSubmenu"
                         aria-expanded="@(IsStartingWith("/Identity/Admin/Laboratorios") ? "true" : "false")">
                     <span><i class="bi bi-file-earmark-medical"></i> Laboratorios</span>
@@ -223,12 +131,12 @@
                 <div class="collapse @(IsStartingWith("/Identity/Admin/Laboratorios") ? "show" : "")" id="labSubmenu">
                     <ul class="list-unstyled ms-3" style="font-size:.85rem;">
                         <li>
-                            <a href="/Identity/Admin/Laboratorios/Index" class="nav-link text-dark @(IsActive("/Identity/Admin/Laboratorios/Index") ? "active" : "")" style="font-size:.85rem;">
+                            <a href="/Identity/Admin/Laboratorios/Index" class="nav-link @(IsActive("/Identity/Admin/Laboratorios/Index") ? "active" : "")">
                                 <i class="bi bi-list-ul"></i> Catálogo
                             </a>
                         </li>
                         <li>
-                            <a href="/Identity/Admin/Laboratorios/Resultados" class="nav-link text-dark @(IsActive("/Identity/Admin/Laboratorios/Resultados") ? "active" : "")" style="font-size:.85rem;">
+                            <a href="/Identity/Admin/Laboratorios/Resultados" class="nav-link @(IsActive("/Identity/Admin/Laboratorios/Resultados") ? "active" : "")">
                                 <i class="bi bi-journal-medical"></i> Resultados
                             </a>
                         </li>
@@ -237,8 +145,7 @@
             </li>
             <li>
                 <a href="/Identity/Admin/DirectorioMedicos/Index"
-                   class="nav-link admin ms-4 text-dark @(IsStartingWith("/Identity/Admin/DirectorioMedicos") ? "active" : "")"
-                   style="font-size:.9rem; font-weight:400;">
+                   class="nav-link ms-4 @(IsStartingWith("/Identity/Admin/DirectorioMedicos") ? "active" : "")">
                     <i class="bi bi-person-lines-fill"></i> Directorio Médicos
                 </a>
             </li>
@@ -251,25 +158,23 @@
                 @if (!string.IsNullOrWhiteSpace(userSlug))
                 {
                     <a href="/u/@userSlug"
-                           class="nav-link text-dark d-flex align-items-center @(path.StartsWith("/u/", StringComparison.OrdinalIgnoreCase) ? "active" : "")"
-                           style="gap:.5rem; font-size:.9rem; font-weight:400;"
+                           class="nav-link d-flex align-items-center @(path.StartsWith("/u/", StringComparison.OrdinalIgnoreCase) ? "active" : "")"
                            target="_blank"
                            title="Ver mi perfil público">
-                        <span class="d-inline-flex align-items-center justify-content-center rounded border me-2" style="width:30px;height:30px; border-width:2px;">
-                            <i class="bi bi-person-badge" style="color:@mustard; font-size:1.3em"></i>
+                        <span class="sidebar-icon sidebar-icon--brand me-2">
+                            <i class="bi bi-person-badge"></i>
                         </span>
                         <span>Mi Perfil Público</span>
-                        <i class="bi bi-box-arrow-up-right ms-auto" style="font-size:0.8em; opacity:0.6;"></i>
+                        <i class="bi bi-box-arrow-up-right ms-auto" style="font-size:.8em; opacity:.5;"></i>
                     </a>
                 }
                 else
                 {
                     <a href="/Identity/Account/Manage/Index"
-                           class="nav-link text-dark d-flex align-items-center @(IsActive("/Identity/Account/Manage/Index") ? "active" : "")"
-                           style="gap:.5rem; font-size:.9rem; font-weight:400;"
+                           class="nav-link d-flex align-items-center @(IsActive("/Identity/Account/Manage/Index") ? "active" : "")"
                            title="Configurar mi perfil">
-                        <span class="d-inline-flex align-items-center justify-content-center rounded border me-2" style="width:30px;height:30px; border-width:2px;">
-                            <i class="bi bi-person-badge" style="color:@mustard; font-size:1.3em"></i>
+                        <span class="sidebar-icon sidebar-icon--brand me-2">
+                            <i class="bi bi-person-badge"></i>
                         </span>
                         <span>Configurar Perfil</span>
                     </a>
@@ -278,10 +183,9 @@
 
             <li class="nav-item mb-1">
                 <a href="/Identity/Usuario/Dashboard"
-                       class="nav-link text-dark d-flex align-items-center @(IsActive("/Identity/Usuario/Dashboard") ? "active" : "")"
-                       style="gap:.5rem; font-size:.9rem; font-weight:400;">
-                    <span class="d-inline-flex align-items-center justify-content-center rounded border me-2" style="width:30px;height:30px; border-width:2px;">
-                        <i class="bi bi-motherboard" style="color:@mustard; font-size:1.3em"></i>
+                       class="nav-link d-flex align-items-center @(IsActive("/Identity/Usuario/Dashboard") ? "active" : "")">
+                    <span class="sidebar-icon sidebar-icon--brand me-2">
+                        <i class="bi bi-motherboard"></i>
                     </span>
                     <span>Panel de Control</span>
                 </a>
@@ -289,10 +193,9 @@
 
             <li class="nav-item mb-1">
                 <a href="/Identity/Usuario/usuarioPreguntasRespuestas"
-                       class="nav-link text-dark d-flex align-items-center @(IsActive("/Identity/Usuario/usuarioPreguntasRespuestas") ? "active" : "")"
-                       style="gap:.5rem; font-size:.9rem; font-weight:400;">
-                    <span class="d-inline-flex align-items-center justify-content-center rounded border me-2" style="width:30px;height:30px; border-width:2px;">
-                        <i class="bi bi-chat-left-dots" style="color:@mustard; font-size:1.3em"></i>
+                       class="nav-link d-flex align-items-center @(IsActive("/Identity/Usuario/usuarioPreguntasRespuestas") ? "active" : "")">
+                    <span class="sidebar-icon sidebar-icon--brand me-2">
+                        <i class="bi bi-chat-left-dots"></i>
                     </span>
                     <span>Mis P&R</span>
                 </a>
@@ -300,52 +203,51 @@
 
             <li class="nav-item mb-1">
                 <a href="/DirectorioMedicos"
-                   class="nav-link text-dark d-flex align-items-center @(IsStartingWith("/DirectorioMedicos") ? "active" : "")"
-                   style="gap:.5rem; font-size:.9rem; font-weight:400;">
-                    <span class="d-inline-flex align-items-center justify-content-center rounded border me-2" style="width:30px;height:30px; border-width:2px;">
-                        <i class="bi bi-hospital" style="color:@mustard; font-size:1.3em"></i>
+                   class="nav-link d-flex align-items-center @(IsStartingWith("/DirectorioMedicos") ? "active" : "")">
+                    <span class="sidebar-icon sidebar-icon--brand me-2">
+                        <i class="bi bi-hospital"></i>
                     </span>
                     <span>Médicos</span>
                 </a>
             </li>
 
             <!-- Mi Salud encabezado (corazón en cuadro morado, texto normal) -->
-            <li class="nav-item mt-4 mb-1">
-                <span class="nav-link disabled d-flex align-items-center" style="opacity:1; font-size:.9rem; font-weight:400;">
-                    <span class="d-inline-flex align-items-center justify-content-center rounded border salud-icon me-2" style="width:30px;height:30px; border-width:2px;">
-                        <i class="bi bi-heart-pulse" style="color:#7522ca; font-size:1.35em"></i>
+            <li class="nav-item">
+                <span class="sidebar-section-label">
+                    <span class="sidebar-icon sidebar-icon--health">
+                        <i class="bi bi-heart-pulse"></i>
                     </span>
-                    <span>Mi Salud</span>
+                    Mi Salud
                 </span>
             </li>
 
             <li>
-                <a href="/Identity/Usuario/UsuarioEstadoAnimo" class="nav-link salud ms-4 text-dark @(IsActive("/Identity/Usuario/UsuarioEstadoAnimo") ? "active" : "")" style="font-size:.9rem; font-weight:400;">
+                <a href="/Identity/Usuario/UsuarioEstadoAnimo" class="nav-link ms-4 @(IsActive("/Identity/Usuario/UsuarioEstadoAnimo") ? "active" : "")">
                     <i class="bi bi-emoji-smile"></i> Estado de Ánimo
                 </a>
             </li>
             <li>
-                <a href="/Identity/Usuario/UsuarioCondiciones" class="nav-link salud ms-4 text-dark @(IsActive("/Identity/Usuario/UsuarioCondiciones") ? "active" : "")" style="font-size:.9rem; font-weight:400;">
+                <a href="/Identity/Usuario/UsuarioCondiciones" class="nav-link ms-4 @(IsActive("/Identity/Usuario/UsuarioCondiciones") ? "active" : "")">
                     <i class="bi bi-lungs"></i> Mis condiciones
                 </a>
             </li>
             <li>
-                <a href="/Identity/Usuario/UsuarioSintomas" class="nav-link salud ms-4 text-dark @(IsActive("/Identity/Usuario/UsuarioSintomas") ? "active" : "")" style="font-size:.9rem; font-weight:400;">
+                <a href="/Identity/Usuario/UsuarioSintomas" class="nav-link ms-4 @(IsActive("/Identity/Usuario/UsuarioSintomas") ? "active" : "")">
                     <i class="bi bi-heartbreak"></i> Mis síntomas
                 </a>
             </li>
             <li>
-                <a href="/Identity/Usuario/UsuarioSintomasSeguimiento" class="nav-link salud ms-4 text-dark @(IsActive("/Identity/Usuario/UsuarioSintomasSeguimiento") ? "active" : "")" style="font-size:.9rem; font-weight:400;">
+                <a href="/Identity/Usuario/UsuarioSintomasSeguimiento" class="nav-link ms-4 @(IsActive("/Identity/Usuario/UsuarioSintomasSeguimiento") ? "active" : "")">
                     <i class="bi bi-graph-up"></i> Seguimiento de síntomas
                 </a>
             </li>
             <li>
-                <a href="/Identity/Usuario/UsuarioTratamientos" class="nav-link salud ms-4 text-dark @(IsActive("/Identity/Usuario/UsuarioTratamientos") ? "active" : "")" style="font-size:.9rem; font-weight:400;">
+                <a href="/Identity/Usuario/UsuarioTratamientos" class="nav-link ms-4 @(IsActive("/Identity/Usuario/UsuarioTratamientos") ? "active" : "")">
                     <i class="bi bi-capsule-pill"></i> Mis tratamientos
                 </a>
             </li>
             <li>
-                <a href="/Identity/Usuario/UsuarioLaboratorios" class="nav-link salud ms-4 text-dark @(IsActive("/Identity/Usuario/UsuarioLaboratorios") ? "active" : "")" style="font-size:.9rem; font-weight:400;">
+                <a href="/Identity/Usuario/UsuarioLaboratorios" class="nav-link ms-4 @(IsActive("/Identity/Usuario/UsuarioLaboratorios") ? "active" : "")">
                     <i class="bi bi-file-earmark-medical"></i> Mis laboratorios
                 </a>
             </li>
@@ -353,17 +255,16 @@
 
         @if (User.Identity?.IsAuthenticated == true && User.IsInRole("Medico"))
         {
-            <li class="nav-item mt-2 mb-1">
-                <span class="nav-link disabled d-flex align-items-center" style="opacity:1; font-size:.75rem; font-weight:600; text-transform:uppercase; color:#9ca3af; letter-spacing:.05em;">
+            <li class="nav-item">
+                <span class="sidebar-section-label">
                     Mi espacio médico
                 </span>
             </li>
             <li class="nav-item mb-1">
                 <a href="/Identity/Medico/Dashboard"
-                   class="nav-link text-dark d-flex align-items-center @(IsStartingWith("/Identity/Medico") ? "active" : "")"
-                   style="gap:.5rem; font-size:.9rem; font-weight:400;">
-                    <span class="d-inline-flex align-items-center justify-content-center rounded border me-2" style="width:30px;height:30px; border-width:2px;">
-                        <i class="bi bi-speedometer2" style="color:@mustard; font-size:1.3em"></i>
+                   class="nav-link d-flex align-items-center @(IsStartingWith("/Identity/Medico") ? "active" : "")">
+                    <span class="sidebar-icon sidebar-icon--brand me-2">
+                        <i class="bi bi-speedometer2"></i>
                     </span>
                     <span>Mi Dashboard</span>
                 </a>
@@ -372,10 +273,9 @@
             {
                 <li class="nav-item mb-1">
                     <a href="/medicos/@medicoSlug" target="_blank"
-                       class="nav-link text-dark d-flex align-items-center"
-                       style="gap:.5rem; font-size:.9rem; font-weight:400;">
-                        <span class="d-inline-flex align-items-center justify-content-center rounded border me-2" style="width:30px;height:30px; border-width:2px;">
-                            <i class="bi bi-box-arrow-up-right" style="color:@mustard; font-size:1.1em"></i>
+                       class="nav-link d-flex align-items-center">
+                        <span class="sidebar-icon sidebar-icon--brand me-2">
+                            <i class="bi bi-box-arrow-up-right"></i>
                         </span>
                         <span>Ver mi perfil público</span>
                     </a>
@@ -384,4 +284,3 @@
         }
     </ul>
 </div>
-
