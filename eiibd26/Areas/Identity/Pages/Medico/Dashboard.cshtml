@@ -225,16 +225,45 @@
             }
         </div>
 
-        @* Sección 4: Q&A — Nivel ≥ 4 *@
+        @* Sección 4: Mis Preguntas y Respuestas — Nivel ≥ 4 *@
         <div class="col-md-6 col-lg-4">
             @if (Model.NivelActual >= 4)
             {
                 <div class="dash-card">
-                    <div class="dash-card-title"><i class="bi bi-chat-dots-fill" style="color:var(--eii-primary);"></i> Q&A Comunidad</div>
-                    <p class="text-muted small mb-3">Responde preguntas de pacientes con EII en tu área de especialidad.</p>
-                    <a href="@Model.QaUrl" class="btn btn-primary btn-sm w-100">
-                        <i class="bi bi-chat-text me-1"></i> Ver preguntas
-                    </a>
+                    <div class="dash-card-title">
+                        <i class="bi bi-chat-dots-fill" style="color:var(--eii-primary);"></i> Mis Preguntas y Respuestas
+                    </div>
+                    @if (Model.QaTop5.Any())
+                    {
+                        <ul class="list-unstyled mb-2">
+                            @foreach (var q in Model.QaTop5)
+                            {
+                                var qUrl = !string.IsNullOrWhiteSpace(q.Slug)
+                                    ? $"/Preguntas/{q.Slug}"
+                                    : $"/Preguntas/Detalles?id={q.Id}";
+                                <li class="mb-2 pb-2 border-bottom" style="font-size:.875rem;">
+                                    <a href="@qUrl" class="text-dark text-decoration-none fw-medium">
+                                        @(q.Titulo.Length > 70 ? q.Titulo.Substring(0, 70) + "…" : q.Titulo)
+                                    </a>
+                                    <div class="d-flex gap-2 mt-1" style="font-size:.75rem;color:#6b7280;">
+                                        <span><i class="bi bi-chat-text"></i> @q.RespuestasCount resp.</span>
+                                        <span><i class="bi bi-hand-thumbs-up"></i> @q.Score</span>
+                                    </div>
+                                </li>
+                            }
+                        </ul>
+                        <a asp-page="/Medico/MedicoPreguntasRespuestas" asp-area="Identity"
+                           class="btn btn-outline-primary btn-sm w-100">
+                            <i class="bi bi-chat-dots me-1"></i> Ver todas mis participaciones
+                        </a>
+                    }
+                    else
+                    {
+                        <p class="text-muted small mb-3">Aún no has participado en preguntas respondiendo.</p>
+                        <a href="/Preguntas/Index" class="btn btn-primary btn-sm w-100">
+                            <i class="bi bi-search me-1"></i> Explorar preguntas
+                        </a>
+                    }
                 </div>
             }
             else

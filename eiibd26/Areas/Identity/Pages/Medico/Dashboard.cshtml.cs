@@ -30,7 +30,7 @@ public class DashboardModel : PageModel
     public bool TienePerfilVinculado { get; set; }
     public int TotalRecomendaciones { get; set; }
     public List<RecomendacionDashboardVm> Recomendaciones { get; set; } = new();
-    public string QaUrl { get; set; } = "/Preguntas/Index";
+    public List<QaMedicoTopItem> QaTop5 { get; set; } = new();
 
     // Perfil huérfano: existe en directorio con AspNetUserId pero MedicoPerfilExtendido.MedicoId es NULL
     public int? PerfilHuerfanoId { get; set; }
@@ -77,29 +77,6 @@ public class DashboardModel : PageModel
                 NivelActual    = await _badgeService.GetNivelActualAsync(perfil.MedicoId.Value);
                 TodosLosBadges = await _badgeService.GetTodosLosBadgesAsync(perfil.MedicoId.Value);
 
-                // Construir URL Q&A con filtro de áreas EII del médico
-                var areasIds = await _db.MedicoAreasEii
-                    .AsNoTracking()
-                    .Where(a => a.MedicoPerfilId == perfil.Id)
-                    .Select(a => a.CondicionId)
-                    .ToListAsync();
-
-                if (areasIds.Any())
-                {
-                    var nombresAreas = await _db.condiciones
-                        .AsNoTracking()
-                        .Where(c => areasIds.Contains(c.id))
-                        .Select(c => c.nombre)
-                        .ToListAsync();
-
-                    if (nombresAreas.Any())
-                    {
-                        var areasParam = string.Join(",", nombresAreas
-                            .Select(n => Uri.EscapeDataString(n ?? "")));
-                        QaUrl = $"/Preguntas/Index?areas={areasParam}";
-                    }
-                }
-
                 TotalRecomendaciones = await _db.ConfirmacionesComunitarias
                     .AsNoTracking()
                     .CountAsync(c => c.MedicoDirectorioId == perfil.MedicoId.Value && !c.Eliminado);
@@ -135,6 +112,34 @@ public class DashboardModel : PageModel
                         NombrePaciente    = NivelActual >= 3 && nombresPacientes.TryGetValue(c.UsuarioId, out var n)
                                                ? n : null
                     }).ToList();
+                }
+
+                if (NivelActual >= 4)
+                {
+                    QaTop5 = await _db.Preguntas
+                        .AsNoTracking()
+                        .Where(p => !p.Eliminado &&
+                                    _db.Respuestas.Any(r => r.PreguntaId == p.Id &&
+                                                            r.UsuarioId == userId &&
+                                                            !r.Eliminado))
+                        .Select(p => new QaMedicoTopItem
+                        {
+                            Id             = p.Id,
+                            Titulo         = p.Titulo,
+                            Slug           = p.Slug,
+                            RespuestasCount = _db.Respuestas.Count(r => r.PreguntaId == p.Id && !r.Eliminado),
+                            Score          = _db.Votos
+                                                .Where(v => v.EntidadTipo == eiibd26.Controllers.VotoTipo.Pregunta
+                                                            && v.EntidadId == p.Id
+                                                            && !v.Eliminado)
+                                                .Select(v => (int?)v.Valor).Sum() ?? 0,
+                            FechaCreacion  = p.FechaCreacion
+                        })
+                        .OrderByDescending(q =>
+                            (double)(q.Score * 2 + q.RespuestasCount) /
+                            (2.0 + EF.Functions.DateDiffDay(q.FechaCreacion, DateTime.UtcNow)))
+                        .Take(5)
+                        .ToListAsync();
                 }
             }
         }
@@ -196,6 +201,16 @@ public class DashboardModel : PageModel
         TempData["Success"] = "Solicitud enviada. El equipo EIIBD la revisará pronto.";
         return RedirectToPage();
     }
+}
+
+public class QaMedicoTopItem
+{
+    public Guid    Id              { get; set; }
+    public string  Titulo          { get; set; } = "";
+    public string? Slug            { get; set; }
+    public int     RespuestasCount { get; set; }
+    public int     Score           { get; set; }
+    public DateTimeOffset FechaCreacion { get; set; }
 }
 
 public class RecomendacionDashboardVm
