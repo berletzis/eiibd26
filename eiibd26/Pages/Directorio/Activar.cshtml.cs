@@ -175,6 +175,7 @@ public class ActivarModel : PageModel
         var medico = await _db.MedicosDirectorio.FindAsync(tokenData.MedicoId);
         if (medico is not null)
         {
+            medico.AspNetUserId       = userId;
             medico.EstatusReclamacion = EstatusReclamacion.Reclamado;
             medico.FechaReclamacion   = DateTimeOffset.UtcNow;
             medico.FechaModificacion  = DateTimeOffset.UtcNow;
