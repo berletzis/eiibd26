@@ -213,39 +213,47 @@ namespace eiibd26.Jobs
                     ParentRespuestaId = null
                 };
 
+                // 8. Guardar Respuesta IA + marcas de pregunta (crítico — SaveChanges propio)
+                // El log de auditoría va en un segundo SaveChanges separado para que un
+                // fallo del log NUNCA revierta la respuesta IA que el usuario ya necesita.
                 _db.Respuestas.Add(respuestaIA);
-
-                log.ModelUsed = modeloUsado;
-                log.QuestionText = pregunta.Titulo ?? string.Empty;
-
-                // 9. Marcar la pregunta como que tiene respuesta de IA
                 pregunta.TieneRespuestaIA = true;
                 pregunta.FechaGeneracionIA = DateTimeOffset.UtcNow;
 
                 try
                 {
-                    log.Success = true;
-                    log.ProcessingTimeMs = (DateTimeOffset.UtcNow - startTime).TotalMilliseconds;
-                    _db.AIRequestLogs.Add(log);
-
                     await _db.SaveChangesAsync(cancellationToken);
-
-                    var totalTime = (DateTimeOffset.UtcNow - startTime).TotalSeconds;
-
                     _logger.LogInformation(
-                        "[AI Job] Completed: PreguntaId={PreguntaId}, RespuestaId={RespuestaId}, Reused={Reused}, Duration={TotalTime:F2}s",
-                        preguntaId, respuestaIA.Id, esReutilizada, totalTime);
+                        "[AI Job] Respuesta guardada: PreguntaId={PreguntaId}, RespuestaId={RespuestaId}, Reused={Reused}",
+                        preguntaId, respuestaIA.Id, esReutilizada);
                 }
                 catch (DbUpdateException dbEx) when (dbEx.InnerException?.Message?.Contains("UX_Respuestas_OneAIAnswerPerQuestion") == true)
                 {
-                    // Duplicate AI answer detected by database constraint
                     _logger.LogWarning(
                         "[AI Job] Duplicate response blocked by DB constraint: PreguntaId={PreguntaId}",
                         preguntaId);
-
-                    // This is NOT an error - it's the constraint working correctly
-                    // Don't retry, just exit gracefully
                     return;
+                }
+
+                // 9. Log de auditoría — fallo aquí NO revierte la respuesta ya persistida
+                try
+                {
+                    log.Success = true;
+                    log.ModelUsed = modeloUsado;
+                    log.QuestionText = pregunta.Titulo ?? string.Empty;
+                    log.ProcessingTimeMs = (DateTimeOffset.UtcNow - startTime).TotalMilliseconds;
+                    _db.AIRequestLogs.Add(log);
+                    await _db.SaveChangesAsync(CancellationToken.None);
+
+                    _logger.LogInformation(
+                        "[AI Job] Completed: PreguntaId={PreguntaId}, Duration={TotalTime:F2}s",
+                        preguntaId, log.ProcessingTimeMs / 1000.0);
+                }
+                catch (Exception logEx)
+                {
+                    _logger.LogWarning(logEx,
+                        "[AI Job] No se pudo guardar el audit log para PreguntaId={PreguntaId} (respuesta IA ya persistida)",
+                        preguntaId);
                 }
             }
             catch (OperationCanceledException ex)
