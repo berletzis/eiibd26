@@ -40,11 +40,11 @@
         <div style="height:335px;position:relative">
             <canvas id="moodChart" height="325"></canvas>
         </div>
-        <div class="mood-leyenda-row">
+        <div class="mood-legend">
             @foreach (var k in moodImgs)
             {
-                <span class="mood-leyenda-item">
-                    <img class="mood-leyenda-img" src="@k.Value" alt="@moodLabels[k.Key]" />
+                <span class="mood-legend__item">
+                    <img class="mood-icon mood-icon--md" src="@k.Value" alt="@moodLabels[k.Key]" />
                     <span>@moodLabels[k.Key]</span>
                 </span>
             }
@@ -52,15 +52,15 @@
     </div>
 
     <div class="d-flex justify-content-center align-items-center mb-3" id="moodFilterBlock">
-        <div class="mood-filters-row">
-            <button type="button" class="btn btn-outline-secondary mx-1 mood-filter-btn active" data-filter="1m">Último Mes</button>
-            <button type="button" class="btn btn-outline-secondary mx-1 mood-filter-btn" data-filter="3m">3 Meses</button>
-            <button type="button" class="btn btn-outline-secondary mx-1 mood-filter-btn" data-filter="6m">6 Meses</button>
-            <button type="button" class="btn btn-outline-secondary mx-1 mood-filter-btn" data-filter="12m">Todo este Año</button>
+        <div class="d-flex gap-2 align-items-center overflow-hidden">
+            <button type="button" class="btn btn-outline-secondary mx-1 mood-filter active" data-filter="1m">Último Mes</button>
+            <button type="button" class="btn btn-outline-secondary mx-1 mood-filter" data-filter="3m">3 Meses</button>
+            <button type="button" class="btn btn-outline-secondary mx-1 mood-filter" data-filter="6m">6 Meses</button>
+            <button type="button" class="btn btn-outline-secondary mx-1 mood-filter" data-filter="12m">Todo este Año</button>
         </div>
         <span id="moodCountLegend" class="mood-count-legend"></span>
     </div>
-    <div id="moodCards" class="mood-card-panel"></div>
+    <div id="moodCards" class="mood-grid"></div>
 
     @* Reuse partial modal to avoid duplication *@
     @await Html.PartialAsync("~/Views/Shared/_EstadoAnimoModal.cshtml")
@@ -128,32 +128,32 @@
         const condicion = dto.Condicion || dto.condicion;
         if (condicion && (condicion.Nombre || condicion.nombre)) {
         const nombreCondicion = condicion.Nombre || condicion.nombre;
-        relacionesHtml += `<span class="mood-relacion"><strong>Condición:</strong> ${nombreCondicion}</span>`;
+        relacionesHtml += `<span class="mood-entry-tag"><strong>Condición:</strong> ${nombreCondicion}</span>`;
         }
-            
+
         // Verificar Sintoma
         const sintoma = dto.Sintoma || dto.sintoma;
         if (sintoma && (sintoma.Nombre || sintoma.nombre)) {
         const nombreSintoma = sintoma.Nombre || sintoma.nombre;
-        relacionesHtml += `<span class="mood-relacion"><strong>Síntoma:</strong> ${nombreSintoma}</span>`;
+        relacionesHtml += `<span class="mood-entry-tag"><strong>Síntoma:</strong> ${nombreSintoma}</span>`;
         }
-            
+
         // Verificar Tratamiento
         const tratamiento = dto.Tratamiento || dto.tratamiento;
         if (tratamiento && (tratamiento.Nombre || tratamiento.nombre)) {
         const nombreTratamiento = tratamiento.Nombre || tratamiento.nombre;
-        relacionesHtml += `<span class="mood-relacion"><strong>Tratamiento:</strong> ${nombreTratamiento}</span>`;
+        relacionesHtml += `<span class="mood-entry-tag"><strong>Tratamiento:</strong> ${nombreTratamiento}</span>`;
         }
-            
-        let deleteBtn = id ? `<button class="mood-delete-btn" onclick="eliminarMood(${id})" title="Eliminar este estado de ánimo"><i class="bi bi-trash"></i></button>` : "";
-            
-        return `<div class="mood-card-item" data-id="${id}">
+
+        let deleteBtn = id ? `<button class="mood-entry-delete" onclick="eliminarMood(${id})" title="Eliminar este estado de ánimo"><i class="bi bi-trash"></i></button>` : "";
+
+        return `<div class="mood-card" data-id="${id}">
         ${deleteBtn}
-        <img class="mood-card-img" src="${img}" alt="${label}" />
-        <div class="mood-card-content">
-        <span class="mood-label">${label}</span>
-        <div class="mood-reflexion">${reflexion}</div>
-        <div class="mood-main-legend">Ultimo Seguimiento<br/><span style="color:#7e7e9d;font-weight:400">${fecha}</span></div>
+        <img class="mood-icon mood-icon--lg" src="${img}" alt="${label}" />
+        <div class="d-flex flex-column">
+        <span class="mood-entry-label">${label}</span>
+        <div class="mood-entry-note">${reflexion}</div>
+        <div class="mood-entry-date">Ultimo Seguimiento<br/><span style="color:#7e7e9d;font-weight:400">${fecha}</span></div>
         ${relacionesHtml}
         </div>
         </div>`;
@@ -197,9 +197,9 @@
         document.addEventListener("DOMContentLoaded", async function(){
         await cargarHistorialEstadoAnimo();
 
-        document.querySelectorAll('.mood-filter-btn').forEach(btn => {
+        document.querySelectorAll('.mood-filter').forEach(btn => {
         btn.addEventListener('click', function () {
-        document.querySelectorAll('.mood-filter-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.mood-filter').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         aplicarFiltroMood(btn.dataset.filter);
         });
@@ -212,7 +212,7 @@
 
         window.addEventListener('mood:added', async function(e){
         await cargarHistorialEstadoAnimo();
-        const activeBtn = document.querySelector('.mood-filter-btn.active');
+        const activeBtn = document.querySelector('.mood-filter.active');
         if (activeBtn) aplicarFiltroMood(activeBtn.dataset.filter || '1m');
         });
 
@@ -450,7 +450,7 @@
         });
         if (res.ok) {
         await cargarHistorialEstadoAnimo();
-        const activeBtn = document.querySelector('.mood-filter-btn.active');
+        const activeBtn = document.querySelector('.mood-filter.active');
         if (activeBtn) aplicarFiltroMood(activeBtn.dataset.filter || '1m');
         try { window.dispatchEvent(new CustomEvent('mood:deleted', { detail: { id: id } })); } catch(e){}
         } else {
