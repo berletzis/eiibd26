@@ -197,9 +197,8 @@ try
         // Bundle CSS: Combina todos los archivos CSS en uno
         pipeline.AddCssBundle("/css/bundle.min.css",
             "css/site.css",
-            "css/miSalud.css",
             "css/account.css",
-            "css/usuario-condiciones-crm.css",
+            "css/tracking-sintomas.css",
             "css/site-responsive.css")
             .UseContentRoot();
 
