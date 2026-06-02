@@ -1,4 +1,4 @@
-﻿@model eiibd26.Models.DashboardViewModel
+@model eiibd26.Models.DashboardViewModel
 @using System
 @using System.Collections.Generic
 @using System.Linq
@@ -30,7 +30,7 @@
         font-weight: 400;
     }
 
-        .sintomas-top5 .crm-table-title,
+        .sintomas-top5 .track-table-title,
         .sintomas-top5 .dashboard-col1-title {
             font-weight: 400;
             color: #172849;
@@ -44,7 +44,7 @@
             font-weight: 400;
         }
 
-        .sintomas-top5 .crm-circle {
+        .sintomas-top5 .track-dot {
             display: inline-block;
             border-radius: 50%;
             width: 18px;
@@ -137,10 +137,6 @@
         font-size: .85rem;
     }
 
-    .crm-modal-content {
-        overflow: visible;
-    }
-
     @@media (max-width: 576px) {
         .sintomas-top5 {
             padding-left: .4rem;
@@ -183,7 +179,7 @@
                 white-space: normal;
             }
 
-            .sintomas-top5 .crm-circle {
+            .sintomas-top5 .track-dot {
                 width: 14px;
                 height: 14px;
                 border-width: 1px;
@@ -251,7 +247,7 @@
             }
         </div>
         *@
-    } 
+    }
     @{
         var tendDict = (Model.HealthStats?.Symptoms?.PorSintoma ?? new List<eiibd26.DTOs.Analytics.SymptomTrendDto>())
             .ToDictionary(t => t.NombreSintoma, t => t, StringComparer.OrdinalIgnoreCase);
@@ -302,16 +298,16 @@
                                 var hasTrend = tendDict.TryGetValue(s.Nombre?.Trim() ?? "", out var rowTrend);
                                 var (rowDotClass, rowTextClass, rowTendShort) = hasTrend ? rowTrend!.Tendencia switch
                                 {
-                                    "Empeorando" => ("tendencia-empeorando", "text-empeorando", "Empeorando"),
-                                    "Mejorando"  => ("tendencia-mejorando",  "text-mejorando",  "Mejorando"),
-                                    "Estable"    => ("tendencia-estable",    "text-estable",    "Estable"),
-                                    _            => ("tendencia-sin",        "text-sin",        "Sin datos")
-                                } : ("tendencia-sin", "text-sin", "Sin datos");
+                                    "Empeorando" => ("track-trend-dot--empeorando", "track-trend-label--empeorando", "Empeorando"),
+                                    "Mejorando"  => ("track-trend-dot--mejorando",  "track-trend-label--mejorando",  "Mejorando"),
+                                    "Estable"    => ("track-trend-dot--estable",    "track-trend-label--estable",    "Estable"),
+                                    _            => ("track-trend-dot--sin",        "track-trend-label--sin",        "Sin datos")
+                                } : ("track-trend-dot--sin", "track-trend-label--sin", "Sin datos");
                             }
                             <td title="Basado en la evolución del síntoma durante el período (no solo el último día)">
-                                <span class="tendencia-cell">
-                                    <span class="tendencia-dot @rowDotClass"></span>
-                                    <span class="tendencia-label @rowTextClass">@rowTendShort</span>
+                                <span class="track-trend-cell">
+                                    <span class="track-trend-dot @rowDotClass"></span>
+                                    <span class="track-trend-label @rowTextClass">@rowTendShort</span>
                                 </span>
                             </td>
 
@@ -322,7 +318,7 @@
                                 @if (!string.IsNullOrEmpty(seguimientoAyer))
                                 {
                                     var color = estadoToColor(seguimientoAyer);
-                                    <span class="crm-circle" style="background:@color" title="@seguimientoAyer" alt="@seguimientoAyer"></span>
+                                    <span class="track-dot" style="background:@color" title="@seguimientoAyer" alt="@seguimientoAyer"></span>
                                 }
                                 else
                                 {
@@ -346,7 +342,7 @@
                                 @if (!string.IsNullOrEmpty(seguimientoHoy))
                                 {
                                     var color = estadoToColor(seguimientoHoy);
-                                    <span class="crm-circle" style="background:@color" title="@seguimientoHoy" alt="@seguimientoHoy"></span>
+                                    <span class="track-dot" style="background:@color" title="@seguimientoHoy" alt="@seguimientoHoy"></span>
                                 }
                                 else
                                 {
@@ -421,7 +417,7 @@
                 );
                 return;
             }
-            const circle = ev.target.closest('.crm-circle');
+            const circle = ev.target.closest('.track-dot');
             if (circle) {
                 const td = circle.closest('td');
                 if (!td) return;
@@ -444,7 +440,7 @@
         const { sintomaUsuarioId, estado, fecha } = ev.detail;
         const selector = `[data-sintid="${sintomaUsuarioId}"][data-dia="${fecha}"]`;
         document.querySelectorAll(selector).forEach(function (td) {
-            td.innerHTML = `<span class="crm-circle"
+            td.innerHTML = `<span class="track-dot"
                                   style="background:${colorFor(estado)}"
                                   alt="${estado}"
                                   title="${estado}"></span>`;

@@ -1,4 +1,4 @@
-﻿@page
+@page
 @model eiibd26.Areas.Identity.Pages.Usuario.UsuarioSintomasSeguimientoModel
 @{
     ViewData["Title"] = "Seguimiento de mis síntomas";
@@ -28,109 +28,6 @@
 }
 
 <style>
-
-    .crm-info-block {
-        background: #f7f9fd;
-        border-radius: 19px !important;
-        box-shadow: 0 2px 10px 0 rgba(50,65,120,0.07);
-        border: none !important;
-        padding: 1.2rem 1.8rem .9rem 1.8rem;
-        margin-bottom: 16px;
-        font-size: 1.07em;
-        color: #4f5871;
-    }
-
-    .crm-table-block {
-        background: #fff;
-        border-radius: 29px !important;
-        box-shadow: 0 9px 36px 0 rgba(50,65,120,0.08);
-        border: none !important;
-        padding: 2.3rem 2.6rem 1.9rem 2.6rem !important;
-        margin-bottom: 15px;
-    }
-
-    .crm-table-title {
-        font-size: 1.38rem;
-        font-weight: 600;
-        color: #315686;
-        margin-bottom: .9em;
-        letter-spacing: -0.02em;
-    }
-
-    .crm-table-seguimiento {
-        width: 100%;
-        border-radius: 18px;
-        overflow: hidden;
-        background: #f8fafc;
-        box-shadow: 0 1px 8px #e5e8ef1a;
-    }
-
-        .crm-table-seguimiento th,
-        .crm-table-seguimiento td {
-            font-size: 1em;
-            padding: 14px 9px;
-            vertical-align: top;
-        }
-
-            .crm-table-seguimiento th.bg-light {
-                background: #f6f6fe !important;
-                color: #3b426c;
-                font-weight: 500;
-            }
-
-            .crm-table-seguimiento th.bg-warning {
-                background: #fff7dc !important;
-                color: #6f571b;
-                font-weight: 700;
-            }
-
-            .crm-table-seguimiento td.text-nowrap {
-                max-width: 180px;
-                white-space: nowrap;
-            }
-
-            .crm-table-seguimiento td.wrap-condiciones {
-                max-width: 220px;
-                white-space: normal !important;
-                word-break: break-word;
-                font-size: 1em;
-                line-height: 1.02em;
-            }
-
-        .crm-table-seguimiento td {
-            background: #fff;
-        }
-
-    .crm-circle-tracking {
-        display: inline-block;
-        border-radius: 50%;
-        width: 19px;
-        height: 19px;
-        margin-right: 1px;
-        box-shadow: 0 1px 4px #ccd1ea3a;
-        border: 2px solid #f3f4f8;
-        vertical-align: middle;
-        cursor: pointer;
-    }
-
-    .crm-tracking-legenda-row {
-        display: flex;
-        flex-direction: row;
-        gap: 28px;
-        margin-bottom: 11px;
-        align-items: center;
-        flex-wrap: wrap;
-    }
-
-    .crm-tracking-legenda-item {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 1.02em;
-        font-weight: 500;
-        color: #315686;
-    }
-
     .btn.btn-outline-gray.btn-sm.btn-agregar-tracking-matriz {
         border-radius: 9px !important;
         padding: 4px 10px !important;
@@ -144,36 +41,12 @@
         max-width: 220px;
     }
 
-    /* ---------- Responsive adjustments (only affect small screens) ---------- */
-    /* For mobile we show only Ayer and Hoy columns, remove Conditions column, and remove bold from symptom names */
+    /* ---------- Responsive: show only ayer/hoy (server-rendered date values) ---------- */
     @@media (max-width: 750px) {
 
-        .crm-container {
-            max-width: 98vw;
-            padding: 0;
-        }
-
-        .crm-table-block {
-            padding: 1.2rem 0.6rem 1.1rem 0.6rem;
-        }
-
-        /* LEGACY — crm-title migrado a eii-page-title 2026-05 */
-
-        .crm-table-title {
-            font-size: 1.15rem;
-        }
-
-        .crm-info-block {
-            font-size: .97em;
-        }
-        /* Reduce padding and font sizes inside table for mobile */
-        .crm-table-seguimiento th, .crm-table-seguimiento td {
-            padding: 10px 8px;
-            font-size: .95rem;
-        }
         /* Hide ALL day columns by default (those with data-dia), then show only ayer and hoy */
-        .crm-table-seguimiento thead th[data-dia],
-        .crm-table-seguimiento tbody td[data-dia] {
+        .track-table thead th[data-dia],
+        .track-table tbody td[data-dia] {
             display: none !important;
             visibility: collapse !important;
             width: 0 !important;
@@ -181,31 +54,14 @@
             margin: 0 !important;
         }
         /* Show only ayer and hoy columns (server values injected) */
-        .crm-table-seguimiento thead th[data-dia="@ayerAttr"],
-        .crm-table-seguimiento thead th[data-dia="@hoyAttr"],
-        .crm-table-seguimiento tbody td[data-dia="@ayerAttr"],
-        .crm-table-seguimiento tbody td[data-dia="@hoyAttr"] {
+        .track-table thead th[data-dia="@ayerAttr"],
+        .track-table thead th[data-dia="@hoyAttr"],
+        .track-table tbody td[data-dia="@ayerAttr"],
+        .track-table tbody td[data-dia="@hoyAttr"] {
             display: table-cell !important;
             visibility: visible !important;
             width: auto !important;
             padding: 10px 8px !important;
-        }
-        /* Hide the Condiciones column entirely on mobile */
-        .crm-table-seguimiento th.cond-col,
-        .crm-table-seguimiento td.cond-col {
-            display: none !important;
-        }
-        /* Symptoms column: remove bold and allow wrapping */
-        .crm-table-seguimiento tbody td:first-child,
-        .crm-table-seguimiento thead th:first-child {
-            white-space: normal !important;
-            overflow-wrap: anywhere;
-            font-weight: 400 !important;
-            max-width: 55%;
-        }
-        /* Ensure small icons/buttons center properly */
-        .crm-table-seguimiento td.text-center {
-            text-align: center !important;
         }
         /* Make buttons slightly smaller on mobile */
         .btn.btn-outline-gray.btn-sm.btn-agregar-tracking-matriz {
@@ -218,38 +74,24 @@
             -webkit-overflow-scrolling: touch;
         }
     }
-
-    @@media (max-width: 900px) {
-        .crm-container {
-            max-width: 98vw;
-            padding: 0;
-        }
-    }
-
-    @@media (max-width: 750px) {
-        .crm-table-seguimiento td.wrap-condiciones {
-            max-width: 98vw;
-        }
-    }
-
 </style>
 <div class="container py-4">
     <h1 class="eii-page-title">Seguimiento semanal de síntomas</h1>
     <div class="condiciones-paginacion" aria-label="Paginación">
         <span> @descripcionPagina</span>
     </div>
-    <div class="crm-table-block">
-        <div class="crm-table-title">Matriz de síntomas y seguimiento</div>
-        <div class="crm-tracking-legenda-row">
+    <div class="track-table-block">
+        <div class="track-table-title">Matriz de síntomas y seguimiento</div>
+        <div class="track-legend-row">
             @foreach (var estado in estadosTracking)
             {
-                <span class="crm-tracking-legenda-item">
-                    <span class="crm-circle-tracking" style="background:@estado.color;" title="@estado.label" alt="@estado.label"></span>@estado.label
+                <span class="track-legend-item">
+                    <span class="track-dot--interactive" style="background:@estado.color;" title="@estado.label" alt="@estado.label"></span>@estado.label
                 </span>
             }
         </div>
         <div class="table-responsive">
-            <table class="crm-table-seguimiento table table-bordered table-sm align-middle text-center">
+            <table class="track-table table table-bordered table-sm align-middle text-center">
                 <thead>
                     <tr>
                         <th class="bg-light text-nowrap">Síntoma</th>
@@ -285,17 +127,17 @@
                                 var tendTxt = trend?.Tendencia ?? "Sin datos suficientes";
                                 var (tendDotClass, tendTextClass, tendShort) = tendTxt switch
                                 {
-                                    "Empeorando" => ("tendencia-empeorando", "text-empeorando", "Empeorando"),
-                                    "Mejorando"  => ("tendencia-mejorando",  "text-mejorando",  "Mejorando"),
-                                    "Estable"    => ("tendencia-estable",    "text-estable",    "Estable"),
-                                    _            => ("tendencia-sin",        "text-sin",        "Sin datos")
+                                    "Empeorando" => ("track-trend-dot--empeorando", "track-trend-label--empeorando", "Empeorando"),
+                                    "Mejorando"  => ("track-trend-dot--mejorando",  "track-trend-label--mejorando",  "Mejorando"),
+                                    "Estable"    => ("track-trend-dot--estable",    "track-trend-label--estable",    "Estable"),
+                                    _            => ("track-trend-dot--sin",        "track-trend-label--sin",        "Sin datos")
                                 };
                             }
                             <td class="text-nowrap"
                                 title="Basado en la evolución del síntoma durante el período (no solo el último día)">
-                                <span class="tendencia-cell">
-                                    <span class="tendencia-dot @tendDotClass"></span>
-                                    <span class="tendencia-label @tendTextClass">@tendShort</span>
+                                <span class="track-trend-cell">
+                                    <span class="track-trend-dot @tendDotClass"></span>
+                                    <span class="track-trend-label @tendTextClass">@tendShort</span>
                                 </span>
                             </td>
                             @foreach (var dia in diasSemana)
@@ -318,7 +160,7 @@
                                     @if (!string.IsNullOrEmpty(seguimiento))
                                     {
                                         string color = badgeColors.ContainsKey(seguimiento) ? badgeColors[seguimiento] : "#E6E6EB";
-                                        <span class="crm-circle-tracking"
+                                        <span class="track-dot--interactive"
                                               style="background:@color;"
                                               alt="@seguimiento"
                                               title="@seguimiento"></span>
@@ -356,25 +198,25 @@
 </div>
 <!-- MODAL TRACKING PARA MATRIZ -->
 <div class="modal fade" id="modalTrackingMatriz" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="crm-modal-content modal-content">
+    <div class="modal-dialog modal-dialog-centered eii-modal">
+        <div class="modal-content">
             <form id="formTrackingMatriz">
                 @Html.AntiForgeryToken()
-                <div class="crm-modal-header modal-header">
-                    <h5 class="crm-modal-title modal-title" id="tituloTrackingMatriz"></h5>
+                <div class="modal-header">
+                    <h5 class="modal-title" id="tituloTrackingMatriz"></h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="crm-modal-body modal-body">
+                <div class="modal-body">
                     <div id="mensajeTrackingMatriz" class="alert alert-success py-2 px-3 small mb-2 d-none">
                         <i class="bi bi-check-circle-fill me-1"></i> Seguimiento agregado
                     </div>
                     <div class="mb-2 fw-semibold" id="preguntaTrackingMatriz"></div>
-                    <div id="opcionesTrackingMatriz" class="crm-tracking-opciones-btns d-flex flex-column gap-2">
+                    <div id="opcionesTrackingMatriz" class="track-options-btns d-flex flex-column gap-2">
                         <!-- Opciones por JS -->
                     </div>
                     <!-- Dolor (solo TipoSintoma 1=Medible o 2=Dolor) -->
                     <div id="trackDolorContainerMatriz" class="mt-3" style="display:none;">
-                        <label class="crm-label mb-1" for="trackDolorMatriz">
+                        <label class="eii-label mb-1" for="trackDolorMatriz">
                             Dolor <span class="text-muted small">(opcional)</span>
                         </label>
                         <div class="d-flex align-items-center gap-2">
@@ -390,7 +232,7 @@
                     </div>
                     <!-- Sangrado (solo TipoSintoma 1=Medible) -->
                     <div id="trackSangradoContainerMatriz" class="mt-3 align-items-center gap-3" style="display:none;">
-                        <label class="crm-label mb-0" for="trackSangradoMatriz">Sangrado</label>
+                        <label class="eii-label mb-0" for="trackSangradoMatriz">Sangrado</label>
                         <div class="form-check form-switch mb-0">
                             <input class="form-check-input" type="checkbox" role="switch"
                                    id="trackSangradoMatriz" style="width:2.5em;height:1.3em;" />
@@ -399,7 +241,7 @@
                     </div>
                     <!-- Frecuencia (solo TipoSintoma 1=Medible) -->
                     <div id="trackFrecuenciaContainerMatriz" class="mt-3" style="display:none;">
-                        <label class="crm-label mb-1" for="trackFrecuenciaMatriz">
+                        <label class="eii-label mb-1" for="trackFrecuenciaMatriz">
                             Frecuencia del síntoma <span class="text-muted small">(opcional)</span>
                         </label>
                         <select id="trackFrecuenciaMatriz" class="form-select form-select-sm">
@@ -412,7 +254,7 @@
                         <div class="form-text">Frecuencia aproximada del síntoma durante el día</div>
                     </div>
                 </div>
-                <div class="crm-modal-footer modal-footer">
+                <div class="modal-footer">
                     <button type="button" id="btnGuardarTrackingMatriz" class="btn btn-primary">
                         <i class="bi bi-check-lg me-1"></i>Guardar
                     </button>
@@ -437,9 +279,9 @@
                 { val: "Extremo", label: "Extremo", color: "#D32F2F" }
             ];
 
-            // Add click event to each crm-circle-tracking in matrix for edit modal
+            // Add click event to each track-dot--interactive in matrix for edit modal
             function addCircleEditEvent() {
-                document.querySelectorAll('td .crm-circle-tracking').forEach(function(circle) {
+                document.querySelectorAll('td .track-dot--interactive').forEach(function(circle) {
                     const td = circle.closest('td');
                     if (td && !td.classList.contains('disabled-edit')) {
                         td.onclick = function () {
@@ -501,7 +343,7 @@
                 opcionesTracking.forEach(o => {
                     let active = (o.val === estadoActual) ? "active" : "";
                     html += `<button type="button" class="btn btn-outline-primary w-100 btn-opcion-track-matriz ${active}" data-estado="${o.val}" style="display:flex;align-items:center;gap:10px;">
-                        <span class="crm-circle-tracking" style="background:${o.color};"></span> ${o.label}
+                        <span class="track-dot--interactive" style="background:${o.color};"></span> ${o.label}
                     </button>`;
                 });
                 document.getElementById('opcionesTrackingMatriz').innerHTML = html;
@@ -593,7 +435,7 @@
                     const sangGuardado  = document.getElementById('trackSangradoMatriz')?.checked ? 'true' : 'false';
                     const frecGuardada  = document.getElementById('trackFrecuenciaMatriz')?.value || '';
                     celdas.forEach(celda => {
-                        celda.innerHTML = `<span class="crm-circle-tracking" style="background:${bgStyle};" alt="${estado}" title="${estado}"></span>`;
+                        celda.innerHTML = `<span class="track-dot--interactive" style="background:${bgStyle};" alt="${estado}" title="${estado}"></span>`;
                         celda.setAttribute('data-tipo',      tipoGuardado);
                         celda.setAttribute('data-dolor',     dolorGuardado);
                         celda.setAttribute('data-sangrado',  sangGuardado);
