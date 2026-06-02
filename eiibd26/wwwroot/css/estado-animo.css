@@ -199,3 +199,339 @@
     .mood-filter-btn[data-filter="6m"],
     .mood-filter-btn[data-filter="12m"] { display: none !important; }
 }
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   SISTEMA MOOD — UNIFICADO (M1)
+   Clases canónicas para migración progresiva M2-M5.
+   Las clases legacy de arriba se mantienen hasta que cada vista sea migrada.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Botón de selección de humor ────────────────────────────────────────────
+   Unifica: mood-option-btn (dashboard) / mood-btn-option (modal) / ha__mood-btn (hero).
+   Uso: añadir .mood-btn sobre .btn.btn-outline-secondary de Bootstrap.        */
+.mood-btn:hover,
+.mood-btn:focus {
+    border-color: var(--eii-primary);
+    box-shadow: 0 4px 14px rgba(106, 78, 122, 0.18);
+}
+
+/* Estado "seleccionado" genérico (sin data-val) — equivalente al modal activo */
+.mood-btn.active {
+    background: #f5eefb;
+    border-color: #6a4e7a;
+    color: #5a3d69;
+}
+
+/* Variante compacta — contexto modal */
+.mood-btn--sm {
+    padding: 4px 10px;
+    font-size: .8rem;
+}
+.mood-btn--sm img {
+    width: 20px;
+    height: 20px;
+}
+
+/* Variante hero — columna vertical, standalone (no depende de Bootstrap btn) */
+.mood-btn--hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    background: #fff;
+    cursor: pointer;
+    text-decoration: none;
+    transition: border-color 0.18s, transform 0.15s, box-shadow 0.18s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+}
+.mood-btn--hero:hover,
+.mood-btn--hero:focus {
+    border-color: var(--eii-primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(106, 78, 122, 0.18);
+}
+
+/* Colores semánticos por nivel de humor — feature-specific, NO tokenizar */
+.mood-btn[data-val="5"] { border-color: var(--eii-success);         color: var(--eii-success-hover); }
+.mood-btn[data-val="4"] { border-color: #68c27a;                    color: #2e7d32; }
+.mood-btn[data-val="3"] { border-color: var(--eii-secondary-border); color: var(--eii-secondary); }
+.mood-btn[data-val="2"] { border-color: var(--eii-warning);         color: var(--eii-warning-hover); }
+.mood-btn[data-val="1"] { border-color: var(--eii-danger);          color: var(--eii-danger-hover); }
+
+.mood-btn[data-val="5"]:hover,
+.mood-btn[data-val="5"].active { background: var(--eii-success-soft);   border-color: var(--eii-success);         color: var(--eii-success-hover); }
+.mood-btn[data-val="4"]:hover,
+.mood-btn[data-val="4"].active { background: #f0faf2;                   border-color: #68c27a;                    color: #2e7d32; }
+.mood-btn[data-val="3"]:hover,
+.mood-btn[data-val="3"].active { background: var(--eii-secondary-soft); border-color: var(--eii-secondary-border); color: var(--eii-secondary); }
+.mood-btn[data-val="2"]:hover,
+.mood-btn[data-val="2"].active { background: var(--eii-warning-soft);   border-color: var(--eii-warning);         color: var(--eii-warning-hover); }
+.mood-btn[data-val="1"]:hover,
+.mood-btn[data-val="1"].active { background: var(--eii-danger-soft);    border-color: var(--eii-danger);          color: var(--eii-danger-hover); }
+
+/* Etiqueta de texto bajo el ícono en botón hero */
+.mood-btn-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #546a70;
+    white-space: nowrap;
+}
+
+
+/* ── Ícono de humor ──────────────────────────────────────────────────────────
+   Unifica: mood-leyenda-img / mood-card-img / ha__mood-img /
+            user-card-mood-icon / exp-mood-img / dash-mood-legend__img.        */
+.mood-icon {
+    display: inline-block;
+    flex-shrink: 0;
+    object-fit: contain;
+    border-radius: var(--eii-radius-md);
+    background: var(--eii-surface);
+    box-shadow: var(--eii-shadow-sm);
+}
+
+/* xs — 22px: exp-mood-img (Glosario/Termino) */
+.mood-icon--xs {
+    width: 22px;
+    height: 22px;
+}
+
+/* sm — 24px: user-card-mood-icon (Mapa + Glosario) · dash-mood-legend__img */
+.mood-icon--sm {
+    width: 24px;
+    height: 24px;
+    border-radius: var(--eii-radius-sm);
+    padding: 3px;
+}
+
+/* md — 31px: mood-leyenda-img (página UsuarioEstadoAnimo) */
+.mood-icon--md {
+    width: 31px;
+    height: 31px;
+}
+
+/* hero — 44px: ha__mood-img (heroinicio) — sin borde ni sombra adicional */
+.mood-icon--hero {
+    width: 44px;
+    height: 44px;
+    background: none;
+    box-shadow: none;
+    border-radius: 0;
+}
+
+/* lg — 46px: mood-card-img (cards de UsuarioEstadoAnimo) */
+.mood-icon--lg {
+    width: 46px;
+    height: 46px;
+    border-radius: var(--eii-radius-lg);
+    box-shadow: var(--eii-shadow-md);
+    border: 3px solid var(--eii-surface);
+    margin-right: 4px;
+    padding: 2px;
+}
+
+
+/* ── Grid y card de humor ────────────────────────────────────────────────────
+   Unifica: mood-card-panel (grid) + mood-card-item (card).                    */
+.mood-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 28px;
+    align-items: start;
+    margin-top: 14px;
+    margin-bottom: 10px;
+    width: 100%;
+}
+
+@media (max-width: 900px) { .mood-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 750px) { .mood-grid { grid-template-columns: 1fr; gap: var(--eii-space-2); } }
+
+.mood-card {
+    background: var(--eii-surface-soft);
+    min-width: 0;
+    max-width: 100%;
+    border-radius: var(--eii-radius-xl);
+    box-shadow: var(--eii-shadow-sm);
+    border: none;
+    padding: var(--eii-space-4);
+    margin: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: var(--eii-space-3);
+    height: 100%;
+    position: relative;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+
+/* ── Contenido de entrada de humor ──────────────────────────────────────────
+   Unifica la tipografía interna de las cards y entries de estado de ánimo.    */
+
+/* mood-label → mood-entry-label */
+.mood-entry-label {
+    font-size: var(--eii-text-sm);
+    font-weight: var(--eii-fw-semibold);
+    color: var(--eii-text-heading);
+    margin-bottom: 6px;
+    margin-top: 0;
+    display: inline-block;
+    line-height: var(--eii-leading-tight);
+    word-break: break-word;
+}
+
+/* mood-reflexion → mood-entry-note */
+.mood-entry-note {
+    font-size: var(--eii-text-sm);
+    margin-bottom: 7px;
+    margin-top: 0;
+    color: var(--eii-text);
+    word-break: break-word;
+    white-space: pre-line;
+}
+
+/* mood-main-legend → mood-entry-date */
+.mood-entry-date {
+    font-size: var(--eii-text-xs);
+    color: var(--eii-text-soft);
+    font-weight: var(--eii-fw-normal);
+    margin-bottom: 4px;
+    display: block;
+    margin-top: 0;
+    line-height: 1.1;
+}
+
+/* mood-relacion → mood-entry-tag */
+.mood-entry-tag {
+    font-size: var(--eii-text-xs);
+    color: var(--eii-text-soft);
+    margin-bottom: 2px;
+    display: block;
+}
+
+/* mood-delete-btn → mood-entry-delete */
+.mood-entry-delete {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    border: none;
+    background: transparent;
+    color: var(--eii-danger);
+    cursor: pointer;
+    font-size: var(--eii-text-sm);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.mood-entry-delete:hover {
+    text-decoration: underline;
+}
+
+/* user-card-mood-text (Mapa + Glosario) → mood-entry-text */
+.mood-entry-text {
+    font-size: 0.85rem;
+    color: #4b5563;
+    font-weight: 400;
+    font-style: italic;
+}
+
+
+/* ── Leyenda de humor ────────────────────────────────────────────────────────
+   Unifica: mood-leyenda-row (UsuarioEstadoAnimo) + dash-mood-legend (dashboard). */
+.mood-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--eii-space-5);
+    margin-top: var(--eii-space-2);
+    margin-bottom: var(--eii-space-1);
+}
+
+.mood-legend__item {
+    display: flex;
+    align-items: center;
+    gap: var(--eii-space-2);
+    font-size: var(--eii-text-sm);
+    font-weight: var(--eii-fw-medium);
+    color: var(--eii-text-soft);
+    line-height: 1;
+}
+
+@media (max-width: 767.98px) {
+    .mood-legend { gap: var(--eii-space-3); }
+}
+
+
+/* ── Filtro de periodo de humor ─────────────────────────────────────────────
+   mood-filter-btn → mood-filter: modificador sobre .btn.btn-outline-secondary. */
+.mood-filter {
+    flex: 0 0 auto;
+}
+
+@media (max-width: 750px) {
+    .mood-filter[data-filter="6m"],
+    .mood-filter[data-filter="12m"] { display: none !important; }
+}
+
+
+/* ── Banda horizontal de humor (Mapa) ───────────────────────────────────────
+   mood-band-wrap → mood-band-container. Las demás clases conservan su nombre. */
+.mood-band-container {
+    padding: 0 18px 14px 18px;
+}
+
+.mood-band {
+    display: flex;
+    gap: 4px;
+    height: 52px;
+    width: 100%;
+    align-items: stretch;
+}
+
+.mood-band-seg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    cursor: default;
+    transition: filter 0.15s ease;
+    min-width: 0;
+}
+
+.mood-band-seg:first-child { border-radius: 8px 0 0 8px; }
+.mood-band-seg:last-child  { border-radius: 0 8px 8px 0; }
+.mood-band-seg:only-child  { border-radius: 8px; }
+.mood-band-seg:hover       { filter: brightness(0.9); }
+
+.mood-band-seg-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 8px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    pointer-events: none;
+}
+
+.mood-band-empty {
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9ca3af;
+    font-size: 0.875rem;
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px dashed #e5e7eb;
+}
+
+@media (max-width: 576px) {
+    .mood-band-container { padding-left: 6px; padding-right: 6px; }
+}
