@@ -1,0 +1,289 @@
+@page
+@model eiibd26.Areas.Identity.Pages.Admin.Campanas.CampanasIndexModel
+@using Microsoft.AspNetCore.Authorization
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@attribute [Authorize(Roles = "Administrador")]
+@{
+    ViewData["Title"] = "Campañas de email";
+    Layout = "_Layout";
+}
+
+<div class="eii-page eii-page--wide">
+    <meta name="csrf-token" content="@Antiforgery.GetAndStoreTokens(HttpContext).RequestToken" />
+    <div class="d-flex align-items-center mb-4">
+        <h2 class="eii-page-title eii-page-title--sm mb-0">Campañas de email</h2>
+        <div class="ms-3">
+            <button id="btnAbrirCampana" class="btn btn-primary">
+                <i class="bi bi-envelope-paper me-1"></i>Abrir campaña de reactivación
+            </button>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm p-4" style="max-width:680px;">
+        <p class="text-muted mb-0" style="font-size:.95rem;">
+            Desde aquí puedes enviar correos de reactivación a usuarios por fases.
+            Haz clic en <strong>Abrir campaña</strong> para ver el estado actual y enviar un batch.
+        </p>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- Modal Campaña por Fases                                    -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalCampana" tabindex="-1" aria-labelledby="modalCampanaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="border-radius:14px;border:none;box-shadow:0 4px 32px rgba(70,80,120,0.13);">
+            <div class="modal-header" style="background:linear-gradient(135deg,#1a7abf 0%,#0d4f7c 100%);border-radius:14px 14px 0 0;">
+                <h5 class="modal-title text-white fw-semibold" id="modalCampanaLabel">
+                    <i class="bi bi-envelope-paper-fill me-2"></i>Campaña de reactivación por fases
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-4">
+
+                <!-- Resumen de fases -->
+                <div class="mb-4">
+                    <h6 class="fw-semibold mb-3 text-muted" style="font-size:.85rem;letter-spacing:.05em;">ESTADO ACTUAL DE LA CAMPAÑA</h6>
+                    <div id="campanaResumen" class="text-center py-3">
+                        <span class="spinner-border spinner-border-sm text-secondary"></span>
+                        <span class="text-muted ms-2" style="font-size:.85rem;">Cargando...</span>
+                    </div>
+                </div>
+
+                <hr class="my-3" />
+
+                <!-- Selector de fase -->
+                <h6 class="fw-semibold mb-3 text-muted" style="font-size:.85rem;letter-spacing:.05em;">SELECCIONA LA FASE A ENVIAR (BATCH DE 100)</h6>
+                <div class="row g-2 mb-3" id="campanaFaseSelector">
+                    <div class="col-md-4">
+                        <div class="form-check p-3 border rounded campana-fase-card" style="cursor:pointer;background:#f0f7ff;">
+                            <input class="form-check-input" type="radio" name="campanaFase" id="fase1Radio" value="1" checked>
+                            <label class="form-check-label w-100" for="fase1Radio" style="cursor:pointer;">
+                                <span class="fw-semibold d-block" style="font-size:.9rem;"><i class="bi bi-1-circle me-1 text-primary"></i>Fase 1 — Reactivación</span>
+                                <span class="text-muted d-block" style="font-size:.78rem;">Primer contacto. Sin pedir datos.</span>
+                                <span class="badge bg-primary mt-1" id="badgeFase1">— elegibles</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check p-3 border rounded campana-fase-card" style="cursor:pointer;background:#f0fff4;">
+                            <input class="form-check-input" type="radio" name="campanaFase" id="fase2Radio" value="2">
+                            <label class="form-check-label w-100" for="fase2Radio" style="cursor:pointer;">
+                                <span class="fw-semibold d-block" style="font-size:.9rem;"><i class="bi bi-2-circle me-1 text-success"></i>Fase 2 — Activación</span>
+                                <span class="text-muted d-block" style="font-size:.78rem;">Acceso listo. Invitar a entrar.</span>
+                                <span class="badge bg-success mt-1" id="badgeFase2">— elegibles</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check p-3 border rounded campana-fase-card" style="cursor:pointer;background:#fff8f0;">
+                            <input class="form-check-input" type="radio" name="campanaFase" id="fase3Radio" value="3">
+                            <label class="form-check-label w-100" for="fase3Radio" style="cursor:pointer;">
+                                <span class="fw-semibold d-block" style="font-size:.9rem;"><i class="bi bi-3-circle me-1 text-warning"></i>Fase 3 — Recordatorio</span>
+                                <span class="text-muted d-block" style="font-size:.78rem;">Fricción honesta. Último aviso.</span>
+                                <span class="badge bg-warning text-dark mt-1" id="badgeFase3">— elegibles</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Aviso de template no configurado -->
+                <div id="campanaTemplateAviso" class="alert alert-warning d-none py-2" style="font-size:.85rem;">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    <span id="campanaTemplateAvisoText"></span>
+                </div>
+
+                <!-- Log de resultados -->
+                <div id="campanaLogContainer" class="d-none mt-3">
+                    <h6 class="fw-semibold mb-2 text-muted" style="font-size:.85rem;letter-spacing:.05em;">RESULTADO DEL BATCH</h6>
+                    <div id="campanaLog" class="border rounded p-2" style="max-height:200px;overflow-y:auto;background:#f8f9ff;font-size:.82rem;font-family:monospace;"></div>
+                    <div id="campanaResumenBatch" class="mt-2 fw-semibold" style="font-size:.88rem;"></div>
+                </div>
+
+                <div id="campanaStatus" class="alert d-none mt-3 mb-0" role="alert"></div>
+            </div>
+            <div class="modal-footer flex-column align-items-stretch" style="border-top:1px solid #eee;gap:.5rem;">
+                <div class="d-flex align-items-center flex-wrap gap-2 w-100" style="background:#f8fff8;border:1px solid #c3e6cb;border-radius:.375rem;padding:.5rem .75rem;">
+                    <span class="text-muted fw-semibold" style="font-size:.8rem;white-space:nowrap;">Prueba:</span>
+                    <select id="campanaTemplatePrueba" class="form-select form-select-sm" style="max-width:220px;">
+                        <option value="">Cargando templates...</option>
+                    </select>
+                    <input type="email" id="campanaCorreoPrueba" class="form-control form-control-sm" placeholder="correo@prueba.com" style="max-width:230px;" />
+                    <button type="button" id="btnEnviarPrueba" class="btn btn-sm btn-outline-success text-nowrap">
+                        <i class="bi bi-envelope-check me-1"></i>Enviar correo de prueba
+                    </button>
+                    <div id="campanaPruebaStatus" style="font-size:.82rem;"></div>
+                </div>
+                <div class="d-flex justify-content-end gap-2 w-100">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" id="btnEnviarBatch" class="btn btn-primary">
+                        <i class="bi bi-send me-1"></i>Enviar batch de 100
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var campanaResumenData = null;
+
+            function cargarCampanaResumen() {
+                $('#campanaResumen').html('<span class="spinner-border spinner-border-sm text-secondary"></span><span class="text-muted ms-2" style="font-size:.85rem;">Cargando...</span>');
+                fetch(window.location.pathname + '?handler=CampanaResumen')
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) {
+                        campanaResumenData = d;
+                        $('#badgeFase1').text(d.elegiblesFase1 + ' elegibles');
+                        $('#badgeFase2').text(d.elegiblesFase2 + ' elegibles');
+                        $('#badgeFase3').text(d.elegiblesFase3 + ' elegibles');
+                        $('#campanaResumen').html(
+                            '<div class="row text-center g-2">' +
+                            '<div class="col"><div class="border rounded p-2" style="background:#f8f9ff;"><div class="fw-bold text-primary" style="font-size:1.4rem;">' + d.totalUsuarios + '</div><div class="text-muted" style="font-size:.78rem;">Total usuarios</div></div></div>' +
+                            '<div class="col"><div class="border rounded p-2" style="background:#f0f7ff;"><div class="fw-bold text-primary" style="font-size:1.4rem;">' + d.conFase1 + '</div><div class="text-muted" style="font-size:.78rem;">Recibieron F1</div></div></div>' +
+                            '<div class="col"><div class="border rounded p-2" style="background:#f0fff4;"><div class="fw-bold text-success" style="font-size:1.4rem;">' + d.conFase2 + '</div><div class="text-muted" style="font-size:.78rem;">Recibieron F2</div></div></div>' +
+                            '<div class="col"><div class="border rounded p-2" style="background:#fff8f0;"><div class="fw-bold text-warning" style="font-size:1.4rem;">' + d.conFase3 + '</div><div class="text-muted" style="font-size:.78rem;">Recibieron F3</div></div></div>' +
+                            '<div class="col"><div class="border rounded p-2" style="background:#f0fdf0;"><div class="fw-bold text-success" style="font-size:1.4rem;">' + d.completados + '</div><div class="text-muted" style="font-size:.78rem;">Completados</div></div></div>' +
+                            '</div>'
+                        );
+                    })
+                    .catch(function () {
+                        $('#campanaResumen').html('<span class="text-danger" style="font-size:.85rem;">Error al cargar resumen.</span>');
+                    });
+            }
+
+            function abrirCampana() {
+                $('#campanaLogContainer').addClass('d-none');
+                $('#campanaLog').html('');
+                $('#campanaResumenBatch').html('');
+                $('#campanaStatus').addClass('d-none');
+                $('#campanaTemplateAviso').addClass('d-none');
+                $('#btnEnviarBatch').prop('disabled', false).html('<i class="bi bi-send me-1"></i>Enviar batch de 100');
+                $('#campanaTemplatePrueba').html('<option value="">Cargando...</option>').prop('disabled', true);
+                fetch(window.location.pathname + '?handler=TemplatesCorreo')
+                    .then(function (r) { return r.json(); })
+                    .then(function (templates) {
+                        var opts = '<option value="">-- Selecciona template --</option>';
+                        if (templates && templates.length) {
+                            templates.forEach(function (t) {
+                                var label = t.nombre + (t.fase > 0 ? ' (Fase ' + t.fase + ')' : '');
+                                opts += '<option value="' + t.id + '">' + label + '</option>';
+                            });
+                        }
+                        $('#campanaTemplatePrueba').html(opts).prop('disabled', false);
+                    })
+                    .catch(function () {
+                        $('#campanaTemplatePrueba').html('<option value="">Error al cargar</option>').prop('disabled', false);
+                    });
+                cargarCampanaResumen();
+                new bootstrap.Modal(document.getElementById('modalCampana')).show();
+            }
+
+            document.getElementById('btnAbrirCampana').addEventListener('click', abrirCampana);
+
+            document.getElementById('btnEnviarBatch').addEventListener('click', function () {
+                var fase = parseInt(document.querySelector('input[name="campanaFase"]:checked').value);
+                var btn = this;
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando...';
+                document.getElementById('campanaStatus').className = 'alert d-none mt-3 mb-0';
+                document.getElementById('campanaTemplateAviso').className = 'alert alert-warning d-none py-2';
+                document.getElementById('campanaLogContainer').className = 'd-none mt-3';
+                document.getElementById('campanaLog').innerHTML = '';
+
+                var token = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+                fetch(window.location.pathname + '?handler=CampanaEnviarBatch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+                    body: JSON.stringify({ fase: fase })
+                })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-send me-1"></i>Enviar batch de 100';
+                        if (!data.success) {
+                            document.getElementById('campanaTemplateAviso').classList.remove('d-none');
+                            document.getElementById('campanaTemplateAvisoText').textContent = data.error || 'Error desconocido.';
+                            return;
+                        }
+                        if (data.procesados === 0) {
+                            var st = document.getElementById('campanaStatus');
+                            st.className = 'alert alert-info mt-3 mb-0';
+                            st.innerHTML = '<i class="bi bi-info-circle me-1"></i>' + (data.mensaje || 'No hay usuarios elegibles para esta fase.');
+                            cargarCampanaResumen();
+                            return;
+                        }
+                        var logHtml = '';
+                        data.resultados.forEach(function (r) {
+                            var icon = r.exito
+                                ? '<i class="bi bi-check-circle-fill text-success me-1"></i>'
+                                : '<i class="bi bi-x-circle-fill text-danger me-1"></i>';
+                            var emailSpan = document.createElement('span');
+                            emailSpan.textContent = r.email;
+                            var err = r.error ? ' <span class="text-danger">— ' + r.error + '</span>' : '';
+                            logHtml += '<div>' + icon + emailSpan.textContent + err + '</div>';
+                        });
+                        document.getElementById('campanaLog').innerHTML = logHtml;
+                        document.getElementById('campanaResumenBatch').innerHTML =
+                            '<span class="text-success"><i class="bi bi-check-circle me-1"></i>' + data.exitosos + ' enviados</span>' +
+                            (data.fallidos > 0 ? ' &nbsp; <span class="text-danger"><i class="bi bi-x-circle me-1"></i>' + data.fallidos + ' fallidos</span>' : '');
+                        document.getElementById('campanaLogContainer').classList.remove('d-none');
+                        cargarCampanaResumen();
+                    })
+                    .catch(function () {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-send me-1"></i>Enviar batch de 100';
+                        var st = document.getElementById('campanaStatus');
+                        st.className = 'alert alert-danger mt-3 mb-0';
+                        st.innerHTML = '<i class="bi bi-exclamation-triangle me-1"></i>Error de conexión. Intenta de nuevo.';
+                    });
+            });
+
+            document.getElementById('btnEnviarPrueba').addEventListener('click', function () {
+                var emailInput = document.getElementById('campanaCorreoPrueba');
+                var email = emailInput.value.trim();
+                var templateSelect = document.getElementById('campanaTemplatePrueba');
+                var templateId = templateSelect ? templateSelect.value : '';
+                var statusEl = document.getElementById('campanaPruebaStatus');
+                var btn = this;
+
+                if (!templateId) {
+                    statusEl.innerHTML = '<span class="text-warning">Selecciona un template.</span>';
+                    return;
+                }
+                if (!emailInput.checkValidity() || !email) {
+                    statusEl.innerHTML = '<span class="text-danger">Ingresa un correo válido.</span>';
+                    return;
+                }
+
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando...';
+                statusEl.innerHTML = '';
+
+                var token = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+                fetch(window.location.pathname + '?handler=CampanaEnviarPrueba', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+                    body: JSON.stringify({ email: email, templateId: templateId })
+                })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-envelope-check me-1"></i>Enviar correo de prueba';
+                        if (data.success) {
+                            statusEl.innerHTML = '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Enviado</span>';
+                        } else {
+                            statusEl.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>' + (data.error || 'Error') + '</span>';
+                        }
+                    })
+                    .catch(function () {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-envelope-check me-1"></i>Enviar correo de prueba';
+                        statusEl.innerHTML = '<span class="text-danger">Error de conexión.</span>';
+                    });
+            });
+        }());
+    </script>
+}
