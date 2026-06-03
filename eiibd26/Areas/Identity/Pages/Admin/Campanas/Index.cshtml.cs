@@ -390,5 +390,24 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                 resultados
             });
         }
+
+        /// <summary>
+        /// Borra TODOS los registros EmailCampanaLog con Fase == 1 (reactivación).
+        /// Solo afecta Fase=1. No toca Fase=0, 2, 3, ni 10 (campaña general).
+        /// Usa ExecuteDeleteAsync (EF Core 7+) para borrado masivo eficiente sin cargar entidades.
+        /// </summary>
+        [IgnoreAntiforgeryToken]
+        public async Task<IActionResult> OnPostResetearReactivacionAsync()
+        {
+            var eliminados = await _db.EmailCampanaLogs
+                .Where(l => l.Fase == 1)
+                .ExecuteDeleteAsync();
+
+            _logger.LogWarning(
+                "[Campanas] Admin reseteó tracking de reactivación: {Eliminados} registros Fase=1 borrados.",
+                eliminados);
+
+            return new JsonResult(new { success = true, eliminados });
+        }
     }
 }

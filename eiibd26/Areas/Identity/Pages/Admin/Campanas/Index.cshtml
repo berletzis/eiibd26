@@ -39,6 +39,12 @@
                     <button id="btnAbrirCampana" class="btn btn-primary w-100">
                         <i class="bi bi-envelope-paper me-2"></i>Gestionar reactivación
                     </button>
+                    <div class="mt-3 text-end">
+                        <button id="btnResetearReactivacion" class="btn btn-sm btn-outline-danger" title="Borra el tracking de envíos para reabrir la lista de elegibles">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>Resetear envíos
+                        </button>
+                    </div>
+                    <div id="resetReactivacionStatus" class="mt-2" style="font-size:.83rem;"></div>
                 </div>
             </div>
         </div>
@@ -347,6 +353,57 @@
                     .catch(function () {
                         btn.disabled = false;
                         btn.innerHTML = '<i class="bi bi-envelope-check me-1"></i>Enviar correo de prueba';
+                        statusEl.innerHTML = '<span class="text-danger">Error de conexión.</span>';
+                    });
+            });
+
+            // Resetear tracking de reactivación (borra Fase=1, solo Fase=1)
+            document.getElementById('btnResetearReactivacion').addEventListener('click', function () {
+                var statusEl = document.getElementById('resetReactivacionStatus');
+                var btn = this;
+
+                // Obtener conteo actual para mostrarlo en la confirmación
+                var elegibles = document.getElementById('reactivacion-elegibles-count').textContent;
+                var msg = '⚠️ Esto borrará el registro de TODOS los envíos de reactivación.\n\n' +
+                    'Los usuarios volverán a aparecer como elegibles y podrás reenviarles.\n' +
+                    'Esta acción no se puede deshacer.\n\n' +
+                    '¿Continuar?';
+
+                if (!confirm(msg)) return;
+
+                // Segunda confirmación explícita
+                if (!confirm('Confirmación final: ¿Borrar todo el historial de reactivación (Fase=1)?')) return;
+
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Reseteando...';
+                statusEl.innerHTML = '';
+
+                fetch(window.location.pathname + '?handler=ResetearReactivacion', {
+                    method: 'POST',
+                    headers: { 'RequestVerificationToken': csrfToken }
+                })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i>Resetear envíos';
+                        if (data.success) {
+                            statusEl.innerHTML = '<span class="text-success"><i class="bi bi-check-circle me-1"></i>' +
+                                'Se resetearon ' + data.eliminados + ' envíos. La lista de reactivación se reabrió.</span>';
+                            // Refrescar conteo de elegibles
+                            fetch(window.location.pathname + '?handler=CampanaResumen')
+                                .then(function (r) { return r.json(); })
+                                .then(function (d) {
+                                    var reac = d.campanas && d.campanas.find(function (c) { return c.codigo === 'reactivacion'; });
+                                    if (reac) document.getElementById('reactivacion-elegibles-count').textContent = reac.elegibles;
+                                })
+                                .catch(function () {});
+                        } else {
+                            statusEl.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>Error al resetear.</span>';
+                        }
+                    })
+                    .catch(function () {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i>Resetear envíos';
                         statusEl.innerHTML = '<span class="text-danger">Error de conexión.</span>';
                     });
             });
