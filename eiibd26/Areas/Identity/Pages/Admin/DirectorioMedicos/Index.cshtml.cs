@@ -20,19 +20,22 @@ public class IndexModel : PageModel
     private readonly eiibd26.Services.Medico.IMedicoBadgeService _badgeService;
     private readonly IMedicoDirectorioService _dirService;
     private readonly IValidacionContenidoService _validacionService;
+    private readonly IValidacionRespuestaService _validacionRespuestaService;
 
     public string GoogleMapsApiKey => _googleMapsApiKey;
 
     public IndexModel(ApplicationDbContext db, IConfiguration cfg,
         eiibd26.Services.Medico.IMedicoBadgeService badgeService,
         IMedicoDirectorioService dirService,
-        IValidacionContenidoService validacionService)
+        IValidacionContenidoService validacionService,
+        IValidacionRespuestaService validacionRespuestaService)
     {
         _db = db;
         _googleMapsApiKey = cfg["GoogleMaps:ApiKey"] ?? string.Empty;
         _badgeService = badgeService;
         _dirService = dirService;
         _validacionService = validacionService;
+        _validacionRespuestaService = validacionRespuestaService;
     }
 
     public void OnGet() { }
@@ -197,15 +200,19 @@ public class IndexModel : PageModel
             };
         }).ToList();
 
-        // Validaciones de contenido vinculadas al médico (si tiene perfil reclamado)
+        // Validaciones vinculadas al médico (si tiene perfil reclamado)
         List<ValidacionAdminDto> validacionesContenido = new();
+        List<ValidacionRespuestaAdminDto> validacionesRespuesta = new();
         try
         {
             var perfil = await _db.MedicosPerfilExtendido.AsNoTracking()
                 .FirstOrDefaultAsync(p => p.MedicoId == id && p.UserId != null);
             if (perfil?.UserId != null)
-                validacionesContenido = await _validacionService.ObtenerValidacionesMedicoAsync(
-                    perfil.UserId.Value.ToString());
+            {
+                var userIdStr = perfil.UserId.Value.ToString();
+                validacionesContenido  = await _validacionService.ObtenerValidacionesMedicoAsync(userIdStr);
+                validacionesRespuesta  = await _validacionRespuestaService.ObtenerValidacionesRespuestaMedicoAsync(userIdStr);
+            }
         }
         catch { }
 
@@ -242,6 +249,18 @@ public class IndexModel : PageModel
                 estadoNum     = (int)v.Estado,
                 creadoEn      = v.CreadoEn.ToString("dd/MM/yyyy"),
                 notaModeracion = v.NotaModeracion
+            }).ToList(),
+            validacionesRespuesta = validacionesRespuesta.Select(v => new {
+                id               = v.Id,
+                respuestaId      = v.RespuestaId,
+                preguntaTitulo   = v.PreguntaTitulo,
+                preguntaUrl      = v.PreguntaUrl,
+                respuestaPreview = v.RespuestaPreview,
+                comentario       = v.Comentario,
+                estado           = v.Estado.ToString(),
+                estadoNum        = (int)v.Estado,
+                creadoEn         = v.CreadoEn.ToString("dd/MM/yyyy"),
+                notaModeracion   = v.NotaModeracion
             }).ToList(),
             badgeHistorial = (await _badgeService.GetHistorialAsync(id)).Select(h => new {
                 badge  = h.BadgeCodigo,
@@ -451,6 +470,23 @@ public class IndexModel : PageModel
         var adminId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
 
         var ok = await _validacionService.CambiarEstadoAsync(validacionId.Value, estado, adminId, nota);
+        return new JsonResult(new { success = ok });
+    }
+
+    public async Task<IActionResult> OnPostCambiarEstadoValidacionRespuestaAsync(
+        int? validacionId,
+        string? nuevoEstado,
+        string? nota)
+    {
+        if (validacionId == null || string.IsNullOrWhiteSpace(nuevoEstado))
+            return new JsonResult(new { success = false, message = "Parámetros inválidos." });
+
+        if (!Enum.TryParse<EstadoValidacion>(nuevoEstado, ignoreCase: true, out var estado))
+            return new JsonResult(new { success = false, message = "Estado no válido." });
+
+        var adminId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+
+        var ok = await _validacionRespuestaService.CambiarEstadoAsync(validacionId.Value, estado, adminId, nota);
         return new JsonResult(new { success = ok });
     }
 }

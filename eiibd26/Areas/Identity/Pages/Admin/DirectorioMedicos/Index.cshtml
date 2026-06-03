@@ -445,6 +445,47 @@ ${(d.validacionesContenido || []).length > 0
        </div>`
     : '<small class="text-muted">Este médico no ha validado contenido aún.</small>'}
 
+<!-- 5c. Respuestas Validadas -->
+<p class="panel-section-title mt-3">Respuestas Validadas por este Profesional</p>
+${(d.validacionesRespuesta || []).length > 0
+    ? `<div class="table-responsive mt-1">
+        <table class="table table-sm table-hover align-middle mb-1">
+            <thead class="table-light"><tr>
+                <th style="font-size:.78rem;">Pregunta</th>
+                <th style="font-size:.78rem;">Respuesta (preview)</th>
+                <th style="font-size:.78rem;">Estado</th>
+                <th style="font-size:.78rem;">Fecha</th>
+                <th style="font-size:.78rem;">Acción</th>
+            </tr></thead>
+            <tbody>${(d.validacionesRespuesta || []).map(v =>
+                `<tr class="${v.estadoNum === 3 ? 'table-secondary' : v.estadoNum === 2 ? 'table-warning' : ''}">
+                    <td style="font-size:.78rem;">
+                        ${v.preguntaUrl
+                            ? `<a href="${esc(v.preguntaUrl)}" target="_blank" style="font-size:.78rem;">${esc(v.preguntaTitulo)}</a>`
+                            : esc(v.preguntaTitulo)}
+                    </td>
+                    <td style="font-size:.78rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(v.respuestaPreview)}">${esc(v.respuestaPreview)}</td>
+                    <td style="font-size:.78rem;">
+                        ${v.estadoNum === 1
+                            ? '<span class="badge bg-success-subtle text-success border">Validado</span>'
+                            : v.estadoNum === 2
+                                ? '<span class="badge bg-warning text-dark">En revisión</span>'
+                                : '<span class="badge bg-secondary-subtle text-secondary border">Oculto</span>'}
+                    </td>
+                    <td style="font-size:.78rem;white-space:nowrap;">${esc(v.creadoEn)}</td>
+                    <td>
+                        <div class="d-flex gap-1">
+                            ${v.estadoNum !== 1 ? `<button class="btn btn-sm btn-outline-success py-0 px-1" style="font-size:.75rem;" onclick="cambiarEstadoValidacionRespuesta(${v.id},'Validado')" title="Aprobar"><i class="bi bi-check-circle"></i></button>` : ''}
+                            ${v.estadoNum !== 2 ? `<button class="btn btn-sm btn-outline-warning py-0 px-1" style="font-size:.75rem;" onclick="cambiarEstadoValidacionRespuesta(${v.id},'EnRevision')" title="Poner en revisión"><i class="bi bi-clock"></i></button>` : ''}
+                            ${v.estadoNum !== 3 ? `<button class="btn btn-sm btn-outline-secondary py-0 px-1" style="font-size:.75rem;" onclick="cambiarEstadoValidacionRespuesta(${v.id},'Oculto')" title="Ocultar"><i class="bi bi-eye-slash"></i></button>` : ''}
+                        </div>
+                    </td>
+                </tr>`
+            ).join('')}</tbody>
+        </table>
+       </div>`
+    : '<small class="text-muted">Este médico no ha validado respuestas aún.</small>'}
+
 <!-- 6. Badges -->
 <p class="panel-section-title mt-3">Badges</p>
 <div class="d-flex gap-2 mb-2">
@@ -573,6 +614,18 @@ ${(d.validacionesContenido || []).length > 0
         const labels = { Validado: 'aprobar', EnRevision: 'poner en revisión', Oculto: 'ocultar' };
         if (!confirm(`¿Confirmar ${labels[nuevoEstado] || nuevoEstado} esta validación?`)) return;
         const r = await postJson('@Url.Page(null, "CambiarEstadoValidacion")', { validacionId, nuevoEstado });
+        if (r.success) {
+            const medicoId = document.getElementById('ep_id')?.value;
+            if (medicoId) await abrirEditar(parseInt(medicoId));
+        } else {
+            alert(r.message || 'Error al cambiar estado.');
+        }
+    }
+
+    async function cambiarEstadoValidacionRespuesta(validacionId, nuevoEstado) {
+        const labels = { Validado: 'aprobar', EnRevision: 'poner en revisión', Oculto: 'ocultar' };
+        if (!confirm(`¿Confirmar ${labels[nuevoEstado] || nuevoEstado} esta validación de respuesta?`)) return;
+        const r = await postJson('@Url.Page(null, "CambiarEstadoValidacionRespuesta")', { validacionId, nuevoEstado });
         if (r.success) {
             const medicoId = document.getElementById('ep_id')?.value;
             if (medicoId) await abrirEditar(parseInt(medicoId));

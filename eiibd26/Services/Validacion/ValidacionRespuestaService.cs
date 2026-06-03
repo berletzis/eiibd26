@@ -2,6 +2,7 @@ using eiibd26.Data;
 using eiibd26.Models.Validacion;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Text.RegularExpressions;
 
 namespace eiibd26.Services.Validacion
 {
@@ -272,6 +273,79 @@ namespace eiibd26.Services.Validacion
                 perfiles.Where(p => p.MedicoId.HasValue && p.Slug != null).ToDictionary(p => p.MedicoId!.Value, p => p.Slug),
                 avatarDict.ToDictionary(p => p.idUser, p => p.Avatar)
             );
+        }
+
+        public async Task<List<ValidacionRespuestaAdminDto>> ObtenerValidacionesRespuestaMedicoAsync(
+            string usuarioMedicoId)
+        {
+            var validaciones = await _db.ValidacionesRespuestaProfesional
+                .AsNoTracking()
+                .Where(v => v.UsuarioMedicoId == usuarioMedicoId)
+                .OrderByDescending(v => v.CreadoEn)
+                .ToListAsync();
+
+            if (!validaciones.Any()) return new();
+
+            // Batch 1: resolver Respuestas
+            var respuestaIds = validaciones.Select(v => v.RespuestaId).Distinct().ToList();
+            var respuestas = await _db.Respuestas.AsNoTracking()
+                .Where(r => respuestaIds.Contains(r.Id))
+                .Select(r => new { r.Id, r.PreguntaId, r.Cuerpo })
+                .ToListAsync();
+            var respuestaDict = respuestas.ToDictionary(r => r.Id);
+
+            // Batch 2: resolver Preguntas (a partir de los PreguntaIds de las respuestas encontradas)
+            var preguntaIds = respuestas.Select(r => r.PreguntaId).Distinct().ToList();
+            var preguntas = preguntaIds.Any()
+                ? await _db.Preguntas.AsNoTracking()
+                    .Where(p => preguntaIds.Contains(p.Id))
+                    .Select(p => new { p.Id, p.Titulo, p.Slug })
+                    .ToListAsync()
+                : new();
+            var preguntaDict = preguntas.ToDictionary(p => p.Id);
+
+            return validaciones.Select(v =>
+            {
+                respuestaDict.TryGetValue(v.RespuestaId, out var resp);
+
+                string preguntaTitulo = "(respuesta eliminada)";
+                string? preguntaUrl   = null;
+                string preview        = "";
+
+                if (resp != null)
+                {
+                    preview = StripHtml(resp.Cuerpo);
+                    if (preview.Length > 80) preview = preview[..80] + "…";
+
+                    if (preguntaDict.TryGetValue(resp.PreguntaId, out var preg))
+                    {
+                        preguntaTitulo = preg.Titulo ?? "(sin título)";
+                        preguntaUrl    = !string.IsNullOrWhiteSpace(preg.Slug)
+                            ? $"/Preguntas/{preg.Slug}"
+                            : $"/Preguntas/Detalles?id={preg.Id}";
+                    }
+                }
+
+                return new ValidacionRespuestaAdminDto
+                {
+                    Id               = v.Id,
+                    RespuestaId      = v.RespuestaId,
+                    PreguntaTitulo   = preguntaTitulo,
+                    PreguntaUrl      = preguntaUrl,
+                    RespuestaPreview = preview,
+                    Comentario       = v.Comentario,
+                    Estado           = v.Estado,
+                    CreadoEn         = v.CreadoEn,
+                    NotaModeracion   = v.NotaModeracion
+                };
+            }).ToList();
+        }
+
+        private static string StripHtml(string? input)
+        {
+            if (string.IsNullOrEmpty(input)) return string.Empty;
+            var noTags = Regex.Replace(input, "<.*?>", string.Empty);
+            return Regex.Replace(noTags, @"\s+", " ").Trim();
         }
 
         private static ValidacionPublicaDto BuildDto(
