@@ -138,10 +138,15 @@
 
                 <hr class="my-3" />
 
-                <div class="alert alert-info py-2 mb-3" style="font-size:.85rem;">
+                <div class="alert alert-info py-2 mb-3" style="font-size:.84rem;">
                     <i class="bi bi-info-circle me-1"></i>
-                    Solo se notifica a usuarios con <strong>hash de longitud 68</strong> (migrados) que no activaron.
-                    Quedan excluidos: usuarios nuevos (AQAAAA) y viejos que ya reactivaron.
+                    Se notifica solo a <strong>usuarios migrados</strong> que aún no activaron su acceso.
+                    Quedan excluidos los usuarios nuevos y los viejos que ya cambiaron su contraseña.
+                    <br><span style="font-size:.8rem;opacity:.85;">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>
+                        Al resetear: solo <strong>Ya enviados</strong> vuelve a 0 y <strong>Elegibles</strong> sube al total de viejos.
+                        Los números del grupo "Estado de usuarios" describen quiénes son los usuarios — no cambian.
+                    </span>
                 </div>
 
                 <!-- Aviso de template no configurado -->
@@ -226,19 +231,30 @@
                         // Actualizar badge del card exterior
                         document.getElementById('reactivacion-elegibles-count').textContent = elegibles;
 
-                        var html = '<div class="row text-center g-2">' +
+                        // Grupo 1: Estado de usuarios — fijo, no cambia con reset ni envíos
+                        var html =
+                            '<div class="mb-1 mt-1" style="font-size:.7rem;font-weight:700;letter-spacing:.06em;color:#888;text-transform:uppercase;">' +
+                            '<i class="bi bi-person-fill me-1"></i>Estado de usuarios &nbsp;·&nbsp; no cambia al resetear envíos' +
+                            '</div>' +
+                            '<div class="row text-center g-2 mb-3">' +
                             '<div class="col"><div class="border rounded p-2" style="background:#f8f9ff;">' +
-                            '<div class="fw-bold text-primary" style="font-size:1.4rem;">' + d.totalUsuarios + '</div>' +
-                            '<div class="text-muted" style="font-size:.78rem;">Total usuarios</div></div></div>' +
+                            '<div class="fw-bold text-primary" style="font-size:1.3rem;">' + d.totalUsuarios + '</div>' +
+                            '<div class="text-muted" style="font-size:.75rem;">Total</div></div></div>' +
                             '<div class="col"><div class="border rounded p-2" style="background:#f0f7ff;">' +
-                            '<div class="fw-bold text-primary" style="font-size:1.4rem;">' + totalPublico + '</div>' +
-                            '<div class="text-muted" style="font-size:.78rem;">Usuarios viejos</div></div></div>' +
-                            '<div class="col"><div class="border rounded p-2" style="background:#fff0f0;">' +
-                            '<div class="fw-bold text-danger" style="font-size:1.4rem;">' + recibieron + '</div>' +
-                            '<div class="text-muted" style="font-size:.78rem;">Ya reactivados</div></div></div>' +
-                            '<div class="col"><div class="border rounded p-2" style="background:#f0fff4;">' +
-                            '<div class="fw-bold text-success" style="font-size:1.4rem;">' + elegibles + '</div>' +
-                            '<div class="text-muted" style="font-size:.78rem;">Elegibles</div></div></div>' +
+                            '<div class="fw-bold text-primary" style="font-size:1.3rem;">' + totalPublico + '</div>' +
+                            '<div class="text-muted" style="font-size:.75rem;">Usuarios viejos</div></div></div>' +
+                            '</div>' +
+                            // Grupo 2: Progreso de la campaña — avanza con envíos, se reinicia al resetear
+                            '<div class="mb-1" style="font-size:.7rem;font-weight:700;letter-spacing:.06em;color:#888;text-transform:uppercase;">' +
+                            '<i class="bi bi-graph-up me-1"></i>Progreso de la campaña &nbsp;·&nbsp; avanza con envíos, vuelve a cero al resetear' +
+                            '</div>' +
+                            '<div class="row text-center g-2">' +
+                            '<div class="col"><div class="border rounded p-2" style="background:#fff8f0;">' +
+                            '<div class="fw-bold text-warning" style="font-size:1.3rem;">' + recibieron + '</div>' +
+                            '<div class="text-muted" style="font-size:.75rem;">Ya enviados</div></div></div>' +
+                            '<div class="col"><div class="border rounded p-2" style="background:#f0fff4;border:1.5px solid #b8e8c8 !important;">' +
+                            '<div class="fw-bold text-success" style="font-size:1.3rem;">' + elegibles + '</div>' +
+                            '<div class="text-muted" style="font-size:.75rem;font-weight:600;">Elegibles</div></div></div>' +
                             '</div>';
                         document.getElementById('campanaResumen').innerHTML = html;
                     })
