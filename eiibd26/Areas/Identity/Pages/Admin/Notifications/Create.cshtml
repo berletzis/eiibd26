@@ -178,18 +178,66 @@
                                 <span asp-validation-for="Input.TargetEmails" class="text-danger"></span>
                             </div>
 
+                            <!-- Por Condición -->
+                            @if (Model.AvailableConditions.Any())
+                            {
+                                <div class="mb-3">
+                                    <label class="form-label"><i class="bi bi-heart-pulse"></i> Condición</label>
+                                    <div class="border rounded p-2" style="max-height:130px;overflow-y:auto;">
+                                        @foreach (var c in Model.AvailableConditions)
+                                        {
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox"
+                                                       name="Input.TargetConditionIds" value="@c.Id" id="cond_@c.Id" />
+                                                <label class="form-check-label" for="cond_@c.Id">@c.Name</label>
+                                            </div>
+                                        }
+                                    </div>
+                                    <small class="text-muted">Notifica a usuarios que tengan registrada esta condición</small>
+                                </div>
+                            }
+
+                            <!-- Por Síntoma -->
+                            @if (Model.AvailableSintomas.Any())
+                            {
+                                <div class="mb-3">
+                                    <label class="form-label"><i class="bi bi-activity"></i> Síntoma</label>
+                                    <div class="border rounded p-2" style="max-height:130px;overflow-y:auto;">
+                                        @foreach (var s in Model.AvailableSintomas)
+                                        {
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox"
+                                                       name="Input.TargetSintomaIds" value="@s.Id" id="sint_@s.Id" />
+                                                <label class="form-check-label" for="sint_@s.Id">@s.Name</label>
+                                            </div>
+                                        }
+                                    </div>
+                                    <small class="text-muted">Notifica a usuarios que tengan registrado este síntoma</small>
+                                </div>
+                            }
+
+                            <!-- Por Tratamiento -->
+                            @if (Model.AvailableTratamientos.Any())
+                            {
+                                <div class="mb-3">
+                                    <label class="form-label"><i class="bi bi-capsule"></i> Tratamiento</label>
+                                    <div class="border rounded p-2" style="max-height:130px;overflow-y:auto;">
+                                        @foreach (var t in Model.AvailableTratamientos)
+                                        {
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox"
+                                                       name="Input.TargetTratamientoIds" value="@t.Id" id="trat_@t.Id" />
+                                                <label class="form-check-label" for="trat_@t.Id">@t.Name</label>
+                                            </div>
+                                        }
+                                    </div>
+                                    <small class="text-muted">Notifica a usuarios con este tratamiento activo</small>
+                                </div>
+                            }
+
                             <div class="alert alert-info">
                                 <i class="bi bi-info-circle"></i>
-                                <strong>Nota:</strong> Solo se enviarán notificaciones a usuarios que:
-                                <ul class="mb-0 mt-2">
-                                    <li>Tengan cuenta registrada con esos emails</li>
-                                    <li>Estén suscritos a notificaciones push</li>
-                                </ul>
-                            </div>
-
-                            <div class="alert alert-secondary">
-                                <i class="bi bi-lightbulb"></i>
-                                <strong>Próximamente:</strong> Filtros por condiciones, síntomas y tratamientos
+                                <strong>Nota:</strong> Los criterios se combinan con OR — se notifica a usuarios que cumplan <em>cualquiera</em> de los seleccionados y estén suscritos a notificaciones push.
                             </div>
                         </div>
                     </div>

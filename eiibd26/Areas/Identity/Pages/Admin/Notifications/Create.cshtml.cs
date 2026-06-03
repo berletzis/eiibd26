@@ -92,11 +92,13 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Notifications
         public async Task OnGetAsync()
         {
             TotalSubscribers = await _db.NotificationSubscriptions.CountAsync(s => s.IsActive);
+            await CargarFiltrosAsync();
         }
 
         public async Task<IActionResult> OnPostAsync()
         {
             TotalSubscribers = await _db.NotificationSubscriptions.CountAsync(s => s.IsActive);
+            await CargarFiltrosAsync();
 
             // Apply template if selected
             if (Input.TemplateType != "custom")
@@ -135,10 +137,20 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Notifications
                 }
                 else
                 {
-                    // Build list of target user IDs based on criteria
+                    bool hayFiltro = !string.IsNullOrWhiteSpace(Input.TargetEmails) ||
+                                     Input.TargetConditionIds.Any() ||
+                                     Input.TargetSintomaIds.Any() ||
+                                     Input.TargetTratamientoIds.Any();
+
+                    if (!hayFiltro)
+                    {
+                        ModelState.AddModelError(string.Empty, "Selecciona al menos un criterio: email, condición, síntoma o tratamiento.");
+                        return Page();
+                    }
+
                     var targetUserIds = new HashSet<Guid>();
 
-                    // By emails
+                    // Por emails
                     if (!string.IsNullOrWhiteSpace(Input.TargetEmails))
                     {
                         var emails = Input.TargetEmails.Split(',', StringSplitOptions.RemoveEmptyEntries)
@@ -153,13 +165,46 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Notifications
                         foreach (var id in usersByEmail) targetUserIds.Add(id);
                     }
 
+                    // Por condición
+                    if (Input.TargetConditionIds.Any())
+                    {
+                        var ids = await _db.condicionUsuario
+                            .Where(u => Input.TargetConditionIds.Contains(u.idCondicion ?? 0) && !u.Eliminado)
+                            .Select(u => u.idUsuario)
+                            .Distinct()
+                            .ToListAsync();
+                        foreach (var id in ids) targetUserIds.Add(id);
+                    }
+
+                    // Por síntoma
+                    if (Input.TargetSintomaIds.Any())
+                    {
+                        var ids = await _db.sintomasUsuario
+                            .Where(u => Input.TargetSintomaIds.Contains(u.idSintoma ?? 0) && !u.Eliminado)
+                            .Select(u => u.idUsuario)
+                            .Distinct()
+                            .ToListAsync();
+                        foreach (var id in ids) targetUserIds.Add(id);
+                    }
+
+                    // Por tratamiento
+                    if (Input.TargetTratamientoIds.Any())
+                    {
+                        var ids = await _db.tratamientoUsuario
+                            .Where(u => Input.TargetTratamientoIds.Contains(u.idTratamiento ?? 0) && !u.Eliminado)
+                            .Select(u => u.idUsuario)
+                            .Distinct()
+                            .ToListAsync();
+                        foreach (var id in ids) targetUserIds.Add(id);
+                    }
+
                     if (targetUserIds.Any())
                     {
                         notification.TargetUserIds = JsonSerializer.Serialize(targetUserIds.ToList());
                     }
                     else
                     {
-                        ModelState.AddModelError(string.Empty, "No se encontraron usuarios con los emails especificados.");
+                        ModelState.AddModelError(string.Empty, "No se encontraron usuarios activos con los criterios seleccionados.");
                         return Page();
                     }
                 }
@@ -211,6 +256,27 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Notifications
                 ModelState.AddModelError(string.Empty, $"Error al crear la notificación: {ex.Message}");
                 return Page();
             }
+        }
+
+        private async Task CargarFiltrosAsync()
+        {
+            AvailableConditions = await _db.condiciones
+                .Where(c => !c.Eliminado)
+                .OrderBy(c => c.nombre)
+                .Select(c => new ConditionOption { Id = c.id, Name = c.nombre ?? "" })
+                .ToListAsync();
+
+            AvailableSintomas = await _db.sintomas
+                .Where(s => !s.Eliminado)
+                .OrderBy(s => s.nombre)
+                .Select(s => new SintomaOption { Id = s.id, Name = s.nombre ?? "" })
+                .ToListAsync();
+
+            AvailableTratamientos = await _db.tratamientos
+                .Where(t => !t.Eliminado)
+                .OrderBy(t => t.nombre)
+                .Select(t => new TratamientoOption { Id = t.id, Name = t.nombre ?? "" })
+                .ToListAsync();
         }
 
         private void ApplyTemplate(string? templateType)
