@@ -156,7 +156,7 @@
             console.log('🔔 Solicitando permiso de notificaciones...');
             setTimeout(() => {
                 window.subscribeToPush();
-            }, 2000);
+            }, 25000);
         }
     });
 
