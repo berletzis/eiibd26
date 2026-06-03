@@ -883,6 +883,22 @@
                     </div>
                 </article>
 
+                @* Feedback de validación de respuesta *@
+                @if (TempData["ValidationMessage"] is string valMsg)
+                {
+                    <div class="alert alert-success alert-dismissible fade show py-2 mb-3" role="alert">
+                        @valMsg
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                }
+                @if (TempData["ValidationError"] is string valErr)
+                {
+                    <div class="alert alert-danger alert-dismissible fade show py-2 mb-3" role="alert">
+                        @valErr
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                }
+
                 @* ===== Toggle de Respuesta IA ===== *@
                 @if (Model.RespuestaIA != null)
                 {
@@ -952,6 +968,17 @@
                                         <div class="ai-feedback-message" id="feedbackMessage" style="display: none;"></div>
                                     </div>
                                 </div>
+                                @* Validación de respuesta IA por médicos — NINA siempre elegible *@
+                                @if (Model.CanValidateRespuestas)
+                                {
+                                    @await Html.PartialAsync("_ValidacionRespuestaMedico",
+                                        new eiibd26.Pages.Preguntas.DetallesModel.ValidacionRespuestaPartialVm
+                                        {
+                                            RespuestaId = Model.RespuestaIA.Id,
+                                            Slug = Model.Slug,
+                                            YaValidada = Model.RespuestaIA.YaValidada
+                                        })
+                                }
                             </article>
                         </div>
                     </div>
@@ -1061,6 +1088,16 @@
                                     <button class="se-delete-btn" data-id="@a.Id" title="Eliminar respuesta">Eliminar</button>
                                 }
                             </div>
+                            @if (Model.CanValidateRespuestas && a.UsuarioId != (Model.CurrentUserId ?? Guid.Empty))
+                            {
+                                @await Html.PartialAsync("_ValidacionRespuestaMedico",
+                                    new eiibd26.Pages.Preguntas.DetallesModel.ValidacionRespuestaPartialVm
+                                    {
+                                        RespuestaId = a.Id,
+                                        Slug = Model.Slug,
+                                        YaValidada = a.YaValidada
+                                    })
+                            }
                         </div>
                     </article>
                 }
@@ -1154,6 +1191,16 @@
                                                 <button class="se-delete-btn" data-id="@a.Id" title="Eliminar respuesta">Eliminar</button>
                                             }
                                         </div>
+                                        @if (Model.CanValidateRespuestas && a.UsuarioId != (Model.CurrentUserId ?? Guid.Empty))
+                                        {
+                                            @await Html.PartialAsync("_ValidacionRespuestaMedico",
+                                                new eiibd26.Pages.Preguntas.DetallesModel.ValidacionRespuestaPartialVm
+                                                {
+                                                    RespuestaId = a.Id,
+                                                    Slug = Model.Slug,
+                                                    YaValidada = a.YaValidada
+                                                })
+                                        }
                                     </div>
                                 </article>
                             }
@@ -1714,6 +1761,16 @@
                     wrapper.classList.add('ai-toggle-open');
                 }
             };
+
+            // ===== Toggle de formulario de validación de respuesta =====
+            document.addEventListener('click', function(e) {
+                const btn = e.target.closest('.validacion-resp-toggle');
+                if (!btn) return;
+                const targetId = btn.getAttribute('data-target');
+                const form = targetId ? document.getElementById(targetId) : null;
+                if (!form) return;
+                form.style.display = form.style.display === 'none' ? 'block' : 'none';
+            });
 
             // ===== NUEVO: POLLING PARA VERIFICAR SI LA RESPUESTA IA ESTÁ LISTA =====
             @if (Model.TienePreguntaPendienteIA && Model.RespuestaIA == null)

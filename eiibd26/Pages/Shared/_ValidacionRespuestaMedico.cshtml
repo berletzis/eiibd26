@@ -1,0 +1,40 @@
+@using eiibd26.Pages.Preguntas
+@model DetallesModel.ValidacionRespuestaPartialVm
+
+@{
+    var yaValido   = Model.YaValidada;
+    var btnTexto   = yaValido ? "Actualizar validación" : "Validar respuesta";
+    var btnIcono   = yaValido ? "bi-pencil-fill" : "bi-patch-check";
+    var uniqueId   = $"vrm-{Model.RespuestaId:N}";
+}
+
+<div class="validacion-resp-control">
+    @if (yaValido)
+    {
+        <span class="validacion-resp-badge">
+            <i class="bi bi-patch-check-fill me-1"></i>Validada por ti
+        </span>
+    }
+    <button type="button"
+            class="btn btn-outline-success btn-sm validacion-resp-toggle"
+            data-target="@uniqueId"
+            title="@btnTexto">
+        <i class="bi @btnIcono me-1"></i>@btnTexto
+    </button>
+    <div id="@uniqueId" class="validacion-resp-form" style="display:none;">
+        <form method="post" asp-page-handler="ValidarRespuesta">
+            <input type="hidden" name="respuestaId" value="@Model.RespuestaId" />
+            <input type="hidden" name="slug" value="@Model.Slug" />
+            <div class="mb-1 mt-2">
+                <textarea name="comentario"
+                          class="form-control form-control-sm"
+                          rows="2"
+                          maxlength="800"
+                          placeholder="Comentario clínico (opcional, máx. 800 chars)">@Model.ComentarioExistente</textarea>
+            </div>
+            <button type="submit" class="btn btn-success btn-sm">
+                <i class="bi @btnIcono me-1"></i>@btnTexto
+            </button>
+        </form>
+    </div>
+</div>

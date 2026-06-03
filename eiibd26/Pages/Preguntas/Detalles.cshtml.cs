@@ -1,7 +1,10 @@
 using eiibd26.Data;
 using eiibd26.Models;
+using eiibd26.Models.Validacion;
 using eiibd26.Helpers;
 using eiibd26.Services;
+using eiibd26.Services.Validacion;
+using eiibd26.Services.Medico;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -21,15 +24,21 @@ namespace eiibd26.Pages.Preguntas
         private readonly ApplicationDbContext _db;
         private readonly ILogger<DetallesModel> _logger;
         private readonly SearchSuggestionService _suggestionService;
+        private readonly IValidacionRespuestaService _validacionRespuestaService;
+        private readonly IMedicoBadgeService _badgeService;
 
         public DetallesModel(
-            ApplicationDbContext db, 
+            ApplicationDbContext db,
             ILogger<DetallesModel> logger,
-            SearchSuggestionService suggestionService)
+            SearchSuggestionService suggestionService,
+            IValidacionRespuestaService validacionRespuestaService,
+            IMedicoBadgeService badgeService)
         {
             _db = db ?? throw new ArgumentNullException(nameof(db));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _suggestionService = suggestionService ?? throw new ArgumentNullException(nameof(suggestionService));
+            _validacionRespuestaService = validacionRespuestaService ?? throw new ArgumentNullException(nameof(validacionRespuestaService));
+            _badgeService = badgeService ?? throw new ArgumentNullException(nameof(badgeService));
         }
 
         public record AuthorInfo(string Name, string Avatar, string Slug = "");
@@ -72,6 +81,19 @@ namespace eiibd26.Pages.Preguntas
 
             // Distintivo de profesional de salud (médico verificado)
             public bool EsProfesionalSalud { get; set; } = false;
+
+            // Validación de respuesta por médicos
+            public bool YaValidada { get; set; } = false;
+            public int ValidacionesCount { get; set; } = 0;
+        }
+
+        // VM para el partial de validación de respuesta
+        public class ValidacionRespuestaPartialVm
+        {
+            public Guid RespuestaId { get; set; }
+            public string Slug { get; set; } = "";
+            public bool YaValidada { get; set; }
+            public string? ComentarioExistente { get; set; }
         }
 
         [BindProperty(SupportsGet = true)]
@@ -110,6 +132,10 @@ namespace eiibd26.Pages.Preguntas
         public int TotalItems { get; set; }
         public int TotalPages => PageSize > 0 ? (int)Math.Ceiling(TotalItems / (double)PageSize) : 1;
 
+        // Gate de validación de respuestas por médicos
+        public bool CanValidateRespuestas { get; set; } = false;
+        public Guid? CurrentUserId { get; set; }
+
         private Guid? GetUserIdGuid()
         {
             var v = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -125,6 +151,7 @@ namespace eiibd26.Pages.Preguntas
             if (search != null) Search = search.Trim();
 
             var currentUserId = GetUserIdGuid();
+            CurrentUserId = currentUserId;
 
             // Resolve the question by slug (preferred) or by id
             object preguntaQuery = null;
@@ -692,6 +719,71 @@ namespace eiibd26.Pages.Preguntas
             }
             // =====================================================================
 
+            // ===== Gate validación de respuestas (Médico Nivel ≥ 4 o Admin) =====
+            if (currentUserId.HasValue)
+            {
+                var isAdmin  = User.IsInRole("Administrador");
+                var isMedico = User.IsInRole("Medico");
+                if (isAdmin)
+                {
+                    CanValidateRespuestas = true;
+                }
+                else if (isMedico)
+                {
+                    try
+                    {
+                        var perfilMedico = await _db.MedicosPerfilExtendido.AsNoTracking()
+                            .FirstOrDefaultAsync(p => p.UserId == currentUserId.Value && p.MedicoId != null);
+                        if (perfilMedico?.MedicoId != null)
+                        {
+                            var nivel = await _badgeService.GetNivelActualAsync(perfilMedico.MedicoId.Value);
+                            CanValidateRespuestas = nivel >= 4;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Error obteniendo nivel médico para gate de validación respuestas");
+                    }
+                }
+            }
+
+            // Batch: ¿cuáles respuestas de esta página ya validó el médico actual?
+            if (CanValidateRespuestas && currentUserId.HasValue)
+            {
+                try
+                {
+                    var userIdStr = currentUserId.Value.ToString();
+                    var allIds = Respuestas.Select(r => r.Id)
+                        .Concat(AcceptedAnswer != null ? new[] { AcceptedAnswer.Id } : Array.Empty<Guid>())
+                        .Concat(TopSuggestedAnswers.Select(r => r.Id))
+                        .Concat(RespuestaIA != null ? new[] { RespuestaIA.Id } : Array.Empty<Guid>())
+                        .Distinct().ToList();
+
+                    if (allIds.Any())
+                    {
+                        var yaValidadas = (await _db.ValidacionesRespuestaProfesional
+                            .AsNoTracking()
+                            .Where(v => allIds.Contains(v.RespuestaId) && v.UsuarioMedicoId == userIdStr)
+                            .Select(v => v.RespuestaId)
+                            .ToListAsync()).ToHashSet();
+
+                        foreach (var r in Respuestas.Where(r => yaValidadas.Contains(r.Id)))
+                            r.YaValidada = true;
+                        if (AcceptedAnswer != null && yaValidadas.Contains(AcceptedAnswer.Id))
+                            AcceptedAnswer.YaValidada = true;
+                        foreach (var r in TopSuggestedAnswers.Where(r => yaValidadas.Contains(r.Id)))
+                            r.YaValidada = true;
+                        if (RespuestaIA != null && yaValidadas.Contains(RespuestaIA.Id))
+                            RespuestaIA.YaValidada = true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error cargando estado de validaciones para pregunta {PreguntaId}", preguntaId);
+                }
+            }
+            // =====================================================================
+
             // ===== NUEVO: Cargar contenido relacionado =====
             try
             {
@@ -776,6 +868,74 @@ namespace eiibd26.Pages.Preguntas
             // ==============================================
 
             return Page();
+        }
+
+        public async Task<IActionResult> OnPostValidarRespuestaAsync(
+            Guid respuestaId, string? slug, string? comentario)
+        {
+            if (!User.Identity?.IsAuthenticated ?? true)
+                return Challenge();
+
+            var currentUserId = GetUserIdGuid();
+            if (!currentUserId.HasValue) return Forbid();
+
+            var isAdmin  = User.IsInRole("Administrador");
+            var isMedico = User.IsInRole("Medico");
+
+            if (!isAdmin && !isMedico)
+            {
+                TempData["ValidationError"] = "No tienes permiso para validar respuestas.";
+                return RedirectToPage(new { slug });
+            }
+
+            // Gate de nivel (Admin siempre puede; Médico requiere Nivel ≥ 4)
+            if (isMedico && !isAdmin)
+            {
+                var perfilMedico = await _db.MedicosPerfilExtendido.AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.UserId == currentUserId.Value && p.MedicoId != null);
+                if (perfilMedico?.MedicoId == null)
+                {
+                    TempData["ValidationError"] = "No se encontró tu perfil médico.";
+                    return RedirectToPage(new { slug });
+                }
+                var nivel = await _badgeService.GetNivelActualAsync(perfilMedico.MedicoId.Value);
+                if (nivel < 4)
+                {
+                    TempData["ValidationError"] = "Necesitas Nivel 4 para validar respuestas.";
+                    return RedirectToPage(new { slug });
+                }
+            }
+
+            // Bloquear validar respuesta propia
+            var respuesta = await _db.Respuestas.AsNoTracking()
+                .Where(r => r.Id == respuestaId && !r.Eliminado)
+                .Select(r => new { r.Id, r.UsuarioId })
+                .FirstOrDefaultAsync();
+
+            if (respuesta == null)
+            {
+                TempData["ValidationError"] = "Respuesta no encontrada.";
+                return RedirectToPage(new { slug });
+            }
+
+            if (respuesta.UsuarioId == currentUserId.Value)
+            {
+                TempData["ValidationError"] = "No puedes validar tu propia respuesta.";
+                return RedirectToPage(new { slug });
+            }
+
+            var result = await _validacionRespuestaService.GuardarValidacionAsync(
+                respuestaId, currentUserId.Value.ToString(), comentario);
+
+            TempData["ValidationMessage"] = result switch
+            {
+                UpsertResult.Creada      => "✅ Respuesta validada correctamente.",
+                UpsertResult.Actualizada => "✅ Validación actualizada.",
+                UpsertResult.SinCambios  => "Sin cambios en la validación.",
+                _                        => "⚠️ Error al guardar la validación."
+            };
+
+            return RedirectToPage(new { slug });
         }
 
         // ===== NUEVO: DTO para suggestions en vista =====
