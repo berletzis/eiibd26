@@ -59,6 +59,7 @@
 
         e.preventDefault();
         deferredPrompt = e;
+        document.querySelectorAll('.footer-install-btn').forEach(btn => btn.classList.remove('d-none'));
 
         // Check if user already dismissed
         const dismissed = localStorage.getItem('pwa-install-dismissed');
@@ -103,24 +104,8 @@
         `;
         document.body.appendChild(banner);
 
-        document.getElementById('pwa-install-btn').addEventListener('click', async () => {
-            console.log('👆 PWA: Usuario hizo clic en Instalar');
-            if (!deferredPrompt) {
-                console.warn('⚠️ PWA: deferredPrompt no disponible');
-                return;
-            }
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-            console.log(`📊 PWA install outcome: ${outcome}`);
-
-            // ⭐ NUEVO: Si aceptó instalar, marcar como instalado
-            if (outcome === 'accepted') {
-                console.log('✅ PWA: Usuario aceptó instalar');
-                localStorage.setItem('pwa-installed', 'true');
-            }
-
-            deferredPrompt = null;
-            banner.remove();
+        document.getElementById('pwa-install-btn').addEventListener('click', () => {
+            window.eiibdInstallApp();
         });
 
         document.getElementById('pwa-dismiss-btn').addEventListener('click', () => {
@@ -138,6 +123,25 @@
         }, 15000);
     }
 
+    // Shared install action — reutilizado por banner y botón footer
+    window.eiibdInstallApp = async function() {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`📊 PWA install outcome: ${outcome}`);
+        if (outcome === 'accepted') {
+            localStorage.setItem('pwa-installed', 'true');
+        }
+        deferredPrompt = null;
+        const banner = document.getElementById('pwa-install-banner');
+        if (banner) banner.remove();
+        document.querySelectorAll('.footer-install-btn').forEach(btn => btn.classList.add('d-none'));
+    };
+
+    window.eiibdCanInstall = function() {
+        return deferredPrompt != null && !isAppInstalled();
+    };
+
     // Handle app installed
     window.addEventListener('appinstalled', () => {
         console.log('✅ PWA instalada correctamente');
@@ -150,6 +154,7 @@
         if (banner) banner.remove();
 
         deferredPrompt = null;
+        document.querySelectorAll('.footer-install-btn').forEach(btn => btn.classList.add('d-none'));
 
         // Auto-subscribe to push notifications after install
         if ('Notification' in window && Notification.permission === 'default') {
@@ -235,6 +240,11 @@
             outputArray[i] = rawData.charCodeAt(i);
         }
         return outputArray;
+    }
+
+    // Estado inicial del botón footer: oculto si no es instalable
+    if (!window.eiibdCanInstall()) {
+        document.querySelectorAll('.footer-install-btn').forEach(btn => btn.classList.add('d-none'));
     }
 
     // Debug: Check PWA status
