@@ -78,6 +78,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
 
     // Campañas de email por fases
     public DbSet<EmailCampanaLog> EmailCampanaLogs { get; set; }
+
+    // SendGrid Event Webhook
+    public DbSet<SendGridEventLog> SendGridEventLogs { get; set; }
     public DbSet<eiibd26.Models.Glossary.GlossaryTermMedicalLink> GlossaryTermMedicalLinks { get; set; }
     public DbSet<eiibd26.Models.Glossary.GlossaryValidation> GlossaryValidations { get; set; }
 

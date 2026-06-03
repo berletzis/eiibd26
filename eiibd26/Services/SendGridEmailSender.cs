@@ -122,7 +122,7 @@ namespace eiibd26.Services
         /// <summary>
         /// Sends an email using a SendGrid Dynamic Template.
         /// </summary>
-        public async Task SendDynamicTemplateAsync(string email, string templateId, object templateData, IEnumerable<string> categories = null)
+        public async Task SendDynamicTemplateAsync(string email, string templateId, object templateData, IEnumerable<string> categories = null, Dictionary<string, string> customArgs = null)
         {
             ArgumentNullException.ThrowIfNull(templateData);
             if (string.IsNullOrWhiteSpace(email))
@@ -153,6 +153,14 @@ namespace eiibd26.Services
                 foreach (var cat in allCategories.Distinct())
                 {
                     msg.AddCategory(cat);
+                }
+
+                // Custom args: viajan en el email y SendGrid los devuelve en cada evento del webhook.
+                // Keys usadas en campañas: "userId", "campana", "fase", "templateId", "envio_ts".
+                if (customArgs is not null)
+                {
+                    foreach (var kv in customArgs)
+                        msg.AddCustomArg(kv.Key, kv.Value);
                 }
 
                 var response = await client.SendEmailAsync(msg).ConfigureAwait(false);

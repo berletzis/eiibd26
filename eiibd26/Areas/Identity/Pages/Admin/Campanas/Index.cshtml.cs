@@ -252,7 +252,15 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                         u.Email,
                         templateId: campana.TemplateId,
                         templateData: templateData,
-                        categories: new[] { "EIIBD", $"Campana-{campana.Codigo}" });
+                        categories: new[] { "EIIBD", $"Campana-{campana.Codigo}" },
+                        customArgs: new Dictionary<string, string>
+                        {
+                            // Keys exactas que F2 (webhook) leerá de cada evento
+                            ["userId"]    = u.Id.ToString(),
+                            ["campana"]   = campana.Codigo,
+                            ["fase"]      = campana.FaseLog.ToString(),
+                            ["envio_ts"]  = DateTime.UtcNow.ToString("O")
+                        });
 
                     log.Exito = true;
                     resultados.Add(new { email = u.Email, exito = true, error = (string)null });
@@ -359,7 +367,16 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                         u.Email,
                         templateId: input.TemplateId,
                         templateData: templateData,
-                        categories: new[] { "EIIBD", "Campana-General" });
+                        categories: new[] { "EIIBD", "Campana-General" },
+                        customArgs: new Dictionary<string, string>
+                        {
+                            // Keys exactas que F2 (webhook) leerá de cada evento
+                            ["userId"]     = u.Id.ToString(),
+                            ["campana"]    = "general",
+                            ["fase"]       = FaseLogGeneral.ToString(),
+                            ["templateId"] = input.TemplateId,
+                            ["envio_ts"]   = DateTime.UtcNow.ToString("O")
+                        });
 
                     log.Exito = true;
                     resultados.Add(new { email = u.Email, exito = true, error = (string)null });
