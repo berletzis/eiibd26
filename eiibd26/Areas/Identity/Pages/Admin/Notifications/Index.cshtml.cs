@@ -1,3 +1,4 @@
+using Hangfire;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -16,11 +17,13 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Notifications
     {
         private readonly ApplicationDbContext _db;
         private readonly PushNotificationService _pushService;
+        private readonly IBackgroundJobClient _backgroundJobs;
 
-        public IndexModel(ApplicationDbContext db, PushNotificationService pushService)
+        public IndexModel(ApplicationDbContext db, PushNotificationService pushService, IBackgroundJobClient backgroundJobs)
         {
             _db = db;
             _pushService = pushService;
+            _backgroundJobs = backgroundJobs;
         }
 
         public List<eiibd26.Models.PushNotification> Notifications { get; set; } = new();
@@ -85,15 +88,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Notifications
                 return RedirectToPage();
             }
 
-            try
-            {
-                var (sent, failed) = await _pushService.SendNotificationAsync(id);
-                TempData["Success"] = $"Notificación enviada correctamente. Enviadas: {sent}, Fallidas: {failed}";
-            }
-            catch (Exception ex)
-            {
-                TempData["Error"] = $"Error al enviar notificación: {ex.Message}";
-            }
+            _backgroundJobs.Enqueue<eiibd26.Jobs.PushNotificationJob>(j => j.EnviarMasivoAsync(id));
+            TempData["Success"] = "✅ Envío encolado. Los mensajes se están enviando en segundo plano.";
 
             return RedirectToPage();
         }

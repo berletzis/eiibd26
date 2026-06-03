@@ -1,3 +1,4 @@
+using Hangfire;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -18,11 +19,13 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Notifications
     {
         private readonly ApplicationDbContext _db;
         private readonly PushNotificationService _pushService;
+        private readonly IBackgroundJobClient _backgroundJobs;
 
-        public CreateModel(ApplicationDbContext db, PushNotificationService pushService)
+        public CreateModel(ApplicationDbContext db, PushNotificationService pushService, IBackgroundJobClient backgroundJobs)
         {
             _db = db;
             _pushService = pushService;
+            _backgroundJobs = backgroundJobs;
         }
 
         [BindProperty]
@@ -191,30 +194,10 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Notifications
                 _db.PushNotifications.Add(notification);
                 await _db.SaveChangesAsync();
 
-                // If send now, trigger sending
                 if (Input.SendNow)
                 {
-                    try
-                    {
-                        var (sent, failed) = await _pushService.SendNotificationAsync(notification.Id);
-
-                        if (sent > 0)
-                        {
-                            TempData["Success"] = $"✅ Notificación enviada correctamente. Enviadas: {sent}, Fallidas: {failed}";
-                        }
-                        else if (failed > 0)
-                        {
-                            TempData["Error"] = $"⚠️ La notificación no pudo enviarse. Fallidas: {failed}. Verifica que haya suscriptores activos.";
-                        }
-                        else
-                        {
-                            TempData["Error"] = "❌ No hay suscriptores activos para enviar la notificación. La notificación quedó como 'Pendiente'.";
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        TempData["Error"] = $"❌ Error al enviar: {ex.Message}. La notificación quedó como 'Pendiente'. Puedes reenviarla manualmente.";
-                    }
+                    _backgroundJobs.Enqueue<eiibd26.Jobs.PushNotificationJob>(j => j.EnviarMasivoAsync(notification.Id));
+                    TempData["Success"] = "✅ Envío encolado. Los mensajes se están enviando en segundo plano.";
                 }
                 else
                 {

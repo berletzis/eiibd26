@@ -335,6 +335,7 @@ try
     });
 
     builder.Services.AddScoped<eiibd26.Jobs.AiAnswerJob>();
+    builder.Services.AddScoped<eiibd26.Jobs.PushNotificationJob>();
 
     var hangfireConn = builder.Configuration.GetConnectionString("DefaultConnection");
     builder.Services.AddHangfire(cfg => cfg

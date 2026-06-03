@@ -69,7 +69,11 @@ namespace eiibd26.Services
             }
         }
 
-        public async Task<(int sent, int failed)> SendNotificationAsync(Guid notificationId)
+        // Wrapper para retrocompatibilidad — delega al método batched con lote grande
+        public Task<(int sent, int failed)> SendNotificationAsync(Guid notificationId)
+            => SendNotificationBatchedAsync(notificationId, batchSize: 10_000);
+
+        public async Task<(int sent, int failed)> SendNotificationBatchedAsync(Guid notificationId, int batchSize = 50)
         {
             var notification = await _db.PushNotifications.FindAsync(notificationId);
             if (notification == null) return (0, 0);
@@ -80,12 +84,12 @@ namespace eiibd26.Services
 
             if (string.IsNullOrEmpty(publicKey) || string.IsNullOrEmpty(privateKey))
             {
-                _logger.LogError("VAPID keys not configured");
+                _logger.LogError("[PushBatched] VAPID keys not configured");
                 return (0, 0);
             }
 
-            // Get subscriptions based on targeting
-            IQueryable<eiibd26.Models.NotificationSubscription> query = _db.NotificationSubscriptions.Where(s => s.IsActive);
+            IQueryable<eiibd26.Models.NotificationSubscription> query =
+                _db.NotificationSubscriptions.Where(s => s.IsActive);
 
             if (notification.TargetUserIds != "all" && !string.IsNullOrEmpty(notification.TargetUserIds))
             {
@@ -94,87 +98,102 @@ namespace eiibd26.Services
                     var targetIds = JsonConvert.DeserializeObject<List<Guid>>(notification.TargetUserIds);
                     if (targetIds != null && targetIds.Any())
                     {
-                        _logger.LogInformation($"Sending to specific users: {targetIds.Count} user IDs");
+                        _logger.LogInformation("[PushBatched] Targeting {Count} specific users", targetIds.Count);
                         query = query.Where(s => targetIds.Contains(s.UserId));
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error parsing TargetUserIds");
+                    _logger.LogError(ex, "[PushBatched] Error parsing TargetUserIds");
                 }
             }
             else
             {
-                _logger.LogInformation("Sending to all active subscribers");
+                _logger.LogInformation("[PushBatched] Sending to all active subscribers");
             }
 
-            var subscriptions = await query.ToListAsync();
-
-            _logger.LogInformation($"Found {subscriptions.Count} subscriptions to send to");
-
-            int sent = 0;
-            int failed = 0;
+            var total = await query.CountAsync();
+            _logger.LogInformation("[PushBatched] Total subscriptions to process: {Total}", total);
 
             var webPushClient = new WebPushClient();
             var vapidDetails = new VapidDetails(subject, publicKey, privateKey);
             var actions = GetActionsByTipo(notification.Tipo);
             var notificationTag = "eiibd-" + notification.Id.ToString();
 
-            foreach (var subscription in subscriptions)
+            int sent = 0;
+            int failed = 0;
+            int offset = 0;
+
+            while (true)
             {
-                try
+                var batch = await query
+                    .OrderBy(s => s.Id)
+                    .Skip(offset)
+                    .Take(batchSize)
+                    .ToListAsync();
+
+                if (!batch.Any()) break;
+
+                foreach (var subscription in batch)
                 {
-                    // Generar token de corta duración (5 min) por usuario para el quick-mood
-                    var moodToken = _moodTokenService.GenerarToken(subscription.UserId);
-
-                    var payload = JsonConvert.SerializeObject(new
+                    try
                     {
-                        title = notification.Title,
-                        body = notification.Body,
-                        icon = notification.Icon ?? "/img/icons/icon-192x192.png",
-                        url = notification.Url ?? "/",
-                        tag = notificationTag,
-                        actions,
-                        actionData = new { moodToken }
-                    });
+                        var moodToken = _moodTokenService.GenerarToken(subscription.UserId);
 
-                    var pushSubscription = new PushSubscription(
-                        subscription.Endpoint,
-                        subscription.P256dh,
-                        subscription.Auth
-                    );
+                        var payload = JsonConvert.SerializeObject(new
+                        {
+                            title = notification.Title,
+                            body = notification.Body,
+                            icon = notification.Icon ?? "/img/icons/icon-192x192.png",
+                            url = notification.Url ?? "/",
+                            tag = notificationTag,
+                            actions,
+                            actionData = new { moodToken }
+                        });
 
-                    await webPushClient.SendNotificationAsync(pushSubscription, payload, vapidDetails);
-                    subscription.LastUsed = DateTimeOffset.UtcNow;
-                    sent++;
-                }
-                catch (WebPushException ex)
-                {
-                    _logger.LogWarning($"WebPush error for subscription {subscription.Id}: {ex.Message}");
+                        var pushSubscription = new PushSubscription(
+                            subscription.Endpoint,
+                            subscription.P256dh,
+                            subscription.Auth);
 
-                    // If subscription is no longer valid, deactivate it
-                    if (ex.StatusCode == System.Net.HttpStatusCode.Gone || 
-                        ex.StatusCode == System.Net.HttpStatusCode.NotFound)
-                    {
-                        subscription.IsActive = false;
+                        await webPushClient.SendNotificationAsync(pushSubscription, payload, vapidDetails);
+                        subscription.LastUsed = DateTimeOffset.UtcNow;
+                        sent++;
                     }
-                    failed++;
+                    catch (WebPushException ex)
+                    {
+                        _logger.LogWarning("[PushBatched] WebPush error for {Id}: {Msg}", subscription.Id, ex.Message);
+                        if (ex.StatusCode == System.Net.HttpStatusCode.Gone ||
+                            ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+                        {
+                            subscription.IsActive = false;
+                        }
+                        failed++;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "[PushBatched] Error for subscription {Id}", subscription.Id);
+                        failed++;
+                    }
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, $"Error sending notification to subscription {subscription.Id}");
-                    failed++;
-                }
+
+                // Persistir cambios del lote (LastUsed, IsActive)
+                await _db.SaveChangesAsync();
+
+                if (batch.Count < batchSize) break;
+
+                offset += batchSize;
+                await Task.Delay(500); // pausa entre lotes
             }
 
             notification.IsSent = true;
             notification.SentAt = DateTimeOffset.UtcNow;
             notification.TotalSent = sent;
             notification.TotalFailed = failed;
-
             await _db.SaveChangesAsync();
 
-            _logger.LogInformation($"Notification {notificationId} sent. Success: {sent}, Failed: {failed}");
+            _logger.LogInformation("[PushBatched] Notification {Id} done. Sent={Sent}, Failed={Failed}",
+                notificationId, sent, failed);
 
             return (sent, failed);
         }
