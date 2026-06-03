@@ -968,6 +968,15 @@
                                         <div class="ai-feedback-message" id="feedbackMessage" style="display: none;"></div>
                                     </div>
 
+                                    @* Avatares de médicos que validaron la respuesta IA (público, sin gate) *@
+                                    @{ Model.ValidadoresPorRespuesta.TryGetValue(Model.RespuestaIA.Id, out var validadoresIA); }
+                                    @if (validadoresIA?.Any() == true)
+                                    {
+                                        <div class="mt-2">
+                                            @await Html.PartialAsync("_ValidadoresAvatares", validadoresIA)
+                                        </div>
+                                    }
+
                                     @* Bloque profesional de salud — separado visualmente del feedback 👍/👎 *@
                                     @if (Model.CanValidateRespuestas)
                                     {
@@ -1095,6 +1104,13 @@
                                     <button class="se-delete-btn" data-id="@a.Id" title="Eliminar respuesta">Eliminar</button>
                                 }
                             </div>
+                            @{ Model.ValidadoresPorRespuesta.TryGetValue(a.Id, out var validadoresResp); }
+                            @if (validadoresResp?.Any() == true)
+                            {
+                                <div class="mt-2">
+                                    @await Html.PartialAsync("_ValidadoresAvatares", validadoresResp)
+                                </div>
+                            }
                             @if (Model.CanValidateRespuestas && a.UsuarioId != (Model.CurrentUserId ?? Guid.Empty))
                             {
                                 @await Html.PartialAsync("_ValidacionRespuestaMedico",
@@ -1198,6 +1214,13 @@
                                                 <button class="se-delete-btn" data-id="@a.Id" title="Eliminar respuesta">Eliminar</button>
                                             }
                                         </div>
+                                        @{ Model.ValidadoresPorRespuesta.TryGetValue(a.Id, out var validadoresPag); }
+                                        @if (validadoresPag?.Any() == true)
+                                        {
+                                            <div class="mt-2">
+                                                @await Html.PartialAsync("_ValidadoresAvatares", validadoresPag)
+                                            </div>
+                                        }
                                         @if (Model.CanValidateRespuestas && a.UsuarioId != (Model.CurrentUserId ?? Guid.Empty))
                                         {
                                             @await Html.PartialAsync("_ValidacionRespuestaMedico",

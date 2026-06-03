@@ -136,6 +136,9 @@ namespace eiibd26.Pages.Preguntas
         public bool CanValidateRespuestas { get; set; } = false;
         public Guid? CurrentUserId { get; set; }
 
+        // Validadores por respuesta (batch, para mostrar avatares — público, sin gate)
+        public Dictionary<Guid, List<ValidacionPublicaDto>> ValidadoresPorRespuesta { get; set; } = new();
+
         private Guid? GetUserIdGuid()
         {
             var v = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -781,6 +784,25 @@ namespace eiibd26.Pages.Preguntas
                 {
                     _logger.LogWarning(ex, "Error cargando estado de validaciones para pregunta {PreguntaId}", preguntaId);
                 }
+            }
+            // =====================================================================
+
+            // ===== Batch: avatares de médicos que validaron cada respuesta (1 query, público) =====
+            try
+            {
+                var idsParaValidadores = Respuestas.Select(r => r.Id)
+                    .Concat(AcceptedAnswer != null ? new[] { AcceptedAnswer.Id } : Array.Empty<Guid>())
+                    .Concat(TopSuggestedAnswers.Select(r => r.Id))
+                    .Concat(RespuestaIA != null ? new[] { RespuestaIA.Id } : Array.Empty<Guid>())
+                    .Distinct().ToList();
+
+                if (idsParaValidadores.Any())
+                    ValidadoresPorRespuesta = await _validacionRespuestaService
+                        .ObtenerValidadoresPorRespuestasAsync(idsParaValidadores);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error cargando validadores de respuestas para pregunta {PreguntaId}", preguntaId);
             }
             // =====================================================================
 
