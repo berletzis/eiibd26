@@ -113,6 +113,36 @@
     </div>
 
     <!-- ══════════════════════════════════════════════════════════ -->
+    <!-- DIAGNÓSTICO DE CONFIGURACIÓN SENDGRID                     -->
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <div class="mt-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header py-3 d-flex align-items-center justify-content-between"
+                 style="background:#f8f9fa;border-bottom:1px solid #e9ecef;">
+                <h6 class="mb-0 fw-semibold text-secondary">
+                    <i class="bi bi-gear-fill me-2"></i>Diagnóstico de configuración SendGrid
+                </h6>
+                <button id="btnVerificarConfig" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-search me-1"></i>Verificar configuración
+                </button>
+            </div>
+            <div class="card-body p-4" id="diagnosticoContent" style="display:none;">
+                <div class="text-center text-muted py-2">
+                    <span class="spinner-border spinner-border-sm me-1"></span>Cargando...
+                </div>
+            </div>
+            <div class="card-footer py-2 px-4" style="background:#fffdf0;border-top:1px solid #fde68a;font-size:.8rem;">
+                <i class="bi bi-info-circle text-warning me-1"></i>
+                <strong>Lo que la app NO puede verificar:</strong>
+                DKIM, SPF y DMARC se configuran en el DNS y se verifican en
+                <a href="https://app.sendgrid.com/settings/sender_auth" target="_blank" rel="noopener" class="text-decoration-none">SendGrid → Sender Authentication</a>.
+                La entregabilidad real se mide en
+                <a href="https://www.mail-tester.com" target="_blank" rel="noopener" class="text-decoration-none">mail-tester.com</a>.
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════ -->
     <!-- GRID DE ESTATUS (F3) — Resumen + detalle por campaña      -->
     <!-- ══════════════════════════════════════════════════════════ -->
     <div class="mt-5">
@@ -580,6 +610,108 @@
             });
 
         }());
+
+        // ──────────────────────────────────────────────────────────────────────
+        // DIAGNÓSTICO SENDGRID
+        // ──────────────────────────────────────────────────────────────────────
+        document.getElementById('btnVerificarConfig').addEventListener('click', function () {
+            var btn = this;
+            var content = document.getElementById('diagnosticoContent');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Verificando...';
+            content.style.display = 'block';
+            content.innerHTML = '<div class="text-center text-muted py-2"><span class="spinner-border spinner-border-sm me-1"></span>Cargando...</div>';
+
+            fetch(window.location.pathname + '?handler=DiagnosticoSendGrid')
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-search me-1"></i>Verificar configuración';
+                    renderDiagnostico(d, content);
+                })
+                .catch(function () {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-search me-1"></i>Verificar configuración';
+                    content.innerHTML = '<div class="alert alert-warning">Error cargando diagnóstico.</div>';
+                });
+        });
+
+        function badge(ok, okTxt, failTxt) {
+            return ok
+                ? '<span class="badge bg-success-subtle text-success border border-success-subtle">' + okTxt + '</span>'
+                : '<span class="badge bg-danger-subtle text-danger border border-danger-subtle">' + failTxt + '</span>';
+        }
+
+        function renderDiagnostico(d, el) {
+            var webhookNote = d.webhookPublicKeyPresente
+                ? ''
+                : '<span class="text-muted ms-2" style="font-size:.78rem;">El webhook recibe eventos pero no valida firma — configurar para producción.</span>';
+
+            var templatesHtml = '';
+            if (d.templates && d.templates.length) {
+                templatesHtml += '<ul class="list-unstyled mb-0">';
+                d.templates.forEach(function (t) {
+                    templatesHtml += '<li>' + badge(t.idValido, '✓', '⚠') +
+                        ' <span style="font-size:.83rem;">' + esc(t.nombre) + ' (Fase ' + t.fase + ')</span></li>';
+                });
+                templatesHtml += '</ul>';
+            } else { templatesHtml = '<span class="text-muted" style="font-size:.82rem;">Sin templates configurados</span>'; }
+
+            var campanasHtml = '';
+            if (d.campanas && d.campanas.length) {
+                campanasHtml += '<ul class="list-unstyled mb-0">';
+                d.campanas.forEach(function (c) {
+                    campanasHtml += '<li>' + badge(c.idValido, '✓', '⚠') +
+                        ' <span style="font-size:.83rem;">' + esc(c.codigo) + ' — ' + esc(c.nombre) +
+                        ' <span class="text-muted">(' + esc(c.publico) + ')</span></span></li>';
+                });
+                campanasHtml += '</ul>';
+            } else { campanasHtml = '<span class="text-muted" style="font-size:.82rem;">Sin campañas configuradas</span>'; }
+
+            var webhookEventos = d.eventosWebhookRecibidos > 0
+                ? '<span class="badge bg-success-subtle text-success border border-success-subtle">✓ ' + d.eventosWebhookRecibidos + ' eventos recibidos</span>'
+                : '<span class="badge bg-warning-subtle text-warning border border-warning-subtle">Aún no se han recibido eventos</span>';
+
+            el.innerHTML =
+                '<div class="row g-3">' +
+
+                // Columna izquierda: API + remitente
+                '<div class="col-md-6">' +
+                '<table class="table table-sm mb-0" style="font-size:.85rem;">' +
+                '<tbody>' +
+                '<tr><th class="text-muted fw-normal" style="width:160px;">API Key</th><td>' +
+                badge(d.apiKeyPresente, d.apiKeyPreview || '✓', '❌ No configurada') +
+                '</td></tr>' +
+                '<tr><th class="text-muted fw-normal">From Email</th><td>' + esc(d.fromEmail) + '</td></tr>' +
+                '<tr><th class="text-muted fw-normal">From Name</th><td>' + esc(d.fromName) + '</td></tr>' +
+                '<tr><th class="text-muted fw-normal">Categorías</th><td>' +
+                (d.defaultCategories && d.defaultCategories.length ? d.defaultCategories.map(function (c) { return '<span class="badge bg-secondary me-1">' + esc(c) + '</span>'; }).join('') : '<span class="text-muted">—</span>') +
+                '</td></tr>' +
+                '<tr><th class="text-muted fw-normal">Webhook key</th><td>' +
+                badge(d.webhookPublicKeyPresente, '✓ Configurada', '⚠ Sin configurar') + webhookNote +
+                '</td></tr>' +
+                '<tr><th class="text-muted fw-normal">Eventos webhook</th><td>' + webhookEventos + '</td></tr>' +
+                '<tr><th class="text-muted fw-normal">Suscriptores email</th><td>' + d.totalSuscriptoresEmail + ' usuarios confirmados</td></tr>' +
+                '</tbody></table>' +
+                (d.templatesConProblema > 0 ? '<div class="alert alert-warning py-1 px-2 mt-2 mb-0" style="font-size:.8rem;"><i class="bi bi-exclamation-triangle me-1"></i>' + d.templatesConProblema + ' template(s) con ID placeholder o vacío.</div>' : '') +
+                '</div>' +
+
+                // Columna derecha: templates y campañas
+                '<div class="col-md-6">' +
+                '<p class="fw-semibold mb-1" style="font-size:.82rem;color:#555;">TEMPLATES (SendGrid:Templates)</p>' +
+                templatesHtml +
+                '<p class="fw-semibold mb-1 mt-3" style="font-size:.82rem;color:#555;">CAMPAÑAS (SendGrid:Campanas)</p>' +
+                campanasHtml +
+                '</div>' +
+
+                '</div>';
+        }
+
+        function esc(str) {
+            var d = document.createElement('span');
+            d.textContent = str || '';
+            return d.innerHTML;
+        }
 
         // ──────────────────────────────────────────────────────────────────────
         // GRID DE ESTATUS — F3

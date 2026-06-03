@@ -567,5 +567,72 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
 
             return new JsonResult(new { campana, filtro, total = resultado.Count, usuarios = resultado });
         }
+
+        // ──────────────────────────────────────────────────────────────────────
+        // DIAGNÓSTICO DE CONFIGURACIÓN SENDGRID
+        // ──────────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Devuelve el estado de la configuración de SendGrid sin exponer secretos.
+        /// apiKeyPreview = primeros 6 chars + "..." para confirmar qué key está cargada.
+        /// La API key completa y la WebhookPublicKey nunca se devuelven al cliente.
+        /// </summary>
+        public async Task<IActionResult> OnGetDiagnosticoSendGridAsync()
+        {
+            var apiKey = _configuration["SendGrid:ApiKey"] ?? string.Empty;
+            var webhookKey = _configuration["SendGrid:WebhookPublicKey"] ?? string.Empty;
+
+            var templates = _configuration.GetSection("SendGrid:Templates")
+                .Get<List<SendGridTemplateInfo>>() ?? new();
+
+            var campanas = _configuration.GetSection("SendGrid:Campanas")
+                .Get<List<CampanaInfo>>() ?? new();
+
+            var defaultCats = _configuration.GetSection("SendGrid:DefaultCategories")
+                .Get<List<string>>() ?? new();
+
+            static bool IdValido(string? id) =>
+                !string.IsNullOrWhiteSpace(id) && id.StartsWith("d-") && !id.Contains("AQUI") && id.Length > 10;
+
+            var templatesInfo = templates.Select(t => new
+            {
+                t.Nombre,
+                t.Fase,
+                idValido = IdValido(t.Id)
+            }).ToList();
+
+            var campanasInfo = campanas.Select(c => new
+            {
+                c.Codigo,
+                c.Nombre,
+                Publico = c.Publico.ToString(),
+                c.FaseLog,
+                idValido = IdValido(c.TemplateId)
+            }).ToList();
+
+            var templatesConProblema = templatesInfo.Count(t => !t.idValido) +
+                                       campanasInfo.Count(c => !c.idValido);
+
+            // Estadísticas de contexto (solo conteos — sin exponer datos de usuarios)
+            var totalSuscriptoresEmail = await _userManager.Users
+                .CountAsync(u => u.EmailConfirmed && u.Email != null);
+
+            var eventosWebhookRecibidos = await _db.SendGridEventLogs.CountAsync();
+
+            return new JsonResult(new
+            {
+                apiKeyPresente = !string.IsNullOrWhiteSpace(apiKey),
+                apiKeyPreview = apiKey.Length >= 6 ? apiKey[..6] + "..." : (apiKey.Length > 0 ? "***" : "(vacía)"),
+                fromEmail = _configuration["SendGrid:FromEmail"] ?? "(no configurado)",
+                fromName = _configuration["SendGrid:FromName"] ?? "(no configurado)",
+                defaultCategories = defaultCats,
+                templates = templatesInfo,
+                campanas = campanasInfo,
+                templatesConProblema,
+                webhookPublicKeyPresente = !string.IsNullOrWhiteSpace(webhookKey),
+                totalSuscriptoresEmail,
+                eventosWebhookRecibidos
+            });
+        }
     }
 }
