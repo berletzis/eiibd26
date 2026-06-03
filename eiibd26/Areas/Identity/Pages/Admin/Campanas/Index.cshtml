@@ -10,40 +10,120 @@
 
 <div class="eii-page eii-page--wide">
     <meta name="csrf-token" content="@Antiforgery.GetAndStoreTokens(HttpContext).RequestToken" />
-    <div class="d-flex align-items-center mb-4">
-        <h2 class="eii-page-title eii-page-title--sm mb-0">Campañas de email</h2>
-        <div class="ms-3">
-            <button id="btnAbrirCampana" class="btn btn-primary">
-                <i class="bi bi-envelope-paper me-1"></i>Abrir campaña de reactivación
-            </button>
-        </div>
-    </div>
+    <h2 class="eii-page-title eii-page-title--sm mb-4">Campañas de email</h2>
 
-    <div class="card border-0 shadow-sm p-4" style="max-width:680px;">
-        <p class="text-muted mb-0" style="font-size:.95rem;">
-            Desde aquí puedes enviar correos de reactivación a usuarios por fases.
-            Haz clic en <strong>Abrir campaña</strong> para ver el estado actual y enviar un batch.
-        </p>
+    <div class="row g-4">
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- ACCIÓN 1 — Reactivación de usuarios viejos             -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header py-3" style="background:linear-gradient(135deg,#1a7abf 0%,#0d4f7c 100%);">
+                    <h5 class="mb-0 text-white fw-semibold">
+                        <i class="bi bi-arrow-repeat me-2"></i>Reactivación de usuarios viejos
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    <p class="text-muted mb-3" style="font-size:.9rem;">
+                        Dirige <strong>solo a usuarios migrados</strong> (hash len=68, sistema anterior) que aún no activaron su acceso.
+                        Los usuarios que ya cambiaron su contraseña quedan excluidos automáticamente.
+                    </p>
+                    <div class="d-flex align-items-center gap-3 mb-4 p-3 rounded" style="background:#f0f7ff;border:1px solid #c8e1f7;">
+                        <i class="bi bi-people-fill text-primary fs-4"></i>
+                        <div>
+                            <div class="fw-semibold text-primary" style="font-size:1.3rem;" id="reactivacion-elegibles-count">—</div>
+                            <div class="text-muted" style="font-size:.8rem;">elegibles pendientes (UsuariosViejos)</div>
+                        </div>
+                    </div>
+                    <button id="btnAbrirCampana" class="btn btn-primary w-100">
+                        <i class="bi bi-envelope-paper me-2"></i>Gestionar reactivación
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- ACCIÓN 2 — Enviar campaña a todos los confirmados      -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header py-3" style="background:linear-gradient(135deg,#2d8a4e 0%,#1a5c32 100%);">
+                    <h5 class="mb-0 text-white fw-semibold">
+                        <i class="bi bi-envelope-paper me-2"></i>Enviar campaña
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    <p class="text-muted mb-3" style="font-size:.9rem;">
+                        Envía el template seleccionado a <strong>todos los usuarios confirmados</strong>
+                        (TodosConfirmados). El sistema excluye automáticamente a quienes ya recibieron este template.
+                    </p>
+                    <div class="d-flex align-items-center gap-3 mb-3 p-3 rounded" style="background:#f0fff4;border:1px solid #b8e8c8;">
+                        <i class="bi bi-people text-success fs-4"></i>
+                        <div>
+                            <div class="fw-semibold text-success" style="font-size:1.3rem;" id="general-total-count">—</div>
+                            <div class="text-muted" style="font-size:.8rem;">usuarios confirmados total</div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" style="font-size:.85rem;">Template SendGrid</label>
+                        <select id="generalTemplateSelect" class="form-select form-select-sm">
+                            <option value="">Cargando templates...</option>
+                        </select>
+                    </div>
+
+                    <!-- Prueba -->
+                    <div class="mb-3 p-2 rounded" style="background:#f8f9fa;border:1px solid #dee2e6;font-size:.85rem;">
+                        <span class="text-muted fw-semibold me-2">Prueba:</span>
+                        <div class="d-flex gap-2 mt-1 flex-wrap">
+                            <input type="email" id="generalCorreoPrueba" class="form-control form-control-sm" placeholder="correo@prueba.com" style="max-width:200px;" />
+                            <button type="button" id="btnEnviarPruebaGeneral" class="btn btn-sm btn-outline-secondary text-nowrap">
+                                <i class="bi bi-envelope-check me-1"></i>Probar
+                            </button>
+                            <span id="generalPruebaStatus" style="font-size:.82rem;align-self:center;"></span>
+                        </div>
+                    </div>
+
+                    <!-- Log de resultados -->
+                    <div id="generalLogContainer" class="d-none mb-3">
+                        <div class="fw-semibold mb-1" style="font-size:.82rem;color:#555;">RESULTADO DEL BATCH</div>
+                        <div id="generalLog" class="border rounded p-2" style="max-height:160px;overflow-y:auto;background:#f8f9ff;font-size:.8rem;font-family:monospace;"></div>
+                        <div id="generalResumenBatch" class="mt-1 fw-semibold" style="font-size:.85rem;"></div>
+                    </div>
+
+                    <div id="generalStatus" class="alert d-none mb-3" role="alert" style="font-size:.88rem;"></div>
+                    <div id="generalTemplateAviso" class="alert alert-warning d-none mb-3 py-2" style="font-size:.85rem;">
+                        <i class="bi bi-exclamation-triangle me-1"></i><span id="generalTemplateAvisoText"></span>
+                    </div>
+
+                    <button id="btnEnviarCampanaGeneral" class="btn btn-success w-100">
+                        <i class="bi bi-send me-2"></i>Enviar batch de 100
+                    </button>
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
 
 <!-- ══════════════════════════════════════════════════════════ -->
-<!-- Modal Campaña por Fases                                    -->
+<!-- Modal Reactivación (simplificado — solo acción 1)         -->
 <!-- ══════════════════════════════════════════════════════════ -->
 <div class="modal fade" id="modalCampana" tabindex="-1" aria-labelledby="modalCampanaLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content" style="border-radius:14px;border:none;box-shadow:0 4px 32px rgba(70,80,120,0.13);">
             <div class="modal-header" style="background:linear-gradient(135deg,#1a7abf 0%,#0d4f7c 100%);border-radius:14px 14px 0 0;">
                 <h5 class="modal-title text-white fw-semibold" id="modalCampanaLabel">
-                    <i class="bi bi-envelope-paper-fill me-2"></i>Campaña de reactivación por fases
+                    <i class="bi bi-arrow-repeat me-2"></i>Reactivación — usuarios viejos
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body p-4">
 
-                <!-- Resumen de fases -->
+                <!-- Resumen de reactivación -->
                 <div class="mb-4">
-                    <h6 class="fw-semibold mb-3 text-muted" style="font-size:.85rem;letter-spacing:.05em;">ESTADO ACTUAL DE LA CAMPAÑA</h6>
+                    <h6 class="fw-semibold mb-3 text-muted" style="font-size:.85rem;letter-spacing:.05em;">ESTADO DE LA CAMPAÑA (USUARIOS VIEJOS)</h6>
                     <div id="campanaResumen" class="text-center py-3">
                         <span class="spinner-border spinner-border-sm text-secondary"></span>
                         <span class="text-muted ms-2" style="font-size:.85rem;">Cargando...</span>
@@ -52,39 +132,10 @@
 
                 <hr class="my-3" />
 
-                <!-- Selector de campaña -->
-                <h6 class="fw-semibold mb-3 text-muted" style="font-size:.85rem;letter-spacing:.05em;">SELECCIONA LA CAMPAÑA A ENVIAR (BATCH DE 100)</h6>
-                <div class="row g-2 mb-3" id="campanaFaseSelector">
-                    <div class="col-md-4">
-                        <div class="form-check p-3 border rounded campana-fase-card" style="cursor:pointer;background:#f0f7ff;">
-                            <input class="form-check-input" type="radio" name="campanaFase" id="fase1Radio" value="reactivacion" checked>
-                            <label class="form-check-label w-100" for="fase1Radio" style="cursor:pointer;">
-                                <span class="fw-semibold d-block" style="font-size:.9rem;"><i class="bi bi-1-circle me-1 text-primary"></i>Fase 1 — Reactivación</span>
-                                <span class="text-muted d-block" style="font-size:.78rem;">Primer contacto. Sin pedir datos.</span>
-                                <span class="badge bg-primary mt-1" id="badge-reactivacion">— elegibles</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-check p-3 border rounded campana-fase-card" style="cursor:pointer;background:#f0fff4;">
-                            <input class="form-check-input" type="radio" name="campanaFase" id="fase2Radio" value="bienvenida">
-                            <label class="form-check-label w-100" for="fase2Radio" style="cursor:pointer;">
-                                <span class="fw-semibold d-block" style="font-size:.9rem;"><i class="bi bi-2-circle me-1 text-success"></i>Fase 2 — Activación</span>
-                                <span class="text-muted d-block" style="font-size:.78rem;">Acceso listo. Invitar a entrar.</span>
-                                <span class="badge bg-success mt-1" id="badge-bienvenida">— elegibles</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-check p-3 border rounded campana-fase-card" style="cursor:pointer;background:#fff8f0;">
-                            <input class="form-check-input" type="radio" name="campanaFase" id="fase3Radio" value="recordatorio">
-                            <label class="form-check-label w-100" for="fase3Radio" style="cursor:pointer;">
-                                <span class="fw-semibold d-block" style="font-size:.9rem;"><i class="bi bi-3-circle me-1 text-warning"></i>Fase 3 — Recordatorio</span>
-                                <span class="text-muted d-block" style="font-size:.78rem;">Fricción honesta. Último aviso.</span>
-                                <span class="badge bg-warning text-dark mt-1" id="badge-recordatorio">— elegibles</span>
-                            </label>
-                        </div>
-                    </div>
+                <div class="alert alert-info py-2 mb-3" style="font-size:.85rem;">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Solo se notifica a usuarios con <strong>hash de longitud 68</strong> (migrados) que no activaron.
+                    Quedan excluidos: usuarios nuevos (AQAAAA) y viejos que ya reactivaron.
                 </div>
 
                 <!-- Aviso de template no configurado -->
@@ -128,53 +179,82 @@
 @section Scripts {
     <script>
         (function () {
-            var campanaResumenData = null;
+            var csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
 
-            var bgByCodigo = { reactivacion: '#f0f7ff', bienvenida: '#f0fff4', recordatorio: '#fff8f0' };
-            var colorByCodigo = { reactivacion: 'text-primary', bienvenida: 'text-success', recordatorio: 'text-warning' };
+            // ──────────────────────────────────────────────────────────────
+            // ACCIÓN 1 — Reactivación
+            // ──────────────────────────────────────────────────────────────
+
+            function renderBatchLog(containerId, logId, resumenId, data) {
+                var logHtml = '';
+                data.resultados.forEach(function (r) {
+                    var icon = r.exito
+                        ? '<i class="bi bi-check-circle-fill text-success me-1"></i>'
+                        : '<i class="bi bi-x-circle-fill text-danger me-1"></i>';
+                    var emailTxt = document.createElement('span');
+                    emailTxt.textContent = r.email;
+                    var err = r.error ? ' <span class="text-danger">— ' + r.error + '</span>' : '';
+                    logHtml += '<div>' + icon + emailTxt.textContent + err + '</div>';
+                });
+                document.getElementById(logId).innerHTML = logHtml;
+                document.getElementById(resumenId).innerHTML =
+                    '<span class="text-success"><i class="bi bi-check-circle me-1"></i>' + data.exitosos + ' enviados</span>' +
+                    (data.fallidos > 0 ? ' &nbsp; <span class="text-danger"><i class="bi bi-x-circle me-1"></i>' + data.fallidos + ' fallidos</span>' : '');
+                document.getElementById(containerId).classList.remove('d-none');
+            }
 
             function cargarCampanaResumen() {
-                $('#campanaResumen').html('<span class="spinner-border spinner-border-sm text-secondary"></span><span class="text-muted ms-2" style="font-size:.85rem;">Cargando...</span>');
+                document.getElementById('campanaResumen').innerHTML =
+                    '<span class="spinner-border spinner-border-sm text-secondary"></span>' +
+                    '<span class="text-muted ms-2" style="font-size:.85rem;">Cargando...</span>';
+
                 fetch(window.location.pathname + '?handler=CampanaResumen')
                     .then(function (r) { return r.json(); })
                     .then(function (d) {
-                        campanaResumenData = d;
-                        // Actualizar badges por código de campaña
-                        if (d.campanas) {
-                            d.campanas.forEach(function (c) {
-                                var badge = document.getElementById('badge-' + c.codigo);
-                                if (badge) badge.textContent = c.elegibles + ' elegibles';
-                            });
-                        }
-                        var html = '<div class="row text-center g-2">';
-                        html += '<div class="col"><div class="border rounded p-2" style="background:#f8f9ff;"><div class="fw-bold text-primary" style="font-size:1.4rem;">' + d.totalUsuarios + '</div><div class="text-muted" style="font-size:.78rem;">Total usuarios</div></div></div>';
-                        if (d.campanas) {
-                            d.campanas.forEach(function (c) {
-                                var bg = bgByCodigo[c.codigo] || '#f8f9ff';
-                                var col = colorByCodigo[c.codigo] || 'text-primary';
-                                html += '<div class="col"><div class="border rounded p-2" style="background:' + bg + ';">' +
-                                    '<div class="fw-bold ' + col + '" style="font-size:1.4rem;">' + c.recibieron + '</div>' +
-                                    '<div class="text-muted" style="font-size:.78rem;">Recibieron</div>' +
-                                    '<div class="text-muted" style="font-size:.72rem;">' + c.nombre.substring(0, 20) + '</div>' +
-                                    '</div></div>';
-                            });
-                        }
-                        html += '</div>';
-                        $('#campanaResumen').html(html);
+                        // Buscar datos de la campaña "reactivacion"
+                        var reac = d.campanas && d.campanas.find(function (c) { return c.codigo === 'reactivacion'; });
+                        var elegibles = reac ? reac.elegibles : '—';
+                        var recibieron = reac ? reac.recibieron : '—';
+                        var totalPublico = reac ? reac.totalPublico : '—';
+
+                        // Actualizar badge del card exterior
+                        document.getElementById('reactivacion-elegibles-count').textContent = elegibles;
+
+                        var html = '<div class="row text-center g-2">' +
+                            '<div class="col"><div class="border rounded p-2" style="background:#f8f9ff;">' +
+                            '<div class="fw-bold text-primary" style="font-size:1.4rem;">' + d.totalUsuarios + '</div>' +
+                            '<div class="text-muted" style="font-size:.78rem;">Total usuarios</div></div></div>' +
+                            '<div class="col"><div class="border rounded p-2" style="background:#f0f7ff;">' +
+                            '<div class="fw-bold text-primary" style="font-size:1.4rem;">' + totalPublico + '</div>' +
+                            '<div class="text-muted" style="font-size:.78rem;">Usuarios viejos</div></div></div>' +
+                            '<div class="col"><div class="border rounded p-2" style="background:#fff0f0;">' +
+                            '<div class="fw-bold text-danger" style="font-size:1.4rem;">' + recibieron + '</div>' +
+                            '<div class="text-muted" style="font-size:.78rem;">Ya reactivados</div></div></div>' +
+                            '<div class="col"><div class="border rounded p-2" style="background:#f0fff4;">' +
+                            '<div class="fw-bold text-success" style="font-size:1.4rem;">' + elegibles + '</div>' +
+                            '<div class="text-muted" style="font-size:.78rem;">Elegibles</div></div></div>' +
+                            '</div>';
+                        document.getElementById('campanaResumen').innerHTML = html;
                     })
                     .catch(function () {
-                        $('#campanaResumen').html('<span class="text-danger" style="font-size:.85rem;">Error al cargar resumen.</span>');
+                        document.getElementById('campanaResumen').innerHTML =
+                            '<span class="text-danger" style="font-size:.85rem;">Error al cargar resumen.</span>';
                     });
             }
 
             function abrirCampana() {
-                $('#campanaLogContainer').addClass('d-none');
-                $('#campanaLog').html('');
-                $('#campanaResumenBatch').html('');
-                $('#campanaStatus').addClass('d-none');
-                $('#campanaTemplateAviso').addClass('d-none');
-                $('#btnEnviarBatch').prop('disabled', false).html('<i class="bi bi-send me-1"></i>Enviar batch de 100');
-                $('#campanaTemplatePrueba').html('<option value="">Cargando...</option>').prop('disabled', true);
+                document.getElementById('campanaLogContainer').className = 'd-none mt-3';
+                document.getElementById('campanaLog').innerHTML = '';
+                document.getElementById('campanaResumenBatch').innerHTML = '';
+                document.getElementById('campanaStatus').className = 'alert d-none mt-3 mb-0';
+                document.getElementById('campanaTemplateAviso').className = 'alert alert-warning d-none py-2';
+                document.getElementById('btnEnviarBatch').disabled = false;
+                document.getElementById('btnEnviarBatch').innerHTML = '<i class="bi bi-send me-1"></i>Enviar batch de 100';
+
+                // Cargar templates para la prueba
+                var sel = document.getElementById('campanaTemplatePrueba');
+                sel.innerHTML = '<option value="">Cargando...</option>';
+                sel.disabled = true;
                 fetch(window.location.pathname + '?handler=TemplatesCorreo')
                     .then(function (r) { return r.json(); })
                     .then(function (templates) {
@@ -185,19 +265,19 @@
                                 opts += '<option value="' + t.id + '">' + label + '</option>';
                             });
                         }
-                        $('#campanaTemplatePrueba').html(opts).prop('disabled', false);
+                        sel.innerHTML = opts;
+                        sel.disabled = false;
                     })
-                    .catch(function () {
-                        $('#campanaTemplatePrueba').html('<option value="">Error al cargar</option>').prop('disabled', false);
-                    });
+                    .catch(function () { sel.innerHTML = '<option value="">Error al cargar</option>'; sel.disabled = false; });
+
                 cargarCampanaResumen();
                 new bootstrap.Modal(document.getElementById('modalCampana')).show();
             }
 
             document.getElementById('btnAbrirCampana').addEventListener('click', abrirCampana);
 
+            // Batch reactivación — siempre usa código "reactivacion" (UsuariosViejos)
             document.getElementById('btnEnviarBatch').addEventListener('click', function () {
-                var fase = document.querySelector('input[name="campanaFase"]:checked').value;
                 var btn = this;
                 btn.disabled = true;
                 btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando...';
@@ -206,11 +286,10 @@
                 document.getElementById('campanaLogContainer').className = 'd-none mt-3';
                 document.getElementById('campanaLog').innerHTML = '';
 
-                var token = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
                 fetch(window.location.pathname + '?handler=CampanaEnviarBatch', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
-                    body: JSON.stringify({ campanaCodigo: fase })
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': csrfToken },
+                    body: JSON.stringify({ campanaCodigo: 'reactivacion' })
                 })
                     .then(function (r) { return r.json(); })
                     .then(function (data) {
@@ -224,25 +303,11 @@
                         if (data.procesados === 0) {
                             var st = document.getElementById('campanaStatus');
                             st.className = 'alert alert-info mt-3 mb-0';
-                            st.innerHTML = '<i class="bi bi-info-circle me-1"></i>' + (data.mensaje || 'No hay usuarios elegibles para esta fase.');
+                            st.innerHTML = '<i class="bi bi-info-circle me-1"></i>' + (data.mensaje || 'No hay usuarios elegibles.');
                             cargarCampanaResumen();
                             return;
                         }
-                        var logHtml = '';
-                        data.resultados.forEach(function (r) {
-                            var icon = r.exito
-                                ? '<i class="bi bi-check-circle-fill text-success me-1"></i>'
-                                : '<i class="bi bi-x-circle-fill text-danger me-1"></i>';
-                            var emailSpan = document.createElement('span');
-                            emailSpan.textContent = r.email;
-                            var err = r.error ? ' <span class="text-danger">— ' + r.error + '</span>' : '';
-                            logHtml += '<div>' + icon + emailSpan.textContent + err + '</div>';
-                        });
-                        document.getElementById('campanaLog').innerHTML = logHtml;
-                        document.getElementById('campanaResumenBatch').innerHTML =
-                            '<span class="text-success"><i class="bi bi-check-circle me-1"></i>' + data.exitosos + ' enviados</span>' +
-                            (data.fallidos > 0 ? ' &nbsp; <span class="text-danger"><i class="bi bi-x-circle me-1"></i>' + data.fallidos + ' fallidos</span>' : '');
-                        document.getElementById('campanaLogContainer').classList.remove('d-none');
+                        renderBatchLog('campanaLogContainer', 'campanaLog', 'campanaResumenBatch', data);
                         cargarCampanaResumen();
                     })
                     .catch(function () {
@@ -254,42 +319,30 @@
                     });
             });
 
+            // Prueba reactivación
             document.getElementById('btnEnviarPrueba').addEventListener('click', function () {
                 var emailInput = document.getElementById('campanaCorreoPrueba');
                 var email = emailInput.value.trim();
-                var templateSelect = document.getElementById('campanaTemplatePrueba');
-                var templateId = templateSelect ? templateSelect.value : '';
+                var templateId = document.getElementById('campanaTemplatePrueba').value;
                 var statusEl = document.getElementById('campanaPruebaStatus');
                 var btn = this;
-
-                if (!templateId) {
-                    statusEl.innerHTML = '<span class="text-warning">Selecciona un template.</span>';
-                    return;
-                }
-                if (!emailInput.checkValidity() || !email) {
-                    statusEl.innerHTML = '<span class="text-danger">Ingresa un correo válido.</span>';
-                    return;
-                }
-
+                if (!templateId) { statusEl.innerHTML = '<span class="text-warning">Selecciona un template.</span>'; return; }
+                if (!emailInput.checkValidity() || !email) { statusEl.innerHTML = '<span class="text-danger">Ingresa un correo válido.</span>'; return; }
                 btn.disabled = true;
                 btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando...';
                 statusEl.innerHTML = '';
-
-                var token = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
                 fetch(window.location.pathname + '?handler=CampanaEnviarPrueba', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': csrfToken },
                     body: JSON.stringify({ email: email, templateId: templateId })
                 })
                     .then(function (r) { return r.json(); })
                     .then(function (data) {
                         btn.disabled = false;
                         btn.innerHTML = '<i class="bi bi-envelope-check me-1"></i>Enviar correo de prueba';
-                        if (data.success) {
-                            statusEl.innerHTML = '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Enviado</span>';
-                        } else {
-                            statusEl.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>' + (data.error || 'Error') + '</span>';
-                        }
+                        statusEl.innerHTML = data.success
+                            ? '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Enviado</span>'
+                            : '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>' + (data.error || 'Error') + '</span>';
                     })
                     .catch(function () {
                         btn.disabled = false;
@@ -297,6 +350,119 @@
                         statusEl.innerHTML = '<span class="text-danger">Error de conexión.</span>';
                     });
             });
+
+            // Cargar badge inicial de reactivación (sin abrir modal)
+            fetch(window.location.pathname + '?handler=CampanaResumen')
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    var reac = d.campanas && d.campanas.find(function (c) { return c.codigo === 'reactivacion'; });
+                    if (reac) document.getElementById('reactivacion-elegibles-count').textContent = reac.elegibles;
+                })
+                .catch(function () {});
+
+            // ──────────────────────────────────────────────────────────────
+            // ACCIÓN 2 — Enviar campaña a todos (TodosConfirmados)
+            // ──────────────────────────────────────────────────────────────
+
+            // Cargar templates en el selector
+            var generalSel = document.getElementById('generalTemplateSelect');
+            fetch(window.location.pathname + '?handler=TemplatesCorreo')
+                .then(function (r) { return r.json(); })
+                .then(function (templates) {
+                    var opts = '<option value="">-- Selecciona template --</option>';
+                    if (templates && templates.length) {
+                        templates.forEach(function (t) {
+                            var label = t.nombre + (t.fase > 0 ? ' (Fase ' + t.fase + ')' : '');
+                            opts += '<option value="' + t.id + '">' + label + '</option>';
+                        });
+                    }
+                    generalSel.innerHTML = opts;
+                })
+                .catch(function () { generalSel.innerHTML = '<option value="">Error al cargar</option>'; });
+
+            // Cargar conteo TodosConfirmados
+            fetch(window.location.pathname + '?handler=ConteoTodosConfirmados')
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    document.getElementById('general-total-count').textContent = d.total;
+                })
+                .catch(function () {});
+
+            // Prueba campaña general
+            document.getElementById('btnEnviarPruebaGeneral').addEventListener('click', function () {
+                var emailInput = document.getElementById('generalCorreoPrueba');
+                var email = emailInput.value.trim();
+                var templateId = generalSel.value;
+                var statusEl = document.getElementById('generalPruebaStatus');
+                var btn = this;
+                if (!templateId) { statusEl.innerHTML = '<span class="text-warning">Selecciona un template.</span>'; return; }
+                if (!emailInput.checkValidity() || !email) { statusEl.innerHTML = '<span class="text-danger">Correo inválido.</span>'; return; }
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>';
+                statusEl.innerHTML = '';
+                fetch(window.location.pathname + '?handler=CampanaEnviarPrueba', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': csrfToken },
+                    body: JSON.stringify({ email: email, templateId: templateId })
+                })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-envelope-check me-1"></i>Probar';
+                        statusEl.innerHTML = data.success
+                            ? '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Enviado</span>'
+                            : '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>' + (data.error || 'Error') + '</span>';
+                    })
+                    .catch(function () { btn.disabled = false; btn.innerHTML = '<i class="bi bi-envelope-check me-1"></i>Probar'; statusEl.innerHTML = '<span class="text-danger">Error.</span>'; });
+            });
+
+            // Batch campaña general
+            document.getElementById('btnEnviarCampanaGeneral').addEventListener('click', function () {
+                var templateId = generalSel.value;
+                var btn = this;
+                if (!templateId) {
+                    document.getElementById('generalTemplateAviso').classList.remove('d-none');
+                    document.getElementById('generalTemplateAvisoText').textContent = 'Selecciona un template antes de enviar.';
+                    return;
+                }
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando...';
+                document.getElementById('generalStatus').className = 'alert d-none mb-3';
+                document.getElementById('generalTemplateAviso').className = 'alert alert-warning d-none mb-3 py-2';
+                document.getElementById('generalLogContainer').className = 'd-none mb-3';
+                document.getElementById('generalLog').innerHTML = '';
+
+                fetch(window.location.pathname + '?handler=EnviarCampanaGeneral', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': csrfToken },
+                    body: JSON.stringify({ templateId: templateId })
+                })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-send me-2"></i>Enviar batch de 100';
+                        if (!data.success) {
+                            document.getElementById('generalTemplateAviso').classList.remove('d-none');
+                            document.getElementById('generalTemplateAvisoText').textContent = data.error || 'Error desconocido.';
+                            return;
+                        }
+                        if (data.procesados === 0) {
+                            var st = document.getElementById('generalStatus');
+                            st.className = 'alert alert-info mb-3';
+                            st.innerHTML = '<i class="bi bi-info-circle me-1"></i>' + (data.mensaje || 'No hay usuarios elegibles.');
+                            return;
+                        }
+                        renderBatchLog('generalLogContainer', 'generalLog', 'generalResumenBatch', data);
+                    })
+                    .catch(function () {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-send me-2"></i>Enviar batch de 100';
+                        var st = document.getElementById('generalStatus');
+                        st.className = 'alert alert-danger mb-3';
+                        st.innerHTML = '<i class="bi bi-exclamation-triangle me-1"></i>Error de conexión.';
+                    });
+            });
+
         }());
     </script>
 }
