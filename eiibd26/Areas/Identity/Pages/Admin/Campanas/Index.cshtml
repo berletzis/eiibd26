@@ -52,36 +52,36 @@
 
                 <hr class="my-3" />
 
-                <!-- Selector de fase -->
-                <h6 class="fw-semibold mb-3 text-muted" style="font-size:.85rem;letter-spacing:.05em;">SELECCIONA LA FASE A ENVIAR (BATCH DE 100)</h6>
+                <!-- Selector de campaña -->
+                <h6 class="fw-semibold mb-3 text-muted" style="font-size:.85rem;letter-spacing:.05em;">SELECCIONA LA CAMPAÑA A ENVIAR (BATCH DE 100)</h6>
                 <div class="row g-2 mb-3" id="campanaFaseSelector">
                     <div class="col-md-4">
                         <div class="form-check p-3 border rounded campana-fase-card" style="cursor:pointer;background:#f0f7ff;">
-                            <input class="form-check-input" type="radio" name="campanaFase" id="fase1Radio" value="1" checked>
+                            <input class="form-check-input" type="radio" name="campanaFase" id="fase1Radio" value="reactivacion" checked>
                             <label class="form-check-label w-100" for="fase1Radio" style="cursor:pointer;">
                                 <span class="fw-semibold d-block" style="font-size:.9rem;"><i class="bi bi-1-circle me-1 text-primary"></i>Fase 1 — Reactivación</span>
                                 <span class="text-muted d-block" style="font-size:.78rem;">Primer contacto. Sin pedir datos.</span>
-                                <span class="badge bg-primary mt-1" id="badgeFase1">— elegibles</span>
+                                <span class="badge bg-primary mt-1" id="badge-reactivacion">— elegibles</span>
                             </label>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="form-check p-3 border rounded campana-fase-card" style="cursor:pointer;background:#f0fff4;">
-                            <input class="form-check-input" type="radio" name="campanaFase" id="fase2Radio" value="2">
+                            <input class="form-check-input" type="radio" name="campanaFase" id="fase2Radio" value="bienvenida">
                             <label class="form-check-label w-100" for="fase2Radio" style="cursor:pointer;">
                                 <span class="fw-semibold d-block" style="font-size:.9rem;"><i class="bi bi-2-circle me-1 text-success"></i>Fase 2 — Activación</span>
                                 <span class="text-muted d-block" style="font-size:.78rem;">Acceso listo. Invitar a entrar.</span>
-                                <span class="badge bg-success mt-1" id="badgeFase2">— elegibles</span>
+                                <span class="badge bg-success mt-1" id="badge-bienvenida">— elegibles</span>
                             </label>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="form-check p-3 border rounded campana-fase-card" style="cursor:pointer;background:#fff8f0;">
-                            <input class="form-check-input" type="radio" name="campanaFase" id="fase3Radio" value="3">
+                            <input class="form-check-input" type="radio" name="campanaFase" id="fase3Radio" value="recordatorio">
                             <label class="form-check-label w-100" for="fase3Radio" style="cursor:pointer;">
                                 <span class="fw-semibold d-block" style="font-size:.9rem;"><i class="bi bi-3-circle me-1 text-warning"></i>Fase 3 — Recordatorio</span>
                                 <span class="text-muted d-block" style="font-size:.78rem;">Fricción honesta. Último aviso.</span>
-                                <span class="badge bg-warning text-dark mt-1" id="badgeFase3">— elegibles</span>
+                                <span class="badge bg-warning text-dark mt-1" id="badge-recordatorio">— elegibles</span>
                             </label>
                         </div>
                     </div>
@@ -130,24 +130,37 @@
         (function () {
             var campanaResumenData = null;
 
+            var bgByCodigo = { reactivacion: '#f0f7ff', bienvenida: '#f0fff4', recordatorio: '#fff8f0' };
+            var colorByCodigo = { reactivacion: 'text-primary', bienvenida: 'text-success', recordatorio: 'text-warning' };
+
             function cargarCampanaResumen() {
                 $('#campanaResumen').html('<span class="spinner-border spinner-border-sm text-secondary"></span><span class="text-muted ms-2" style="font-size:.85rem;">Cargando...</span>');
                 fetch(window.location.pathname + '?handler=CampanaResumen')
                     .then(function (r) { return r.json(); })
                     .then(function (d) {
                         campanaResumenData = d;
-                        $('#badgeFase1').text(d.elegiblesFase1 + ' elegibles');
-                        $('#badgeFase2').text(d.elegiblesFase2 + ' elegibles');
-                        $('#badgeFase3').text(d.elegiblesFase3 + ' elegibles');
-                        $('#campanaResumen').html(
-                            '<div class="row text-center g-2">' +
-                            '<div class="col"><div class="border rounded p-2" style="background:#f8f9ff;"><div class="fw-bold text-primary" style="font-size:1.4rem;">' + d.totalUsuarios + '</div><div class="text-muted" style="font-size:.78rem;">Total usuarios</div></div></div>' +
-                            '<div class="col"><div class="border rounded p-2" style="background:#f0f7ff;"><div class="fw-bold text-primary" style="font-size:1.4rem;">' + d.conFase1 + '</div><div class="text-muted" style="font-size:.78rem;">Recibieron F1</div></div></div>' +
-                            '<div class="col"><div class="border rounded p-2" style="background:#f0fff4;"><div class="fw-bold text-success" style="font-size:1.4rem;">' + d.conFase2 + '</div><div class="text-muted" style="font-size:.78rem;">Recibieron F2</div></div></div>' +
-                            '<div class="col"><div class="border rounded p-2" style="background:#fff8f0;"><div class="fw-bold text-warning" style="font-size:1.4rem;">' + d.conFase3 + '</div><div class="text-muted" style="font-size:.78rem;">Recibieron F3</div></div></div>' +
-                            '<div class="col"><div class="border rounded p-2" style="background:#f0fdf0;"><div class="fw-bold text-success" style="font-size:1.4rem;">' + d.completados + '</div><div class="text-muted" style="font-size:.78rem;">Completados</div></div></div>' +
-                            '</div>'
-                        );
+                        // Actualizar badges por código de campaña
+                        if (d.campanas) {
+                            d.campanas.forEach(function (c) {
+                                var badge = document.getElementById('badge-' + c.codigo);
+                                if (badge) badge.textContent = c.elegibles + ' elegibles';
+                            });
+                        }
+                        var html = '<div class="row text-center g-2">';
+                        html += '<div class="col"><div class="border rounded p-2" style="background:#f8f9ff;"><div class="fw-bold text-primary" style="font-size:1.4rem;">' + d.totalUsuarios + '</div><div class="text-muted" style="font-size:.78rem;">Total usuarios</div></div></div>';
+                        if (d.campanas) {
+                            d.campanas.forEach(function (c) {
+                                var bg = bgByCodigo[c.codigo] || '#f8f9ff';
+                                var col = colorByCodigo[c.codigo] || 'text-primary';
+                                html += '<div class="col"><div class="border rounded p-2" style="background:' + bg + ';">' +
+                                    '<div class="fw-bold ' + col + '" style="font-size:1.4rem;">' + c.recibieron + '</div>' +
+                                    '<div class="text-muted" style="font-size:.78rem;">Recibieron</div>' +
+                                    '<div class="text-muted" style="font-size:.72rem;">' + c.nombre.substring(0, 20) + '</div>' +
+                                    '</div></div>';
+                            });
+                        }
+                        html += '</div>';
+                        $('#campanaResumen').html(html);
                     })
                     .catch(function () {
                         $('#campanaResumen').html('<span class="text-danger" style="font-size:.85rem;">Error al cargar resumen.</span>');
@@ -184,7 +197,7 @@
             document.getElementById('btnAbrirCampana').addEventListener('click', abrirCampana);
 
             document.getElementById('btnEnviarBatch').addEventListener('click', function () {
-                var fase = parseInt(document.querySelector('input[name="campanaFase"]:checked').value);
+                var fase = document.querySelector('input[name="campanaFase"]:checked').value;
                 var btn = this;
                 btn.disabled = true;
                 btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando...';
@@ -197,7 +210,7 @@
                 fetch(window.location.pathname + '?handler=CampanaEnviarBatch', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
-                    body: JSON.stringify({ fase: fase })
+                    body: JSON.stringify({ campanaCodigo: fase })
                 })
                     .then(function (r) { return r.json(); })
                     .then(function (data) {

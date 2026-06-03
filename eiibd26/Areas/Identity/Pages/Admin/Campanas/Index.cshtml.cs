@@ -1,6 +1,8 @@
 using eiibd26.Data;
 using eiibd26.Models;
+using eiibd26.Models.Campanas;
 using eiibd26.Services;
+using eiibd26.Services.Campanas;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -24,25 +26,29 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
         private readonly ILogger<CampanasIndexModel> _logger;
         private readonly SendGridEmailSender _emailSender;
         private readonly IConfiguration _configuration;
+        private readonly ICampanaTargetingService _targeting;
 
         public CampanasIndexModel(
             UserManager<ApplicationUser> userManager,
             ApplicationDbContext db,
             ILogger<CampanasIndexModel> logger,
             SendGridEmailSender emailSender,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            ICampanaTargetingService targeting)
         {
             _userManager = userManager;
             _db = db;
             _logger = logger;
             _emailSender = emailSender;
             _configuration = configuration;
+            _targeting = targeting;
         }
 
         public void OnGet() { }
 
         /// <summary>
-        /// Returns the list of SendGrid templates configured in appsettings (SendGrid:Templates).
+        /// Devuelve los templates de SendGrid configurados en SendGrid:Templates (para el envío de prueba).
+        /// No incluye campañas — éstas viven en SendGrid:Campanas.
         /// </summary>
         public IActionResult OnGetTemplatesCorreo()
         {
@@ -50,6 +56,18 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                 .Get<List<SendGridTemplateInfo>>()
                 ?? new List<SendGridTemplateInfo>();
             return new JsonResult(templates);
+        }
+
+        /// <summary>
+        /// Devuelve los códigos y nombres de las campañas configuradas en SendGrid:Campanas.
+        /// Usado por el JS para poblar el selector de campaña.
+        /// </summary>
+        public IActionResult OnGetCampanasConfig()
+        {
+            var campanas = _configuration.GetSection("SendGrid:Campanas")
+                .Get<List<CampanaInfo>>()
+                ?? new List<CampanaInfo>();
+            return new JsonResult(campanas.Select(c => new { c.Codigo, c.Nombre, c.Descripcion }));
         }
 
         public record CampanaEnviarPruebaInput(string Email, string TemplateId);
@@ -101,99 +119,76 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
         }
 
         /// <summary>
-        /// Resumen de cuántos usuarios están en cada fase de la campaña.
+        /// Resumen por campaña: total de público, cuántos ya la recibieron, cuántos elegibles faltan.
+        /// Cada campaña es independiente (sin encadenamiento entre ellas).
         /// </summary>
         public async Task<IActionResult> OnGetCampanaResumenAsync()
         {
             var totalUsuarios = await _userManager.Users.CountAsync();
 
-            var conFase1 = await _db.EmailCampanaLogs
-                .Where(l => l.Fase == 1 && l.Exito)
-                .Select(l => l.UserId)
-                .Distinct()
-                .CountAsync();
+            var campanas = _configuration.GetSection("SendGrid:Campanas")
+                .Get<List<CampanaInfo>>() ?? new();
 
-            var conFase2 = await _db.EmailCampanaLogs
-                .Where(l => l.Fase == 2 && l.Exito)
-                .Select(l => l.UserId)
-                .Distinct()
-                .CountAsync();
+            var resumenCampanas = new List<object>();
 
-            var conFase3 = await _db.EmailCampanaLogs
-                .Where(l => l.Fase == 3 && l.Exito)
-                .Select(l => l.UserId)
-                .Distinct()
-                .CountAsync();
-
-            var elegiblesFase1 = totalUsuarios - conFase1;
-            var elegiblesFase2 = conFase1 - conFase2;
-            var elegiblesFase3 = conFase2 - conFase3;
-
-            return new JsonResult(new
+            foreach (var campana in campanas.Where(c => !string.IsNullOrEmpty(c.Codigo)))
             {
-                totalUsuarios,
-                conFase1,
-                conFase2,
-                conFase3,
-                elegiblesFase1 = Math.Max(0, elegiblesFase1),
-                elegiblesFase2 = Math.Max(0, elegiblesFase2),
-                elegiblesFase3 = Math.Max(0, elegiblesFase3),
-                completados = conFase3
-            });
+                var totalPublico = await _targeting
+                    .AplicarCriterio(_userManager.Users.AsQueryable(), campana.Publico)
+                    .CountAsync();
+
+                var recibieron = await _db.EmailCampanaLogs
+                    .Where(l => l.Fase == campana.FaseLog && l.Exito)
+                    .Select(l => l.UserId)
+                    .Distinct()
+                    .CountAsync();
+
+                resumenCampanas.Add(new
+                {
+                    campana.Codigo,
+                    campana.Nombre,
+                    totalPublico,
+                    recibieron,
+                    elegibles = Math.Max(0, totalPublico - recibieron)
+                });
+            }
+
+            return new JsonResult(new { totalUsuarios, campanas = resumenCampanas });
         }
 
-        public record CampanaEnviarInput(int Fase);
+        public record CampanaEnviarInput(string CampanaCodigo);
 
         /// <summary>
-        /// Envía un batch de hasta 100 correos a usuarios elegibles de la fase indicada.
-        /// Registra cada intento en EmailCampanaLog. Devuelve resultados individuales.
+        /// Envía un batch de hasta 100 correos a usuarios elegibles de la campaña indicada por código.
+        /// Usa CampanaTargetingService para el filtro de público (sin encadenamiento entre campañas).
+        /// Registra cada intento en EmailCampanaLog.Fase usando el FaseLog estable de la campaña.
         /// </summary>
         [IgnoreAntiforgeryToken]
         public async Task<IActionResult> OnPostCampanaEnviarBatchAsync([FromBody] CampanaEnviarInput input)
         {
-            if (input is null || input.Fase < 1 || input.Fase > 3)
-                return new JsonResult(new { success = false, error = "Fase inválida. Debe ser 1, 2 o 3." }) { StatusCode = 400 };
+            if (input is null || string.IsNullOrWhiteSpace(input.CampanaCodigo))
+                return new JsonResult(new { success = false, error = "Código de campaña requerido." }) { StatusCode = 400 };
 
-            var templates = _configuration.GetSection("SendGrid:Templates").Get<List<SendGridTemplateInfo>>() ?? new();
-            var template = templates.FirstOrDefault(t => t.Fase == input.Fase);
-            if (template is null || string.IsNullOrWhiteSpace(template.Id) || template.Id.Contains("AQUI"))
-                return new JsonResult(new { success = false, error = $"No hay template configurado para la fase {input.Fase}. Actualiza appsettings.json con el ID real de SendGrid." }) { StatusCode = 400 };
+            var campanas = _configuration.GetSection("SendGrid:Campanas").Get<List<CampanaInfo>>() ?? new();
+            var campana = campanas.FirstOrDefault(c => c.Codigo == input.CampanaCodigo);
 
-            var usuariosConFaseAnterior = input.Fase == 1
-                ? new HashSet<Guid>(_userManager.Users.Select(u => u.Id))
-                : await _db.EmailCampanaLogs
-                    .Where(l => l.Fase == (input.Fase - 1) && l.Exito)
-                    .Select(l => l.UserId)
-                    .ToListAsync()
-                    .ContinueWith(t => new HashSet<Guid>(t.Result));
+            if (campana is null)
+                return new JsonResult(new { success = false, error = $"Campaña '{input.CampanaCodigo}' no encontrada en configuración." }) { StatusCode = 400 };
 
-            var yaRecibieronEstaFase = await _db.EmailCampanaLogs
-                .Where(l => l.Fase == input.Fase && l.Exito)
+            if (string.IsNullOrWhiteSpace(campana.TemplateId) || campana.TemplateId.Contains("AQUI"))
+                return new JsonResult(new { success = false, error = $"No hay template SendGrid configurado para la campaña '{campana.Nombre}'. Actualiza appsettings.json." }) { StatusCode = 400 };
+
+            // Usuarios ya receptores de ESTA campaña (identificados por FaseLog estable)
+            var yaRecibieron = await _db.EmailCampanaLogs
+                .Where(l => l.Fase == campana.FaseLog && l.Exito)
                 .Select(l => l.UserId)
-                .ToListAsync()
-                .ContinueWith(t => new HashSet<Guid>(t.Result));
+                .ToListAsync();
+            var yaRecibieronSet = new HashSet<Guid>(yaRecibieron);
 
-            IQueryable<ApplicationUser> elegiblesQuery;
-            if (input.Fase == 1)
-            {
-                var sinFase1 = await _db.EmailCampanaLogs
-                    .Where(l => l.Fase == 1 && l.Exito)
-                    .Select(l => l.UserId)
-                    .ToListAsync();
-                var sinFase1Set = new HashSet<Guid>(sinFase1);
-                elegiblesQuery = _userManager.Users
-                    .Where(u => !sinFase1Set.Contains(u.Id)
-                                && u.EmailConfirmed
-                                && u.Email != null && u.Email != "");
-            }
-            else
-            {
-                elegiblesQuery = _userManager.Users
-                    .Where(u => usuariosConFaseAnterior.Contains(u.Id)
-                                && !yaRecibieronEstaFase.Contains(u.Id)
-                                && u.EmailConfirmed
-                                && u.Email != null && u.Email != "");
-            }
+            // Aplicar criterio de público y excluir quienes ya la recibieron
+            var elegiblesQuery = _targeting
+                .AplicarCriterio(_userManager.Users.AsQueryable(), campana.Publico)
+                .Where(u => !yaRecibieronSet.Contains(u.Id));
 
             var elegibles = await elegiblesQuery
                 .OrderBy(u => u.Email)
@@ -202,7 +197,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                 .ToListAsync();
 
             if (elegibles.Count == 0)
-                return new JsonResult(new { success = true, procesados = 0, resultados = Array.Empty<object>(), mensaje = "No hay usuarios elegibles para esta fase." });
+                return new JsonResult(new { success = true, procesados = 0, resultados = Array.Empty<object>(), mensaje = $"No hay usuarios elegibles para la campaña '{campana.Nombre}'." });
 
             var resultados = new List<object>();
 
@@ -211,8 +206,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                 var log = new EmailCampanaLog
                 {
                     UserId = u.Id,
-                    Fase = input.Fase,
-                    TemplateId = template.Id,
+                    Fase = campana.FaseLog,    // int estable; mapea al código de campaña sin tocar esquema
+                    TemplateId = campana.TemplateId,
                     FechaEnvio = DateTime.UtcNow,
                     Exito = false
                 };
@@ -235,14 +230,14 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                         nombre = perfil?.Nombre ?? u.UserName,
                         correo = u.Email,
                         reset_link = resetLink,
-                        fase = input.Fase
+                        campana = campana.Codigo
                     };
 
                     await _emailSender.SendDynamicTemplateAsync(
                         u.Email,
-                        templateId: template.Id,
+                        templateId: campana.TemplateId,
                         templateData: templateData,
-                        categories: new[] { "EIIBD", $"Campana-Fase{input.Fase}" });
+                        categories: new[] { "EIIBD", $"Campana-{campana.Codigo}" });
 
                     log.Exito = true;
                     resultados.Add(new { email = u.Email, exito = true, error = (string)null });
@@ -251,7 +246,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                 {
                     log.Error = ex.Message.Length > 500 ? ex.Message[..500] : ex.Message;
                     resultados.Add(new { email = u.Email, exito = false, error = log.Error });
-                    _logger.LogError(ex, "Error enviando campaña fase {Fase} a {Email}", input.Fase, u.Email);
+                    _logger.LogError(ex, "Error enviando campaña '{Campana}' a {Email}", campana.Codigo, u.Email);
                 }
                 finally
                 {
@@ -262,7 +257,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
             await _db.SaveChangesAsync();
 
             var exitosos = resultados.Count(r => (bool)r.GetType().GetProperty("exito").GetValue(r));
-            _logger.LogInformation("Campaña fase {Fase}: {Exitosos}/{Total} enviados exitosamente.", input.Fase, exitosos, resultados.Count);
+            _logger.LogInformation("Campaña '{Campana}': {Exitosos}/{Total} enviados exitosamente.", campana.Codigo, exitosos, resultados.Count);
 
             return new JsonResult(new
             {

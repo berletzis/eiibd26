@@ -243,6 +243,9 @@ try
 
     // PWA Push Notifications
     builder.Services.AddScoped<eiibd26.Services.PushNotificationService>();
+
+    // Campanas — targeting service
+    builder.Services.AddScoped<eiibd26.Services.Campanas.ICampanaTargetingService, eiibd26.Services.Campanas.CampanaTargetingService>();
     builder.Services.AddSingleton(TimeProvider.System);
     builder.Services.AddSingleton<eiibd26.Services.IPushMoodTokenService, eiibd26.Services.PushMoodTokenService>();
 
