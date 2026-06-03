@@ -111,6 +111,49 @@
         </div>
 
     </div>
+
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <!-- GRID DE ESTATUS (F3) — Resumen + detalle por campaña      -->
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <div class="mt-5">
+        <div class="d-flex align-items-center mb-3 gap-3">
+            <h5 class="mb-0 fw-semibold">Estatus de campañas</h5>
+            <button id="btnRefrescarEstatus" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-clockwise me-1"></i>Refrescar
+            </button>
+            <span id="estatusLoadingMsg" class="text-muted" style="font-size:.83rem;display:none;">
+                <span class="spinner-border spinner-border-sm me-1"></span>Cargando...
+            </span>
+        </div>
+
+        <!-- Tabla resumen por campaña -->
+        <div id="estatusResumenWrap">
+            <div class="text-center py-4 text-muted" style="font-size:.9rem;">
+                <span class="spinner-border spinner-border-sm me-2"></span>Cargando estatus...
+            </div>
+        </div>
+
+        <!-- Panel de detalle por usuario (se llena al hacer clic en una campaña) -->
+        <div id="estatusDetalleWrap" class="d-none mt-4">
+            <div class="d-flex align-items-center mb-2 gap-2 flex-wrap">
+                <span class="fw-semibold" id="detalleTitle" style="font-size:.95rem;"></span>
+                <div class="btn-group btn-group-sm" id="detalleFiltros" role="group">
+                    <button class="btn btn-outline-secondary detalle-filtro active" data-filtro="">Todos</button>
+                    <button class="btn btn-outline-success  detalle-filtro" data-filtro="open">Abrieron</button>
+                    <button class="btn btn-outline-primary  detalle-filtro" data-filtro="click">Clickearon</button>
+                    <button class="btn btn-outline-warning  detalle-filtro" data-filtro="noopen" title="Entregados pero no abrieron">No abrieron</button>
+                    <button class="btn btn-outline-danger   detalle-filtro" data-filtro="bounce">Rebotaron</button>
+                    <button class="btn btn-outline-danger   detalle-filtro" data-filtro="spamreport">Spam</button>
+                </div>
+                <button id="btnCerrarDetalle" class="btn btn-sm btn-outline-secondary ms-auto">
+                    <i class="bi bi-x"></i> Cerrar
+                </button>
+            </div>
+            <div id="estatusDetalleContent">
+                <div class="text-center py-3 text-muted"><span class="spinner-border spinner-border-sm"></span></div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- ══════════════════════════════════════════════════════════ -->
@@ -536,6 +579,186 @@
                     });
             });
 
+        }());
+
+        // ──────────────────────────────────────────────────────────────────────
+        // GRID DE ESTATUS — F3
+        // ──────────────────────────────────────────────────────────────────────
+        (function () {
+            var campanaActiva = null;
+            var filtroActivo = '';
+
+            var iconos = {
+                delivered:   '<i class="bi bi-envelope-check text-primary" title="Entregado"></i>',
+                open:        '<i class="bi bi-eye text-success" title="Abierto"></i>',
+                click:       '<i class="bi bi-cursor text-info" title="Click"></i>',
+                bounce:      '<i class="bi bi-x-circle text-danger" title="Rebote"></i>',
+                spamreport:  '<i class="bi bi-shield-exclamation text-danger" title="Spam"></i>',
+                unsubscribe: '<i class="bi bi-dash-circle text-warning" title="Baja"></i>',
+                dropped:     '<i class="bi bi-slash-circle text-secondary" title="Dropped"></i>'
+            };
+
+            function pct(n, base) {
+                if (!base) return '—';
+                return Math.round(n * 100 / base) + '%';
+            }
+
+            function renderResumen(data) {
+                var wrap = document.getElementById('estatusResumenWrap');
+
+                if (!data.campanas || data.campanas.length === 0) {
+                    wrap.innerHTML = '<div class="alert alert-info" style="font-size:.88rem;">' +
+                        '<i class="bi bi-info-circle me-2"></i>' +
+                        'Aún no hay eventos registrados. Los eventos aparecen cuando SendGrid reporta actividad ' +
+                        '(requiere el Event Webhook configurado en SendGrid y campañas enviadas con custom args).' +
+                        '</div>';
+                    return;
+                }
+
+                var html = '<div class="table-responsive"><table class="table table-hover align-middle mb-0" style="font-size:.88rem;">' +
+                    '<thead class="table-light">' +
+                    '<tr>' +
+                    '<th>Campaña</th>' +
+                    '<th class="text-center">Entregados</th>' +
+                    '<th class="text-center">Abiertos</th>' +
+                    '<th class="text-center text-success">% Apertura</th>' +
+                    '<th class="text-center">Clicks</th>' +
+                    '<th class="text-center text-primary">% Click</th>' +
+                    '<th class="text-center text-danger">Rebotes</th>' +
+                    '<th class="text-center">Spam</th>' +
+                    '<th class="text-center">Bajas</th>' +
+                    '<th class="text-center text-muted">Detalle</th>' +
+                    '</tr></thead><tbody>';
+
+                data.campanas.forEach(function (c) {
+                    html += '<tr>' +
+                        '<td><span class="badge bg-secondary">' + (c.campana || '—') + '</span></td>' +
+                        '<td class="text-center">' + c.entregados + '</td>' +
+                        '<td class="text-center"><span class="badge bg-success-subtle text-success">' + c.abiertos + '</span></td>' +
+                        '<td class="text-center fw-semibold text-success">' + (c.entregados ? c.tasaApertura + '%' : '—') + '</td>' +
+                        '<td class="text-center"><span class="badge bg-primary-subtle text-primary">' + c.clicks + '</span></td>' +
+                        '<td class="text-center text-primary">' + (c.entregados ? c.tasaClick + '%' : '—') + '</td>' +
+                        '<td class="text-center"><span class="badge ' + (c.rebotes > 0 ? 'bg-danger' : 'bg-light text-muted') + '">' + c.rebotes + '</span></td>' +
+                        '<td class="text-center"><span class="badge ' + (c.spam > 0 ? 'bg-danger' : 'bg-light text-muted') + '">' + c.spam + '</span></td>' +
+                        '<td class="text-center">' + c.bajas + '</td>' +
+                        '<td class="text-center">' +
+                        '<button class="btn btn-sm btn-outline-secondary btn-detalle" data-campana="' + c.campana + '">' +
+                        '<i class="bi bi-list-ul"></i>' +
+                        '</button></td>' +
+                        '</tr>';
+                });
+
+                html += '</tbody></table></div>';
+                wrap.innerHTML = html;
+
+                document.querySelectorAll('.btn-detalle').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        cargarDetalle(this.dataset.campana, '');
+                    });
+                });
+            }
+
+            function cargarResumen() {
+                document.getElementById('estatusLoadingMsg').style.display = '';
+                fetch(window.location.pathname + '?handler=EstatusCampanas')
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) {
+                        document.getElementById('estatusLoadingMsg').style.display = 'none';
+                        renderResumen(d);
+                    })
+                    .catch(function () {
+                        document.getElementById('estatusLoadingMsg').style.display = 'none';
+                        document.getElementById('estatusResumenWrap').innerHTML =
+                            '<div class="alert alert-warning">Error cargando estatus.</div>';
+                    });
+            }
+
+            function cargarDetalle(campana, filtro) {
+                campanaActiva = campana;
+                filtroActivo = filtro;
+
+                document.getElementById('detalleTitle').textContent = 'Detalle: ' + campana + (filtro ? ' · ' + filtro : ' · todos');
+                document.getElementById('estatusDetalleWrap').classList.remove('d-none');
+                document.getElementById('estatusDetalleContent').innerHTML =
+                    '<div class="text-center py-3 text-muted"><span class="spinner-border spinner-border-sm"></span></div>';
+
+                // Resaltar filtro activo
+                document.querySelectorAll('.detalle-filtro').forEach(function (b) {
+                    b.classList.toggle('active', b.dataset.filtro === filtro);
+                });
+
+                var url = window.location.pathname + '?handler=EstatusDetalle&campana=' + encodeURIComponent(campana);
+                if (filtro) url += '&filtro=' + encodeURIComponent(filtro);
+
+                fetch(url)
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) { renderDetalle(d); })
+                    .catch(function () {
+                        document.getElementById('estatusDetalleContent').innerHTML =
+                            '<div class="alert alert-warning">Error cargando detalle.</div>';
+                    });
+            }
+
+            function renderDetalle(d) {
+                var el = document.getElementById('estatusDetalleContent');
+                if (!d.usuarios || d.usuarios.length === 0) {
+                    el.innerHTML = '<p class="text-muted text-center py-3">No hay usuarios con este filtro.</p>';
+                    return;
+                }
+
+                var html = '<p class="text-muted mb-2" style="font-size:.8rem;">' +
+                    'Mostrando ' + d.usuarios.length + ' usuarios' +
+                    (d.total === 200 ? ' (límite 200 — usa el filtro para acotar)' : '') + '</p>' +
+                    '<div class="table-responsive"><table class="table table-sm table-hover mb-0" style="font-size:.83rem;">' +
+                    '<thead class="table-light">' +
+                    '<tr><th>Email</th><th>Nombre</th><th class="text-center">Entregado</th>' +
+                    '<th class="text-center">Abrió</th><th class="text-center">Click</th>' +
+                    '<th class="text-center">Rebote</th><th class="text-center">Spam</th>' +
+                    '<th class="text-center">Baja</th><th>Último evento</th></tr></thead><tbody>';
+
+                d.usuarios.forEach(function (u) {
+                    html += '<tr>' +
+                        '<td>' + esc(u.email) + '</td>' +
+                        '<td class="text-muted">' + esc(u.nombre || '—') + '</td>' +
+                        '<td class="text-center">' + (u.entregado ? iconos.delivered : '<span class="text-muted">—</span>') + '</td>' +
+                        '<td class="text-center">' + (u.abierto   ? iconos.open       : '<span class="text-muted">—</span>') + '</td>' +
+                        '<td class="text-center">' + (u.click     ? iconos.click      : '<span class="text-muted">—</span>') + '</td>' +
+                        '<td class="text-center">' + (u.rebote    ? iconos.bounce     : '<span class="text-muted">—</span>') + '</td>' +
+                        '<td class="text-center">' + (u.spam      ? iconos.spamreport : '<span class="text-muted">—</span>') + '</td>' +
+                        '<td class="text-center">' + (u.baja      ? iconos.unsubscribe: '<span class="text-muted">—</span>') + '</td>' +
+                        '<td class="text-muted">' + (u.ultimoEvento || '—') + '</td>' +
+                        '</tr>';
+                });
+
+                html += '</tbody></table></div>';
+                el.innerHTML = html;
+            }
+
+            function esc(str) {
+                var d = document.createElement('span');
+                d.textContent = str || '';
+                return d.innerHTML;
+            }
+
+            // Filtros del detalle
+            document.getElementById('detalleFiltros').addEventListener('click', function (e) {
+                var btn = e.target.closest('.detalle-filtro');
+                if (!btn || !campanaActiva) return;
+                cargarDetalle(campanaActiva, btn.dataset.filtro);
+            });
+
+            document.getElementById('btnCerrarDetalle').addEventListener('click', function () {
+                document.getElementById('estatusDetalleWrap').classList.add('d-none');
+                campanaActiva = null;
+            });
+
+            document.getElementById('btnRefrescarEstatus').addEventListener('click', function () {
+                cargarResumen();
+                if (campanaActiva) cargarDetalle(campanaActiva, filtroActivo);
+            });
+
+            // Carga inicial
+            cargarResumen();
         }());
     </script>
 }

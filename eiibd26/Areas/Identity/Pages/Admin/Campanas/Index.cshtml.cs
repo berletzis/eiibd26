@@ -426,5 +426,146 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
 
             return new JsonResult(new { success = true, eliminados });
         }
+
+        // ──────────────────────────────────────────────────────────────────────
+        // GRID DE ESTATUS — F3
+        // ──────────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Resumen de eventos por campaña: usuarios únicos por tipo de evento + tasas.
+        /// Ignora registros sin CampanaCodigo (reset individual, push, etc.).
+        /// Conteo: usuarios DISTINTOS por tipo (un usuario que abrió 3 veces cuenta 1).
+        /// </summary>
+        public async Task<IActionResult> OnGetEstatusCampanasAsync()
+        {
+            // Proyección mínima — solo 3 columnas por fila, independiente del volumen de RawJson
+            var rawData = await _db.SendGridEventLogs
+                .Where(l => l.CampanaCodigo != null && l.UserId != null)
+                .Select(l => new { l.CampanaCodigo, l.EventType, l.UserId })
+                .ToListAsync();
+
+            var resumen = rawData
+                .GroupBy(l => l.CampanaCodigo)
+                .Select(g =>
+                {
+                    var entregados = g.Where(x => x.EventType == "delivered").Select(x => x.UserId).Distinct().Count();
+                    var abiertos   = g.Where(x => x.EventType == "open").Select(x => x.UserId).Distinct().Count();
+                    var clicks     = g.Where(x => x.EventType == "click").Select(x => x.UserId).Distinct().Count();
+                    var rebotes    = g.Where(x => x.EventType == "bounce").Select(x => x.UserId).Distinct().Count();
+                    var dropped    = g.Where(x => x.EventType == "dropped").Select(x => x.UserId).Distinct().Count();
+                    var spam       = g.Where(x => x.EventType == "spamreport").Select(x => x.UserId).Distinct().Count();
+                    var bajas      = g.Where(x => x.EventType is "unsubscribe" or "group_unsubscribe").Select(x => x.UserId).Distinct().Count();
+
+                    return new
+                    {
+                        campana    = g.Key,
+                        entregados,
+                        abiertos,
+                        clicks,
+                        rebotes,
+                        dropped,
+                        spam,
+                        bajas,
+                        totalEventos  = g.Count(),
+                        // Tasas sobre entregados (usuarios únicos)
+                        tasaApertura  = entregados > 0 ? Math.Round(abiertos  * 100.0 / entregados, 1) : 0,
+                        tasaClick     = entregados > 0 ? Math.Round(clicks    * 100.0 / entregados, 1) : 0,
+                        tasaRebote    = entregados > 0 ? Math.Round(rebotes   * 100.0 / entregados, 1) : 0
+                    };
+                })
+                .OrderBy(r => r.campana)
+                .ToList();
+
+            return new JsonResult(new { campanas = resumen });
+        }
+
+        /// <summary>
+        /// Detalle por usuario de una campaña.
+        /// Approach de paginación: Take(200) + filtro opcional por tipo de evento.
+        /// 200 cubre el batch típico; el admin usa el filtro para reducir el set.
+        /// Incluye nombre del usuario (join con Perfil).
+        /// </summary>
+        public async Task<IActionResult> OnGetEstatusDetalleAsync(string campana, string? filtro = null)
+        {
+            if (string.IsNullOrWhiteSpace(campana))
+                return new JsonResult(new { error = "campana requerida" }) { StatusCode = 400 };
+
+            // Todos los eventos de esta campaña con sus usuarios
+            var eventos = await _db.SendGridEventLogs
+                .Where(l => l.CampanaCodigo == campana && l.UserId != null)
+                .Select(l => new { l.UserId, l.EventType, l.Email, l.Timestamp })
+                .ToListAsync();
+
+            if (!eventos.Any())
+                return new JsonResult(new { usuarios = Array.Empty<object>() });
+
+            // Agrupar por usuario → flags booleanos
+            var porUsuario = eventos
+                .GroupBy(e => e.UserId)
+                .Select(g => new
+                {
+                    userId    = g.Key!,
+                    email     = g.First().Email,
+                    entregado = g.Any(e => e.EventType == "delivered"),
+                    abierto   = g.Any(e => e.EventType == "open"),
+                    click     = g.Any(e => e.EventType == "click"),
+                    rebote    = g.Any(e => e.EventType == "bounce"),
+                    spam      = g.Any(e => e.EventType == "spamreport"),
+                    baja      = g.Any(e => e.EventType is "unsubscribe" or "group_unsubscribe"),
+                    dropped   = g.Any(e => e.EventType == "dropped"),
+                    ultimoEvento = g.Max(e => e.Timestamp)
+                });
+
+            // Filtro por tipo de evento
+            if (!string.IsNullOrWhiteSpace(filtro))
+            {
+                porUsuario = filtro switch
+                {
+                    "delivered"   => porUsuario.Where(u => u.entregado),
+                    "open"        => porUsuario.Where(u => u.abierto),
+                    "click"       => porUsuario.Where(u => u.click),
+                    "bounce"      => porUsuario.Where(u => u.rebote),
+                    "spamreport"  => porUsuario.Where(u => u.spam),
+                    "unsubscribe" => porUsuario.Where(u => u.baja),
+                    "dropped"     => porUsuario.Where(u => u.dropped),
+                    "noopen"      => porUsuario.Where(u => u.entregado && !u.abierto),
+                    _             => porUsuario
+                };
+            }
+
+            var lista = porUsuario
+                .OrderByDescending(u => u.ultimoEvento)
+                .Take(200)
+                .ToList();
+
+            // Resolver nombres desde Perfil (un solo query adicional)
+            var userGuids = lista
+                .Select(u => { Guid.TryParse(u.userId, out var g); return g; })
+                .Where(g => g != Guid.Empty)
+                .Distinct()
+                .ToList();
+
+            var nombres = await _db.Perfil
+                .Where(p => userGuids.Contains(p.idUser))
+                .Select(p => new { p.idUser, p.Nombre })
+                .ToDictionaryAsync(p => p.idUser.ToString(), p => p.Nombre ?? "");
+
+            var resultado = lista.Select(u => new
+            {
+                u.userId,
+                u.email,
+                nombre        = nombres.TryGetValue(u.userId, out var n) ? n : null,
+                u.entregado,
+                u.abierto,
+                u.click,
+                u.rebote,
+                u.spam,
+                u.baja,
+                u.dropped,
+                ultimoEvento  = u.ultimoEvento.ToString("yyyy-MM-dd HH:mm")
+            }).ToList();
+
+            return new JsonResult(new { campana, filtro, total = resultado.Count, usuarios = resultado });
+        }
     }
 }
