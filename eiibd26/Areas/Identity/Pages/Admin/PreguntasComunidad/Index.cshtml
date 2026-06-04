@@ -1,0 +1,345 @@
+@page
+@model eiibd26.Areas.Identity.Pages.Admin.PreguntasComunidad.IndexModel
+@{
+    ViewData["Title"] = "Preguntas Comunidad";
+    Layout = "_Layout";
+}
+
+@section Styles {
+<style>
+    .cm-card { background:#fff; border-radius:14px; box-shadow:0 2px 10px rgba(40,60,120,.08); border:1px solid #dde6f1; margin-bottom:24px; }
+    .cm-card-header { padding:16px 22px; border-bottom:1px solid #e8eef6; display:flex; align-items:center; gap:10px; }
+    .cm-card-body { padding:20px 22px; }
+    #cmRelacionados .rel-item { padding:8px 0; border-bottom:1px solid #f0f4f8; }
+    #cmRelacionados .rel-item:last-child { border-bottom:none; }
+    #cmRelacionados .rel-url { font-size:.78em; color:#888; word-break:break-all; }
+    #cmRelacionados .rel-section-title { font-size:.8em; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#6b7280; margin:10px 0 4px; }
+</style>
+}
+
+<div class="eii-page">
+    <h2 class="eii-page-title eii-page-title--sm mb-1">
+        <i class="bi bi-chat-dots-fill me-2 text-primary"></i> Herramienta Comunidad — Q&amp;A Facebook
+    </h2>
+    <p class="text-muted mb-4" style="font-size:.92em">
+        Pegá una pregunta de Facebook, NINA genera la respuesta, luego copiá texto y short-URL.
+    </p>
+
+    @* ── FORMULARIO ── *@
+    <div class="cm-card">
+        <div class="cm-card-header">
+            <i class="bi bi-pencil-square text-warning"></i>
+            <strong>Nueva pregunta desde Facebook</strong>
+        </div>
+        <div class="cm-card-body">
+            <div class="mb-3">
+                <label class="form-label fw-semibold" for="cmTitulo">Título</label>
+                <input type="text" id="cmTitulo" class="form-control"
+                       placeholder="¿Cómo manejo los brotes de Crohn en verano?" maxlength="300" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold" for="cmCuerpo">Cuerpo (pregunta completa de Facebook)</label>
+                <textarea id="cmCuerpo" class="form-control" rows="5"
+                          placeholder="Descripción completa de la pregunta..."></textarea>
+            </div>
+            <button id="cmGenerar" class="btn btn-warning fw-semibold">
+                <i class="bi bi-robot me-1"></i> Generar respuesta con NINA
+            </button>
+            <div id="cmError" class="alert alert-danger mt-3 d-none"></div>
+        </div>
+    </div>
+
+    @* ── RESULTADO ── *@
+    <div id="cmResult" class="d-none">
+
+        @* Spinner *@
+        <div id="cmSpinner" class="cm-card">
+            <div class="cm-card-body d-flex align-items-center gap-2 text-muted">
+                <div class="spinner-border spinner-border-sm" role="status"></div>
+                <span>NINA está respondiendo... (puede tomar hasta 60 segundos)</span>
+            </div>
+        </div>
+
+        @* Respuesta NINA + short-url *@
+        <div id="cmNinaCard" class="cm-card d-none">
+            <div class="cm-card-header">
+                <i class="bi bi-robot text-success"></i>
+                <strong>Respuesta NINA</strong>
+                <div class="ms-auto d-flex gap-2">
+                    <a id="cmLinkPregunta" href="#" target="_blank" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-box-arrow-up-right me-1"></i> Ver pregunta
+                    </a>
+                    <button class="btn btn-sm btn-outline-secondary" id="cmCopiarBtn">
+                        <i class="bi bi-clipboard me-1"></i> Copiar para Facebook
+                    </button>
+                </div>
+            </div>
+            <div class="cm-card-body">
+                <textarea id="cmNinaEditor"></textarea>
+            </div>
+            <div id="cmShortBlock" class="cm-card-body border-top d-none">
+                <label class="form-label fw-semibold mb-1">Short-URL para compartir</label>
+                <div class="input-group" style="max-width:480px">
+                    <input type="text" id="cmShortUrl" class="form-control" readonly />
+                    <button class="btn btn-outline-secondary" id="cmCopiarShortBtn">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        @* Timeout *@
+        <div id="cmTimeout" class="alert alert-warning d-none">
+            <i class="bi bi-clock me-1"></i>
+            NINA está tardando — la respuesta aparecerá en la pregunta cuando esté lista.
+            <a id="cmTimeoutLink" href="#" target="_blank" class="alert-link ms-1">Ver pregunta</a>
+        </div>
+
+        @* Relacionados *@
+        <div id="cmRelacionados" class="cm-card d-none">
+            <div class="cm-card-header">
+                <i class="bi bi-link-45deg text-info"></i>
+                <strong>Contenido relacionado (para complementar)</strong>
+            </div>
+            <div class="cm-card-body" id="cmRelBody">
+                <p class="text-muted small mb-0">Buscando contenido relacionado…</p>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@section Scripts {
+<script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/7/tinymce.min.js" referrerpolicy="origin"></script>
+<script>
+(function () {
+    // ── Estado ──
+    let cmPreguntaId = null, cmPreguntaSlug = null;
+    let cmPollTimer = null, cmPollCount = 0;
+    const POLL_INTERVAL_MS = 2500, POLL_MAX = 24; // ~60s
+
+    // ── TinyMCE (readonly, misma config que Admin/Contenidos/Detalle) ──
+    tinymce.init({
+        selector: '#cmNinaEditor',
+        height: 320,
+        menubar: false,
+        plugins: 'anchor autolink charmap codesample emoticons image link lists media searchreplace table visualblocks wordcount fullscreen preview code advlist autoresize autosave',
+        toolbar: 'undo redo | blocks | bold italic underline strikethrough forecolor backcolor removeformat | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image media table | charmap emoticons | blockquote codesample | fullscreen preview code',
+        toolbar_mode: 'wrap',
+        branding: false,
+        promotion: false,
+        statusbar: true,
+        autosave_interval: '30s',
+        autosave_retention: '10m',
+        image_caption: true,
+        convert_urls: false,
+        default_link_target: '_blank',
+        content_style: 'body { font-family: system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial,sans-serif; font-size:14px; }',
+        images_upload_handler: (blobInfo) => new Promise((resolve, reject) => {
+            try { resolve("data:" + blobInfo.blob().type + ";base64," + blobInfo.base64()); } catch (e) { reject('Error imagen: ' + e); }
+        }),
+        setup: (ed) => ed.on('change keyup undo redo', () => ed.save())
+    });
+
+    // ── Helpers ──
+    function cmResetBoton() {
+        const btn = document.getElementById('cmGenerar');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-robot me-1"></i> Generar respuesta con NINA';
+    }
+
+    function cmSetPreguntaLinks(id, slug) {
+        const base = window.location.origin;
+        const link = slug ? `${base}/Preguntas/${slug}` : `${base}/Preguntas/Detalles?id=${id}`;
+        document.getElementById('cmLinkPregunta').href = link;
+        document.getElementById('cmTimeoutLink').href  = link;
+    }
+
+    // ── Generar ──
+    document.getElementById('cmGenerar').addEventListener('click', async function () {
+        const titulo = document.getElementById('cmTitulo').value.trim();
+        const cuerpo = document.getElementById('cmCuerpo').value.trim();
+        const errEl  = document.getElementById('cmError');
+        errEl.classList.add('d-none');
+
+        if (!titulo || !cuerpo) {
+            errEl.textContent = 'Título y cuerpo son obligatorios.';
+            errEl.classList.remove('d-none');
+            return;
+        }
+
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Enviando…';
+
+        try {
+            const res  = await fetch('/api/preguntas/admin/crear-facebook', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ titulo, cuerpo })
+            });
+            const data = await res.json();
+            if (!data.ok) throw new Error(data.error || 'Error al crear pregunta');
+
+            cmPreguntaId   = data.id;
+            cmPreguntaSlug = data.slug;
+            cmSetPreguntaLinks(data.id, data.slug);
+
+            // Mostrar área de resultado
+            document.getElementById('cmResult').classList.remove('d-none');
+            document.getElementById('cmSpinner').classList.remove('d-none');
+            document.getElementById('cmNinaCard').classList.add('d-none');
+            document.getElementById('cmShortBlock').classList.add('d-none');
+            document.getElementById('cmTimeout').classList.add('d-none');
+            document.getElementById('cmRelacionados').classList.add('d-none');
+
+            // Buscar contenido relacionado en paralelo con el polling
+            cmBuscarRelacionados(cuerpo);
+
+            cmPollCount = 0;
+            clearInterval(cmPollTimer);
+            cmPollTimer = setInterval(cmPoll, POLL_INTERVAL_MS);
+        } catch (e) {
+            errEl.textContent = e.message;
+            errEl.classList.remove('d-none');
+            cmResetBoton();
+        }
+    });
+
+    // ── Polling NINA ──
+    async function cmPoll() {
+        cmPollCount++;
+        if (cmPollCount > POLL_MAX) {
+            clearInterval(cmPollTimer);
+            document.getElementById('cmSpinner').classList.add('d-none');
+            document.getElementById('cmTimeout').classList.remove('d-none');
+            cmResetBoton();
+            return;
+        }
+        try {
+            const res  = await fetch(`/api/preguntas/${cmPreguntaId}/respuestas`);
+            const data = await res.json();
+            if (data.tieneRespuestaIA) {
+                clearInterval(cmPollTimer);
+                const iaResp = (data.respuestas || []).find(r => r.esIA);
+                if (iaResp) {
+                    // Cargar HTML en TinyMCE
+                    const ed = tinymce.get('cmNinaEditor');
+                    if (ed) ed.setContent(iaResp.cuerpo || '');
+                    else document.getElementById('cmNinaEditor').value = iaResp.cuerpo || '';
+
+                    document.getElementById('cmSpinner').classList.add('d-none');
+                    document.getElementById('cmNinaCard').classList.remove('d-none');
+
+                    await cmGenerarShortUrl();
+                    cmResetBoton();
+                }
+            }
+        } catch (_) { /* continuar polling */ }
+    }
+
+    // ── Short URL ──
+    async function cmGenerarShortUrl() {
+        try {
+            const res  = await fetch(`/api/preguntas/admin/${cmPreguntaId}/shorturl`, { method: 'POST' });
+            const data = await res.json();
+            if (data.ok) {
+                document.getElementById('cmShortUrl').value = data.shortUrl;
+                document.getElementById('cmShortBlock').classList.remove('d-none');
+            }
+        } catch (_) { /* short-url no crítico */ }
+    }
+
+    // ── Relacionados ──
+    async function cmBuscarRelacionados(query) {
+        const block = document.getElementById('cmRelacionados');
+        const body  = document.getElementById('cmRelBody');
+        block.classList.remove('d-none');
+
+        try {
+            const res  = await fetch(`/api/search/suggestions?q=${encodeURIComponent(query)}`);
+            const data = await res.json();
+
+            const preguntas  = data.preguntas  || [];
+            const articulos  = data.articulos  || [];
+            const respuestas = data.respuestas || [];
+
+            if (!preguntas.length && !articulos.length && !respuestas.length) {
+                body.innerHTML = '<p class="text-muted small mb-0">Sin contenido relacionado encontrado.</p>';
+                return;
+            }
+
+            let html = '';
+            const origin = window.location.origin;
+
+            if (preguntas.length) {
+                html += `<div class="rel-section-title"><i class="bi bi-question-circle me-1"></i> Preguntas (${preguntas.length})</div>`;
+                preguntas.forEach(p => {
+                    const url = origin + p.url;
+                    html += `<div class="rel-item">
+                        <a href="${url}" target="_blank" class="fw-semibold text-decoration-none small">${p.titulo}</a>
+                        <div class="rel-url">${url}</div>
+                    </div>`;
+                });
+            }
+
+            if (articulos.length) {
+                html += `<div class="rel-section-title"><i class="bi bi-file-earmark-text me-1"></i> Artículos (${articulos.length})</div>`;
+                articulos.forEach(a => {
+                    const url = origin + a.url;
+                    html += `<div class="rel-item">
+                        <a href="${url}" target="_blank" class="fw-semibold text-decoration-none small">${a.titulo}</a>
+                        <div class="rel-url">${url}</div>
+                    </div>`;
+                });
+            }
+
+            if (respuestas.length) {
+                html += `<div class="rel-section-title"><i class="bi bi-reply me-1"></i> Respuestas (${respuestas.length})</div>`;
+                respuestas.forEach(r => {
+                    const url = origin + r.url;
+                    html += `<div class="rel-item">
+                        <a href="${url}" target="_blank" class="fw-semibold text-decoration-none small">${r.preguntaTitulo || 'Respuesta'}</a>
+                        <div class="rel-url">${url}</div>
+                    </div>`;
+                });
+            }
+
+            body.innerHTML = html;
+        } catch (_) {
+            body.innerHTML = '<p class="text-muted small mb-0">No se pudo cargar el contenido relacionado.</p>';
+        }
+    }
+
+    // ── Copiar para Facebook (texto plano, sin HTML) ──
+    document.getElementById('cmCopiarBtn').addEventListener('click', function () {
+        const ed = tinymce.get('cmNinaEditor');
+        let texto = '';
+        if (ed) {
+            texto = ed.getContent({ format: 'text' });
+        } else {
+            // Fallback: strip tags manualmente
+            const div = document.createElement('div');
+            div.innerHTML = document.getElementById('cmNinaEditor').value;
+            texto = div.textContent || div.innerText || '';
+        }
+        navigator.clipboard.writeText(texto.trim()).catch(() => {
+            const ta = document.createElement('textarea');
+            ta.value = texto.trim();
+            document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+        });
+        this.innerHTML = '<i class="bi bi-clipboard-check me-1"></i> ¡Copiado!';
+        setTimeout(() => { this.innerHTML = '<i class="bi bi-clipboard me-1"></i> Copiar para Facebook'; }, 2000);
+    });
+
+    // ── Copiar short-URL ──
+    document.getElementById('cmCopiarShortBtn').addEventListener('click', function () {
+        const val = document.getElementById('cmShortUrl').value;
+        navigator.clipboard.writeText(val).catch(() => {
+            document.getElementById('cmShortUrl').select(); document.execCommand('copy');
+        });
+        this.innerHTML = '<i class="bi bi-clipboard-check"></i>';
+        setTimeout(() => { this.innerHTML = '<i class="bi bi-clipboard"></i>'; }, 2000);
+    });
+})();
+</script>
+}
