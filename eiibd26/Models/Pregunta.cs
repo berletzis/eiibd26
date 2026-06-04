@@ -21,7 +21,10 @@ namespace eiibd26.Models
 
         public bool Resuelta { get; set; } = false;
 
-        public bool Eliminado { get; set; } = false; // soft-delete
+        public bool Eliminado { get; set; } = false;
+        public bool Deshabilitado { get; set; } = false;
+        [MaxLength(300)]
+        public string? MotivoModeracion { get; set; }
 
         public DateTimeOffset FechaCreacion { get; set; } = DateTimeOffset.UtcNow;
         public DateTimeOffset? FechaModificacion { get; set; }

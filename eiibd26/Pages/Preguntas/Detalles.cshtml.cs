@@ -57,6 +57,8 @@ namespace eiibd26.Pages.Preguntas
             public int Score { get; set; }
             public int UsuarioVoto { get; set; } = 0;
             public bool EsMia { get; set; } = false;
+            public bool Deshabilitado { get; set; } = false;
+            public string? MotivoModeracion { get; set; }
             public List<string> Condiciones { get; set; } = new();
             public List<string> Sintomas { get; set; } = new();
             public List<string> Tratamientos { get; set; } = new();
@@ -74,6 +76,8 @@ namespace eiibd26.Pages.Preguntas
             public int Score { get; set; }
             public int UsuarioVoto { get; set; } = 0;
             public bool EsMia { get; set; } = false;
+            public bool Deshabilitado { get; set; } = false;
+            public string? MotivoModeracion { get; set; }
 
             // AI Fields
             public bool EsIA { get; set; } = false;
@@ -173,6 +177,8 @@ namespace eiibd26.Pages.Preguntas
                         p.Slug,
                         p.UsuarioId,
                         p.FechaCreacion,
+                        p.Deshabilitado,
+                        p.MotivoModeracion,
                         Score = _db.Votos
                             .Where(v => v.EntidadTipo == "pregunta" && v.EntidadId == p.Id && !v.Eliminado)
                             .Select(v => (int?)v.Valor).Sum() ?? 0
@@ -192,6 +198,8 @@ namespace eiibd26.Pages.Preguntas
                         p.Slug,
                         p.UsuarioId,
                         p.FechaCreacion,
+                        p.Deshabilitado,
+                        p.MotivoModeracion,
                         Score = _db.Votos
                             .Where(v => v.EntidadTipo == "pregunta" && v.EntidadId == p.Id && !v.Eliminado)
                             .Select(v => (int?)v.Valor).Sum() ?? 0
@@ -220,6 +228,8 @@ namespace eiibd26.Pages.Preguntas
             Guid preguntaUsuarioId = (Guid)proj.UsuarioId;
             DateTimeOffset preguntaFechaCreacion = proj.FechaCreacion;
             int preguntaScore = (int)proj.Score;
+            bool preguntaDeshabilitada = (bool)(proj.Deshabilitado ?? false);
+            string? preguntaMotivo = (string?)proj.MotivoModeracion;
 
             // Redirect to SEO slug if necessary
             if (id.HasValue && !string.IsNullOrWhiteSpace(preguntaSlug))
@@ -319,6 +329,8 @@ namespace eiibd26.Pages.Preguntas
                 Score = preguntaScore,
                 UsuarioVoto = 0,
                 EsMia = currentUserId.HasValue && preguntaUsuarioId == currentUserId.Value,
+                Deshabilitado = preguntaDeshabilitada,
+                MotivoModeracion = preguntaMotivo,
                 Condiciones = condiciones,
                 Sintomas = sintomas,
                 Tratamientos = tratamientos
@@ -356,6 +368,8 @@ namespace eiibd26.Pages.Preguntas
                         r.EsIA,
                         r.ModeloIA,
                         r.EsAceptada,
+                        r.Deshabilitado,
+                        r.MotivoModeracion,
                         Score = _db.Votos.Where(v => v.EntidadTipo == "respuesta" && v.EntidadId == r.Id && !v.Eliminado)
                                          .Select(v => (int?)v.Valor).Sum() ?? 0
                     })
@@ -443,7 +457,9 @@ namespace eiibd26.Pages.Preguntas
                             UsuarioVoto = votosUsuarioTop.TryGetValue(x.Id, out var vv) ? vv : 0,
                             EsMia = currentUserId.HasValue && x.UsuarioId == currentUserId.Value,
                             EsIA = x.EsIA,
-                            ModeloIA = x.ModeloIA
+                            ModeloIA = x.ModeloIA,
+                            Deshabilitado = x.Deshabilitado,
+                            MotivoModeracion = x.MotivoModeracion
                             };
                             // author slug stored in resp.AutorSlug above
                             return resp;
@@ -486,6 +502,8 @@ namespace eiibd26.Pages.Preguntas
                     r.EsIA,
                     r.ModeloIA,
                     r.EsAceptada,
+                    r.Deshabilitado,
+                    r.MotivoModeracion,
                     Score = _db.Votos.Where(v => v.EntidadTipo == "respuesta" && v.EntidadId == r.Id && !v.Eliminado)
                                      .Select(v => (int?)v.Valor).Sum() ?? 0
                 })
@@ -583,7 +601,9 @@ namespace eiibd26.Pages.Preguntas
                     UsuarioVoto = votosUsuarioAns.TryGetValue(a.Id, out var vv) ? vv : 0,
                     EsMia = currentUserId.HasValue && a.UsuarioId == currentUserId.Value,
                     EsIA = a.EsIA,
-                    ModeloIA = a.ModeloIA
+                    ModeloIA = a.ModeloIA,
+                    Deshabilitado = a.Deshabilitado,
+                    MotivoModeracion = a.MotivoModeracion
                 };
                 return resp;
             }).ToList();
@@ -613,6 +633,8 @@ namespace eiibd26.Pages.Preguntas
                                 r.FechaCreacion,
                                 r.EsIA,
                                 r.ModeloIA,
+                                r.Deshabilitado,
+                                r.MotivoModeracion,
                                 Score = _db.Votos.Where(v => v.EntidadTipo == "respuesta" && v.EntidadId == r.Id && !v.Eliminado)
                                     .Select(v => (int?)v.Valor).Sum() ?? 0
                             })
@@ -637,7 +659,9 @@ namespace eiibd26.Pages.Preguntas
                                 UsuarioVoto = currentUserId.HasValue && votosUsuarioAns.TryGetValue(respIA.Id, out var vv) ? vv : 0,
                                 EsMia = false,
                                 EsIA = respIA.EsIA,
-                                ModeloIA = respIA.ModeloIA
+                                ModeloIA = respIA.ModeloIA,
+                                Deshabilitado = respIA.Deshabilitado,
+                                MotivoModeracion = respIA.MotivoModeracion
                             };
                         }
                     }

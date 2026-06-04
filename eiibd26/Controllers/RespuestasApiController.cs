@@ -16,7 +16,7 @@ namespace eiibd26.Controllers
 {
     [ApiController]
     [Route("api/respuestas")]
-    public class RespuestasApiController : ControllerBase
+    public partial class RespuestasApiController : ControllerBase
     {
         private readonly ApplicationDbContext _db;
         private readonly ILogger<RespuestasApiController> _logger;

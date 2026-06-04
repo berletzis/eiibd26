@@ -21,6 +21,9 @@ namespace eiibd26.Models
 
         public bool EsAceptada { get; set; }
         public bool Eliminado { get; set; }
+        public bool Deshabilitado { get; set; } = false;
+        [MaxLength(300)]
+        public string? MotivoModeracion { get; set; }
 
         [Required]
         public DateTimeOffset FechaCreacion { get; set; }
