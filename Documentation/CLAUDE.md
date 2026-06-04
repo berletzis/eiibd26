@@ -273,3 +273,151 @@ No hardcodear credenciales. Ver `SECRETS.md` en raíz del repo (no commitear).
 
 Ver carpeta `Documentation/sesiones/` para sesiones anteriores detalladas.
 Ver carpeta `Documentation/directorio-profesionales-badges/` para todo el análisis de badges.
+
+---
+
+## Patrones de Plataformas de Comunidad — Guía de diseño para EIIBD
+
+Conocimiento condensado de cómo se comportan las plataformas de comunidad maduras
+(Stack Overflow, Reddit, Discourse, foros clásicos, blogs con comentarios).
+**Propósito**: al diseñar o implementar CUALQUIER feature de comunidad en EIIBD
+(preguntas, respuestas, votos, moderación, contenido, perfiles), pasar por estos
+checklists para no dejar huecos. Aplica tanto al diseño (chat) como a la
+implementación (Claude Code).
+
+---
+
+### REGLA DE ORO
+
+Cada vez que un contenido cambia de estado (se modera, se cierra, se elimina, se
+oculta), preguntarse SIEMPRE: **"¿qué acciones quedan abiertas que ya no deberían?"**
+Mostrar el nuevo estado NO es suficiente. Hay que cerrar todas las interacciones que
+ese estado vuelve inválidas — y cerrarlas en el **BACKEND**, no solo ocultarlas en el front.
+
+---
+
+### 1. ESTADOS DE CONTENIDO
+
+Las plataformas maduras no tienen solo "existe / no existe". Tienen múltiples estados,
+y cada uno habilita/bloquea acciones distintas. En EIIBD, los estados relevantes:
+
+| Estado | Visible | Permite interacción | Uso |
+|---|---|---|---|
+| Activo | Sí | Sí | normal |
+| Eliminado (soft) | No | No | borrado, recuperable |
+| Deshabilitado/Moderado | Sí, con leyenda | No | infringió políticas |
+| (futuro) Cerrado | Sí | Lee sí, responde no | pregunta resuelta o duplicada |
+
+**Checklist al agregar/cambiar un estado:**
+- ¿El contenido se muestra o se oculta?
+- Si se muestra, ¿con qué leyenda/indicador?
+- ¿Qué interacciones se bloquean? (ver sección 2)
+- ¿Es reversible? ¿quién puede revertirlo?
+- ¿El bloqueo está en el **BACKEND** (endpoint) y no solo en el front?
+
+---
+
+### 2. MATRIZ DE INTERACCIONES A BLOQUEAR
+
+Cuando un contenido se modera/elimina/cierra, revisar TODAS estas interacciones.
+Es el checklist que evita el hueco clásico de "deshabilité pero deja responder":
+
+**Para una PREGUNTA bloqueada:**
+- [ ] Formulario de agregar respuesta (front: ocultar; backend: rechazar)
+- [ ] Endpoint de crear respuesta (validar estado de la pregunta)
+- [ ] Votos a la pregunta (front + backend)
+- [ ] Compartir / generar short-url (¿tiene sentido compartir algo moderado?)
+- [ ] Edición por el dueño
+- [ ] Aparición en listados/búsqueda/sugerencias de relacionados
+
+**Para una RESPUESTA bloqueada:**
+- [ ] Votos a la respuesta
+- [ ] Feedback 👍/👎 (si es respuesta IA)
+- [ ] Replies / respuestas hijas
+- [ ] Marcarla como aceptada
+- [ ] Edición por el dueño
+
+**Principio**: la defensa real va en el **BACKEND**. Ocultar el botón en el front es UX,
+pero un endpoint abierto se puede llamar directo. Validar el estado en el servidor SIEMPRE.
+
+---
+
+### 3. PERMISOS Y AUTORÍA
+
+- Separar SIEMPRE "quién puede hacer" de "quién figura como autor". Una cuenta
+  etiqueta (ej. "Comunidad EIIBD") NO debe tener rol admin solo para figurar como autor.
+  El acceso lo dan cuentas personales; la autoría es un dato.
+- El dueño puede X, el admin puede X sobre cualquiera. Endpoints separados: el del
+  dueño valida `UsuarioId == userId`; el admin valida rol, sin el check de dueño.
+- Contenido del sistema/IA (NINA): su respuesta SÍ es moderable (se puede bajar una
+  respuesta IA mala), pero el usuario sistema como AUTOR no se borra.
+- Credenciales compartidas = trazabilidad perdida. Evitar cuentas admin compartidas.
+
+---
+
+### 4. MODERACIÓN: ELIMINAR vs OCULTAR vs DESHABILITAR
+
+Tres conceptos distintos que las plataformas separan:
+
+- **Eliminar (soft-delete)**: desaparece, recuperable internamente. Para spam/error.
+- **Deshabilitar/moderar**: se ve con leyenda "infringió políticas". Es pedagógico —
+  comunica que hubo una violación sin borrar la evidencia.
+- **Cerrar**: se ve completo, se puede leer, pero no admite nuevas respuestas
+  (pregunta resuelta, duplicada, off-topic).
+
+**Regla aditiva vs fraude**: la moderación normal NO revoca reputación/badges ganados.
+El fraude (cuenta falsa que infló su nivel) SÍ borra todo en cascada — es la excepción,
+debe diseñarse explícitamente y por separado.
+
+**Cascada de borrado**: borrar una entidad deja huérfanos (validaciones, votos, avatares,
+links que apuntan a ella → 404). SIEMPRE mapear qué cuelga de una entidad antes de
+borrarla, y limpiar en cascada de hijas a padres.
+
+---
+
+### 5. DUPLICADOS Y CALIDAD
+
+- Las comunidades acumulan duplicados inevitablemente (misma pregunta/término/receta).
+  Detectarlos con similitud semántica (umbral configurable) antes de que se multipliquen.
+- Contenido de baja calidad: detectable con señales simples (sin imagen, muy corto, sin
+  categoría) + señales con IA (ortografía, coherencia). Un semáforo 🟢🟡🔴 ayuda a triar.
+- Sugerir contenido relacionado al **crear** (no solo al leer) reduce duplicados.
+
+---
+
+### 6. ANTI-ABUSO Y MÉTRICAS LIMPIAS
+
+- **Doble envío**: deshabilitar el botón al primer clic. Sin esto, doble-clic crea
+  duplicados (y dispara procesos como IA dos veces, gastando recursos).
+- **Bots de preview**: las redes sociales (Facebook, WhatsApp, etc.) visitan los links
+  para generar vista previa. Esos hits NO son humanos — filtrarlos del conteo o las
+  métricas quedan infladas.
+- **Recargas/inflado**: deduplicar clicks del mismo visitante en ventana corta.
+- **Rate limiting** en endpoints públicos de redirect/acción, generoso para no afectar
+  uso legítimo (ej. 30/min por IP).
+- **Idempotencia**: operaciones de creación deben tolerar reintentos sin duplicar.
+
+---
+
+### 7. SEO Y URLS (sitio que vive de tráfico orgánico)
+
+- URLs públicas con slug legible, NO opacas. El slug comunica el tema y suma SEO.
+- Cambios de URL → 301 redirect, nunca romper URLs indexadas.
+- Acortadores propios: útiles para compartir EXTERNO con tracking (Facebook, etc.), NO
+  para reemplazar las URLs públicas internas (perderías SEO y legibilidad).
+- Redirect de short-url: **302** (no 301) para que cada visita cuente.
+
+---
+
+### 8. CHECKLIST RÁPIDO ANTES DE CERRAR CUALQUIER FEATURE DE COMUNIDAD
+
+- [ ] ¿Cubrí todos los **ESTADOS** del contenido? (activo/eliminado/moderado/cerrado)
+- [ ] ¿Bloqueé **TODAS** las interacciones que el nuevo estado invalida? (sección 2)
+- [ ] ¿La defensa está en el **BACKEND**, no solo en el front?
+- [ ] ¿Separé autoría de permisos?
+- [ ] ¿Hay huérfanos al borrar? ¿limpié en cascada?
+- [ ] ¿Anti-doble-envío en los botones de creación?
+- [ ] ¿Las métricas excluyen bots y recargas?
+- [ ] ¿Las URLs públicas conservan slug + SEO?
+- [ ] ¿Es reversible lo que debería ser reversible? ¿quién lo revierte?
+- [ ] ¿Probé el caso límite a propósito (no solo el camino feliz)?
