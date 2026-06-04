@@ -29,9 +29,9 @@ namespace eiibd26.Services.ShortUrl
 
                 var entry = new Models.ShortUrl.ShortUrl
                 {
-                    Codigo     = codigo,
-                    UrlDestino = urlDestino,
-                    Origen     = origen,
+                    Codigo      = codigo,
+                    UrlDestino  = urlDestino,
+                    Origen      = origen,
                     FechaCreado = DateTime.UtcNow
                 };
                 _db.ShortUrls.Add(entry);
@@ -42,24 +42,28 @@ namespace eiibd26.Services.ShortUrl
             throw new InvalidOperationException("No se pudo generar un código único tras varios intentos.");
         }
 
-        public async Task<string?> ResolverYContarAsync(string codigo)
+        public async Task<(string? Url, int? Id)> ResolverAsync(string codigo)
         {
-            if (string.IsNullOrWhiteSpace(codigo)) return null;
+            if (string.IsNullOrWhiteSpace(codigo)) return (null, null);
 
             var entry = await _db.ShortUrls
                 .FirstOrDefaultAsync(s => s.Codigo == codigo && !s.Eliminado);
 
-            if (entry is null) return null;
+            return entry is null ? (null, null) : (entry.UrlDestino, entry.Id);
+        }
+
+        public async Task ContarClickAsync(int shortUrlId)
+        {
+            var entry = await _db.ShortUrls.FindAsync(shortUrlId);
+            if (entry is null) return;
 
             entry.ClickCount++;
             _db.ShortUrlClicks.Add(new ShortUrlClick
             {
-                ShortUrlId = entry.Id,
+                ShortUrlId = shortUrlId,
                 FechaClick = DateTime.UtcNow
             });
             await _db.SaveChangesAsync();
-
-            return entry.UrlDestino;
         }
 
         private static string GenerarCodigo()

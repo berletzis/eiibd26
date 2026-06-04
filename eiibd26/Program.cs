@@ -144,6 +144,25 @@ try
             limiterOptions.PermitLimit = 30;
             limiterOptions.QueueLimit = 0;
         });
+
+        // Short-URL: 30 req/min por IP (particionado para no contaminar otras rutas)
+        options.AddPolicy("shorturl", httpContext =>
+        {
+            var xff = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+            var ip = !string.IsNullOrEmpty(xff)
+                ? xff.Split(',')[0].Trim()
+                : httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+            return System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: ip,
+                factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 30,
+                    Window      = TimeSpan.FromSeconds(60),
+                    QueueLimit  = 0
+                });
+        });
+
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
         options.OnRejected = async (context, ct) =>
         {
