@@ -212,6 +212,8 @@ namespace eiibd26.Controllers
 
                 var pregunta = await _db.Preguntas.FirstOrDefaultAsync(p => p.Id == id && !p.Eliminado);
                 if (pregunta == null) return NotFound();
+                if (pregunta.Deshabilitado)
+                    return BadRequest(new { ok = false, error = "No se puede votar esta pregunta (deshabilitada por moderación)." });
 
                 if (pregunta.UsuarioId == userIdGuid)
                     return BadRequest("No puedes votar tu propia pregunta.");

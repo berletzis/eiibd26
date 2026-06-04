@@ -44,9 +44,15 @@ namespace eiibd26.Controllers
                     .FirstOrDefaultAsync(cancellationToken);
 
                 if (respuesta == null)
-                {
                     return NotFound(new { ok = false, error = "Respuesta de IA no encontrada" });
-                }
+
+                if (respuesta.Deshabilitado)
+                    return BadRequest(new { ok = false, error = "No se puede dar feedback a esta respuesta (deshabilitada por moderación)." });
+
+                var preguntaFb = await _db.Preguntas.AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.Id == respuesta.PreguntaId && !p.Eliminado, cancellationToken);
+                if (preguntaFb == null || preguntaFb.Deshabilitado)
+                    return BadRequest(new { ok = false, error = "La pregunta asociada no está disponible." });
 
                 // Obtener usuario actual
                 var user = await _userManager.GetUserAsync(User);

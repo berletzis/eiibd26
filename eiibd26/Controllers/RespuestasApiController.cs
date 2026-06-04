@@ -105,7 +105,8 @@ namespace eiibd26.Controllers
             }
 
             var pregunta = await _db.Preguntas.FirstOrDefaultAsync(p => p.Id == preguntaId && !p.Eliminado);
-            if (pregunta == null) return BadRequest("Pregunta no encontrada");
+            if (pregunta == null) return BadRequest(new { ok = false, error = "Pregunta no encontrada." });
+            if (pregunta.Deshabilitado) return BadRequest(new { ok = false, error = "No se puede responder a esta pregunta (deshabilitada por moderación)." });
 
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrWhiteSpace(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
@@ -133,6 +134,10 @@ namespace eiibd26.Controllers
                 var effectiveParent = dto.ParentId;
                 if (effectiveParent.HasValue)
                 {
+                    var parentResp = await _db.Respuestas.AsNoTracking()
+                        .FirstOrDefaultAsync(r => r.Id == effectiveParent.Value);
+                    if (parentResp != null && (parentResp.Eliminado || parentResp.Deshabilitado))
+                        return BadRequest(new { ok = false, error = "No se puede responder a esta respuesta (no disponible)." });
                     var entityType = _db.Model.FindEntityType(typeof(Respuesta));
                     if (entityType != null)
                     {
@@ -209,6 +214,13 @@ namespace eiibd26.Controllers
 
                 var respuesta = await _db.Respuestas.FirstOrDefaultAsync(r => r.Id == id && !r.Eliminado);
                 if (respuesta == null) return NotFound();
+                if (respuesta.Deshabilitado)
+                    return BadRequest(new { ok = false, error = "No se puede votar esta respuesta (deshabilitada por moderación)." });
+
+                var preguntaVoto = await _db.Preguntas.AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.Id == respuesta.PreguntaId && !p.Eliminado);
+                if (preguntaVoto == null || preguntaVoto.Deshabilitado)
+                    return BadRequest(new { ok = false, error = "No se puede votar en esta pregunta (no disponible)." });
 
                 if (respuesta.UsuarioId == userIdGuid)
                 {

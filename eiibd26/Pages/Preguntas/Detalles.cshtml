@@ -767,7 +767,8 @@
                          data-score="@Model.Pregunta.Score">
 
                     <div class="se-vote">
-                        @if (!User.Identity.IsAuthenticated || Model.Pregunta.EsMia)
+                        @if (Model.Pregunta.Deshabilitado) { <div class="se-vote-count text-muted">—</div> }
+                        else if (!User.Identity.IsAuthenticated || Model.Pregunta.EsMia)
                         {
                             <button class="se-vote-btn se-vote-up" type="button"
                                     data-id="@Model.Pregunta.Id" data-dir="up"
@@ -965,6 +966,8 @@
                                     </div>
 
                                     @* ⭐ NUEVO: Panel de Feedback para Respuesta IA *@
+                                    @if (!Model.RespuestaIA.Deshabilitado)
+                                    {
                                     <div class="ai-feedback-panel" id="aiFeedbackPanel" data-respuesta-id="@Model.RespuestaIA.Id">
                                         <div class="ai-feedback-question">
                                             ¿Te parece útil e indicada esta respuesta de NINA?
@@ -1004,6 +1007,7 @@
                                         @* Mensaje de estado *@
                                         <div class="ai-feedback-message" id="feedbackMessage" style="display: none;"></div>
                                     </div>
+                                    } @* fin @if (!Deshabilitado) feedback *@
 
                                     @* Avatares de médicos que validaron la respuesta IA (público, sin gate) *@
                                     @{ Model.ValidadoresPorRespuesta.TryGetValue(Model.RespuestaIA.Id, out var validadoresIA); }
@@ -1048,7 +1052,13 @@
                 @* ===== Separador visual entre IA y respuestas de usuarios ===== *@
 
                 @* --- Reply box SIEMPRE debajo de la pregunta --- *@
-                @if (!User.Identity.IsAuthenticated)
+                @if (Model.Pregunta.Deshabilitado)
+                {
+                    <div class="alert alert-secondary py-2 mb-3" style="font-size:.9em">
+                        <i class="bi bi-slash-circle me-1"></i> Esta pregunta no admite respuestas.
+                    </div>
+                }
+                else if (!User.Identity.IsAuthenticated)
                 {
                     <div class="login-hint-box">
                         <div class="login-hint-header">
@@ -1095,7 +1105,8 @@
                             </span>
                         }
                         <div class="se-answer-vote">
-                            @if (!User.Identity.IsAuthenticated || esMia)
+                            @if (a.Deshabilitado) { <div class="se-vote-count text-muted">—</div> }
+                            else if (!User.Identity.IsAuthenticated || esMia)
                             {
                                 <button class="se-vote-btn se-vote-up" type="button"
                                         data-id="@a.Id" data-dir="up"
