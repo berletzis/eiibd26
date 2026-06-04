@@ -110,7 +110,7 @@
 </div>
 
 @section Scripts {
-<script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/7/tinymce.min.js" referrerpolicy="origin"></script>
+<script src="https://cdn.tiny.cloud/1/c1xlulcw2ayqu8bq58edh8qjshj6yruj6g2linjofz9rw369/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
 <script>
 (function () {
     // ── Estado ──
@@ -157,6 +157,10 @@
 
     // ── Generar ──
     document.getElementById('cmGenerar').addEventListener('click', async function () {
+        // Deshabilitar inmediatamente — previene doble envío antes de cualquier await
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Enviando…';
+
         const titulo = document.getElementById('cmTitulo').value.trim();
         const cuerpo = document.getElementById('cmCuerpo').value.trim();
         const errEl  = document.getElementById('cmError');
@@ -165,11 +169,9 @@
         if (!titulo || !cuerpo) {
             errEl.textContent = 'Título y cuerpo son obligatorios.';
             errEl.classList.remove('d-none');
+            cmResetBoton();
             return;
         }
-
-        this.disabled = true;
-        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Enviando…';
 
         try {
             const res  = await fetch('/api/preguntas/admin/crear-facebook', {
@@ -310,21 +312,29 @@
         }
     }
 
-    // ── Copiar para Facebook (texto plano, sin HTML) ──
+    // ── Copiar para Facebook (texto plano + short-url arriba y abajo) ──
     document.getElementById('cmCopiarBtn').addEventListener('click', function () {
         const ed = tinymce.get('cmNinaEditor');
-        let texto = '';
+        let textoRespuesta = '';
         if (ed) {
-            texto = ed.getContent({ format: 'text' });
+            textoRespuesta = ed.getContent({ format: 'text' });
         } else {
-            // Fallback: strip tags manualmente
             const div = document.createElement('div');
             div.innerHTML = document.getElementById('cmNinaEditor').value;
-            texto = div.textContent || div.innerText || '';
+            textoRespuesta = div.textContent || div.innerText || '';
         }
-        navigator.clipboard.writeText(texto.trim()).catch(() => {
+        textoRespuesta = textoRespuesta.trim();
+
+        const shortUrl = document.getElementById('cmShortUrl').value.trim();
+        let final = textoRespuesta;
+        if (shortUrl) {
+            const leyenda = `Tu pregunta puede tener más respuestas, hacé click aquí 👉 ${shortUrl}`;
+            final = `${leyenda}\n\n${textoRespuesta}\n\n${leyenda}`;
+        }
+
+        navigator.clipboard.writeText(final).catch(() => {
             const ta = document.createElement('textarea');
-            ta.value = texto.trim();
+            ta.value = final;
             document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
         });
         this.innerHTML = '<i class="bi bi-clipboard-check me-1"></i> ¡Copiado!';
