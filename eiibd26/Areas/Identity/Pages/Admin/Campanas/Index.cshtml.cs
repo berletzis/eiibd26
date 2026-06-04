@@ -46,6 +46,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
 
         // FaseLog para TodosConfirmados. No colisiona con 1/2/3 (toques de secuencia) ni 0 (reset pw).
         private const int FaseLogGeneral = 10;
+        // FaseLog para audiencias de tarea pendiente (20=SinCondicion, 21=SinMood).
+        private const int FaseLogSinCondicion = 20;
+        private const int FaseLogSinMood      = 21;
 
         public void OnGet() { }
 
@@ -129,6 +132,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                 AudienciaCampana.ViejosSinToque1 => "toque1",
                 AudienciaCampana.Toque2          => "toque2",
                 AudienciaCampana.Toque3          => "toque3",
+                AudienciaCampana.SinCondicion    => "sin-condicion",
+                AudienciaCampana.SinMood         => "sin-mood",
                 _                                => "general"
             };
 
@@ -263,6 +268,30 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                         _targeting.AplicarCriterio(users, PublicoCampana.UsuariosViejos)
                             .Where(u => conF2.Contains(u.Id) && !yaF3.Contains(u.Id)),
                         3);
+                }
+
+                case AudienciaCampana.SinCondicion:
+                {
+                    // Usuarios que YA tienen condición (para excluirlos del universo)
+                    var conCondicion = new HashSet<Guid>(await _db.condicionUsuario
+                        .Where(c => !c.Eliminado)
+                        .Select(c => c.idUsuario).Distinct().ToListAsync());
+                    return (
+                        _targeting.AplicarCriterio(users, PublicoCampana.TodosConfirmados)
+                            .Where(u => !conCondicion.Contains(u.Id)),
+                        FaseLogSinCondicion);
+                }
+
+                case AudienciaCampana.SinMood:
+                {
+                    // Usuarios que YA registraron mood (para excluirlos del universo)
+                    var conMood = new HashSet<Guid>(await _db.EstadoAnimoUsuario
+                        .Where(e => !e.Eliminado)
+                        .Select(e => e.IdUsuario).Distinct().ToListAsync());
+                    return (
+                        _targeting.AplicarCriterio(users, PublicoCampana.TodosConfirmados)
+                            .Where(u => !conMood.Contains(u.Id)),
+                        FaseLogSinMood);
                 }
 
                 case AudienciaCampana.TodosConfirmados:

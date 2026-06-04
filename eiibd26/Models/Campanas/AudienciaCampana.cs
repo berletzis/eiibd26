@@ -30,6 +30,20 @@ namespace eiibd26.Models.Campanas
         /// Todos los usuarios con EmailConfirmed=1, sin distinción de antigüedad.
         /// Tracking por FaseLog=10 + TemplateId — cada template es una campaña independiente.
         /// </summary>
-        TodosConfirmados = 4
+        TodosConfirmados = 4,
+
+        /// <summary>
+        /// Usuarios con EmailConfirmed=1 que NO tienen ninguna condición registrada (condicionUsuario.Eliminado=0).
+        /// Tarea pendiente: invitarlos a registrar su diagnóstico.
+        /// FaseLog=20. Sin exclusión por envíos previos — re-envíable manualmente.
+        /// </summary>
+        SinCondicion = 5,
+
+        /// <summary>
+        /// Usuarios con EmailConfirmed=1 que NUNCA registraron estado de ánimo (EstadoAnimoUsuario.Eliminado=0).
+        /// Tarea pendiente: invitarlos a usar el tracker de mood.
+        /// FaseLog=21. Sin exclusión por envíos previos — re-envíable manualmente.
+        /// </summary>
+        SinMood = 6
     }
 }
