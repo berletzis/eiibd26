@@ -117,11 +117,13 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                     fase = template.Fase
                 };
 
+                var unsubGroupId = _configuration.GetValue<int?>("SendGrid:UnsubscribeGroupId");
                 await _emailSender.SendDynamicTemplateAsync(
                     input.Email,
                     templateId: template.Id,
                     templateData: templateData,
-                    categories: new[] { "EIIBD", "Prueba" });
+                    categories: new[] { "EIIBD", "Prueba" },
+                    unsubscribeGroupId: unsubGroupId);
 
                 _logger.LogInformation("Correo de prueba template '{Template}' enviado a {Email}.", template.Nombre, input.Email);
                 return new JsonResult(new { success = true });
@@ -248,6 +250,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                         campana = campana.Codigo
                     };
 
+                    var unsubGroupIdBatch = _configuration.GetValue<int?>("SendGrid:UnsubscribeGroupId");
                     await _emailSender.SendDynamicTemplateAsync(
                         u.Email,
                         templateId: campana.TemplateId,
@@ -260,7 +263,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                             ["campana"]   = campana.Codigo,
                             ["fase"]      = campana.FaseLog.ToString(),
                             ["envio_ts"]  = DateTime.UtcNow.ToString("O")
-                        });
+                        },
+                        unsubscribeGroupId: unsubGroupIdBatch);
 
                     log.Exito = true;
                     resultados.Add(new { email = u.Email, exito = true, error = (string)null });
@@ -363,6 +367,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                         reset_link = resetLink
                     };
 
+                    var unsubGroupIdGeneral = _configuration.GetValue<int?>("SendGrid:UnsubscribeGroupId");
                     await _emailSender.SendDynamicTemplateAsync(
                         u.Email,
                         templateId: input.TemplateId,
@@ -376,7 +381,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                             ["fase"]       = FaseLogGeneral.ToString(),
                             ["templateId"] = input.TemplateId,
                             ["envio_ts"]   = DateTime.UtcNow.ToString("O")
-                        });
+                        },
+                        unsubscribeGroupId: unsubGroupIdGeneral);
 
                     log.Exito = true;
                     resultados.Add(new { email = u.Email, exito = true, error = (string)null });

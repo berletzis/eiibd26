@@ -122,7 +122,7 @@ namespace eiibd26.Services
         /// <summary>
         /// Sends an email using a SendGrid Dynamic Template.
         /// </summary>
-        public async Task SendDynamicTemplateAsync(string email, string templateId, object templateData, IEnumerable<string> categories = null, Dictionary<string, string> customArgs = null)
+        public async Task SendDynamicTemplateAsync(string email, string templateId, object templateData, IEnumerable<string> categories = null, Dictionary<string, string> customArgs = null, int? unsubscribeGroupId = null)
         {
             ArgumentNullException.ThrowIfNull(templateData);
             if (string.IsNullOrWhiteSpace(email))
@@ -162,6 +162,9 @@ namespace eiibd26.Services
                     foreach (var kv in customArgs)
                         msg.AddCustomArg(kv.Key, kv.Value);
                 }
+
+                if (unsubscribeGroupId.HasValue)
+                    msg.Asm = new ASM { GroupId = unsubscribeGroupId.Value };
 
                 var response = await client.SendEmailAsync(msg).ConfigureAwait(false);
 
