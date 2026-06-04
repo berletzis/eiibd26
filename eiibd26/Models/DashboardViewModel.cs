@@ -27,6 +27,7 @@ namespace eiibd26.Models
         // Indica si al menos una condición tiene fecha de diagnóstico igual a la fecha de registro
         // del usuario y por tanto debe actualizarse.
         public bool NeedsDiagnosisDateUpdate { get; set; } = false;
+        public bool NeedsAvatar { get; set; } = false;
         public int DiagnosisUpdatesCount { get; set; } = 0;
         public bool HasRealName { get; set; }
         public int TotalLaboratorios { get; set; } = 0;

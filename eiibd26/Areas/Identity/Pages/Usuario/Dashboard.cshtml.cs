@@ -24,13 +24,15 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
         private readonly IHealthStatsService _healthStats;
         private readonly IHealthInsightService _healthInsight;
         private readonly ITrackingSintomaService _trackingService;
+        private readonly IWebHostEnvironment _env;
 
-        public DashboardModel(ApplicationDbContext db, IHealthStatsService healthStats, IHealthInsightService healthInsight, ITrackingSintomaService trackingService)
+        public DashboardModel(ApplicationDbContext db, IHealthStatsService healthStats, IHealthInsightService healthInsight, ITrackingSintomaService trackingService, IWebHostEnvironment env)
         {
             _db = db;
             _healthStats = healthStats;
             _healthInsight = healthInsight;
             _trackingService = trackingService;
+            _env = env;
         }
 
         // VM que la vista y el partial consumirán
@@ -276,6 +278,16 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             VM.NewAnswersCount = newAnswersCount;
 
             VM.ScheduledItemsCount = 0;
+
+            // NeedsAvatar: true si el usuario NO subió foto propia (no existe el archivo físico).
+            // Perfil.Avatar no sirve porque al borrar se rellena con ui-avatars (placeholder).
+            try
+            {
+                var webRoot = _env.WebRootPath ?? System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "wwwroot");
+                var avatarPath = System.IO.Path.Combine(webRoot, "uploads", "avatars", userGuid.ToString(), "avatar-64.png");
+                VM.NeedsAvatar = !System.IO.File.Exists(avatarPath);
+            }
+            catch { VM.NeedsAvatar = false; }
 
             // ---- Diagnosis date check: si alguna condicion del usuario tiene fechaInicio igual
             // a la fecha de creación del perfil (o a FechaCreado) avisar que actualice la fecha.
