@@ -26,8 +26,9 @@ BEGIN
         0, 0, 1, 0
     );
 
-    INSERT INTO [Perfil] ([idUser], [Nombre], [Avatar], [FechaCreacion])
-    VALUES (@ComunidadId, 'Comunidad EIIBD', '/img/avatar-placeholder.png', GETUTCDATE());
+    -- idZone = NULL explícito para evitar DEFAULT constraint -> FK_Perfil_TimeZones
+    INSERT INTO [Perfil] ([idUser], [Nombre], [Avatar], [FechaCreacion], [idZone])
+    VALUES (@ComunidadId, 'Comunidad EIIBD', '/img/avatar-placeholder.png', GETUTCDATE(), NULL);
 
     SELECT
         'Usuario Comunidad EIIBD creado' AS Mensaje,
