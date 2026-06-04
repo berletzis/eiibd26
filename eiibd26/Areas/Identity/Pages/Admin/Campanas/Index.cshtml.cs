@@ -44,16 +44,12 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
             _targeting = targeting;
         }
 
-        // FaseLog estable para campañas generales (template libre, TodosConfirmados).
-        // Distinto de 1/2/3 reservados para reactivacion/bienvenida/recordatorio.
+        // FaseLog para TodosConfirmados. No colisiona con 1/2/3 (toques de secuencia) ni 0 (reset pw).
         private const int FaseLogGeneral = 10;
 
         public void OnGet() { }
 
-        /// <summary>
-        /// Devuelve los templates de SendGrid configurados en SendGrid:Templates (para el envío de prueba).
-        /// No incluye campañas — éstas viven en SendGrid:Campanas.
-        /// </summary>
+        // Devuelve templates de SendGrid:Templates para el selector de template.
         public IActionResult OnGetTemplatesCorreo()
         {
             var templates = _configuration.GetSection("SendGrid:Templates")
@@ -62,34 +58,237 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
             return new JsonResult(templates);
         }
 
+        // ──────────────────────────────────────────────────────────────────────
+        // AUDIENCIA — conteo en vivo
+        // ──────────────────────────────────────────────────────────────────────
+
         /// <summary>
-        /// Devuelve los códigos y nombres de las campañas configuradas en SendGrid:Campanas.
-        /// Usado por el JS para poblar el selector de campaña.
+        /// Devuelve el número de usuarios elegibles para la audiencia + template dados.
+        /// Para TodosConfirmados, si se pasa templateId, excluye quienes ya lo recibieron.
+        /// Para Toque1/2/3, el templateId se ignora en el filtro (la exclusión es por FaseLog).
         /// </summary>
-        public IActionResult OnGetCampanasConfig()
+        public async Task<IActionResult> OnGetConteoAudienciaAsync(int audiencia, string? templateId = null)
         {
-            var campanas = _configuration.GetSection("SendGrid:Campanas")
-                .Get<List<CampanaInfo>>()
-                ?? new List<CampanaInfo>();
-            return new JsonResult(campanas.Select(c => new { c.Codigo, c.Nombre, c.Descripcion }));
+            if (!Enum.IsDefined(typeof(AudienciaCampana), audiencia))
+                return new JsonResult(new { error = "Audiencia inválida." }) { StatusCode = 400 };
+
+            var (query, _) = await BuildAudienciaQueryAsync((AudienciaCampana)audiencia, templateId);
+            var elegibles = await query.CountAsync();
+            return new JsonResult(new { elegibles });
+        }
+
+        // ──────────────────────────────────────────────────────────────────────
+        // ENVÍO UNIFICADO
+        // ──────────────────────────────────────────────────────────────────────
+
+        public record EnviarAudienciaInput(int Audiencia, string TemplateId);
+
+        /// <summary>
+        /// Envía un batch de hasta 100 correos a los elegibles de la audiencia indicada,
+        /// usando el template libre elegido por el admin.
+        /// Registra en EmailCampanaLog con el FaseLog correspondiente a la audiencia.
+        /// Custom args y unsubscribeGroupId idénticos al patrón de campañas existente.
+        /// </summary>
+        [IgnoreAntiforgeryToken]
+        public async Task<IActionResult> OnPostEnviarAudienciaAsync([FromBody] EnviarAudienciaInput input)
+        {
+            if (input is null)
+                return new JsonResult(new { success = false, error = "Input requerido." }) { StatusCode = 400 };
+
+            if (!Enum.IsDefined(typeof(AudienciaCampana), input.Audiencia))
+                return new JsonResult(new { success = false, error = "Audiencia inválida." }) { StatusCode = 400 };
+
+            if (string.IsNullOrWhiteSpace(input.TemplateId))
+                return new JsonResult(new { success = false, error = "Selecciona un template." }) { StatusCode = 400 };
+
+            var templates = _configuration.GetSection("SendGrid:Templates").Get<List<SendGridTemplateInfo>>() ?? new();
+            var template = templates.FirstOrDefault(t => t.Id == input.TemplateId);
+            if (template is null)
+                return new JsonResult(new { success = false, error = "Template no encontrado en configuración." }) { StatusCode = 400 };
+
+            var audiencia = (AudienciaCampana)input.Audiencia;
+            var (eligiblesQuery, faseLog) = await BuildAudienciaQueryAsync(audiencia, input.TemplateId);
+
+            var elegibles = await eligiblesQuery
+                .OrderBy(u => u.Email)
+                .Take(100)
+                .Select(u => new { u.Id, u.Email, u.UserName })
+                .ToListAsync();
+
+            if (elegibles.Count == 0)
+                return new JsonResult(new
+                {
+                    success = true,
+                    procesados = 0,
+                    resultados = Array.Empty<object>(),
+                    mensaje = $"No hay usuarios elegibles para '{audiencia}'."
+                });
+
+            var campanaCodigo = audiencia switch
+            {
+                AudienciaCampana.ViejosSinToque1 => "toque1",
+                AudienciaCampana.Toque2          => "toque2",
+                AudienciaCampana.Toque3          => "toque3",
+                _                                => "general"
+            };
+
+            var unsubGroupId = _configuration.GetValue<int?>("SendGrid:UnsubscribeGroupId");
+            var resultados = new List<object>();
+
+            foreach (var u in elegibles)
+            {
+                var log = new EmailCampanaLog
+                {
+                    UserId = u.Id,
+                    Fase = faseLog,
+                    TemplateId = input.TemplateId,
+                    FechaEnvio = DateTime.UtcNow,
+                    Exito = false
+                };
+
+                try
+                {
+                    var user = await _userManager.FindByIdAsync(u.Id.ToString());
+                    var perfil = await _db.Perfil.AsNoTracking().FirstOrDefaultAsync(p => p.idUser == u.Id);
+
+                    var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+                    var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+                    var resetLink = Url.Page(
+                        "/Account/ResetPassword",
+                        pageHandler: null,
+                        values: new { area = "Identity", code = encodedToken, email = u.Email },
+                        protocol: Request.Scheme);
+
+                    var templateData = new
+                    {
+                        nombre = perfil?.Nombre ?? u.UserName,
+                        correo = u.Email,
+                        reset_link = resetLink,
+                        campana = campanaCodigo
+                    };
+
+                    await _emailSender.SendDynamicTemplateAsync(
+                        u.Email,
+                        templateId: input.TemplateId,
+                        templateData: templateData,
+                        categories: new[] { "EIIBD", $"Campana-{campanaCodigo}" },
+                        customArgs: new Dictionary<string, string>
+                        {
+                            ["userId"]     = u.Id.ToString(),
+                            ["campana"]    = campanaCodigo,
+                            ["fase"]       = faseLog.ToString(),
+                            ["templateId"] = input.TemplateId,
+                            ["envio_ts"]   = DateTime.UtcNow.ToString("O")
+                        },
+                        unsubscribeGroupId: unsubGroupId);
+
+                    log.Exito = true;
+                    resultados.Add(new { email = u.Email, exito = true, error = (string)null });
+                }
+                catch (Exception ex)
+                {
+                    log.Error = ex.Message.Length > 500 ? ex.Message[..500] : ex.Message;
+                    resultados.Add(new { email = u.Email, exito = false, error = log.Error });
+                    _logger.LogError(ex, "Error enviando audiencia '{Audiencia}' a {Email}", audiencia, u.Email);
+                }
+                finally
+                {
+                    _db.EmailCampanaLogs.Add(log);
+                }
+            }
+
+            await _db.SaveChangesAsync();
+
+            var exitosos = resultados.Count(r => (bool)r.GetType().GetProperty("exito").GetValue(r));
+            _logger.LogInformation("Audiencia '{Audiencia}' template '{Template}': {Exitosos}/{Total} enviados.",
+                audiencia, input.TemplateId, exitosos, resultados.Count);
+
+            return new JsonResult(new
+            {
+                success = true,
+                procesados = resultados.Count,
+                exitosos,
+                fallidos = resultados.Count - exitosos,
+                resultados
+            });
         }
 
         /// <summary>
-        /// Conteo de usuarios que cumplen el criterio TodosConfirmados (denominador del "Enviar campaña").
+        /// Construye la query de elegibles para la audiencia indicada y devuelve el FaseLog asignado.
+        /// Toque2 y Toque3 parten de UsuariosViejos (len=68): los reactivados ya no tienen ese hash
+        /// y quedan excluidos automáticamente sin lógica adicional.
+        /// Para TodosConfirmados con templateId, excluye quienes ya recibieron ese template (Fase=10).
         /// </summary>
-        public async Task<IActionResult> OnGetConteoTodosConfirmadosAsync()
+        private async Task<(IQueryable<ApplicationUser> query, int faseLog)> BuildAudienciaQueryAsync(
+            AudienciaCampana audiencia, string? templateId = null)
         {
-            var total = await _targeting
-                .AplicarCriterio(_userManager.Users.AsQueryable(), PublicoCampana.TodosConfirmados)
-                .CountAsync();
-            return new JsonResult(new { total });
+            var users = _userManager.Users.AsQueryable();
+
+            switch (audiencia)
+            {
+                case AudienciaCampana.ViejosSinToque1:
+                {
+                    var yaF1 = new HashSet<Guid>(await _db.EmailCampanaLogs
+                        .Where(l => l.Fase == 1 && l.Exito)
+                        .Select(l => l.UserId).Distinct().ToListAsync());
+                    return (
+                        _targeting.AplicarCriterio(users, PublicoCampana.UsuariosViejos)
+                            .Where(u => !yaF1.Contains(u.Id)),
+                        1);
+                }
+
+                case AudienciaCampana.Toque2:
+                {
+                    var conF1 = new HashSet<Guid>(await _db.EmailCampanaLogs
+                        .Where(l => l.Fase == 1 && l.Exito)
+                        .Select(l => l.UserId).Distinct().ToListAsync());
+                    var yaF2 = new HashSet<Guid>(await _db.EmailCampanaLogs
+                        .Where(l => l.Fase == 2 && l.Exito)
+                        .Select(l => l.UserId).Distinct().ToListAsync());
+                    return (
+                        _targeting.AplicarCriterio(users, PublicoCampana.UsuariosViejos)
+                            .Where(u => conF1.Contains(u.Id) && !yaF2.Contains(u.Id)),
+                        2);
+                }
+
+                case AudienciaCampana.Toque3:
+                {
+                    var conF2 = new HashSet<Guid>(await _db.EmailCampanaLogs
+                        .Where(l => l.Fase == 2 && l.Exito)
+                        .Select(l => l.UserId).Distinct().ToListAsync());
+                    var yaF3 = new HashSet<Guid>(await _db.EmailCampanaLogs
+                        .Where(l => l.Fase == 3 && l.Exito)
+                        .Select(l => l.UserId).Distinct().ToListAsync());
+                    return (
+                        _targeting.AplicarCriterio(users, PublicoCampana.UsuariosViejos)
+                            .Where(u => conF2.Contains(u.Id) && !yaF3.Contains(u.Id)),
+                        3);
+                }
+
+                case AudienciaCampana.TodosConfirmados:
+                default:
+                {
+                    var q = _targeting.AplicarCriterio(users, PublicoCampana.TodosConfirmados);
+                    if (!string.IsNullOrWhiteSpace(templateId))
+                    {
+                        var yaRecibieron = new HashSet<Guid>(await _db.EmailCampanaLogs
+                            .Where(l => l.Fase == FaseLogGeneral && l.Exito && l.TemplateId == templateId)
+                            .Select(l => l.UserId).Distinct().ToListAsync());
+                        q = q.Where(u => !yaRecibieron.Contains(u.Id));
+                    }
+                    return (q, FaseLogGeneral);
+                }
+            }
         }
+
+        // ──────────────────────────────────────────────────────────────────────
+        // PRUEBA
+        // ──────────────────────────────────────────────────────────────────────
 
         public record CampanaEnviarPruebaInput(string Email, string TemplateId);
 
         /// <summary>
-        /// Envía un correo de prueba con el template seleccionado al correo especificado.
-        /// No registra en EmailCampanaLog ni afecta los contadores de elegibilidad.
+        /// Envía un correo de prueba con el template seleccionado. No registra en EmailCampanaLog.
         /// </summary>
         [IgnoreAntiforgeryToken]
         public async Task<IActionResult> OnPostCampanaEnviarPruebaAsync([FromBody] CampanaEnviarPruebaInput input)
@@ -135,289 +334,13 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
             }
         }
 
-        /// <summary>
-        /// Resumen por campaña: total de público, cuántos ya la recibieron, cuántos elegibles faltan.
-        /// Cada campaña es independiente (sin encadenamiento entre ellas).
-        /// </summary>
-        public async Task<IActionResult> OnGetCampanaResumenAsync()
-        {
-            var totalUsuarios = await _userManager.Users.CountAsync();
-
-            var campanas = _configuration.GetSection("SendGrid:Campanas")
-                .Get<List<CampanaInfo>>() ?? new();
-
-            var resumenCampanas = new List<object>();
-
-            foreach (var campana in campanas.Where(c => !string.IsNullOrEmpty(c.Codigo)))
-            {
-                var totalPublico = await _targeting
-                    .AplicarCriterio(_userManager.Users.AsQueryable(), campana.Publico)
-                    .CountAsync();
-
-                var recibieron = await _db.EmailCampanaLogs
-                    .Where(l => l.Fase == campana.FaseLog && l.Exito)
-                    .Select(l => l.UserId)
-                    .Distinct()
-                    .CountAsync();
-
-                resumenCampanas.Add(new
-                {
-                    campana.Codigo,
-                    campana.Nombre,
-                    totalPublico,
-                    recibieron,
-                    elegibles = Math.Max(0, totalPublico - recibieron)
-                });
-            }
-
-            return new JsonResult(new { totalUsuarios, campanas = resumenCampanas });
-        }
-
-        public record CampanaEnviarInput(string CampanaCodigo);
+        // ──────────────────────────────────────────────────────────────────────
+        // RESETEAR TRACKING TOQUE 1
+        // ──────────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Envía un batch de hasta 100 correos a usuarios elegibles de la campaña indicada por código.
-        /// Usa CampanaTargetingService para el filtro de público (sin encadenamiento entre campañas).
-        /// Registra cada intento en EmailCampanaLog.Fase usando el FaseLog estable de la campaña.
-        /// </summary>
-        [IgnoreAntiforgeryToken]
-        public async Task<IActionResult> OnPostCampanaEnviarBatchAsync([FromBody] CampanaEnviarInput input)
-        {
-            if (input is null || string.IsNullOrWhiteSpace(input.CampanaCodigo))
-                return new JsonResult(new { success = false, error = "Código de campaña requerido." }) { StatusCode = 400 };
-
-            var campanas = _configuration.GetSection("SendGrid:Campanas").Get<List<CampanaInfo>>() ?? new();
-            var campana = campanas.FirstOrDefault(c => c.Codigo == input.CampanaCodigo);
-
-            if (campana is null)
-                return new JsonResult(new { success = false, error = $"Campaña '{input.CampanaCodigo}' no encontrada en configuración." }) { StatusCode = 400 };
-
-            if (string.IsNullOrWhiteSpace(campana.TemplateId) || campana.TemplateId.Contains("AQUI"))
-                return new JsonResult(new { success = false, error = $"No hay template SendGrid configurado para la campaña '{campana.Nombre}'. Actualiza appsettings.json." }) { StatusCode = 400 };
-
-            // Usuarios ya receptores de ESTA campaña (identificados por FaseLog estable)
-            var yaRecibieron = await _db.EmailCampanaLogs
-                .Where(l => l.Fase == campana.FaseLog && l.Exito)
-                .Select(l => l.UserId)
-                .ToListAsync();
-            var yaRecibieronSet = new HashSet<Guid>(yaRecibieron);
-
-            // Aplicar criterio de público y excluir quienes ya la recibieron
-            var elegiblesQuery = _targeting
-                .AplicarCriterio(_userManager.Users.AsQueryable(), campana.Publico)
-                .Where(u => !yaRecibieronSet.Contains(u.Id));
-
-            var elegibles = await elegiblesQuery
-                .OrderBy(u => u.Email)
-                .Take(100)
-                .Select(u => new { u.Id, u.Email, u.UserName })
-                .ToListAsync();
-
-            if (elegibles.Count == 0)
-                return new JsonResult(new { success = true, procesados = 0, resultados = Array.Empty<object>(), mensaje = $"No hay usuarios elegibles para la campaña '{campana.Nombre}'." });
-
-            var resultados = new List<object>();
-
-            foreach (var u in elegibles)
-            {
-                var log = new EmailCampanaLog
-                {
-                    UserId = u.Id,
-                    Fase = campana.FaseLog,    // int estable; mapea al código de campaña sin tocar esquema
-                    TemplateId = campana.TemplateId,
-                    FechaEnvio = DateTime.UtcNow,
-                    Exito = false
-                };
-
-                try
-                {
-                    var user = await _userManager.FindByIdAsync(u.Id.ToString());
-                    var perfil = await _db.Perfil.AsNoTracking().FirstOrDefaultAsync(p => p.idUser == u.Id);
-
-                    var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-                    var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-                    var resetLink = Url.Page(
-                        "/Account/ResetPassword",
-                        pageHandler: null,
-                        values: new { area = "Identity", code = encodedToken, email = u.Email },
-                        protocol: Request.Scheme);
-
-                    var templateData = new
-                    {
-                        nombre = perfil?.Nombre ?? u.UserName,
-                        correo = u.Email,
-                        reset_link = resetLink,
-                        campana = campana.Codigo
-                    };
-
-                    var unsubGroupIdBatch = _configuration.GetValue<int?>("SendGrid:UnsubscribeGroupId");
-                    await _emailSender.SendDynamicTemplateAsync(
-                        u.Email,
-                        templateId: campana.TemplateId,
-                        templateData: templateData,
-                        categories: new[] { "EIIBD", $"Campana-{campana.Codigo}" },
-                        customArgs: new Dictionary<string, string>
-                        {
-                            // Keys exactas que F2 (webhook) leerá de cada evento
-                            ["userId"]    = u.Id.ToString(),
-                            ["campana"]   = campana.Codigo,
-                            ["fase"]      = campana.FaseLog.ToString(),
-                            ["envio_ts"]  = DateTime.UtcNow.ToString("O")
-                        },
-                        unsubscribeGroupId: unsubGroupIdBatch);
-
-                    log.Exito = true;
-                    resultados.Add(new { email = u.Email, exito = true, error = (string)null });
-                }
-                catch (Exception ex)
-                {
-                    log.Error = ex.Message.Length > 500 ? ex.Message[..500] : ex.Message;
-                    resultados.Add(new { email = u.Email, exito = false, error = log.Error });
-                    _logger.LogError(ex, "Error enviando campaña '{Campana}' a {Email}", campana.Codigo, u.Email);
-                }
-                finally
-                {
-                    _db.EmailCampanaLogs.Add(log);
-                }
-            }
-
-            await _db.SaveChangesAsync();
-
-            var exitosos = resultados.Count(r => (bool)r.GetType().GetProperty("exito").GetValue(r));
-            _logger.LogInformation("Campaña '{Campana}': {Exitosos}/{Total} enviados exitosamente.", campana.Codigo, exitosos, resultados.Count);
-
-            return new JsonResult(new
-            {
-                success = true,
-                procesados = resultados.Count,
-                exitosos,
-                fallidos = resultados.Count - exitosos,
-                resultados
-            });
-        }
-        public record EnviarCampanaGeneralInput(string TemplateId);
-
-        /// <summary>
-        /// Envía un batch de hasta 100 correos usando el template seleccionado a TodosConfirmados.
-        /// Tracking: Fase=10 (FaseLogGeneral) + TemplateId — así cada template es una campaña independiente.
-        /// FaseLog 10 no colisiona con reactivacion=1, bienvenida=2, recordatorio=3.
-        /// </summary>
-        [IgnoreAntiforgeryToken]
-        public async Task<IActionResult> OnPostEnviarCampanaGeneralAsync([FromBody] EnviarCampanaGeneralInput input)
-        {
-            if (input is null || string.IsNullOrWhiteSpace(input.TemplateId))
-                return new JsonResult(new { success = false, error = "Selecciona un template." }) { StatusCode = 400 };
-
-            var templates = _configuration.GetSection("SendGrid:Templates").Get<List<SendGridTemplateInfo>>() ?? new();
-            var template = templates.FirstOrDefault(t => t.Id == input.TemplateId);
-            if (template is null)
-                return new JsonResult(new { success = false, error = "Template no encontrado en configuración." }) { StatusCode = 400 };
-
-            // Excluir quienes ya recibieron exactamente ESTE template como campaña general
-            var yaRecibieron = await _db.EmailCampanaLogs
-                .Where(l => l.Fase == FaseLogGeneral && l.Exito && l.TemplateId == input.TemplateId)
-                .Select(l => l.UserId)
-                .ToListAsync();
-            var yaRecibieronSet = new HashSet<Guid>(yaRecibieron);
-
-            // Público: TodosConfirmados (nuevos + viejos, todos con EmailConfirmed=true)
-            var elegiblesQuery = _targeting
-                .AplicarCriterio(_userManager.Users.AsQueryable(), PublicoCampana.TodosConfirmados)
-                .Where(u => !yaRecibieronSet.Contains(u.Id));
-
-            var elegibles = await elegiblesQuery
-                .OrderBy(u => u.Email)
-                .Take(100)
-                .Select(u => new { u.Id, u.Email, u.UserName })
-                .ToListAsync();
-
-            if (elegibles.Count == 0)
-                return new JsonResult(new { success = true, procesados = 0, resultados = Array.Empty<object>(), mensaje = "No hay usuarios elegibles (todos ya recibieron este template)." });
-
-            var resultados = new List<object>();
-
-            foreach (var u in elegibles)
-            {
-                var log = new EmailCampanaLog
-                {
-                    UserId = u.Id,
-                    Fase = FaseLogGeneral,
-                    TemplateId = input.TemplateId,
-                    FechaEnvio = DateTime.UtcNow,
-                    Exito = false
-                };
-
-                try
-                {
-                    var user = await _userManager.FindByIdAsync(u.Id.ToString());
-                    var perfil = await _db.Perfil.AsNoTracking().FirstOrDefaultAsync(p => p.idUser == u.Id);
-
-                    var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-                    var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-                    var resetLink = Url.Page(
-                        "/Account/ResetPassword",
-                        pageHandler: null,
-                        values: new { area = "Identity", code = encodedToken, email = u.Email },
-                        protocol: Request.Scheme);
-
-                    var templateData = new
-                    {
-                        nombre = perfil?.Nombre ?? u.UserName,
-                        correo = u.Email,
-                        reset_link = resetLink
-                    };
-
-                    var unsubGroupIdGeneral = _configuration.GetValue<int?>("SendGrid:UnsubscribeGroupId");
-                    await _emailSender.SendDynamicTemplateAsync(
-                        u.Email,
-                        templateId: input.TemplateId,
-                        templateData: templateData,
-                        categories: new[] { "EIIBD", "Campana-General" },
-                        customArgs: new Dictionary<string, string>
-                        {
-                            // Keys exactas que F2 (webhook) leerá de cada evento
-                            ["userId"]     = u.Id.ToString(),
-                            ["campana"]    = "general",
-                            ["fase"]       = FaseLogGeneral.ToString(),
-                            ["templateId"] = input.TemplateId,
-                            ["envio_ts"]   = DateTime.UtcNow.ToString("O")
-                        },
-                        unsubscribeGroupId: unsubGroupIdGeneral);
-
-                    log.Exito = true;
-                    resultados.Add(new { email = u.Email, exito = true, error = (string)null });
-                }
-                catch (Exception ex)
-                {
-                    log.Error = ex.Message.Length > 500 ? ex.Message[..500] : ex.Message;
-                    resultados.Add(new { email = u.Email, exito = false, error = log.Error });
-                    _logger.LogError(ex, "Error en campaña general template '{Template}' a {Email}", input.TemplateId, u.Email);
-                }
-                finally
-                {
-                    _db.EmailCampanaLogs.Add(log);
-                }
-            }
-
-            await _db.SaveChangesAsync();
-
-            var exitosos = resultados.Count(r => (bool)r.GetType().GetProperty("exito").GetValue(r));
-            _logger.LogInformation("Campaña general template '{Template}': {Exitosos}/{Total} enviados.", input.TemplateId, exitosos, resultados.Count);
-
-            return new JsonResult(new
-            {
-                success = true,
-                procesados = resultados.Count,
-                exitosos,
-                fallidos = resultados.Count - exitosos,
-                resultados
-            });
-        }
-
-        /// <summary>
-        /// Borra TODOS los registros EmailCampanaLog con Fase == 1 (reactivación).
-        /// Solo afecta Fase=1. No toca Fase=0, 2, 3, ni 10 (campaña general).
-        /// Usa ExecuteDeleteAsync (EF Core 7+) para borrado masivo eficiente sin cargar entidades.
+        /// Borra todos los registros EmailCampanaLog con Fase=1.
+        /// No toca Fase=2, 3, ni 10. Usa ExecuteDeleteAsync (borrado masivo sin cargar entidades).
         /// </summary>
         [IgnoreAntiforgeryToken]
         public async Task<IActionResult> OnPostResetearReactivacionAsync()
@@ -427,7 +350,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                 .ExecuteDeleteAsync();
 
             _logger.LogWarning(
-                "[Campanas] Admin reseteó tracking de reactivación: {Eliminados} registros Fase=1 borrados.",
+                "[Campanas] Admin reseteó tracking Toque 1: {Eliminados} registros Fase=1 borrados.",
                 eliminados);
 
             return new JsonResult(new { success = true, eliminados });
@@ -439,12 +362,11 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
 
         /// <summary>
         /// Resumen de eventos por campaña: usuarios únicos por tipo de evento + tasas.
-        /// Ignora registros sin CampanaCodigo (reset individual, push, etc.).
-        /// Conteo: usuarios DISTINTOS por tipo (un usuario que abrió 3 veces cuenta 1).
+        /// Agrupa por CampanaCodigo del SendGridEventLog (campo "campana" en custom args).
+        /// Ignorausuarios sin CampanaCodigo (reset individual, push, etc.).
         /// </summary>
         public async Task<IActionResult> OnGetEstatusCampanasAsync()
         {
-            // Proyección mínima — solo 3 columnas por fila, independiente del volumen de RawJson
             var rawData = await _db.SendGridEventLogs
                 .Where(l => l.CampanaCodigo != null && l.UserId != null)
                 .Select(l => new { l.CampanaCodigo, l.EventType, l.UserId })
@@ -464,7 +386,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
 
                     return new
                     {
-                        campana    = g.Key,
+                        campana       = g.Key,
                         entregados,
                         abiertos,
                         clicks,
@@ -473,10 +395,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                         spam,
                         bajas,
                         totalEventos  = g.Count(),
-                        // Tasas sobre entregados (usuarios únicos)
-                        tasaApertura  = entregados > 0 ? Math.Round(abiertos  * 100.0 / entregados, 1) : 0,
-                        tasaClick     = entregados > 0 ? Math.Round(clicks    * 100.0 / entregados, 1) : 0,
-                        tasaRebote    = entregados > 0 ? Math.Round(rebotes   * 100.0 / entregados, 1) : 0
+                        tasaApertura  = entregados > 0 ? Math.Round(abiertos * 100.0 / entregados, 1) : 0,
+                        tasaClick     = entregados > 0 ? Math.Round(clicks   * 100.0 / entregados, 1) : 0,
+                        tasaRebote    = entregados > 0 ? Math.Round(rebotes  * 100.0 / entregados, 1) : 0
                     };
                 })
                 .OrderBy(r => r.campana)
@@ -486,17 +407,13 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
         }
 
         /// <summary>
-        /// Detalle por usuario de una campaña.
-        /// Approach de paginación: Take(200) + filtro opcional por tipo de evento.
-        /// 200 cubre el batch típico; el admin usa el filtro para reducir el set.
-        /// Incluye nombre del usuario (join con Perfil).
+        /// Detalle por usuario de una campaña. Take(200) + filtro opcional por tipo de evento.
         /// </summary>
         public async Task<IActionResult> OnGetEstatusDetalleAsync(string campana, string? filtro = null)
         {
             if (string.IsNullOrWhiteSpace(campana))
                 return new JsonResult(new { error = "campana requerida" }) { StatusCode = 400 };
 
-            // Todos los eventos de esta campaña con sus usuarios
             var eventos = await _db.SendGridEventLogs
                 .Where(l => l.CampanaCodigo == campana && l.UserId != null)
                 .Select(l => new { l.UserId, l.EventType, l.Email, l.Timestamp })
@@ -505,24 +422,22 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
             if (!eventos.Any())
                 return new JsonResult(new { usuarios = Array.Empty<object>() });
 
-            // Agrupar por usuario → flags booleanos
             var porUsuario = eventos
                 .GroupBy(e => e.UserId)
                 .Select(g => new
                 {
-                    userId    = g.Key!,
-                    email     = g.First().Email,
-                    entregado = g.Any(e => e.EventType == "delivered"),
-                    abierto   = g.Any(e => e.EventType == "open"),
-                    click     = g.Any(e => e.EventType == "click"),
-                    rebote    = g.Any(e => e.EventType == "bounce"),
-                    spam      = g.Any(e => e.EventType == "spamreport"),
-                    baja      = g.Any(e => e.EventType is "unsubscribe" or "group_unsubscribe"),
-                    dropped   = g.Any(e => e.EventType == "dropped"),
+                    userId       = g.Key!,
+                    email        = g.First().Email,
+                    entregado    = g.Any(e => e.EventType == "delivered"),
+                    abierto      = g.Any(e => e.EventType == "open"),
+                    click        = g.Any(e => e.EventType == "click"),
+                    rebote       = g.Any(e => e.EventType == "bounce"),
+                    spam         = g.Any(e => e.EventType == "spamreport"),
+                    baja         = g.Any(e => e.EventType is "unsubscribe" or "group_unsubscribe"),
+                    dropped      = g.Any(e => e.EventType == "dropped"),
                     ultimoEvento = g.Max(e => e.Timestamp)
                 });
 
-            // Filtro por tipo de evento
             if (!string.IsNullOrWhiteSpace(filtro))
             {
                 porUsuario = filtro switch
@@ -544,7 +459,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                 .Take(200)
                 .ToList();
 
-            // Resolver nombres desde Perfil (un solo query adicional)
             var userGuids = lista
                 .Select(u => { Guid.TryParse(u.userId, out var g); return g; })
                 .Where(g => g != Guid.Empty)
@@ -560,7 +474,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
             {
                 u.userId,
                 u.email,
-                nombre        = nombres.TryGetValue(u.userId, out var n) ? n : null,
+                nombre       = nombres.TryGetValue(u.userId, out var n) ? n : null,
                 u.entregado,
                 u.abierto,
                 u.click,
@@ -568,72 +482,53 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                 u.spam,
                 u.baja,
                 u.dropped,
-                ultimoEvento  = u.ultimoEvento.ToString("yyyy-MM-dd HH:mm")
+                ultimoEvento = u.ultimoEvento.ToString("yyyy-MM-dd HH:mm")
             }).ToList();
 
             return new JsonResult(new { campana, filtro, total = resultado.Count, usuarios = resultado });
         }
 
         // ──────────────────────────────────────────────────────────────────────
-        // DIAGNÓSTICO DE CONFIGURACIÓN SENDGRID
+        // DIAGNÓSTICO SENDGRID
         // ──────────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Devuelve el estado de la configuración de SendGrid sin exponer secretos.
-        /// apiKeyPreview = primeros 6 chars + "..." para confirmar qué key está cargada.
-        /// La API key completa y la WebhookPublicKey nunca se devuelven al cliente.
+        /// Devuelve estado de configuración SendGrid sin exponer secretos.
+        /// apiKeyPreview = primeros 6 chars + "..." para confirmar qué key está activa.
         /// </summary>
         public async Task<IActionResult> OnGetDiagnosticoSendGridAsync()
         {
-            var apiKey = _configuration["SendGrid:ApiKey"] ?? string.Empty;
+            var apiKey    = _configuration["SendGrid:ApiKey"] ?? string.Empty;
             var webhookKey = _configuration["SendGrid:WebhookPublicKey"] ?? string.Empty;
 
-            var templates = _configuration.GetSection("SendGrid:Templates")
-                .Get<List<SendGridTemplateInfo>>() ?? new();
-
-            var campanas = _configuration.GetSection("SendGrid:Campanas")
-                .Get<List<CampanaInfo>>() ?? new();
-
-            var defaultCats = _configuration.GetSection("SendGrid:DefaultCategories")
-                .Get<List<string>>() ?? new();
+            var templates   = _configuration.GetSection("SendGrid:Templates").Get<List<SendGridTemplateInfo>>() ?? new();
+            var campanas    = _configuration.GetSection("SendGrid:Campanas").Get<List<CampanaInfo>>() ?? new();
+            var defaultCats = _configuration.GetSection("SendGrid:DefaultCategories").Get<List<string>>() ?? new();
 
             static bool IdValido(string? id) =>
                 !string.IsNullOrWhiteSpace(id) && id.StartsWith("d-") && !id.Contains("AQUI") && id.Length > 10;
 
-            var templatesInfo = templates.Select(t => new
+            var templatesInfo = templates.Select(t => new { t.Nombre, t.Fase, idValido = IdValido(t.Id) }).ToList();
+            var campanasInfo  = campanas.Select(c => new
             {
-                t.Nombre,
-                t.Fase,
-                idValido = IdValido(t.Id)
+                c.Codigo, c.Nombre, Publico = c.Publico.ToString(), c.FaseLog, idValido = IdValido(c.TemplateId)
             }).ToList();
 
-            var campanasInfo = campanas.Select(c => new
-            {
-                c.Codigo,
-                c.Nombre,
-                Publico = c.Publico.ToString(),
-                c.FaseLog,
-                idValido = IdValido(c.TemplateId)
-            }).ToList();
+            var templatesConProblema = templatesInfo.Count(t => !t.idValido) + campanasInfo.Count(c => !c.idValido);
 
-            var templatesConProblema = templatesInfo.Count(t => !t.idValido) +
-                                       campanasInfo.Count(c => !c.idValido);
-
-            // Estadísticas de contexto (solo conteos — sin exponer datos de usuarios)
             var totalSuscriptoresEmail = await _userManager.Users
                 .CountAsync(u => u.EmailConfirmed && u.Email != null);
-
             var eventosWebhookRecibidos = await _db.SendGridEventLogs.CountAsync();
 
             return new JsonResult(new
             {
-                apiKeyPresente = !string.IsNullOrWhiteSpace(apiKey),
-                apiKeyPreview = apiKey.Length >= 6 ? apiKey[..6] + "..." : (apiKey.Length > 0 ? "***" : "(vacía)"),
-                fromEmail = _configuration["SendGrid:FromEmail"] ?? "(no configurado)",
-                fromName = _configuration["SendGrid:FromName"] ?? "(no configurado)",
-                defaultCategories = defaultCats,
-                templates = templatesInfo,
-                campanas = campanasInfo,
+                apiKeyPresente           = !string.IsNullOrWhiteSpace(apiKey),
+                apiKeyPreview            = apiKey.Length >= 6 ? apiKey[..6] + "..." : (apiKey.Length > 0 ? "***" : "(vacía)"),
+                fromEmail                = _configuration["SendGrid:FromEmail"] ?? "(no configurado)",
+                fromName                 = _configuration["SendGrid:FromName"] ?? "(no configurado)",
+                defaultCategories        = defaultCats,
+                templates                = templatesInfo,
+                campanas                 = campanasInfo,
                 templatesConProblema,
                 webhookPublicKeyPresente = !string.IsNullOrWhiteSpace(webhookKey),
                 totalSuscriptoresEmail,

@@ -14,98 +14,87 @@
 
     <div class="row g-4">
 
-        <!-- ═══════════════════════════════════════════════════════ -->
-        <!-- ACCIÓN 1 — Reactivación de usuarios viejos             -->
-        <!-- ═══════════════════════════════════════════════════════ -->
-        <div class="col-lg-6">
-            <div class="card border-0 shadow-sm h-100">
+        <!-- ══════════════════════════════════════════════════════════════════ -->
+        <!-- ENVIAR CAMPAÑA — combo audiencia + template libre                 -->
+        <!-- ══════════════════════════════════════════════════════════════════ -->
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
                 <div class="card-header py-3" style="background:linear-gradient(135deg,#1a7abf 0%,#0d4f7c 100%);">
                     <h5 class="mb-0 text-white fw-semibold">
-                        <i class="bi bi-arrow-repeat me-2"></i>Reactivación de usuarios viejos
+                        <i class="bi bi-send me-2"></i>Enviar campaña
                     </h5>
                 </div>
                 <div class="card-body p-4">
-                    <p class="text-muted mb-3" style="font-size:.9rem;">
-                        Dirige <strong>solo a usuarios migrados</strong> (hash len=68, sistema anterior) que aún no activaron su acceso.
-                        Los usuarios que ya cambiaron su contraseña quedan excluidos automáticamente.
-                    </p>
-                    <div class="d-flex align-items-center gap-3 mb-4 p-3 rounded" style="background:#f0f7ff;border:1px solid #c8e1f7;">
-                        <i class="bi bi-people-fill text-primary fs-4"></i>
-                        <div>
-                            <div class="fw-semibold text-primary" style="font-size:1.3rem;" id="reactivacion-elegibles-count">—</div>
-                            <div class="text-muted" style="font-size:.8rem;">elegibles pendientes (UsuariosViejos)</div>
-                        </div>
-                    </div>
-                    <button id="btnAbrirCampana" class="btn btn-primary w-100">
-                        <i class="bi bi-envelope-paper me-2"></i>Gestionar reactivación
-                    </button>
-                    <div class="mt-3 text-end">
-                        <button id="btnResetearReactivacion" class="btn btn-sm btn-outline-danger" title="Borra el tracking de envíos para reabrir la lista de elegibles">
-                            <i class="bi bi-arrow-counterclockwise me-1"></i>Resetear envíos
-                        </button>
-                    </div>
-                    <div id="resetReactivacionStatus" class="mt-2" style="font-size:.83rem;"></div>
-                </div>
-            </div>
-        </div>
 
-        <!-- ═══════════════════════════════════════════════════════ -->
-        <!-- ACCIÓN 2 — Enviar campaña a todos los confirmados      -->
-        <!-- ═══════════════════════════════════════════════════════ -->
-        <div class="col-lg-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header py-3" style="background:linear-gradient(135deg,#2d8a4e 0%,#1a5c32 100%);">
-                    <h5 class="mb-0 text-white fw-semibold">
-                        <i class="bi bi-envelope-paper me-2"></i>Enviar campaña
-                    </h5>
-                </div>
-                <div class="card-body p-4">
-                    <p class="text-muted mb-3" style="font-size:.9rem;">
-                        Envía el template seleccionado a <strong>todos los usuarios confirmados</strong>
-                        (TodosConfirmados). El sistema excluye automáticamente a quienes ya recibieron este template.
-                    </p>
-                    <div class="d-flex align-items-center gap-3 mb-3 p-3 rounded" style="background:#f0fff4;border:1px solid #b8e8c8;">
-                        <i class="bi bi-people text-success fs-4"></i>
-                        <div>
-                            <div class="fw-semibold text-success" style="font-size:1.3rem;" id="general-total-count">—</div>
-                            <div class="text-muted" style="font-size:.8rem;">usuarios confirmados total</div>
+                    <!-- Selectores: Audiencia + Template + Elegibles -->
+                    <div class="row g-3 mb-3 align-items-end">
+                        <div class="col-md-5">
+                            <label class="form-label fw-semibold" style="font-size:.85rem;">Audiencia</label>
+                            <select id="audienciaSelect" class="form-select form-select-sm">
+                                <option value="1">Toque 1 — Reactivación (viejos sin contactar)</option>
+                                <option value="2">Toque 2 — Activación (recibieron T1, no reactivaron)</option>
+                                <option value="3">Toque 3 — Recordatorio (recibieron T2, no reactivaron)</option>
+                                <option value="4">Todos los confirmados</option>
+                            </select>
+                            <div class="form-text" id="audienciaHint" style="font-size:.77rem;"></div>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label fw-semibold" style="font-size:.85rem;">Template SendGrid</label>
+                            <select id="campanaTemplateSelect" class="form-select form-select-sm">
+                                <option value="">Cargando templates...</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="p-2 rounded border text-center" style="background:#f0f7ff;border-color:#c8e1f7!important;min-height:58px;display:flex;flex-direction:column;justify-content:center;">
+                                <div class="fw-bold text-primary" style="font-size:1.4rem;line-height:1;" id="elegiblesCount">
+                                    <span class="spinner-border spinner-border-sm"></span>
+                                </div>
+                                <div class="text-muted mt-1" style="font-size:.73rem;">elegibles</div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold" style="font-size:.85rem;">Template SendGrid</label>
-                        <select id="generalTemplateSelect" class="form-select form-select-sm">
-                            <option value="">Cargando templates...</option>
-                        </select>
-                    </div>
-
-                    <!-- Prueba -->
+                    <!-- Prueba previa -->
                     <div class="mb-3 p-2 rounded" style="background:#f8f9fa;border:1px solid #dee2e6;font-size:.85rem;">
-                        <span class="text-muted fw-semibold me-2">Prueba:</span>
-                        <div class="d-flex gap-2 mt-1 flex-wrap">
-                            <input type="email" id="generalCorreoPrueba" class="form-control form-control-sm" placeholder="correo@prueba.com" style="max-width:200px;" />
-                            <button type="button" id="btnEnviarPruebaGeneral" class="btn btn-sm btn-outline-secondary text-nowrap">
+                        <span class="text-muted fw-semibold">Prueba previa:</span>
+                        <div class="d-flex gap-2 mt-1 flex-wrap align-items-center">
+                            <input type="email" id="campanaCorreoPrueba" class="form-control form-control-sm"
+                                   placeholder="correo@prueba.com" style="max-width:200px;" />
+                            <button type="button" id="btnEnviarPrueba" class="btn btn-sm btn-outline-secondary text-nowrap">
                                 <i class="bi bi-envelope-check me-1"></i>Probar
                             </button>
-                            <span id="generalPruebaStatus" style="font-size:.82rem;align-self:center;"></span>
+                            <span id="pruebaSendStatus" style="font-size:.82rem;"></span>
                         </div>
                     </div>
 
+                    <!-- Avisos y estado -->
+                    <div id="campanaAviso" class="alert alert-warning d-none mb-3 py-2" style="font-size:.85rem;">
+                        <i class="bi bi-exclamation-triangle me-1"></i><span id="campanaAvisoText"></span>
+                    </div>
+                    <div id="campanaStatus" class="alert d-none mb-3" role="alert" style="font-size:.88rem;"></div>
+
                     <!-- Log de resultados -->
-                    <div id="generalLogContainer" class="d-none mb-3">
+                    <div id="campanaLogContainer" class="d-none mb-3">
                         <div class="fw-semibold mb-1" style="font-size:.82rem;color:#555;">RESULTADO DEL BATCH</div>
-                        <div id="generalLog" class="border rounded p-2" style="max-height:160px;overflow-y:auto;background:#f8f9ff;font-size:.8rem;font-family:monospace;"></div>
-                        <div id="generalResumenBatch" class="mt-1 fw-semibold" style="font-size:.85rem;"></div>
+                        <div id="campanaLog" class="border rounded p-2"
+                             style="max-height:180px;overflow-y:auto;background:#f8f9ff;font-size:.8rem;font-family:monospace;"></div>
+                        <div id="campanaResumenBatch" class="mt-1 fw-semibold" style="font-size:.85rem;"></div>
                     </div>
 
-                    <div id="generalStatus" class="alert d-none mb-3" role="alert" style="font-size:.88rem;"></div>
-                    <div id="generalTemplateAviso" class="alert alert-warning d-none mb-3 py-2" style="font-size:.85rem;">
-                        <i class="bi bi-exclamation-triangle me-1"></i><span id="generalTemplateAvisoText"></span>
+                    <!-- Botones -->
+                    <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                        <button id="btnEnviarAudiencia" class="btn btn-primary">
+                            <i class="bi bi-send me-2"></i>Enviar batch de 100
+                        </button>
+                        <div class="d-flex align-items-center gap-2">
+                            <button id="btnResetearReactivacion" class="btn btn-sm btn-outline-danger"
+                                    title="Borra el tracking de Toque 1 (Fase=1) para reabrir la lista de elegibles">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i>Resetear envíos Toque 1
+                            </button>
+                            <span id="resetStatus" style="font-size:.82rem;"></span>
+                        </div>
                     </div>
 
-                    <button id="btnEnviarCampanaGeneral" class="btn btn-success w-100">
-                        <i class="bi bi-send me-2"></i>Enviar batch de 100
-                    </button>
                 </div>
             </div>
         </div>
@@ -156,14 +145,12 @@
             </span>
         </div>
 
-        <!-- Tabla resumen por campaña -->
         <div id="estatusResumenWrap">
             <div class="text-center py-4 text-muted" style="font-size:.9rem;">
                 <span class="spinner-border spinner-border-sm me-2"></span>Cargando estatus...
             </div>
         </div>
 
-        <!-- Panel de detalle por usuario (se llena al hacer clic en una campaña) -->
         <div id="estatusDetalleWrap" class="d-none mt-4">
             <div class="d-flex align-items-center mb-2 gap-2 flex-wrap">
                 <span class="fw-semibold" id="detalleTitle" style="font-size:.95rem;"></span>
@@ -186,526 +173,234 @@
     </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════════ -->
-<!-- Modal Reactivación (simplificado — solo acción 1)         -->
-<!-- ══════════════════════════════════════════════════════════ -->
-<div class="modal fade" id="modalCampana" tabindex="-1" aria-labelledby="modalCampanaLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content" style="border-radius:14px;border:none;box-shadow:0 4px 32px rgba(70,80,120,0.13);">
-            <div class="modal-header" style="background:linear-gradient(135deg,#1a7abf 0%,#0d4f7c 100%);border-radius:14px 14px 0 0;">
-                <h5 class="modal-title text-white fw-semibold" id="modalCampanaLabel">
-                    <i class="bi bi-arrow-repeat me-2"></i>Reactivación — usuarios viejos
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-            <div class="modal-body p-4">
-
-                <!-- Resumen de reactivación -->
-                <div class="mb-4">
-                    <h6 class="fw-semibold mb-3 text-muted" style="font-size:.85rem;letter-spacing:.05em;">ESTADO DE LA CAMPAÑA (USUARIOS VIEJOS)</h6>
-                    <div id="campanaResumen" class="text-center py-3">
-                        <span class="spinner-border spinner-border-sm text-secondary"></span>
-                        <span class="text-muted ms-2" style="font-size:.85rem;">Cargando...</span>
-                    </div>
-                </div>
-
-                <hr class="my-3" />
-
-                <div class="alert alert-info py-2 mb-3" style="font-size:.84rem;">
-                    <i class="bi bi-info-circle me-1"></i>
-                    Se notifica solo a <strong>usuarios migrados</strong> que aún no activaron su acceso.
-                    Quedan excluidos los usuarios nuevos y los viejos que ya cambiaron su contraseña.
-                    <br><span style="font-size:.8rem;opacity:.85;">
-                        <i class="bi bi-arrow-counterclockwise me-1"></i>
-                        Al resetear: solo <strong>Ya enviados</strong> vuelve a 0 y <strong>Elegibles</strong> sube al total de viejos.
-                        Los números del grupo "Estado de usuarios" describen quiénes son los usuarios — no cambian.
-                    </span>
-                </div>
-
-                <!-- Aviso de template no configurado -->
-                <div id="campanaTemplateAviso" class="alert alert-warning d-none py-2" style="font-size:.85rem;">
-                    <i class="bi bi-exclamation-triangle me-1"></i>
-                    <span id="campanaTemplateAvisoText"></span>
-                </div>
-
-                <!-- Log de resultados -->
-                <div id="campanaLogContainer" class="d-none mt-3">
-                    <h6 class="fw-semibold mb-2 text-muted" style="font-size:.85rem;letter-spacing:.05em;">RESULTADO DEL BATCH</h6>
-                    <div id="campanaLog" class="border rounded p-2" style="max-height:200px;overflow-y:auto;background:#f8f9ff;font-size:.82rem;font-family:monospace;"></div>
-                    <div id="campanaResumenBatch" class="mt-2 fw-semibold" style="font-size:.88rem;"></div>
-                </div>
-
-                <div id="campanaStatus" class="alert d-none mt-3 mb-0" role="alert"></div>
-            </div>
-            <div class="modal-footer flex-column align-items-stretch" style="border-top:1px solid #eee;gap:.5rem;">
-                <div class="d-flex align-items-center flex-wrap gap-2 w-100" style="background:#f8fff8;border:1px solid #c3e6cb;border-radius:.375rem;padding:.5rem .75rem;">
-                    <span class="text-muted fw-semibold" style="font-size:.8rem;white-space:nowrap;">Prueba:</span>
-                    <select id="campanaTemplatePrueba" class="form-select form-select-sm" style="max-width:220px;">
-                        <option value="">Cargando templates...</option>
-                    </select>
-                    <input type="email" id="campanaCorreoPrueba" class="form-control form-control-sm" placeholder="correo@prueba.com" style="max-width:230px;" />
-                    <button type="button" id="btnEnviarPrueba" class="btn btn-sm btn-outline-success text-nowrap">
-                        <i class="bi bi-envelope-check me-1"></i>Enviar correo de prueba
-                    </button>
-                    <div id="campanaPruebaStatus" style="font-size:.82rem;"></div>
-                </div>
-                <div class="d-flex justify-content-end gap-2 w-100">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <button type="button" id="btnEnviarBatch" class="btn btn-primary">
-                        <i class="bi bi-send me-1"></i>Enviar batch de 100
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
 @section Scripts {
     <script>
-        (function () {
-            var csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+    (function () {
+        var csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+        var basePath  = window.location.pathname;
 
-            // ──────────────────────────────────────────────────────────────
-            // ACCIÓN 1 — Reactivación
-            // ──────────────────────────────────────────────────────────────
+        // ── Nombres de audiencias para mensajes de confirmación ──
+        var audienciaLabels = {
+            '1': 'Toque 1 — Reactivación (viejos sin contactar)',
+            '2': 'Toque 2 — Activación (recibieron T1, no reactivaron)',
+            '3': 'Toque 3 — Recordatorio (recibieron T2, no reactivaron)',
+            '4': 'Todos los confirmados'
+        };
+        var audienciaHints = {
+            '1': 'Viejos sin ningún contacto previo. FaseLog=1.',
+            '2': 'Viejos que recibieron T1 y aún no reactivaron (hash len=68). FaseLog=2.',
+            '3': 'Viejos que recibieron T2 y aún no reactivaron. FaseLog=3.',
+            '4': 'Todos los usuarios con email confirmado. FaseLog=10 + TemplateId.'
+        };
 
-            function renderBatchLog(containerId, logId, resumenId, data) {
-                var logHtml = '';
-                data.resultados.forEach(function (r) {
-                    var icon = r.exito
-                        ? '<i class="bi bi-check-circle-fill text-success me-1"></i>'
-                        : '<i class="bi bi-x-circle-fill text-danger me-1"></i>';
-                    var emailTxt = document.createElement('span');
-                    emailTxt.textContent = r.email;
-                    var err = r.error ? ' <span class="text-danger">— ' + r.error + '</span>' : '';
-                    logHtml += '<div>' + icon + emailTxt.textContent + err + '</div>';
-                });
-                document.getElementById(logId).innerHTML = logHtml;
-                document.getElementById(resumenId).innerHTML =
-                    '<span class="text-success"><i class="bi bi-check-circle me-1"></i>' + data.exitosos + ' enviados</span>' +
-                    (data.fallidos > 0 ? ' &nbsp; <span class="text-danger"><i class="bi bi-x-circle me-1"></i>' + data.fallidos + ' fallidos</span>' : '');
-                document.getElementById(containerId).classList.remove('d-none');
-            }
+        var templateLabels = {}; // id → nombre
 
-            function cargarCampanaResumen() {
-                document.getElementById('campanaResumen').innerHTML =
-                    '<span class="spinner-border spinner-border-sm text-secondary"></span>' +
-                    '<span class="text-muted ms-2" style="font-size:.85rem;">Cargando...</span>';
-
-                fetch(window.location.pathname + '?handler=CampanaResumen')
-                    .then(function (r) { return r.json(); })
-                    .then(function (d) {
-                        // Buscar datos de la campaña "reactivacion"
-                        var reac = d.campanas && d.campanas.find(function (c) { return c.codigo === 'reactivacion'; });
-                        var elegibles = reac ? reac.elegibles : '—';
-                        var recibieron = reac ? reac.recibieron : '—';
-                        var totalPublico = reac ? reac.totalPublico : '—';
-
-                        // Actualizar badge del card exterior
-                        document.getElementById('reactivacion-elegibles-count').textContent = elegibles;
-
-                        // Grupo 1: Estado de usuarios — fijo, no cambia con reset ni envíos
-                        var html =
-                            '<div class="mb-1 mt-1" style="font-size:.7rem;font-weight:700;letter-spacing:.06em;color:#888;text-transform:uppercase;">' +
-                            '<i class="bi bi-person-fill me-1"></i>Estado de usuarios &nbsp;·&nbsp; no cambia al resetear envíos' +
-                            '</div>' +
-                            '<div class="row text-center g-2 mb-3">' +
-                            '<div class="col"><div class="border rounded p-2" style="background:#f8f9ff;">' +
-                            '<div class="fw-bold text-primary" style="font-size:1.3rem;">' + d.totalUsuarios + '</div>' +
-                            '<div class="text-muted" style="font-size:.75rem;">Total</div></div></div>' +
-                            '<div class="col"><div class="border rounded p-2" style="background:#f0f7ff;">' +
-                            '<div class="fw-bold text-primary" style="font-size:1.3rem;">' + totalPublico + '</div>' +
-                            '<div class="text-muted" style="font-size:.75rem;">Usuarios viejos</div></div></div>' +
-                            '</div>' +
-                            // Grupo 2: Progreso de la campaña — avanza con envíos, se reinicia al resetear
-                            '<div class="mb-1" style="font-size:.7rem;font-weight:700;letter-spacing:.06em;color:#888;text-transform:uppercase;">' +
-                            '<i class="bi bi-graph-up me-1"></i>Progreso de la campaña &nbsp;·&nbsp; avanza con envíos, vuelve a cero al resetear' +
-                            '</div>' +
-                            '<div class="row text-center g-2">' +
-                            '<div class="col"><div class="border rounded p-2" style="background:#fff8f0;">' +
-                            '<div class="fw-bold text-warning" style="font-size:1.3rem;">' + recibieron + '</div>' +
-                            '<div class="text-muted" style="font-size:.75rem;">Ya enviados</div></div></div>' +
-                            '<div class="col"><div class="border rounded p-2" style="background:#f0fff4;border:1.5px solid #b8e8c8 !important;">' +
-                            '<div class="fw-bold text-success" style="font-size:1.3rem;">' + elegibles + '</div>' +
-                            '<div class="text-muted" style="font-size:.75rem;font-weight:600;">Elegibles</div></div></div>' +
-                            '</div>';
-                        document.getElementById('campanaResumen').innerHTML = html;
-                    })
-                    .catch(function () {
-                        document.getElementById('campanaResumen').innerHTML =
-                            '<span class="text-danger" style="font-size:.85rem;">Error al cargar resumen.</span>';
+        // ── Cargar templates ──
+        var templateSel = document.getElementById('campanaTemplateSelect');
+        fetch(basePath + '?handler=TemplatesCorreo')
+            .then(function (r) { return r.json(); })
+            .then(function (templates) {
+                var opts = '<option value="">— Selecciona template —</option>';
+                if (templates && templates.length) {
+                    templates.forEach(function (t) {
+                        var label = t.nombre + (t.fase > 0 ? ' (Fase ' + t.fase + ')' : '');
+                        opts += '<option value="' + t.id + '">' + label + '</option>';
+                        templateLabels[t.id] = t.nombre;
                     });
-            }
-
-            function abrirCampana() {
-                document.getElementById('campanaLogContainer').className = 'd-none mt-3';
-                document.getElementById('campanaLog').innerHTML = '';
-                document.getElementById('campanaResumenBatch').innerHTML = '';
-                document.getElementById('campanaStatus').className = 'alert d-none mt-3 mb-0';
-                document.getElementById('campanaTemplateAviso').className = 'alert alert-warning d-none py-2';
-                document.getElementById('btnEnviarBatch').disabled = false;
-                document.getElementById('btnEnviarBatch').innerHTML = '<i class="bi bi-send me-1"></i>Enviar batch de 100';
-
-                // Cargar templates para la prueba
-                var sel = document.getElementById('campanaTemplatePrueba');
-                sel.innerHTML = '<option value="">Cargando...</option>';
-                sel.disabled = true;
-                fetch(window.location.pathname + '?handler=TemplatesCorreo')
-                    .then(function (r) { return r.json(); })
-                    .then(function (templates) {
-                        var opts = '<option value="">-- Selecciona template --</option>';
-                        if (templates && templates.length) {
-                            templates.forEach(function (t) {
-                                var label = t.nombre + (t.fase > 0 ? ' (Fase ' + t.fase + ')' : '');
-                                opts += '<option value="' + t.id + '">' + label + '</option>';
-                            });
-                        }
-                        sel.innerHTML = opts;
-                        sel.disabled = false;
-                    })
-                    .catch(function () { sel.innerHTML = '<option value="">Error al cargar</option>'; sel.disabled = false; });
-
-                cargarCampanaResumen();
-                new bootstrap.Modal(document.getElementById('modalCampana')).show();
-            }
-
-            document.getElementById('btnAbrirCampana').addEventListener('click', abrirCampana);
-
-            // Batch reactivación — siempre usa código "reactivacion" (UsuariosViejos)
-            document.getElementById('btnEnviarBatch').addEventListener('click', function () {
-                var btn = this;
-                btn.disabled = true;
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando...';
-                document.getElementById('campanaStatus').className = 'alert d-none mt-3 mb-0';
-                document.getElementById('campanaTemplateAviso').className = 'alert alert-warning d-none py-2';
-                document.getElementById('campanaLogContainer').className = 'd-none mt-3';
-                document.getElementById('campanaLog').innerHTML = '';
-
-                fetch(window.location.pathname + '?handler=CampanaEnviarBatch', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': csrfToken },
-                    body: JSON.stringify({ campanaCodigo: 'reactivacion' })
-                })
-                    .then(function (r) { return r.json(); })
-                    .then(function (data) {
-                        btn.disabled = false;
-                        btn.innerHTML = '<i class="bi bi-send me-1"></i>Enviar batch de 100';
-                        if (!data.success) {
-                            document.getElementById('campanaTemplateAviso').classList.remove('d-none');
-                            document.getElementById('campanaTemplateAvisoText').textContent = data.error || 'Error desconocido.';
-                            return;
-                        }
-                        if (data.procesados === 0) {
-                            var st = document.getElementById('campanaStatus');
-                            st.className = 'alert alert-info mt-3 mb-0';
-                            st.innerHTML = '<i class="bi bi-info-circle me-1"></i>' + (data.mensaje || 'No hay usuarios elegibles.');
-                            cargarCampanaResumen();
-                            return;
-                        }
-                        renderBatchLog('campanaLogContainer', 'campanaLog', 'campanaResumenBatch', data);
-                        cargarCampanaResumen();
-                    })
-                    .catch(function () {
-                        btn.disabled = false;
-                        btn.innerHTML = '<i class="bi bi-send me-1"></i>Enviar batch de 100';
-                        var st = document.getElementById('campanaStatus');
-                        st.className = 'alert alert-danger mt-3 mb-0';
-                        st.innerHTML = '<i class="bi bi-exclamation-triangle me-1"></i>Error de conexión. Intenta de nuevo.';
-                    });
-            });
-
-            // Prueba reactivación
-            document.getElementById('btnEnviarPrueba').addEventListener('click', function () {
-                var emailInput = document.getElementById('campanaCorreoPrueba');
-                var email = emailInput.value.trim();
-                var templateId = document.getElementById('campanaTemplatePrueba').value;
-                var statusEl = document.getElementById('campanaPruebaStatus');
-                var btn = this;
-                if (!templateId) { statusEl.innerHTML = '<span class="text-warning">Selecciona un template.</span>'; return; }
-                if (!emailInput.checkValidity() || !email) { statusEl.innerHTML = '<span class="text-danger">Ingresa un correo válido.</span>'; return; }
-                btn.disabled = true;
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando...';
-                statusEl.innerHTML = '';
-                fetch(window.location.pathname + '?handler=CampanaEnviarPrueba', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': csrfToken },
-                    body: JSON.stringify({ email: email, templateId: templateId })
-                })
-                    .then(function (r) { return r.json(); })
-                    .then(function (data) {
-                        btn.disabled = false;
-                        btn.innerHTML = '<i class="bi bi-envelope-check me-1"></i>Enviar correo de prueba';
-                        statusEl.innerHTML = data.success
-                            ? '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Enviado</span>'
-                            : '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>' + (data.error || 'Error') + '</span>';
-                    })
-                    .catch(function () {
-                        btn.disabled = false;
-                        btn.innerHTML = '<i class="bi bi-envelope-check me-1"></i>Enviar correo de prueba';
-                        statusEl.innerHTML = '<span class="text-danger">Error de conexión.</span>';
-                    });
-            });
-
-            // Resetear tracking de reactivación (borra Fase=1, solo Fase=1)
-            document.getElementById('btnResetearReactivacion').addEventListener('click', function () {
-                var statusEl = document.getElementById('resetReactivacionStatus');
-                var btn = this;
-
-                // Obtener conteo actual para mostrarlo en la confirmación
-                var elegibles = document.getElementById('reactivacion-elegibles-count').textContent;
-                var msg = '⚠️ Esto borrará el registro de TODOS los envíos de reactivación.\n\n' +
-                    'Los usuarios volverán a aparecer como elegibles y podrás reenviarles.\n' +
-                    'Esta acción no se puede deshacer.\n\n' +
-                    '¿Continuar?';
-
-                if (!confirm(msg)) return;
-
-                // Segunda confirmación explícita
-                if (!confirm('Confirmación final: ¿Borrar todo el historial de reactivación (Fase=1)?')) return;
-
-                btn.disabled = true;
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Reseteando...';
-                statusEl.innerHTML = '';
-
-                fetch(window.location.pathname + '?handler=ResetearReactivacion', {
-                    method: 'POST',
-                    headers: { 'RequestVerificationToken': csrfToken }
-                })
-                    .then(function (r) { return r.json(); })
-                    .then(function (data) {
-                        btn.disabled = false;
-                        btn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i>Resetear envíos';
-                        if (data.success) {
-                            statusEl.innerHTML = '<span class="text-success"><i class="bi bi-check-circle me-1"></i>' +
-                                'Se resetearon ' + data.eliminados + ' envíos. La lista de reactivación se reabrió.</span>';
-                            // Refrescar conteo de elegibles
-                            fetch(window.location.pathname + '?handler=CampanaResumen')
-                                .then(function (r) { return r.json(); })
-                                .then(function (d) {
-                                    var reac = d.campanas && d.campanas.find(function (c) { return c.codigo === 'reactivacion'; });
-                                    if (reac) document.getElementById('reactivacion-elegibles-count').textContent = reac.elegibles;
-                                })
-                                .catch(function () {});
-                        } else {
-                            statusEl.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>Error al resetear.</span>';
-                        }
-                    })
-                    .catch(function () {
-                        btn.disabled = false;
-                        btn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i>Resetear envíos';
-                        statusEl.innerHTML = '<span class="text-danger">Error de conexión.</span>';
-                    });
-            });
-
-            // Cargar badge inicial de reactivación (sin abrir modal)
-            fetch(window.location.pathname + '?handler=CampanaResumen')
-                .then(function (r) { return r.json(); })
-                .then(function (d) {
-                    var reac = d.campanas && d.campanas.find(function (c) { return c.codigo === 'reactivacion'; });
-                    if (reac) document.getElementById('reactivacion-elegibles-count').textContent = reac.elegibles;
-                })
-                .catch(function () {});
-
-            // ──────────────────────────────────────────────────────────────
-            // ACCIÓN 2 — Enviar campaña a todos (TodosConfirmados)
-            // ──────────────────────────────────────────────────────────────
-
-            // Cargar templates en el selector
-            var generalSel = document.getElementById('generalTemplateSelect');
-            fetch(window.location.pathname + '?handler=TemplatesCorreo')
-                .then(function (r) { return r.json(); })
-                .then(function (templates) {
-                    var opts = '<option value="">-- Selecciona template --</option>';
-                    if (templates && templates.length) {
-                        templates.forEach(function (t) {
-                            var label = t.nombre + (t.fase > 0 ? ' (Fase ' + t.fase + ')' : '');
-                            opts += '<option value="' + t.id + '">' + label + '</option>';
-                        });
-                    }
-                    generalSel.innerHTML = opts;
-                })
-                .catch(function () { generalSel.innerHTML = '<option value="">Error al cargar</option>'; });
-
-            // Cargar conteo TodosConfirmados
-            fetch(window.location.pathname + '?handler=ConteoTodosConfirmados')
-                .then(function (r) { return r.json(); })
-                .then(function (d) {
-                    document.getElementById('general-total-count').textContent = d.total;
-                })
-                .catch(function () {});
-
-            // Prueba campaña general
-            document.getElementById('btnEnviarPruebaGeneral').addEventListener('click', function () {
-                var emailInput = document.getElementById('generalCorreoPrueba');
-                var email = emailInput.value.trim();
-                var templateId = generalSel.value;
-                var statusEl = document.getElementById('generalPruebaStatus');
-                var btn = this;
-                if (!templateId) { statusEl.innerHTML = '<span class="text-warning">Selecciona un template.</span>'; return; }
-                if (!emailInput.checkValidity() || !email) { statusEl.innerHTML = '<span class="text-danger">Correo inválido.</span>'; return; }
-                btn.disabled = true;
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>';
-                statusEl.innerHTML = '';
-                fetch(window.location.pathname + '?handler=CampanaEnviarPrueba', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': csrfToken },
-                    body: JSON.stringify({ email: email, templateId: templateId })
-                })
-                    .then(function (r) { return r.json(); })
-                    .then(function (data) {
-                        btn.disabled = false;
-                        btn.innerHTML = '<i class="bi bi-envelope-check me-1"></i>Probar';
-                        statusEl.innerHTML = data.success
-                            ? '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Enviado</span>'
-                            : '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>' + (data.error || 'Error') + '</span>';
-                    })
-                    .catch(function () { btn.disabled = false; btn.innerHTML = '<i class="bi bi-envelope-check me-1"></i>Probar'; statusEl.innerHTML = '<span class="text-danger">Error.</span>'; });
-            });
-
-            // Batch campaña general
-            document.getElementById('btnEnviarCampanaGeneral').addEventListener('click', function () {
-                var templateId = generalSel.value;
-                var btn = this;
-                if (!templateId) {
-                    document.getElementById('generalTemplateAviso').classList.remove('d-none');
-                    document.getElementById('generalTemplateAvisoText').textContent = 'Selecciona un template antes de enviar.';
-                    return;
                 }
-                btn.disabled = true;
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando...';
-                document.getElementById('generalStatus').className = 'alert d-none mb-3';
-                document.getElementById('generalTemplateAviso').className = 'alert alert-warning d-none mb-3 py-2';
-                document.getElementById('generalLogContainer').className = 'd-none mb-3';
-                document.getElementById('generalLog').innerHTML = '';
+                templateSel.innerHTML = opts;
+                actualizarConteo();
+            })
+            .catch(function () { templateSel.innerHTML = '<option value="">Error al cargar</option>'; });
 
-                fetch(window.location.pathname + '?handler=EnviarCampanaGeneral', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': csrfToken },
-                    body: JSON.stringify({ templateId: templateId })
-                })
-                    .then(function (r) { return r.json(); })
-                    .then(function (data) {
-                        btn.disabled = false;
-                        btn.innerHTML = '<i class="bi bi-send me-2"></i>Enviar batch de 100';
-                        if (!data.success) {
-                            document.getElementById('generalTemplateAviso').classList.remove('d-none');
-                            document.getElementById('generalTemplateAvisoText').textContent = data.error || 'Error desconocido.';
-                            return;
-                        }
-                        if (data.procesados === 0) {
-                            var st = document.getElementById('generalStatus');
-                            st.className = 'alert alert-info mb-3';
-                            st.innerHTML = '<i class="bi bi-info-circle me-1"></i>' + (data.mensaje || 'No hay usuarios elegibles.');
-                            return;
-                        }
-                        renderBatchLog('generalLogContainer', 'generalLog', 'generalResumenBatch', data);
-                    })
-                    .catch(function () {
-                        btn.disabled = false;
-                        btn.innerHTML = '<i class="bi bi-send me-2"></i>Enviar batch de 100';
-                        var st = document.getElementById('generalStatus');
-                        st.className = 'alert alert-danger mb-3';
-                        st.innerHTML = '<i class="bi bi-exclamation-triangle me-1"></i>Error de conexión.';
-                    });
-            });
+        // ── Conteo en vivo ──
+        function actualizarConteo() {
+            var audiencia  = document.getElementById('audienciaSelect').value;
+            var templateId = templateSel.value;
+            var countEl    = document.getElementById('elegiblesCount');
+            countEl.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
-        }());
+            // Hint de audiencia
+            document.getElementById('audienciaHint').textContent = audienciaHints[audiencia] || '';
 
-        // ──────────────────────────────────────────────────────────────────────
-        // DIAGNÓSTICO SENDGRID
-        // ──────────────────────────────────────────────────────────────────────
-        document.getElementById('btnVerificarConfig').addEventListener('click', function () {
-            var btn = this;
-            var content = document.getElementById('diagnosticoContent');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Verificando...';
-            content.style.display = 'block';
-            content.innerHTML = '<div class="text-center text-muted py-2"><span class="spinner-border spinner-border-sm me-1"></span>Cargando...</div>';
+            var url = basePath + '?handler=ConteoAudiencia&audiencia=' + encodeURIComponent(audiencia);
+            if (templateId) url += '&templateId=' + encodeURIComponent(templateId);
 
-            fetch(window.location.pathname + '?handler=DiagnosticoSendGrid')
+            fetch(url)
                 .then(function (r) { return r.json(); })
                 .then(function (d) {
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="bi bi-search me-1"></i>Verificar configuración';
-                    renderDiagnostico(d, content);
+                    countEl.textContent = d.elegibles != null ? d.elegibles : '—';
                 })
-                .catch(function () {
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="bi bi-search me-1"></i>Verificar configuración';
-                    content.innerHTML = '<div class="alert alert-warning">Error cargando diagnóstico.</div>';
-                });
+                .catch(function () { countEl.textContent = '—'; });
+        }
+
+        document.getElementById('audienciaSelect').addEventListener('change', actualizarConteo);
+        templateSel.addEventListener('change', actualizarConteo);
+
+        // ── Prueba ──
+        document.getElementById('btnEnviarPrueba').addEventListener('click', function () {
+            var emailInput = document.getElementById('campanaCorreoPrueba');
+            var email      = emailInput.value.trim();
+            var templateId = templateSel.value;
+            var statusEl   = document.getElementById('pruebaSendStatus');
+            var btn        = this;
+
+            if (!templateId) { statusEl.innerHTML = '<span class="text-warning">Selecciona un template.</span>'; return; }
+            if (!emailInput.checkValidity() || !email) { statusEl.innerHTML = '<span class="text-danger">Correo inválido.</span>'; return; }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>';
+            statusEl.innerHTML = '';
+
+            fetch(basePath + '?handler=CampanaEnviarPrueba', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': csrfToken },
+                body: JSON.stringify({ email: email, templateId: templateId })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-envelope-check me-1"></i>Probar';
+                statusEl.innerHTML = data.success
+                    ? '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Enviado</span>'
+                    : '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>' + esc(data.error || 'Error') + '</span>';
+            })
+            .catch(function () {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-envelope-check me-1"></i>Probar';
+                statusEl.innerHTML = '<span class="text-danger">Error de conexión.</span>';
+            });
         });
 
-        function badge(ok, okTxt, failTxt) {
-            return ok
-                ? '<span class="badge bg-success-subtle text-success border border-success-subtle">' + okTxt + '</span>'
-                : '<span class="badge bg-danger-subtle text-danger border border-danger-subtle">' + failTxt + '</span>';
+        // ── Enviar batch ──
+        document.getElementById('btnEnviarAudiencia').addEventListener('click', function () {
+            var audiencia  = document.getElementById('audienciaSelect').value;
+            var templateId = templateSel.value;
+            var countEl    = document.getElementById('elegiblesCount');
+            var btn        = this;
+
+            if (!templateId) {
+                mostrarAviso('Selecciona un template antes de enviar.');
+                return;
+            }
+
+            var templateNombre  = templateLabels[templateId] || templateId;
+            var audienciaNombre = audienciaLabels[audiencia] || audiencia;
+            var elegiblesTexto  = countEl.textContent.trim();
+            var confirmMsg = 'Vas a enviar:\n  Template: ' + templateNombre +
+                '\n  Audiencia: ' + audienciaNombre +
+                '\n  Elegibles: ' + elegiblesTexto + '\n\n¿Continuar?';
+
+            if (!confirm(confirmMsg)) return;
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando...';
+            ocultarAviso();
+            ocultarStatus();
+            document.getElementById('campanaLogContainer').classList.add('d-none');
+            document.getElementById('campanaLog').innerHTML = '';
+
+            fetch(basePath + '?handler=EnviarAudiencia', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': csrfToken },
+                body: JSON.stringify({ audiencia: parseInt(audiencia), templateId: templateId })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-send me-2"></i>Enviar batch de 100';
+                if (!data.success) {
+                    mostrarAviso(data.error || 'Error desconocido.');
+                    return;
+                }
+                if (data.procesados === 0) {
+                    mostrarStatus('info', '<i class="bi bi-info-circle me-1"></i>' + (data.mensaje || 'No hay usuarios elegibles.'));
+                    actualizarConteo();
+                    return;
+                }
+                renderBatchLog(data);
+                actualizarConteo();
+            })
+            .catch(function () {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-send me-2"></i>Enviar batch de 100';
+                mostrarStatus('danger', '<i class="bi bi-exclamation-triangle me-1"></i>Error de conexión. Intenta de nuevo.');
+            });
+        });
+
+        // ── Resetear tracking Toque 1 ──
+        document.getElementById('btnResetearReactivacion').addEventListener('click', function () {
+            var btn      = this;
+            var statusEl = document.getElementById('resetStatus');
+
+            var msg = '⚠️ Esto borra el registro de TODOS los envíos de Toque 1 (Fase=1).\n\n' +
+                'Los usuarios volverán a aparecer como elegibles para Toque 1.\n' +
+                'No afecta Toque 2, 3 ni Todos los confirmados.\n\n' +
+                '¿Continuar?';
+            if (!confirm(msg)) return;
+            if (!confirm('Confirmación final: ¿Borrar todo el historial de Toque 1 (Fase=1)?')) return;
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Reseteando...';
+            statusEl.innerHTML = '';
+
+            fetch(basePath + '?handler=ResetearReactivacion', {
+                method: 'POST',
+                headers: { 'RequestVerificationToken': csrfToken }
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i>Resetear envíos Toque 1';
+                if (data.success) {
+                    statusEl.innerHTML = '<span class="text-success"><i class="bi bi-check-circle me-1"></i>' +
+                        data.eliminados + ' envíos reseteados.</span>';
+                    actualizarConteo();
+                } else {
+                    statusEl.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>Error al resetear.</span>';
+                }
+            })
+            .catch(function () {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i>Resetear envíos Toque 1';
+                statusEl.innerHTML = '<span class="text-danger">Error de conexión.</span>';
+            });
+        });
+
+        // ── Helpers UI ──
+        function renderBatchLog(data) {
+            var logHtml = '';
+            data.resultados.forEach(function (r) {
+                var icon = r.exito
+                    ? '<i class="bi bi-check-circle-fill text-success me-1"></i>'
+                    : '<i class="bi bi-x-circle-fill text-danger me-1"></i>';
+                var emailSpan = document.createElement('span');
+                emailSpan.textContent = r.email;
+                var err = r.error ? ' <span class="text-danger">— ' + r.error + '</span>' : '';
+                logHtml += '<div>' + icon + emailSpan.innerHTML + err + '</div>';
+            });
+            document.getElementById('campanaLog').innerHTML = logHtml;
+            document.getElementById('campanaResumenBatch').innerHTML =
+                '<span class="text-success"><i class="bi bi-check-circle me-1"></i>' + data.exitosos + ' enviados</span>' +
+                (data.fallidos > 0
+                    ? ' &nbsp; <span class="text-danger"><i class="bi bi-x-circle me-1"></i>' + data.fallidos + ' fallidos</span>'
+                    : '');
+            document.getElementById('campanaLogContainer').classList.remove('d-none');
         }
 
-        function renderDiagnostico(d, el) {
-            var webhookNote = d.webhookPublicKeyPresente
-                ? ''
-                : '<span class="text-muted ms-2" style="font-size:.78rem;">El webhook recibe eventos pero no valida firma — configurar para producción.</span>';
-
-            var templatesHtml = '';
-            if (d.templates && d.templates.length) {
-                templatesHtml += '<ul class="list-unstyled mb-0">';
-                d.templates.forEach(function (t) {
-                    templatesHtml += '<li>' + badge(t.idValido, '✓', '⚠') +
-                        ' <span style="font-size:.83rem;">' + esc(t.nombre) + ' (Fase ' + t.fase + ')</span></li>';
-                });
-                templatesHtml += '</ul>';
-            } else { templatesHtml = '<span class="text-muted" style="font-size:.82rem;">Sin templates configurados</span>'; }
-
-            var campanasHtml = '';
-            if (d.campanas && d.campanas.length) {
-                campanasHtml += '<ul class="list-unstyled mb-0">';
-                d.campanas.forEach(function (c) {
-                    campanasHtml += '<li>' + badge(c.idValido, '✓', '⚠') +
-                        ' <span style="font-size:.83rem;">' + esc(c.codigo) + ' — ' + esc(c.nombre) +
-                        ' <span class="text-muted">(' + esc(c.publico) + ')</span></span></li>';
-                });
-                campanasHtml += '</ul>';
-            } else { campanasHtml = '<span class="text-muted" style="font-size:.82rem;">Sin campañas configuradas</span>'; }
-
-            var webhookEventos = d.eventosWebhookRecibidos > 0
-                ? '<span class="badge bg-success-subtle text-success border border-success-subtle">✓ ' + d.eventosWebhookRecibidos + ' eventos recibidos</span>'
-                : '<span class="badge bg-warning-subtle text-warning border border-warning-subtle">Aún no se han recibido eventos</span>';
-
-            el.innerHTML =
-                '<div class="row g-3">' +
-
-                // Columna izquierda: API + remitente
-                '<div class="col-md-6">' +
-                '<table class="table table-sm mb-0" style="font-size:.85rem;">' +
-                '<tbody>' +
-                '<tr><th class="text-muted fw-normal" style="width:160px;">API Key</th><td>' +
-                badge(d.apiKeyPresente, d.apiKeyPreview || '✓', '❌ No configurada') +
-                '</td></tr>' +
-                '<tr><th class="text-muted fw-normal">From Email</th><td>' + esc(d.fromEmail) + '</td></tr>' +
-                '<tr><th class="text-muted fw-normal">From Name</th><td>' + esc(d.fromName) + '</td></tr>' +
-                '<tr><th class="text-muted fw-normal">Categorías</th><td>' +
-                (d.defaultCategories && d.defaultCategories.length ? d.defaultCategories.map(function (c) { return '<span class="badge bg-secondary me-1">' + esc(c) + '</span>'; }).join('') : '<span class="text-muted">—</span>') +
-                '</td></tr>' +
-                '<tr><th class="text-muted fw-normal">Webhook key</th><td>' +
-                badge(d.webhookPublicKeyPresente, '✓ Configurada', '⚠ Sin configurar') + webhookNote +
-                '</td></tr>' +
-                '<tr><th class="text-muted fw-normal">Eventos webhook</th><td>' + webhookEventos + '</td></tr>' +
-                '<tr><th class="text-muted fw-normal">Suscriptores email</th><td>' + d.totalSuscriptoresEmail + ' usuarios confirmados</td></tr>' +
-                '</tbody></table>' +
-                (d.templatesConProblema > 0 ? '<div class="alert alert-warning py-1 px-2 mt-2 mb-0" style="font-size:.8rem;"><i class="bi bi-exclamation-triangle me-1"></i>' + d.templatesConProblema + ' template(s) con ID placeholder o vacío.</div>' : '') +
-                '</div>' +
-
-                // Columna derecha: templates y campañas
-                '<div class="col-md-6">' +
-                '<p class="fw-semibold mb-1" style="font-size:.82rem;color:#555;">TEMPLATES (SendGrid:Templates)</p>' +
-                templatesHtml +
-                '<p class="fw-semibold mb-1 mt-3" style="font-size:.82rem;color:#555;">CAMPAÑAS (SendGrid:Campanas)</p>' +
-                campanasHtml +
-                '</div>' +
-
-                '</div>';
+        function mostrarAviso(msg) {
+            var el = document.getElementById('campanaAviso');
+            document.getElementById('campanaAvisoText').textContent = msg;
+            el.classList.remove('d-none');
         }
+        function ocultarAviso() { document.getElementById('campanaAviso').classList.add('d-none'); }
+
+        function mostrarStatus(tipo, html) {
+            var el = document.getElementById('campanaStatus');
+            el.className = 'alert alert-' + tipo + ' mb-3';
+            el.innerHTML = html;
+        }
+        function ocultarStatus() { document.getElementById('campanaStatus').className = 'alert d-none mb-3'; }
 
         function esc(str) {
             var d = document.createElement('span');
@@ -713,184 +408,254 @@
             return d.innerHTML;
         }
 
-        // ──────────────────────────────────────────────────────────────────────
-        // GRID DE ESTATUS — F3
-        // ──────────────────────────────────────────────────────────────────────
-        (function () {
-            var campanaActiva = null;
-            var filtroActivo = '';
+        // Conteo inicial al cargar la página
+        actualizarConteo();
 
-            var iconos = {
-                delivered:   '<i class="bi bi-envelope-check text-primary" title="Entregado"></i>',
-                open:        '<i class="bi bi-eye text-success" title="Abierto"></i>',
-                click:       '<i class="bi bi-cursor text-info" title="Click"></i>',
-                bounce:      '<i class="bi bi-x-circle text-danger" title="Rebote"></i>',
-                spamreport:  '<i class="bi bi-shield-exclamation text-danger" title="Spam"></i>',
-                unsubscribe: '<i class="bi bi-dash-circle text-warning" title="Baja"></i>',
-                dropped:     '<i class="bi bi-slash-circle text-secondary" title="Dropped"></i>'
-            };
+    }());
 
-            function pct(n, base) {
-                if (!base) return '—';
-                return Math.round(n * 100 / base) + '%';
+    // ──────────────────────────────────────────────────────────────────────
+    // DIAGNÓSTICO SENDGRID
+    // ──────────────────────────────────────────────────────────────────────
+    document.getElementById('btnVerificarConfig').addEventListener('click', function () {
+        var btn     = this;
+        var content = document.getElementById('diagnosticoContent');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Verificando...';
+        content.style.display = 'block';
+        content.innerHTML = '<div class="text-center text-muted py-2"><span class="spinner-border spinner-border-sm me-1"></span>Cargando...</div>';
+
+        fetch(window.location.pathname + '?handler=DiagnosticoSendGrid')
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-search me-1"></i>Verificar configuración';
+                renderDiagnostico(d, content);
+            })
+            .catch(function () {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-search me-1"></i>Verificar configuración';
+                content.innerHTML = '<div class="alert alert-warning">Error cargando diagnóstico.</div>';
+            });
+    });
+
+    function badge(ok, okTxt, failTxt) {
+        return ok
+            ? '<span class="badge bg-success-subtle text-success border border-success-subtle">' + okTxt + '</span>'
+            : '<span class="badge bg-danger-subtle text-danger border border-danger-subtle">' + failTxt + '</span>';
+    }
+
+    function renderDiagnostico(d, el) {
+        function esc(str) { var s = document.createElement('span'); s.textContent = str || ''; return s.innerHTML; }
+
+        var webhookNote = d.webhookPublicKeyPresente
+            ? ''
+            : '<span class="text-muted ms-2" style="font-size:.78rem;">El webhook recibe eventos pero no valida firma — configurar para producción.</span>';
+
+        var templatesHtml = '';
+        if (d.templates && d.templates.length) {
+            templatesHtml += '<ul class="list-unstyled mb-0">';
+            d.templates.forEach(function (t) {
+                templatesHtml += '<li>' + badge(t.idValido, '✓', '⚠') +
+                    ' <span style="font-size:.83rem;">' + esc(t.nombre) + ' (Fase ' + t.fase + ')</span></li>';
+            });
+            templatesHtml += '</ul>';
+        } else { templatesHtml = '<span class="text-muted" style="font-size:.82rem;">Sin templates configurados</span>'; }
+
+        var campanasHtml = '';
+        if (d.campanas && d.campanas.length) {
+            campanasHtml += '<ul class="list-unstyled mb-0">';
+            d.campanas.forEach(function (c) {
+                campanasHtml += '<li>' + badge(c.idValido, '✓', '⚠') +
+                    ' <span style="font-size:.83rem;">' + esc(c.codigo) + ' — ' + esc(c.nombre) +
+                    ' <span class="text-muted">(' + esc(c.publico) + ')</span></span></li>';
+            });
+            campanasHtml += '</ul>';
+        } else { campanasHtml = '<span class="text-muted" style="font-size:.82rem;">Sin campañas configuradas</span>'; }
+
+        var webhookEventos = d.eventosWebhookRecibidos > 0
+            ? '<span class="badge bg-success-subtle text-success border border-success-subtle">✓ ' + d.eventosWebhookRecibidos + ' eventos recibidos</span>'
+            : '<span class="badge bg-warning-subtle text-warning border border-warning-subtle">Aún no se han recibido eventos</span>';
+
+        el.innerHTML =
+            '<div class="row g-3">' +
+            '<div class="col-md-6">' +
+            '<table class="table table-sm mb-0" style="font-size:.85rem;"><tbody>' +
+            '<tr><th class="text-muted fw-normal" style="width:160px;">API Key</th><td>' +
+            badge(d.apiKeyPresente, d.apiKeyPreview || '✓', '❌ No configurada') + '</td></tr>' +
+            '<tr><th class="text-muted fw-normal">From Email</th><td>' + esc(d.fromEmail) + '</td></tr>' +
+            '<tr><th class="text-muted fw-normal">From Name</th><td>' + esc(d.fromName) + '</td></tr>' +
+            '<tr><th class="text-muted fw-normal">Categorías</th><td>' +
+            (d.defaultCategories && d.defaultCategories.length
+                ? d.defaultCategories.map(function (c) { return '<span class="badge bg-secondary me-1">' + esc(c) + '</span>'; }).join('')
+                : '<span class="text-muted">—</span>') + '</td></tr>' +
+            '<tr><th class="text-muted fw-normal">Webhook key</th><td>' +
+            badge(d.webhookPublicKeyPresente, '✓ Configurada', '⚠ Sin configurar') + webhookNote + '</td></tr>' +
+            '<tr><th class="text-muted fw-normal">Eventos webhook</th><td>' + webhookEventos + '</td></tr>' +
+            '<tr><th class="text-muted fw-normal">Suscriptores email</th><td>' + d.totalSuscriptoresEmail + ' usuarios confirmados</td></tr>' +
+            '</tbody></table>' +
+            (d.templatesConProblema > 0
+                ? '<div class="alert alert-warning py-1 px-2 mt-2 mb-0" style="font-size:.8rem;"><i class="bi bi-exclamation-triangle me-1"></i>' + d.templatesConProblema + ' template(s) con ID placeholder o vacío.</div>'
+                : '') +
+            '</div>' +
+            '<div class="col-md-6">' +
+            '<p class="fw-semibold mb-1" style="font-size:.82rem;color:#555;">TEMPLATES (SendGrid:Templates)</p>' + templatesHtml +
+            '<p class="fw-semibold mb-1 mt-3" style="font-size:.82rem;color:#555;">CAMPAÑAS (SendGrid:Campanas)</p>' + campanasHtml +
+            '</div></div>';
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // GRID DE ESTATUS — F3
+    // ──────────────────────────────────────────────────────────────────────
+    (function () {
+        var campanaActiva = null;
+        var filtroActivo  = '';
+
+        var iconos = {
+            delivered:   '<i class="bi bi-envelope-check text-primary" title="Entregado"></i>',
+            open:        '<i class="bi bi-eye text-success" title="Abierto"></i>',
+            click:       '<i class="bi bi-cursor text-info" title="Click"></i>',
+            bounce:      '<i class="bi bi-x-circle text-danger" title="Rebote"></i>',
+            spamreport:  '<i class="bi bi-shield-exclamation text-danger" title="Spam"></i>',
+            unsubscribe: '<i class="bi bi-dash-circle text-warning" title="Baja"></i>',
+            dropped:     '<i class="bi bi-slash-circle text-secondary" title="Dropped"></i>'
+        };
+
+        function esc(str) { var d = document.createElement('span'); d.textContent = str || ''; return d.innerHTML; }
+
+        function renderResumen(data) {
+            var wrap = document.getElementById('estatusResumenWrap');
+            if (!data.campanas || data.campanas.length === 0) {
+                wrap.innerHTML = '<div class="alert alert-info" style="font-size:.88rem;">' +
+                    '<i class="bi bi-info-circle me-2"></i>' +
+                    'Aún no hay eventos registrados. Los eventos aparecen cuando SendGrid reporta actividad ' +
+                    '(requiere el Event Webhook configurado y campañas enviadas con custom args).' +
+                    '</div>';
+                return;
             }
 
-            function renderResumen(data) {
-                var wrap = document.getElementById('estatusResumenWrap');
+            var html = '<div class="table-responsive"><table class="table table-hover align-middle mb-0" style="font-size:.88rem;">' +
+                '<thead class="table-light"><tr>' +
+                '<th>Campaña</th><th class="text-center">Entregados</th>' +
+                '<th class="text-center">Abiertos</th><th class="text-center text-success">% Apertura</th>' +
+                '<th class="text-center">Clicks</th><th class="text-center text-primary">% Click</th>' +
+                '<th class="text-center text-danger">Rebotes</th>' +
+                '<th class="text-center">Spam</th><th class="text-center">Bajas</th>' +
+                '<th class="text-center text-muted">Detalle</th>' +
+                '</tr></thead><tbody>';
 
-                if (!data.campanas || data.campanas.length === 0) {
-                    wrap.innerHTML = '<div class="alert alert-info" style="font-size:.88rem;">' +
-                        '<i class="bi bi-info-circle me-2"></i>' +
-                        'Aún no hay eventos registrados. Los eventos aparecen cuando SendGrid reporta actividad ' +
-                        '(requiere el Event Webhook configurado en SendGrid y campañas enviadas con custom args).' +
-                        '</div>';
-                    return;
-                }
+            data.campanas.forEach(function (c) {
+                html += '<tr>' +
+                    '<td><span class="badge bg-secondary">' + esc(c.campana || '—') + '</span></td>' +
+                    '<td class="text-center">' + c.entregados + '</td>' +
+                    '<td class="text-center"><span class="badge bg-success-subtle text-success">' + c.abiertos + '</span></td>' +
+                    '<td class="text-center fw-semibold text-success">' + (c.entregados ? c.tasaApertura + '%' : '—') + '</td>' +
+                    '<td class="text-center"><span class="badge bg-primary-subtle text-primary">' + c.clicks + '</span></td>' +
+                    '<td class="text-center text-primary">' + (c.entregados ? c.tasaClick + '%' : '—') + '</td>' +
+                    '<td class="text-center"><span class="badge ' + (c.rebotes > 0 ? 'bg-danger' : 'bg-light text-muted') + '">' + c.rebotes + '</span></td>' +
+                    '<td class="text-center"><span class="badge ' + (c.spam > 0 ? 'bg-danger' : 'bg-light text-muted') + '">' + c.spam + '</span></td>' +
+                    '<td class="text-center">' + c.bajas + '</td>' +
+                    '<td class="text-center"><button class="btn btn-sm btn-outline-secondary btn-detalle" data-campana="' + esc(c.campana) + '">' +
+                    '<i class="bi bi-list-ul"></i></button></td>' +
+                    '</tr>';
+            });
+            html += '</tbody></table></div>';
+            wrap.innerHTML = html;
 
-                var html = '<div class="table-responsive"><table class="table table-hover align-middle mb-0" style="font-size:.88rem;">' +
-                    '<thead class="table-light">' +
-                    '<tr>' +
-                    '<th>Campaña</th>' +
-                    '<th class="text-center">Entregados</th>' +
-                    '<th class="text-center">Abiertos</th>' +
-                    '<th class="text-center text-success">% Apertura</th>' +
-                    '<th class="text-center">Clicks</th>' +
-                    '<th class="text-center text-primary">% Click</th>' +
-                    '<th class="text-center text-danger">Rebotes</th>' +
-                    '<th class="text-center">Spam</th>' +
-                    '<th class="text-center">Bajas</th>' +
-                    '<th class="text-center text-muted">Detalle</th>' +
-                    '</tr></thead><tbody>';
+            document.querySelectorAll('.btn-detalle').forEach(function (btn) {
+                btn.addEventListener('click', function () { cargarDetalle(this.dataset.campana, ''); });
+            });
+        }
 
-                data.campanas.forEach(function (c) {
-                    html += '<tr>' +
-                        '<td><span class="badge bg-secondary">' + (c.campana || '—') + '</span></td>' +
-                        '<td class="text-center">' + c.entregados + '</td>' +
-                        '<td class="text-center"><span class="badge bg-success-subtle text-success">' + c.abiertos + '</span></td>' +
-                        '<td class="text-center fw-semibold text-success">' + (c.entregados ? c.tasaApertura + '%' : '—') + '</td>' +
-                        '<td class="text-center"><span class="badge bg-primary-subtle text-primary">' + c.clicks + '</span></td>' +
-                        '<td class="text-center text-primary">' + (c.entregados ? c.tasaClick + '%' : '—') + '</td>' +
-                        '<td class="text-center"><span class="badge ' + (c.rebotes > 0 ? 'bg-danger' : 'bg-light text-muted') + '">' + c.rebotes + '</span></td>' +
-                        '<td class="text-center"><span class="badge ' + (c.spam > 0 ? 'bg-danger' : 'bg-light text-muted') + '">' + c.spam + '</span></td>' +
-                        '<td class="text-center">' + c.bajas + '</td>' +
-                        '<td class="text-center">' +
-                        '<button class="btn btn-sm btn-outline-secondary btn-detalle" data-campana="' + c.campana + '">' +
-                        '<i class="bi bi-list-ul"></i>' +
-                        '</button></td>' +
-                        '</tr>';
+        function cargarResumen() {
+            document.getElementById('estatusLoadingMsg').style.display = '';
+            fetch(window.location.pathname + '?handler=EstatusCampanas')
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    document.getElementById('estatusLoadingMsg').style.display = 'none';
+                    renderResumen(d);
+                })
+                .catch(function () {
+                    document.getElementById('estatusLoadingMsg').style.display = 'none';
+                    document.getElementById('estatusResumenWrap').innerHTML =
+                        '<div class="alert alert-warning">Error cargando estatus.</div>';
                 });
+        }
 
-                html += '</tbody></table></div>';
-                wrap.innerHTML = html;
+        function cargarDetalle(campana, filtro) {
+            campanaActiva = campana;
+            filtroActivo  = filtro;
+            document.getElementById('detalleTitle').textContent = 'Detalle: ' + campana + (filtro ? ' · ' + filtro : ' · todos');
+            document.getElementById('estatusDetalleWrap').classList.remove('d-none');
+            document.getElementById('estatusDetalleContent').innerHTML =
+                '<div class="text-center py-3 text-muted"><span class="spinner-border spinner-border-sm"></span></div>';
 
-                document.querySelectorAll('.btn-detalle').forEach(function (btn) {
-                    btn.addEventListener('click', function () {
-                        cargarDetalle(this.dataset.campana, '');
-                    });
-                });
-            }
-
-            function cargarResumen() {
-                document.getElementById('estatusLoadingMsg').style.display = '';
-                fetch(window.location.pathname + '?handler=EstatusCampanas')
-                    .then(function (r) { return r.json(); })
-                    .then(function (d) {
-                        document.getElementById('estatusLoadingMsg').style.display = 'none';
-                        renderResumen(d);
-                    })
-                    .catch(function () {
-                        document.getElementById('estatusLoadingMsg').style.display = 'none';
-                        document.getElementById('estatusResumenWrap').innerHTML =
-                            '<div class="alert alert-warning">Error cargando estatus.</div>';
-                    });
-            }
-
-            function cargarDetalle(campana, filtro) {
-                campanaActiva = campana;
-                filtroActivo = filtro;
-
-                document.getElementById('detalleTitle').textContent = 'Detalle: ' + campana + (filtro ? ' · ' + filtro : ' · todos');
-                document.getElementById('estatusDetalleWrap').classList.remove('d-none');
-                document.getElementById('estatusDetalleContent').innerHTML =
-                    '<div class="text-center py-3 text-muted"><span class="spinner-border spinner-border-sm"></span></div>';
-
-                // Resaltar filtro activo
-                document.querySelectorAll('.detalle-filtro').forEach(function (b) {
-                    b.classList.toggle('active', b.dataset.filtro === filtro);
-                });
-
-                var url = window.location.pathname + '?handler=EstatusDetalle&campana=' + encodeURIComponent(campana);
-                if (filtro) url += '&filtro=' + encodeURIComponent(filtro);
-
-                fetch(url)
-                    .then(function (r) { return r.json(); })
-                    .then(function (d) { renderDetalle(d); })
-                    .catch(function () {
-                        document.getElementById('estatusDetalleContent').innerHTML =
-                            '<div class="alert alert-warning">Error cargando detalle.</div>';
-                    });
-            }
-
-            function renderDetalle(d) {
-                var el = document.getElementById('estatusDetalleContent');
-                if (!d.usuarios || d.usuarios.length === 0) {
-                    el.innerHTML = '<p class="text-muted text-center py-3">No hay usuarios con este filtro.</p>';
-                    return;
-                }
-
-                var html = '<p class="text-muted mb-2" style="font-size:.8rem;">' +
-                    'Mostrando ' + d.usuarios.length + ' usuarios' +
-                    (d.total === 200 ? ' (límite 200 — usa el filtro para acotar)' : '') + '</p>' +
-                    '<div class="table-responsive"><table class="table table-sm table-hover mb-0" style="font-size:.83rem;">' +
-                    '<thead class="table-light">' +
-                    '<tr><th>Email</th><th>Nombre</th><th class="text-center">Entregado</th>' +
-                    '<th class="text-center">Abrió</th><th class="text-center">Click</th>' +
-                    '<th class="text-center">Rebote</th><th class="text-center">Spam</th>' +
-                    '<th class="text-center">Baja</th><th>Último evento</th></tr></thead><tbody>';
-
-                d.usuarios.forEach(function (u) {
-                    html += '<tr>' +
-                        '<td>' + esc(u.email) + '</td>' +
-                        '<td class="text-muted">' + esc(u.nombre || '—') + '</td>' +
-                        '<td class="text-center">' + (u.entregado ? iconos.delivered : '<span class="text-muted">—</span>') + '</td>' +
-                        '<td class="text-center">' + (u.abierto   ? iconos.open       : '<span class="text-muted">—</span>') + '</td>' +
-                        '<td class="text-center">' + (u.click     ? iconos.click      : '<span class="text-muted">—</span>') + '</td>' +
-                        '<td class="text-center">' + (u.rebote    ? iconos.bounce     : '<span class="text-muted">—</span>') + '</td>' +
-                        '<td class="text-center">' + (u.spam      ? iconos.spamreport : '<span class="text-muted">—</span>') + '</td>' +
-                        '<td class="text-center">' + (u.baja      ? iconos.unsubscribe: '<span class="text-muted">—</span>') + '</td>' +
-                        '<td class="text-muted">' + (u.ultimoEvento || '—') + '</td>' +
-                        '</tr>';
-                });
-
-                html += '</tbody></table></div>';
-                el.innerHTML = html;
-            }
-
-            function esc(str) {
-                var d = document.createElement('span');
-                d.textContent = str || '';
-                return d.innerHTML;
-            }
-
-            // Filtros del detalle
-            document.getElementById('detalleFiltros').addEventListener('click', function (e) {
-                var btn = e.target.closest('.detalle-filtro');
-                if (!btn || !campanaActiva) return;
-                cargarDetalle(campanaActiva, btn.dataset.filtro);
+            document.querySelectorAll('.detalle-filtro').forEach(function (b) {
+                b.classList.toggle('active', b.dataset.filtro === filtro);
             });
 
-            document.getElementById('btnCerrarDetalle').addEventListener('click', function () {
-                document.getElementById('estatusDetalleWrap').classList.add('d-none');
-                campanaActiva = null;
-            });
+            var url = window.location.pathname + '?handler=EstatusDetalle&campana=' + encodeURIComponent(campana);
+            if (filtro) url += '&filtro=' + encodeURIComponent(filtro);
 
-            document.getElementById('btnRefrescarEstatus').addEventListener('click', function () {
-                cargarResumen();
-                if (campanaActiva) cargarDetalle(campanaActiva, filtroActivo);
-            });
+            fetch(url)
+                .then(function (r) { return r.json(); })
+                .then(function (d) { renderDetalle(d); })
+                .catch(function () {
+                    document.getElementById('estatusDetalleContent').innerHTML =
+                        '<div class="alert alert-warning">Error cargando detalle.</div>';
+                });
+        }
 
-            // Carga inicial
+        function renderDetalle(d) {
+            var el = document.getElementById('estatusDetalleContent');
+            if (!d.usuarios || d.usuarios.length === 0) {
+                el.innerHTML = '<p class="text-muted text-center py-3">No hay usuarios con este filtro.</p>';
+                return;
+            }
+
+            var html = '<p class="text-muted mb-2" style="font-size:.8rem;">Mostrando ' + d.usuarios.length + ' usuarios' +
+                (d.total === 200 ? ' (límite 200 — usa el filtro para acotar)' : '') + '</p>' +
+                '<div class="table-responsive"><table class="table table-sm table-hover mb-0" style="font-size:.83rem;">' +
+                '<thead class="table-light"><tr>' +
+                '<th>Email</th><th>Nombre</th><th class="text-center">Entregado</th>' +
+                '<th class="text-center">Abrió</th><th class="text-center">Click</th>' +
+                '<th class="text-center">Rebote</th><th class="text-center">Spam</th>' +
+                '<th class="text-center">Baja</th><th>Último evento</th>' +
+                '</tr></thead><tbody>';
+
+            d.usuarios.forEach(function (u) {
+                html += '<tr>' +
+                    '<td>' + esc(u.email) + '</td>' +
+                    '<td class="text-muted">' + esc(u.nombre || '—') + '</td>' +
+                    '<td class="text-center">' + (u.entregado ? iconos.delivered   : '<span class="text-muted">—</span>') + '</td>' +
+                    '<td class="text-center">' + (u.abierto   ? iconos.open        : '<span class="text-muted">—</span>') + '</td>' +
+                    '<td class="text-center">' + (u.click     ? iconos.click       : '<span class="text-muted">—</span>') + '</td>' +
+                    '<td class="text-center">' + (u.rebote    ? iconos.bounce      : '<span class="text-muted">—</span>') + '</td>' +
+                    '<td class="text-center">' + (u.spam      ? iconos.spamreport  : '<span class="text-muted">—</span>') + '</td>' +
+                    '<td class="text-center">' + (u.baja      ? iconos.unsubscribe : '<span class="text-muted">—</span>') + '</td>' +
+                    '<td class="text-muted">' + esc(u.ultimoEvento || '—') + '</td>' +
+                    '</tr>';
+            });
+            html += '</tbody></table></div>';
+            el.innerHTML = html;
+        }
+
+        document.getElementById('detalleFiltros').addEventListener('click', function (e) {
+            var btn = e.target.closest('.detalle-filtro');
+            if (!btn || !campanaActiva) return;
+            cargarDetalle(campanaActiva, btn.dataset.filtro);
+        });
+
+        document.getElementById('btnCerrarDetalle').addEventListener('click', function () {
+            document.getElementById('estatusDetalleWrap').classList.add('d-none');
+            campanaActiva = null;
+        });
+
+        document.getElementById('btnRefrescarEstatus').addEventListener('click', function () {
             cargarResumen();
-        }());
+            if (campanaActiva) cargarDetalle(campanaActiva, filtroActivo);
+        });
+
+        cargarResumen();
+    }());
     </script>
 }
