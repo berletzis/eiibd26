@@ -291,6 +291,7 @@ try
     builder.Services.AddScoped<eiibd26.Services.Medico.IMedicoBadgeService, eiibd26.Services.Medico.MedicoBadgeService>();
     builder.Services.AddScoped<eiibd26.Services.Validacion.IValidacionContenidoService, eiibd26.Services.Validacion.ValidacionContenidoService>();
     builder.Services.AddScoped<eiibd26.Services.Validacion.IValidacionRespuestaService, eiibd26.Services.Validacion.ValidacionRespuestaService>();
+    builder.Services.AddScoped<eiibd26.Services.ShortUrl.IShortUrlService, eiibd26.Services.ShortUrl.ShortUrlService>();
 
     // Register HttpClient for Anthropic API
     builder.Services.AddHttpClient("AnthropicClient", (serviceProvider, client) =>

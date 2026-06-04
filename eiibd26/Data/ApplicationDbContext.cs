@@ -104,6 +104,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<eiibd26.Models.Validacion.ValidacionContenidoProfesional> ValidacionesContenidoProfesional { get; set; }
     public DbSet<eiibd26.Models.Validacion.ValidacionRespuestaProfesional> ValidacionesRespuestaProfesional { get; set; }
 
+    // Short URLs
+    public DbSet<eiibd26.Models.ShortUrl.ShortUrl> ShortUrls { get; set; }
+    public DbSet<eiibd26.Models.ShortUrl.ShortUrlClick> ShortUrlClicks { get; set; }
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
