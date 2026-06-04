@@ -1512,13 +1512,22 @@
 
             if (btn.classList.contains('mod-eliminar')) {
                 if (!confirm('¿Eliminar este contenido? (soft-delete, acción del admin)')) return;
-                await modCall(`${base}/admin/${id}/eliminar`, null);
+                var ok = await modCall(`${base}/admin/${id}/eliminar`, null);
+                if (!ok) return;
+                if (tipo === 'pregunta') {
+                    // La pregunta desapareció → ir al listado con mensaje de confirmación
+                    window.location.href = '/Preguntas?msg=pregunta-eliminada';
+                } else {
+                    location.reload();
+                }
             } else if (btn.classList.contains('mod-rehabilitar')) {
-                await modCall(`${base}/admin/${id}/rehabilitar`, null);
+                var ok = await modCall(`${base}/admin/${id}/rehabilitar`, null);
+                if (ok) location.reload();
             } else if (btn.classList.contains('mod-deshabilitar')) {
                 var motivo = prompt('Motivo de deshabilitación (opcional):', '');
                 if (motivo === null) return; // canceló
-                await modCall(`${base}/admin/${id}/deshabilitar`, { motivo: motivo.trim() });
+                var ok = await modCall(`${base}/admin/${id}/deshabilitar`, { motivo: motivo.trim() });
+                if (ok) location.reload();
             }
         });
 
@@ -1528,9 +1537,10 @@
                 if (body !== null) opts.body = JSON.stringify(body);
                 var res  = await fetch(url, opts);
                 var data = await res.json();
-                if (data.ok) { location.reload(); }
-                else alert('Error: ' + (data.error || 'desconocido'));
-            } catch (e) { alert('Error de red: ' + e.message); }
+                if (data.ok) return true;
+                alert('Error: ' + (data.error || 'desconocido'));
+                return false;
+            } catch (e) { alert('Error de red: ' + e.message); return false; }
         }
     })();
         (function () {
