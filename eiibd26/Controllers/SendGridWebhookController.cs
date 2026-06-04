@@ -109,9 +109,18 @@ public class SendGridWebhookController : ControllerBase
             }
 
             var logs = new List<SendGridEventLog>();
+            int descartados = 0;
 
             foreach (var evt in doc.RootElement.EnumerateArray())
             {
+                // Descartar eventos de otros proyectos (cuenta SendGrid compartida).
+                // category puede llegar como string o como array — HasCategory maneja ambos.
+                if (!HasCategory(evt, "EIIBD"))
+                {
+                    descartados++;
+                    continue;
+                }
+
                 var eventType = Str(evt, "event") ?? "unknown";
                 var email = Str(evt, "email") ?? string.Empty;
 
@@ -151,7 +160,7 @@ public class SendGridWebhookController : ControllerBase
             _db.SendGridEventLogs.AddRange(logs);
             await _db.SaveChangesAsync();
 
-            _logger.LogInformation("[Webhook] {Count} eventos guardados.", logs.Count);
+            _logger.LogInformation("[Webhook] {Guardados} guardados, {Descartados} descartados de otros proyectos.", logs.Count, descartados);
         }
         catch (JsonException ex)
         {
@@ -212,5 +221,27 @@ public class SendGridWebhookController : ControllerBase
         if (el.TryGetProperty(key, out var prop) && prop.ValueKind == JsonValueKind.String)
             return prop.GetString();
         return null;
+    }
+
+    // ── Helper: comprobar si el campo "category" contiene el valor buscado.
+    //    SendGrid envía category como string (1 cat) o array (varias cats).
+    private static bool HasCategory(JsonElement evt, string category)
+    {
+        if (!evt.TryGetProperty("category", out var cat))
+            return false;
+
+        if (cat.ValueKind == JsonValueKind.String)
+            return cat.GetString() == category;
+
+        if (cat.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in cat.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.String && item.GetString() == category)
+                    return true;
+            }
+        }
+
+        return false;
     }
 }
