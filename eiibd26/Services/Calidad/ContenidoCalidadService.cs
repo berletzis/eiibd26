@@ -12,6 +12,24 @@ namespace eiibd26.Services.Calidad
         private readonly ISimilarQuestionDetector _detector;
         private readonly ILogger<ContenidoCalidadService> _logger;
 
+        // Compiled once at startup — correcto para static (vs. RegexOptions.Compiled en Regex.Replace estático que recompila cada vez)
+        private static readonly Regex HtmlTagRegex = new("<[^>]+>", RegexOptions.Compiled);
+        private static readonly Regex NormalizarRegex = new(@"[^a-záéíóúñü0-9\s]", RegexOptions.Compiled);
+        private static readonly Regex EspaciosRegex = new(@"\s+", RegexOptions.Compiled);
+
+        // Mismas stopwords que SimilarQuestionDetector para que el pre-filtro Jaccard sea coherente
+        private static readonly HashSet<string> StopWords = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "el", "la", "los", "las", "un", "una", "unos", "unas",
+            "de", "del", "a", "ante", "con", "contra", "desde", "en",
+            "entre", "hacia", "hasta", "para", "por", "según", "sin",
+            "sobre", "tras", "durante", "mediante",
+            "que", "cual", "quien", "donde", "cuando", "como", "porque",
+            "es", "son", "está", "están", "ser", "estar", "hay",
+            "me", "te", "se", "nos", "os", "mi", "tu", "su",
+            "y", "o", "pero", "si", "no", "ni"
+        };
+
         public ContenidoCalidadService(
             ApplicationDbContext db,
             ISimilarQuestionDetector detector,
@@ -35,27 +53,43 @@ namespace eiibd26.Services.Calidad
 
             _logger.LogInformation("[CalidadContenido] {Count} contenidos a evaluar", contenidos.Count);
 
-            // Pre-calcular textos para comparación (truncar a 600 chars para performance)
+            // Pre-calcular textos y keyword-sets (O(n)) — todo en memoria, sin tocar la BD de nuevo
             var textos = contenidos.Select(c => new
             {
                 c.Id,
                 c.IdTipo,
-                Texto = TruncarTexto($"{c.ContenidoTitulo} {StripHtml(c.ContenidoTextoL)}", 600)
+                // StripHtml truncado a 1500 antes de procesar, luego resultado a 600 para comparación
+                Texto = TruncarTexto($"{c.ContenidoTitulo} {StripHtml(c.ContenidoTextoL, 1500)}", 600)
             }).ToList();
 
-            // Detectar duplicados O(n²) — comparar dentro del mismo IdTipo si está definido
+            // Keywords pre-computadas con la misma normalización que SimilarQuestionDetector
+            var kwSets = textos.ToDictionary(t => t.Id, t => ExtraerKeywordsLocal(t.Texto));
+
+            // Detectar duplicados O(n²) con pre-filtro Jaccard para evitar LOH de Levenshtein
+            // Sin pre-filtro: n=100 → 4.950 pares × 354 KB de int[,] en LOH = ~1,75 GB → Gen2 GC thrash
             var duplicados = contenidos.ToDictionary(c => c.Id, _ => new List<int>());
+            int llamadasCalcularSimilitud = 0;
 
             for (int i = 0; i < textos.Count; i++)
             {
                 for (int j = i + 1; j < textos.Count; j++)
                 {
-                    // Mitigación de performance: skip si diferente IdTipo (cuando ambos lo tienen)
+                    // Skip pares de diferente IdTipo (ambos definidos)
                     if (textos[i].IdTipo.HasValue && textos[j].IdTipo.HasValue
                         && textos[i].IdTipo != textos[j].IdTipo)
                         continue;
 
+                    // Pre-filtro matemático: score = Jaccard×0.7 + Levenshtein×0.3
+                    // Para score ≥ 0.80 con Levenshtein ≤ 1.0 → necesitamos Jaccard ≥ 0.70
+                    // Si Jaccard local < 0.70, el score combinado máximo es 0.70×0.7 + 1.0×0.3 = 0.79 < 0.80
+                    // → imposible ser duplicado → skip sin llamar CalcularSimilitud
+                    var jaccardLocal = JaccardLocal(kwSets[textos[i].Id], kwSets[textos[j].Id]);
+                    if (jaccardLocal < 0.70) continue;
+
+                    // Solo llegamos aquí para pares con ≥70% de keywords en común (~1% del total)
                     var sim = _detector.CalcularSimilitud(textos[i].Texto, textos[j].Texto);
+                    llamadasCalcularSimilitud++;
+
                     if (sim >= 0.80)
                     {
                         duplicados[textos[i].Id].Add(textos[j].Id);
@@ -63,6 +97,14 @@ namespace eiibd26.Services.Calidad
                     }
                 }
             }
+
+            _logger.LogInformation(
+                "[CalidadContenido] Similitud: {Total} pares totales, {Llamadas} comparaciones completas ({Pct:P1} del total)",
+                textos.Count * (textos.Count - 1) / 2,
+                llamadasCalcularSimilitud,
+                textos.Count > 1
+                    ? (double)llamadasCalcularSimilitud / (textos.Count * (textos.Count - 1) / 2)
+                    : 0);
 
             var resultados = new List<ContenidoCalidadDto>();
 
@@ -94,7 +136,7 @@ namespace eiibd26.Services.Calidad
                         $"Cuerpo corto ({palabras} palabras)",
                         GravedadSenal.Mejorable));
 
-                if (!c.CategoriasRelacion.Any(r => !r.Borrado))
+                if (!c.CategoriasRelacion.Any())
                     senales.Add(new SenalCalidad("SIN_CATEGORIA", "Sin categoría asignada", GravedadSenal.Mejorable));
 
                 if (string.IsNullOrWhiteSpace(c.ContenidoTituloSlug))
@@ -105,7 +147,6 @@ namespace eiibd26.Services.Calidad
                         $"Borrador sin publicar hace {(DateTime.UtcNow - c.FechaCreado).Days} días",
                         GravedadSenal.Mejorable));
 
-                // Nivel del semáforo
                 NivelSemaforo nivel;
                 if (senales.Any(s => s.Gravedad == GravedadSenal.Critica))
                     nivel = NivelSemaforo.Critico;
@@ -139,18 +180,46 @@ namespace eiibd26.Services.Calidad
         private static int ContarPalabras(string? texto)
         {
             if (string.IsNullOrWhiteSpace(texto)) return 0;
-            var limpio = StripHtml(texto);
+            // Truncar a 5000 chars antes de procesar — solo necesitamos saber si hay > 100 palabras
+            var limpio = StripHtml(texto, 5000);
             return limpio.Split(new[] { ' ', '\n', '\r', '\t' },
                 StringSplitOptions.RemoveEmptyEntries).Length;
         }
 
-        private static string StripHtml(string? html)
+        // maxInputChars evita procesar megabytes de HTML (ej. imágenes base64 incrustadas)
+        private static string StripHtml(string? html, int maxInputChars = 5000)
         {
             if (string.IsNullOrWhiteSpace(html)) return string.Empty;
-            return Regex.Replace(html, "<[^>]+>", " ", RegexOptions.Compiled).Trim();
+            var entrada = html.Length > maxInputChars ? html[..maxInputChars] : html;
+            return HtmlTagRegex.Replace(entrada, " ").Trim();
         }
 
         private static string TruncarTexto(string texto, int maxChars)
             => texto.Length > maxChars ? texto[..maxChars] : texto;
+
+        // Misma normalización que SimilarQuestionDetector para que el Jaccard local sea coherente
+        private static HashSet<string> ExtraerKeywordsLocal(string texto)
+        {
+            var normalizado = texto.ToLowerInvariant();
+            normalizado = NormalizarRegex.Replace(normalizado, " ");
+            normalizado = EspaciosRegex.Replace(normalizado, " ").Trim();
+
+            var keywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var palabra in normalizado.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (palabra.Length >= 3 && !StopWords.Contains(palabra))
+                    keywords.Add(palabra);
+            }
+            return keywords;
+        }
+
+        private static double JaccardLocal(HashSet<string> set1, HashSet<string> set2)
+        {
+            if (set1.Count == 0 && set2.Count == 0) return 1.0;
+            if (set1.Count == 0 || set2.Count == 0) return 0.0;
+            var interseccion = set1.Count(w => set2.Contains(w));
+            var union = set1.Count + set2.Count - interseccion;
+            return union > 0 ? (double)interseccion / union : 0;
+        }
     }
 }
