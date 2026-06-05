@@ -246,6 +246,13 @@
                 max-width: 99vw;
             }
         }
+
+        /* GRIS */
+        .btn-gris-grid { padding: 3px 8px !important; }
+        .aspecto-bar { height: 5px; border-radius: 3px; }
+        .aspecto-row { margin-bottom: 10px; }
+        .aspecto-row .label { font-size: 0.8rem; font-weight: 600; }
+        .aspecto-row .obs   { font-size: 0.77rem; color: #6b7280; margin-top: 2px; }
     </style>
 }
 
@@ -324,6 +331,8 @@
             </thead>
         </table>
     </div>
+
+    <partial name="_GrisModal" />
 
     <div class="modal fade" id="modalEditar" tabindex="-1" aria-labelledby="modalEditarLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg eii-modal">
@@ -546,16 +555,27 @@
         render: function(data, type, row) {
         const detalleUrl = '@Url.Page("./Detalle")';
         let editBtn = `<a class='btn btn-sm btn-action-grid btn-action-edit' href='${detalleUrl}?id=${row.id}' title='Editar'><i class="bi bi-pencil-square"></i> Editar</a>`;
-        let actionBtn = "";
+        let grisBtn = '';
+        let actionBtn = '';
+
+        if (!row.eliminado) {
+            const tituloEsc = (row.titulo || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            if (row.grisEvaluado && row.grisPuntaje !== null && row.grisPuntaje !== undefined) {
+                const p = row.grisPuntaje;
+                const colorClass = p >= 70 ? 'success' : p >= 50 ? 'warning' : 'danger';
+                grisBtn = ` <button class='btn btn-sm btn-action-grid btn-gris-grid' onclick="evaluarConGrisGrid(${row.id},'${tituloEsc}')" title='GRIS: ${p}/100 — Re-evaluar'><span class='badge bg-${colorClass}'>⭐ ${p}</span></button>`;
+            } else {
+                grisBtn = ` <button class='btn btn-sm btn-action-grid btn-gris-grid' onclick="evaluarConGrisGrid(${row.id},'${tituloEsc}')" title='Evaluar con GRIS'><i class='bi bi-stars'></i></button>`;
+            }
+        }
 
         if (row.eliminado) {
         actionBtn = ` <button class='btn btn-sm btn-action-grid btn-action-edit btn-restaurar' title='Restaurar' data-id='${row.id}'><i class="bi bi-arrow-counterclockwise" style="color:#3196fa"></i> Restaurar</button>`;
         } else {
-        let eliminarBtn = `<button class='btn btn-sm btn-action-grid btn-action-delete btn-borrar' title='Eliminar' data-id='${row.id}'><i class="bi bi-trash"></i> Eliminar</button>`;
-        actionBtn = eliminarBtn;
+        actionBtn = `<button class='btn btn-sm btn-action-grid btn-action-delete btn-borrar' title='Eliminar' data-id='${row.id}'><i class="bi bi-trash"></i> Eliminar</button>`;
         }
 
-        return editBtn + actionBtn;
+        return editBtn + grisBtn + ' ' + actionBtn;
         }
         }
         ],
@@ -702,5 +722,87 @@
             });
         });
         });
+
+        // ── GRIS ──────────────────────────────────────────────────────────
+        let grisModal = null;
+
+        function evaluarConGrisGrid(id, titulo) {
+            if (!grisModal) grisModal = new bootstrap.Modal(document.getElementById('modalGris'));
+            document.getElementById('modalGrisLabel').textContent = '⭐ GRIS — ' + (titulo || 'Evaluación Editorial');
+            document.getElementById('modalGrisBody').innerHTML =
+                '<div class="text-center py-5">' +
+                '<div class="spinner-border text-primary" role="status"></div>' +
+                '<div class="mt-3 text-muted">GRIS está evaluando el artículo...</div>' +
+                '</div>';
+            grisModal.show();
+
+            const token = document.querySelector('[name="__RequestVerificationToken"]').value;
+            const fd = new FormData();
+            fd.append('__RequestVerificationToken', token);
+            fd.append('id', id);
+
+            fetch('?handler=EvaluarGris', { method: 'POST', body: fd })
+                .then(function(res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+                .then(function(data) {
+                    renderGrisModal(data, id, titulo);
+                    contenidosTabla.ajax.reload(null, false);
+                })
+                .catch(function(e) {
+                    document.getElementById('modalGrisBody').innerHTML =
+                        '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>Error: ' + escGris(e.message) + '</div>';
+                });
+        }
+
+        function renderGrisModal(data, id, titulo) {
+            const bodyEl = document.getElementById('modalGrisBody');
+            if (!data.ok) {
+                bodyEl.innerHTML =
+                    '<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-2"></i>' + escGris(data.error || 'Error desconocido') + '</div>' +
+                    '<button class="btn btn-sm btn-outline-secondary mt-1" onclick="evaluarConGrisGrid(' + id + ',\'' + escGris(titulo).replace(/'/g, "\\'") + '\')">' +
+                    '<i class="bi bi-arrow-repeat me-1"></i>Reintentar</button>';
+                return;
+            }
+            const p = data.puntajeGlobal;
+            const colorHex = p >= 70 ? '#198754' : p >= 50 ? '#856404' : '#842029';
+
+            let html = '<div class="text-center mb-3">' +
+                '<div style="font-size:3.5rem;font-weight:700;color:' + colorHex + ';">' + p + '</div>' +
+                '<div class="text-muted small">Puntaje global (0-100)</div>';
+            if (data.fechaEvaluacion) {
+                html += '<div class="text-muted" style="font-size:0.76rem;">' +
+                    new Date(data.fechaEvaluacion).toLocaleString('es-AR') + ' UTC</div>';
+            }
+            html += '</div><hr class="my-2"/><h6 class="fw-bold mb-3"><i class="bi bi-list-check me-1"></i>7 Aspectos Editoriales</h6>';
+
+            (data.aspectos || []).forEach(function(a) {
+                const barColor = a.puntaje >= 7 ? 'success' : a.puntaje >= 5 ? 'warning' : 'danger';
+                html += '<div class="aspecto-row">' +
+                    '<div class="d-flex justify-content-between align-items-center mb-1">' +
+                    '<span class="label">' + escGris(a.nombre) + '</span>' +
+                    '<span class="badge bg-' + barColor + '">' + a.puntaje + '/10</span>' +
+                    '</div>' +
+                    '<div class="progress aspecto-bar mb-1"><div class="progress-bar bg-' + barColor +
+                    '" style="width:' + (a.puntaje * 10) + '%;"></div></div>' +
+                    '<div class="obs">' + escGris(a.observacion) + '</div>' +
+                    '</div>';
+            });
+
+            const sugs = data.sugerencias || [];
+            if (sugs.length > 0) {
+                html += '<hr class="my-2"/><h6 class="fw-bold mb-2"><i class="bi bi-lightbulb me-1 text-warning"></i>Sugerencias de mejora</h6><ul class="mb-0 ps-3">';
+                sugs.forEach(function(s) { html += '<li class="mb-1 small">' + escGris(s) + '</li>'; });
+                html += '</ul>';
+            }
+
+            html += '<div class="mt-3 text-end">' +
+                '<button class="btn btn-sm btn-outline-secondary" onclick="evaluarConGrisGrid(' + id + ',\'' + escGris(titulo).replace(/'/g, "\\'") + '\')">' +
+                '<i class="bi bi-arrow-repeat me-1"></i>Re-evaluar</button></div>';
+
+            bodyEl.innerHTML = html;
+        }
+
+        function escGris(s) {
+            return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
     </script>
 }

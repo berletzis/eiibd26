@@ -1,12 +1,16 @@
 using eiibd26.Data;
 using eiibd26.Models;
+using eiibd26.Services.Calidad;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
@@ -16,10 +20,23 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
     public class ContenidosModel : PageModel
     {
         private readonly ApplicationDbContext _db;
+        private readonly IGrisEvaluadorService _gris;
+        private readonly ILogger<ContenidosModel> _logger;
 
-        public ContenidosModel(ApplicationDbContext db)
+        private static readonly JsonSerializerOptions JsonOpts = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            Converters = { new JsonStringEnumConverter() }
+        };
+
+        public ContenidosModel(
+            ApplicationDbContext db,
+            IGrisEvaluadorService gris,
+            ILogger<ContenidosModel> logger)
         {
             _db = db;
+            _gris = gris;
+            _logger = logger;
         }
 
         public void OnGet()
@@ -123,6 +140,15 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
             // Obtener categoria asignada para los items de la página actual
             var contentIds2 = pagedItems.Select(x => x.id).ToList();
+
+            // GRIS — un solo query para todos los ítems de la página
+            var grisRaw = await _db.ContenidoCalidad
+                .AsNoTracking()
+                .Where(cq => contentIds2.Contains(cq.ContenidoId))
+                .Select(cq => new { cq.ContenidoId, cq.GrisEvaluado, GrisPuntaje = (int?)cq.GrisPuntajeGlobal })
+                .ToListAsync();
+            var grisMap = grisRaw.ToDictionary(x => x.ContenidoId);
+
             var relsAllQuery = _db.ContenidosCategoriasRelacion
                 .AsNoTracking()
                 .Where(r => contentIds2.Contains(r.IdContenido) && r.IdCategoria != null);
@@ -184,7 +210,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 d.fechaCreado,
                 d.eliminado,
                 d.imagenUrl,
-                categorias = categoriaMap.ContainsKey(d.id) ? string.Join(", ", categoriaMap[d.id]) : (string)null
+                categorias = categoriaMap.ContainsKey(d.id) ? string.Join(", ", categoriaMap[d.id]) : (string)null,
+                grisEvaluado = grisMap.ContainsKey(d.id) && grisMap[d.id].GrisEvaluado,
+                grisPuntaje = grisMap.ContainsKey(d.id) && grisMap[d.id].GrisEvaluado ? grisMap[d.id].GrisPuntaje : null
             }).ToList();
 
             // Safety: ensure drafts are not returned unless mostrarBorradores is true
@@ -287,6 +315,20 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             catch (Exception ex)
             {
                 return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        public async Task<IActionResult> OnPostEvaluarGrisAsync([FromForm] int id)
+        {
+            try
+            {
+                var resultado = await _gris.EvaluarAsync(id);
+                return new JsonResult(resultado, JsonOpts);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[GRIS] Error al evaluar contenido {Id} desde Contenidos", id);
+                return new JsonResult(new { ok = false, error = ex.Message }, JsonOpts);
             }
         }
 
