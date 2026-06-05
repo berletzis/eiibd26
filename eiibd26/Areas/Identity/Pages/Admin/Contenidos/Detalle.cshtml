@@ -34,11 +34,36 @@
         }
 
         .right-rel-panel {
-            width: 340px;
-            flex: 0 0 340px;
+            width: 300px;
+            flex: 0 0 300px;
             display: flex;
             flex-direction: column;
             gap: 18px;
+        }
+
+        .gris-panel {
+            width: 280px;
+            flex: 0 0 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .gris-card {
+            background: #fff;
+            border: 1px solid #d9e3ec;
+            border-radius: 10px;
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .gris-aspecto-bar {
+            height: 5px;
+            border-radius: 3px;
+            background: #e5e7eb;
+            margin: 3px 0 2px;
+            overflow: hidden;
         }
 
         .rel-box {
@@ -223,7 +248,7 @@
                 flex-direction: column
             }
 
-            .right-rel-panel {
+            .right-rel-panel, .gris-panel {
                 width: 100%;
                 flex: 1 1 auto
             }
@@ -386,6 +411,46 @@
             </div>
 
             <aside class="right-rel-panel">
+                @if (Model.Id.HasValue)
+                {
+                    <div class="rel-box" id="panelGrisCategorias"@(!Model.GrisEvaluado ? " style=\"display:none\"" : "")>
+                        <h5 style="font-size:0.88rem;">
+                            <span><i class="bi bi-stars text-primary me-1"></i>GRIS · Categorías</span>
+                        </h5>
+                        <div id="panelGrisCategoriasContent">
+                            @if (Model.GrisEvaluado)
+                            {
+                                @if (Model.GrisCategoriasAlerta != null && Model.GrisCategoriasAlerta.Any())
+                                {
+                                    <div style="font-size:0.71rem;color:#dc2626;font-weight:600;margin-bottom:4px;">⚠ Posible mala clasificación</div>
+                                    foreach (var ca in Model.GrisCategoriasAlerta)
+                                    {
+                                        <div style="margin-bottom:5px;">
+                                            <span class="badge bg-danger-subtle text-danger-emphasis" style="font-size:0.68rem;">@ca.Nombre</span>
+                                            <div style="font-size:0.67rem;color:#6b7280;margin-top:1px;">@ca.Razon</div>
+                                        </div>
+                                    }
+                                }
+                                else
+                                {
+                                    <div style="font-size:0.71rem;color:#16a34a;margin-bottom:4px;">✓ Categorización coherente</div>
+                                }
+                                @if (Model.GrisCategoriasSugeridas != null && Model.GrisCategoriasSugeridas.Any())
+                                {
+                                    <div style="font-size:0.71rem;color:#6b7280;margin-bottom:3px;">Sugeridas (solo informativo):</div>
+                                    <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                                        @foreach (var cs in Model.GrisCategoriasSugeridas)
+                                        {
+                                            <span class="badge bg-primary-subtle text-primary-emphasis"
+                                                  style="font-size:0.68rem;cursor:default;"
+                                                  title="@cs.Razon">@cs.Nombre</span>
+                                        }
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+                }
                 <div class="rel-box">
                     <h5>Categorías seleccionadas <span class="badge bg-light text-dark">@Model.SelectedCategoryIds.Count</span></h5>
                     <div id="selectedCategoryBadges" class="rel-selected-badges mb-2">
@@ -679,82 +744,65 @@
                     </div>
                 </div>
 
-                @* GRIS — Evaluación editorial con IA *@
-                @if (Model.Id.HasValue)
-                {
-                    <div class="rel-box" id="panelGrisDetalle">
-                        <h5 style="display:flex;align-items:center;gap:6px;">
-                            <i class="bi bi-stars text-primary"></i>GRIS
+            </aside>
+            @if (Model.Id.HasValue)
+            {
+                <div class="gris-panel" id="grisPanel">
+                    <div class="gris-card">
+                        <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
+                            <i class="bi bi-stars text-primary" style="font-size:1.05rem;"></i>
+                            <span style="font-weight:600;font-size:0.9rem;">GRIS</span>
                             <span style="font-size:0.72rem;font-weight:400;color:#6b7280;">evaluación editorial</span>
-                        </h5>
+                        </div>
                         <div id="grisResultadoDetalle">
                             @if (Model.GrisEvaluado && Model.GrisPuntajeGlobal.HasValue)
                             {
                                 var gScore = Model.GrisPuntajeGlobal.Value;
                                 var gBg = gScore >= 70 ? "success" : gScore >= 50 ? "warning" : "danger";
-                                <div class="text-center mb-2">
-                                    <span class="badge bg-@gBg" style="font-size:1.5rem;padding:8px 18px;">@gScore</span>
-                                    <div class="text-muted" style="font-size:0.74rem;">Puntaje editorial (0-100)</div>
+                                <div class="text-center mb-3">
+                                    <span class="badge bg-@gBg" style="font-size:2rem;padding:10px 24px;">@gScore</span>
+                                    <div class="text-muted mt-1" style="font-size:0.76rem;">Puntaje editorial (0-100)</div>
                                     @if (Model.GrisFechaEvaluacion.HasValue)
                                     {
-                                        <div class="text-muted" style="font-size:0.71rem;">@Model.GrisFechaEvaluacion.Value.ToString("dd MMM yyyy") UTC</div>
+                                        <div class="text-muted" style="font-size:0.72rem;">@Model.GrisFechaEvaluacion.Value.ToString("dd MMM yyyy") UTC</div>
                                     }
                                 </div>
-                                @if (Model.GrisAspectos != null)
+                                @if (Model.GrisAspectos != null && Model.GrisAspectos.Any())
                                 {
+                                    <div style="font-size:0.78rem;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;padding-bottom:4px;margin-bottom:10px;">Aspectos</div>
                                     foreach (var a in Model.GrisAspectos)
                                     {
                                         var aBg = a.Puntaje >= 7 ? "success" : a.Puntaje >= 5 ? "warning" : "danger";
-                                        <div style="margin-bottom:8px;">
-                                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
-                                                <span style="font-size:0.74rem;font-weight:600;">@a.Nombre</span>
-                                                <span class="badge bg-@aBg" style="font-size:0.68rem;">@a.Puntaje/10</span>
+                                        <div class="mb-3">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span style="font-size:0.8rem;font-weight:600;">@a.Nombre</span>
+                                                <span class="badge bg-@aBg" style="font-size:0.72rem;">@a.Puntaje/10</span>
                                             </div>
-                                            <div class="progress" style="height:4px;border-radius:2px;">
-                                                <div class="progress-bar bg-@aBg" style="width:@(a.Puntaje * 10)%;"></div>
+                                            <div class="gris-aspecto-bar">
+                                                <div class="bg-@aBg" style="width:@(a.Puntaje * 10)%;height:100%;border-radius:3px;"></div>
                                             </div>
-                                            <div style="font-size:0.69rem;color:#6b7280;margin-top:2px;">@a.Observacion</div>
+                                            <div style="font-size:0.76rem;color:#4b5563;margin-top:3px;line-height:1.4;">@a.Observacion</div>
                                         </div>
                                     }
                                 }
-                                @* Categorías GRIS *@
-                                <hr style="margin:8px 0;" />
-                                <div style="font-size:0.73rem;font-weight:600;color:#374151;margin-bottom:4px;">
-                                    <i class="bi bi-tag me-1 text-primary"></i>Categorías
-                                </div>
-                                @if (Model.GrisCategoriasAlerta != null && Model.GrisCategoriasAlerta.Any())
+                                @if (Model.GrisSugerencias != null && Model.GrisSugerencias.Any())
                                 {
-                                    <div style="font-size:0.71rem;color:#dc2626;font-weight:600;margin-bottom:3px;">⚠ Posible mala clasificación</div>
-                                    foreach (var ca in Model.GrisCategoriasAlerta)
-                                    {
-                                        <div style="margin-bottom:4px;">
-                                            <span class="badge bg-danger-subtle text-danger-emphasis" style="font-size:0.68rem;">@ca.Nombre</span>
-                                            <div style="font-size:0.67rem;color:#6b7280;margin-top:1px;">@ca.Razon</div>
-                                        </div>
-                                    }
-                                }
-                                else
-                                {
-                                    <div style="font-size:0.71rem;color:#16a34a;margin-bottom:4px;">✓ Categorías coherentes</div>
-                                }
-                                @if (Model.GrisCategoriasSugeridas != null && Model.GrisCategoriasSugeridas.Any())
-                                {
-                                    <div style="font-size:0.71rem;color:#6b7280;margin-bottom:3px;">Sugeridas:</div>
-                                    <div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:4px;">
-                                        @foreach (var cs in Model.GrisCategoriasSugeridas)
+                                    <div style="font-size:0.78rem;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;padding-bottom:4px;margin-bottom:8px;">Sugerencias</div>
+                                    <ul style="font-size:0.78rem;color:#4b5563;padding-left:18px;line-height:1.5;margin-bottom:12px;">
+                                        @foreach (var s in Model.GrisSugerencias)
                                         {
-                                            <span class="badge bg-primary-subtle text-primary-emphasis" style="font-size:0.67rem;" title="@cs.Razon">@cs.Nombre</span>
+                                            <li>@s</li>
                                         }
-                                    </div>
+                                    </ul>
                                 }
-                                <button class="btn btn-sm btn-outline-secondary w-100 mt-2" onclick="evaluarConGrisDetalle(@Model.Id.Value)">
+                                <button class="btn btn-sm btn-outline-secondary w-100" onclick="evaluarConGrisDetalle(@Model.Id.Value)">
                                     <i class="bi bi-arrow-repeat me-1"></i>Re-evaluar con GRIS
                                 </button>
                             }
                             else
                             {
-                                <div class="text-muted small mb-2">
-                                    Calidad editorial con IA: claridad, utilidad, credibilidad, lenguaje, originalidad, engagement, SEO.
+                                <div class="text-muted mb-3" style="font-size:0.82rem;line-height:1.5;">
+                                    Analiza la calidad editorial del artículo: claridad, utilidad, credibilidad, lenguaje, originalidad, engagement y SEO.
                                 </div>
                                 <button class="btn btn-sm btn-primary w-100" onclick="evaluarConGrisDetalle(@Model.Id.Value)">
                                     <i class="bi bi-stars me-1"></i>Evaluar con GRIS
@@ -766,8 +814,8 @@
                             <div class="text-muted small mt-1">GRIS evaluando...</div>
                         </div>
                     </div>
-                }
-            </aside>
+                </div>
+            }
         </div>
 
         @* SEO URL block at the bottom *@
@@ -1268,7 +1316,7 @@
         async function evaluarConGrisDetalle(id) {
             const spinner = document.getElementById('grisSpinnerDetalle');
             const result  = document.getElementById('grisResultadoDetalle');
-            const btns    = document.querySelectorAll('#panelGrisDetalle button');
+            const btns    = document.querySelectorAll('#grisPanel button');
             btns.forEach(b => b.disabled = true);
             spinner.style.display = 'block';
             result.style.display  = 'none';
@@ -1353,6 +1401,32 @@
             html += '<button class="btn btn-sm btn-outline-secondary w-100 mt-2" onclick="evaluarConGrisDetalle(' + id + ')">' +
                 '<i class="bi bi-arrow-repeat me-1"></i>Re-evaluar con GRIS</button>';
             container.innerHTML = html;
+
+            // Sync aside categories panel
+            var asideCatPanel = document.getElementById('panelGrisCategorias');
+            var asideCatContent = document.getElementById('panelGrisCategoriasContent');
+            if (asideCatPanel && asideCatContent) {
+                asideCatPanel.style.display = '';
+                var alts2 = data.categoriasAlerta || [];
+                var sugs2 = data.categoriasSugeridas || [];
+                var catAsideHtml = '';
+                if (alts2.length > 0) {
+                    catAsideHtml += '<div style="font-size:0.71rem;color:#dc2626;font-weight:600;margin-bottom:4px;">⚠ Posible mala clasificación</div>';
+                    alts2.forEach(function(c) {
+                        catAsideHtml += '<div style="margin-bottom:5px;"><span class="badge bg-danger-subtle text-danger-emphasis" style="font-size:0.68rem;">' + escGd(c.nombre) + '</span><div style="font-size:0.67rem;color:#6b7280;margin-top:1px;">' + escGd(c.razon) + '</div></div>';
+                    });
+                } else {
+                    catAsideHtml += '<div style="font-size:0.71rem;color:#16a34a;margin-bottom:4px;">✓ Categorización coherente</div>';
+                }
+                if (sugs2.length > 0) {
+                    catAsideHtml += '<div style="font-size:0.71rem;color:#6b7280;margin-bottom:3px;">Sugeridas (solo informativo):</div><div style="display:flex;flex-wrap:wrap;gap:4px;">';
+                    sugs2.forEach(function(c) {
+                        catAsideHtml += '<span class="badge bg-primary-subtle text-primary-emphasis" style="font-size:0.68rem;cursor:default;" title="' + escGd(c.razon) + '">' + escGd(c.nombre) + '</span>';
+                    });
+                    catAsideHtml += '</div>';
+                }
+                asideCatContent.innerHTML = catAsideHtml;
+            }
         }
     </script>
 
