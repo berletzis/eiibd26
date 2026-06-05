@@ -1,0 +1,239 @@
+@page
+@model eiibd26.Areas.Identity.Pages.Admin.Contenidos.CalidadModel
+@using eiibd26.Services.Calidad
+
+@{
+    ViewData["Title"] = "Calidad de Contenido";
+
+    int totalCriticos = Model.Resultados?.Count(r => r.NivelSemaforo == NivelSemaforo.Critico) ?? 0;
+    int totalMejorables = Model.Resultados?.Count(r => r.NivelSemaforo == NivelSemaforo.Mejorable) ?? 0;
+    int totalOk = Model.Resultados?.Count(r => r.NivelSemaforo == NivelSemaforo.Ok) ?? 0;
+}
+
+@section Styles {
+    <style>
+        body { background: #f5f7fb; }
+
+        .block-admin-uniform {
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 2px 10px rgba(40,60,120,0.08);
+            padding: 30px 32px 18px 32px;
+            margin: 0 0 24px 0;
+            border: 1px solid #dde6f1;
+        }
+
+        .semaforo-critico  { color: #dc3545; font-size: 1.3rem; }
+        .semaforo-mejorable { color: #ffc107; font-size: 1.3rem; }
+        .semaforo-ok       { color: #198754; font-size: 1.3rem; }
+
+        .counter-card {
+            border-radius: 12px;
+            padding: 18px 28px;
+            text-align: center;
+            min-width: 140px;
+        }
+
+        .counter-card.critico   { background: #fff5f5; border: 2px solid #f5c2c7; }
+        .counter-card.mejorable { background: #fffbf0; border: 2px solid #ffd966; }
+        .counter-card.ok        { background: #f0fff4; border: 2px solid #a8d5b5; }
+
+        .counter-card .numero  { font-size: 2.2rem; font-weight: 700; line-height: 1; }
+        .counter-card .etiqueta { font-size: 0.85rem; color: #6b7280; margin-top: 4px; }
+
+        .senal-badge {
+            font-size: 0.72rem;
+            padding: 3px 8px;
+            border-radius: 20px;
+            margin: 2px;
+            display: inline-block;
+            font-weight: 600;
+        }
+
+        .senal-critica   { background: #fde8e8; color: #b91c1c; border: 1px solid #fca5a5; }
+        .senal-mejorable { background: #fef9c3; color: #92400e; border: 1px solid #fde68a; }
+
+        .tabla-calidad td { vertical-align: middle; }
+        .titulo-contenido { font-weight: 500; font-size: 0.92rem; }
+        .dup-link { font-size: 0.78rem; color: #6c757d; }
+    </style>
+}
+
+<div class="container-fluid px-4 py-4">
+
+    <!-- Encabezado -->
+    <div class="block-admin-uniform d-flex justify-content-between align-items-start flex-wrap gap-3">
+        <div>
+            <h4 class="mb-1 fw-bold">
+                <i class="bi bi-bar-chart-line me-2 text-primary"></i>Calidad de Contenido
+            </h4>
+            <div class="text-muted mb-2">
+                Analiza duplicados y señales de calidad de todos los contenidos.
+                El análisis corre bajo demanda — puede tardar unos segundos.
+            </div>
+            <a asp-page="./Contenidos" class="text-decoration-none small">
+                <i class="bi bi-arrow-left me-1"></i>Volver a Contenidos
+            </a>
+        </div>
+        <div>
+            <form method="post" asp-page-handler="Analizar">
+                @Html.AntiForgeryToken()
+                <button id="btnAnalizar" type="submit" class="btn btn-primary">
+                    <i class="bi bi-search me-1"></i> Analizar contenido
+                </button>
+            </form>
+        </div>
+    </div>
+
+    @if (!Model.Analizado)
+    {
+        <!-- Estado inicial -->
+        <div class="block-admin-uniform text-center py-5">
+            <i class="bi bi-bar-chart-line" style="font-size:3rem;color:#adb5bd;"></i>
+            <div class="mt-3 text-muted">Haz clic en <strong>Analizar contenido</strong> para iniciar el diagnóstico.</div>
+        </div>
+    }
+    else
+    {
+        <!-- Resumen de contadores -->
+        <div class="d-flex gap-3 flex-wrap mb-4">
+            <div class="counter-card critico">
+                <div class="numero semaforo-critico">🔴 @totalCriticos</div>
+                <div class="etiqueta">Críticos</div>
+            </div>
+            <div class="counter-card mejorable">
+                <div class="numero semaforo-mejorable">🟡 @totalMejorables</div>
+                <div class="etiqueta">Mejorables</div>
+            </div>
+            <div class="counter-card ok">
+                <div class="numero semaforo-ok">🟢 @totalOk</div>
+                <div class="etiqueta">OK</div>
+            </div>
+            <div class="counter-card" style="border: 2px solid #dee2e6; background:#f8f9fa;">
+                <div class="numero" style="font-size:2.2rem;">@Model.Resultados!.Count</div>
+                <div class="etiqueta">Total analizados</div>
+            </div>
+        </div>
+
+        <!-- Filtro rápido -->
+        <div class="mb-3 d-flex gap-2 flex-wrap align-items-center">
+            <span class="text-muted small fw-semibold me-1">Filtrar:</span>
+            <button class="btn btn-sm btn-outline-secondary btn-filtro active" data-nivel="todos">Todos</button>
+            <button class="btn btn-sm btn-outline-danger btn-filtro" data-nivel="Critico">🔴 Críticos</button>
+            <button class="btn btn-sm btn-outline-warning btn-filtro" data-nivel="Mejorable">🟡 Mejorables</button>
+            <button class="btn btn-sm btn-outline-success btn-filtro" data-nivel="Ok">🟢 OK</button>
+        </div>
+
+        <!-- Tabla de resultados -->
+        <div class="block-admin-uniform p-0 overflow-hidden">
+            <table class="table table-hover mb-0 tabla-calidad" id="tablaCalidad">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width:60px;" class="text-center">Estado</th>
+                        <th>Título</th>
+                        <th style="width:80px;" class="text-center">Pub.</th>
+                        <th>Señales detectadas</th>
+                        <th style="width:110px;" class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model.Resultados!)
+                    {
+                        var nivelClass = item.NivelSemaforo switch
+                        {
+                            NivelSemaforo.Critico   => "critico",
+                            NivelSemaforo.Mejorable => "mejorable",
+                            _                       => "ok"
+                        };
+                        var emoji = item.NivelSemaforo switch
+                        {
+                            NivelSemaforo.Critico   => "🔴",
+                            NivelSemaforo.Mejorable => "🟡",
+                            _                       => "🟢"
+                        };
+                        <tr data-nivel="@item.NivelSemaforo">
+                            <td class="text-center semaforo-@nivelClass" title="@item.NivelSemaforo">
+                                @emoji
+                            </td>
+                            <td>
+                                <div class="titulo-contenido">@item.Titulo</div>
+                                @if (!string.IsNullOrWhiteSpace(item.Slug))
+                                {
+                                    <div class="text-muted" style="font-size:0.75rem;">/@item.Slug</div>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (item.EstadoPublicacion == 0)
+                                {
+                                    <span class="badge bg-secondary">Borrador</span>
+                                }
+                                else if (item.EstadoPublicacion == 1)
+                                {
+                                    <span class="badge bg-success">Publicado</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-light text-muted">@item.EstadoPublicacion</span>
+                                }
+                            </td>
+                            <td>
+                                @foreach (var senal in item.Senales)
+                                {
+                                    var badgeClass = senal.Gravedad == GravedadSenal.Critica
+                                        ? "senal-critica" : "senal-mejorable";
+                                    <span class="senal-badge @badgeClass" title="@senal.Descripcion">
+                                        @senal.Codigo
+                                    </span>
+                                }
+                                @if (item.DuplicadoDeIds.Any())
+                                {
+                                    <div class="dup-link mt-1">
+                                        Similares:
+                                        @foreach (var dupId in item.DuplicadoDeIds)
+                                        {
+                                            <a href="./Detalle?id=@dupId" target="_blank" class="me-1">#@dupId</a>
+                                        }
+                                    </div>
+                                }
+                                @if (!item.Senales.Any())
+                                {
+                                    <span class="text-muted small">Sin problemas detectados</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                <a href="./Detalle?id=@item.Id"
+                                   class="btn btn-sm btn-outline-primary"
+                                   title="Editar contenido">
+                                    <i class="bi bi-pencil-square"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        // Spinner al analizar
+        document.getElementById('btnAnalizar')?.addEventListener('click', function () {
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Analizando...';
+        });
+
+        // Filtro por nivel
+        document.querySelectorAll('.btn-filtro').forEach(btn => {
+            btn.addEventListener('click', function () {
+                document.querySelectorAll('.btn-filtro').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+
+                const nivel = this.dataset.nivel;
+                document.querySelectorAll('#tablaCalidad tbody tr').forEach(tr => {
+                    tr.style.display = (nivel === 'todos' || tr.dataset.nivel === nivel) ? '' : 'none';
+                });
+            });
+        });
+    </script>
+}
