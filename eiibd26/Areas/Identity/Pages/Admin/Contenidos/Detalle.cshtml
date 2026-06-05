@@ -66,6 +66,43 @@
             overflow: hidden;
         }
 
+        .comparador-panel {
+            background: #fff;
+            border: 1px solid #d9e3ec;
+            border-radius: 10px;
+            padding: 16px 18px;
+        }
+
+        .comparador-panel h6 {
+            font-size: 0.84rem;
+            font-weight: 700;
+            color: #374151;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+        }
+
+        .comp-item {
+            background: #fafbfd;
+            border: 1px solid #e1e7ef;
+            border-radius: 6px;
+            padding: 8px 10px;
+            margin-bottom: 6px;
+            font-size: 0.82rem;
+        }
+
+        .comp-item-title {
+            font-weight: 600;
+            color: #1a1a2e;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .comp-item-motivo {
+            color: #6b7280;
+            font-size: 0.76rem;
+        }
+
         .rel-box {
             background: #fff;
             border: 1px solid #d9e3ec;
@@ -534,6 +571,18 @@
                     <button type="button" class="btn btn-sm btn-primary mb-2" onclick="window.open('/Identity/Admin/Contenidos/Detalle','_blank')">Agregar nuevo</button>
                 </div>
                 </div>
+                @if (Model.Id.HasValue)
+                {
+                    <div class="mb-2">
+                        <button type="button" class="btn btn-sm btn-outline-info w-100" id="btnCompararRelacionados" onclick="compararRelacionados()">
+                            <i class="bi bi-diagram-3 me-1"></i>Comparar artículos relacionados
+                        </button>
+                        <div id="spinnerComparar" style="display:none;" class="text-center py-1">
+                            <div class="spinner-border spinner-border-sm text-info" role="status"></div>
+                            <span class="text-muted small ms-1">Analizando...</span>
+                        </div>
+                    </div>
+                }
 
                 <div class="rel-box">
                     <h5>Contenidos generales <span class="badge bg-light text-dark">@Model.AllGeneralContenidos.Count</span></h5>
@@ -817,6 +866,11 @@
                 </div>
             }
         </div>
+
+        @if (Model.Id.HasValue)
+        {
+            <div id="resultadoComparar" class="comparador-panel mt-3" style="display:none;"></div>
+        }
 
         @* SEO URL block at the bottom *@
         <div class="seo-block mt-3">
@@ -1346,6 +1400,87 @@
 
         function escGd(s) {
             return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        // ── Comparador de artículos relacionados ──────────────────────────────
+        async function compararRelacionados() {
+            const btn = document.getElementById('btnCompararRelacionados');
+            const spinner = document.getElementById('spinnerComparar');
+            const panel = document.getElementById('resultadoComparar');
+            if (!btn || !panel) return;
+
+            btn.disabled = true;
+            spinner.style.display = 'block';
+            panel.style.display = 'none';
+
+            try {
+                const fd = new FormData();
+                const tok = document.querySelector('[name="__RequestVerificationToken"]');
+                if (tok) fd.append('__RequestVerificationToken', tok.value);
+                fd.append('id', '@(Model.Id?.ToString() ?? "")');
+
+                const res = await fetch('?handler=CompararRelacionados', { method: 'POST', body: fd });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const data = await res.json();
+                if (!data.ok) throw new Error(data.error || 'Error al comparar');
+
+                renderComparacion(data, panel);
+            } catch (e) {
+                panel.innerHTML = '<div class="alert alert-danger py-2 small"><i class="bi bi-exclamation-triangle me-1"></i>' + escGd(e.message) + '</div>';
+            } finally {
+                spinner.style.display = 'none';
+                panel.style.display = 'block';
+                btn.disabled = false;
+            }
+        }
+
+        function renderComparacion(data, panel) {
+            var catList = data.porCategoria || [];
+            var simList = data.porSimilitud || [];
+
+            function renderItem(item, withScore) {
+                var scoreHtml = '';
+                if (withScore && typeof item.score !== 'undefined') {
+                    var pct = Math.round(item.score * 100);
+                    var cls = pct >= 50 ? 'success' : pct >= 25 ? 'warning' : 'secondary';
+                    scoreHtml = ' <span class="badge bg-' + cls + ' ms-1">' + pct + '%</span>';
+                }
+                return '<div class="comp-item">' +
+                    '<span class="comp-item-title">' + escGd(item.titulo) + scoreHtml + '</span>' +
+                    '<span class="comp-item-motivo">' + escGd(item.motivo) + '</span>' +
+                    (item.url ? ' &nbsp;<a href="' + escGd(item.url) + '" target="_blank" class="text-primary small text-decoration-none">editar →</a>' : '') +
+                    '</div>';
+            }
+
+            var html = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">' +
+                '<i class="bi bi-diagram-3 text-info" style="font-size:1rem;"></i>' +
+                '<span style="font-weight:700;font-size:0.9rem;">Comparación de artículos relacionados</span>' +
+                '<span style="font-size:0.75rem;color:#6b7280;">(diagnóstico — no modifica el frontend)</span>' +
+                '</div>';
+            html += '<div class="row g-3">';
+
+            // Col 1: por categoría
+            html += '<div class="col-md-6">';
+            html += '<h6><i class="bi bi-tag me-1"></i>Por categoría (método actual)</h6>';
+            if (catList.length === 0) {
+                html += '<div class="text-muted small">Sin resultados — artículo sin categorías asignadas.</div>';
+            } else {
+                catList.forEach(function(item) { html += renderItem(item, false); });
+            }
+            html += '</div>';
+
+            // Col 2: por similitud
+            html += '<div class="col-md-6">';
+            html += '<h6><i class="bi bi-search me-1"></i>Por similitud de texto</h6>';
+            if (simList.length === 0) {
+                html += '<div class="text-muted small">Sin resultados con similitud suficiente.</div>';
+            } else {
+                simList.forEach(function(item) { html += renderItem(item, true); });
+            }
+            html += '</div>';
+
+            html += '</div>';
+            panel.innerHTML = html;
         }
 
         function renderGrisDetalle(data, id, container) {

@@ -13,6 +13,7 @@ using System.Text.Json;
 using System.Security.Claims;
 using eiibd26.Data;
 using eiibd26.Models;
+using eiibd26.Services.AI;
 using eiibd26.Services.Calidad;
 
 namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
@@ -25,14 +26,16 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         private readonly ILogger<DetalleModel> _logger;
         private readonly IContenidoCalidadService _calidad;
         private readonly IGrisEvaluadorService _gris;
+        private readonly ISimilarQuestionDetector _similarDetector;
 
-        public DetalleModel(ApplicationDbContext db, IWebHostEnvironment env, ILogger<DetalleModel> logger, IContenidoCalidadService calidad, IGrisEvaluadorService gris)
+        public DetalleModel(ApplicationDbContext db, IWebHostEnvironment env, ILogger<DetalleModel> logger, IContenidoCalidadService calidad, IGrisEvaluadorService gris, ISimilarQuestionDetector similarDetector)
         {
             _db = db;
             _env = env;
             _logger = logger;
             _calidad = calidad;
             _gris = gris;
+            _similarDetector = similarDetector;
         }
 
         // GRIS — evaluación editorial (sólo lectura en GET; se actualiza al evaluar)
@@ -423,6 +426,134 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             {
                 _logger.LogError(ex, "[GRIS] Error al evaluar contenido {Id} desde Detalle", id);
                 return new JsonResult(new { ok = false, error = ex.Message }, GrisJsonOpts);
+            }
+        }
+
+        // ── Comparador de relacionados — diagnóstico ─────────────────────────
+        private static readonly JsonSerializerOptions CompararJsonOpts = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
+        public async Task<IActionResult> OnPostCompararRelacionadosAsync([FromForm] int id)
+        {
+            try
+            {
+                // ── Por categoría (mismo método que el frontend público) ──────
+                var catIds = await _db.ContenidosCategoriasRelacion
+                    .AsNoTracking()
+                    .Where(r => r.IdContenido == id && !r.Borrado && r.IdCategoria != null)
+                    .Select(r => r.IdCategoria!.Value)
+                    .ToListAsync();
+
+                var catNombres = new Dictionary<int, string>();
+                if (catIds.Any())
+                {
+                    catNombres = await _db.ContenidosCategorias
+                        .AsNoTracking()
+                        .Where(c => catIds.Contains(c.Sequence))
+                        .ToDictionaryAsync(c => c.Sequence, c => c.Nombre ?? "?");
+                }
+
+                var porCategoria = new List<object>();
+                if (catIds.Any())
+                {
+                    var relatedIds = await _db.ContenidosCategoriasRelacion
+                        .AsNoTracking()
+                        .Where(r => !r.Borrado && r.IdCategoria != null && catIds.Contains(r.IdCategoria.Value))
+                        .Select(r => r.IdContenido)
+                        .Distinct()
+                        .ToListAsync();
+                    relatedIds.Remove(id);
+
+                    var catItems = await _db.Contenidos
+                        .AsNoTracking()
+                        .Where(c => relatedIds.Contains(c.Id) && !c.Eliminado && c.EstadoPublicacion > 0)
+                        .OrderByDescending(c => c.FechaCreado)
+                        .Take(5)
+                        .Select(c => new { c.Id, c.ContenidoTitulo })
+                        .ToListAsync();
+
+                    var itemIds = catItems.Select(i => i.Id).ToList();
+                    var contentCatRels = await _db.ContenidosCategoriasRelacion
+                        .AsNoTracking()
+                        .Where(r => itemIds.Contains(r.IdContenido) && !r.Borrado && r.IdCategoria != null)
+                        .Select(r => new { r.IdContenido, r.IdCategoria })
+                        .ToListAsync();
+
+                    foreach (var item in catItems)
+                    {
+                        var shared = contentCatRels
+                            .Where(r => r.IdContenido == item.Id && r.IdCategoria.HasValue && catIds.Contains(r.IdCategoria.Value))
+                            .Select(r => catNombres.TryGetValue(r.IdCategoria!.Value, out var n) ? n : r.IdCategoria.Value.ToString())
+                            .ToList();
+                        porCategoria.Add(new
+                        {
+                            id = item.Id,
+                            titulo = item.ContenidoTitulo ?? "(sin título)",
+                            motivo = shared.Any() ? "Comparte: " + string.Join(", ", shared) : "Categoría compartida",
+                            url = $"/Identity/Admin/Contenidos/Detalle/{item.Id}"
+                        });
+                    }
+                }
+
+                // ── Por similitud de texto (Jaccard + Levenshtein) ────────────
+                var current = await _db.Contenidos
+                    .AsNoTracking()
+                    .Where(c => c.Id == id)
+                    .Select(c => new { c.ContenidoTitulo, c.ContenidoTextoC })
+                    .FirstOrDefaultAsync();
+
+                var porSimilitud = new List<object>();
+                if (current != null)
+                {
+                    var currentText = ((current.ContenidoTitulo ?? "") + " " + (current.ContenidoTextoC ?? "")).Trim();
+                    if (currentText.Length > 800) currentText = currentText[..800];
+
+                    var candidates = await _db.Contenidos
+                        .AsNoTracking()
+                        .Where(c => c.Id != id && !c.Eliminado && c.EstadoPublicacion > 0)
+                        .OrderByDescending(c => c.FechaCreado)
+                        .Take(300)
+                        .Select(c => new { c.Id, c.ContenidoTitulo, c.ContenidoTextoC })
+                        .ToListAsync();
+
+                    var scored = candidates
+                        .Select(c =>
+                        {
+                            var txt = ((c.ContenidoTitulo ?? "") + " " + (c.ContenidoTextoC ?? "")).Trim();
+                            if (txt.Length > 800) txt = txt[..800];
+                            return new { c.Id, c.ContenidoTitulo, score = _similarDetector.CalcularSimilitud(currentText, txt) };
+                        })
+                        .Where(x => x.score > 0.01)
+                        .OrderByDescending(x => x.score)
+                        .Take(5)
+                        .ToList();
+
+                    foreach (var s in scored)
+                    {
+                        var pct = Math.Round(s.score * 100, 1);
+                        porSimilitud.Add(new
+                        {
+                            id = s.Id,
+                            titulo = s.ContenidoTitulo ?? "(sin título)",
+                            score = s.score,
+                            motivo = $"{pct}% similitud de texto",
+                            url = $"/Identity/Admin/Contenidos/Detalle/{s.Id}"
+                        });
+                    }
+                }
+
+                _logger.LogInformation(
+                    "[CompararRelacionados] contenido={Id} porCategoria={C} porSimilitud={S}",
+                    id, porCategoria.Count, porSimilitud.Count);
+
+                return new JsonResult(new { ok = true, porCategoria, porSimilitud }, CompararJsonOpts);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[CompararRelacionados] Error para contenido {Id}", id);
+                return new JsonResult(new { ok = false, error = ex.Message }, CompararJsonOpts);
             }
         }
 
