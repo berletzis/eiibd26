@@ -281,6 +281,8 @@ try
     // Configure AI Answer settings
     builder.Services.Configure<eiibd26.Configuration.AiAnswerConfiguration>(
         builder.Configuration.GetSection("AiAnswer"));
+    builder.Services.Configure<eiibd26.Configuration.GrisConfiguration>(
+        builder.Configuration.GetSection("Gris"));
 
     // Register AI services
     builder.Services.AddSingleton<eiibd26.Services.AI.IAiAnswerService, eiibd26.Services.AI.AiAnswerService>();

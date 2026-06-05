@@ -14,6 +14,7 @@ namespace eiibd26.Services.Calidad
     {
         private readonly HttpClient _httpClient;
         private readonly AiAnswerConfiguration _config;
+        private readonly string _model;
         private readonly ApplicationDbContext _db;
         private readonly ILogger<GrisEvaluadorService> _logger;
 
@@ -35,18 +36,22 @@ namespace eiibd26.Services.Calidad
         public GrisEvaluadorService(
             IHttpClientFactory httpClientFactory,
             IOptions<AiAnswerConfiguration> config,
+            IOptions<GrisConfiguration> grisConfig,
             ApplicationDbContext db,
             ILogger<GrisEvaluadorService> logger)
         {
             _httpClient = httpClientFactory.CreateClient("AnthropicClient");
             _config = config.Value;
+            _model = !string.IsNullOrWhiteSpace(grisConfig.Value.Model)
+                ? grisConfig.Value.Model
+                : _config.Model;
             _db = db;
             _logger = logger;
         }
 
         public async Task<GrisEvaluacionDto> EvaluarAsync(int contenidoId)
         {
-            _logger.LogInformation("[GRIS] Evaluación editorial contenidoId={Id}", contenidoId);
+            _logger.LogInformation("[GRIS] Evaluación editorial contenidoId={Id} modelo={Modelo}", contenidoId, _model);
 
             var contenido = await _db.Contenidos
                 .AsNoTracking()
@@ -188,7 +193,7 @@ namespace eiibd26.Services.Calidad
         {
             var requestBody = new
             {
-                model = _config.Model,
+                model = _model,
                 max_tokens = MaxTokensGris,
                 temperature = 0.3,
                 system = SystemPrompt,
