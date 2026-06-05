@@ -7,10 +7,13 @@ namespace eiibd26.Services.Calidad
     public interface IContenidoCalidadService
     {
         /// <summary>
-        /// Evalúa todos los contenidos no eliminados y devuelve la lista
-        /// con señales de calidad y nivel de semáforo por cada uno.
-        /// O(n²) para duplicados — solo invocar bajo demanda.
+        /// Analiza el rango [skip, skip+take) de contenidos no eliminados.
+        /// Carga textos de TODOS para detección de duplicados, pero evalúa señales solo del batch.
+        /// Cada petición es rápida (≤10 items, pre-filtro Jaccard elimina el 99%+ del Levenshtein).
         /// </summary>
+        Task<CalidadBatchResultDto> AnalizarBatchAsync(int skip, int take);
+
+        /// <summary>Analiza todos los contenidos en una sola llamada (solo para tests/uso interno).</summary>
         Task<List<ContenidoCalidadDto>> AnalizarTodosAsync();
     }
 }

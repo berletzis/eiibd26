@@ -1,13 +1,8 @@
 @page
 @model eiibd26.Areas.Identity.Pages.Admin.Contenidos.CalidadModel
-@using eiibd26.Services.Calidad
 
 @{
     ViewData["Title"] = "Calidad de Contenido";
-
-    int totalCriticos = Model.Resultados?.Count(r => r.NivelSemaforo == NivelSemaforo.Critico) ?? 0;
-    int totalMejorables = Model.Resultados?.Count(r => r.NivelSemaforo == NivelSemaforo.Mejorable) ?? 0;
-    int totalOk = Model.Resultados?.Count(r => r.NivelSemaforo == NivelSemaforo.Ok) ?? 0;
 }
 
 @section Styles {
@@ -23,9 +18,9 @@
             border: 1px solid #dde6f1;
         }
 
-        .semaforo-critico  { color: #dc3545; font-size: 1.3rem; }
+        .semaforo-critico   { color: #dc3545; font-size: 1.3rem; }
         .semaforo-mejorable { color: #ffc107; font-size: 1.3rem; }
-        .semaforo-ok       { color: #198754; font-size: 1.3rem; }
+        .semaforo-ok        { color: #198754; font-size: 1.3rem; }
 
         .counter-card {
             border-radius: 12px;
@@ -33,12 +28,11 @@
             text-align: center;
             min-width: 140px;
         }
-
         .counter-card.critico   { background: #fff5f5; border: 2px solid #f5c2c7; }
         .counter-card.mejorable { background: #fffbf0; border: 2px solid #ffd966; }
         .counter-card.ok        { background: #f0fff4; border: 2px solid #a8d5b5; }
-
-        .counter-card .numero  { font-size: 2.2rem; font-weight: 700; line-height: 1; }
+        .counter-card.total-card { background: #f8f9fa; border: 2px solid #dee2e6; }
+        .counter-card .numero   { font-size: 2.2rem; font-weight: 700; line-height: 1; }
         .counter-card .etiqueta { font-size: 0.85rem; color: #6b7280; margin-top: 4px; }
 
         .senal-badge {
@@ -49,7 +43,6 @@
             display: inline-block;
             font-weight: 600;
         }
-
         .senal-critica   { background: #fde8e8; color: #b91c1c; border: 1px solid #fca5a5; }
         .senal-mejorable { background: #fef9c3; color: #92400e; border: 1px solid #fde68a; }
 
@@ -68,49 +61,68 @@
                 <i class="bi bi-bar-chart-line me-2 text-primary"></i>Calidad de Contenido
             </h4>
             <div class="text-muted mb-2">
-                Analiza duplicados y señales de calidad de todos los contenidos.
-                El análisis corre bajo demanda — puede tardar unos segundos.
+                Analiza duplicados y señales de calidad — procesa en batches de 10 para no congelar la página.
             </div>
             <a asp-page="./Contenidos" class="text-decoration-none small">
                 <i class="bi bi-arrow-left me-1"></i>Volver a Contenidos
             </a>
         </div>
-        <div>
-            <form method="post" asp-page-handler="Analizar">
+        <div class="d-flex align-items-center gap-2">
+            <!-- Token antiforgery para los fetch de batch -->
+            <form id="formToken" style="display:none;">
                 @Html.AntiForgeryToken()
-                <button id="btnAnalizar" type="submit" class="btn btn-primary">
-                    <i class="bi bi-search me-1"></i> Analizar contenido
-                </button>
             </form>
+            <button id="btnAnalizar" onclick="iniciarAnalisis()" class="btn btn-primary">
+                <i class="bi bi-search me-1"></i> Analizar contenido
+            </button>
         </div>
     </div>
 
-    @if (!Model.Analizado)
-    {
-        <!-- Estado inicial -->
-        <div class="block-admin-uniform text-center py-5">
-            <i class="bi bi-bar-chart-line" style="font-size:3rem;color:#adb5bd;"></i>
-            <div class="mt-3 text-muted">Haz clic en <strong>Analizar contenido</strong> para iniciar el diagnóstico.</div>
+    <!-- Estado inicial -->
+    <div id="estadoInicial" class="block-admin-uniform text-center py-5">
+        <i class="bi bi-bar-chart-line" style="font-size:3rem;color:#adb5bd;"></i>
+        <div class="mt-3 text-muted">
+            Haz clic en <strong>Analizar contenido</strong> para iniciar el diagnóstico por batches.
         </div>
-    }
-    else
-    {
-        <!-- Resumen de contadores -->
+    </div>
+
+    <!-- Barra de progreso (oculta al inicio) -->
+    <div id="barraProgresoContainer" class="block-admin-uniform py-3" style="display:none;">
+        <div class="d-flex justify-content-between mb-2">
+            <span id="textoProgreso" class="text-muted small fw-semibold"></span>
+            <span id="pctProgreso" class="text-muted small">0%</span>
+        </div>
+        <div class="progress" style="height:10px; border-radius:8px;">
+            <div id="barraInterna"
+                 class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+                 role="progressbar"
+                 style="width:0%; border-radius:8px;"
+                 aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+            </div>
+        </div>
+        <div id="alertaBatchFallido" class="alert alert-warning mt-2 py-2 small" style="display:none;">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            <span id="mensajeBatchFallido"></span>
+        </div>
+    </div>
+
+    <!-- Resumen contadores (oculto hasta completar) -->
+    <div id="resumenContadores" style="display:none;">
         <div class="d-flex gap-3 flex-wrap mb-4">
             <div class="counter-card critico">
-                <div class="numero semaforo-critico">🔴 @totalCriticos</div>
+                <div class="numero semaforo-critico" id="numCriticos">🔴 0</div>
                 <div class="etiqueta">Críticos</div>
             </div>
             <div class="counter-card mejorable">
-                <div class="numero semaforo-mejorable">🟡 @totalMejorables</div>
+                <div class="numero semaforo-mejorable" id="numMejorables">🟡 0</div>
                 <div class="etiqueta">Mejorables</div>
             </div>
             <div class="counter-card ok">
-                <div class="numero semaforo-ok">🟢 @totalOk</div>
+                <div class="numero semaforo-ok" id="numOk">🟢 0</div>
                 <div class="etiqueta">OK</div>
             </div>
-            <div class="counter-card" style="border: 2px solid #dee2e6; background:#f8f9fa;">
-                <div class="numero" style="font-size:2.2rem;">@Model.Resultados!.Count</div>
+            <div class="counter-card total-card">
+                <div class="numero" id="numTotal">0</div>
                 <div class="etiqueta">Total analizados</div>
             </div>
         </div>
@@ -123,117 +135,199 @@
             <button class="btn btn-sm btn-outline-warning btn-filtro" data-nivel="Mejorable">🟡 Mejorables</button>
             <button class="btn btn-sm btn-outline-success btn-filtro" data-nivel="Ok">🟢 OK</button>
         </div>
+    </div>
 
-        <!-- Tabla de resultados -->
-        <div class="block-admin-uniform p-0 overflow-hidden">
-            <table class="table table-hover mb-0 tabla-calidad" id="tablaCalidad">
-                <thead class="table-light">
-                    <tr>
-                        <th style="width:60px;" class="text-center">Estado</th>
-                        <th>Título</th>
-                        <th style="width:80px;" class="text-center">Pub.</th>
-                        <th>Señales detectadas</th>
-                        <th style="width:110px;" class="text-center">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var item in Model.Resultados!)
-                    {
-                        var nivelClass = item.NivelSemaforo switch
-                        {
-                            NivelSemaforo.Critico   => "critico",
-                            NivelSemaforo.Mejorable => "mejorable",
-                            _                       => "ok"
-                        };
-                        var emoji = item.NivelSemaforo switch
-                        {
-                            NivelSemaforo.Critico   => "🔴",
-                            NivelSemaforo.Mejorable => "🟡",
-                            _                       => "🟢"
-                        };
-                        <tr data-nivel="@item.NivelSemaforo">
-                            <td class="text-center semaforo-@nivelClass" title="@item.NivelSemaforo">
-                                @emoji
-                            </td>
-                            <td>
-                                <div class="titulo-contenido">@item.Titulo</div>
-                                @if (!string.IsNullOrWhiteSpace(item.Slug))
-                                {
-                                    <div class="text-muted" style="font-size:0.75rem;">/@item.Slug</div>
-                                }
-                            </td>
-                            <td class="text-center">
-                                @if (item.EstadoPublicacion == 0)
-                                {
-                                    <span class="badge bg-secondary">Borrador</span>
-                                }
-                                else if (item.EstadoPublicacion == 1)
-                                {
-                                    <span class="badge bg-success">Publicado</span>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-light text-muted">@item.EstadoPublicacion</span>
-                                }
-                            </td>
-                            <td>
-                                @foreach (var senal in item.Senales)
-                                {
-                                    var badgeClass = senal.Gravedad == GravedadSenal.Critica
-                                        ? "senal-critica" : "senal-mejorable";
-                                    <span class="senal-badge @badgeClass" title="@senal.Descripcion">
-                                        @senal.Codigo
-                                    </span>
-                                }
-                                @if (item.DuplicadoDeIds.Any())
-                                {
-                                    <div class="dup-link mt-1">
-                                        Similares:
-                                        @foreach (var dupId in item.DuplicadoDeIds)
-                                        {
-                                            <a href="./Detalle?id=@dupId" target="_blank" class="me-1">#@dupId</a>
-                                        }
-                                    </div>
-                                }
-                                @if (!item.Senales.Any())
-                                {
-                                    <span class="text-muted small">Sin problemas detectados</span>
-                                }
-                            </td>
-                            <td class="text-center">
-                                <a href="./Detalle?id=@item.Id"
-                                   class="btn btn-sm btn-outline-primary"
-                                   title="Editar contenido">
-                                    <i class="bi bi-pencil-square"></i>
-                                </a>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    }
+    <!-- Tabla (visible desde el primer batch) -->
+    <div id="tablaContainer" style="display:none;" class="block-admin-uniform p-0 overflow-hidden">
+        <table class="table table-hover mb-0 tabla-calidad" id="tablaCalidad">
+            <thead class="table-light">
+                <tr>
+                    <th style="width:60px;" class="text-center">Estado</th>
+                    <th>Título</th>
+                    <th style="width:80px;" class="text-center">Pub.</th>
+                    <th>Señales detectadas</th>
+                    <th style="width:110px;" class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tablaCalidadBody"></tbody>
+        </table>
+    </div>
+
 </div>
 
 @section Scripts {
-    <script>
-        // Spinner al analizar
-        document.getElementById('btnAnalizar')?.addEventListener('click', function () {
-            this.disabled = true;
-            this.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Analizando...';
-        });
+<script>
+    const TAKE = 10;
+    let allItems = [];
+    let filtroActivo = 'todos';
 
-        // Filtro por nivel
-        document.querySelectorAll('.btn-filtro').forEach(btn => {
-            btn.addEventListener('click', function () {
-                document.querySelectorAll('.btn-filtro').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
+    function getToken() {
+        return document.querySelector('#formToken [name="__RequestVerificationToken"]').value;
+    }
 
-                const nivel = this.dataset.nivel;
-                document.querySelectorAll('#tablaCalidad tbody tr').forEach(tr => {
-                    tr.style.display = (nivel === 'todos' || tr.dataset.nivel === nivel) ? '' : 'none';
-                });
-            });
+    async function fetchBatch(skip) {
+        const fd = new FormData();
+        fd.append('__RequestVerificationToken', getToken());
+        fd.append('skip', skip);
+        fd.append('take', TAKE);
+        const res = await fetch('?handler=AnalizarBatch', { method: 'POST', body: fd });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return await res.json();
+    }
+
+    async function iniciarAnalisis() {
+        const btn = document.getElementById('btnAnalizar');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Iniciando...';
+
+        // Reset estado
+        allItems = [];
+        document.getElementById('estadoInicial').style.display = 'none';
+        document.getElementById('resumenContadores').style.display = 'none';
+        document.getElementById('tablaContainer').style.display = 'none';
+        document.getElementById('tablaCalidadBody').innerHTML = '';
+        document.getElementById('alertaBatchFallido').style.display = 'none';
+        document.getElementById('barraInterna').className = 'progress-bar progress-bar-striped progress-bar-animated bg-primary';
+        document.getElementById('barraProgresoContainer').style.display = 'block';
+        actualizarBarra(0, 1, 'Iniciando análisis...');
+
+        try {
+            const primerBatch = await fetchBatch(0);
+            const total = primerBatch.total;
+
+            if (total === 0) {
+                actualizarBarra(1, 1, 'Sin contenidos para analizar.');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-search me-1"></i> Analizar contenido';
+                return;
+            }
+
+            appendItems(primerBatch.items);
+            actualizarBarra(Math.min(TAKE, total), total,
+                'Analizando ' + Math.min(TAKE, total) + ' de ' + total + '...');
+
+            for (let i = TAKE; i < total; i += TAKE) {
+                let batch;
+                try {
+                    batch = await fetchBatch(i);
+                } catch {
+                    try { batch = await fetchBatch(i); } catch (e2) {
+                        document.getElementById('mensajeBatchFallido').textContent =
+                            'El batch ' + (i + 1) + '-' + Math.min(i + TAKE, total) + ' falló dos veces y se omitió.';
+                        document.getElementById('alertaBatchFallido').style.display = 'block';
+                        continue;
+                    }
+                }
+                appendItems(batch.items);
+                const analizados = Math.min(i + TAKE, total);
+                actualizarBarra(analizados, total, 'Analizando ' + analizados + ' de ' + total + '...');
+            }
+
+            actualizarBarra(total, total, 'Análisis completo — ' + total + ' contenidos revisados.');
+            mostrarResumen(total);
+
+        } catch (e) {
+            actualizarBarra(0, 1, 'Error al iniciar: ' + e.message);
+            document.getElementById('barraInterna').className = 'progress-bar bg-danger';
+        }
+
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-search me-1"></i> Analizar de nuevo';
+    }
+
+    function actualizarBarra(hecho, total, texto) {
+        const pct = total > 0 ? Math.round((hecho / total) * 100) : 0;
+        document.getElementById('textoProgreso').textContent = texto;
+        document.getElementById('pctProgreso').textContent = pct + '%';
+        const barra = document.getElementById('barraInterna');
+        barra.style.width = pct + '%';
+        barra.setAttribute('aria-valuenow', pct);
+        if (pct >= 100) barra.classList.remove('progress-bar-animated');
+    }
+
+    function appendItems(items) {
+        allItems = allItems.concat(items);
+        const tbody = document.getElementById('tablaCalidadBody');
+        document.getElementById('tablaContainer').style.display = 'block';
+        items.forEach(function(item) {
+            const tr = crearFila(item);
+            if (filtroActivo !== 'todos' && item.nivelSemaforo !== filtroActivo) {
+                tr.style.display = 'none';
+            }
+            tbody.appendChild(tr);
         });
-    </script>
+    }
+
+    function crearFila(item) {
+        const nivel = item.nivelSemaforo;
+        const emoji = { Critico: '🔴', Mejorable: '🟡', Ok: '🟢' }[nivel] || '❓';
+        const nivelClass = { Critico: 'critico', Mejorable: 'mejorable', Ok: 'ok' }[nivel] || '';
+
+        const senalesBadges = item.senales.map(function(s) {
+            const cls = s.gravedad === 'Critica' ? 'senal-critica' : 'senal-mejorable';
+            return '<span class="senal-badge ' + cls + '" title="' + esc(s.descripcion) + '">' + esc(s.codigo) + '</span>';
+        }).join('');
+
+        const dupLinks = item.duplicadoDeIds.length > 0
+            ? '<div class="dup-link mt-1">Similares: ' +
+              item.duplicadoDeIds.map(function(id) {
+                  return '<a href="./Detalle?id=' + id + '" target="_blank" class="me-1">#' + id + '</a>';
+              }).join('') + '</div>'
+            : '';
+
+        const pubBadge = item.estadoPublicacion === 0
+            ? '<span class="badge bg-secondary">Borrador</span>'
+            : item.estadoPublicacion === 1
+                ? '<span class="badge bg-success">Publicado</span>'
+                : '<span class="badge bg-light text-muted">' + (item.estadoPublicacion != null ? item.estadoPublicacion : '-') + '</span>';
+
+        const sinSenales = item.senales.length === 0
+            ? '<span class="text-muted small">Sin problemas detectados</span>'
+            : '';
+
+        const tr = document.createElement('tr');
+        tr.dataset.nivel = nivel;
+        tr.innerHTML =
+            '<td class="text-center semaforo-' + nivelClass + '" title="' + nivel + '">' + emoji + '</td>' +
+            '<td>' +
+                '<div class="titulo-contenido">' + esc(item.titulo) + '</div>' +
+                (item.slug ? '<div class="text-muted" style="font-size:0.75rem;">/' + esc(item.slug) + '</div>' : '') +
+            '</td>' +
+            '<td class="text-center">' + pubBadge + '</td>' +
+            '<td>' + senalesBadges + dupLinks + sinSenales + '</td>' +
+            '<td class="text-center">' +
+                '<a href="./Detalle?id=' + item.id + '" class="btn btn-sm btn-outline-primary" title="Editar">' +
+                    '<i class="bi bi-pencil-square"></i>' +
+                '</a>' +
+            '</td>';
+        return tr;
+    }
+
+    function mostrarResumen(total) {
+        const criticos   = allItems.filter(function(i) { return i.nivelSemaforo === 'Critico'; }).length;
+        const mejorables = allItems.filter(function(i) { return i.nivelSemaforo === 'Mejorable'; }).length;
+        const ok         = allItems.filter(function(i) { return i.nivelSemaforo === 'Ok'; }).length;
+        document.getElementById('numCriticos').textContent   = '🔴 ' + criticos;
+        document.getElementById('numMejorables').textContent = '🟡 ' + mejorables;
+        document.getElementById('numOk').textContent         = '🟢 ' + ok;
+        document.getElementById('numTotal').textContent      = total;
+        document.getElementById('resumenContadores').style.display = 'block';
+    }
+
+    function esc(s) {
+        return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // Filtro por nivel
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.btn-filtro');
+        if (!btn) return;
+        document.querySelectorAll('.btn-filtro').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        filtroActivo = btn.dataset.nivel;
+        document.querySelectorAll('#tablaCalidadBody tr').forEach(function(tr) {
+            tr.style.display = (filtroActivo === 'todos' || tr.dataset.nivel === filtroActivo) ? '' : 'none';
+        });
+    });
+</script>
 }

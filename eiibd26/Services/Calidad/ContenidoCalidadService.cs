@@ -177,6 +177,134 @@ namespace eiibd26.Services.Calidad
             return resultados.OrderBy(r => r.NivelSemaforo).ToList();
         }
 
+        public async Task<CalidadBatchResultDto> AnalizarBatchAsync(int skip, int take)
+        {
+            _logger.LogInformation("[CalidadContenido] Batch skip={Skip} take={Take}", skip, take);
+
+            // Query 1 (ligera): todos los contenidos — necesarios para contexto de duplicados
+            var todosLigeros = await _db.Contenidos
+                .AsNoTracking()
+                .Where(c => !c.Eliminado)
+                .OrderBy(c => c.Id)
+                .Select(c => new { c.Id, c.IdTipo, c.ContenidoTitulo, c.ContenidoTextoL })
+                .ToListAsync();
+
+            var total = todosLigeros.Count;
+
+            // Query 2 (completa): solo el batch — con todos los campos y categorías
+            var batchContenidos = await _db.Contenidos
+                .AsNoTracking()
+                .Where(c => !c.Eliminado)
+                .Include(c => c.CategoriasRelacion.Where(r => !r.Borrado))
+                .OrderBy(c => c.Id)
+                .Skip(skip)
+                .Take(take)
+                .ToListAsync();
+
+            // Pre-calcular textos y keyword-sets de TODOS (para comparación de duplicados)
+            var todosTextos = todosLigeros
+                .Select(c => new
+                {
+                    c.Id,
+                    c.IdTipo,
+                    Texto = TruncarTexto($"{c.ContenidoTitulo} {StripHtml(c.ContenidoTextoL, 1500)}", 600)
+                })
+                .ToDictionary(t => t.Id);
+
+            var kwSets = todosTextos.ToDictionary(
+                kv => kv.Key,
+                kv => ExtraerKeywordsLocal(kv.Value.Texto));
+
+            // Duplicados: comparar cada item del batch contra TODOS los contenidos
+            var duplicadosDeBatch = batchContenidos.ToDictionary(c => c.Id, _ => new List<int>());
+
+            foreach (var batchItem in batchContenidos)
+            {
+                if (!todosTextos.TryGetValue(batchItem.Id, out var textoItem)) continue;
+                var kwBatch = kwSets.GetValueOrDefault(batchItem.Id, new HashSet<string>());
+                if (kwBatch.Count == 0) continue;
+
+                foreach (var (otherId, otroTexto) in todosTextos)
+                {
+                    if (otherId == batchItem.Id) continue;
+
+                    // Skip diferente IdTipo (cuando ambos lo tienen definido)
+                    if (textoItem.IdTipo.HasValue && otroTexto.IdTipo.HasValue
+                        && textoItem.IdTipo != otroTexto.IdTipo)
+                        continue;
+
+                    // Pre-filtro Jaccard: si Jaccard < 0.70, score combinado máximo = 0.79 < 0.80
+                    var kwOtro = kwSets.GetValueOrDefault(otherId, new HashSet<string>());
+                    if (JaccardLocal(kwBatch, kwOtro) < 0.70) continue;
+
+                    var sim = _detector.CalcularSimilitud(textoItem.Texto, otroTexto.Texto);
+                    if (sim >= 0.80)
+                        duplicadosDeBatch[batchItem.Id].Add(otherId);
+                }
+            }
+
+            // Evaluar señales para los items del batch
+            var resultados = new List<ContenidoCalidadDto>();
+
+            foreach (var c in batchContenidos)
+            {
+                var senales = new List<SenalCalidad>();
+                var palabras = ContarPalabras(c.ContenidoTextoL);
+
+                if (palabras < 50)
+                    senales.Add(new SenalCalidad("SIN_CUERPO",
+                        palabras == 0 ? "Sin cuerpo" : $"Cuerpo muy corto ({palabras} palabras, mínimo 50)",
+                        GravedadSenal.Critica));
+
+                if (duplicadosDeBatch[c.Id].Count > 0)
+                    senales.Add(new SenalCalidad("DUPLICADO",
+                        $"Similar a {duplicadosDeBatch[c.Id].Count} contenido(s)",
+                        GravedadSenal.Critica));
+
+                if (string.IsNullOrWhiteSpace(c.URLImagenPrincipal))
+                    senales.Add(new SenalCalidad("SIN_IMAGEN", "Sin imagen principal", GravedadSenal.Mejorable));
+
+                if (string.IsNullOrWhiteSpace(c.ContenidoTextoC))
+                    senales.Add(new SenalCalidad("SIN_RESUMEN", "Sin resumen/descripción", GravedadSenal.Mejorable));
+
+                if (palabras >= 50 && palabras <= 100)
+                    senales.Add(new SenalCalidad("CUERPO_CORTO", $"Cuerpo corto ({palabras} palabras)", GravedadSenal.Mejorable));
+
+                if (!c.CategoriasRelacion.Any())
+                    senales.Add(new SenalCalidad("SIN_CATEGORIA", "Sin categoría asignada", GravedadSenal.Mejorable));
+
+                if (string.IsNullOrWhiteSpace(c.ContenidoTituloSlug))
+                    senales.Add(new SenalCalidad("SIN_SLUG", "Sin slug", GravedadSenal.Mejorable));
+
+                if (c.EstadoPublicacion == 0 && c.FechaCreado < DateTime.UtcNow.AddDays(-30))
+                    senales.Add(new SenalCalidad("BORRADOR_VIEJO",
+                        $"Borrador sin publicar hace {(DateTime.UtcNow - c.FechaCreado).Days} días",
+                        GravedadSenal.Mejorable));
+
+                NivelSemaforo nivel;
+                if (senales.Any(s => s.Gravedad == GravedadSenal.Critica))
+                    nivel = NivelSemaforo.Critico;
+                else if (senales.Any())
+                    nivel = NivelSemaforo.Mejorable;
+                else
+                    nivel = NivelSemaforo.Ok;
+
+                resultados.Add(new ContenidoCalidadDto
+                {
+                    Id = c.Id,
+                    Titulo = string.IsNullOrWhiteSpace(c.ContenidoTitulo) ? "(sin título)" : c.ContenidoTitulo,
+                    Slug = c.ContenidoTituloSlug,
+                    EstadoPublicacion = c.EstadoPublicacion,
+                    FechaCreado = c.FechaCreado,
+                    Senales = senales,
+                    NivelSemaforo = nivel,
+                    DuplicadoDeIds = duplicadosDeBatch[c.Id]
+                });
+            }
+
+            return new CalidadBatchResultDto { Total = total, Items = resultados };
+        }
+
         private static int ContarPalabras(string? texto)
         {
             if (string.IsNullOrWhiteSpace(texto)) return 0;
