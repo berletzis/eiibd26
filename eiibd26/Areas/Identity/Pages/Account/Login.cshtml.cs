@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.EntityFrameworkCore;
 using eiibd26.Models;
 
 
@@ -25,12 +26,14 @@ namespace eiibd26.Areas.Identity.Pages.Account
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ILogger<LoginModel> _logger;
+        private readonly ApplicationDbContext _db;
 
-        public LoginModel(SignInManager<ApplicationUser> signInManager, UserManager<ApplicationUser> userManager, ILogger<LoginModel> logger)
+        public LoginModel(SignInManager<ApplicationUser> signInManager, UserManager<ApplicationUser> userManager, ILogger<LoginModel> logger, ApplicationDbContext db)
         {
             _signInManager = signInManager;
             _userManager = userManager;
             _logger = logger;
+            _db = db;
         }
 
         [BindProperty]
@@ -131,6 +134,24 @@ namespace eiibd26.Areas.Identity.Pages.Account
                 if (result.Succeeded)
                 {
                     _logger.LogInformation("Usuario {Email} inició sesión. ReturnUrl='{ReturnUrl}'", Input.Email, returnUrl);
+
+                    // Actualizar UltimaActividad — no bloquea el login si falla
+                    if (user != null)
+                    {
+                        try
+                        {
+                            var perfil = await _db.Perfil.FirstOrDefaultAsync(p => p.idUser == user.Id);
+                            if (perfil != null)
+                            {
+                                perfil.UltimaActividad = DateTime.UtcNow;
+                                await _db.SaveChangesAsync();
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error actualizando UltimaActividad para {Email}", Input.Email);
+                        }
+                    }
 
                     // Determinar dashboard según rol
                     string dashboardUrl = await _userManager.IsInRoleAsync(user, "Medico")
