@@ -59,6 +59,14 @@ namespace eiibd26.Models.Campanas
         /// Mismo criterio que VM.NeedsDiagnosisDateUpdate del dashboard.
         /// FaseLog=23. Sin exclusión por envíos previos — re-envíable manualmente.
         /// </summary>
-        DiagnosticoPendiente = 8
+        DiagnosticoPendiente = 8,
+
+        /// <summary>
+        /// Usuarios con EmailConfirmed=1 sin foto de perfil propia.
+        /// Criterio IDÉNTICO al scoring de Admin/Usuarios/Index:
+        /// Perfil.Avatar es null/vacío, o contiene "ui-avatars.com", o contiene "default".
+        /// FaseLog=24. Sin exclusión por envíos previos — re-envíable manualmente.
+        /// </summary>
+        SinAvatar = 9
     }
 }

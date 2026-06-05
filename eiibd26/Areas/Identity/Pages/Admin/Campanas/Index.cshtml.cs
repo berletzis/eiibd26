@@ -46,11 +46,12 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
 
         // FaseLog para TodosConfirmados. No colisiona con 1/2/3 (toques de secuencia) ni 0 (reset pw).
         private const int FaseLogGeneral = 10;
-        // FaseLog para audiencias de tarea pendiente (20=SinCondicion, 21=SinMood, 22=ConRespuestas, 23=Diagnostico).
+        // FaseLog para audiencias de tarea pendiente (20=SinCondicion, 21=SinMood, 22=ConRespuestas, 23=Diagnostico, 24=SinAvatar).
         private const int FaseLogSinCondicion  = 20;
         private const int FaseLogSinMood       = 21;
         private const int FaseLogConRespuestas = 22;
         private const int FaseLogDiagnostico   = 23;
+        private const int FaseLogSinAvatar     = 24;
 
         public void OnGet() { }
 
@@ -136,9 +137,10 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                 AudienciaCampana.Toque3          => "toque3",
                 AudienciaCampana.SinCondicion       => "sin-condicion",
                 AudienciaCampana.SinMood            => "sin-mood",
-                AudienciaCampana.ConRespuestasSemana => "con-respuestas",
+                AudienciaCampana.ConRespuestasSemana  => "con-respuestas",
                 AudienciaCampana.DiagnosticoPendiente => "diagnostico-pendiente",
-                _                                   => "general"
+                AudienciaCampana.SinAvatar            => "sin-avatar",
+                _                                     => "general"
             };
 
             var unsubGroupId = _configuration.GetValue<int?>("SendGrid:UnsubscribeGroupId");
@@ -344,6 +346,21 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                         _targeting.AplicarCriterio(users, PublicoCampana.TodosConfirmados)
                             .Where(u => diagPendiente.Contains(u.Id)),
                         FaseLogDiagnostico);
+                }
+
+                case AudienciaCampana.SinAvatar:
+                {
+                    // Criterio idéntico al scoring de Admin/Usuarios/Index:
+                    // sin avatar propio = Avatar null/vacío, o contiene "ui-avatars.com", o contiene "default"
+                    var sinAvatar = new HashSet<Guid>(await _db.Perfil
+                        .Where(p => string.IsNullOrEmpty(p.Avatar)
+                                 || p.Avatar.ToLower().Contains("ui-avatars.com")
+                                 || p.Avatar.ToLower().Contains("default"))
+                        .Select(p => p.idUser).ToListAsync());
+                    return (
+                        _targeting.AplicarCriterio(users, PublicoCampana.TodosConfirmados)
+                            .Where(u => sinAvatar.Contains(u.Id)),
+                        FaseLogSinAvatar);
                 }
 
                 case AudienciaCampana.TodosConfirmados:
