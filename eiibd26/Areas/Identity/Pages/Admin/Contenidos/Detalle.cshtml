@@ -678,6 +678,65 @@
                         }
                     </div>
                 </div>
+
+                @* GRIS — Evaluación editorial con IA *@
+                @if (Model.Id.HasValue)
+                {
+                    <div class="rel-box" id="panelGrisDetalle">
+                        <h5 style="display:flex;align-items:center;gap:6px;">
+                            <i class="bi bi-stars text-primary"></i>GRIS
+                            <span style="font-size:0.72rem;font-weight:400;color:#6b7280;">evaluación editorial</span>
+                        </h5>
+                        <div id="grisResultadoDetalle">
+                            @if (Model.GrisEvaluado && Model.GrisPuntajeGlobal.HasValue)
+                            {
+                                var gScore = Model.GrisPuntajeGlobal.Value;
+                                var gBg = gScore >= 70 ? "success" : gScore >= 50 ? "warning" : "danger";
+                                <div class="text-center mb-2">
+                                    <span class="badge bg-@gBg" style="font-size:1.5rem;padding:8px 18px;">@gScore</span>
+                                    <div class="text-muted" style="font-size:0.74rem;">Puntaje editorial (0-100)</div>
+                                    @if (Model.GrisFechaEvaluacion.HasValue)
+                                    {
+                                        <div class="text-muted" style="font-size:0.71rem;">@Model.GrisFechaEvaluacion.Value.ToString("dd MMM yyyy") UTC</div>
+                                    }
+                                </div>
+                                @if (Model.GrisAspectos != null)
+                                {
+                                    foreach (var a in Model.GrisAspectos)
+                                    {
+                                        var aBg = a.Puntaje >= 7 ? "success" : a.Puntaje >= 5 ? "warning" : "danger";
+                                        <div style="margin-bottom:8px;">
+                                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                                                <span style="font-size:0.74rem;font-weight:600;">@a.Nombre</span>
+                                                <span class="badge bg-@aBg" style="font-size:0.68rem;">@a.Puntaje/10</span>
+                                            </div>
+                                            <div class="progress" style="height:4px;border-radius:2px;">
+                                                <div class="progress-bar bg-@aBg" style="width:@(a.Puntaje * 10)%;"></div>
+                                            </div>
+                                            <div style="font-size:0.69rem;color:#6b7280;margin-top:2px;">@a.Observacion</div>
+                                        </div>
+                                    }
+                                }
+                                <button class="btn btn-sm btn-outline-secondary w-100 mt-2" onclick="evaluarConGrisDetalle(@Model.Id.Value)">
+                                    <i class="bi bi-arrow-repeat me-1"></i>Re-evaluar con GRIS
+                                </button>
+                            }
+                            else
+                            {
+                                <div class="text-muted small mb-2">
+                                    Calidad editorial con IA: claridad, utilidad, credibilidad, lenguaje, originalidad, engagement, SEO.
+                                </div>
+                                <button class="btn btn-sm btn-primary w-100" onclick="evaluarConGrisDetalle(@Model.Id.Value)">
+                                    <i class="bi bi-stars me-1"></i>Evaluar con GRIS
+                                </button>
+                            }
+                        </div>
+                        <div id="grisSpinnerDetalle" style="display:none;" class="text-center py-3">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                            <div class="text-muted small mt-1">GRIS evaluando...</div>
+                        </div>
+                    </div>
+                }
             </aside>
         </div>
 
@@ -1174,6 +1233,68 @@
         document.getElementById('detalleForm')?.addEventListener('submit',()=>{
             if(typeof tinymce!=='undefined'){tinymce.triggerSave();}
         });
+
+        // ── GRIS — Evaluación editorial ────────────────────────────────────
+        async function evaluarConGrisDetalle(id) {
+            const spinner = document.getElementById('grisSpinnerDetalle');
+            const result  = document.getElementById('grisResultadoDetalle');
+            const btns    = document.querySelectorAll('#panelGrisDetalle button');
+            btns.forEach(b => b.disabled = true);
+            spinner.style.display = 'block';
+            result.style.display  = 'none';
+
+            try {
+                const fd = new FormData();
+                const tokenEl = document.querySelector('[name="__RequestVerificationToken"]');
+                if (tokenEl) fd.append('__RequestVerificationToken', tokenEl.value);
+                fd.append('id', id);
+
+                const res = await fetch('?handler=EvaluarGris', { method: 'POST', body: fd });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const data = await res.json();
+                renderGrisDetalle(data, id, result);
+            } catch (e) {
+                result.innerHTML =
+                    '<div class="alert alert-danger py-2 small">' +
+                    '<i class="bi bi-exclamation-triangle me-1"></i>' + (e.message || 'Error desconocido') + '</div>' +
+                    '<button class="btn btn-sm btn-outline-secondary w-100 mt-1" onclick="evaluarConGrisDetalle(' + id + ')">' +
+                    '<i class="bi bi-arrow-repeat me-1"></i>Reintentar</button>';
+            } finally {
+                spinner.style.display = 'none';
+                result.style.display  = 'block';
+                btns.forEach(b => b.disabled = false);
+            }
+        }
+
+        function renderGrisDetalle(data, id, container) {
+            if (!data.ok) {
+                container.innerHTML =
+                    '<div class="alert alert-warning py-2 small">' + (data.error || 'Error al evaluar') + '</div>' +
+                    '<button class="btn btn-sm btn-outline-secondary w-100 mt-1" onclick="evaluarConGrisDetalle(' + id + ')">' +
+                    '<i class="bi bi-arrow-repeat me-1"></i>Reintentar</button>';
+                return;
+            }
+            const p  = data.puntajeGlobal;
+            const bg = p >= 70 ? 'success' : p >= 50 ? 'warning' : 'danger';
+            let html = '<div class="text-center mb-2">' +
+                '<span class="badge bg-' + bg + '" style="font-size:1.5rem;padding:8px 18px;">' + p + '</span>' +
+                '<div class="text-muted" style="font-size:0.74rem;">Puntaje editorial (0-100)</div></div>';
+
+            (data.aspectos || []).forEach(function(a) {
+                const aBg = a.puntaje >= 7 ? 'success' : a.puntaje >= 5 ? 'warning' : 'danger';
+                html += '<div style="margin-bottom:8px;">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">' +
+                    '<span style="font-size:0.74rem;font-weight:600;">' + a.nombre + '</span>' +
+                    '<span class="badge bg-' + aBg + '" style="font-size:0.68rem;">' + a.puntaje + '/10</span></div>' +
+                    '<div class="progress" style="height:4px;border-radius:2px;">' +
+                    '<div class="progress-bar bg-' + aBg + '" style="width:' + (a.puntaje * 10) + '%;"></div></div>' +
+                    '<div style="font-size:0.69rem;color:#6b7280;margin-top:2px;">' + a.observacion + '</div></div>';
+            });
+
+            html += '<button class="btn btn-sm btn-outline-secondary w-100 mt-2" onclick="evaluarConGrisDetalle(' + id + ')">' +
+                '<i class="bi bi-arrow-repeat me-1"></i>Re-evaluar con GRIS</button>';
+            container.innerHTML = html;
+        }
     </script>
 
     <partial name="_ValidationScriptsPartial" />

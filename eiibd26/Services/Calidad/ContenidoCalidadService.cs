@@ -289,7 +289,10 @@ namespace eiibd26.Services.Calidad
                     FechaCreado = x.c.FechaCreado,
                     NivelSemaforo = (NivelSemaforo)x.cq.NivelSemaforo,
                     Senales = senales,
-                    DuplicadoDeIds = duplicados
+                    DuplicadoDeIds = duplicados,
+                    GrisEvaluado = x.cq.GrisEvaluado,
+                    GrisPuntajeGlobal = (int?)x.cq.GrisPuntajeGlobal,
+                    GrisFechaEvaluacion = x.cq.GrisFechaEvaluacion
                 };
             }).ToList();
 

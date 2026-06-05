@@ -24,14 +24,23 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         private readonly IWebHostEnvironment _env;
         private readonly ILogger<DetalleModel> _logger;
         private readonly IContenidoCalidadService _calidad;
+        private readonly IGrisEvaluadorService _gris;
 
-        public DetalleModel(ApplicationDbContext db, IWebHostEnvironment env, ILogger<DetalleModel> logger, IContenidoCalidadService calidad)
+        public DetalleModel(ApplicationDbContext db, IWebHostEnvironment env, ILogger<DetalleModel> logger, IContenidoCalidadService calidad, IGrisEvaluadorService gris)
         {
             _db = db;
             _env = env;
             _logger = logger;
             _calidad = calidad;
+            _gris = gris;
         }
+
+        // GRIS — evaluación editorial (sólo lectura en GET; se actualiza al evaluar)
+        public bool GrisEvaluado { get; private set; }
+        public int? GrisPuntajeGlobal { get; private set; }
+        public List<GrisAspectoDto>? GrisAspectos { get; private set; }
+        public List<string>? GrisSugerencias { get; private set; }
+        public DateTime? GrisFechaEvaluacion { get; private set; }
 
         // Campos principales (binds)
         [BindProperty] public int? Id { get; set; }
@@ -165,6 +174,30 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             {
                 SuccessMessage = "Guardado correctamente.";
             }
+
+            // Cargar evaluación GRIS si existe
+            var grisRow = await _db.ContenidoCalidad
+                .AsNoTracking()
+                .Where(x => x.ContenidoId == Id.Value && x.GrisEvaluado)
+                .FirstOrDefaultAsync();
+
+            if (grisRow != null)
+            {
+                GrisEvaluado = true;
+                GrisPuntajeGlobal = grisRow.GrisPuntajeGlobal;
+                GrisFechaEvaluacion = grisRow.GrisFechaEvaluacion;
+                if (!string.IsNullOrWhiteSpace(grisRow.GrisResultado))
+                {
+                    try { GrisAspectos = JsonSerializer.Deserialize<List<GrisAspectoDto>>(grisRow.GrisResultado, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }); }
+                    catch { }
+                }
+                if (!string.IsNullOrWhiteSpace(grisRow.GrisSugerencias))
+                {
+                    try { GrisSugerencias = JsonSerializer.Deserialize<List<string>>(grisRow.GrisSugerencias); }
+                    catch { }
+                }
+            }
+
             return Page();
         }
 
@@ -357,6 +390,26 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 ErrorMessage = "Error al guardar.";
                 BuildDebug();
                 return Page();
+            }
+        }
+
+        // GRIS — evaluación editorial bajo demanda
+        private static readonly JsonSerializerOptions GrisJsonOpts = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
+        public async Task<IActionResult> OnPostEvaluarGrisAsync([FromForm] int id)
+        {
+            try
+            {
+                var resultado = await _gris.EvaluarAsync(id);
+                return new JsonResult(resultado, GrisJsonOpts);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[GRIS] Error al evaluar contenido {Id} desde Detalle", id);
+                return new JsonResult(new { ok = false, error = ex.Message }, GrisJsonOpts);
             }
         }
 

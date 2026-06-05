@@ -57,6 +57,13 @@
         .titulo-contenido  { font-weight: 500; font-size: 0.92rem; }
         .dup-link          { font-size: 0.78rem; color: #6c757d; }
         .ultimo-analisis   { font-size: 0.82rem; color: #6b7280; }
+
+        .gris-score { font-size: 1.1rem; font-weight: 700; }
+        .btn-gris   { font-size: 0.75rem; padding: 2px 8px; }
+        .aspecto-bar { height: 5px; border-radius: 3px; }
+        .aspecto-row { margin-bottom: 10px; }
+        .aspecto-row .label { font-size: 0.8rem; font-weight: 600; }
+        .aspecto-row .obs   { font-size: 0.77rem; color: #6b7280; margin-top: 2px; }
     </style>
 }
 
@@ -167,7 +174,10 @@
                     <th>Título</th>
                     <th style="width:80px;" class="text-center">Pub.</th>
                     <th>Señales detectadas</th>
-                    <th style="width:110px;" class="text-center">Acciones</th>
+                    <th style="width:90px;" class="text-center" title="GRIS: evaluación editorial con IA">
+                        <i class="bi bi-stars text-primary me-1"></i>GRIS
+                    </th>
+                    <th style="width:70px;" class="text-center">Editar</th>
                 </tr>
             </thead>
             <tbody id="tablaCalidadBody">
@@ -232,6 +242,31 @@
                                     <span class="text-muted small">Sin problemas detectados</span>
                                 }
                             </td>
+                            @{
+                                var grisScore = item.GrisPuntajeGlobal;
+                                var grisBgClass = grisScore >= 70 ? "success"
+                                    : grisScore >= 50 ? "warning"
+                                    : "danger";
+                            }
+                            <td class="text-center">
+                                @if (item.GrisEvaluado && grisScore.HasValue)
+                                {
+                                    <span class="badge bg-@grisBgClass gris-score mb-1">@grisScore</span><br/>
+                                    <button class="btn btn-link btn-gris p-0 text-muted"
+                                            onclick="evaluarConGris(@item.Id, '@Html.Raw(item.Titulo.Replace("'", "\\'").Replace("\"", "&quot;"))')"
+                                            title="Re-evaluar con GRIS">
+                                        <i class="bi bi-arrow-repeat"></i>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-outline-secondary btn-gris"
+                                            onclick="evaluarConGris(@item.Id, '@Html.Raw(item.Titulo.Replace("'", "\\'").Replace("\"", "&quot;"))')"
+                                            title="Evaluar con GRIS">
+                                        <i class="bi bi-stars"></i>
+                                    </button>
+                                }
+                            </td>
                             <td class="text-center">
                                 <a href="./Detalle?id=@item.Id" class="btn btn-sm btn-outline-primary" title="Editar">
                                     <i class="bi bi-pencil-square"></i>
@@ -244,6 +279,29 @@
         </table>
     </div>
 
+</div>
+
+<!-- Modal GRIS -->
+<div class="modal fade" id="modalGris" tabindex="-1" aria-labelledby="modalGrisLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" id="modalGrisLabel">
+                    <i class="bi bi-stars text-primary me-2"></i>GRIS — Evaluación Editorial
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="modalGrisBody">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <div class="mt-2 text-muted small">GRIS está evaluando el artículo...</div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 @section Scripts {
@@ -393,11 +451,99 @@
             '<td class="text-center">' + pubBadge + '</td>' +
             '<td>' + senalesBadges + dupLinks + sinSenales + '</td>' +
             '<td class="text-center">' +
+                '<button class="btn btn-sm btn-outline-secondary btn-gris" ' +
+                    'onclick="evaluarConGris(' + item.id + ',\'' + esc(item.titulo).replace(/'/g, "\\'") + '\')" ' +
+                    'title="Evaluar con GRIS">' +
+                    '<i class="bi bi-stars"></i>' +
+                '</button>' +
+            '</td>' +
+            '<td class="text-center">' +
                 '<a href="./Detalle?id=' + item.id + '" class="btn btn-sm btn-outline-primary" title="Editar">' +
                     '<i class="bi bi-pencil-square"></i>' +
                 '</a>' +
             '</td>';
         return tr;
+    }
+
+    // ── GRIS ─────────────────────────────────────────────────────────────
+    let grisModal = null;
+
+    async function evaluarConGris(id, titulo) {
+        if (!grisModal) grisModal = new bootstrap.Modal(document.getElementById('modalGris'));
+        document.getElementById('modalGrisLabel').textContent = '⭐ GRIS — ' + (titulo || 'Evaluación Editorial');
+        document.getElementById('modalGrisBody').innerHTML =
+            '<div class="text-center py-5">' +
+            '<div class="spinner-border text-primary" role="status"></div>' +
+            '<div class="mt-3 text-muted">GRIS está evaluando el artículo...</div>' +
+            '</div>';
+        grisModal.show();
+
+        try {
+            const fd = new FormData();
+            fd.append('__RequestVerificationToken', getToken());
+            fd.append('id', id);
+            const res = await fetch('?handler=EvaluarGris', { method: 'POST', body: fd });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const data = await res.json();
+            renderGrisModal(data, id, titulo);
+        } catch (e) {
+            document.getElementById('modalGrisBody').innerHTML =
+                '<div class="alert alert-danger">' +
+                '<i class="bi bi-exclamation-triangle me-2"></i>Error: ' + esc(e.message) +
+                '</div>';
+        }
+    }
+
+    function renderGrisModal(data, id, titulo) {
+        if (!data.ok) {
+            document.getElementById('modalGrisBody').innerHTML =
+                '<div class="alert alert-warning">' +
+                '<i class="bi bi-exclamation-triangle me-2"></i>' + esc(data.error || 'Error desconocido') +
+                '</div>' +
+                '<button class="btn btn-sm btn-outline-secondary mt-1" onclick="evaluarConGris(' + id + ',\'' + esc(titulo) + '\')">' +
+                '<i class="bi bi-arrow-repeat me-1"></i>Reintentar</button>';
+            return;
+        }
+
+        const p = data.puntajeGlobal;
+        const colorClass = p >= 70 ? 'success' : p >= 50 ? 'warning' : 'danger';
+        const colorHex   = p >= 70 ? '#198754' : p >= 50 ? '#856404' : '#842029';
+
+        let html = '<div class="text-center mb-3">' +
+            '<div style="font-size:3.5rem;font-weight:700;color:' + colorHex + ';">' + p + '</div>' +
+            '<div class="text-muted small">Puntaje global (0-100)</div>';
+        if (data.fechaEvaluacion) {
+            html += '<div class="text-muted" style="font-size:0.76rem;">' +
+                new Date(data.fechaEvaluacion).toLocaleString('es-AR') + ' UTC</div>';
+        }
+        html += '</div><hr class="my-2"/>' +
+            '<h6 class="fw-bold mb-3"><i class="bi bi-list-check me-1"></i>7 Aspectos Editoriales</h6>';
+
+        (data.aspectos || []).forEach(function(a) {
+            const barColor = a.puntaje >= 7 ? 'success' : a.puntaje >= 5 ? 'warning' : 'danger';
+            html += '<div class="aspecto-row">' +
+                '<div class="d-flex justify-content-between align-items-center mb-1">' +
+                '<span class="label">' + esc(a.nombre) + '</span>' +
+                '<span class="badge bg-' + barColor + '">' + a.puntaje + '/10</span>' +
+                '</div>' +
+                '<div class="progress aspecto-bar mb-1"><div class="progress-bar bg-' + barColor +
+                '" style="width:' + (a.puntaje * 10) + '%;"></div></div>' +
+                '<div class="obs">' + esc(a.observacion) + '</div>' +
+                '</div>';
+        });
+
+        const sugs = data.sugerencias || [];
+        if (sugs.length > 0) {
+            html += '<hr class="my-2"/><h6 class="fw-bold mb-2"><i class="bi bi-lightbulb me-1 text-warning"></i>Sugerencias de mejora</h6><ul class="mb-0 ps-3">';
+            sugs.forEach(function(s) { html += '<li class="mb-1 small">' + esc(s) + '</li>'; });
+            html += '</ul>';
+        }
+
+        html += '<div class="mt-3 text-end">' +
+            '<button class="btn btn-sm btn-outline-secondary" onclick="evaluarConGris(' + id + ',\'' + esc(titulo).replace(/'/g, "\\'") + '\')">' +
+            '<i class="bi bi-arrow-repeat me-1"></i>Re-evaluar</button></div>';
+
+        document.getElementById('modalGrisBody').innerHTML = html;
     }
 
     function mostrarResumen(total) {

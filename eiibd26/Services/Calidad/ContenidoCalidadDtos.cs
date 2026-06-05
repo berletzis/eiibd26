@@ -27,5 +27,10 @@ namespace eiibd26.Services.Calidad
         public List<SenalCalidad> Senales { get; set; } = new();
         public NivelSemaforo NivelSemaforo { get; set; }
         public List<int> DuplicadoDeIds { get; set; } = new();
+
+        // GRIS editorial — resumen para la lista (detalles se cargan al evaluar)
+        public bool GrisEvaluado { get; set; }
+        public int? GrisPuntajeGlobal { get; set; }
+        public DateTime? GrisFechaEvaluacion { get; set; }
     }
 }

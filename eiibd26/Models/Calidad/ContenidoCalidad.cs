@@ -21,5 +21,19 @@ namespace eiibd26.Models.Calidad
         public string? DuplicadoDeIds { get; set; }
 
         public DateTime FechaAnalisis { get; set; }
+
+        // GRIS — evaluación editorial con IA (rúbrica 7 aspectos)
+        public bool GrisEvaluado { get; set; }
+
+        /// <summary>Puntaje global editorial 0-100.</summary>
+        public byte? GrisPuntajeGlobal { get; set; }
+
+        /// <summary>JSON: [{nombre, puntaje, observacion}, ...] — 7 aspectos.</summary>
+        public string? GrisResultado { get; set; }
+
+        /// <summary>JSON: ["sugerencia1", ...] — puede ser texto crudo si el parse falló.</summary>
+        public string? GrisSugerencias { get; set; }
+
+        public DateTime? GrisFechaEvaluacion { get; set; }
     }
 }
