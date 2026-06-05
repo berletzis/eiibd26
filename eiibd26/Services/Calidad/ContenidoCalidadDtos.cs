@@ -1,5 +1,11 @@
 namespace eiibd26.Services.Calidad
 {
+    public class ResultadosGuardadosDto
+    {
+        public List<ContenidoCalidadDto> Resultados { get; init; } = new();
+        public DateTime UltimoAnalisis { get; init; }
+    }
+
     public enum GravedadSenal { Critica, Mejorable }
 
     public enum NivelSemaforo

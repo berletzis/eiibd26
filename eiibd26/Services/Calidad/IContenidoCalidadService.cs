@@ -15,5 +15,11 @@ namespace eiibd26.Services.Calidad
 
         /// <summary>Analiza todos los contenidos en una sola llamada (solo para tests/uso interno).</summary>
         Task<List<ContenidoCalidadDto>> AnalizarTodosAsync();
+
+        /// <summary>
+        /// Lee los resultados guardados en ContenidoCalidad (join con Contenidos, filtrando eliminados).
+        /// Devuelve null si no hay análisis previo.
+        /// </summary>
+        Task<ResultadosGuardadosDto?> ObtenerResultadosGuardadosAsync();
     }
 }

@@ -21,7 +21,18 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         public CalidadModel(IContenidoCalidadService calidad)
             => _calidad = calidad;
 
-        public void OnGet() { }
+        public List<ContenidoCalidadDto>? ResultadosGuardados { get; private set; }
+        public DateTime? UltimoAnalisis { get; private set; }
+
+        public async Task OnGetAsync()
+        {
+            var guardados = await _calidad.ObtenerResultadosGuardadosAsync();
+            if (guardados != null)
+            {
+                ResultadosGuardados = guardados.Resultados;
+                UltimoAnalisis = guardados.UltimoAnalisis;
+            }
+        }
 
         /// <summary>
         /// Handler para análisis por batch. Devuelve JSON:

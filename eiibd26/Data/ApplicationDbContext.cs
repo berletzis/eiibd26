@@ -108,6 +108,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<eiibd26.Models.ShortUrl.ShortUrl> ShortUrls { get; set; }
     public DbSet<eiibd26.Models.ShortUrl.ShortUrlClick> ShortUrlClicks { get; set; }
 
+    // Calidad de contenido
+    public DbSet<eiibd26.Models.Calidad.ContenidoCalidad> ContenidoCalidad { get; set; }
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

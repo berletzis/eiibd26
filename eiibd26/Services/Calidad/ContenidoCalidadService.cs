@@ -2,6 +2,7 @@ using eiibd26.Data;
 using eiibd26.Services.AI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace eiibd26.Services.Calidad
@@ -302,8 +303,99 @@ namespace eiibd26.Services.Calidad
                 });
             }
 
+            // UPSERT en ContenidoCalidad — 10 filas, trivial
+            var batchIds = resultados.Select(r => r.Id).ToList();
+            var existentes = await _db.ContenidoCalidad
+                .Where(x => batchIds.Contains(x.ContenidoId))
+                .ToDictionaryAsync(x => x.ContenidoId);
+
+            var ahora = DateTime.UtcNow;
+            foreach (var dto in resultados)
+            {
+                var senalesJson = JsonSerializer.Serialize(
+                    dto.Senales.Select(s => new SenalJson(s.Codigo, s.Descripcion, s.Gravedad.ToString())));
+                var duplicadosJson = JsonSerializer.Serialize(dto.DuplicadoDeIds);
+
+                if (existentes.TryGetValue(dto.Id, out var fila))
+                {
+                    fila.NivelSemaforo = (byte)dto.NivelSemaforo;
+                    fila.Senales = senalesJson;
+                    fila.DuplicadoDeIds = duplicadosJson;
+                    fila.FechaAnalisis = ahora;
+                }
+                else
+                {
+                    _db.ContenidoCalidad.Add(new Models.Calidad.ContenidoCalidad
+                    {
+                        ContenidoId = dto.Id,
+                        NivelSemaforo = (byte)dto.NivelSemaforo,
+                        Senales = senalesJson,
+                        DuplicadoDeIds = duplicadosJson,
+                        FechaAnalisis = ahora
+                    });
+                }
+            }
+            await _db.SaveChangesAsync();
+
             return new CalidadBatchResultDto { Total = total, Items = resultados };
         }
+
+        public async Task<ResultadosGuardadosDto?> ObtenerResultadosGuardadosAsync()
+        {
+            var filas = await (
+                from cq in _db.ContenidoCalidad
+                join c in _db.Contenidos on cq.ContenidoId equals c.Id
+                where !c.Eliminado
+                orderby cq.NivelSemaforo, c.ContenidoTitulo
+                select new { cq, c }
+            ).AsNoTracking().ToListAsync();
+
+            if (!filas.Any()) return null;
+
+            var resultados = filas.Select(x =>
+            {
+                var senales = DeserializarSenales(x.cq.Senales);
+                var duplicados = string.IsNullOrWhiteSpace(x.cq.DuplicadoDeIds)
+                    ? new List<int>()
+                    : JsonSerializer.Deserialize<List<int>>(x.cq.DuplicadoDeIds) ?? new();
+
+                return new ContenidoCalidadDto
+                {
+                    Id = x.c.Id,
+                    Titulo = string.IsNullOrWhiteSpace(x.c.ContenidoTitulo) ? "(sin título)" : x.c.ContenidoTitulo,
+                    Slug = x.c.ContenidoTituloSlug,
+                    EstadoPublicacion = x.c.EstadoPublicacion,
+                    FechaCreado = x.c.FechaCreado,
+                    NivelSemaforo = (NivelSemaforo)x.cq.NivelSemaforo,
+                    Senales = senales,
+                    DuplicadoDeIds = duplicados
+                };
+            }).ToList();
+
+            return new ResultadosGuardadosDto
+            {
+                Resultados = resultados,
+                UltimoAnalisis = filas.Max(x => x.cq.FechaAnalisis)
+            };
+        }
+
+        private static List<SenalCalidad> DeserializarSenales(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return new();
+            try
+            {
+                var raw = JsonSerializer.Deserialize<List<SenalJson>>(json);
+                if (raw == null) return new();
+                return raw.Select(s => new SenalCalidad(
+                    s.Codigo,
+                    s.Descripcion,
+                    Enum.TryParse<GravedadSenal>(s.Gravedad, out var g) ? g : GravedadSenal.Mejorable
+                )).ToList();
+            }
+            catch { return new(); }
+        }
+
+        private record SenalJson(string Codigo, string Descripcion, string Gravedad);
 
         private static int ContarPalabras(string? texto)
         {
