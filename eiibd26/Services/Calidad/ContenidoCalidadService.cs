@@ -1,4 +1,5 @@
 using eiibd26.Data;
+using eiibd26.Models;
 using eiibd26.Services.AI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -111,50 +112,8 @@ namespace eiibd26.Services.Calidad
 
             foreach (var c in contenidos)
             {
-                var senales = new List<SenalCalidad>();
-                var palabras = ContarPalabras(c.ContenidoTextoL);
-
-                // Señales CRÍTICAS
-                if (palabras < 50)
-                    senales.Add(new SenalCalidad("SIN_CUERPO",
-                        palabras == 0 ? "Sin cuerpo" : $"Cuerpo muy corto ({palabras} palabras, mínimo 50)",
-                        GravedadSenal.Critica));
-
-                if (duplicados[c.Id].Count > 0)
-                    senales.Add(new SenalCalidad("DUPLICADO",
-                        $"Similar a {duplicados[c.Id].Count} contenido(s)",
-                        GravedadSenal.Critica));
-
-                // Señales MEJORABLES
-                if (string.IsNullOrWhiteSpace(c.URLImagenPrincipal))
-                    senales.Add(new SenalCalidad("SIN_IMAGEN", "Sin imagen principal", GravedadSenal.Mejorable));
-
-                if (string.IsNullOrWhiteSpace(c.ContenidoTextoC))
-                    senales.Add(new SenalCalidad("SIN_RESUMEN", "Sin resumen/descripción", GravedadSenal.Mejorable));
-
-                if (palabras >= 50 && palabras <= 100)
-                    senales.Add(new SenalCalidad("CUERPO_CORTO",
-                        $"Cuerpo corto ({palabras} palabras)",
-                        GravedadSenal.Mejorable));
-
-                if (!c.CategoriasRelacion.Any())
-                    senales.Add(new SenalCalidad("SIN_CATEGORIA", "Sin categoría asignada", GravedadSenal.Mejorable));
-
-                if (string.IsNullOrWhiteSpace(c.ContenidoTituloSlug))
-                    senales.Add(new SenalCalidad("SIN_SLUG", "Sin slug", GravedadSenal.Mejorable));
-
-                if (c.EstadoPublicacion == 0 && c.FechaCreado < DateTime.UtcNow.AddDays(-30))
-                    senales.Add(new SenalCalidad("BORRADOR_VIEJO",
-                        $"Borrador sin publicar hace {(DateTime.UtcNow - c.FechaCreado).Days} días",
-                        GravedadSenal.Mejorable));
-
-                NivelSemaforo nivel;
-                if (senales.Any(s => s.Gravedad == GravedadSenal.Critica))
-                    nivel = NivelSemaforo.Critico;
-                else if (senales.Any())
-                    nivel = NivelSemaforo.Mejorable;
-                else
-                    nivel = NivelSemaforo.Ok;
+                var senales = EvaluarSenalesContenido(c, duplicados[c.Id]);
+                var nivel = CalcularNivel(senales);
 
                 resultados.Add(new ContenidoCalidadDto
                 {
@@ -249,46 +208,8 @@ namespace eiibd26.Services.Calidad
 
             foreach (var c in batchContenidos)
             {
-                var senales = new List<SenalCalidad>();
-                var palabras = ContarPalabras(c.ContenidoTextoL);
-
-                if (palabras < 50)
-                    senales.Add(new SenalCalidad("SIN_CUERPO",
-                        palabras == 0 ? "Sin cuerpo" : $"Cuerpo muy corto ({palabras} palabras, mínimo 50)",
-                        GravedadSenal.Critica));
-
-                if (duplicadosDeBatch[c.Id].Count > 0)
-                    senales.Add(new SenalCalidad("DUPLICADO",
-                        $"Similar a {duplicadosDeBatch[c.Id].Count} contenido(s)",
-                        GravedadSenal.Critica));
-
-                if (string.IsNullOrWhiteSpace(c.URLImagenPrincipal))
-                    senales.Add(new SenalCalidad("SIN_IMAGEN", "Sin imagen principal", GravedadSenal.Mejorable));
-
-                if (string.IsNullOrWhiteSpace(c.ContenidoTextoC))
-                    senales.Add(new SenalCalidad("SIN_RESUMEN", "Sin resumen/descripción", GravedadSenal.Mejorable));
-
-                if (palabras >= 50 && palabras <= 100)
-                    senales.Add(new SenalCalidad("CUERPO_CORTO", $"Cuerpo corto ({palabras} palabras)", GravedadSenal.Mejorable));
-
-                if (!c.CategoriasRelacion.Any())
-                    senales.Add(new SenalCalidad("SIN_CATEGORIA", "Sin categoría asignada", GravedadSenal.Mejorable));
-
-                if (string.IsNullOrWhiteSpace(c.ContenidoTituloSlug))
-                    senales.Add(new SenalCalidad("SIN_SLUG", "Sin slug", GravedadSenal.Mejorable));
-
-                if (c.EstadoPublicacion == 0 && c.FechaCreado < DateTime.UtcNow.AddDays(-30))
-                    senales.Add(new SenalCalidad("BORRADOR_VIEJO",
-                        $"Borrador sin publicar hace {(DateTime.UtcNow - c.FechaCreado).Days} días",
-                        GravedadSenal.Mejorable));
-
-                NivelSemaforo nivel;
-                if (senales.Any(s => s.Gravedad == GravedadSenal.Critica))
-                    nivel = NivelSemaforo.Critico;
-                else if (senales.Any())
-                    nivel = NivelSemaforo.Mejorable;
-                else
-                    nivel = NivelSemaforo.Ok;
+                var senales = EvaluarSenalesContenido(c, duplicadosDeBatch[c.Id]);
+                var nivel = CalcularNivel(senales);
 
                 resultados.Add(new ContenidoCalidadDto
                 {
@@ -378,6 +299,129 @@ namespace eiibd26.Services.Calidad
                 UltimoAnalisis = filas.Max(x => x.cq.FechaAnalisis)
             };
         }
+
+        public async Task AnalizarYGuardarUnoAsync(int contenidoId)
+        {
+            _logger.LogInformation("[CalidadContenido] Análisis individual contenidoId={Id}", contenidoId);
+
+            var c = await _db.Contenidos
+                .AsNoTracking()
+                .Where(x => x.Id == contenidoId && !x.Eliminado)
+                .Include(x => x.CategoriasRelacion.Where(r => !r.Borrado))
+                .FirstOrDefaultAsync();
+
+            if (c == null)
+            {
+                _logger.LogWarning("[CalidadContenido] Contenido {Id} no encontrado — análisis omitido", contenidoId);
+                return;
+            }
+
+            // Todos los demás (ligero) para detección de duplicados
+            var todosLigeros = await _db.Contenidos
+                .AsNoTracking()
+                .Where(x => !x.Eliminado && x.Id != contenidoId)
+                .Select(x => new { x.Id, x.IdTipo, x.ContenidoTitulo, x.ContenidoTextoL })
+                .ToListAsync();
+
+            var textoC = TruncarTexto($"{c.ContenidoTitulo} {StripHtml(c.ContenidoTextoL, 1500)}", 600);
+            var kwC = ExtraerKeywordsLocal(textoC);
+
+            var duplicados = new List<int>();
+            if (kwC.Count > 0)
+            {
+                foreach (var otro in todosLigeros)
+                {
+                    if (c.IdTipo.HasValue && otro.IdTipo.HasValue && c.IdTipo != otro.IdTipo) continue;
+
+                    var textoOtro = TruncarTexto($"{otro.ContenidoTitulo} {StripHtml(otro.ContenidoTextoL, 1500)}", 600);
+                    var kwOtro = ExtraerKeywordsLocal(textoOtro);
+
+                    if (JaccardLocal(kwC, kwOtro) < 0.70) continue;
+
+                    var sim = _detector.CalcularSimilitud(textoC, textoOtro);
+                    if (sim >= 0.80)
+                        duplicados.Add(otro.Id);
+                }
+            }
+
+            var senales = EvaluarSenalesContenido(c, duplicados);
+            var nivel = CalcularNivel(senales);
+
+            var senalesJson = JsonSerializer.Serialize(
+                senales.Select(s => new SenalJson(s.Codigo, s.Descripcion, s.Gravedad.ToString())));
+            var duplicadosJson = JsonSerializer.Serialize(duplicados);
+            var ahora = DateTime.UtcNow;
+
+            var fila = await _db.ContenidoCalidad.FirstOrDefaultAsync(x => x.ContenidoId == contenidoId);
+            if (fila != null)
+            {
+                fila.NivelSemaforo = (byte)nivel;
+                fila.Senales = senalesJson;
+                fila.DuplicadoDeIds = duplicadosJson;
+                fila.FechaAnalisis = ahora;
+            }
+            else
+            {
+                _db.ContenidoCalidad.Add(new Models.Calidad.ContenidoCalidad
+                {
+                    ContenidoId = contenidoId,
+                    NivelSemaforo = (byte)nivel,
+                    Senales = senalesJson,
+                    DuplicadoDeIds = duplicadosJson,
+                    FechaAnalisis = ahora
+                });
+            }
+            await _db.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "[CalidadContenido] Contenido {Id} — {Nivel}, {Senales} señales, {Dups} duplicados",
+                contenidoId, nivel, senales.Count, duplicados.Count);
+        }
+
+        private static List<SenalCalidad> EvaluarSenalesContenido(Contenido c, List<int> duplicadosIds)
+        {
+            var senales = new List<SenalCalidad>();
+            var palabras = ContarPalabras(c.ContenidoTextoL);
+
+            if (palabras < 50)
+                senales.Add(new SenalCalidad("SIN_CUERPO",
+                    palabras == 0 ? "Sin cuerpo" : $"Cuerpo muy corto ({palabras} palabras, mínimo 50)",
+                    GravedadSenal.Critica));
+
+            if (duplicadosIds.Count > 0)
+                senales.Add(new SenalCalidad("DUPLICADO",
+                    $"Similar a {duplicadosIds.Count} contenido(s)",
+                    GravedadSenal.Critica));
+
+            if (string.IsNullOrWhiteSpace(c.URLImagenPrincipal))
+                senales.Add(new SenalCalidad("SIN_IMAGEN", "Sin imagen principal", GravedadSenal.Mejorable));
+
+            if (string.IsNullOrWhiteSpace(c.ContenidoTextoC))
+                senales.Add(new SenalCalidad("SIN_RESUMEN", "Sin resumen/descripción", GravedadSenal.Mejorable));
+
+            if (palabras >= 50 && palabras <= 100)
+                senales.Add(new SenalCalidad("CUERPO_CORTO",
+                    $"Cuerpo corto ({palabras} palabras)",
+                    GravedadSenal.Mejorable));
+
+            if (!c.CategoriasRelacion.Any())
+                senales.Add(new SenalCalidad("SIN_CATEGORIA", "Sin categoría asignada", GravedadSenal.Mejorable));
+
+            if (string.IsNullOrWhiteSpace(c.ContenidoTituloSlug))
+                senales.Add(new SenalCalidad("SIN_SLUG", "Sin slug", GravedadSenal.Mejorable));
+
+            if (c.EstadoPublicacion == 0 && c.FechaCreado < DateTime.UtcNow.AddDays(-30))
+                senales.Add(new SenalCalidad("BORRADOR_VIEJO",
+                    $"Borrador sin publicar hace {(DateTime.UtcNow - c.FechaCreado).Days} días",
+                    GravedadSenal.Mejorable));
+
+            return senales;
+        }
+
+        private static NivelSemaforo CalcularNivel(List<SenalCalidad> senales) =>
+            senales.Any(s => s.Gravedad == GravedadSenal.Critica) ? NivelSemaforo.Critico
+            : senales.Any() ? NivelSemaforo.Mejorable
+            : NivelSemaforo.Ok;
 
         private static List<SenalCalidad> DeserializarSenales(string? json)
         {

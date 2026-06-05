@@ -21,5 +21,11 @@ namespace eiibd26.Services.Calidad
         /// Devuelve null si no hay análisis previo.
         /// </summary>
         Task<ResultadosGuardadosDto?> ObtenerResultadosGuardadosAsync();
+
+        /// <summary>
+        /// Analiza y persiste el resultado de calidad de un único contenido (upsert).
+        /// Llamar siempre en try-catch — un fallo aquí nunca debe bloquear el guardado del contenido.
+        /// </summary>
+        Task AnalizarYGuardarUnoAsync(int contenidoId);
     }
 }

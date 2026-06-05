@@ -13,6 +13,7 @@ using System.Text.Json;
 using System.Security.Claims;
 using eiibd26.Data;
 using eiibd26.Models;
+using eiibd26.Services.Calidad;
 
 namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 {
@@ -22,12 +23,14 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         private readonly ApplicationDbContext _db;
         private readonly IWebHostEnvironment _env;
         private readonly ILogger<DetalleModel> _logger;
+        private readonly IContenidoCalidadService _calidad;
 
-        public DetalleModel(ApplicationDbContext db, IWebHostEnvironment env, ILogger<DetalleModel> logger)
+        public DetalleModel(ApplicationDbContext db, IWebHostEnvironment env, ILogger<DetalleModel> logger, IContenidoCalidadService calidad)
         {
             _db = db;
             _env = env;
             _logger = logger;
+            _calidad = calidad;
         }
 
         // Campos principales (binds)
@@ -340,6 +343,10 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     // save domain relations
                     await SaveContenidoRelationsAsync(entity.Id, SelectedCondicionesIds, SelectedSintomasIds, SelectedTratamientosIds);
                 }
+
+                // Análisis de calidad (upsert) — en try-catch, nunca bloquea el guardado
+                try { await _calidad.AnalizarYGuardarUnoAsync(Id!.Value); }
+                catch (Exception exCalidad) { _logger.LogWarning(exCalidad, "[CalidadContenido] Error al analizar contenido {Id} — ignorado", Id); }
 
                 // Redirect (PRG) para recargar con selección persistida
                 return RedirectToPage(new { id = Id, saved = true });
