@@ -717,6 +717,36 @@
                                         </div>
                                     }
                                 }
+                                @* Categorías GRIS *@
+                                <hr style="margin:8px 0;" />
+                                <div style="font-size:0.73rem;font-weight:600;color:#374151;margin-bottom:4px;">
+                                    <i class="bi bi-tag me-1 text-primary"></i>Categorías
+                                </div>
+                                @if (Model.GrisCategoriasAlerta != null && Model.GrisCategoriasAlerta.Any())
+                                {
+                                    <div style="font-size:0.71rem;color:#dc2626;font-weight:600;margin-bottom:3px;">⚠ Posible mala clasificación</div>
+                                    foreach (var ca in Model.GrisCategoriasAlerta)
+                                    {
+                                        <div style="margin-bottom:4px;">
+                                            <span class="badge bg-danger-subtle text-danger-emphasis" style="font-size:0.68rem;">@ca.Nombre</span>
+                                            <div style="font-size:0.67rem;color:#6b7280;margin-top:1px;">@ca.Razon</div>
+                                        </div>
+                                    }
+                                }
+                                else
+                                {
+                                    <div style="font-size:0.71rem;color:#16a34a;margin-bottom:4px;">✓ Categorías coherentes</div>
+                                }
+                                @if (Model.GrisCategoriasSugeridas != null && Model.GrisCategoriasSugeridas.Any())
+                                {
+                                    <div style="font-size:0.71rem;color:#6b7280;margin-bottom:3px;">Sugeridas:</div>
+                                    <div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:4px;">
+                                        @foreach (var cs in Model.GrisCategoriasSugeridas)
+                                        {
+                                            <span class="badge bg-primary-subtle text-primary-emphasis" style="font-size:0.67rem;" title="@cs.Razon">@cs.Nombre</span>
+                                        }
+                                    </div>
+                                }
                                 <button class="btn btn-sm btn-outline-secondary w-100 mt-2" onclick="evaluarConGrisDetalle(@Model.Id.Value)">
                                     <i class="bi bi-arrow-repeat me-1"></i>Re-evaluar con GRIS
                                 </button>
@@ -1266,10 +1296,14 @@
             }
         }
 
+        function escGd(s) {
+            return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
         function renderGrisDetalle(data, id, container) {
             if (!data.ok) {
                 container.innerHTML =
-                    '<div class="alert alert-warning py-2 small">' + (data.error || 'Error al evaluar') + '</div>' +
+                    '<div class="alert alert-warning py-2 small">' + escGd(data.error || 'Error al evaluar') + '</div>' +
                     '<button class="btn btn-sm btn-outline-secondary w-100 mt-1" onclick="evaluarConGrisDetalle(' + id + ')">' +
                     '<i class="bi bi-arrow-repeat me-1"></i>Reintentar</button>';
                 return;
@@ -1284,12 +1318,37 @@
                 const aBg = a.puntaje >= 7 ? 'success' : a.puntaje >= 5 ? 'warning' : 'danger';
                 html += '<div style="margin-bottom:8px;">' +
                     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">' +
-                    '<span style="font-size:0.74rem;font-weight:600;">' + a.nombre + '</span>' +
+                    '<span style="font-size:0.74rem;font-weight:600;">' + escGd(a.nombre) + '</span>' +
                     '<span class="badge bg-' + aBg + '" style="font-size:0.68rem;">' + a.puntaje + '/10</span></div>' +
                     '<div class="progress" style="height:4px;border-radius:2px;">' +
                     '<div class="progress-bar bg-' + aBg + '" style="width:' + (a.puntaje * 10) + '%;"></div></div>' +
-                    '<div style="font-size:0.69rem;color:#6b7280;margin-top:2px;">' + a.observacion + '</div></div>';
+                    '<div style="font-size:0.69rem;color:#6b7280;margin-top:2px;">' + escGd(a.observacion) + '</div></div>';
             });
+
+            // Categorías
+            html += '<hr style="margin:8px 0;"/>' +
+                '<div style="font-size:0.73rem;font-weight:600;color:#374151;margin-bottom:4px;">' +
+                '<i class="bi bi-tag me-1 text-primary"></i>Categorías</div>';
+            const alts = data.categoriasAlerta || [];
+            if (alts.length > 0) {
+                html += '<div style="font-size:0.71rem;color:#dc2626;font-weight:600;margin-bottom:3px;">⚠ Posible mala clasificación</div>';
+                alts.forEach(function(c) {
+                    html += '<div style="margin-bottom:4px;">' +
+                        '<span class="badge bg-danger-subtle text-danger-emphasis" style="font-size:0.68rem;">' + escGd(c.nombre) + '</span>' +
+                        '<div style="font-size:0.67rem;color:#6b7280;margin-top:1px;">' + escGd(c.razon) + '</div></div>';
+                });
+            } else {
+                html += '<div style="font-size:0.71rem;color:#16a34a;margin-bottom:4px;">✓ Categorías coherentes</div>';
+            }
+            const sugs = data.categoriasSugeridas || [];
+            if (sugs.length > 0) {
+                html += '<div style="font-size:0.71rem;color:#6b7280;margin-bottom:3px;">Sugeridas:</div>' +
+                    '<div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:4px;">';
+                sugs.forEach(function(c) {
+                    html += '<span class="badge bg-primary-subtle text-primary-emphasis" style="font-size:0.67rem;" title="' + escGd(c.razon) + '">' + escGd(c.nombre) + '</span>';
+                });
+                html += '</div>';
+            }
 
             html += '<button class="btn btn-sm btn-outline-secondary w-100 mt-2" onclick="evaluarConGrisDetalle(' + id + ')">' +
                 '<i class="bi bi-arrow-repeat me-1"></i>Re-evaluar con GRIS</button>';

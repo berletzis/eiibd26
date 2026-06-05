@@ -34,6 +34,12 @@ namespace eiibd26.Models.Calidad
         /// <summary>JSON: ["sugerencia1", ...] — puede ser texto crudo si el parse falló.</summary>
         public string? GrisSugerencias { get; set; }
 
+        /// <summary>JSON: [{categoriaId, nombre, razon}] — categorías donde encajaría el artículo.</summary>
+        public string? GrisCategoriasSugeridas { get; set; }
+
+        /// <summary>JSON: [{categoriaId, nombre, razon}] — categorías actuales que no corresponden al contenido.</summary>
+        public string? GrisCategoriasAlerta { get; set; }
+
         public DateTime? GrisFechaEvaluacion { get; set; }
     }
 }

@@ -40,6 +40,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         public int? GrisPuntajeGlobal { get; private set; }
         public List<GrisAspectoDto>? GrisAspectos { get; private set; }
         public List<string>? GrisSugerencias { get; private set; }
+        public List<GrisCategoriaSugeridaDto>? GrisCategoriasSugeridas { get; private set; }
+        public List<GrisCategoriaSugeridaDto>? GrisCategoriasAlerta { get; private set; }
         public DateTime? GrisFechaEvaluacion { get; private set; }
 
         // Campos principales (binds)
@@ -194,6 +196,17 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 if (!string.IsNullOrWhiteSpace(grisRow.GrisSugerencias))
                 {
                     try { GrisSugerencias = JsonSerializer.Deserialize<List<string>>(grisRow.GrisSugerencias); }
+                    catch { }
+                }
+                var grisJsonOpts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                if (!string.IsNullOrWhiteSpace(grisRow.GrisCategoriasSugeridas))
+                {
+                    try { GrisCategoriasSugeridas = JsonSerializer.Deserialize<List<GrisCategoriaSugeridaDto>>(grisRow.GrisCategoriasSugeridas, grisJsonOpts); }
+                    catch { }
+                }
+                if (!string.IsNullOrWhiteSpace(grisRow.GrisCategoriasAlerta))
+                {
+                    try { GrisCategoriasAlerta = JsonSerializer.Deserialize<List<GrisCategoriaSugeridaDto>>(grisRow.GrisCategoriasAlerta, grisJsonOpts); }
                     catch { }
                 }
             }

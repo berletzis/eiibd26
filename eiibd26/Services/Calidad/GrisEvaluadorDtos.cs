@@ -7,6 +7,13 @@ namespace eiibd26.Services.Calidad
         public string Observacion { get; set; } = string.Empty;
     }
 
+    public class GrisCategoriaSugeridaDto
+    {
+        public int CategoriaId { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public string Razon { get; set; } = string.Empty;
+    }
+
     public class GrisEvaluacionDto
     {
         public int ContenidoId { get; set; }
@@ -15,6 +22,8 @@ namespace eiibd26.Services.Calidad
         public int PuntajeGlobal { get; set; }
         public List<GrisAspectoDto> Aspectos { get; set; } = new();
         public List<string> Sugerencias { get; set; } = new();
+        public List<GrisCategoriaSugeridaDto> CategoriasSugeridas { get; set; } = new();
+        public List<GrisCategoriaSugeridaDto> CategoriasAlerta { get; set; } = new();
         public DateTime FechaEvaluacion { get; set; }
     }
 }

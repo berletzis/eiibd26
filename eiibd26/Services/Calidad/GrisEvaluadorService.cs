@@ -62,7 +62,37 @@ namespace eiibd26.Services.Calidad
             if (textoLimpio.Length > 3000)
                 textoLimpio = textoLimpio[..3000] + "\n[... texto truncado para evaluación ...]";
 
-            var userPrompt = BuildUserPrompt(contenido.ContenidoTitulo ?? "(sin título)", textoLimpio);
+            // Catálogo de categorías (una sola query para todo el análisis)
+            var categoriasDb = await _db.ContenidosCategorias
+                .AsNoTracking()
+                .Where(c => !c.Borrado)
+                .OrderBy(c => c.Nombre)
+                .Select(c => new { c.Sequence, c.Nombre, c.Descripcion })
+                .ToListAsync();
+
+            var validCatIds = categoriasDb.Select(c => c.Sequence).ToHashSet();
+
+            var catalogoTexto = string.Join("\n", categoriasDb.Select(c =>
+            {
+                var desc = string.IsNullOrWhiteSpace(c.Descripcion) ? string.Empty
+                    : " — " + (c.Descripcion.Length > 80 ? c.Descripcion[..80] + "…" : c.Descripcion).Trim();
+                return $"  ID={c.Sequence}: {c.Nombre?.Trim()}{desc}";
+            }));
+
+            // Categorías actualmente asignadas a este artículo
+            var catActualesIds = await _db.ContenidosCategoriasRelacion
+                .AsNoTracking()
+                .Where(r => r.IdContenido == contenidoId && !r.Borrado && r.IdCategoria != null)
+                .Select(r => r.IdCategoria!.Value)
+                .ToListAsync();
+
+            var actualesTexto = catActualesIds.Any()
+                ? string.Join(", ", categoriasDb
+                    .Where(c => catActualesIds.Contains(c.Sequence))
+                    .Select(c => $"{c.Nombre} (ID={c.Sequence})"))
+                : "ninguna";
+
+            var userPrompt = BuildUserPrompt(contenido.ContenidoTitulo ?? "(sin título)", textoLimpio, catalogoTexto, actualesTexto);
 
             string rawResponse;
             try
@@ -89,7 +119,7 @@ namespace eiibd26.Services.Calidad
                     contenidoId, rawResponse);
             }
 
-            var dto = BuildDto(contenidoId, parsed);
+            var dto = BuildDto(contenidoId, parsed, validCatIds);
 
             // UPSERT en ContenidoCalidad (fallo aquí no invalida el DTO devuelto)
             try { await GuardarResultadoAsync(contenidoId, dto, parsed, rawResponse); }
@@ -106,7 +136,7 @@ namespace eiibd26.Services.Calidad
         }
 
         // Con $$"""...""" (dos $): {{variable}} es interpolación; { y } en el template son literales.
-        private static string BuildUserPrompt(string titulo, string cuerpo) =>
+        private static string BuildUserPrompt(string titulo, string cuerpo, string catalogoCateg, string actualesCateg) =>
             $$"""
             Evaluá el siguiente artículo de salud sobre EII según la rúbrica de 7 aspectos.
 
@@ -125,7 +155,18 @@ namespace eiibd26.Services.Calidad
             6. Engagement y experiencia: ejemplos/metáforas/historias, llamadas a la acción
             7. Optimización técnica: keywords naturales, meta descripción, legibilidad móvil
 
-            Respondé SOLO con este JSON (nada más, sin explicaciones):
+            ---
+            ANÁLISIS DE CATEGORÍAS
+            Categorías disponibles en el sitio:
+            {{catalogoCateg}}
+
+            Categorías actualmente asignadas al artículo: {{actualesCateg}}
+
+            Basándote exclusivamente en el texto del artículo:
+            (1) categoriasSugeridas: qué categorías del catálogo encajan mejor con el contenido (máximo 5, solo las más relevantes). Usá los IDs exactos del catálogo — no inventes IDs.
+            (2) categoriasAlerta: si alguna categoría actualmente asignada NO corresponde al contenido, listala con la razón. Si todas encajan (o no hay asignadas), devolvé lista vacía.
+
+            Respondé SOLO con este JSON (sin texto adicional, sin markdown):
             {
               "puntajeGlobal": <número 0-100>,
               "aspectos": [
@@ -137,7 +178,9 @@ namespace eiibd26.Services.Calidad
                 {"nombre": "Engagement y experiencia", "puntaje": <1-10>, "observacion": "..."},
                 {"nombre": "Optimización técnica", "puntaje": <1-10>, "observacion": "..."}
               ],
-              "sugerencias": ["sugerencia concreta 1", "sugerencia concreta 2", "sugerencia concreta 3"]
+              "sugerencias": ["sugerencia concreta 1", "sugerencia concreta 2", "sugerencia concreta 3"],
+              "categoriasSugeridas": [{"categoriaId": <id_exacto_del_catalogo>, "nombre": "...", "razon": "..."}],
+              "categoriasAlerta": [{"categoriaId": <id_exacto_del_catalogo>, "nombre": "...", "razon": "..."}]
             }
             """;
 
@@ -181,7 +224,7 @@ namespace eiibd26.Services.Calidad
             return idx >= 0 ? t[idx..] : t;
         }
 
-        private static GrisEvaluacionDto BuildDto(int contenidoId, GrisRespuestaJson? parsed)
+        private static GrisEvaluacionDto BuildDto(int contenidoId, GrisRespuestaJson? parsed, HashSet<int> validCatIds)
         {
             if (parsed == null)
                 return ErrorDto(contenidoId, "No se pudo parsear la respuesta de GRIS.");
@@ -198,6 +241,23 @@ namespace eiibd26.Services.Calidad
                     Observacion = a.Observacion ?? string.Empty
                 }).ToList(),
                 Sugerencias = parsed.Sugerencias ?? new(),
+                // Validar IDs contra el catálogo real para descartar alucinaciones
+                CategoriasSugeridas = (parsed.CategoriasSugeridas ?? new())
+                    .Where(c => validCatIds.Contains(c.CategoriaId))
+                    .Select(c => new GrisCategoriaSugeridaDto
+                    {
+                        CategoriaId = c.CategoriaId,
+                        Nombre = c.Nombre ?? string.Empty,
+                        Razon = c.Razon ?? string.Empty
+                    }).ToList(),
+                CategoriasAlerta = (parsed.CategoriasAlerta ?? new())
+                    .Where(c => validCatIds.Contains(c.CategoriaId))
+                    .Select(c => new GrisCategoriaSugeridaDto
+                    {
+                        CategoriaId = c.CategoriaId,
+                        Nombre = c.Nombre ?? string.Empty,
+                        Razon = c.Razon ?? string.Empty
+                    }).ToList(),
                 FechaEvaluacion = DateTime.UtcNow
             };
         }
@@ -222,6 +282,12 @@ namespace eiibd26.Services.Calidad
             var sugerenciasJson = parsed != null
                 ? JsonSerializer.Serialize(dto.Sugerencias)
                 : rawFallback;
+            var sugeridasJson = dto.Ok && dto.CategoriasSugeridas.Count > 0
+                ? JsonSerializer.Serialize(dto.CategoriasSugeridas)
+                : (string?)null;
+            var alertasJson = dto.Ok && dto.CategoriasAlerta.Count > 0
+                ? JsonSerializer.Serialize(dto.CategoriasAlerta)
+                : (string?)null;
 
             var fila = await _db.ContenidoCalidad
                 .FirstOrDefaultAsync(x => x.ContenidoId == contenidoId);
@@ -232,6 +298,8 @@ namespace eiibd26.Services.Calidad
                 fila.GrisPuntajeGlobal = dto.Ok ? (byte?)dto.PuntajeGlobal : null;
                 fila.GrisResultado = resultadoJson;
                 fila.GrisSugerencias = sugerenciasJson;
+                fila.GrisCategoriasSugeridas = sugeridasJson;
+                fila.GrisCategoriasAlerta = alertasJson;
                 fila.GrisFechaEvaluacion = dto.FechaEvaluacion;
             }
             else
@@ -246,6 +314,8 @@ namespace eiibd26.Services.Calidad
                     GrisPuntajeGlobal = dto.Ok ? (byte?)dto.PuntajeGlobal : null,
                     GrisResultado = resultadoJson,
                     GrisSugerencias = sugerenciasJson,
+                    GrisCategoriasSugeridas = sugeridasJson,
+                    GrisCategoriasAlerta = alertasJson,
                     GrisFechaEvaluacion = dto.FechaEvaluacion
                 });
             }
@@ -283,6 +353,12 @@ namespace eiibd26.Services.Calidad
 
             [JsonPropertyName("sugerencias")]
             public List<string>? Sugerencias { get; set; }
+
+            [JsonPropertyName("categoriasSugeridas")]
+            public List<GrisCategoriaJson>? CategoriasSugeridas { get; set; }
+
+            [JsonPropertyName("categoriasAlerta")]
+            public List<GrisCategoriaJson>? CategoriasAlerta { get; set; }
         }
 
         private class GrisAspectoJson
@@ -295,6 +371,18 @@ namespace eiibd26.Services.Calidad
 
             [JsonPropertyName("observacion")]
             public string? Observacion { get; set; }
+        }
+
+        private class GrisCategoriaJson
+        {
+            [JsonPropertyName("categoriaId")]
+            public int CategoriaId { get; set; }
+
+            [JsonPropertyName("nombre")]
+            public string? Nombre { get; set; }
+
+            [JsonPropertyName("razon")]
+            public string? Razon { get; set; }
         }
 
         #endregion
