@@ -46,9 +46,11 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
 
         // FaseLog para TodosConfirmados. No colisiona con 1/2/3 (toques de secuencia) ni 0 (reset pw).
         private const int FaseLogGeneral = 10;
-        // FaseLog para audiencias de tarea pendiente (20=SinCondicion, 21=SinMood).
-        private const int FaseLogSinCondicion = 20;
-        private const int FaseLogSinMood      = 21;
+        // FaseLog para audiencias de tarea pendiente (20=SinCondicion, 21=SinMood, 22=ConRespuestas, 23=Diagnostico).
+        private const int FaseLogSinCondicion  = 20;
+        private const int FaseLogSinMood       = 21;
+        private const int FaseLogConRespuestas = 22;
+        private const int FaseLogDiagnostico   = 23;
 
         public void OnGet() { }
 
@@ -132,9 +134,11 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                 AudienciaCampana.ViejosSinToque1 => "toque1",
                 AudienciaCampana.Toque2          => "toque2",
                 AudienciaCampana.Toque3          => "toque3",
-                AudienciaCampana.SinCondicion    => "sin-condicion",
-                AudienciaCampana.SinMood         => "sin-mood",
-                _                                => "general"
+                AudienciaCampana.SinCondicion       => "sin-condicion",
+                AudienciaCampana.SinMood            => "sin-mood",
+                AudienciaCampana.ConRespuestasSemana => "con-respuestas",
+                AudienciaCampana.DiagnosticoPendiente => "diagnostico-pendiente",
+                _                                   => "general"
             };
 
             var unsubGroupId = _configuration.GetValue<int?>("SendGrid:UnsubscribeGroupId");
@@ -292,6 +296,54 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                         _targeting.AplicarCriterio(users, PublicoCampana.TodosConfirmados)
                             .Where(u => !conMood.Contains(u.Id)),
                         FaseLogSinMood);
+                }
+
+                case AudienciaCampana.ConRespuestasSemana:
+                {
+                    // Usuarios cuyas preguntas recibieron respuesta de OTRO en los últimos 7 días.
+                    // Mismo criterio que NewAnswersCount del dashboard.
+                    var weekAgo = DateTimeOffset.UtcNow.AddDays(-7);
+                    var conRespuestas = new HashSet<Guid>(await _db.Respuestas
+                        .Where(r => r.FechaCreacion >= weekAgo && !r.Eliminado)
+                        .Join(_db.Preguntas, r => r.PreguntaId, p => p.Id, (r, p) => new { r, p })
+                        .Where(x => x.p.UsuarioId != x.r.UsuarioId)
+                        .Select(x => x.p.UsuarioId)
+                        .Distinct().ToListAsync());
+                    return (
+                        _targeting.AplicarCriterio(users, PublicoCampana.TodosConfirmados)
+                            .Where(u => conRespuestas.Contains(u.Id)),
+                        FaseLogConRespuestas);
+                }
+
+                case AudienciaCampana.DiagnosticoPendiente:
+                {
+                    // Replicar exacto el criterio de NeedsDiagnosisDateUpdate del dashboard:
+                    // condicionUsuario.fechaInicio.Date == (Perfil.FechaCreado ?? Perfil.FechaCreacion).Date
+                    var condiciones = await _db.condicionUsuario
+                        .Where(cu => !cu.Eliminado && cu.fechaInicio != null)
+                        .Select(cu => new { cu.idUsuario, cu.fechaInicio })
+                        .ToListAsync();
+
+                    var perfiles = await _db.Perfil
+                        .AsNoTracking()
+                        .Select(p => new { p.idUser, p.FechaCreado, p.FechaCreacion })
+                        .ToListAsync();
+
+                    var perfilFechas = perfiles.ToDictionary(
+                        p => p.idUser,
+                        p => (p.FechaCreado ?? p.FechaCreacion).Date);
+
+                    var diagPendiente = new HashSet<Guid>(
+                        condiciones
+                            .Where(cu => perfilFechas.TryGetValue(cu.idUsuario, out var perfilDate)
+                                         && cu.fechaInicio!.Value.Date == perfilDate)
+                            .Select(cu => cu.idUsuario)
+                            .Distinct());
+
+                    return (
+                        _targeting.AplicarCriterio(users, PublicoCampana.TodosConfirmados)
+                            .Where(u => diagPendiente.Contains(u.Id)),
+                        FaseLogDiagnostico);
                 }
 
                 case AudienciaCampana.TodosConfirmados:

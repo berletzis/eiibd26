@@ -44,6 +44,21 @@ namespace eiibd26.Models.Campanas
         /// Tarea pendiente: invitarlos a usar el tracker de mood.
         /// FaseLog=21. Sin exclusión por envíos previos — re-envíable manualmente.
         /// </summary>
-        SinMood = 6
+        SinMood = 6,
+
+        /// <summary>
+        /// Usuarios con EmailConfirmed=1 cuyas preguntas recibieron al menos una respuesta de OTRO usuario
+        /// en los últimos 7 días. Notificación de actividad reciente.
+        /// FaseLog=22. Sin exclusión por envíos previos — re-envíable semanalmente.
+        /// </summary>
+        ConRespuestasSemana = 7,
+
+        /// <summary>
+        /// Usuarios con EmailConfirmed=1 que tienen al menos una condición cuya fechaInicio coincide
+        /// con la fecha de registro del perfil (señal de que nunca actualizaron la fecha real de diagnóstico).
+        /// Mismo criterio que VM.NeedsDiagnosisDateUpdate del dashboard.
+        /// FaseLog=23. Sin exclusión por envíos previos — re-envíable manualmente.
+        /// </summary>
+        DiagnosticoPendiente = 8
     }
 }
