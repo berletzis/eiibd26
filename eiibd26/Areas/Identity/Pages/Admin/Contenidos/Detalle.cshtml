@@ -34,8 +34,8 @@
         }
 
         .right-rel-panel {
-            width: 300px;
-            flex: 0 0 300px;
+            width: 480px;
+            flex: 0 0 480px;
             display: flex;
             flex-direction: column;
             gap: 18px;
@@ -280,7 +280,7 @@
             }
         /* bootstrap danger */
 
-        @@media (max-width:1200px) {
+        @@media (max-width:1600px) {
             .form-wrapper-flex {
                 flex-direction: column
             }
@@ -448,6 +448,26 @@
             </div>
 
             <aside class="right-rel-panel">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="location.href='@Url.Page("/Admin/Contenidos/Contenidos", new { area = "Identity" })'">Regresar a Ver todos</button>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-sm btn-primary mb-2" onclick="window.open('/Identity/Admin/Contenidos/Detalle','_blank')">Agregar nuevo</button>
+                </div>
+                </div>
+                @if (Model.Id.HasValue)
+                {
+                    <div class="mb-2">
+                        <button type="button" class="btn btn-sm btn-outline-info w-100" id="btnCompararRelacionados" onclick="compararRelacionados()">
+                            <i class="bi bi-diagram-3 me-1"></i>Comparar artículos relacionados
+                        </button>
+                        <div id="spinnerComparar" style="display:none;" class="text-center py-1">
+                            <div class="spinner-border spinner-border-sm text-info" role="status"></div>
+                            <span class="text-muted small ms-1">Analizando...</span>
+                        </div>
+                    </div>
+                }
                 @if (Model.Id.HasValue)
                 {
                     <div class="rel-box" id="panelGrisCategorias"@(!Model.GrisEvaluado ? " style=\"display:none\"" : "")>
@@ -563,23 +583,14 @@
                         }
                     </div>
                 </div>
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="location.href='@Url.Page("/Admin/Contenidos/Contenidos", new { area = "Identity" })'">Regresar a Ver todos</button>
-                </div>
-                <div>
-                    <button type="button" class="btn btn-sm btn-primary mb-2" onclick="window.open('/Identity/Admin/Contenidos/Detalle','_blank')">Agregar nuevo</button>
-                </div>
-                </div>
                 @if (Model.Id.HasValue)
                 {
-                    <div class="mb-2">
-                        <button type="button" class="btn btn-sm btn-outline-info w-100" id="btnCompararRelacionados" onclick="compararRelacionados()">
-                            <i class="bi bi-diagram-3 me-1"></i>Comparar artículos relacionados
-                        </button>
-                        <div id="spinnerComparar" style="display:none;" class="text-center py-1">
-                            <div class="spinner-border spinner-border-sm text-info" role="status"></div>
-                            <span class="text-muted small ms-1">Analizando...</span>
+                    <div class="rel-box" id="panelSugerirRelacionados">
+                        <h5><i class="bi bi-link-45deg text-primary me-1"></i>Sugerencias para relacionar</h5>
+                        <div id="sugerirRelContent">
+                            <div class="text-muted small text-center py-2">
+                                <span class="spinner-border spinner-border-sm me-1" role="status"></span>Cargando...
+                            </div>
                         </div>
                     </div>
                 }
@@ -1359,6 +1370,8 @@
                     setTimeout(()=>success.remove(),800);
                 },4000);
             }
+
+            cargarSugerirRelacionados();
         });
 
         // Submit handler (TinyMCE save)
@@ -1400,6 +1413,47 @@
 
         function escGd(s) {
             return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        // ── Sugerencias para relacionar (similitud de texto) ─────────────────
+        function cargarSugerirRelacionados() {
+            var contenidoId = @(Model.Id ?? 0);
+            if (!contenidoId) return;
+            var fd = new FormData();
+            var tok = document.querySelector('[name="__RequestVerificationToken"]');
+            if (tok) fd.append('__RequestVerificationToken', tok.value);
+            fd.append('id', contenidoId);
+            fetch('?handler=SugerirRelacionados', { method: 'POST', body: fd })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    var el = document.getElementById('sugerirRelContent');
+                    if (!el) return;
+                    if (!data.ok || !data.items || !data.items.length) {
+                        el.innerHTML = '<div class="text-muted small text-center py-2">Sin sugerencias disponibles</div>';
+                        return;
+                    }
+                    var html = '';
+                    data.items.forEach(function(item) {
+                        html += '<div class="d-flex align-items-center gap-1 mb-2">' +
+                            '<span style="font-size:0.78rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escGd(item.titulo) + '">' + escGd(item.titulo) + '</span>' +
+                            '<span class="badge bg-secondary-subtle text-secondary-emphasis" style="font-size:0.7rem;white-space:nowrap;">' + item.pct + '%</span>' +
+                            '<button type="button" class="btn btn-sm btn-outline-success" style="font-size:0.72rem;padding:1px 7px;flex-shrink:0;" onclick="relacionarSugerido(' + item.id + ')" title="Agregar a relacionados">&#x2795;</button>' +
+                            '</div>';
+                    });
+                    el.innerHTML = html;
+                })
+                .catch(function() {
+                    var el = document.getElementById('sugerirRelContent');
+                    if (el) el.innerHTML = '<div class="text-danger small text-center">Error al cargar</div>';
+                });
+        }
+
+        function relacionarSugerido(id) {
+            var chk = document.querySelector('input[name="SelectedManualContenidoIds"][value="' + id + '"]');
+            if (chk && !chk.checked) {
+                chk.checked = true;
+                chk.dispatchEvent(new Event('change', { bubbles: true }));
+            }
         }
 
         // ── Comparador de artículos relacionados ──────────────────────────────

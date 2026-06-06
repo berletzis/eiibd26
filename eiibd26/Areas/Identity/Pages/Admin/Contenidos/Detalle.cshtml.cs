@@ -498,50 +498,19 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 }
 
                 // ── Por similitud de texto (Jaccard + Levenshtein) ────────────
-                var current = await _db.Contenidos
-                    .AsNoTracking()
-                    .Where(c => c.Id == id)
-                    .Select(c => new { c.ContenidoTitulo, c.ContenidoTextoC })
-                    .FirstOrDefaultAsync();
-
                 var porSimilitud = new List<object>();
-                if (current != null)
+                var similares = await ObtenerSimilaresPorTextoAsync(id);
+                foreach (var s in similares)
                 {
-                    var currentText = ((current.ContenidoTitulo ?? "") + " " + (current.ContenidoTextoC ?? "")).Trim();
-                    if (currentText.Length > 800) currentText = currentText[..800];
-
-                    var candidates = await _db.Contenidos
-                        .AsNoTracking()
-                        .Where(c => c.Id != id && !c.Eliminado && c.EstadoPublicacion > 0)
-                        .OrderByDescending(c => c.FechaCreado)
-                        .Take(300)
-                        .Select(c => new { c.Id, c.ContenidoTitulo, c.ContenidoTextoC })
-                        .ToListAsync();
-
-                    var scored = candidates
-                        .Select(c =>
-                        {
-                            var txt = ((c.ContenidoTitulo ?? "") + " " + (c.ContenidoTextoC ?? "")).Trim();
-                            if (txt.Length > 800) txt = txt[..800];
-                            return new { c.Id, c.ContenidoTitulo, score = _similarDetector.CalcularSimilitud(currentText, txt) };
-                        })
-                        .Where(x => x.score > 0.01)
-                        .OrderByDescending(x => x.score)
-                        .Take(5)
-                        .ToList();
-
-                    foreach (var s in scored)
+                    var pct = Math.Round(s.Score * 100, 1);
+                    porSimilitud.Add(new
                     {
-                        var pct = Math.Round(s.score * 100, 1);
-                        porSimilitud.Add(new
-                        {
-                            id = s.Id,
-                            titulo = s.ContenidoTitulo ?? "(sin título)",
-                            score = s.score,
-                            motivo = $"{pct}% similitud de texto",
-                            url = $"/Identity/Admin/Contenidos/Detalle/{s.Id}"
-                        });
-                    }
+                        id = s.Id,
+                        titulo = s.Titulo,
+                        score = s.Score,
+                        motivo = $"{pct}% similitud de texto",
+                        url = $"/Identity/Admin/Contenidos/Detalle/{s.Id}"
+                    });
                 }
 
                 _logger.LogInformation(
@@ -555,6 +524,61 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 _logger.LogError(ex, "[CompararRelacionados] Error para contenido {Id}", id);
                 return new JsonResult(new { ok = false, error = ex.Message }, CompararJsonOpts);
             }
+        }
+
+        public async Task<IActionResult> OnPostSugerirRelacionadosAsync([FromForm] int id)
+        {
+            try
+            {
+                var similares = await ObtenerSimilaresPorTextoAsync(id);
+                var items = similares.Select(s => new
+                {
+                    id = s.Id,
+                    titulo = s.Titulo,
+                    pct = Math.Round(s.Score * 100, 1)
+                });
+                return new JsonResult(new { ok = true, items }, CompararJsonOpts);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[SugerirRelacionados] Error para contenido {Id}", id);
+                return new JsonResult(new { ok = false, error = ex.Message }, CompararJsonOpts);
+            }
+        }
+
+        private async Task<List<(int Id, string Titulo, double Score)>> ObtenerSimilaresPorTextoAsync(int id, int top = 5)
+        {
+            var current = await _db.Contenidos
+                .AsNoTracking()
+                .Where(c => c.Id == id)
+                .Select(c => new { c.ContenidoTitulo, c.ContenidoTextoC })
+                .FirstOrDefaultAsync();
+
+            if (current == null) return new();
+
+            var currentText = ((current.ContenidoTitulo ?? "") + " " + (current.ContenidoTextoC ?? "")).Trim();
+            if (currentText.Length > 800) currentText = currentText[..800];
+
+            var candidates = await _db.Contenidos
+                .AsNoTracking()
+                .Where(c => c.Id != id && !c.Eliminado && c.EstadoPublicacion > 0)
+                .OrderByDescending(c => c.FechaCreado)
+                .Take(300)
+                .Select(c => new { c.Id, c.ContenidoTitulo, c.ContenidoTextoC })
+                .ToListAsync();
+
+            return candidates
+                .Select(c =>
+                {
+                    var txt = ((c.ContenidoTitulo ?? "") + " " + (c.ContenidoTextoC ?? "")).Trim();
+                    if (txt.Length > 800) txt = txt[..800];
+                    return (c.Id, Titulo: c.ContenidoTitulo ?? "(sin título)",
+                            Score: _similarDetector.CalcularSimilitud(currentText, txt));
+                })
+                .Where(x => x.Score > 0.01)
+                .OrderByDescending(x => x.Score)
+                .Take(top)
+                .ToList();
         }
 
         // ------------------------------
