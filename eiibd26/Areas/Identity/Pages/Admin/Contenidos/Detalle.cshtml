@@ -1,4 +1,4 @@
-﻿@page "{id?}"
+@page "{id?}"
 @model eiibd26.Areas.Identity.Pages.Admin.Contenidos.DetalleModel
 @using System.Text.Json
 @{
@@ -36,10 +36,15 @@
 
         .detalle-top-nav { display: flex; gap: 8px; flex-shrink: 0; }
 
-        /* ── Grid principal ── */
-        .detalle-main-grid {
+        /* ── Filas de layout ── */
+        .detalle-fila {
+            margin-bottom: 20px;
+        }
+
+        /* Fila 2: Editar Contenido (70%) / GRIS (30%) */
+        .detalle-fila--2 {
             display: grid;
-            grid-template-columns: 1fr 280px 1fr;
+            grid-template-columns: 7fr 3fr;
             gap: 20px;
             align-items: start;
         }
@@ -57,32 +62,39 @@
             gap: 16px;
         }
 
-        .detalle-col-rel {
+        /* Fila 3: Categorías (50%) / GRIS·Categorías (50%) */
+        .detalle-fila--3 {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 14px;
+            gap: 20px;
             align-items: start;
         }
 
-        .detalle-rel-left,
-        .detalle-rel-right {
+        /* Fila 4: full-width con inner grid 50/50 */
+        .detalle-fila--4-inner {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            align-items: start;
+            margin-bottom: 16px;
+        }
+
+        .detalle-fila--4-col {
             display: flex;
             flex-direction: column;
-            gap: 14px;
+            gap: 16px;
         }
 
-        /* Renglón 2 ocupa col1+col2 */
-        .detalle-row2 {
-            grid-column: 1 / 3;
+        /* Fila 5: Condiciones / Tratamientos / Síntomas */
+        .detalle-fila--5 {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 16px;
+            gap: 20px;
             align-items: start;
         }
 
-        /* Renglón 3 full-width */
-        .detalle-row3 {
-            grid-column: 1 / -1;
+        /* Fila 6: botones */
+        .detalle-fila--6 {
             background: #fff;
             border: 1px solid #e8eef6;
             border-radius: 10px;
@@ -91,23 +103,16 @@
 
         /* ── Responsive ── */
         @@media (max-width: 1400px) {
-            .detalle-main-grid { grid-template-columns: 1fr 1fr; }
-            .detalle-col-form  { grid-column: 1 / -1; }
-            .detalle-col-gris  { grid-column: 1; }
-            .detalle-col-rel   { grid-column: 2; }
-            .detalle-row2,
-            .detalle-row3      { grid-column: 1 / -1; }
+            .detalle-fila--2 { grid-template-columns: 1fr; }
+            .detalle-fila--3 { grid-template-columns: 1fr; }
+            .detalle-fila--5 { grid-template-columns: 1fr 1fr; }
         }
 
         @@media (max-width: 900px) {
-            .detalle-main-grid { grid-template-columns: 1fr; }
-            .detalle-col-form,
-            .detalle-col-gris,
-            .detalle-col-rel,
-            .detalle-row2,
-            .detalle-row3      { grid-column: 1 / -1; }
-            .detalle-col-rel   { grid-template-columns: 1fr; }
-            .detalle-row2      { grid-template-columns: 1fr; }
+            .detalle-fila--2,
+            .detalle-fila--3,
+            .detalle-fila--4-inner,
+            .detalle-fila--5 { grid-template-columns: 1fr; }
         }
 
         .gris-card {
@@ -349,6 +354,7 @@
         @Html.AntiForgeryToken()
         <input type="hidden" asp-for="Id" id="contenidoIdHidden" />
 
+        <!-- ── Fila 1: Franja superior (sin cambios) ── -->
         <div class="detalle-top-bar">
             <div class="detalle-top-seo">
                 <strong>URL SEO pública:</strong>
@@ -374,7 +380,8 @@
             </div>
         </div>
 
-        <div class="detalle-main-grid">
+        <!-- ── Fila 2: Editar Contenido (70%) / GRIS (30%) ── -->
+        <div class="detalle-fila detalle-fila--2">
 
             <div class="detalle-col-form">
                 <h3>@ViewData["Title"]</h3>
@@ -570,8 +577,137 @@
                 }
             </div>
 
-            <div class="detalle-col-rel">
-                <div class="detalle-rel-left">
+        </div>
+
+        <!-- ── Fila 3: Categorías seleccionadas (50%) / GRIS·Categorías (50%) ── -->
+        <div class="detalle-fila detalle-fila--3">
+
+            <div class="rel-box">
+                <h5>Categorías seleccionadas <span class="badge bg-light text-dark">@Model.SelectedCategoryIds.Count</span></h5>
+                <div id="selectedCategoryBadges" class="rel-selected-badges mb-2">
+                    @foreach (var seq in Model.SelectedCategoryIds)
+                    {
+                        var cat = Model.CategoryItems.FirstOrDefault(c => c.Sequence == seq);
+                        if (cat != null)
+                        {
+                            var isPrincipal = Model.PrincipalCategoryId.HasValue && Model.PrincipalCategoryId.Value == cat.Sequence;
+                            <span class="rel-badge-sel@(isPrincipal ? " principal" : "")" data-id="@cat.Sequence">@cat.Nombre
+                                @if (isPrincipal)
+                                {
+                                    <span class="badge-principal">Principal</span>
+                                }
+                                <button type="button" class="badge-remove btn-close" data-target-name="SelectedCategoryIds" data-id="@cat.Sequence" aria-label="Eliminar"></button>
+                            </span>
+                        }
+                    }
+                </div>
+                <div class="rel-search-row mb-2">
+                    <input type="text" id="filterCategories" placeholder="Filtrar categorías..." autocomplete="off" />
+                    @* Secondary container removed. JS will update the primary #selectedCategoryBadges to avoid duplicates. *@
+                </div>
+                <div class="rel-scroll" id="categoriesPanel">
+                    @{
+                        var catParents = Model.CategoryItems.Where(ci => ci.CategoriaPadre == null).OrderBy(ci => ci.Nombre).ToList();
+                        var catChildren = Model.CategoryItems.Where(ci => ci.CategoriaPadre != null).OrderBy(ci => ci.Nombre).ToList();
+                        var catChildrenByParent = catChildren.GroupBy(c => c.CategoriaPadre).ToDictionary(g => g.Key, g => g.ToList());
+                        var catOrphanChildren = catChildren.Where(c => c.CategoriaPadre.HasValue && !catParents.Any(p => p.Sequence == c.CategoriaPadre.Value)).ToList();
+                    }
+                    @foreach (var p in catParents)
+                    {
+                        <div class="cond-group" data-filter="@p.Nombre.ToLowerInvariant()">
+                            <div class="cond-parent">
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <input type="checkbox" name="SelectedCategoryIds" class="cat-parent-checkbox" id="cat_parent_@p.Sequence" data-seq="@p.Sequence" value="@p.Sequence" @(Model.SelectedCategoryIds.Contains(p.Sequence) ? "checked" : "") />
+                                    <input type="radio" name="PrincipalCategoryId" value="@p.Sequence" @(Model.PrincipalCategoryId.HasValue && Model.PrincipalCategoryId.Value == p.Sequence ? "checked" : "") title="Marcar como principal" />
+                                    <span class="parent-title ms-2">@p.Nombre</span>
+                                </div>
+                            </div>
+                            <div class="cond-children ms-3">
+                                @if (catChildrenByParent.TryGetValue(p.Sequence, out var chs))
+                                {
+                                    foreach (var ch in chs)
+                                    {
+                                        <label class="rel-item" data-filter="@ch.Nombre.ToLowerInvariant()">
+                                            <input type="checkbox" name="SelectedCategoryIds" class="cat-child-checkbox ms-1" data-parent="@p.Sequence" value="@ch.Sequence" @(Model.SelectedCategoryIds.Contains(ch.Sequence) ? "checked" : "") />
+                                            <input type="radio" name="PrincipalCategoryId" value="@ch.Sequence" @(Model.PrincipalCategoryId.HasValue && Model.PrincipalCategoryId.Value == ch.Sequence ? "checked" : "") title="Marcar como principal" />
+                                            <span class="ms-2">@ch.Nombre</span>
+                                        </label>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    @if (catOrphanChildren.Any())
+                    {
+                        <div class="cond-group" data-filter="otras">
+                            <div class="cond-parent"><strong>Otras categorías</strong></div>
+                            <div class="cond-children ms-3">
+                                @foreach (var oc in catOrphanChildren)
+                                {
+                                    <label class="rel-item" data-filter="@oc.Nombre.ToLowerInvariant()">
+                                        <input type="checkbox" name="SelectedCategoryIds" class="cat-child-checkbox ms-1" value="@oc.Sequence" @(Model.SelectedCategoryIds.Contains(oc.Sequence) ? "checked" : "") />
+                                        <input type="radio" name="PrincipalCategoryId" value="@oc.Sequence" @(Model.PrincipalCategoryId.HasValue && Model.PrincipalCategoryId.Value == oc.Sequence ? "checked" : "") title="Marcar como principal" />
+                                        <span class="ms-2">@oc.Nombre</span>
+                                    </label>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div>
+                @if (Model.Id.HasValue)
+                {
+                    <div class="rel-box" id="panelGrisCategorias"@(!Model.GrisEvaluado ? " style=\"display:none\"" : "")>
+                        <h5 style="font-size:0.88rem;">
+                            <span><i class="bi bi-stars text-primary me-1"></i>GRIS · Categorías</span>
+                        </h5>
+                        <div id="panelGrisCategoriasContent">
+                            @if (Model.GrisEvaluado)
+                            {
+                                @if (Model.GrisCategoriasAlerta != null && Model.GrisCategoriasAlerta.Any())
+                                {
+                                    <div style="font-size:0.71rem;color:#dc2626;font-weight:600;margin-bottom:4px;">⚠ Posible mala clasificación</div>
+                                    foreach (var ca in Model.GrisCategoriasAlerta)
+                                    {
+                                        <div style="margin-bottom:5px;">
+                                            <span class="badge bg-danger-subtle text-danger-emphasis" style="font-size:0.68rem;">@ca.Nombre</span>
+                                            <div style="font-size:0.67rem;color:#6b7280;margin-top:1px;">@ca.Razon</div>
+                                        </div>
+                                    }
+                                }
+                                else
+                                {
+                                    <div style="font-size:0.71rem;color:#16a34a;margin-bottom:4px;">✓ Categorización coherente</div>
+                                }
+                                @if (Model.GrisCategoriasSugeridas != null && Model.GrisCategoriasSugeridas.Any())
+                                {
+                                    <div style="font-size:0.71rem;color:#6b7280;margin-bottom:3px;">Sugeridas (solo informativo):</div>
+                                    <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                                        @foreach (var cs in Model.GrisCategoriasSugeridas)
+                                        {
+                                            <span class="badge bg-primary-subtle text-primary-emphasis"
+                                                  style="font-size:0.68rem;cursor:default;"
+                                                  title="@cs.Razon">@cs.Nombre</span>
+                                        }
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+        </div>
+
+        <!-- ── Fila 4: Contenidos generales + Preguntas + Comparar + Sugerencias ── -->
+        <div class="detalle-fila detalle-fila--4">
+
+            <div class="detalle-fila--4-inner">
+
+                <div class="detalle-fila--4-col">
 
                     <div class="rel-box">
                         <h5>Contenidos generales <span class="badge bg-light text-dark">@Model.AllGeneralContenidos.Count</span></h5>
@@ -619,153 +755,10 @@
                         </div>
                     </div>
 
-                    <div class="rel-box">
-                        <h5>Preguntas (con respuestas o votos) <span class="badge bg-light text-dark">@Model.AllPreguntasCandidate.Count</span></h5>
-                        <div class="rel-search-row">
-                            <input type="text" id="searchPreguntas" placeholder="Filtrar..." autocomplete="off" />
-                            <div id="pregSelectedBadges" class="rel-selected-badges">
-                                @foreach (var q in Model.AllPreguntasCandidate.Where(x => Model.SelectedManualPreguntasIds.Contains(x.id)))
-                                {
-                                    <span class="rel-badge-sel" data-id="@q.id">@q.title <button type="button" class="badge-remove" data-target-name="SelectedManualPreguntasIds" data-id="@q.id" aria-label="Quitar">✕</button></span>
-                                }
-                            </div>
-                        </div>
-                        <div class="rel-scroll" id="listPreguntas">
-                            @if (!Model.AllPreguntasCandidate.Any())
-                            {
-                                <div class="rel-empty">Sin registros</div>
-                            }
-                            else
-                            {
-                                foreach (var q in Model.AllPreguntasCandidate)
-                                {
-                                    var checkedAttr = Model.SelectedManualPreguntasIds.Contains(q.id) ? "checked" : "";
-                                    <label class="rel-item" data-filter="@((q.title ?? "").ToLowerInvariant())">
-                                        <input type="checkbox" name="SelectedManualPreguntasIds" value="@q.id" class="rel-check-pregunta" @checkedAttr />
-                                        <span>@q.title</span>
-                                    </label>
-                                }
-                            }
-                        </div>
-                    </div>
 
                 </div>
-                <div class="detalle-rel-right">
-                    @if (Model.Id.HasValue)
-                    {
-                        <div class="rel-box" id="panelGrisCategorias"@(!Model.GrisEvaluado ? " style=\"display:none\"" : "")>
-                            <h5 style="font-size:0.88rem;">
-                                <span><i class="bi bi-stars text-primary me-1"></i>GRIS · Categorías</span>
-                            </h5>
-                            <div id="panelGrisCategoriasContent">
-                                @if (Model.GrisEvaluado)
-                                {
-                                    @if (Model.GrisCategoriasAlerta != null && Model.GrisCategoriasAlerta.Any())
-                                    {
-                                        <div style="font-size:0.71rem;color:#dc2626;font-weight:600;margin-bottom:4px;">⚠ Posible mala clasificación</div>
-                                        foreach (var ca in Model.GrisCategoriasAlerta)
-                                        {
-                                            <div style="margin-bottom:5px;">
-                                                <span class="badge bg-danger-subtle text-danger-emphasis" style="font-size:0.68rem;">@ca.Nombre</span>
-                                                <div style="font-size:0.67rem;color:#6b7280;margin-top:1px;">@ca.Razon</div>
-                                            </div>
-                                        }
-                                    }
-                                    else
-                                    {
-                                        <div style="font-size:0.71rem;color:#16a34a;margin-bottom:4px;">✓ Categorización coherente</div>
-                                    }
-                                    @if (Model.GrisCategoriasSugeridas != null && Model.GrisCategoriasSugeridas.Any())
-                                    {
-                                        <div style="font-size:0.71rem;color:#6b7280;margin-bottom:3px;">Sugeridas (solo informativo):</div>
-                                        <div style="display:flex;flex-wrap:wrap;gap:4px;">
-                                            @foreach (var cs in Model.GrisCategoriasSugeridas)
-                                            {
-                                                <span class="badge bg-primary-subtle text-primary-emphasis"
-                                                      style="font-size:0.68rem;cursor:default;"
-                                                      title="@cs.Razon">@cs.Nombre</span>
-                                            }
-                                        </div>
-                                    }
-                                }
-                            </div>
-                        </div>
-                    }
-                    <div class="rel-box">
-                        <h5>Categorías seleccionadas <span class="badge bg-light text-dark">@Model.SelectedCategoryIds.Count</span></h5>
-                    <div id="selectedCategoryBadges" class="rel-selected-badges mb-2">
-                        @foreach (var seq in Model.SelectedCategoryIds)
-                        {
-                            var cat = Model.CategoryItems.FirstOrDefault(c => c.Sequence == seq);
-                            if (cat != null)
-                            {
-                                var isPrincipal = Model.PrincipalCategoryId.HasValue && Model.PrincipalCategoryId.Value == cat.Sequence;
-                                <span class="rel-badge-sel@(isPrincipal ? " principal" : "")" data-id="@cat.Sequence">@cat.Nombre
-                                    @if (isPrincipal)
-                                    {
-                                        <span class="badge-principal">Principal</span>
-                                    }
-                                    <button type="button" class="badge-remove btn-close" data-target-name="SelectedCategoryIds" data-id="@cat.Sequence" aria-label="Eliminar"></button>
-                                </span>
-                            }
-                        }
-                    </div>
-                    <div class="rel-search-row mb-2">
-                        <input type="text" id="filterCategories" placeholder="Filtrar categorías..." autocomplete="off" />
-                        @* Secondary container removed. JS will update the primary #selectedCategoryBadges to avoid duplicates. *@
-                    </div>
-                    <div class="rel-scroll" id="categoriesPanel">
-                        @* Render grouped checkboxes here (parents with children) *@
-                        @{
-                            var parents = Model.CategoryItems.Where(ci => ci.CategoriaPadre == null).OrderBy(ci => ci.Nombre).ToList();
-                            var children = Model.CategoryItems.Where(ci => ci.CategoriaPadre != null).OrderBy(ci => ci.Nombre).ToList();
-                            var childrenByParent = children.GroupBy(c => c.CategoriaPadre).ToDictionary(g => g.Key, g => g.ToList());
-                            var orphanChildren = children.Where(c => c.CategoriaPadre.HasValue && !parents.Any(p => p.Sequence == c.CategoriaPadre.Value)).ToList();
-                        }
-                        @foreach (var p in parents)
-                        {
-                            <div class="cond-group" data-filter="@p.Nombre.ToLowerInvariant()">
-                                <div class="cond-parent">
-                                    <div style="display:flex;align-items:center;gap:8px;">
-                                        <input type="checkbox" name="SelectedCategoryIds" class="cat-parent-checkbox" id="cat_parent_@p.Sequence" data-seq="@p.Sequence" value="@p.Sequence" @(Model.SelectedCategoryIds.Contains(p.Sequence) ? "checked" : "") />
-                                        <input type="radio" name="PrincipalCategoryId" value="@p.Sequence" @(Model.PrincipalCategoryId.HasValue && Model.PrincipalCategoryId.Value == p.Sequence ? "checked" : "") title="Marcar como principal" />
-                                        <span class="parent-title ms-2">@p.Nombre</span>
-                                    </div>
-                                </div>
-                                <div class="cond-children ms-3">
-                                    @if (childrenByParent.TryGetValue(p.Sequence, out var chs))
-                                    {
-                                        foreach (var ch in chs)
-                                        {
-                                            <label class="rel-item" data-filter="@ch.Nombre.ToLowerInvariant()">
-                                                <input type="checkbox" name="SelectedCategoryIds" class="cat-child-checkbox ms-1" data-parent="@p.Sequence" value="@ch.Sequence" @(Model.SelectedCategoryIds.Contains(ch.Sequence) ? "checked" : "") />
-                                                <input type="radio" name="PrincipalCategoryId" value="@ch.Sequence" @(Model.PrincipalCategoryId.HasValue && Model.PrincipalCategoryId.Value == ch.Sequence ? "checked" : "") title="Marcar como principal" />
-                                                <span class="ms-2">@ch.Nombre</span>
-                                            </label>
-                                        }
-                                    }
-                                </div>
-                            </div>
-                        }
 
-                        @if (orphanChildren.Any())
-                        {
-                            <div class="cond-group" data-filter="otras">
-                                <div class="cond-parent"><strong>Otras categorías</strong></div>
-                                <div class="cond-children ms-3">
-                                    @foreach (var oc in orphanChildren)
-                                    {
-                                        <label class="rel-item" data-filter="@oc.Nombre.ToLowerInvariant()">
-                                            <input type="checkbox" name="SelectedCategoryIds" class="cat-child-checkbox ms-1" value="@oc.Sequence" @(Model.SelectedCategoryIds.Contains(oc.Sequence) ? "checked" : "") />
-                                            <input type="radio" name="PrincipalCategoryId" value="@oc.Sequence" @(Model.PrincipalCategoryId.HasValue && Model.PrincipalCategoryId.Value == oc.Sequence ? "checked" : "") title="Marcar como principal" />
-                                            <span class="ms-2">@oc.Nombre</span>
-                                        </label>
-                                    }
-                                </div>
-                            </div>
-                        }
-                    </div>
-                </div>
+                <div class="detalle-fila--4-col">
                     @if (Model.Id.HasValue)
                     {
                         <div class="mb-2">
@@ -790,155 +783,232 @@
                         </div>
                     }
                 </div>
+
             </div>
 
-            <div class="detalle-row2">
-                <div class="rel-box" id="panelCondiciones">
-                    <h5>Condiciones <span class="badge bg-light text-dark">@Model.AllCondiciones.Count</span></h5>
-                    <div class="rel-search-row">
-                        <input type="text" id="searchCondiciones" placeholder="Filtrar..." autocomplete="off" />
-                        <div id="condSelectedBadges" class="rel-selected-badges">
-                            @foreach (var c in Model.AllCondiciones.Where(x => Model.SelectedCondicionesIds.Contains(x.id)))
-                            {
-                                <span class="rel-badge-sel" data-id="@c.id">@c.nombre <button type="button" class="badge-remove" data-target-list="SelectedCondicionesIds" data-id="@c.id" aria-label="Quitar">✕</button></span>
-                            }
-                        </div>
-                    </div>
+            @if (Model.Id.HasValue)
+            {
+                <div id="resultadoComparar" class="comparador-panel mt-3" style="display:none;"></div>
+            }
 
-                    <div class="rel-scroll" id="listCondiciones" role="list">
-                        @if (!Model.AllCondiciones.Any())
+        </div>
+
+        <!-- ── Fila 4b: Preguntas / Sugerencias Preguntas ── -->
+        <div class="detalle-fila detalle-fila--3">
+
+            <div class="rel-box">
+                <h5>Preguntas (con respuestas o votos) <span class="badge bg-light text-dark">@Model.AllPreguntasCandidate.Count</span></h5>
+                <div class="rel-search-row">
+                    <input type="text" id="searchPreguntas" placeholder="Filtrar..." autocomplete="off" />
+                    <div id="pregSelectedBadges" class="rel-selected-badges">
+                        @foreach (var q in Model.AllPreguntasCandidate.Where(x => Model.SelectedManualPreguntasIds.Contains(x.id)))
                         {
-                            <div class="rel-empty">Sin registros</div>
+                            <span class="rel-badge-sel" data-id="@q.id">@q.title <button type="button" class="badge-remove" data-target-name="SelectedManualPreguntasIds" data-id="@q.id" aria-label="Quitar">✕</button></span>
                         }
-                        else
+                    </div>
+                </div>
+                <div class="rel-scroll" id="listPreguntas">
+                    @if (!Model.AllPreguntasCandidate.Any())
+                    {
+                        <div class="rel-empty">Sin registros</div>
+                    }
+                    else
+                    {
+                        foreach (var q in Model.AllPreguntasCandidate)
                         {
-                            @* parents with their children *@
-                            @foreach (var parent in parentsList)
-                            {
-                                <div class="cond-group" data-parent="@parent.id">
-                                    <div class="cond-parent">
-                                    <input type="checkbox" name="SelectedCondicionesIds" value="@parent.id" class="cond-parent-checkbox" data-parent-id="@parent.id" id="parentchk_@parent.id" @(Model.SelectedCondicionesIds.Contains(parent.id) ? "checked" : "") />
-                                        <div class="parent-title">@parent.nombre</div>
-                                    </div>
-                                    <div class="cond-children">
-                                        @{
-                                            if (childrenByParentMap.TryGetValue(parent.id, out var chs) && chs.Any())
-                                            {
-                                                foreach (var ch in chs)
-                                                {
-                                                    var checkedAttr = Model.SelectedCondicionesIds.Contains(ch.id) ? "checked" : "";
-                                                    <label class="rel-item" data-filter="@ch.nombre.ToLowerInvariant()">
-                                                        <input type="checkbox" name="SelectedCondicionesIds" value="@ch.id" class="rel-check-condicion" @checkedAttr />
-                                                        <span>@ch.nombre</span>
-                                                    </label>
-                                                }
-                                            }
-                                            else
-                                            {
-                                                <div class="rel-item rel-empty">No hay subcondiciones</div>
-                                            }
-                                        }
-                                    </div>
-                                </div>
-                            }
+                            var checkedAttr = Model.SelectedManualPreguntasIds.Contains(q.id) ? "checked" : "";
+                            <label class="rel-item" data-filter="@((q.title ?? "").ToLowerInvariant())">
+                                <input type="checkbox" name="SelectedManualPreguntasIds" value="@q.id" class="rel-check-pregunta" @checkedAttr />
+                                <span>@q.title</span>
+                            </label>
+                        }
+                    }
+                </div>
+            </div>
 
-                            @* orphan children under "Otros" *@
-                            @if (orphanChildrenList.Any())
-                            {
-                                <div class="cond-group" data-parent="0">
-                                    <div class="cond-parent">
-                                        <input type="checkbox" class="cond-parent-checkbox" data-parent-id="0" id="parentchk_0" />
-                                        <div class="parent-title">Otros</div>
-                                    </div>
-                                    <div class="cond-children">
-                                        @foreach (var ch in orphanChildrenList)
+            @if (Model.Id.HasValue)
+            {
+                <div class="rel-box" id="panelSugerirPreguntas">
+                    <h5 style="justify-content:space-between;">
+                        <span><i class="bi bi-link-45deg text-primary me-1"></i>Sugerencias para relacionar — Preguntas</span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnSugerirPreguntas" onclick="sugerirPreguntas()">Sugerir</button>
+                    </h5>
+                    <div id="sugerirPregContent">
+                        <div class="text-muted small text-center py-2">Pulsa "Sugerir" para buscar preguntas similares</div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div></div>
+            }
+
+        </div>
+
+        <!-- ── Fila 5: Condiciones / Tratamientos / Síntomas ── -->
+        <div class="detalle-fila detalle-fila--5">
+
+            <div class="rel-box" id="panelCondiciones">
+                <h5>Condiciones <span class="badge bg-light text-dark">@Model.AllCondiciones.Count</span>
+                    @if (Model.Id.HasValue)
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" id="btnRecCondiciones" onclick="recomendarClinico('Condiciones')" style="font-size:0.75rem;padding:2px 8px;">Recomendar</button>
+                    }
+                </h5>
+                <div id="recCondicionesContent" style="display:none;margin-bottom:6px;"></div>
+                <div class="rel-search-row">
+                    <input type="text" id="searchCondiciones" placeholder="Filtrar..." autocomplete="off" />
+                    <div id="condSelectedBadges" class="rel-selected-badges">
+                        @foreach (var c in Model.AllCondiciones.Where(x => Model.SelectedCondicionesIds.Contains(x.id)))
+                        {
+                            <span class="rel-badge-sel" data-id="@c.id">@c.nombre <button type="button" class="badge-remove" data-target-list="SelectedCondicionesIds" data-id="@c.id" aria-label="Quitar">✕</button></span>
+                        }
+                    </div>
+                </div>
+
+                <div class="rel-scroll" id="listCondiciones" role="list">
+                    @if (!Model.AllCondiciones.Any())
+                    {
+                        <div class="rel-empty">Sin registros</div>
+                    }
+                    else
+                    {
+                        @* parents with their children *@
+                        @foreach (var parent in parentsList)
+                        {
+                            <div class="cond-group" data-parent="@parent.id">
+                                <div class="cond-parent">
+                                <input type="checkbox" name="SelectedCondicionesIds" value="@parent.id" class="cond-parent-checkbox" data-parent-id="@parent.id" id="parentchk_@parent.id" @(Model.SelectedCondicionesIds.Contains(parent.id) ? "checked" : "") />
+                                    <div class="parent-title">@parent.nombre</div>
+                                </div>
+                                <div class="cond-children">
+                                    @{
+                                        if (childrenByParentMap.TryGetValue(parent.id, out var chs) && chs.Any())
                                         {
-                                            var checkedAttr = Model.SelectedCondicionesIds.Contains(ch.id) ? "checked" : "";
-                                            <label class="rel-item" data-filter="@ch.nombre.ToLowerInvariant()">
-                                                <input type="checkbox" name="SelectedCondicionesIds" value="@ch.id" class="rel-check-condicion" @checkedAttr />
-                                                <span>@ch.nombre</span>
-                                            </label>
+                                            foreach (var ch in chs)
+                                            {
+                                                var checkedAttr = Model.SelectedCondicionesIds.Contains(ch.id) ? "checked" : "";
+                                                <label class="rel-item" data-filter="@ch.nombre.ToLowerInvariant()">
+                                                    <input type="checkbox" name="SelectedCondicionesIds" value="@ch.id" class="rel-check-condicion" @checkedAttr />
+                                                    <span>@ch.nombre</span>
+                                                </label>
+                                            }
                                         }
-                                    </div>
+                                        else
+                                        {
+                                            <div class="rel-item rel-empty">No hay subcondiciones</div>
+                                        }
+                                    }
                                 </div>
-                            }
+                            </div>
                         }
-                    </div>
-                </div>
 
-                <div class="rel-box" id="panelTratamientos">
-                    <h5>Tratamientos <span class="badge bg-light text-dark">@Model.AllTratamientos.Count</span></h5>
-                    <div class="rel-search-row">
-                        <input type="text" id="searchTratamientos" placeholder="Filtrar..." autocomplete="off" />
-                        <div id="tratSelectedBadges" class="rel-selected-badges">
-                            @foreach (var t in Model.AllTratamientos.Where(x => Model.SelectedTratamientosIds.Contains(x.id)))
-                            {
-                                <span class="rel-badge-sel" data-id="@t.id">@t.nombre <button type="button" class="badge-remove" data-target-list="SelectedTratamientosIds" data-id="@t.id" aria-label="Quitar">✕</button></span>
-                            }
-                        </div>
-                    </div>
-                    <div class="rel-scroll" id="listTratamientos">
-                        @if (!Model.AllTratamientos.Any())
+                        @* orphan children under "Otros" *@
+                        @if (orphanChildrenList.Any())
                         {
-                            <div class="rel-empty">Sin registros</div>
+                            <div class="cond-group" data-parent="0">
+                                <div class="cond-parent">
+                                    <input type="checkbox" class="cond-parent-checkbox" data-parent-id="0" id="parentchk_0" />
+                                    <div class="parent-title">Otros</div>
+                                </div>
+                                <div class="cond-children">
+                                    @foreach (var ch in orphanChildrenList)
+                                    {
+                                        var checkedAttr = Model.SelectedCondicionesIds.Contains(ch.id) ? "checked" : "";
+                                        <label class="rel-item" data-filter="@ch.nombre.ToLowerInvariant()">
+                                            <input type="checkbox" name="SelectedCondicionesIds" value="@ch.id" class="rel-check-condicion" @checkedAttr />
+                                            <span>@ch.nombre</span>
+                                        </label>
+                                    }
+                                </div>
+                            </div>
                         }
-                        else
-                        {
-                            foreach (var t in Model.AllTratamientos)
-                            {
-                                var checkedAttr = Model.SelectedTratamientosIds.Contains(t.id) ? "checked" : "";
-                                <label class="rel-item" data-filter="@t.nombre?.ToLowerInvariant()">
-                                    <input type="checkbox" name="SelectedTratamientosIds" value="@t.id" class="rel-check-tratamiento" @checkedAttr />
-                                    <span>@t.nombre</span>
-                                </label>
-                            }
-                        }
-                    </div>
-                </div>
-
-                <div class="rel-box" id="panelSintomas">
-                    <h5>Síntomas <span class="badge bg-light text-dark">@Model.AllSintomas.Count</span></h5>
-                    <div class="rel-search-row">
-                        <input type="text" id="searchSintomas" placeholder="Filtrar..." autocomplete="off" />
-                        <div id="sintSelectedBadges" class="rel-selected-badges">
-                            @foreach (var s in Model.AllSintomas.Where(x => Model.SelectedSintomasIds.Contains(x.id)))
-                            {
-                                <span class="rel-badge-sel" data-id="@s.id">@s.nombre <button type="button" class="badge-remove" data-target-list="SelectedSintomasIds" data-id="@s.id" aria-label="Quitar">✕</button></span>
-                            }
-                        </div>
-                    </div>
-                    <div class="rel-scroll" id="listSintomas">
-                        @if (!Model.AllSintomas.Any())
-                        {
-                            <div class="rel-empty">Sin registros</div>
-                        }
-                        else
-                        {
-                            foreach (var s in Model.AllSintomas)
-                            {
-                                var checkedAttr = Model.SelectedSintomasIds.Contains(s.id) ? "checked" : "";
-                                <label class="rel-item" data-filter="@s.nombre?.ToLowerInvariant()">
-                                    <input type="checkbox" name="SelectedSintomasIds" value="@s.id" class="rel-check-sintoma" @checkedAttr />
-                                    <span>@s.nombre</span>
-                                </label>
-                            }
-                        }
-                    </div>
+                    }
                 </div>
             </div>
 
-            <div class="detalle-row3">
-                @if (Model.Id.HasValue)
-                {
-                    <div id="resultadoComparar" class="comparador-panel mb-3" style="display:none;"></div>
-                }
-                <div class="text-end">
-                    <a class="btn btn-secondary me-2" href="@Url.Page("./Index")">Cancelar</a>
-                    <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar</button>
+            <div class="rel-box" id="panelTratamientos">
+                <h5>Tratamientos <span class="badge bg-light text-dark">@Model.AllTratamientos.Count</span>
+                    @if (Model.Id.HasValue)
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" id="btnRecTratamientos" onclick="recomendarClinico('Tratamientos')" style="font-size:0.75rem;padding:2px 8px;">Recomendar</button>
+                    }
+                </h5>
+                <div id="recTratamientosContent" style="display:none;margin-bottom:6px;"></div>
+                <div class="rel-search-row">
+                    <input type="text" id="searchTratamientos" placeholder="Filtrar..." autocomplete="off" />
+                    <div id="tratSelectedBadges" class="rel-selected-badges">
+                        @foreach (var t in Model.AllTratamientos.Where(x => Model.SelectedTratamientosIds.Contains(x.id)))
+                        {
+                            <span class="rel-badge-sel" data-id="@t.id">@t.nombre <button type="button" class="badge-remove" data-target-list="SelectedTratamientosIds" data-id="@t.id" aria-label="Quitar">✕</button></span>
+                        }
+                    </div>
+                </div>
+                <div class="rel-scroll" id="listTratamientos">
+                    @if (!Model.AllTratamientos.Any())
+                    {
+                        <div class="rel-empty">Sin registros</div>
+                    }
+                    else
+                    {
+                        foreach (var t in Model.AllTratamientos)
+                        {
+                            var checkedAttr = Model.SelectedTratamientosIds.Contains(t.id) ? "checked" : "";
+                            <label class="rel-item" data-filter="@t.nombre?.ToLowerInvariant()">
+                                <input type="checkbox" name="SelectedTratamientosIds" value="@t.id" class="rel-check-tratamiento" @checkedAttr />
+                                <span>@t.nombre</span>
+                            </label>
+                        }
+                    }
+                </div>
+            </div>
+
+            <div class="rel-box" id="panelSintomas">
+                <h5>Síntomas <span class="badge bg-light text-dark">@Model.AllSintomas.Count</span>
+                    @if (Model.Id.HasValue)
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" id="btnRecSintomas" onclick="recomendarClinico('Sintomas')" style="font-size:0.75rem;padding:2px 8px;">Recomendar</button>
+                    }
+                </h5>
+                <div id="recSintomasContent" style="display:none;margin-bottom:6px;"></div>
+                <div class="rel-search-row">
+                    <input type="text" id="searchSintomas" placeholder="Filtrar..." autocomplete="off" />
+                    <div id="sintSelectedBadges" class="rel-selected-badges">
+                        @foreach (var s in Model.AllSintomas.Where(x => Model.SelectedSintomasIds.Contains(x.id)))
+                        {
+                            <span class="rel-badge-sel" data-id="@s.id">@s.nombre <button type="button" class="badge-remove" data-target-list="SelectedSintomasIds" data-id="@s.id" aria-label="Quitar">✕</button></span>
+                        }
+                    </div>
+                </div>
+                <div class="rel-scroll" id="listSintomas">
+                    @if (!Model.AllSintomas.Any())
+                    {
+                        <div class="rel-empty">Sin registros</div>
+                    }
+                    else
+                    {
+                        foreach (var s in Model.AllSintomas)
+                        {
+                            var checkedAttr = Model.SelectedSintomasIds.Contains(s.id) ? "checked" : "";
+                            <label class="rel-item" data-filter="@s.nombre?.ToLowerInvariant()">
+                                <input type="checkbox" name="SelectedSintomasIds" value="@s.id" class="rel-check-sintoma" @checkedAttr />
+                                <span>@s.nombre</span>
+                            </label>
+                        }
+                    }
                 </div>
             </div>
 
         </div>
+
+        <!-- ── Fila 6: Cancelar / Guardar ── -->
+        <div class="detalle-fila detalle-fila--6">
+            <div class="text-end">
+                <a class="btn btn-secondary me-2" href="@Url.Page("./Index")">Cancelar</a>
+                <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar</button>
+            </div>
+        </div>
+
     </form>
 </div>
 
@@ -1058,7 +1128,7 @@
         function slugify(text){
             if(!text) return '';
             return text.toLowerCase()
-                .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+                .normalize('NFD').replace(/[̀-ͯ]/g,'')
                 .replace(/[^a-z0-9\s-]/g,'')
                 .trim().replace(/\s+/g,'-')
                 .replace(/-+/g,'-');
@@ -1499,6 +1569,130 @@
                 chk.dispatchEvent(new Event('change', { bubbles: true }));
             }
         }
+
+        // ── Sugerencias para relacionar — Preguntas ───────────────────────────
+        function sugerirPreguntas() {
+            var contenidoId = @(Model.Id ?? 0);
+            if (!contenidoId) return;
+            var btn = document.getElementById('btnSugerirPreguntas');
+            var el = document.getElementById('sugerirPregContent');
+            if (btn) btn.disabled = true;
+            if (el) el.innerHTML = '<div class="text-muted small text-center py-2"><span class="spinner-border spinner-border-sm me-1" role="status"></span>Buscando...</div>';
+            var fd = new FormData();
+            var tok = document.querySelector('[name="__RequestVerificationToken"]');
+            if (tok) fd.append('__RequestVerificationToken', tok.value);
+            fd.append('id', contenidoId);
+            fetch('?handler=SugerirPreguntas', { method: 'POST', body: fd })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!el) return;
+                    if (!data.ok || !data.items || !data.items.length) {
+                        el.innerHTML = '<div class="text-muted small text-center py-2">Sin sugerencias disponibles</div>';
+                        return;
+                    }
+                    var html = '';
+                    data.items.forEach(function(item) {
+                        html += '<div class="d-flex align-items-start gap-1 mb-2">' +
+                            '<div style="flex:1;min-width:0;">' +
+                            '<div style="font-size:0.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escGd(item.titulo) + '">' + escGd(item.titulo) + '</div>' +
+                            '<div style="font-size:0.68rem;color:#6b7280;">' + item.votos + ' votos · ' + item.respuestas + ' resp.</div>' +
+                            '</div>' +
+                            '<span class="badge bg-secondary-subtle text-secondary-emphasis" style="font-size:0.7rem;white-space:nowrap;flex-shrink:0;">' + item.pct + '%</span>' +
+                            '<button type="button" class="btn btn-sm btn-outline-success" style="font-size:0.72rem;padding:1px 7px;flex-shrink:0;" onclick="relacionarPreguntaSugerida(\'' + escGd(item.id) + '\')" title="Agregar a relacionados">&#x2795;</button>' +
+                            '</div>';
+                    });
+                    el.innerHTML = html;
+                })
+                .catch(function() {
+                    if (el) el.innerHTML = '<div class="text-danger small text-center">Error al cargar</div>';
+                })
+                .finally(function() {
+                    if (btn) btn.disabled = false;
+                });
+        }
+
+        function relacionarPreguntaSugerida(id) {
+            var chk = document.querySelector('input[name="SelectedManualPreguntasIds"][value="' + id + '"]');
+            if (chk && !chk.checked) {
+                chk.checked = true;
+                chk.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+
+        // ── Recomendar clínicos (Condiciones / Tratamientos / Síntomas) ──────
+        var _recFieldMap = {
+            'Condiciones':  'SelectedCondicionesIds',
+            'Tratamientos': 'SelectedTratamientosIds',
+            'Sintomas':     'SelectedSintomasIds'
+        };
+
+        function recomendarClinico(tipo) {
+            var contenidoId = (document.getElementById('contenidoIdHidden') || {}).value || '';
+            var el  = document.getElementById('rec' + tipo + 'Content');
+            var btn = document.getElementById('btnRec' + tipo);
+
+            if (el)  { el.style.display = 'block'; el.innerHTML = '<div class="text-muted small py-1"><span class="spinner-border spinner-border-sm me-1" role="status"></span>Buscando...</div>'; }
+            if (btn) btn.disabled = true;
+
+            if (!contenidoId) {
+                if (el)  el.innerHTML = '<div class="text-muted small py-1">Guarda el contenido primero para generar recomendaciones.</div>';
+                if (btn) btn.disabled = false;
+                return;
+            }
+
+            var fd = new FormData();
+            var tok = document.querySelector('[name="__RequestVerificationToken"]');
+            if (tok) fd.append('__RequestVerificationToken', tok.value);
+            fd.append('id', contenidoId);
+
+            fetch('?handler=Recomendar' + tipo, { method: 'POST', body: fd })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!el) return;
+                    if (data.needsSave) {
+                        el.innerHTML = '<div class="text-muted small py-1">Guarda el contenido primero para generar recomendaciones.</div>';
+                        return;
+                    }
+                    if (!data.ok) {
+                        el.innerHTML = '<div class="text-muted small py-1">Error al buscar recomendaciones.</div>';
+                        return;
+                    }
+                    if (!data.items || !data.items.length) {
+                        el.innerHTML = '<div class="text-muted small py-1">Sin coincidencias en el título o resumen.</div>';
+                        return;
+                    }
+                    var html = '<div class="d-flex flex-wrap gap-1 align-items-center py-1">';
+                    data.items.forEach(function(item) {
+                        html += '<span class="rel-badge-sel" style="cursor:default;">' + escGd(item.nombre) +
+                            '<button type="button" class="badge-add-rec" data-tipo="' + tipo + '" data-id="' + item.id +
+                            '" title="Agregar" style="background:transparent;border:0;cursor:pointer;padding:0 0 0 4px;font-size:0.75rem;color:#24527a;">&#x2795;</button></span>';
+                    });
+                    html += '</div>';
+                    el.innerHTML = html;
+                })
+                .catch(function() {
+                    if (el) el.innerHTML = '<div class="text-danger small py-1">Error al cargar.</div>';
+                })
+                .finally(function() {
+                    if (btn) btn.disabled = false;
+                });
+        }
+
+        function relacionarClinico(tipo, id) {
+            var fieldName = _recFieldMap[tipo];
+            if (!fieldName) return;
+            var chk = document.querySelector('input[name="' + fieldName + '"][value="' + id + '"]');
+            if (chk && !chk.checked) {
+                chk.checked = true;
+                chk.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+
+        document.addEventListener('click', function(e) {
+            var btn = e.target.closest('.badge-add-rec');
+            if (!btn) return;
+            relacionarClinico(btn.getAttribute('data-tipo'), btn.getAttribute('data-id'));
+        });
 
         // ── Comparador de artículos relacionados ──────────────────────────────
         async function compararRelacionados() {

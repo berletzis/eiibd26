@@ -546,6 +546,142 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             }
         }
 
+        public async Task<IActionResult> OnPostSugerirPreguntasAsync([FromForm] int id)
+        {
+            try
+            {
+                var similares = await ObtenerPreguntasSimilaresAsync(id);
+                var items = similares.Select(s => new
+                {
+                    id = s.Id.ToString(),
+                    titulo = s.Titulo,
+                    pct = Math.Round(s.Score * 100, 1),
+                    votos = s.Votos,
+                    respuestas = s.Respuestas
+                });
+                return new JsonResult(new { ok = true, items }, CompararJsonOpts);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[SugerirPreguntas] Error para contenido {Id}", id);
+                return new JsonResult(new { ok = false, error = ex.Message }, CompararJsonOpts);
+            }
+        }
+
+        public async Task<IActionResult> OnPostRecomendarCondicionesAsync([FromForm] int id)
+        {
+            if (id <= 0) return new JsonResult(new { ok = false, needsSave = true }, CompararJsonOpts);
+            try
+            {
+                var current = await _db.Contenidos.AsNoTracking()
+                    .Where(c => c.Id == id)
+                    .Select(c => new { c.ContenidoTitulo, c.ContenidoTextoC })
+                    .FirstOrDefaultAsync();
+                if (current == null) return new JsonResult(new { ok = false, error = "No encontrado" }, CompararJsonOpts);
+
+                var texto = ((current.ContenidoTitulo ?? "") + " " + (current.ContenidoTextoC ?? "")).Trim();
+
+                var catalogo = await _db.condiciones.AsNoTracking()
+                    .Where(c => !c.Eliminado)
+                    .Select(c => new { c.id, c.nombre })
+                    .ToListAsync();
+
+                var items = RecomendarPorNombre(texto, catalogo.Select(c => (c.id, c.nombre ?? "")));
+                return new JsonResult(new { ok = true, items = items.Select(x => new { id = x.Id, nombre = x.Nombre }) }, CompararJsonOpts);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[RecomendarCondiciones] Error para contenido {Id}", id);
+                return new JsonResult(new { ok = false, error = ex.Message }, CompararJsonOpts);
+            }
+        }
+
+        public async Task<IActionResult> OnPostRecomendarTratamientosAsync([FromForm] int id)
+        {
+            if (id <= 0) return new JsonResult(new { ok = false, needsSave = true }, CompararJsonOpts);
+            try
+            {
+                var current = await _db.Contenidos.AsNoTracking()
+                    .Where(c => c.Id == id)
+                    .Select(c => new { c.ContenidoTitulo, c.ContenidoTextoC })
+                    .FirstOrDefaultAsync();
+                if (current == null) return new JsonResult(new { ok = false, error = "No encontrado" }, CompararJsonOpts);
+
+                var texto = ((current.ContenidoTitulo ?? "") + " " + (current.ContenidoTextoC ?? "")).Trim();
+
+                var catalogo = await _db.tratamientos.AsNoTracking()
+                    .Where(t => !t.Eliminado)
+                    .Select(t => new { t.id, t.nombre })
+                    .ToListAsync();
+
+                var items = RecomendarPorNombre(texto, catalogo.Select(t => (t.id, t.nombre ?? "")));
+                return new JsonResult(new { ok = true, items = items.Select(x => new { id = x.Id, nombre = x.Nombre }) }, CompararJsonOpts);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[RecomendarTratamientos] Error para contenido {Id}", id);
+                return new JsonResult(new { ok = false, error = ex.Message }, CompararJsonOpts);
+            }
+        }
+
+        public async Task<IActionResult> OnPostRecomendarSintomasAsync([FromForm] int id)
+        {
+            if (id <= 0) return new JsonResult(new { ok = false, needsSave = true }, CompararJsonOpts);
+            try
+            {
+                var current = await _db.Contenidos.AsNoTracking()
+                    .Where(c => c.Id == id)
+                    .Select(c => new { c.ContenidoTitulo, c.ContenidoTextoC })
+                    .FirstOrDefaultAsync();
+                if (current == null) return new JsonResult(new { ok = false, error = "No encontrado" }, CompararJsonOpts);
+
+                var texto = ((current.ContenidoTitulo ?? "") + " " + (current.ContenidoTextoC ?? "")).Trim();
+
+                var catalogo = await _db.sintomas.AsNoTracking()
+                    .Where(s => !s.Eliminado)
+                    .Select(s => new { s.id, s.nombre })
+                    .ToListAsync();
+
+                var items = RecomendarPorNombre(texto, catalogo.Select(s => (s.id, s.nombre ?? "")));
+                return new JsonResult(new { ok = true, items = items.Select(x => new { id = x.Id, nombre = x.Nombre }) }, CompararJsonOpts);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[RecomendarSintomas] Error para contenido {Id}", id);
+                return new JsonResult(new { ok = false, error = ex.Message }, CompararJsonOpts);
+            }
+        }
+
+        private static List<(int Id, string Nombre)> RecomendarPorNombre(
+            string textoBase, IEnumerable<(int id, string nombre)> catalogo)
+        {
+            static string Normalizar(string s)
+            {
+                if (string.IsNullOrWhiteSpace(s)) return "";
+                var nd = s.ToLowerInvariant().Normalize(System.Text.NormalizationForm.FormD);
+                return new string(nd.Where(ch =>
+                    System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch) !=
+                    System.Globalization.UnicodeCategory.NonSpacingMark).ToArray());
+            }
+
+            var textoNorm = Normalizar(textoBase);
+            var resultado = new List<(int Id, string Nombre)>();
+
+            foreach (var (id, nombre) in catalogo)
+            {
+                if (string.IsNullOrWhiteSpace(nombre) || nombre.Length < 4) continue;
+                var nombreNorm = Normalizar(nombre);
+                var patron = $@"\b{System.Text.RegularExpressions.Regex.Escape(nombreNorm)}s?\b";
+                if (System.Text.RegularExpressions.Regex.IsMatch(textoNorm, patron,
+                        System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                {
+                    resultado.Add((id, nombre));
+                }
+            }
+
+            return resultado.DistinctBy(x => x.Id).ToList();
+        }
+
         private async Task<List<(int Id, string Titulo, double Score)>> ObtenerSimilaresPorTextoAsync(int id, int top = 5)
         {
             var current = await _db.Contenidos
@@ -574,6 +710,56 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                     if (txt.Length > 800) txt = txt[..800];
                     return (c.Id, Titulo: c.ContenidoTitulo ?? "(sin título)",
                             Score: _similarDetector.CalcularSimilitud(currentText, txt));
+                })
+                .Where(x => x.Score > 0.01)
+                .OrderByDescending(x => x.Score)
+                .Take(top)
+                .ToList();
+        }
+
+        private async Task<List<(Guid Id, string Titulo, double Score, int Votos, int Respuestas)>> ObtenerPreguntasSimilaresAsync(int id, int top = 5)
+        {
+            // Load base text from the content (same logic as ObtenerSimilaresPorTextoAsync)
+            var current = await _db.Contenidos
+                .AsNoTracking()
+                .Where(c => c.Id == id)
+                .Select(c => new { c.ContenidoTitulo, c.ContenidoTextoC })
+                .FirstOrDefaultAsync();
+
+            if (current == null) return new();
+
+            var currentText = ((current.ContenidoTitulo ?? "") + " " + (current.ContenidoTextoC ?? "")).Trim();
+            if (currentText.Length > 800) currentText = currentText[..800];
+
+            // Candidates: preguntas with at least 1 human answer
+            var candidates = await _db.Preguntas
+                .AsNoTracking()
+                .Where(p => !p.Eliminado && p.Respuestas.Any(r => !r.EsIA && !r.Eliminado))
+                .Select(p => new
+                {
+                    p.Id,
+                    p.Titulo,
+                    Respuestas = p.Respuestas.Count(r => !r.EsIA && !r.Eliminado)
+                })
+                .ToListAsync();
+
+            // Vote counts in a single query
+            var pregIds = candidates.Select(p => p.Id).ToList();
+            var votesByPregunta = await _db.Votos
+                .AsNoTracking()
+                .Where(v => v.EntidadTipo == "pregunta" && pregIds.Contains(v.EntidadId) && !v.Eliminado)
+                .GroupBy(v => v.EntidadId)
+                .Select(g => new { PregId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.PregId, x => x.Count);
+
+            return candidates
+                .Select(p =>
+                {
+                    var txt = (p.Titulo ?? "").Trim();
+                    if (txt.Length > 800) txt = txt[..800];
+                    var score = _similarDetector.CalcularSimilitud(currentText, txt);
+                    var votos = votesByPregunta.TryGetValue(p.Id, out var v) ? v : 0;
+                    return (p.Id, Titulo: p.Titulo ?? "(sin título)", Score: score, Votos: votos, Respuestas: p.Respuestas);
                 })
                 .Where(x => x.Score > 0.01)
                 .OrderByDescending(x => x.Score)
