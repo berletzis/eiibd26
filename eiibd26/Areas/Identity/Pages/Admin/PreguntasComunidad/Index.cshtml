@@ -300,7 +300,10 @@
                     const url = origin + p.url;
                     html += `<div class="rel-item">
                         <a href="${url}" target="_blank" class="fw-semibold text-decoration-none small">${p.titulo}</a>
-                        <div class="rel-url">${url}</div>
+                        <div class="rel-url d-flex align-items-center gap-1">
+                            <span class="flex-grow-1">${url}</span>
+                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1 rel-copy-btn" data-url="${url}" title="Copiar URL"><i class="bi bi-clipboard"></i></button>
+                        </div>
                     </div>`;
                 });
             }
@@ -311,7 +314,10 @@
                     const url = origin + a.url;
                     html += `<div class="rel-item">
                         <a href="${url}" target="_blank" class="fw-semibold text-decoration-none small">${a.titulo}</a>
-                        <div class="rel-url">${url}</div>
+                        <div class="rel-url d-flex align-items-center gap-1">
+                            <span class="flex-grow-1">${url}</span>
+                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1 rel-copy-btn" data-url="${url}" title="Copiar URL"><i class="bi bi-clipboard"></i></button>
+                        </div>
                     </div>`;
                 });
             }
@@ -322,7 +328,10 @@
                     const url = origin + r.url;
                     html += `<div class="rel-item">
                         <a href="${url}" target="_blank" class="fw-semibold text-decoration-none small">${r.preguntaTitulo || 'Respuesta'}</a>
-                        <div class="rel-url">${url}</div>
+                        <div class="rel-url d-flex align-items-center gap-1">
+                            <span class="flex-grow-1">${url}</span>
+                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1 rel-copy-btn" data-url="${url}" title="Copiar URL"><i class="bi bi-clipboard"></i></button>
+                        </div>
                     </div>`;
                 });
             }
@@ -360,6 +369,21 @@
         });
         this.innerHTML = '<i class="bi bi-clipboard-check me-1"></i> ¡Copiado!';
         setTimeout(() => { this.innerHTML = '<i class="bi bi-clipboard me-1"></i> Copiar para Facebook'; }, 2000);
+    });
+
+    // ── Copiar URL de relacionado (delegado sobre cmRelBody) ──
+    document.getElementById('cmRelBody').addEventListener('click', function (e) {
+        const btn = e.target.closest('.rel-copy-btn');
+        if (!btn) return;
+        const url = btn.getAttribute('data-url');
+        const icon = btn.querySelector('i');
+        navigator.clipboard.writeText(url).catch(() => {
+            const ta = document.createElement('textarea');
+            ta.value = url;
+            document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+        });
+        icon.className = 'bi bi-clipboard-check';
+        setTimeout(() => { icon.className = 'bi bi-clipboard'; }, 2000);
     });
 
     // ── Copiar short-URL ──
