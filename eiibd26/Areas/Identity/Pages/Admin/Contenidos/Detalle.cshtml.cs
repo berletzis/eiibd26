@@ -135,6 +135,40 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             if (!id.HasValue)
             {
                 EstadoPublicacion = 0;
+
+                var currentUser = GetCurrentUserGuid();
+                if (currentUser != Guid.Empty)
+                {
+                    if (string.IsNullOrEmpty(PaisClave))
+                    {
+                        try
+                        {
+                            var codigoPais = await _db.Perfil
+                                .AsNoTracking()
+                                .Where(p => p.idUser == currentUser)
+                                .Select(p => p.NombrePais)
+                                .FirstOrDefaultAsync();
+
+                            if (!string.IsNullOrEmpty(codigoPais) &&
+                                PaisesLista.Any(p => p.code == codigoPais))
+                            {
+                                PaisClave = codigoPais;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "No se pudo preseleccionar país del admin {UserId}", currentUser);
+                        }
+                    }
+
+                    if (string.IsNullOrEmpty(SelectedAutorId))
+                    {
+                        var currentUserStr = currentUser.ToString();
+                        if (AdminAuthors.Any(a => a.id == currentUserStr))
+                            SelectedAutorId = currentUserStr;
+                    }
+                }
+
                 BuildSubcategories();
                 BuildDebug();
                 await BuildSeoUrlAsync();
