@@ -14,6 +14,7 @@
     #cmRelacionados .rel-item:last-child { border-bottom:none; }
     #cmRelacionados .rel-url { font-size:.78em; color:#888; word-break:break-all; }
     #cmRelacionados .rel-section-title { font-size:.8em; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#6b7280; margin:10px 0 4px; }
+    .cm-nina-info { align-self: start; }
 </style>
 }
 
@@ -26,37 +27,72 @@
     </p>
 
     @* ── FORMULARIO ── *@
-    <div class="cm-card">
-        <div class="cm-card-header">
-            <i class="bi bi-pencil-square text-warning"></i>
-            <strong>Nueva pregunta desde Facebook</strong>
+    <div class="row g-3 mb-4">
+
+        @* Columna izquierda — formulario (70%) *@
+        <div class="col-lg-8">
+            <div class="cm-card h-100">
+                <div class="cm-card-header">
+                    <i class="bi bi-pencil-square text-warning"></i>
+                    <strong>Nueva pregunta desde Facebook</strong>
+                </div>
+                <div class="cm-card-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" for="cmTitulo">Título</label>
+                        <input type="text" id="cmTitulo" class="form-control"
+                               placeholder="¿Cómo manejo los brotes de Crohn en verano?" maxlength="300" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" for="cmCuerpo">Cuerpo (pregunta completa de Facebook)</label>
+                        <textarea id="cmCuerpo" class="form-control" rows="5"
+                                  placeholder="Descripción completa de la pregunta..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" for="cmCondicion">Condición (opcional)</label>
+                        <select id="cmCondicion" class="form-select">
+                            <option value="">— Sin condición específica —</option>
+                            @foreach (var c in Model.CondicionesHoja)
+                            {
+                                <option value="@c.Id">@c.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="alert alert-warning d-flex gap-2 py-2 mb-3" role="alert">
+                        <i class="bi bi-lightbulb flex-shrink-0 mt-1"></i>
+                        <span>NINA usa el título y el cuerpo de esta pregunta para generar la respuesta. Entre más detalle incluyas en el cuerpo, más específica y útil será. Si solo pones el título, la respuesta será más general.</span>
+                    </div>
+                    <button id="cmGenerar" class="btn btn-warning fw-semibold">
+                        <i class="bi bi-robot me-1"></i> Generar respuesta con NINA
+                    </button>
+                    <div id="cmError" class="alert alert-danger mt-3 d-none"></div>
+                </div>
+            </div>
         </div>
-        <div class="cm-card-body">
-            <div class="mb-3">
-                <label class="form-label fw-semibold" for="cmTitulo">Título</label>
-                <input type="text" id="cmTitulo" class="form-control"
-                       placeholder="¿Cómo manejo los brotes de Crohn en verano?" maxlength="300" />
+
+        @* Columna derecha — card explicativo (30%) *@
+        <div class="col-lg-4">
+            <div class="cm-card cm-nina-info">
+                <div class="cm-card-header">
+                    <i class="bi bi-robot text-success"></i>
+                    <strong>¿Cómo responde NINA?</strong>
+                </div>
+                <div class="cm-card-body">
+                    <p class="small text-muted mb-2">NINA analiza tu pregunta en varios pasos:</p>
+                    <ol class="small ps-3 mb-3" style="line-height:1.7">
+                        <li><strong>Lee el título y el cuerpo juntos</strong> para entender el tema.</li>
+                        <li><strong>Detecta señales de urgencia médica</strong> (sangrado, fiebre, dolor intenso). Si las hay, usa el modelo más completo.</li>
+                        <li><strong>Clasifica la complejidad:</strong> preguntas simples se responden con información base; preguntas medias o complejas usan el modelo de IA.</li>
+                        <li><strong>El cuerpo se limpia de formato</strong> y se usa como contexto (hasta ~2000 caracteres).</li>
+                        <li><strong>Valida que la respuesta sea segura</strong> y agrega el aviso médico antes de publicarla.</li>
+                    </ol>
+                    <div class="alert alert-success py-2 small mb-0" role="alert">
+                        <i class="bi bi-stars me-1"></i>
+                        <strong>Consejo:</strong> un cuerpo claro y detallado = mejor respuesta.
+                    </div>
+                </div>
             </div>
-            <div class="mb-3">
-                <label class="form-label fw-semibold" for="cmCuerpo">Cuerpo (pregunta completa de Facebook)</label>
-                <textarea id="cmCuerpo" class="form-control" rows="5"
-                          placeholder="Descripción completa de la pregunta..."></textarea>
-            </div>
-            <div class="mb-3">
-                <label class="form-label fw-semibold" for="cmCondicion">Condición (opcional)</label>
-                <select id="cmCondicion" class="form-select">
-                    <option value="">— Sin condición específica —</option>
-                    @foreach (var c in Model.CondicionesHoja)
-                    {
-                        <option value="@c.Id">@c.Nombre</option>
-                    }
-                </select>
-            </div>
-            <button id="cmGenerar" class="btn btn-warning fw-semibold">
-                <i class="bi bi-robot me-1"></i> Generar respuesta con NINA
-            </button>
-            <div id="cmError" class="alert alert-danger mt-3 d-none"></div>
         </div>
+
     </div>
 
     @* ── RESULTADO ── *@
