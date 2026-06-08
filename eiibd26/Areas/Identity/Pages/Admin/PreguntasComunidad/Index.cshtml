@@ -42,6 +42,16 @@
                 <textarea id="cmCuerpo" class="form-control" rows="5"
                           placeholder="Descripción completa de la pregunta..."></textarea>
             </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold" for="cmCondicion">Condición (opcional)</label>
+                <select id="cmCondicion" class="form-select">
+                    <option value="">— Sin condición específica —</option>
+                    @foreach (var c in Model.CondicionesHoja)
+                    {
+                        <option value="@c.Id">@c.Nombre</option>
+                    }
+                </select>
+            </div>
             <button id="cmGenerar" class="btn btn-warning fw-semibold">
                 <i class="bi bi-robot me-1"></i> Generar respuesta con NINA
             </button>
@@ -174,10 +184,14 @@
         }
 
         try {
+            const condicionIdRaw = document.getElementById('cmCondicion').value;
+            const payload = { titulo, cuerpo };
+            if (condicionIdRaw) payload.condicionId = parseInt(condicionIdRaw, 10);
+
             const res  = await fetch('/api/preguntas/admin/crear-facebook', {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({ titulo, cuerpo })
+                body:    JSON.stringify(payload)
             });
             const data = await res.json();
             if (!data.ok) throw new Error(data.error || 'Error al crear pregunta');

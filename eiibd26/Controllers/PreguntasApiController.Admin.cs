@@ -54,6 +54,31 @@ namespace eiibd26.Controllers
                     "[Admin/Facebook] Pregunta {Id} creada con slug '{Slug}'",
                     pregunta.Id, pregunta.Slug);
 
+                if (dto.CondicionId.HasValue)
+                {
+                    try
+                    {
+                        var condicionExiste = await _db.condiciones
+                            .AnyAsync(c => c.id == dto.CondicionId.Value && !c.Eliminado);
+                        if (condicionExiste)
+                        {
+                            _db.PreguntaCondiciones.Add(new PreguntaCondicion
+                            {
+                                Id          = Guid.NewGuid(),
+                                PreguntaId  = pregunta.Id,
+                                CondicionId = dto.CondicionId.Value
+                            });
+                            await _db.SaveChangesAsync();
+                        }
+                    }
+                    catch (Exception exCond)
+                    {
+                        _logger.LogWarning(exCond,
+                            "[Admin/Facebook] No se pudo asociar condición {CondicionId} a pregunta {Id}",
+                            dto.CondicionId.Value, pregunta.Id);
+                    }
+                }
+
                 var yaExiste = await _db.Respuestas
                     .AnyAsync(r => r.PreguntaId == pregunta.Id && r.EsIA && !r.Eliminado);
 

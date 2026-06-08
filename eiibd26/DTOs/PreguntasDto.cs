@@ -10,6 +10,8 @@ namespace eiibd26.DTOs
 
         [Required]
         public string Cuerpo { get; set; }
+
+        public int? CondicionId { get; set; }
     }
 
     public class CrearRespuestaDto
