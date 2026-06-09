@@ -186,6 +186,35 @@
         </div>
     </div>
 
+    @* ── CHARTS ── *@
+    <div class="dash-section-title"><i class="bi bi-bar-chart-line me-1"></i> Tendencias</div>
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-lg-6">
+            <div class="dash-card">
+                <div class="dash-card-label fw-semibold mb-2">Nuevos usuarios por semana</div>
+                <canvas id="chartUsuarios" height="140"></canvas>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <div class="dash-card">
+                <div class="dash-card-label fw-semibold mb-2">Actividad comunidad por semana</div>
+                <canvas id="chartComunidad" height="140"></canvas>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <div class="dash-card">
+                <div class="dash-card-label fw-semibold mb-2">Distribución de perfiles</div>
+                <canvas id="chartPerfiles" height="140"></canvas>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <div class="dash-card">
+                <div class="dash-card-label fw-semibold mb-2">Top 10 países</div>
+                <canvas id="chartPaises" height="140"></canvas>
+            </div>
+        </div>
+    </div>
+
     @* ── MARKETING ── *@
     <div class="dash-section-title"><i class="bi bi-megaphone me-1"></i> Marketing</div>
     <div class="row g-3 mb-4">
@@ -221,3 +250,74 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+    const primary = '#2E86AB', success = '#2E9E5B', warning = '#F18F01';
+
+    async function loadChart(url, callback) {
+        try {
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.ok) callback(data);
+        } catch (_) {}
+    }
+
+    // ── Usuarios (línea) ──
+    loadChart('?handler=ChartUsuarios', d => {
+        new Chart(document.getElementById('chartUsuarios'), {
+            type: 'line',
+            data: {
+                labels: d.data.map(x => x.semana),
+                datasets: [{ label: 'Nuevos usuarios', data: d.data.map(x => x.total),
+                    borderColor: primary, backgroundColor: primary + '22', fill: true, tension: 0.3 }]
+            },
+            options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        });
+    });
+
+    // ── Comunidad (líneas múltiples) ──
+    loadChart('?handler=ChartComunidad', d => {
+        new Chart(document.getElementById('chartComunidad'), {
+            type: 'line',
+            data: {
+                labels: d.labels,
+                datasets: [
+                    { label: 'Preguntas', data: d.preguntas, borderColor: primary, backgroundColor: primary + '22', fill: true, tension: 0.3 },
+                    { label: 'Respuestas', data: d.respuestas, borderColor: success, backgroundColor: success + '22', fill: true, tension: 0.3 }
+                ]
+            },
+            options: { plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true } } }
+        });
+    });
+
+    // ── Perfiles (dona) ──
+    loadChart('?handler=ChartPerfiles', d => {
+        new Chart(document.getElementById('chartPerfiles'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Completos', 'Básicos', 'Mínimos'],
+                datasets: [{ data: [d.completos, d.basicos, d.minimos],
+                    backgroundColor: [success, primary, warning] }]
+            },
+            options: { plugins: { legend: { position: 'right' } } }
+        });
+    });
+
+    // ── Países (barras) ──
+    loadChart('?handler=ChartPaises', d => {
+        new Chart(document.getElementById('chartPaises'), {
+            type: 'bar',
+            data: {
+                labels: d.data.map(x => x.pais),
+                datasets: [{ label: 'Usuarios', data: d.data.map(x => x.total),
+                    backgroundColor: primary }]
+            },
+            options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+        });
+    });
+})();
+</script>
+}
