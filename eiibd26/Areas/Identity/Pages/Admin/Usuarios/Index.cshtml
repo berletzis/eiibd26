@@ -95,46 +95,6 @@
             .table-container-admin, .table-centered-admin { max-width: 99vw; }
         }
 
-        /* Cards de indicadores */
-        .stats-card {
-            background: #fff;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-            border: 1px solid #e3e8ef;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .stats-card:hover {
-            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
-            transform: translateY(-2px);
-        }
-
-        .stats-card.active {
-            border-color: var(--eii-primary);
-            box-shadow: 0 4px 20px rgba(106,78,122,0.2);
-        }
-
-        .stats-value {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: #1e293b;
-            line-height: 1;
-            margin-bottom: 8px;
-        }
-
-        .stats-label {
-            font-size: 0.9rem;
-            color: #64748b;
-            font-weight: 500;
-        }
-
-        .stats-icon {
-            font-size: 2rem;
-            margin-bottom: 10px;
-        }
-
         .user-avatar-sm {
             width: 36px;
             height: 36px;
@@ -154,47 +114,8 @@
         </div>
     </div>
 
-    <!-- ⭐ NUEVO: Indicadores basados en SCORING de perfiles -->
-    <div class="row g-3 mb-4">
-        <div class="col-md-3">
-            <div class="stats-card" id="cardTotal">
-                <div class="stats-icon">👥</div>
-                <div class="stats-value" id="statTotal">-</div>
-                <div class="stats-label">Total usuarios</div>
-                <small style="color:#64748b;font-size:0.75rem;">Todos los usuarios registrados</small>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stats-card" data-filter="completos" id="cardCompletos">
-                <div class="stats-icon">🏆</div>
-                <div class="stats-value" id="statCompletos">-</div>
-                <div class="stats-label">Perfiles Completos (≥180 pts)</div>
-                <small style="color:#64748b;font-size:0.75rem;">Diagnóstico + Avatar + Ánimo + Condición + País + Ubicación</small>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stats-card" data-filter="basicos" id="cardBasicos">
-                <div class="stats-icon">📊</div>
-                <div class="stats-value" id="statBasicos">-</div>
-                <div class="stats-label">Perfiles Básicos (80-179 pts)</div>
-                <small style="color:#64748b;font-size:0.75rem;">Diagnóstico + algunos datos adicionales</small>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stats-card" data-filter="minimos" id="cardMinimos">
-                <div class="stats-icon">⚠️</div>
-                <div class="stats-value" id="statMinimos">-</div>
-                <div class="stats-label">Perfiles Mínimos (<80 pts)</div>
-                <small style="color:#64748b;font-size:0.75rem;">Solo ubicación o datos incompletos</small>
-            </div>
-        </div>
-    </div>
-
     <!-- Filtros -->
     <div class="mb-3 p-3" style="background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
-        <!-- ⭐ Hidden input para filtro de scoring -->
-        <input type="hidden" id="filterScoring" value="" />
-
         <div class="row g-3 align-items-center">
             <div class="col-md-2" style="display:none;">
                 <label class="form-label mb-1" style="font-size:0.9rem;font-weight:500;color:#555;">Filtrar por Hash:</label>
@@ -303,28 +224,6 @@
         }
 
         $(function() {
-            // ⭐ NUEVO: Cargar estadísticas basadas en SCORING de perfiles
-            function loadStats() {
-                $.ajax({
-                    url: '@Url.Page(null, "Estadisticas")',
-                    type: 'GET',
-                    dataType: 'json',
-                    success: function(data) {
-                        $('#statTotal').text(data.totalUsuarios || 0);
-                        $('#statCompletos').text(data.perfilesCompletos || 0);
-                        $('#statBasicos').text(data.perfilesBasicos || 0);
-                        $('#statMinimos').text(data.perfilesMinimos || 0);
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('Error cargando estadísticas:', error);
-                        console.error('Status:', xhr.status);
-                        console.error('Response:', xhr.responseText);
-                    }
-                });
-            }
-
-            loadStats(); // Cargar al inicio
-
             // Cargar condiciones y países para filtros
             $.ajax({
                 url: '@Url.Page(null, "CondicionesPadre")',
@@ -373,7 +272,6 @@
                         d.filterLockout = $('#filterLockout').val();
                         d.filterCondicion = $('#filterCondicion').val();
                         d.filterPais = $('#filterPais').val();
-                        d.filterScoring = $('#filterScoring').val(); // ⭐ NUEVO
                     }
                 },
                 columns: [
@@ -478,33 +376,8 @@
                 }
             });
 
-            // ⭐ NUEVO: Click en cards de indicadores (AHORA CON FILTRADO REAL)
-            $('.stats-card').on('click', function() {
-                var filter = $(this).data('filter');
-
-                // Remover clase active de todos
-                $('.stats-card').removeClass('active');
-
-                // Marcar como activo
-                $(this).addClass('active');
-
-                // Limpiar filtros manuales
-                $('#filterHash').val('');
-                $('#filterLockout').val('');
-                $('#filterCondicion').val('');
-                $('#filterPais').val('');
-
-                // Establecer filtro de scoring
-                $('#filterScoring').val(filter);
-
-                // Recargar tabla con el filtro
-                table.ajax.reload();
-            });
-
             // Aplicar filtros
             $('#btnApplyFilters').on('click', function() {
-                $('.stats-card').removeClass('active'); // Quitar active de cards
-                $('#filterScoring').val(''); // Limpiar filtro de scoring
                 table.ajax.reload();
             });
 
@@ -514,8 +387,6 @@
                 $('#filterLockout').val('');
                 $('#filterCondicion').val('');
                 $('#filterPais').val('');
-                $('#filterScoring').val(''); // ⭐ NUEVO
-                $('.stats-card').removeClass('active');
                 table.ajax.reload();
             });
 
