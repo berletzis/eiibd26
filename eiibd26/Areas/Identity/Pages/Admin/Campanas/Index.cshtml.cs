@@ -95,7 +95,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
         /// Registra en EmailCampanaLog con el FaseLog correspondiente a la audiencia.
         /// Custom args y unsubscribeGroupId idénticos al patrón de campañas existente.
         /// </summary>
-        [IgnoreAntiforgeryToken]
         public async Task<IActionResult> OnPostEnviarAudienciaAsync([FromBody] EnviarAudienciaInput input)
         {
             if (input is null)
@@ -388,7 +387,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
         /// <summary>
         /// Envía un correo de prueba con el template seleccionado. No registra en EmailCampanaLog.
         /// </summary>
-        [IgnoreAntiforgeryToken]
         public async Task<IActionResult> OnPostCampanaEnviarPruebaAsync([FromBody] CampanaEnviarPruebaInput input)
         {
             if (input is null || string.IsNullOrWhiteSpace(input.Email))
@@ -440,7 +438,6 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
         /// Borra todos los registros EmailCampanaLog con Fase=1.
         /// No toca Fase=2, 3, ni 10. Usa ExecuteDeleteAsync (borrado masivo sin cargar entidades).
         /// </summary>
-        [IgnoreAntiforgeryToken]
         public async Task<IActionResult> OnPostResetearReactivacionAsync()
         {
             var eliminados = await _db.EmailCampanaLogs

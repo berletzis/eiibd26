@@ -16,7 +16,6 @@ using System.Threading.Tasks;
 namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 {
     [Authorize(Roles = "Administrador")]
-    [IgnoreAntiforgeryToken]
     public class ContenidosModel : PageModel
     {
         private readonly ApplicationDbContext _db;
