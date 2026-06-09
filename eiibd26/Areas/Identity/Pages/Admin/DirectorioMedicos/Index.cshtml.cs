@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using eiibd26.Data;
 using eiibd26.Models.Directorio;
 using eiibd26.Models.Directorio.Enums;
@@ -21,6 +22,7 @@ public class IndexModel : PageModel
     private readonly IMedicoDirectorioService _dirService;
     private readonly IValidacionContenidoService _validacionService;
     private readonly IValidacionRespuestaService _validacionRespuestaService;
+    private readonly ILogger<IndexModel> _logger;
 
     public string GoogleMapsApiKey => _googleMapsApiKey;
 
@@ -28,7 +30,8 @@ public class IndexModel : PageModel
         eiibd26.Services.Medico.IMedicoBadgeService badgeService,
         IMedicoDirectorioService dirService,
         IValidacionContenidoService validacionService,
-        IValidacionRespuestaService validacionRespuestaService)
+        IValidacionRespuestaService validacionRespuestaService,
+        ILogger<IndexModel> logger)
     {
         _db = db;
         _googleMapsApiKey = cfg["GoogleMaps:ApiKey"] ?? string.Empty;
@@ -36,6 +39,7 @@ public class IndexModel : PageModel
         _dirService = dirService;
         _validacionService = validacionService;
         _validacionRespuestaService = validacionRespuestaService;
+        _logger = logger;
     }
 
     public void OnGet() { }
@@ -488,6 +492,95 @@ public class IndexModel : PageModel
 
         var ok = await _validacionRespuestaService.CambiarEstadoAsync(validacionId.Value, estado, adminId, nota);
         return new JsonResult(new { success = ok });
+    }
+
+    // ── Neutralizar médico (fraude) ──────────────────────────────────────────
+    public async Task<IActionResult> OnPostNeutralizarMedicoAsync(int? medicoId, string? motivo)
+    {
+        if (medicoId == null)
+            return new JsonResult(new { success = false, message = "medicoId requerido." });
+
+        var medico = await _db.MedicosDirectorio
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(m => m.Id == medicoId);
+        if (medico == null)
+            return new JsonResult(new { success = false, message = "Médico no encontrado." });
+
+        var adminId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+        var nota = string.IsNullOrWhiteSpace(motivo) ? "Neutralizado por fraude" : motivo.Trim();
+
+        int validacionesOcultadas = 0;
+        int glosariosOcultados = 0;
+
+        try
+        {
+            medico.Eliminado = true;
+            medico.FechaModificacion = DateTimeOffset.UtcNow;
+            await _db.SaveChangesAsync();
+
+            var perfil = await _db.MedicosPerfilExtendido.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.MedicoId == medicoId && p.UserId != null);
+
+            if (perfil?.UserId != null)
+            {
+                var userIdStr = perfil.UserId.Value.ToString();
+
+                var vContenido = await _validacionService.ObtenerValidacionesMedicoAsync(userIdStr);
+                foreach (var v in vContenido)
+                {
+                    try
+                    {
+                        if (await _validacionService.CambiarEstadoAsync(v.Id, EstadoValidacion.Oculto, adminId, nota))
+                            validacionesOcultadas++;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "[Neutralizar] Error ocultando validación contenido {Id}", v.Id);
+                    }
+                }
+
+                var vRespuesta = await _validacionRespuestaService.ObtenerValidacionesRespuestaMedicoAsync(userIdStr);
+                foreach (var v in vRespuesta)
+                {
+                    try
+                    {
+                        if (await _validacionRespuestaService.CambiarEstadoAsync(v.Id, EstadoValidacion.Oculto, adminId, nota))
+                            validacionesOcultadas++;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "[Neutralizar] Error ocultando validación respuesta {Id}", v.Id);
+                    }
+                }
+
+                glosariosOcultados = await _db.GlossaryValidations
+                    .Where(v => v.UserId == userIdStr && v.Approved)
+                    .ExecuteUpdateAsync(s => s.SetProperty(v => v.Approved, false));
+
+                try { await _dirService.RecalcularNivelConfianzaAsync(medico.Id); }
+                catch (Exception ex) { _logger.LogWarning(ex, "[Neutralizar] Error recalculando nivel médico {Id}", medico.Id); }
+            }
+
+            _logger.LogWarning("[Admin] Médico {MedicoId} neutralizado por {AdminId}. Validaciones: {V}. Glosario: {G}. Motivo: {M}",
+                medicoId, adminId, validacionesOcultadas, glosariosOcultados, nota);
+
+            return new JsonResult(new
+            {
+                success = true,
+                validacionesOcultas = validacionesOcultadas,
+                glosariosOcultos = glosariosOcultados,
+                mensaje = $"Médico neutralizado. {validacionesOcultadas} validaciones ocultadas, {glosariosOcultados} de glosario."
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Neutralizar] Error neutralizando médico {MedicoId}. Procesadas antes del fallo: {V}", medicoId, validacionesOcultadas);
+            return new JsonResult(new
+            {
+                success = false,
+                message = $"Error al neutralizar. Se procesaron {validacionesOcultadas} validaciones antes del fallo."
+            });
+        }
     }
 }
 

@@ -508,7 +508,12 @@ ${(d.validacionesRespuesta || []).length > 0
 <div class="row g-2 mb-3">
     <div class="col-6"><label class="eii-label d-block mb-1">Creado</label><div class="field-readonly">${d.fechaCreacion}</div></div>
     <div class="col-6"><label class="eii-label d-block mb-1">Propuesto por</label><div class="field-readonly">${esc(d.aportante)}</div></div>
-</div>`;
+</div>
+<hr class="my-2">
+<button type="button" class="btn btn-outline-danger btn-sm w-100" onclick="neutralizarMedico(${d.id})">
+    <i class="bi bi-slash-circle me-1"></i> Neutralizar médico (fraude)
+</button>
+<div id="neutralizarStatus" class="mt-2 small"></div>`;
 
         // Init Google Maps si ya cargó
         if (window.google && window.google.maps) initAdminAutocomplete();
@@ -631,6 +636,22 @@ ${(d.validacionesRespuesta || []).length > 0
             if (medicoId) await abrirEditar(parseInt(medicoId));
         } else {
             alert(r.message || 'Error al cambiar estado.');
+        }
+    }
+
+    async function neutralizarMedico(medicoId) {
+        if (!confirm('⚠️ NEUTRALIZAR MÉDICO\n\nEsto marcará al médico como eliminado (soft-delete) y ocultará TODAS sus validaciones de contenido, respuestas y glosario.\n\nEs reversible: un admin puede reactivar manualmente.\n\n¿Continuar?')) return;
+        const motivo = prompt('Motivo (opcional, ej. "perfil falso", "datos incorrectos"):') ?? '';
+        const statusEl = document.getElementById('neutralizarStatus');
+        if (statusEl) statusEl.innerHTML = '<span class="text-muted"><i class="bi bi-hourglass-split me-1"></i>Procesando...</span>';
+        const r = await postJson('@Url.Page(null, "NeutralizarMedico")', { medicoId, motivo });
+        if (r.success) {
+            if (statusEl) statusEl.innerHTML = `<span class="text-success"><i class="bi bi-check-circle me-1"></i>${r.mensaje}</span>`;
+            tabla.ajax.reload(null, false);
+            setTimeout(() => abrirEditar(medicoId), 800);
+        } else {
+            if (statusEl) statusEl.innerHTML = `<span class="text-danger"><i class="bi bi-x-circle me-1"></i>${r.message || 'Error al neutralizar.'}</span>`;
+            alert(r.message || 'Error al neutralizar el médico.');
         }
     }
 
