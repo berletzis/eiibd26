@@ -83,9 +83,11 @@ namespace eiibd26.Areas.Identity.Pages.Account
             // Si el usuario ya está autenticado, redirigir al dashboard según su rol
             if (User.Identity?.IsAuthenticated == true)
             {
-                var authedUrl = User.IsInRole("Medico")
-                    ? "/Identity/Medico/Dashboard"
-                    : "/Identity/Usuario/Dashboard";
+                var authedUrl = User.IsInRole("Administrador")
+                    ? "/Identity/Admin/Dashboard"
+                    : User.IsInRole("Medico")
+                        ? "/Identity/Medico/Dashboard"
+                        : "/Identity/Usuario/Dashboard";
                 return LocalRedirect(authedUrl);
             }
 
@@ -153,10 +155,12 @@ namespace eiibd26.Areas.Identity.Pages.Account
                         }
                     }
 
-                    // Determinar dashboard según rol
-                    string dashboardUrl = await _userManager.IsInRoleAsync(user, "Medico")
-                        ? "/Identity/Medico/Dashboard"
-                        : "/Identity/Usuario/Dashboard";
+                    // Determinar dashboard según rol (Administrador primero)
+                    string dashboardUrl = await _userManager.IsInRoleAsync(user, "Administrador")
+                        ? "/Identity/Admin/Dashboard"
+                        : await _userManager.IsInRoleAsync(user, "Medico")
+                            ? "/Identity/Medico/Dashboard"
+                            : "/Identity/Usuario/Dashboard";
 
                     // Solo respetar ReturnUrl si apunta a una ruta protegida de Identity (no rutas públicas como /Home)
                     var esReturnUrlValido = !string.IsNullOrEmpty(returnUrl)
