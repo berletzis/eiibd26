@@ -1,0 +1,223 @@
+@page
+@model eiibd26.Areas.Identity.Pages.Admin.Dashboard.IndexModel
+@{
+    ViewData["Title"] = "Dashboard";
+    Layout = "_Layout";
+    var d = Model.Dto;
+}
+
+@section Styles {
+<style>
+    .dash-section-title { font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#6b7280; margin:24px 0 10px; }
+    .dash-card { background:#fff; border-radius:12px; box-shadow:0 2px 8px rgba(40,60,120,.07); border:1px solid #dde6f1; padding:18px 20px; height:100%; }
+    .dash-card-value { font-size:2rem; font-weight:700; line-height:1.1; color:#1a1a2e; }
+    .dash-card-label { font-size:.8rem; color:#6b7280; margin-top:2px; }
+    .dash-card-sub { font-size:.75rem; color:#9ca3af; margin-top:4px; }
+</style>
+}
+
+<div class="eii-page">
+    <h2 class="eii-page-title eii-page-title--sm mb-1">
+        <i class="bi bi-speedometer2 me-2 text-primary"></i> Dashboard Administrador
+    </h2>
+    <p class="text-muted mb-4" style="font-size:.92em">Vista general de la plataforma en tiempo real.</p>
+
+    @* ── PULSO GENERAL ── *@
+    <div class="dash-section-title"><i class="bi bi-people me-1"></i> Pulso general — Usuarios</div>
+    <div class="row g-3 mb-2">
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="dash-card">
+                <div class="dash-card-value">@d.TotalUsuarios.ToString("N0")</div>
+                <div class="dash-card-label">Total usuarios</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="dash-card">
+                <div class="dash-card-value">@d.UsuariosConfirmados.ToString("N0")</div>
+                <div class="dash-card-label">Email confirmado</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="dash-card">
+                <div class="dash-card-value text-success">+@d.NuevosEstaSemana</div>
+                <div class="dash-card-label">Nuevos esta semana</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="dash-card">
+                <div class="dash-card-value">@d.Activos30d.ToString("N0")</div>
+                <div class="dash-card-label">Activos últimos 30d</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="dash-card">
+                <div class="dash-card-value">@d.Activos90d.ToString("N0")</div>
+                <div class="dash-card-label">Activos últimos 90d</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="dash-card">
+                <div class="dash-card-value">@d.PerfilesCompletos <small class="fs-6 text-muted">/ @d.PerfilesBasicos / @d.PerfilesMinimos</small></div>
+                <div class="dash-card-label">Completos / Básicos / Mínimos</div>
+            </div>
+        </div>
+    </div>
+
+    @* ── COMUNIDAD ── *@
+    <div class="dash-section-title"><i class="bi bi-chat-dots me-1"></i> Comunidad</div>
+    <div class="row g-3 mb-2">
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="dash-card">
+                <div class="dash-card-value">@d.TotalPreguntas.ToString("N0")</div>
+                <div class="dash-card-label">Preguntas totales</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="dash-card">
+                <div class="dash-card-value text-success">+@d.PreguntasEstaSemana</div>
+                <div class="dash-card-label">Preguntas esta semana</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="dash-card">
+                <div class="dash-card-value @(d.PreguntasSinResponder > 0 ? "text-warning" : "")">@d.PreguntasSinResponder.ToString("N0")</div>
+                <div class="dash-card-label">Sin respuesta humana</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="dash-card">
+                <div class="dash-card-value">@d.TotalRespuestasHumanas.ToString("N0")</div>
+                <div class="dash-card-label">Respuestas comunidad</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="dash-card">
+                <div class="dash-card-value">@d.TotalRespuestasNINA.ToString("N0")</div>
+                <div class="dash-card-label">Respuestas NINA</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="dash-card">
+                <div class="dash-card-value">@d.TotalVotos.ToString("N0")</div>
+                <div class="dash-card-label">Votos totales</div>
+            </div>
+        </div>
+    </div>
+
+    @* ── SALUD ── *@
+    <div class="dash-section-title"><i class="bi bi-heart-pulse me-1"></i> Salud y seguimiento</div>
+    <div class="row g-3 mb-2">
+        <div class="col-6 col-md-3">
+            <div class="dash-card">
+                <div class="dash-card-value text-success">+@d.RegistrosMoodEstaSemana</div>
+                <div class="dash-card-label">Registros mood esta semana</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="dash-card">
+                <div class="dash-card-value">@d.TotalUsuariosConMood.ToString("N0")</div>
+                <div class="dash-card-label">Usuarios con mood</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="dash-card">
+                <div class="dash-card-value">@d.TotalUsuariosConCondicion.ToString("N0")</div>
+                <div class="dash-card-label">Usuarios con condición</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="dash-card">
+                <div class="dash-card-value">@d.TotalTrackingSintomas.ToString("N0")</div>
+                <div class="dash-card-label">Registros síntomas</div>
+            </div>
+        </div>
+    </div>
+
+    @* ── CONTENIDOS ── *@
+    <div class="dash-section-title"><i class="bi bi-file-earmark-text me-1"></i> Contenidos</div>
+    <div class="row g-3 mb-2">
+        <div class="col-6 col-md-4">
+            <div class="dash-card">
+                <div class="dash-card-value">@d.TotalPublicados.ToString("N0")</div>
+                <div class="dash-card-label">Publicados</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4">
+            <div class="dash-card">
+                <div class="dash-card-value">@d.TotalBorradores.ToString("N0")</div>
+                <div class="dash-card-label">Borradores</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4">
+            <div class="dash-card">
+                <div class="dash-card-value">@(d.PromedioCalidadGris > 0 ? d.PromedioCalidadGris.ToString("F1") : "—")</div>
+                <div class="dash-card-label">Promedio calidad GRIS</div>
+                <div class="dash-card-sub">0–100, mayor es mejor</div>
+            </div>
+        </div>
+    </div>
+
+    @* ── MÉDICOS ── *@
+    <div class="dash-section-title"><i class="bi bi-person-badge me-1"></i> Directorio médicos</div>
+    <div class="row g-3 mb-2">
+        <div class="col-6 col-md-3">
+            <div class="dash-card">
+                <div class="dash-card-value">@d.TotalDirectorio.ToString("N0")</div>
+                <div class="dash-card-label">Total en directorio</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="dash-card">
+                <div class="dash-card-value">@d.MedicosVerificados.ToString("N0")</div>
+                <div class="dash-card-label">Cédula verificada</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="dash-card">
+                <div class="dash-card-value">@d.MedicosReclamados.ToString("N0")</div>
+                <div class="dash-card-label">Perfil reclamado</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="dash-card">
+                <div class="dash-card-value">@d.TotalConfirmacionesComunitarias.ToString("N0")</div>
+                <div class="dash-card-label">Confirmaciones comunitarias</div>
+            </div>
+        </div>
+    </div>
+
+    @* ── MARKETING ── *@
+    <div class="dash-section-title"><i class="bi bi-megaphone me-1"></i> Marketing</div>
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="dash-card">
+                <div class="dash-card-value">@d.TotalShortUrls.ToString("N0")</div>
+                <div class="dash-card-label">Short URLs activas</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="dash-card">
+                <div class="dash-card-value">@d.TotalClicksShortUrls.ToString("N0")</div>
+                <div class="dash-card-label">Clicks totales</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="dash-card">
+                <div class="dash-card-value text-success">+@d.ClicksEstaSemana</div>
+                <div class="dash-card-label">Clicks esta semana</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="dash-card">
+                <div class="dash-card-value">@d.TotalPushEnviadas.ToString("N0")</div>
+                <div class="dash-card-label">Push enviadas</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="dash-card">
+                <div class="dash-card-value">@d.CampañasEmailEnviadas.ToString("N0")</div>
+                <div class="dash-card-label">Emails de campaña</div>
+            </div>
+        </div>
+    </div>
+</div>

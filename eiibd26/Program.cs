@@ -300,6 +300,7 @@ try
     // ── Analytics: Estadísticas de Salud ───────────────────────────────────────
     builder.Services.AddScoped<eiibd26.Services.Analytics.IHealthStatsService, eiibd26.Services.Analytics.HealthStatsService>();
     builder.Services.AddScoped<eiibd26.Services.Analytics.IHealthInsightService, eiibd26.Services.Analytics.HealthInsightService>();
+    builder.Services.AddScoped<eiibd26.Services.Analytics.IAdminDashboardService, eiibd26.Services.Analytics.AdminDashboardService>();
 
     // ── Export: Resumen Médico PDF ──────────────────────────────────────────────
     QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
