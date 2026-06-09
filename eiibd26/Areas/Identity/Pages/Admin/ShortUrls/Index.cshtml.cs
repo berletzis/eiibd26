@@ -15,8 +15,12 @@ namespace eiibd26.Areas.Identity.Pages.Admin.ShortUrls
         private readonly ApplicationDbContext _db;
         private readonly IShortUrlService _service;
 
+        private static readonly HashSet<string> OrigenesPermitidos =
+            new(StringComparer.OrdinalIgnoreCase) { "pregunta", "contenido", "glosario", "facebook", "otro" };
+
         public List<eiibd26.Models.ShortUrl.ShortUrl> Items { get; set; } = new();
         public string NuevoCodigo { get; set; } = "";
+        public string BaseUrl { get; set; } = "";
 
         public IndexModel(ApplicationDbContext db, IShortUrlService service)
         {
@@ -31,6 +35,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.ShortUrls
                 .OrderByDescending(s => s.FechaCreado)
                 .AsNoTracking()
                 .ToListAsync();
+            BaseUrl = $"{Request.Scheme}://{Request.Host}";
         }
 
         public async Task<IActionResult> OnPostCrearAsync(string urlDestino, string? origen)
@@ -40,6 +45,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.ShortUrls
                 TempData["Error"] = "La URL destino es obligatoria.";
                 return RedirectToPage();
             }
+
+            if (origen != null && !OrigenesPermitidos.Contains(origen))
+                origen = "otro";
 
             var codigo = await _service.CrearAsync(urlDestino.Trim(), origen?.Trim());
             TempData["NuevoCodigo"] = codigo;

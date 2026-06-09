@@ -35,14 +35,21 @@
 
     <div class="su-card">
         <h5 class="mb-3">Crear short-URL</h5>
+        <input type="hidden" id="suBaseUrl" value="@Model.BaseUrl" />
         <form method="post" asp-page-handler="Crear" class="row g-3 align-items-end">
+            <div class="col-lg-3">
+                <label class="form-label">Origen</label>
+                <select name="origen" id="origenSelect" class="form-select">
+                    <option value="otro" selected>Otro / libre</option>
+                    <option value="pregunta">Pregunta</option>
+                    <option value="contenido">Contenido</option>
+                    <option value="glosario">Glosario</option>
+                    <option value="facebook">Facebook</option>
+                </select>
+            </div>
             <div class="col-lg-7">
                 <label class="form-label">URL destino</label>
-                <input name="urlDestino" class="form-control" placeholder="https://eiibd.com/..." required />
-            </div>
-            <div class="col-lg-3">
-                <label class="form-label">Origen (opcional)</label>
-                <input name="origen" class="form-control" placeholder="pregunta, contenido…" maxlength="50" />
+                <input id="urlDestinoInput" name="urlDestino" class="form-control" placeholder="https://eiibd.com/..." required />
             </div>
             <div class="col-lg-2">
                 <button type="submit" class="btn btn-primary w-100">
@@ -58,6 +65,36 @@
             </div>
         }
     </div>
+
+@section Scripts {
+<script>
+(function () {
+    var baseUrl = (document.getElementById('suBaseUrl').value || '').replace(/\/$/, '');
+    var prefijos = {
+        pregunta:  baseUrl + '/Preguntas/',
+        contenido: baseUrl + '/Contenidos/Detalle/',
+        glosario:  baseUrl + '/Termino/'
+    };
+    var urlInput    = document.getElementById('urlDestinoInput');
+    var origenSelect = document.getElementById('origenSelect');
+
+    origenSelect.addEventListener('change', function () {
+        var tipo   = this.value;
+        var prefix = prefijos[tipo];
+        if (!prefix) return; // facebook, otro — no tocar el campo
+
+        var current    = urlInput.value;
+        var tienePrefijo = Object.values(prefijos).some(function(p) { return current.startsWith(p); });
+
+        if (!current || tienePrefijo) {
+            urlInput.value = prefix;
+            urlInput.focus();
+            urlInput.setSelectionRange(prefix.length, prefix.length);
+        }
+    });
+})();
+</script>
+}
 
     <div class="su-card">
         <h5 class="mb-3">Listado (@Model.Items.Count)</h5>
