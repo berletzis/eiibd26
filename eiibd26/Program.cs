@@ -484,7 +484,8 @@ try
                           "https://www.google-analytics.com " +
                           "https://googleads.g.doubleclick.net " +
                           "https://www.google.com " +
-                          "https://api.cloudflare.com; ");
+                          "https://api.cloudflare.com " +
+                          "https://connect.facebook.net; ");
 
         // Explicit element-level/script-src-elem for newer CSP checks (e.g. Tag Assistant)
         // Include common CDNs (jsdelivr, code.jquery.com), Chart.js and allow inline scripts where necessary
@@ -505,7 +506,8 @@ try
                           "https://cdn.datatables.net " +
                           "https://api.cloudflare.com " +
                           "https://cdnjs.cloudflare.com " +
-                          "https://cdn.tiny.cloud; ");
+                          "https://cdn.tiny.cloud " +
+                          "https://connect.facebook.net; ");
 
         // Allow inline handlers (script-src-attr) and include CDNs + Google domains
         cspBuilder.Append("script-src-attr 'self' 'unsafe-inline' blob: " +
@@ -561,7 +563,9 @@ try
                               "https://www.google-analytics.com " +
                               "https://googleads.g.doubleclick.net " +
                               "https://www.google.com " +
-                              "https://api.cloudflare.com; ");
+                              "https://api.cloudflare.com " +
+                              "https://www.facebook.com " +
+                              "https://connect.facebook.net; ");
         }
         else
         {
@@ -580,7 +584,9 @@ try
                               "https://www.google-analytics.com " +
                               "https://googleads.g.doubleclick.net " +
                               "https://www.google.com " +
-                              "https://api.cloudflare.com; ");
+                              "https://api.cloudflare.com " +
+                              "https://www.facebook.com " +
+                              "https://connect.facebook.net; ");
         }
 
         // Frames: permitir Google Maps y Google Tag Manager (necesario para algunos contenedores/preview)
