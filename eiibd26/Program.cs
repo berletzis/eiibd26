@@ -556,6 +556,7 @@ try
                               "https://cloudflareinsights.com " +
                               "https://cdn.tiny.cloud " +
                               // Allow Google analytics/endpoints the gtag script may call
+                              "https://www.googletagmanager.com " +
                               "https://analytics.google.com " +
                               "https://www.google-analytics.com " +
                               "https://googleads.g.doubleclick.net " +
@@ -574,6 +575,7 @@ try
                               "https://static.cloudflareinsights.com " +
                               "https://cloudflareinsights.com " +
                               "https://cdn.tiny.cloud " +
+                              "https://www.googletagmanager.com " +
                               "https://analytics.google.com " +
                               "https://www.google-analytics.com " +
                               "https://googleads.g.doubleclick.net " +
