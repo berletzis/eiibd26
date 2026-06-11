@@ -1,4 +1,5 @@
 ﻿using eiibd26.Models;
+using eiibd26.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -153,12 +154,15 @@ namespace eiibd26.Pages.Mapa
                 .Where(ur => ur.RoleId == pacienteRoleId)
                 .Select(ur => ur.UserId);
 
+            var validUserIds = UsuarioValidez.IdsValidosQuery(_db);
+
             var basePerfil = _db.Perfil.AsNoTracking()
                 .Where(p =>
                     !string.IsNullOrWhiteSpace(p.Latitud) &&
                     !string.IsNullOrWhiteSpace(p.Longitud) &&
                     p.Latitud != "0" && p.Longitud != "0" &&
-                    usersWithPacienteRole.Contains(p.idUser)
+                    usersWithPacienteRole.Contains(p.idUser) &&
+                    validUserIds.Contains(p.idUser)
                 );
 
                 if (!string.IsNullOrWhiteSpace(country))
@@ -429,9 +433,11 @@ namespace eiibd26.Pages.Mapa
                     .Select(r => r.Id)
                     .FirstOrDefaultAsync();
 
+                var validMoodUserIds = UsuarioValidez.IdsValidosQuery(_db);
+
                 IQueryable<EstadoAnimoUsuario> moodQuery = _db.EstadoAnimoUsuario
                     .AsNoTracking()
-                    .Where(m => !m.Eliminado);
+                    .Where(m => !m.Eliminado && validMoodUserIds.Contains(m.IdUsuario));
 
                 if (pacienteRoleId != null)
                 {

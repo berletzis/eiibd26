@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using eiibd26.Data;
+using eiibd26.Services;
 
 namespace eiibd26.Pages.Home
 {
@@ -56,13 +57,16 @@ namespace eiibd26.Pages.Home
                 .Where(ur => ur.RoleId == pacienteRoleId)
                 .Select(ur => ur.UserId);
 
-            // Cargar perfiles con lat/lng filtrados por rol Paciente
+            var validUserIds = UsuarioValidez.IdsValidosQuery(_db);
+
+            // Cargar perfiles con lat/lng filtrados por rol Paciente y usuarios no suspendidos
             var raw = await _db.Perfil
                 .AsNoTracking()
                 .Where(p =>
                     !string.IsNullOrWhiteSpace(p.Latitud) &&
                     !string.IsNullOrWhiteSpace(p.Longitud) &&
-                    usersWithPacienteRole.Contains(p.idUser)
+                    usersWithPacienteRole.Contains(p.idUser) &&
+                    validUserIds.Contains(p.idUser)
                 )
                 .Select(p => new
                 {
