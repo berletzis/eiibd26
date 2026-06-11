@@ -562,6 +562,7 @@ try
                               "https://analytics.google.com " +
                               "https://www.google-analytics.com " +
                               "https://googleads.g.doubleclick.net " +
+                              "https://stats.g.doubleclick.net " +
                               "https://www.google.com " +
                               "https://api.cloudflare.com " +
                               "https://www.facebook.com " +
@@ -583,6 +584,7 @@ try
                               "https://analytics.google.com " +
                               "https://www.google-analytics.com " +
                               "https://googleads.g.doubleclick.net " +
+                              "https://stats.g.doubleclick.net " +
                               "https://www.google.com " +
                               "https://api.cloudflare.com " +
                               "https://www.facebook.com " +
