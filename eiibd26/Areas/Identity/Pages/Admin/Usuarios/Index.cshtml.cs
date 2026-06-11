@@ -292,6 +292,21 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios
 
             // OBTENER CONDICIONES EN MEMORIA (para cada usuario en la página)
             var userIds = pagedData.Select(x => x.id).ToList();
+
+            // OBTENER admins en la página actual (para deshabilitar botón suspender en front)
+            var adminRoleId = await _db.Roles
+                .Where(r => r.Name == "Administrador")
+                .Select(r => r.Id)
+                .FirstOrDefaultAsync();
+            var adminUserIds = new HashSet<Guid>();
+            if (adminRoleId != Guid.Empty)
+            {
+                var adminList = await _db.UserRoles
+                    .Where(ur => ur.RoleId == adminRoleId && userIds.Contains(ur.UserId))
+                    .Select(ur => ur.UserId)
+                    .ToListAsync();
+                adminUserIds = new HashSet<Guid>(adminList);
+            }
             var condicionesUsuario = await _db.condicionUsuario
                 .Where(cu => !cu.Eliminado && userIds.Contains(cu.idUsuario))
                 .OrderByDescending(cu => cu.fechaInicio ?? cu.fechaCreado)
@@ -369,7 +384,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios
                     condicion = nombreCondicion,
                     u.pais,
                     u.hashIsValid,
-                    u.isLockedOut
+                    u.isLockedOut,
+                    esAdmin = adminUserIds.Contains(u.id)
                 };
             }).ToList();
 
@@ -551,6 +567,42 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios
         }
 
         public record EnviarCorreoInput(string UserId, string TemplateId);
+        public record SuspenderInput(string UserId);
+
+        public async Task<IActionResult> OnPostSuspenderAsync([FromBody] SuspenderInput input)
+        {
+            if (input is null || string.IsNullOrWhiteSpace(input.UserId))
+                return new JsonResult(new { success = false, error = "userId requerido." }) { StatusCode = 400 };
+
+            var user = await _userManager.FindByIdAsync(input.UserId);
+            if (user is null)
+                return new JsonResult(new { success = false, error = "Usuario no encontrado." }) { StatusCode = 404 };
+
+            if (await _userManager.IsInRoleAsync(user, "Administrador"))
+                return new JsonResult(new { success = false, error = "No se puede suspender a un administrador." }) { StatusCode = 403 };
+
+            await _userManager.SetLockoutEnabledAsync(user, true);
+            await _userManager.SetLockoutEndDateAsync(user, DateTimeOffset.UtcNow.AddYears(100));
+
+            _logger.LogInformation("Admin suspendió al usuario {Email} (Id={UserId}).", user.Email, user.Id);
+            return new JsonResult(new { success = true });
+        }
+
+        public async Task<IActionResult> OnPostReactivarAsync([FromBody] SuspenderInput input)
+        {
+            if (input is null || string.IsNullOrWhiteSpace(input.UserId))
+                return new JsonResult(new { success = false, error = "userId requerido." }) { StatusCode = 400 };
+
+            var user = await _userManager.FindByIdAsync(input.UserId);
+            if (user is null)
+                return new JsonResult(new { success = false, error = "Usuario no encontrado." }) { StatusCode = 404 };
+
+            await _userManager.SetLockoutEndDateAsync(user, null);
+            await _userManager.ResetAccessFailedCountAsync(user);
+
+            _logger.LogInformation("Admin reactivó al usuario {Email} (Id={UserId}).", user.Email, user.Id);
+            return new JsonResult(new { success = true });
+        }
 
         /// <summary>
         /// Returns the list of SendGrid templates configured in appsettings (SendGrid:Templates).

@@ -101,6 +101,40 @@
             border-radius: 50%;
             object-fit: cover;
         }
+
+        .btn-action-suspender {
+            background: #fff8ec !important;
+            color: #7a4800 !important;
+            border: 1.1px solid #f0c060 !important;
+            font-weight: 500;
+            border-radius: 9px !important;
+            box-shadow: 0 2px 8px #ffe08218;
+            padding: 6px 13px !important;
+            font-size: .98em;
+        }
+
+            .btn-action-suspender:hover,
+            .btn-action-suspender:focus {
+                background: #ffefc5 !important;
+                color: #5a3000 !important;
+            }
+
+        .btn-action-reactivar {
+            background: #f0fbf4 !important;
+            color: #1a6e38 !important;
+            border: 1.1px solid #7bd4a0 !important;
+            font-weight: 500;
+            border-radius: 9px !important;
+            box-shadow: 0 2px 8px #b8f2d018;
+            padding: 6px 13px !important;
+            font-size: .98em;
+        }
+
+            .btn-action-reactivar:hover,
+            .btn-action-reactivar:focus {
+                background: #c9f0d9 !important;
+                color: #0f4521 !important;
+            }
     </style>
 }
 
@@ -127,7 +161,7 @@
                 <label class="form-label mb-1" style="font-size:0.9rem;font-weight:500;color:#555;">Filtrar por Estado:</label>
                 <select id="filterLockout" class="form-select form-select-sm">
                     <option value="">Todos</option>
-                    <option value="true">🔒 Bloqueados</option>
+                    <option value="true">🔒 Suspendidos</option>
                     <option value="false">✅ Activos</option>
                 </select>
             </div>
@@ -164,7 +198,7 @@
                     <th>Condición</th>
                     <th>País</th>
                     <th>¿Hash válido?</th>
-                    <th>¿Bloqueado?</th>
+                    <th>Estado</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -215,6 +249,58 @@
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
     <script>
+        function doSuspender(userId, btn) {
+            if (!confirm('¿Suspender a este usuario? No podrá iniciar sesión, pero sus datos se conservan. Es reversible.')) return;
+            btn.disabled = true;
+            fetch(window.location.pathname + '?handler=Suspender', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({ userId: userId })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data && data.success) {
+                    $('#usersGrid').DataTable().ajax.reload(null, false);
+                } else {
+                    alert(data.error || 'Error al suspender el usuario.');
+                    btn.disabled = false;
+                }
+            })
+            .catch(function() {
+                alert('Error de conexión. Intenta de nuevo.');
+                btn.disabled = false;
+            });
+        }
+
+        function doReactivar(userId, btn) {
+            if (!confirm('¿Reactivar el acceso de este usuario?')) return;
+            btn.disabled = true;
+            fetch(window.location.pathname + '?handler=Reactivar', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({ userId: userId })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data && data.success) {
+                    $('#usersGrid').DataTable().ajax.reload(null, false);
+                } else {
+                    alert(data.error || 'Error al reactivar el usuario.');
+                    btn.disabled = false;
+                }
+            })
+            .catch(function() {
+                alert('Error de conexión. Intenta de nuevo.');
+                btn.disabled = false;
+            });
+        }
+
         function avatarError(img) {
             var span = document.createElement('span');
             span.className = 'user-avatar-sm d-inline-flex align-items-center justify-content-center bg-secondary bg-opacity-10 rounded-circle';
@@ -330,7 +416,7 @@
                         orderable: true,
                         render: function(data) {
                             return data
-                                ? `<span class="badge bg-warning text-dark">🔒 Bloqueado</span>`
+                                ? `<span class="badge bg-danger">🔒 Suspendido</span>`
                                 : `<span class="badge bg-success">✅ Activo</span>`;
                         }
                     },
@@ -341,6 +427,16 @@
                             var nombre = (row.nombre || '').replace(/'/g, "&#39;");
                             var correo = (row.email || '').replace(/'/g, "&#39;");
                             var condicion = (row.condicion || '').replace(/'/g, "&#39;");
+
+                            var btnSuspension = '';
+                            if (row.esAdmin) {
+                                btnSuspension = `<button class='btn btn-sm btn-action-user ms-1' disabled title='No se puede suspender a un administrador'><i class="bi bi-shield-lock me-1"></i>Admin</button>`;
+                            } else if (row.isLockedOut) {
+                                btnSuspension = `<button class='btn btn-sm btn-action-reactivar ms-1' onclick='doReactivar("${data}", this)'><i class="bi bi-unlock me-1"></i>Reactivar</button>`;
+                            } else {
+                                btnSuspension = `<button class='btn btn-sm btn-action-suspender ms-1' onclick='doSuspender("${data}", this)'><i class="bi bi-lock me-1"></i>Suspender</button>`;
+                            }
+
                             return `<a class='btn btn-sm btn-action-user' href='/Identity/Admin/Usuarios/Detalles/${data}'><i class="bi bi-person-lines-fill me-1"></i>Detalles</a>` +
                                 `<button class='btn btn-sm btn-action-user btn-enviar-correo ms-1' ` +
                                     `data-userid='${data}' ` +
@@ -348,7 +444,8 @@
                                     `data-correo='${correo}' ` +
                                     `data-condicion='${condicion}'>` +
                                     `<i class="bi bi-envelope me-1"></i>Enviar correo` +
-                                `</button>`;
+                                `</button>` +
+                                btnSuspension;
                         }
                     }
                 ],
