@@ -584,6 +584,11 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios
             await _userManager.SetLockoutEnabledAsync(user, true);
             await _userManager.SetLockoutEndDateAsync(user, DateTimeOffset.UtcNow.AddYears(100));
 
+            // Invalidar el SecurityStamp corta las sesiones activas del usuario:
+            // en la próxima revalidación del stamp (ValidationInterval en Program.cs)
+            // su cookie se rechaza y se le expulsa a la página de login.
+            await _userManager.UpdateSecurityStampAsync(user);
+
             _logger.LogInformation("Admin suspendió al usuario {Email} (Id={UserId}).", user.Email, user.Id);
             return new JsonResult(new { success = true });
         }

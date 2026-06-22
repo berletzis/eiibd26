@@ -122,6 +122,15 @@ try
         options.Cookie.SameSite = SameSiteMode.Lax; // Changed from Strict to Lax for AJAX compatibility
     });
 
+    // Revalidación del SecurityStamp: Identity revalida el stamp de cada cookie
+    // autenticada cada 2 minutos. Cuando un admin suspende a un usuario se invalida
+    // su stamp (UpdateSecurityStampAsync), por lo que su sesión activa se corta en
+    // la próxima revalidación (≤2 min). Balance inmediatez/rendimiento para ~726 usuarios.
+    builder.Services.Configure<SecurityStampValidatorOptions>(options =>
+    {
+        options.ValidationInterval = TimeSpan.FromMinutes(2);
+    });
+
     // Authorization: políticas
     builder.Services.AddAuthorization(options =>
     {
