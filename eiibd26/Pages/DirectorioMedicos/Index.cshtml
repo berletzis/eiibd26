@@ -8,6 +8,186 @@
 
 @section Styles {
     <link rel="stylesheet" href="~/css/directorio-medicos.css" asp-append-version="true" />
+    <style>
+        /* ====== TEASER PARA USUARIOS NO AUTENTICADOS (clon del Mapa, prefijo dir-) ====== */
+        .dir-preview-blur {
+            filter: blur(4px);
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .dir-preview-wrap {
+            position: relative;
+        }
+
+        .dir-content-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(1px);
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .dir-preview-count {
+            text-align: center;
+            margin-top: 1.25rem;
+            font-size: 1.05rem;
+            font-weight: 500;
+            color: var(--eii-primary);
+        }
+
+            .dir-preview-count i {
+                margin-right: 0.4rem;
+            }
+
+        .dir-auth-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            animation: dirFadeIn 0.5s ease;
+            pointer-events: none;
+        }
+
+        @@keyframes dirFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .dir-auth-modal {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(106, 78, 122, 0.25);
+            max-width: 420px;
+            width: 100%;
+            padding: 2rem 1.75rem;
+            text-align: center;
+            border: 1px solid rgba(106, 78, 122, 0.1);
+            animation: dirSlideUp 0.6s ease;
+            position: relative;
+            pointer-events: all;
+        }
+
+        @@keyframes dirSlideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .dir-auth-icon {
+            margin-bottom: 1rem;
+        }
+
+        .dir-auth-title {
+            font-size: 1.5rem;
+            font-weight: 400;
+            color: #1f2937;
+            margin-bottom: 0.75rem;
+            line-height: 1.3;
+        }
+
+        .dir-auth-description {
+            font-size: 0.95rem;
+            font-weight: 400;
+            color: #6b7280;
+            line-height: 1.5;
+            margin-bottom: 1.5rem;
+        }
+
+        .dir-auth-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .dir-btn-auth-primary,
+        .dir-btn-auth-secondary,
+        .dir-btn-auth-back {
+            width: 100%;
+            padding: 0.875rem 1.25rem;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+        }
+
+        .dir-btn-auth-primary {
+            background: var(--eii-primary);
+            color: white;
+            border-color: var(--eii-primary);
+        }
+
+            .dir-btn-auth-primary:hover {
+                background: var(--eii-primary-hover);
+                border-color: var(--eii-primary-hover);
+                color: white;
+            }
+
+        .dir-btn-auth-secondary {
+            background: white;
+            color: var(--eii-primary);
+            border-color: var(--eii-primary);
+        }
+
+            .dir-btn-auth-secondary:hover {
+                background: var(--eii-primary-soft);
+                color: var(--eii-primary-hover);
+                border-color: var(--eii-primary-hover);
+            }
+
+        .dir-btn-auth-back {
+            background: #f3f4f6;
+            color: #6b7280;
+            border-color: #e5e7eb;
+        }
+
+            .dir-btn-auth-back:hover {
+                background: #e5e7eb;
+                color: #4b5563;
+            }
+
+        .dir-auth-benefits {
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+            text-align: left;
+            padding-top: 1.25rem;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .dir-auth-benefit {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            font-size: 0.9rem;
+            font-weight: 400;
+            color: #4b5563;
+            line-height: 1.4;
+        }
+
+            .dir-auth-benefit i {
+                color: #10b981;
+                font-size: 1.1rem;
+                flex-shrink: 0;
+            }
+    </style>
 }
 
 <div class="container py-4">
@@ -72,14 +252,14 @@
                 <div class="col-12 col-md-4">
                     <div class="input-group">
                         <input type="text" name="Busqueda" value="@Model.Directorio.FiltroBusqueda"
-                               class="form-control" placeholder="Nombre, especialidad, hospital..." />
-                        <button type="submit" class="eii-btn directorio-btn-buscar">
+                               class="form-control" placeholder="Nombre, especialidad, hospital..." @(!Model.EstaAutenticado ? "disabled" : "") />
+                        <button type="submit" class="eii-btn directorio-btn-buscar" @(!Model.EstaAutenticado ? "disabled" : "")>
                             <i class="bi bi-search"></i>
                         </button>
                     </div>
                 </div>
                 <div class="col-6 col-md-3">
-                    <select name="Estado" class="form-select" onchange="this.form.submit()">
+                    <select name="Estado" class="form-select" onchange="this.form.submit()" @(!Model.EstaAutenticado ? "disabled" : "")>
                         <option value="">Todos los estados</option>
                         @foreach (var e in Model.Directorio.EstadosDisponibles)
                         {
@@ -88,7 +268,7 @@
                     </select>
                 </div>
                 <div class="col-6 col-md-3">
-                    <select name="AreaId" class="form-select" onchange="this.form.submit()">
+                    <select name="AreaId" class="form-select" onchange="this.form.submit()" @(!Model.EstaAutenticado ? "disabled" : "")>
                         <option value="">Todas las áreas EII</option>
                         @foreach (var a in Model.Directorio.AreasDisponibles)
                         {
@@ -97,9 +277,18 @@
                     </select>
                 </div>
                 <div class="col-12 col-md-2">
-                    <a asp-page="/DirectorioMedicos/Index" class="eii-btn eii-btn--neutral w-100">
-                        <i class="bi bi-x-lg"></i> Limpiar
-                    </a>
+                    @if (Model.EstaAutenticado)
+                    {
+                        <a asp-page="/DirectorioMedicos/Index" class="eii-btn eii-btn--neutral w-100">
+                            <i class="bi bi-x-lg"></i> Limpiar
+                        </a>
+                    }
+                    else
+                    {
+                        <span class="eii-btn eii-btn--neutral w-100 disabled" aria-disabled="true">
+                            <i class="bi bi-x-lg"></i> Limpiar
+                        </span>
+                    }
                 </div>
             </div>
         </form>
@@ -113,14 +302,39 @@
 
     @if (Model.Directorio.Medicos.Any())
     {
-        <div class="eii-grid">
-            @foreach (var medico in Model.Directorio.Medicos)
-            {
-                @await Html.PartialAsync("_MedicoCard", medico)
-            }
-        </div>
+        @* Invitados con >3 médicos: 3 nítidas, resto difuminado. ≤3 → sin blur (nada que ocultar). *@
+        var aplicaTeaser = !Model.EstaAutenticado && Model.Directorio.TotalResultados > 3;
 
-        @if (Model.Directorio.TotalPaginas > 1)
+        if (aplicaTeaser)
+        {
+            <div class="dir-preview-wrap">
+                <div class="eii-grid">
+                    @{ var idx = 0; }
+                    @foreach (var medico in Model.Directorio.Medicos)
+                    {
+                        <div class="@(idx >= 3 ? "dir-preview-blur" : "")">
+                            @await Html.PartialAsync("_MedicoCard", medico)
+                        </div>
+                        idx++;
+                    }
+                </div>
+            </div>
+
+            <div class="dir-preview-count">
+                <i class="bi bi-lock-fill"></i>+@(Model.Directorio.TotalResultados - 3) médico@(Model.Directorio.TotalResultados - 3 != 1 ? "s" : "") más en el directorio
+            </div>
+        }
+        else
+        {
+            <div class="eii-grid">
+                @foreach (var medico in Model.Directorio.Medicos)
+                {
+                    @await Html.PartialAsync("_MedicoCard", medico)
+                }
+            </div>
+        }
+
+        @if (Model.EstaAutenticado && Model.Directorio.TotalPaginas > 1)
         {
             <div class="eii-pagination mt-4">
                 <div class="eii-pagination__bar">
@@ -166,3 +380,44 @@
         </div>
     }
 </div>
+
+@if (!Model.EstaAutenticado)
+{
+    <div class="dir-auth-overlay">
+        <div class="dir-auth-modal">
+            <div class="dir-auth-icon">
+                <i class="bi bi-hospital" style="font-size: 3rem; color: var(--eii-primary);"></i>
+            </div>
+
+            <h2 class="dir-auth-title">Desbloquea el directorio médico</h2>
+            <p class="dir-auth-description">
+                Regístrate para ver a todos los médicos con experiencia en EII identificados por la comunidad.
+                Encuentra especialistas, filtra por estado y área, y consulta sus perfiles completos.
+            </p>
+
+            <div class="dir-auth-actions">
+                <a href="/Identity/Account/Register?ReturnUrl=@Uri.EscapeDataString(HttpContext.Request.Path + HttpContext.Request.QueryString)" class="dir-btn-auth-primary">
+                    <i class="bi bi-person-plus"></i> Crear cuenta gratis
+                </a>
+                <a href="/Identity/Account/Login?ReturnUrl=@Uri.EscapeDataString(HttpContext.Request.Path + HttpContext.Request.QueryString)" class="dir-btn-auth-secondary">
+                    <i class="bi bi-box-arrow-in-right"></i> Iniciar sesi&oacute;n
+                </a>
+            </div>
+
+            <div class="dir-auth-benefits">
+                <div class="dir-auth-benefit">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span>Médicos especialistas en EII identificados por pacientes</span>
+                </div>
+                <div class="dir-auth-benefit">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span>Filtra por estado y área de experiencia EII</span>
+                </div>
+                <div class="dir-auth-benefit">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span>Consulta perfiles, hospitales y nivel de confianza</span>
+                </div>
+            </div>
+        </div>
+    </div>
+}

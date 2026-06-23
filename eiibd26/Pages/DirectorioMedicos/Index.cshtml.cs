@@ -22,6 +22,9 @@ public class IndexModel : PageModel
 
     public DirectorioIndexVm Directorio { get; set; } = new();
 
+    // Teaser para invitados: mismo patrón que Mapa/Index. Usuarios autenticados ven el directorio completo.
+    public bool EstaAutenticado => User?.Identity?.IsAuthenticated == true;
+
     // Badges ganados por médico (código del badge)
     public Dictionary<int, HashSet<string>> BadgesPorMedico { get; set; } = new();
 
