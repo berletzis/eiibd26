@@ -3,11 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SendGrid;
 using SendGrid.Helpers.Mail;
 using System.Net;
+using System.Text.Json;
+using eiibd26.Models;
 
 namespace eiibd26.Services
 {
@@ -17,15 +20,21 @@ namespace eiibd26.Services
     {
         private readonly ILogger<SendGridEmailSender> _logger;
         private readonly IConfiguration _configuration;
+        private readonly IMemoryCache _cache;
         private readonly string _sendGridApiKey;
         private readonly string _fromEmail;
         private readonly string _fromName;
         private readonly List<string> _defaultCategories;
 
-        public SendGridEmailSender(IConfiguration configuration, ILogger<SendGridEmailSender> logger)
+        // Clave y TTL del caché de templates en vivo (evita golpear el rate limit de SendGrid en cada carga del combo).
+        private const string TemplatesApiCacheKey = "SendGrid:ApiTemplates:dynamic";
+        private static readonly TimeSpan TemplatesApiCacheTtl = TimeSpan.FromMinutes(5);
+
+        public SendGridEmailSender(IConfiguration configuration, ILogger<SendGridEmailSender> logger, IMemoryCache cache)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+            _cache = cache ?? throw new ArgumentNullException(nameof(cache));
             _sendGridApiKey = _configuration["SendGrid:ApiKey"];
             _fromEmail = _configuration["SendGrid:FromEmail"] ?? "no-reply@eiibd.com";
             _fromName = _configuration["SendGrid:FromName"] ?? "eiibd26";
@@ -182,6 +191,81 @@ namespace eiibd26.Services
             {
                 _logger.LogError(ex, "Exception sending dynamic template email via SendGrid to {Email}", email);
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Lista los Dynamic Templates EN VIVO desde la API de SendGrid
+        /// (GET /v3/templates?generations=dynamic). Resultado cacheado 5 min.
+        /// NUNCA lanza: ante cualquier fallo (key vacía, timeout, rate limit, key inválida)
+        /// loguea y devuelve lista vacía para no romper el módulo de campañas.
+        /// </summary>
+        public async Task<List<SendGridApiTemplate>> ListarTemplatesApiAsync()
+        {
+            // Caché en memoria (5 min) — incluye el caso de lista vacía para no reintentar en bucle.
+            if (_cache.TryGetValue(TemplatesApiCacheKey, out List<SendGridApiTemplate> cached) && cached is not null)
+                return cached;
+
+            if (string.IsNullOrWhiteSpace(_sendGridApiKey))
+            {
+                _logger.LogWarning("SendGrid API key no configurada. ListarTemplatesApiAsync devuelve lista vacía.");
+                var vacia = new List<SendGridApiTemplate>();
+                _cache.Set(TemplatesApiCacheKey, vacia, TemplatesApiCacheTtl);
+                return vacia;
+            }
+
+            try
+            {
+                var client = new SendGridClient(_sendGridApiKey);
+                var response = await client.RequestAsync(
+                    method: SendGridClient.Method.GET,
+                    urlPath: "templates",
+                    queryParams: "{\"generations\":\"dynamic\"}").ConfigureAwait(false);
+
+                if (response.StatusCode != HttpStatusCode.OK)
+                {
+                    string body = string.Empty;
+                    try { body = await response.Body.ReadAsStringAsync().ConfigureAwait(false); } catch { body = "<no-body>"; }
+                    _logger.LogError("SendGrid listar templates falló. Status: {Status}. Body: {Body}", response.StatusCode, body);
+                    var vacia = new List<SendGridApiTemplate>();
+                    _cache.Set(TemplatesApiCacheKey, vacia, TemplatesApiCacheTtl);
+                    return vacia;
+                }
+
+                var json = await response.Body.ReadAsStringAsync().ConfigureAwait(false);
+                var resultado = new List<SendGridApiTemplate>();
+
+                using (var doc = JsonDocument.Parse(json))
+                {
+                    if (doc.RootElement.TryGetProperty("result", out var result) &&
+                        result.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var item in result.EnumerateArray())
+                        {
+                            var id = item.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
+                            var nombre = item.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : null;
+                            if (!string.IsNullOrWhiteSpace(id))
+                            {
+                                resultado.Add(new SendGridApiTemplate
+                                {
+                                    Id = id!,
+                                    Nombre = string.IsNullOrWhiteSpace(nombre) ? id! : nombre!
+                                });
+                            }
+                        }
+                    }
+                }
+
+                _logger.LogInformation("SendGrid: {Count} Dynamic Templates leídos en vivo desde la API.", resultado.Count);
+                _cache.Set(TemplatesApiCacheKey, resultado, TemplatesApiCacheTtl);
+                return resultado;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Excepción listando templates desde la API de SendGrid. Devuelvo lista vacía.");
+                var vacia = new List<SendGridApiTemplate>();
+                _cache.Set(TemplatesApiCacheKey, vacia, TemplatesApiCacheTtl);
+                return vacia;
             }
         }
 

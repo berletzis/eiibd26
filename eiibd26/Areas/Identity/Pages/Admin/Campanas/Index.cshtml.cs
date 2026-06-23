@@ -55,13 +55,84 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
 
         public void OnGet() { }
 
-        // Devuelve templates de SendGrid:Templates para el selector de template.
-        public IActionResult OnGetTemplatesCorreo()
+        // Devuelve templates para el selector de envío libre.
+        // Enfoque híbrido: combina los Dynamic Templates EN VIVO de la API de SendGrid
+        // con los de SendGrid:Templates (config). Los de config aportan el etiquetado "Fase N";
+        // los nuevos creados en SendGrid aparecen automáticamente con Fase=0.
+        // Si la API falla/devuelve vacío, FALLBACK a solo config (el combo nunca queda sin templates).
+        public async Task<IActionResult> OnGetTemplatesCorreoAsync()
         {
-            var templates = _configuration.GetSection("SendGrid:Templates")
+            var config = _configuration.GetSection("SendGrid:Templates")
                 .Get<List<SendGridTemplateInfo>>()
                 ?? new List<SendGridTemplateInfo>();
-            return new JsonResult(templates);
+
+            var apiTemplates = await _emailSender.ListarTemplatesApiAsync();
+
+            // FALLBACK: la API falló o no devolvió nada → usar solo config (preserva el módulo).
+            if (apiTemplates.Count == 0)
+            {
+                _logger.LogWarning("[Campanas] OnGetTemplatesCorreo: la API de SendGrid no devolvió templates. Fallback a SendGrid:Templates (config). Items: {Count}", config.Count);
+                var soloConfig = config
+                    .OrderByDescending(t => t.Fase > 0)
+                    .ThenBy(t => t.Fase)
+                    .ThenBy(t => t.Nombre)
+                    .Select(t => new { id = t.Id, nombre = t.Nombre, fase = t.Fase })
+                    .ToList();
+                return new JsonResult(soloConfig);
+            }
+
+            var configPorId = config
+                .Where(t => !string.IsNullOrWhiteSpace(t.Id))
+                .GroupBy(t => t.Id)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+            // Cada template de la API: si coincide con config, hereda Nombre+Fase de config; si no, Fase=0.
+            var combinados = apiTemplates
+                .Where(t => !string.IsNullOrWhiteSpace(t.Id))
+                .Select(t => configPorId.TryGetValue(t.Id, out var c)
+                    ? new { id = t.Id, nombre = c.Nombre, fase = c.Fase }
+                    : new { id = t.Id, nombre = t.Nombre, fase = 0 })
+                .ToList();
+
+            // Incluir templates de config que NO vinieron de la API (p.ej. distinta cuenta/subuser o aún sin generación dynamic).
+            var idsApi = new HashSet<string>(apiTemplates.Select(t => t.Id), StringComparer.OrdinalIgnoreCase);
+            foreach (var c in config.Where(t => !string.IsNullOrWhiteSpace(t.Id) && !idsApi.Contains(t.Id)))
+                combinados.Add(new { id = c.Id, nombre = c.Nombre, fase = c.Fase });
+
+            // Sin duplicados por Id; los de config con Fase primero, luego el resto alfabético.
+            var lista = combinados
+                .GroupBy(t => t.id, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
+                .OrderByDescending(t => t.fase > 0)
+                .ThenBy(t => t.fase)
+                .ThenBy(t => t.nombre)
+                .ToList();
+
+            return new JsonResult(lista);
+        }
+
+        /// <summary>
+        /// Resuelve un templateId contra el conjunto combinado config + API en vivo.
+        /// Prioridad: si está en SendGrid:Templates (config), devuelve ese (con su Fase).
+        /// Si no, busca en los Dynamic Templates de la API (cacheados 5 min) y devuelve Fase=0.
+        /// Devuelve null solo si el Id no existe en ninguna fuente → el envío lo rechaza.
+        /// </summary>
+        private async Task<SendGridTemplateInfo?> ResolverTemplateAsync(string templateId)
+        {
+            if (string.IsNullOrWhiteSpace(templateId))
+                return null;
+
+            var config = _configuration.GetSection("SendGrid:Templates").Get<List<SendGridTemplateInfo>>() ?? new();
+            var enConfig = config.FirstOrDefault(t => string.Equals(t.Id, templateId, StringComparison.OrdinalIgnoreCase));
+            if (enConfig is not null)
+                return enConfig;
+
+            var api = await _emailSender.ListarTemplatesApiAsync();
+            var enApi = api.FirstOrDefault(t => string.Equals(t.Id, templateId, StringComparison.OrdinalIgnoreCase));
+            if (enApi is not null)
+                return new SendGridTemplateInfo { Id = enApi.Id, Nombre = enApi.Nombre, Fase = 0 };
+
+            return null;
         }
 
         // ──────────────────────────────────────────────────────────────────────
@@ -106,10 +177,10 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
             if (string.IsNullOrWhiteSpace(input.TemplateId))
                 return new JsonResult(new { success = false, error = "Selecciona un template." }) { StatusCode = 400 };
 
-            var templates = _configuration.GetSection("SendGrid:Templates").Get<List<SendGridTemplateInfo>>() ?? new();
-            var template = templates.FirstOrDefault(t => t.Id == input.TemplateId);
+            // Acepta templates de config (con Fase) o nuevos en vivo de la API de SendGrid.
+            var template = await ResolverTemplateAsync(input.TemplateId);
             if (template is null)
-                return new JsonResult(new { success = false, error = "Template no encontrado en configuración." }) { StatusCode = 400 };
+                return new JsonResult(new { success = false, error = "Template no encontrado (ni en config ni en SendGrid)." }) { StatusCode = 400 };
 
             var audiencia = (AudienciaCampana)input.Audiencia;
             var (eligiblesQuery, faseLog) = await BuildAudienciaQueryAsync(audiencia, input.TemplateId);
@@ -395,10 +466,10 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
             if (string.IsNullOrWhiteSpace(input.TemplateId) || input.TemplateId.Contains("AQUI"))
                 return new JsonResult(new { success = false, error = "Selecciona un template válido." }) { StatusCode = 400 };
 
-            var templates = _configuration.GetSection("SendGrid:Templates").Get<List<SendGridTemplateInfo>>() ?? new();
-            var template = templates.FirstOrDefault(t => t.Id == input.TemplateId);
+            // Acepta templates de config (con Fase) o nuevos en vivo de la API de SendGrid.
+            var template = await ResolverTemplateAsync(input.TemplateId);
             if (template is null)
-                return new JsonResult(new { success = false, error = "Template no encontrado en configuración." }) { StatusCode = 400 };
+                return new JsonResult(new { success = false, error = "Template no encontrado (ni en config ni en SendGrid)." }) { StatusCode = 400 };
 
             try
             {
