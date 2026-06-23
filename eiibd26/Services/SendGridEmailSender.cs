@@ -217,10 +217,13 @@ namespace eiibd26.Services
             try
             {
                 var client = new SendGridClient(_sendGridApiKey);
+                // page_size es necesario: sin él la API responde con el formato legacy { "templates": [...] };
+                // con page_size responde con el formato paginado { "result": [...] }. El parsing abajo
+                // tolera ambos, pero pedimos page_size para traer todos los Dynamic Templates de una vez.
                 var response = await client.RequestAsync(
                     method: SendGridClient.Method.GET,
                     urlPath: "templates",
-                    queryParams: "{\"generations\":\"dynamic\"}").ConfigureAwait(false);
+                    queryParams: "{\"generations\":\"dynamic\",\"page_size\":200}").ConfigureAwait(false);
 
                 if (response.StatusCode != HttpStatusCode.OK)
                 {
@@ -237,7 +240,10 @@ namespace eiibd26.Services
 
                 using (var doc = JsonDocument.Parse(json))
                 {
-                    if (doc.RootElement.TryGetProperty("result", out var result) &&
+                    // SendGrid devuelve el array bajo "result" (formato paginado, con page_size)
+                    // o bajo "templates" (formato legacy, sin page_size). Tolerar ambos.
+                    if ((doc.RootElement.TryGetProperty("result", out var result) ||
+                         doc.RootElement.TryGetProperty("templates", out result)) &&
                         result.ValueKind == JsonValueKind.Array)
                     {
                         foreach (var item in result.EnumerateArray())
