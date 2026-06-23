@@ -46,12 +46,13 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
 
         // FaseLog para TodosConfirmados. No colisiona con 1/2/3 (toques de secuencia) ni 0 (reset pw).
         private const int FaseLogGeneral = 10;
-        // FaseLog para audiencias de tarea pendiente (20=SinCondicion, 21=SinMood, 22=ConRespuestas, 23=Diagnostico, 24=SinAvatar).
+        // FaseLog para audiencias de tarea pendiente (20=SinCondicion, 21=SinMood, 22=ConRespuestas, 23=Diagnostico, 24=SinAvatar, 25=CompletarFechaDiag).
         private const int FaseLogSinCondicion  = 20;
         private const int FaseLogSinMood       = 21;
         private const int FaseLogConRespuestas = 22;
         private const int FaseLogDiagnostico   = 23;
         private const int FaseLogSinAvatar     = 24;
+        private const int FaseLogCompletarFechaDiag = 25;
 
         public void OnGet() { }
 
@@ -210,6 +211,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                 AudienciaCampana.ConRespuestasSemana  => "con-respuestas",
                 AudienciaCampana.DiagnosticoPendiente => "diagnostico-pendiente",
                 AudienciaCampana.SinAvatar            => "sin-avatar",
+                AudienciaCampana.CompletarFechaDiagnostico => "completar-fecha-diag",
                 _                                     => "general"
             };
 
@@ -431,6 +433,21 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                         _targeting.AplicarCriterio(users, PublicoCampana.TodosConfirmados)
                             .Where(u => sinAvatar.Contains(u.Id)),
                         FaseLogSinAvatar);
+                }
+
+                case AudienciaCampana.CompletarFechaDiagnostico:
+                {
+                    // Usuarios con condición SIN fecha de diagnóstico real:
+                    // B = fechaInicio NULL; D = fechaInicio placeholder (1 de enero de cualquier año).
+                    var sinFechaReal = new HashSet<Guid>(await _db.condicionUsuario
+                        .Where(cu => !cu.Eliminado
+                            && (cu.fechaInicio == null
+                                || (cu.fechaInicio.Value.Month == 1 && cu.fechaInicio.Value.Day == 1)))
+                        .Select(cu => cu.idUsuario).Distinct().ToListAsync());
+                    return (
+                        _targeting.AplicarCriterio(users, PublicoCampana.TodosConfirmados)
+                            .Where(u => sinFechaReal.Contains(u.Id)),
+                        FaseLogCompletarFechaDiag);
                 }
 
                 case AudienciaCampana.TodosConfirmados:

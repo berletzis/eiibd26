@@ -67,6 +67,14 @@ namespace eiibd26.Models.Campanas
         /// Perfil.Avatar es null/vacío, o contiene "ui-avatars.com", o contiene "default".
         /// FaseLog=24. Sin exclusión por envíos previos — re-envíable manualmente.
         /// </summary>
-        SinAvatar = 9
+        SinAvatar = 9,
+
+        /// <summary>
+        /// Usuarios con EmailConfirmed=1 con al menos una condición SIN fecha de diagnóstico real:
+        /// grupo B (fechaInicio NULL) + grupo D (fechaInicio placeholder = 1 de enero de cualquier año).
+        /// Aditiva e independiente de DiagnosticoPendiente (8), que usa otro criterio (fecha = registro).
+        /// FaseLog=25. Sin exclusión por envíos previos — re-envíable manualmente.
+        /// </summary>
+        CompletarFechaDiagnostico = 10
     }
 }
