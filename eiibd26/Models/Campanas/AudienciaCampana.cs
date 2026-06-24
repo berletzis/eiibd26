@@ -75,6 +75,14 @@ namespace eiibd26.Models.Campanas
         /// Aditiva e independiente de DiagnosticoPendiente (8), que usa otro criterio (fecha = registro).
         /// FaseLog=25. Sin exclusión por envíos previos — re-envíable manualmente.
         /// </summary>
-        CompletarFechaDiagnostico = 10
+        CompletarFechaDiagnostico = 10,
+
+        /// <summary>
+        /// Usuarios con EmailConfirmed=1 que SÍ registraron mood alguna vez pero cuyo ÚLTIMO
+        /// registro (EstadoAnimoUsuario.Eliminado=0) fue hace más de 14 días (dejaron el hábito).
+        /// EXCLUYE a quienes nunca registraron — esos están en SinMood (6). Recordatorio de hábito.
+        /// FaseLog=26. Sin exclusión por envíos previos — re-envíable manualmente.
+        /// </summary>
+        SinMoodReciente = 11
     }
 }

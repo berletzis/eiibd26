@@ -46,13 +46,14 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
 
         // FaseLog para TodosConfirmados. No colisiona con 1/2/3 (toques de secuencia) ni 0 (reset pw).
         private const int FaseLogGeneral = 10;
-        // FaseLog para audiencias de tarea pendiente (20=SinCondicion, 21=SinMood, 22=ConRespuestas, 23=Diagnostico, 24=SinAvatar, 25=CompletarFechaDiag).
+        // FaseLog para audiencias de tarea pendiente (20=SinCondicion, 21=SinMood, 22=ConRespuestas, 23=Diagnostico, 24=SinAvatar, 25=CompletarFechaDiag, 26=SinMoodReciente).
         private const int FaseLogSinCondicion  = 20;
         private const int FaseLogSinMood       = 21;
         private const int FaseLogConRespuestas = 22;
         private const int FaseLogDiagnostico   = 23;
         private const int FaseLogSinAvatar     = 24;
         private const int FaseLogCompletarFechaDiag = 25;
+        private const int FaseLogSinMoodReciente = 26;
 
         public void OnGet() { }
 
@@ -212,6 +213,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                 AudienciaCampana.DiagnosticoPendiente => "diagnostico-pendiente",
                 AudienciaCampana.SinAvatar            => "sin-avatar",
                 AudienciaCampana.CompletarFechaDiagnostico => "completar-fecha-diag",
+                AudienciaCampana.SinMoodReciente      => "sin-mood-reciente",
                 _                                     => "general"
             };
 
@@ -448,6 +450,27 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                         _targeting.AplicarCriterio(users, PublicoCampana.TodosConfirmados)
                             .Where(u => sinFechaReal.Contains(u.Id)),
                         FaseLogCompletarFechaDiag);
+                }
+
+                case AudienciaCampana.SinMoodReciente:
+                {
+                    var hace14dias = DateTime.UtcNow.AddDays(-14);
+                    // Usuarios cuyo ÚLTIMO registro de mood fue hace más de 14 días.
+                    // Agrupa por usuario, toma el máximo FechaRegistro, y filtra los que están por debajo del umbral.
+                    // Esto EXCLUYE a quienes nunca registraron (esos están en SinMood=6).
+                    var ultimoMoodPorUsuario = await _db.EstadoAnimoUsuario
+                        .Where(e => !e.Eliminado)
+                        .GroupBy(e => e.IdUsuario)
+                        .Select(g => new { Usuario = g.Key, Ultimo = g.Max(e => e.FechaRegistro) })
+                        .ToListAsync();
+                    var dejaronDeRegistrar = new HashSet<Guid>(
+                        ultimoMoodPorUsuario
+                            .Where(x => x.Ultimo < hace14dias)
+                            .Select(x => x.Usuario));
+                    return (
+                        _targeting.AplicarCriterio(users, PublicoCampana.TodosConfirmados)
+                            .Where(u => dejaronDeRegistrar.Contains(u.Id)),
+                        FaseLogSinMoodReciente);
                 }
 
                 case AudienciaCampana.TodosConfirmados:
