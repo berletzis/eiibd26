@@ -307,7 +307,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
         private async Task<(IQueryable<ApplicationUser> query, int faseLog)> BuildAudienciaQueryAsync(
             AudienciaCampana audiencia, string? templateId = null)
         {
-            var users = _userManager.Users.AsQueryable();
+            // Criterio único de validez (excluye suspendidos) aplicado al universo base:
+            // así TODAS las audiencias quedan filtradas de raíz, sin tocar cada case.
+            var users = _userManager.Users.SoloValidos();
 
             switch (audiencia)
             {
