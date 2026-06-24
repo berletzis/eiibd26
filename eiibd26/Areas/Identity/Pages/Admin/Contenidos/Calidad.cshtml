@@ -10,6 +10,37 @@
     int totalMejorables = Model.ResultadosGuardados?.Count(r => r.NivelSemaforo == NivelSemaforo.Mejorable) ?? 0;
     int totalOk         = Model.ResultadosGuardados?.Count(r => r.NivelSemaforo == NivelSemaforo.Ok) ?? 0;
     int totalGuardados  = Model.ResultadosGuardados?.Count ?? 0;
+
+    // Etiqueta corta por código de señal (solo para el desglose de los counter-cards)
+    string DescripcionCorta(string codigo) => codigo switch
+    {
+        "SIN_CUERPO"     => "sin cuerpo",
+        "DUPLICADO"      => "duplicados",
+        "SIN_IMAGEN"     => "sin imagen",
+        "SIN_RESUMEN"    => "sin resumen",
+        "CUERPO_CORTO"   => "cuerpo corto",
+        "SIN_CATEGORIA"  => "sin categoría",
+        "SIN_SLUG"       => "sin slug",
+        "BORRADOR_VIEJO" => "borrador viejo",
+        _                => (codigo ?? "").ToLowerInvariant()
+    };
+
+    // Desglose de motivos por nivel (agrupa las señales de los contenidos de ese nivel)
+    var motivosCriticos = Model.ResultadosGuardados?
+        .Where(r => r.NivelSemaforo == NivelSemaforo.Critico)
+        .SelectMany(r => r.Senales)
+        .GroupBy(s => s.Codigo)
+        .Select(g => new { Texto = DescripcionCorta(g.Key), Conteo = g.Count() })
+        .OrderByDescending(x => x.Conteo)
+        .ToList() ?? new();
+
+    var motivosMejorables = Model.ResultadosGuardados?
+        .Where(r => r.NivelSemaforo == NivelSemaforo.Mejorable)
+        .SelectMany(r => r.Senales)
+        .GroupBy(s => s.Codigo)
+        .Select(g => new { Texto = DescripcionCorta(g.Key), Conteo = g.Count() })
+        .OrderByDescending(x => x.Conteo)
+        .ToList() ?? new();
 }
 
 @section Styles {
@@ -41,6 +72,13 @@
         .counter-card.total-card { background: #f8f9fa; border: 2px solid #dee2e6; }
         .counter-card .numero    { font-size: 2.2rem; font-weight: 700; line-height: 1; }
         .counter-card .etiqueta  { font-size: 0.85rem; color: #6b7280; margin-top: 4px; }
+        .counter-desglose {
+            font-size: 0.72rem;
+            color: #6b7280;
+            margin-top: 6px;
+            line-height: 1.3;
+            max-width: 220px;
+        }
 
         .senal-badge {
             font-size: 0.72rem;
@@ -140,10 +178,18 @@
             <div class="counter-card critico">
                 <div class="numero semaforo-critico" id="numCriticos">🔴 @totalCriticos</div>
                 <div class="etiqueta">Críticos</div>
+                @if (motivosCriticos.Any())
+                {
+                    <div class="counter-desglose">@string.Join(" · ", motivosCriticos.Select(m => $"{m.Conteo} {m.Texto}"))</div>
+                }
             </div>
             <div class="counter-card mejorable">
                 <div class="numero semaforo-mejorable" id="numMejorables">🟡 @totalMejorables</div>
                 <div class="etiqueta">Mejorables</div>
+                @if (motivosMejorables.Any())
+                {
+                    <div class="counter-desglose">@string.Join(" · ", motivosMejorables.Select(m => $"{m.Conteo} {m.Texto}"))</div>
+                }
             </div>
             <div class="counter-card ok">
                 <div class="numero semaforo-ok" id="numOk">🟢 @totalOk</div>
