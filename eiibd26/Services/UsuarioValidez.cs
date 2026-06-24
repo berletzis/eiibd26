@@ -10,18 +10,17 @@ namespace eiibd26.Services
 {
     /// <summary>
     /// Criterio único de "usuario válido" para todos los conteos y listados públicos.
-    /// Hoy válido = NO suspendido (LockoutEnd nulo o pasado).
-    /// Cuando exista campo Eliminado en ApplicationUser, agregar && !u.Eliminado aquí
-    /// y todos los conteos se actualizan automáticamente.
+    /// Válido = NO eliminado (soft-delete) Y NO suspendido (LockoutEnd nulo o pasado).
+    /// Tocar este filtro propaga automáticamente a dashboard, mapas y audiencias.
     /// </summary>
     public static class UsuarioValidez
     {
         /// <summary>
-        /// Filtra la query dejando solo usuarios NO suspendidos.
+        /// Filtra la query dejando solo usuarios NO eliminados y NO suspendidos.
         /// Uso: _userManager.Users.SoloValidos() o _db.Users.SoloValidos()
         /// </summary>
         public static IQueryable<ApplicationUser> SoloValidos(this IQueryable<ApplicationUser> q)
-            => q.Where(u => u.LockoutEnd == null || u.LockoutEnd <= DateTimeOffset.UtcNow);
+            => q.Where(u => !u.Eliminado && (u.LockoutEnd == null || u.LockoutEnd <= DateTimeOffset.UtcNow));
 
         /// <summary>
         /// Subquery de IDs válidos para filtrar tablas secundarias (Perfil, Mood, etc.) en BD.
