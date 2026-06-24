@@ -36,16 +36,18 @@ namespace eiibd26.Services.Analytics
             var hace90d = now.AddDays(-90);
 
             // ── Usuarios ─────────────────────────────────────────────
+            // Criterio único de validez (excluye suspendidos) — mismo helper que en los mapas.
+            var idsValidos = UsuarioValidez.IdsValidosQuery(_db);
             try
             {
-                dto.TotalUsuarios = await _userManager.Users.CountAsync();
-                dto.UsuariosConfirmados = await _userManager.Users.CountAsync(u => u.EmailConfirmed);
+                dto.TotalUsuarios = await _userManager.Users.SoloValidos().CountAsync();
+                dto.UsuariosConfirmados = await _userManager.Users.SoloValidos().CountAsync(u => u.EmailConfirmed);
                 dto.NuevosEstaSemana = await _db.Perfil.AsNoTracking()
-                    .CountAsync(p => p.FechaCreacion >= hace7d);
+                    .CountAsync(p => p.FechaCreacion >= hace7d && idsValidos.Contains(p.idUser));
                 dto.Activos30d = await _db.Perfil.AsNoTracking()
-                    .CountAsync(p => p.UltimaActividad != null && p.UltimaActividad >= hace30d);
+                    .CountAsync(p => p.UltimaActividad != null && p.UltimaActividad >= hace30d && idsValidos.Contains(p.idUser));
                 dto.Activos90d = await _db.Perfil.AsNoTracking()
-                    .CountAsync(p => p.UltimaActividad != null && p.UltimaActividad >= hace90d);
+                    .CountAsync(p => p.UltimaActividad != null && p.UltimaActividad >= hace90d && idsValidos.Contains(p.idUser));
             }
             catch (Exception ex) { _logger.LogWarning(ex, "[Dashboard] Error en métricas usuarios"); }
 
@@ -64,6 +66,7 @@ namespace eiibd26.Services.Analytics
                         .Where(p =>
                             !string.IsNullOrWhiteSpace(p.Latitud) &&
                             !string.IsNullOrWhiteSpace(p.Longitud) &&
+                            idsValidos.Contains(p.idUser) &&
                             _db.UserRoles.Any(ur => ur.UserId == p.idUser && ur.RoleId == pacienteRoleId));
 
                     var scores = await basePerfil.Select(p => new
