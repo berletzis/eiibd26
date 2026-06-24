@@ -240,7 +240,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios
                                 fechaRegistro = perfil != null ? perfil.FechaCreacion : (DateTime?)null,
                                 pais = perfil != null ? perfil.NombrePais : null,
                                 hashIsValid = true,
-                                isLockedOut = u.LockoutEnd.HasValue && u.LockoutEnd.Value > DateTimeOffset.UtcNow
+                                isLockedOut = u.LockoutEnd.HasValue && u.LockoutEnd.Value > DateTimeOffset.UtcNow,
+                                eliminado = u.Eliminado
                             };
 
             // Ordenamiento sobre la proyección
@@ -385,6 +386,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios
                     u.pais,
                     u.hashIsValid,
                     u.isLockedOut,
+                    u.eliminado,
                     esAdmin = adminUserIds.Contains(u.id)
                 };
             }).ToList();
@@ -606,6 +608,55 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Usuarios
             await _userManager.ResetAccessFailedCountAsync(user);
 
             _logger.LogInformation("Admin reactivó al usuario {Email} (Id={UserId}).", user.Email, user.Id);
+            return new JsonResult(new { success = true });
+        }
+
+        // Soft-delete reversible (interruptor maestro, Opción A): marca Eliminado y corta acceso.
+        // SOLO se toca AspNetUsers; ninguna tabla clínica/hija. El helper UsuarioValidez lo
+        // excluye automáticamente de todos los conteos. Reversible vía OnPostRestaurarAsync.
+        public async Task<IActionResult> OnPostEliminarAsync([FromBody] SuspenderInput input)
+        {
+            if (input is null || string.IsNullOrWhiteSpace(input.UserId))
+                return new JsonResult(new { success = false, error = "userId requerido." }) { StatusCode = 400 };
+
+            var user = await _userManager.FindByIdAsync(input.UserId);
+            if (user is null)
+                return new JsonResult(new { success = false, error = "Usuario no encontrado." }) { StatusCode = 404 };
+
+            if (await _userManager.IsInRoleAsync(user, "Administrador"))
+                return new JsonResult(new { success = false, error = "No se puede eliminar a un administrador." }) { StatusCode = 403 };
+
+            user.Eliminado = true;
+
+            // Cortar acceso (mismo mecanismo que suspender) y expulsar sesión activa.
+            await _userManager.SetLockoutEnabledAsync(user, true);
+            await _userManager.SetLockoutEndDateAsync(user, DateTimeOffset.UtcNow.AddYears(100));
+            await _userManager.UpdateSecurityStampAsync(user);
+
+            // Persistir la propiedad Eliminado.
+            await _userManager.UpdateAsync(user);
+
+            _logger.LogInformation("Admin eliminó (soft-delete) al usuario {Email} (Id={UserId}).", user.Email, user.Id);
+            return new JsonResult(new { success = true });
+        }
+
+        public async Task<IActionResult> OnPostRestaurarAsync([FromBody] SuspenderInput input)
+        {
+            if (input is null || string.IsNullOrWhiteSpace(input.UserId))
+                return new JsonResult(new { success = false, error = "userId requerido." }) { StatusCode = 400 };
+
+            var user = await _userManager.FindByIdAsync(input.UserId);
+            if (user is null)
+                return new JsonResult(new { success = false, error = "Usuario no encontrado." }) { StatusCode = 404 };
+
+            user.Eliminado = false;
+
+            // Quitar lockout para devolver el acceso.
+            await _userManager.SetLockoutEndDateAsync(user, null);
+            await _userManager.ResetAccessFailedCountAsync(user);
+            await _userManager.UpdateAsync(user);
+
+            _logger.LogInformation("Admin restauró al usuario {Email} (Id={UserId}).", user.Email, user.Id);
             return new JsonResult(new { success = true });
         }
 

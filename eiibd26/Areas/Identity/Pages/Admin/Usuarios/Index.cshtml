@@ -135,6 +135,50 @@
                 background: #c9f0d9 !important;
                 color: #0f4521 !important;
             }
+
+        /* Eliminado: gris oscuro/negro con papelera, distinto del amarillo de Suspendido */
+        .badge-eliminado {
+            background: #2b2b2b !important;
+            color: #fff !important;
+            font-weight: 600;
+            border-radius: 9px;
+            padding: 6px 10px;
+            letter-spacing: .01em;
+        }
+
+        .btn-action-eliminar {
+            background: #fdf3f3 !important;
+            color: #8a1f1f !important;
+            border: 1.1px solid #e2a2a2 !important;
+            font-weight: 500;
+            border-radius: 9px !important;
+            box-shadow: 0 2px 8px #f2c5c518;
+            padding: 6px 13px !important;
+            font-size: .98em;
+        }
+
+            .btn-action-eliminar:hover,
+            .btn-action-eliminar:focus {
+                background: #f8dada !important;
+                color: #5e1212 !important;
+            }
+
+        .btn-action-restaurar {
+            background: #eef5ff !important;
+            color: #1e4fa3 !important;
+            border: 1.1px solid #8fb8ee !important;
+            font-weight: 500;
+            border-radius: 9px !important;
+            box-shadow: 0 2px 8px #c5d8f218;
+            padding: 6px 13px !important;
+            font-size: .98em;
+        }
+
+            .btn-action-restaurar:hover,
+            .btn-action-restaurar:focus {
+                background: #d8e6fb !important;
+                color: #143a7d !important;
+            }
     </style>
 }
 
@@ -301,6 +345,58 @@
             });
         }
 
+        function doEliminar(userId, btn) {
+            if (!confirm('¿Eliminar este usuario? Dejará de contar en las estadísticas y no podrá iniciar sesión. Sus datos se conservan y es reversible.')) return;
+            btn.disabled = true;
+            fetch(window.location.pathname + '?handler=Eliminar', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({ userId: userId })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data && data.success) {
+                    $('#usersGrid').DataTable().ajax.reload(null, false);
+                } else {
+                    alert(data.error || 'Error al eliminar el usuario.');
+                    btn.disabled = false;
+                }
+            })
+            .catch(function() {
+                alert('Error de conexión. Intenta de nuevo.');
+                btn.disabled = false;
+            });
+        }
+
+        function doRestaurar(userId, btn) {
+            if (!confirm('¿Restaurar este usuario? Volverá a contar y podrá iniciar sesión.')) return;
+            btn.disabled = true;
+            fetch(window.location.pathname + '?handler=Restaurar', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({ userId: userId })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data && data.success) {
+                    $('#usersGrid').DataTable().ajax.reload(null, false);
+                } else {
+                    alert(data.error || 'Error al restaurar el usuario.');
+                    btn.disabled = false;
+                }
+            })
+            .catch(function() {
+                alert('Error de conexión. Intenta de nuevo.');
+                btn.disabled = false;
+            });
+        }
+
         function avatarError(img) {
             var span = document.createElement('span');
             span.className = 'user-avatar-sm d-inline-flex align-items-center justify-content-center bg-secondary bg-opacity-10 rounded-circle';
@@ -414,7 +510,11 @@
                     {
                         data: 'isLockedOut',
                         orderable: true,
-                        render: function(data) {
+                        render: function(data, type, row) {
+                            // Prioridad: Eliminado > Suspendido > Activo.
+                            if (row.eliminado) {
+                                return `<span class="badge badge-eliminado"><i class="bi bi-trash3 me-1"></i>Eliminado</span>`;
+                            }
                             return data
                                 ? `<span class="badge bg-danger">🔒 Suspendido</span>`
                                 : `<span class="badge bg-success">✅ Activo</span>`;
@@ -428,13 +528,19 @@
                             var correo = (row.email || '').replace(/'/g, "&#39;");
                             var condicion = (row.condicion || '').replace(/'/g, "&#39;");
 
+                            // Acciones de estado. Prioridad: eliminado => solo Restaurar.
+                            // Admin => Suspender/Eliminar deshabilitados. Resto => Suspender/Reactivar + Eliminar.
                             var btnSuspension = '';
                             if (row.esAdmin) {
-                                btnSuspension = `<button class='btn btn-sm btn-action-user ms-1' disabled title='No se puede suspender a un administrador'><i class="bi bi-shield-lock me-1"></i>Admin</button>`;
-                            } else if (row.isLockedOut) {
-                                btnSuspension = `<button class='btn btn-sm btn-action-reactivar ms-1' onclick='doReactivar("${data}", this)'><i class="bi bi-unlock me-1"></i>Reactivar</button>`;
+                                btnSuspension = `<button class='btn btn-sm btn-action-user ms-1' disabled title='No aplica a administradores'><i class="bi bi-shield-lock me-1"></i>Admin</button>`;
+                            } else if (row.eliminado) {
+                                btnSuspension = `<button class='btn btn-sm btn-action-restaurar ms-1' onclick='doRestaurar("${data}", this)'><i class="bi bi-arrow-counterclockwise me-1"></i>Restaurar</button>`;
                             } else {
-                                btnSuspension = `<button class='btn btn-sm btn-action-suspender ms-1' onclick='doSuspender("${data}", this)'><i class="bi bi-lock me-1"></i>Suspender</button>`;
+                                var btnSusp = row.isLockedOut
+                                    ? `<button class='btn btn-sm btn-action-reactivar ms-1' onclick='doReactivar("${data}", this)'><i class="bi bi-unlock me-1"></i>Reactivar</button>`
+                                    : `<button class='btn btn-sm btn-action-suspender ms-1' onclick='doSuspender("${data}", this)'><i class="bi bi-lock me-1"></i>Suspender</button>`;
+                                var btnElim = `<button class='btn btn-sm btn-action-eliminar ms-1' onclick='doEliminar("${data}", this)'><i class="bi bi-trash3 me-1"></i>Eliminar</button>`;
+                                btnSuspension = btnSusp + btnElim;
                             }
 
                             return `<a class='btn btn-sm btn-action-user' href='/Identity/Admin/Usuarios/Detalles/${data}'><i class="bi bi-person-lines-fill me-1"></i>Detalles</a>` +
