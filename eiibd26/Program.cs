@@ -274,6 +274,8 @@ try
 
     // Campanas — targeting service
     builder.Services.AddScoped<eiibd26.Services.Campanas.ICampanaTargetingService, eiibd26.Services.Campanas.CampanaTargetingService>();
+    // Campanas — clasificador de rebotes (excluye direcciones rebotadas de los envíos)
+    builder.Services.AddScoped<eiibd26.Services.Email.BounceClasificador>();
     builder.Services.AddSingleton(TimeProvider.System);
     builder.Services.AddSingleton<eiibd26.Services.IPushMoodTokenService, eiibd26.Services.PushMoodTokenService>();
 
