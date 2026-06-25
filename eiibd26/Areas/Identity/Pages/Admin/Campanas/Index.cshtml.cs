@@ -326,6 +326,16 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                                          || !excluidosPorRebote.Contains(u.Email.ToLower()));
             }
 
+            // Excluir cuentas de SISTEMA (NINA, Comunidad) de TODOS los envíos.
+            // No son pacientes; nunca deben recibir campañas. GUIDs vienen de config.
+            var sistemaIds = new List<Guid>();
+            if (Guid.TryParse(_configuration["AiAnswer:SystemUserId"], out var ninaId))
+                sistemaIds.Add(ninaId);
+            if (Guid.TryParse(_configuration["Comunidad:UserId"], out var comunidadId))
+                sistemaIds.Add(comunidadId);
+            if (sistemaIds.Count > 0)
+                users = users.Where(u => !sistemaIds.Contains(u.Id));
+
             switch (audiencia)
             {
                 case AudienciaCampana.ViejosSinToque1:
