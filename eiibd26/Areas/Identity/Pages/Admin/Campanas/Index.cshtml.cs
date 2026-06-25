@@ -27,6 +27,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
         private readonly SendGridEmailSender _emailSender;
         private readonly IConfiguration _configuration;
         private readonly ICampanaTargetingService _targeting;
+        private readonly eiibd26.Services.Email.BounceClasificador _bounceClasificador;
 
         public CampanasIndexModel(
             UserManager<ApplicationUser> userManager,
@@ -34,7 +35,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
             ILogger<CampanasIndexModel> logger,
             SendGridEmailSender emailSender,
             IConfiguration configuration,
-            ICampanaTargetingService targeting)
+            ICampanaTargetingService targeting,
+            eiibd26.Services.Email.BounceClasificador bounceClasificador)
         {
             _userManager = userManager;
             _db = db;
@@ -42,6 +44,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
             _emailSender = emailSender;
             _configuration = configuration;
             _targeting = targeting;
+            _bounceClasificador = bounceClasificador;
         }
 
         // FaseLog para TodosConfirmados. No colisiona con 1/2/3 (toques de secuencia) ni 0 (reset pw).
@@ -310,6 +313,18 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
             // Criterio único de validez (excluye suspendidos) aplicado al universo base:
             // así TODAS las audiencias quedan filtradas de raíz, sin tocar cada case.
             var users = _userManager.Users.SoloValidos();
+
+            // Excluir direcciones rebotadas (hard / soft reincidente) de TODOS los envíos,
+            // igual que el filtro de validez. Se calcula al vuelo desde SendGridEventLog.
+            // Cruce por Email normalizado (lower) — los eventos bounce pueden tener UserId null.
+            // SOLO afecta envíos: no toca UsuarioValidez, dashboard ni stats de campaña.
+            // Al estar en el universo base, el conteo "elegibles" de la UI ya refleja la exclusión.
+            var excluidosPorRebote = await _bounceClasificador.ObtenerEmailsExcluidosAsync();
+            if (excluidosPorRebote.Count > 0)
+            {
+                users = users.Where(u => u.Email == null
+                                         || !excluidosPorRebote.Contains(u.Email.ToLower()));
+            }
 
             switch (audiencia)
             {
