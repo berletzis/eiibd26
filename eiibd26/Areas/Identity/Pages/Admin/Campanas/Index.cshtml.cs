@@ -712,6 +712,65 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
         }
 
         // ──────────────────────────────────────────────────────────────────────
+        // EXCLUIDOS POR REBOTE — panel de transparencia
+        // ──────────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Lista las direcciones excluidas de los envíos por rebote (hard / soft reincidente),
+        /// con nombre (cruzado con Perfil si hay usuario), motivo, nº de rebotes, fecha del
+        /// último rebote y razón legible. Calculado al vuelo desde SendGridEventLog.
+        /// </summary>
+        public async Task<IActionResult> OnGetExcluidosPorReboteAsync()
+        {
+            var detalle = await _bounceClasificador.ObtenerDetalleExcluidosAsync();
+
+            if (detalle.Count == 0)
+                return new JsonResult(new { total = 0, hard = 0, soft = 0, items = Array.Empty<object>() });
+
+            // Cruce email → nombre vía AspNetUsers + Perfil (algunos emails no tendrán usuario).
+            var emails = detalle.Select(d => d.Email).ToList(); // ya vienen lower/trim
+            var usuarios = await _userManager.Users
+                .Where(u => u.Email != null && emails.Contains(u.Email.ToLower()))
+                .Select(u => new { u.Id, Email = u.Email!.ToLower() })
+                .ToListAsync();
+
+            var userIds = usuarios.Select(u => u.Id).Distinct().ToList();
+            var perfiles = await _db.Perfil
+                .Where(p => userIds.Contains(p.idUser))
+                .Select(p => new { p.idUser, p.Nombre })
+                .ToListAsync();
+            var nombrePorUser = perfiles
+                .GroupBy(p => p.idUser)
+                .ToDictionary(g => g.Key, g => g.First().Nombre);
+
+            var nombrePorEmail = usuarios
+                .GroupBy(u => u.Email)
+                .ToDictionary(
+                    g => g.Key,
+                    g => nombrePorUser.TryGetValue(g.First().Id, out var n) ? n : null,
+                    StringComparer.OrdinalIgnoreCase);
+
+            var items = detalle.Select(d => new
+            {
+                email        = d.Email,
+                nombre       = nombrePorEmail.TryGetValue(d.Email, out var nn) ? nn : null,
+                motivo       = d.Motivo == Services.Email.BounceClasificador.MotivoExclusion.Hard ? "hard" : "soft",
+                motivoTexto  = d.MotivoTexto,
+                rebotes      = d.NumeroRebotes,
+                ultimoRebote = d.UltimoRebote.ToString("yyyy-MM-dd HH:mm"),
+                razon        = d.RazonLegible
+            }).ToList();
+
+            return new JsonResult(new
+            {
+                total = items.Count,
+                hard  = items.Count(i => i.motivo == "hard"),
+                soft  = items.Count(i => i.motivo == "soft"),
+                items
+            });
+        }
+
+        // ──────────────────────────────────────────────────────────────────────
         // DIAGNÓSTICO SENDGRID
         // ──────────────────────────────────────────────────────────────────────
 

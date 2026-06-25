@@ -180,6 +180,38 @@
             </div>
         </div>
     </div>
+
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <!-- DIRECCIONES EXCLUIDAS POR REBOTE (F3) — panel transparencia -->
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <div class="mt-5">
+        <div class="d-flex align-items-center mb-2 gap-3 flex-wrap">
+            <button class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2"
+                    type="button" data-bs-toggle="collapse" data-bs-target="#excluidosWrap"
+                    aria-expanded="false" aria-controls="excluidosWrap" id="btnToggleExcluidos">
+                <i class="bi bi-chevron-right" id="excluidosChevron"></i>
+                <span class="fw-semibold">Direcciones excluidas de envíos</span>
+                <span class="badge bg-secondary" id="excluidosBadgeTotal">…</span>
+            </button>
+            <button id="btnRefrescarExcluidos" class="btn btn-sm btn-outline-secondary" type="button" title="Recalcular">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+        </div>
+
+        <div class="collapse" id="excluidosWrap">
+            <div class="alert alert-light border" style="font-size:.83rem;">
+                <i class="bi bi-info-circle me-1"></i>
+                Estas direcciones <strong>no reciben campañas</strong>. Se calcula al vuelo desde los
+                eventos de SendGrid — no afecta estadísticas ni la validez del usuario. Las marcadas como
+                <span class="badge bg-warning text-dark">temporales</span> (buzón lleno) volverán a
+                incluirse <strong>automáticamente</strong> si una futura entrega tiene éxito; las
+                <span class="badge bg-danger">permanentes</span> seguirán excluidas.
+            </div>
+            <div id="excluidosContent">
+                <div class="text-center py-3 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Cargando...</div>
+            </div>
+        </div>
+    </div>
 </div>
 
 @section Scripts {
@@ -676,6 +708,71 @@
         document.getElementById('btnRefrescarEstatus').addEventListener('click', function () {
             cargarResumen();
             if (campanaActiva) cargarDetalle(campanaActiva, filtroActivo);
+        });
+
+        // ── EXCLUIDOS POR REBOTE ──────────────────────────────────────────────
+        var excluidosCargados = false;
+
+        function renderExcluidos(d) {
+            var el = document.getElementById('excluidosContent');
+            document.getElementById('excluidosBadgeTotal').textContent = d.total;
+
+            if (!d.items || d.items.length === 0) {
+                el.innerHTML = '<p class="text-muted text-center py-3">No hay direcciones excluidas por rebote.</p>';
+                return;
+            }
+
+            var html = '<p class="text-muted mb-2" style="font-size:.8rem;">' +
+                '<strong>' + d.total + '</strong> direcciones excluidas · ' +
+                '<span class="text-danger">' + d.hard + ' permanentes</span> · ' +
+                '<span class="text-warning">' + d.soft + ' temporales reincidentes</span></p>' +
+                '<div class="table-responsive"><table class="table table-sm table-hover mb-0" style="font-size:.83rem;">' +
+                '<thead class="table-light"><tr>' +
+                '<th>Email</th><th>Nombre</th><th class="text-center">Motivo</th>' +
+                '<th class="text-center">Rebotes</th><th>Último rebote</th><th>Razón</th>' +
+                '</tr></thead><tbody>';
+
+            d.items.forEach(function (it) {
+                var badge = it.motivo === 'hard'
+                    ? '<span class="badge bg-danger" title="Rebote permanente — no se recupera">Permanente</span>'
+                    : '<span class="badge bg-warning text-dark" title="Buzón lleno reincidente — se re-incluye si una entrega tiene éxito">Temporal</span>';
+                html += '<tr>' +
+                    '<td>' + esc(it.email) + '</td>' +
+                    '<td class="text-muted">' + esc(it.nombre || '—') + '</td>' +
+                    '<td class="text-center">' + badge + '</td>' +
+                    '<td class="text-center">' + it.rebotes + '</td>' +
+                    '<td class="text-muted">' + esc(it.ultimoRebote || '—') + '</td>' +
+                    '<td class="text-muted" style="max-width:340px;">' + esc(it.razon || '—') + '</td>' +
+                    '</tr>';
+            });
+            html += '</tbody></table></div>';
+            el.innerHTML = html;
+        }
+
+        function cargarExcluidos() {
+            document.getElementById('excluidosContent').innerHTML =
+                '<div class="text-center py-3 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Cargando...</div>';
+            fetch(window.location.pathname + '?handler=ExcluidosPorRebote')
+                .then(function (r) { return r.json(); })
+                .then(function (d) { excluidosCargados = true; renderExcluidos(d); })
+                .catch(function () {
+                    document.getElementById('excluidosContent').innerHTML =
+                        '<div class="alert alert-warning mb-0">Error cargando direcciones excluidas.</div>';
+                });
+        }
+
+        // Carga perezosa: solo al abrir el colapsable por primera vez.
+        var excluidosWrap = document.getElementById('excluidosWrap');
+        excluidosWrap.addEventListener('show.bs.collapse', function () {
+            document.getElementById('excluidosChevron').className = 'bi bi-chevron-down';
+            if (!excluidosCargados) cargarExcluidos();
+        });
+        excluidosWrap.addEventListener('hide.bs.collapse', function () {
+            document.getElementById('excluidosChevron').className = 'bi bi-chevron-right';
+        });
+        document.getElementById('btnRefrescarExcluidos').addEventListener('click', function (e) {
+            e.stopPropagation();
+            cargarExcluidos();
         });
 
         cargarResumen();
