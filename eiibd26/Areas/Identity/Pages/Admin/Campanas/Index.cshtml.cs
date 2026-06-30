@@ -383,9 +383,13 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                     var conCondicion = new HashSet<Guid>(await _db.condicionUsuario
                         .Where(c => !c.Eliminado)
                         .Select(c => c.idUsuario).Distinct().ToListAsync());
+                    // Excluir a quienes ya recibieron esta campaña (mismo patrón que ViejosSinToque1).
+                    var yaEnviados = new HashSet<Guid>(await _db.EmailCampanaLogs
+                        .Where(l => l.Fase == FaseLogSinCondicion && l.Exito)
+                        .Select(l => l.UserId).Distinct().ToListAsync());
                     return (
                         _targeting.AplicarCriterio(users, PublicoCampana.TodosConfirmados)
-                            .Where(u => !conCondicion.Contains(u.Id)),
+                            .Where(u => !conCondicion.Contains(u.Id) && !yaEnviados.Contains(u.Id)),
                         FaseLogSinCondicion);
                 }
 
@@ -395,9 +399,13 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                     var conMood = new HashSet<Guid>(await _db.EstadoAnimoUsuario
                         .Where(e => !e.Eliminado)
                         .Select(e => e.IdUsuario).Distinct().ToListAsync());
+                    // Excluir a quienes ya recibieron esta campaña (mismo patrón que ViejosSinToque1).
+                    var yaEnviados = new HashSet<Guid>(await _db.EmailCampanaLogs
+                        .Where(l => l.Fase == FaseLogSinMood && l.Exito)
+                        .Select(l => l.UserId).Distinct().ToListAsync());
                     return (
                         _targeting.AplicarCriterio(users, PublicoCampana.TodosConfirmados)
-                            .Where(u => !conMood.Contains(u.Id)),
+                            .Where(u => !conMood.Contains(u.Id) && !yaEnviados.Contains(u.Id)),
                         FaseLogSinMood);
                 }
 
@@ -412,9 +420,13 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                         .Where(x => x.p.UsuarioId != x.r.UsuarioId)
                         .Select(x => x.p.UsuarioId)
                         .Distinct().ToListAsync());
+                    // Excluir a quienes ya recibieron esta campaña (mismo patrón que ViejosSinToque1).
+                    var yaEnviados = new HashSet<Guid>(await _db.EmailCampanaLogs
+                        .Where(l => l.Fase == FaseLogConRespuestas && l.Exito)
+                        .Select(l => l.UserId).Distinct().ToListAsync());
                     return (
                         _targeting.AplicarCriterio(users, PublicoCampana.TodosConfirmados)
-                            .Where(u => conRespuestas.Contains(u.Id)),
+                            .Where(u => conRespuestas.Contains(u.Id) && !yaEnviados.Contains(u.Id)),
                         FaseLogConRespuestas);
                 }
 
@@ -443,9 +455,13 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                             .Select(cu => cu.idUsuario)
                             .Distinct());
 
+                    // Excluir a quienes ya recibieron esta campaña (mismo patrón que ViejosSinToque1).
+                    var yaEnviados = new HashSet<Guid>(await _db.EmailCampanaLogs
+                        .Where(l => l.Fase == FaseLogDiagnostico && l.Exito)
+                        .Select(l => l.UserId).Distinct().ToListAsync());
                     return (
                         _targeting.AplicarCriterio(users, PublicoCampana.TodosConfirmados)
-                            .Where(u => diagPendiente.Contains(u.Id)),
+                            .Where(u => diagPendiente.Contains(u.Id) && !yaEnviados.Contains(u.Id)),
                         FaseLogDiagnostico);
                 }
 
@@ -458,9 +474,13 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                                  || p.Avatar.ToLower().Contains("ui-avatars.com")
                                  || p.Avatar.ToLower().Contains("default"))
                         .Select(p => p.idUser).ToListAsync());
+                    // Excluir a quienes ya recibieron esta campaña (mismo patrón que ViejosSinToque1).
+                    var yaEnviados = new HashSet<Guid>(await _db.EmailCampanaLogs
+                        .Where(l => l.Fase == FaseLogSinAvatar && l.Exito)
+                        .Select(l => l.UserId).Distinct().ToListAsync());
                     return (
                         _targeting.AplicarCriterio(users, PublicoCampana.TodosConfirmados)
-                            .Where(u => sinAvatar.Contains(u.Id)),
+                            .Where(u => sinAvatar.Contains(u.Id) && !yaEnviados.Contains(u.Id)),
                         FaseLogSinAvatar);
                 }
 
@@ -473,9 +493,13 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                             && (cu.fechaInicio == null
                                 || (cu.fechaInicio.Value.Month == 1 && cu.fechaInicio.Value.Day == 1)))
                         .Select(cu => cu.idUsuario).Distinct().ToListAsync());
+                    // Excluir a quienes ya recibieron esta campaña (mismo patrón que ViejosSinToque1).
+                    var yaEnviados = new HashSet<Guid>(await _db.EmailCampanaLogs
+                        .Where(l => l.Fase == FaseLogCompletarFechaDiag && l.Exito)
+                        .Select(l => l.UserId).Distinct().ToListAsync());
                     return (
                         _targeting.AplicarCriterio(users, PublicoCampana.TodosConfirmados)
-                            .Where(u => sinFechaReal.Contains(u.Id)),
+                            .Where(u => sinFechaReal.Contains(u.Id) && !yaEnviados.Contains(u.Id)),
                         FaseLogCompletarFechaDiag);
                 }
 
@@ -494,9 +518,13 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
                         ultimoMoodPorUsuario
                             .Where(x => x.Ultimo < hace14dias)
                             .Select(x => x.Usuario));
+                    // Excluir a quienes ya recibieron esta campaña (mismo patrón que ViejosSinToque1).
+                    var yaEnviados = new HashSet<Guid>(await _db.EmailCampanaLogs
+                        .Where(l => l.Fase == FaseLogSinMoodReciente && l.Exito)
+                        .Select(l => l.UserId).Distinct().ToListAsync());
                     return (
                         _targeting.AplicarCriterio(users, PublicoCampana.TodosConfirmados)
-                            .Where(u => dejaronDeRegistrar.Contains(u.Id)),
+                            .Where(u => dejaronDeRegistrar.Contains(u.Id) && !yaEnviados.Contains(u.Id)),
                         FaseLogSinMoodReciente);
                 }
 

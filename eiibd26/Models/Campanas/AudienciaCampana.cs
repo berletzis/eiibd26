@@ -35,21 +35,22 @@ namespace eiibd26.Models.Campanas
         /// <summary>
         /// Usuarios con EmailConfirmed=1 que NO tienen ninguna condición registrada (condicionUsuario.Eliminado=0).
         /// Tarea pendiente: invitarlos a registrar su diagnóstico.
-        /// FaseLog=20. Sin exclusión por envíos previos — re-envíable manualmente.
+        /// FaseLog=20. Exclusión por FaseLog (no reenvía a quien ya recibió) + reset disponible.
         /// </summary>
         SinCondicion = 5,
 
         /// <summary>
         /// Usuarios con EmailConfirmed=1 que NUNCA registraron estado de ánimo (EstadoAnimoUsuario.Eliminado=0).
         /// Tarea pendiente: invitarlos a usar el tracker de mood.
-        /// FaseLog=21. Sin exclusión por envíos previos — re-envíable manualmente.
+        /// FaseLog=21. Exclusión por FaseLog (no reenvía a quien ya recibió) + reset disponible.
         /// </summary>
         SinMood = 6,
 
         /// <summary>
         /// Usuarios con EmailConfirmed=1 cuyas preguntas recibieron al menos una respuesta de OTRO usuario
         /// en los últimos 7 días. Notificación de actividad reciente.
-        /// FaseLog=22. Sin exclusión por envíos previos — re-envíable semanalmente.
+        /// FaseLog=22. Exclusión por FaseLog (no reenvía a quien ya recibió) + reset disponible
+        /// (resetear para reabrir el envío semanal).
         /// </summary>
         ConRespuestasSemana = 7,
 
@@ -57,7 +58,7 @@ namespace eiibd26.Models.Campanas
         /// Usuarios con EmailConfirmed=1 que tienen al menos una condición cuya fechaInicio coincide
         /// con la fecha de registro del perfil (señal de que nunca actualizaron la fecha real de diagnóstico).
         /// Mismo criterio que VM.NeedsDiagnosisDateUpdate del dashboard.
-        /// FaseLog=23. Sin exclusión por envíos previos — re-envíable manualmente.
+        /// FaseLog=23. Exclusión por FaseLog (no reenvía a quien ya recibió) + reset disponible.
         /// </summary>
         DiagnosticoPendiente = 8,
 
@@ -65,7 +66,7 @@ namespace eiibd26.Models.Campanas
         /// Usuarios con EmailConfirmed=1 sin foto de perfil propia.
         /// Criterio IDÉNTICO al scoring de Admin/Usuarios/Index:
         /// Perfil.Avatar es null/vacío, o contiene "ui-avatars.com", o contiene "default".
-        /// FaseLog=24. Sin exclusión por envíos previos — re-envíable manualmente.
+        /// FaseLog=24. Exclusión por FaseLog (no reenvía a quien ya recibió) + reset disponible.
         /// </summary>
         SinAvatar = 9,
 
@@ -73,7 +74,7 @@ namespace eiibd26.Models.Campanas
         /// Usuarios con EmailConfirmed=1 con al menos una condición SIN fecha de diagnóstico real:
         /// grupo B (fechaInicio NULL) + grupo D (fechaInicio placeholder = 1 de enero de cualquier año).
         /// Aditiva e independiente de DiagnosticoPendiente (8), que usa otro criterio (fecha = registro).
-        /// FaseLog=25. Sin exclusión por envíos previos — re-envíable manualmente.
+        /// FaseLog=25. Exclusión por FaseLog (no reenvía a quien ya recibió) + reset disponible.
         /// </summary>
         CompletarFechaDiagnostico = 10,
 
@@ -81,7 +82,7 @@ namespace eiibd26.Models.Campanas
         /// Usuarios con EmailConfirmed=1 que SÍ registraron mood alguna vez pero cuyo ÚLTIMO
         /// registro (EstadoAnimoUsuario.Eliminado=0) fue hace más de 14 días (dejaron el hábito).
         /// EXCLUYE a quienes nunca registraron — esos están en SinMood (6). Recordatorio de hábito.
-        /// FaseLog=26. Sin exclusión por envíos previos — re-envíable manualmente.
+        /// FaseLog=26. Exclusión por FaseLog (no reenvía a quien ya recibió) + reset disponible.
         /// </summary>
         SinMoodReciente = 11
     }
