@@ -82,14 +82,6 @@
                     </div>
                     <div id="campanaStatus" class="alert d-none mb-3" role="alert" style="font-size:.88rem;"></div>
 
-                    <!-- Log de resultados -->
-                    <div id="campanaLogContainer" class="d-none mb-3">
-                        <div class="fw-semibold mb-1" style="font-size:.82rem;color:#555;">RESULTADO DEL BATCH</div>
-                        <div id="campanaLog" class="border rounded p-2"
-                             style="max-height:180px;overflow-y:auto;background:#f8f9ff;font-size:.8rem;font-family:monospace;"></div>
-                        <div id="campanaResumenBatch" class="mt-1 fw-semibold" style="font-size:.85rem;"></div>
-                    </div>
-
                     <!-- Botones -->
                     <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
                         <div class="d-flex align-items-center gap-2">
@@ -366,8 +358,6 @@
             btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Encolando...';
             ocultarAviso();
             ocultarStatus();
-            document.getElementById('campanaLogContainer').classList.add('d-none');
-            document.getElementById('campanaLog').innerHTML = '';
 
             fetch(basePath + '?handler=EnviarAudiencia', {
                 method: 'POST',
@@ -460,26 +450,6 @@
         });
 
         // ── Helpers UI ──
-        function renderBatchLog(data) {
-            var logHtml = '';
-            data.resultados.forEach(function (r) {
-                var icon = r.exito
-                    ? '<i class="bi bi-check-circle-fill text-success me-1"></i>'
-                    : '<i class="bi bi-x-circle-fill text-danger me-1"></i>';
-                var emailSpan = document.createElement('span');
-                emailSpan.textContent = r.email;
-                var err = r.error ? ' <span class="text-danger">— ' + r.error + '</span>' : '';
-                logHtml += '<div>' + icon + emailSpan.innerHTML + err + '</div>';
-            });
-            document.getElementById('campanaLog').innerHTML = logHtml;
-            document.getElementById('campanaResumenBatch').innerHTML =
-                '<span class="text-success"><i class="bi bi-check-circle me-1"></i>' + data.exitosos + ' enviados</span>' +
-                (data.fallidos > 0
-                    ? ' &nbsp; <span class="text-danger"><i class="bi bi-x-circle me-1"></i>' + data.fallidos + ' fallidos</span>'
-                    : '');
-            document.getElementById('campanaLogContainer').classList.remove('d-none');
-        }
-
         function mostrarAviso(msg) {
             var el = document.getElementById('campanaAviso');
             document.getElementById('campanaAvisoText').textContent = msg;
