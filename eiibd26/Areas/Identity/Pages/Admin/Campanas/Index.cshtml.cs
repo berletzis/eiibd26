@@ -259,25 +259,49 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
         }
 
         // ──────────────────────────────────────────────────────────────────────
-        // RESETEAR TRACKING TOQUE 1
+        // RESETEAR ENVÍOS DE UNA AUDIENCIA (global)
         // ──────────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Borra todos los registros EmailCampanaLog con Fase=1.
-        /// No toca Fase=2, 3, ni 10. Usa ExecuteDeleteAsync (borrado masivo sin cargar entidades).
+        /// Cuenta los registros EmailCampanaLog del FaseLog de la audiencia indicada.
+        /// Lo usa la confirmación del reset para mostrar cuántos registros se borrarán.
         /// </summary>
-        public async Task<IActionResult> OnPostResetearReactivacionAsync()
+        public async Task<IActionResult> OnGetConteoResetAudienciaAsync(int audiencia)
         {
+            if (!Enum.IsDefined(typeof(AudienciaCampana), audiencia))
+                return new JsonResult(new { error = "Audiencia inválida." }) { StatusCode = 400 };
+
+            var faseLog = _audiencia.FaseLogPara((AudienciaCampana)audiencia);
+            var registros = await _db.EmailCampanaLogs.CountAsync(l => l.Fase == faseLog);
+            return new JsonResult(new { registros, faseLog });
+        }
+
+        /// <summary>
+        /// Borra todos los registros EmailCampanaLog del FaseLog de la audiencia indicada,
+        /// reabriendo su lista de elegibles desde cero. Funciona para CUALQUIER audiencia
+        /// (Familia A y B). Usa ExecuteDeleteAsync (borrado masivo sin cargar entidades).
+        /// Nota: para TodosConfirmados (FaseLog=10) borra el tracking de TODOS los templates.
+        /// </summary>
+        public async Task<IActionResult> OnPostResetearAudienciaAsync([FromBody] ResetearAudienciaInput input)
+        {
+            if (input is null || !Enum.IsDefined(typeof(AudienciaCampana), input.Audiencia))
+                return new JsonResult(new { success = false, error = "Audiencia inválida." }) { StatusCode = 400 };
+
+            var audiencia = (AudienciaCampana)input.Audiencia;
+            var faseLog = _audiencia.FaseLogPara(audiencia);
+
             var eliminados = await _db.EmailCampanaLogs
-                .Where(l => l.Fase == 1)
+                .Where(l => l.Fase == faseLog)
                 .ExecuteDeleteAsync();
 
             _logger.LogWarning(
-                "[Campanas] Admin reseteó tracking Toque 1: {Eliminados} registros Fase=1 borrados.",
-                eliminados);
+                "[Campanas] Admin reseteó envíos de '{Audiencia}' (FaseLog={FaseLog}): {Eliminados} registros borrados.",
+                audiencia, faseLog, eliminados);
 
             return new JsonResult(new { success = true, eliminados });
         }
+
+        public record ResetearAudienciaInput(int Audiencia);
 
         // ──────────────────────────────────────────────────────────────────────
         // GRID DE ESTATUS — F3

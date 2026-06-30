@@ -106,9 +106,9 @@
                             </button>
                         </div>
                         <div class="d-flex align-items-center gap-2">
-                            <button id="btnResetearReactivacion" class="btn btn-sm btn-outline-danger"
-                                    title="Borra el tracking de Toque 1 (Fase=1) para reabrir la lista de elegibles">
-                                <i class="bi bi-arrow-counterclockwise me-1"></i>Resetear envíos Toque 1
+                            <button id="btnResetearAudiencia" class="btn btn-sm btn-outline-danger"
+                                    title="Borra el tracking (EmailCampanaLog) de la audiencia seleccionada para reabrir su lista de elegibles desde cero">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i>Resetear envíos de esta audiencia
                             </button>
                             <span id="resetStatus" style="font-size:.82rem;"></span>
                         </div>
@@ -395,41 +395,66 @@
             });
         });
 
-        // ── Resetear tracking Toque 1 ──
-        document.getElementById('btnResetearReactivacion').addEventListener('click', function () {
-            var btn      = this;
-            var statusEl = document.getElementById('resetStatus');
-
-            var msg = '⚠️ Esto borra el registro de TODOS los envíos de Toque 1 (Fase=1).\n\n' +
-                'Los usuarios volverán a aparecer como elegibles para Toque 1.\n' +
-                'No afecta Toque 2, 3 ni Todos los confirmados.\n\n' +
-                '¿Continuar?';
-            if (!confirm(msg)) return;
-            if (!confirm('Confirmación final: ¿Borrar todo el historial de Toque 1 (Fase=1)?')) return;
+        // ── Resetear envíos de la audiencia seleccionada (global) ──
+        document.getElementById('btnResetearAudiencia').addEventListener('click', function () {
+            var btn         = this;
+            var statusEl    = document.getElementById('resetStatus');
+            var audiencia   = document.getElementById('audienciaSelect').value;
+            var audNombre   = audienciaLabels[audiencia] || audiencia;
+            var btnHtml     = '<i class="bi bi-arrow-counterclockwise me-1"></i>Resetear envíos de esta audiencia';
 
             btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Reseteando...';
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Verificando...';
             statusEl.innerHTML = '';
 
-            fetch(basePath + '?handler=ResetearReactivacion', {
-                method: 'POST',
-                headers: { 'RequestVerificationToken': csrfToken }
-            })
+            // Conteo previo de registros a borrar para una confirmación nombrada.
+            fetch(basePath + '?handler=ConteoResetAudiencia&audiencia=' + encodeURIComponent(audiencia))
             .then(function (r) { return r.json(); })
-            .then(function (data) {
+            .then(function (d) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i>Resetear envíos Toque 1';
-                if (data.success) {
-                    statusEl.innerHTML = '<span class="text-success"><i class="bi bi-check-circle me-1"></i>' +
-                        data.eliminados + ' envíos reseteados.</span>';
-                    actualizarConteo();
-                } else {
-                    statusEl.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>Error al resetear.</span>';
+                btn.innerHTML = btnHtml;
+                var n = (d && d.registros != null) ? d.registros : '?';
+
+                if (n === 0) {
+                    statusEl.innerHTML = '<span class="text-muted">No hay envíos registrados para esta audiencia.</span>';
+                    return;
                 }
+
+                var msg = "¿Resetear envíos de '" + audNombre + "'?\n\n" +
+                    'Esto borrará ' + n + ' registro(s) y permitirá reenviar desde cero.\n\n' +
+                    '¿Continuar?';
+                if (!confirm(msg)) return;
+
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Reseteando...';
+
+                fetch(basePath + '?handler=ResetearAudiencia', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': csrfToken },
+                    body: JSON.stringify({ audiencia: parseInt(audiencia) })
+                })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    btn.disabled = false;
+                    btn.innerHTML = btnHtml;
+                    if (data.success) {
+                        statusEl.innerHTML = '<span class="text-success"><i class="bi bi-check-circle me-1"></i>' +
+                            data.eliminados + ' envíos reseteados.</span>';
+                        actualizarConteo();
+                    } else {
+                        statusEl.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>' +
+                            esc(data.error || 'Error al resetear.') + '</span>';
+                    }
+                })
+                .catch(function () {
+                    btn.disabled = false;
+                    btn.innerHTML = btnHtml;
+                    statusEl.innerHTML = '<span class="text-danger">Error de conexión.</span>';
+                });
             })
             .catch(function () {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i>Resetear envíos Toque 1';
+                btn.innerHTML = btnHtml;
                 statusEl.innerHTML = '<span class="text-danger">Error de conexión.</span>';
             });
         });
