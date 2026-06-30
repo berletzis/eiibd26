@@ -274,6 +274,8 @@ try
 
     // Campanas — targeting service
     builder.Services.AddScoped<eiibd26.Services.Campanas.ICampanaTargetingService, eiibd26.Services.Campanas.CampanaTargetingService>();
+    // Campanas — resolución de audiencias (fuente única de la exclusión: conteo + job de envío)
+    builder.Services.AddScoped<eiibd26.Services.Campanas.ICampanaAudienciaService, eiibd26.Services.Campanas.CampanaAudienciaService>();
     // Campanas — clasificador de rebotes (excluye direcciones rebotadas de los envíos)
     builder.Services.AddScoped<eiibd26.Services.Email.BounceClasificador>();
     builder.Services.AddSingleton(TimeProvider.System);
@@ -375,6 +377,7 @@ try
 
     builder.Services.AddScoped<eiibd26.Jobs.AiAnswerJob>();
     builder.Services.AddScoped<eiibd26.Jobs.PushNotificationJob>();
+    builder.Services.AddScoped<eiibd26.Jobs.CampanaEnvioJob>();
 
     var hangfireConn = builder.Configuration.GetConnectionString("DefaultConnection");
     builder.Services.AddHangfire(cfg => cfg

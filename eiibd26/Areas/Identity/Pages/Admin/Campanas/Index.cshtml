@@ -92,9 +92,19 @@
 
                     <!-- Botones -->
                     <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-                        <button id="btnEnviarAudiencia" class="btn btn-primary">
-                            <i class="bi bi-send me-2"></i>Enviar batch de 100
-                        </button>
+                        <div class="d-flex align-items-center gap-2">
+                            <label for="cantidadSelect" class="form-label fw-semibold mb-0 text-nowrap" style="font-size:.85rem;">Tamaño de tanda:</label>
+                            <select id="cantidadSelect" class="form-select form-select-sm" style="width:auto;">
+                                <option value="50">50</option>
+                                <option value="100" selected>100</option>
+                                <option value="300">300</option>
+                                <option value="500">500</option>
+                                <option value="-1">Todos</option>
+                            </select>
+                            <button id="btnEnviarAudiencia" class="btn btn-primary text-nowrap">
+                                <i class="bi bi-send me-2"></i>Enviar batch
+                            </button>
+                        </div>
                         <div class="d-flex align-items-center gap-2">
                             <button id="btnResetearReactivacion" class="btn btn-sm btn-outline-danger"
                                     title="Borra el tracking de Toque 1 (Fase=1) para reabrir la lista de elegibles">
@@ -331,6 +341,8 @@
         document.getElementById('btnEnviarAudiencia').addEventListener('click', function () {
             var audiencia  = document.getElementById('audienciaSelect').value;
             var templateId = templateSel.value;
+            var cantidadEl = document.getElementById('cantidadSelect');
+            var cantidad   = parseInt(cantidadEl.value, 10);
             var countEl    = document.getElementById('elegiblesCount');
             var btn        = this;
 
@@ -342,14 +354,16 @@
             var templateNombre  = templateLabels[templateId] || templateId;
             var audienciaNombre = audienciaLabels[audiencia] || audiencia;
             var elegiblesTexto  = countEl.textContent.trim();
-            var confirmMsg = 'Vas a enviar:\n  Template: ' + templateNombre +
+            var cantidadTexto   = cantidad === -1 ? 'Todos los elegibles' : cantidad;
+            var confirmMsg = 'Vas a encolar el envío:\n  Template: ' + templateNombre +
                 '\n  Audiencia: ' + audienciaNombre +
-                '\n  Elegibles: ' + elegiblesTexto + '\n\n¿Continuar?';
+                '\n  Tamaño de tanda: ' + cantidadTexto +
+                '\n  Elegibles actuales: ' + elegiblesTexto + '\n\n¿Continuar?';
 
             if (!confirm(confirmMsg)) return;
 
             btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando...';
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Encolando...';
             ocultarAviso();
             ocultarStatus();
             document.getElementById('campanaLogContainer').classList.add('d-none');
@@ -358,27 +372,25 @@
             fetch(basePath + '?handler=EnviarAudiencia', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': csrfToken },
-                body: JSON.stringify({ audiencia: parseInt(audiencia), templateId: templateId })
+                body: JSON.stringify({ audiencia: parseInt(audiencia), templateId: templateId, cantidad: cantidad })
             })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-send me-2"></i>Enviar batch de 100';
+                btn.innerHTML = '<i class="bi bi-send me-2"></i>Enviar batch';
                 if (!data.success) {
                     mostrarAviso(data.error || 'Error desconocido.');
                     return;
                 }
-                if (data.procesados === 0) {
-                    mostrarStatus('info', '<i class="bi bi-info-circle me-1"></i>' + (data.mensaje || 'No hay usuarios elegibles.'));
-                    actualizarConteo();
-                    return;
-                }
-                renderBatchLog(data);
-                actualizarConteo();
+                // Envío en segundo plano: no hay resultados síncronos, solo confirmación de encolado.
+                mostrarStatus('success', '<i class="bi bi-check-circle me-1"></i>' +
+                    (data.mensaje || 'Envío encolado. Los correos se enviarán en segundo plano.'));
+                // El conteo refleja la exclusión recién cuando el job termina; refrescar tras unos segundos.
+                setTimeout(actualizarConteo, 4000);
             })
             .catch(function () {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-send me-2"></i>Enviar batch de 100';
+                btn.innerHTML = '<i class="bi bi-send me-2"></i>Enviar batch';
                 mostrarStatus('danger', '<i class="bi bi-exclamation-triangle me-1"></i>Error de conexión. Intenta de nuevo.');
             });
         });
