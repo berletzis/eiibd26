@@ -329,7 +329,10 @@
                 .catch(function () { countEl.textContent = '—'; });
         }
 
-        document.getElementById('audienciaSelect').addEventListener('change', actualizarConteo);
+        document.getElementById('audienciaSelect').addEventListener('change', function () {
+            actualizarConteo();
+            pintarProgreso(this.value); // el panel siempre refleja la audiencia seleccionada
+        });
         templateSel.addEventListener('change', actualizarConteo);
 
         // ── Prueba ──
@@ -367,11 +370,42 @@
             });
         });
 
-        // ── Progreso en vivo (polling del job Hangfire) ──
+        // ── Progreso asociado a la audiencia seleccionada ─────────────────────
+        // El panel refleja SIEMPRE la audiencia del dropdown (no "el último envío").
+        // Estados: vacío (sin historial) · estático/gris (con historial, nada corriendo)
+        // · vivo (esta audiencia tiene un job en curso → polling cada 4s).
         var pollTimer = null;
         var POLL_INTERVAL_MS = 4000;
-        var POLL_MAX_MS = 5 * 60 * 1000; // salvaguarda: deja de refrescar tras ~5 min
+        var POLL_MAX_MS = 5 * 60 * 1000;   // salvaguarda del polling en pantalla
         var pollStart = 0;
+        var pollAudiencia = null;          // audiencia del envío vivo que se está pintando
+
+        // localStorage: SOLO identificadores de UI no sensibles (audiencia, jobId, timestamp).
+        // Prohibido correos, nombres, tokens o cualquier dato personal/clínico.
+        var LS_KEY = 'eiibd_campana_envio_activo';
+        var ENVIO_MAX_MS = 30 * 60 * 1000; // caducidad anti-zombie
+
+        function guardarEnvioActivo(audiencia, jobId) {
+            try {
+                localStorage.setItem(LS_KEY, JSON.stringify({
+                    audiencia: String(audiencia), jobId: jobId, timestamp: Date.now()
+                }));
+            } catch (e) { /* localStorage no disponible: degradar en silencio */ }
+        }
+        function limpiarEnvioActivo() {
+            try { localStorage.removeItem(LS_KEY); } catch (e) { }
+        }
+        // Devuelve {audiencia, jobId} del envío activo, o null (aplica caducidad de 30 min).
+        function hayEnvioActivo() {
+            try {
+                var raw = localStorage.getItem(LS_KEY);
+                if (!raw) return null;
+                var o = JSON.parse(raw);
+                if (!o || !o.jobId || o.audiencia == null) { limpiarEnvioActivo(); return null; }
+                if (Date.now() - (o.timestamp || 0) > ENVIO_MAX_MS) { limpiarEnvioActivo(); return null; }
+                return { audiencia: String(o.audiencia), jobId: o.jobId };
+            } catch (e) { return null; }
+        }
 
         function estadoBadge(estado) {
             switch (estado) {
@@ -385,64 +419,142 @@
 
         function detenerPolling() {
             if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+            pollAudiencia = null;
         }
 
-        function pintarProgreso(d) {
-            document.getElementById('progEnviados').textContent = d.enviados;
-            document.getElementById('progFaltan').textContent   = d.faltan;
-            document.getElementById('progTotal').textContent    = d.total;
-            var b = estadoBadge(d.jobEstado);
+        // El botón de envío se bloquea mientras haya CUALQUIER envío activo (todas las audiencias).
+        function refrescarBotonEnvio(activo) {
+            if (activo === undefined) activo = hayEnvioActivo();
+            document.getElementById('btnEnviarAudiencia').disabled = !!activo;
+        }
+
+        // Pinta los tres contadores. atenuado=true → modo estático/gris (histórico).
+        function setContadores(d, atenuado) {
+            var e = document.getElementById('progEnviados');
+            var f = document.getElementById('progFaltan');
+            var t = document.getElementById('progTotal');
+            e.textContent = d.enviados; e.className = 'fw-bold ' + (atenuado ? 'text-muted' : 'text-success');
+            f.textContent = d.faltan;   f.className = 'fw-bold ' + (atenuado ? 'text-muted' : 'text-primary');
+            t.textContent = d.total;    t.className = 'fw-bold ' + (atenuado ? 'text-muted' : 'text-dark');
+        }
+
+        function setBadge(cls, texto) {
             var badgeEl = document.getElementById('progresoJobEstado');
-            badgeEl.className = 'badge ' + b.cls;
-            badgeEl.textContent = b.texto;
+            badgeEl.className = 'badge ' + cls;
+            badgeEl.textContent = texto;
         }
 
+        // Consulta el handler de progreso (solo lectura). Devuelve el objeto d o null.
         function consultarProgreso(aud, jobId) {
             var url = basePath + '?handler=ProgresoAudiencia&audiencia=' + encodeURIComponent(aud);
             if (jobId) url += '&jobId=' + encodeURIComponent(jobId);
             return fetch(url)
                 .then(function (r) { return r.json(); })
-                .then(function (d) {
-                    if (!d || d.error) return null;
-                    pintarProgreso(d);
-                    return d.jobEstado;
-                })
+                .then(function (d) { return (!d || d.error) ? null : d; })
                 .catch(function () { return null; });
+        }
+
+        // ── Estado maestro del panel: SIEMPRE refleja la audiencia indicada ──
+        function pintarProgreso(audiencia) {
+            audiencia = String(audiencia);
+            var activo = hayEnvioActivo();
+            refrescarBotonEnvio(activo);
+
+            if (activo && activo.audiencia === audiencia) {
+                // Envío activo para ESTA audiencia → modo vivo (reengancha/continúa polling).
+                iniciarPolling(audiencia, activo.jobId);
+                return;
+            }
+
+            // Sin envío activo para esta audiencia → parar polling y pintar estático/vacío.
+            detenerPolling();
+            var panel   = document.getElementById('progresoPanel');
+            document.getElementById('btnContinuarEnviando').classList.add('d-none'); // solo en modo vivo
+
+            consultarProgreso(audiencia, null).then(function (d) {
+                // Si mientras consultábamos cambió la audiencia seleccionada, no pisar el panel.
+                if (String(document.getElementById('audienciaSelect').value) !== audiencia) return;
+                if (!d || d.enviados === 0) {
+                    panel.classList.add('d-none'); // sin historial → panel oculto
+                    return;
+                }
+                // Con historial, nada corriendo → foto estática/gris (sin badge verde, sin polling).
+                panel.classList.remove('d-none');
+                setContadores(d, true);
+                setBadge('bg-light text-muted border', 'Histórico');
+                document.getElementById('progresoMensaje').innerHTML =
+                    '<span class="text-muted"><i class="bi bi-clock-history me-1"></i>Estado histórico — no hay ningún envío en curso para esta audiencia.</span>';
+            });
         }
 
         function iniciarPolling(aud, jobId) {
             detenerPolling();
             pollStart = Date.now();
-            document.getElementById('progresoPanel').classList.remove('d-none');
-            document.getElementById('btnContinuarEnviando').disabled = true;
+            pollAudiencia = String(aud);
+            var panel   = document.getElementById('progresoPanel');
+            var btnCont = document.getElementById('btnContinuarEnviando');
+            panel.classList.remove('d-none');
+            btnCont.classList.remove('d-none');
+            btnCont.disabled = true;
+            document.getElementById('btnEnviarAudiencia').disabled = true;
             document.getElementById('progresoMensaje').innerHTML =
                 '<span class="spinner-border spinner-border-sm me-1"></span>Enviando en segundo plano…';
 
             var tick = function () {
-                consultarProgreso(aud, jobId).then(function (estado) {
-                    if (estado === 'Succeeded') {
+                consultarProgreso(aud, jobId).then(function (d) {
+                    if (pollAudiencia === null) return; // se cambió de audiencia: el server sigue solo
+                    if (!d) return;                     // error puntual: reintenta en el próximo tick
+                    setContadores(d, false);
+                    var b = estadoBadge(d.jobEstado);
+                    setBadge(b.cls, b.texto);
+
+                    if (d.jobEstado === 'Succeeded') {
                         detenerPolling();
+                        limpiarEnvioActivo();
                         document.getElementById('progresoMensaje').innerHTML =
                             '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Envío completado.</span>';
-                        document.getElementById('btnEnviarAudiencia').disabled = false;
-                        document.getElementById('btnContinuarEnviando').disabled = false;
-                        actualizarConteo(); // refresca el contador de elegibles ya excluidos
-                    } else if (estado === 'Failed') {
+                        refrescarBotonEnvio(null);
+                        btnCont.disabled = false; // permite mandar la siguiente tanda
+                        actualizarConteo();
+                    } else if (d.jobEstado === 'Failed') {
                         detenerPolling();
+                        limpiarEnvioActivo();
                         document.getElementById('progresoMensaje').innerHTML =
                             '<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>El job falló. Revisa el panel de Hangfire.</span>';
-                        document.getElementById('btnEnviarAudiencia').disabled = false;
+                        refrescarBotonEnvio(null);
+                        btnCont.classList.add('d-none');
                         actualizarConteo();
                     } else if (Date.now() - pollStart > POLL_MAX_MS) {
+                        // Pausa del seguimiento en pantalla; NO limpia localStorage (el job puede seguir).
+                        // Al volver a esta audiencia o recargar, se re-engancha si sigue activo.
                         detenerPolling();
                         document.getElementById('progresoMensaje').innerHTML =
-                            '<span class="text-muted">Seguimiento automático detenido (tiempo máximo). Recarga para ver el estado final.</span>';
-                        document.getElementById('btnEnviarAudiencia').disabled = false;
+                            '<span class="text-muted">Seguimiento en pantalla pausado. Vuelve a esta audiencia o recarga para reanudar.</span>';
                     }
                 });
             };
             tick(); // lectura inmediata
             pollTimer = setInterval(tick, POLL_INTERVAL_MS);
+        }
+
+        // Al cargar: si hay un envío activo en localStorage, engancharlo/limpiarlo según su estado real.
+        function reengancharAlCargar() {
+            var activo = hayEnvioActivo();
+            var seleccionada = String(document.getElementById('audienciaSelect').value);
+            if (!activo) { pintarProgreso(seleccionada); return; }
+
+            if (activo.audiencia === seleccionada) {
+                // Coincide con la seleccionada: pintarProgreso → iniciarPolling, cuyo primer tick
+                // reengancha si sigue vivo, o muestra el resultado final y limpia si ya terminó.
+                pintarProgreso(seleccionada);
+                return;
+            }
+
+            // Activo en OTRA audiencia: comprobar si ya terminó para no dejar el botón bloqueado de más.
+            consultarProgreso(activo.audiencia, activo.jobId).then(function (d) {
+                if (d && (d.jobEstado === 'Succeeded' || d.jobEstado === 'Failed')) limpiarEnvioActivo();
+                pintarProgreso(seleccionada);
+            });
         }
 
         // ── Enviar batch (reutilizable: botón principal y "Continuar enviando") ──
@@ -453,6 +565,15 @@
             var countEl    = document.getElementById('elegiblesCount');
             var btn        = document.getElementById('btnEnviarAudiencia');
             var btnCont    = document.getElementById('btnContinuarEnviando');
+
+            // Un solo envío activo a la vez (en cualquier audiencia).
+            var activo = hayEnvioActivo();
+            if (activo) {
+                var nombreActivo = audienciaLabels[activo.audiencia] || ('audiencia ' + activo.audiencia);
+                mostrarAviso('Ya hay un envío en curso para ' + nombreActivo + '. Espera a que termine.');
+                refrescarBotonEnvio(activo);
+                return;
+            }
 
             if (!templateId) {
                 mostrarAviso('Selecciona un template antes de enviar.');
@@ -471,7 +592,6 @@
                 if (!confirm(confirmMsg)) return;
             }
 
-            // Deshabilita ambos botones mientras corre para evitar doble encolado accidental.
             btn.disabled = true;
             btnCont.disabled = true;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Encolando...';
@@ -494,7 +614,8 @@
                 mostrarStatus('success', '<i class="bi bi-check-circle me-1"></i>' +
                     (data.mensaje || 'Envío encolado. Los correos se enviarán en segundo plano.'));
                 if (data.jobId) {
-                    // El botón de envío queda deshabilitado hasta que el job termine (lo re-habilita el polling).
+                    // Registrar el envío activo (identificadores no sensibles) y arrancar el modo vivo.
+                    guardarEnvioActivo(audiencia, data.jobId);
                     iniciarPolling(audiencia, data.jobId);
                 } else {
                     // Sin jobId (caso improbable): comportamiento previo — refrescar conteo tras unos segundos.
@@ -599,6 +720,9 @@
 
         // Conteo inicial al cargar la página
         actualizarConteo();
+        // Re-enganche del panel al envío activo (si lo hay en localStorage) o pintado del estado
+        // de la audiencia seleccionada (vacío / histórico estático).
+        reengancharAlCargar();
 
     }());
 
