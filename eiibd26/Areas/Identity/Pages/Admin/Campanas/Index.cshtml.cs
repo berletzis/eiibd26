@@ -150,6 +150,58 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
             return new JsonResult(new { elegibles });
         }
 
+        /// <summary>
+        /// Progreso de envío de una audiencia (solo lectura, sin efectos de escritura):
+        /// - enviados: histórico acumulado de correos con Exito en el FaseLog de la audiencia.
+        /// - fallidos: registros con Exito=false en el mismo FaseLog.
+        /// - faltan: elegibles pendientes, usando la MISMA lógica que OnGetConteoAudiencia
+        ///   (BuildAudienciaQueryAsync → CountAsync); una sola fuente de verdad.
+        /// - total: enviados + faltan.
+        /// - jobEstado: si se pasa jobId, estado del job Hangfire (Enqueued/Processing/Succeeded/
+        ///   Failed/Unknown). Envuelto en try/catch → si Hangfire falla, "Unknown" sin romper el JSON.
+        ///   Si jobId es null, jobEstado = null.
+        /// </summary>
+        public async Task<IActionResult> OnGetProgresoAudienciaAsync(int audiencia, string? jobId = null)
+        {
+            if (!Enum.IsDefined(typeof(AudienciaCampana), audiencia))
+                return new JsonResult(new { error = "Audiencia inválida." }) { StatusCode = 400 };
+
+            var aud = (AudienciaCampana)audiencia;
+            var faseLog = _audiencia.FaseLogPara(aud);
+
+            var enviados = await _db.EmailCampanaLogs.CountAsync(l => l.Fase == faseLog && l.Exito);
+            var fallidos = await _db.EmailCampanaLogs.CountAsync(l => l.Fase == faseLog && !l.Exito);
+
+            // Reusa el mismo servicio que OnGetConteoAudiencia — no duplica la query de negocio.
+            var (query, _) = await _audiencia.BuildAudienciaQueryAsync(aud);
+            var faltan = await query.CountAsync();
+
+            string? jobEstado = null;
+            if (!string.IsNullOrWhiteSpace(jobId))
+            {
+                try
+                {
+                    // Hangfire SQL Server Storage: estado actual = primer entry del History (más reciente).
+                    var detalles = JobStorage.Current.GetMonitoringApi().JobDetails(jobId);
+                    jobEstado = detalles?.History?.FirstOrDefault()?.StateName ?? "Unknown";
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "[Campanas] No se pudo consultar el estado del job {JobId} en Hangfire.", jobId);
+                    jobEstado = "Unknown";
+                }
+            }
+
+            return new JsonResult(new
+            {
+                enviados,
+                fallidos,
+                faltan,
+                total = enviados + faltan,
+                jobEstado
+            });
+        }
+
         // ──────────────────────────────────────────────────────────────────────
         // ENVÍO UNIFICADO
         // ──────────────────────────────────────────────────────────────────────
