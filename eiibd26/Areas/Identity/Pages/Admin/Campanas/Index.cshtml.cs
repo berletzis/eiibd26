@@ -241,17 +241,19 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Campanas
             // baseUrl para que el job arme el reset-link: Url.Page/Request.Scheme no existen dentro del job.
             var baseUrl = $"{Request.Scheme}://{Request.Host}";
 
-            _jobs.Enqueue<eiibd26.Jobs.CampanaEnvioJob>(j =>
+            // Capturar el jobId del Enqueue para que la UI pueda consultar su progreso/estado.
+            var jobId = _jobs.Enqueue<eiibd26.Jobs.CampanaEnvioJob>(j =>
                 j.EnviarAudienciaBatchAsync(input.Audiencia, input.TemplateId, cantidad, baseUrl));
 
             _logger.LogInformation(
-                "[Campanas] Envío encolado: audiencia={Audiencia} template={Template} cantidad={Cantidad}",
-                (AudienciaCampana)input.Audiencia, input.TemplateId, cantidad == int.MaxValue ? "Todos" : cantidad.ToString());
+                "[Campanas] Envío encolado: audiencia={Audiencia} template={Template} cantidad={Cantidad} jobId={JobId}",
+                (AudienciaCampana)input.Audiencia, input.TemplateId, cantidad == int.MaxValue ? "Todos" : cantidad.ToString(), jobId);
 
             return new JsonResult(new
             {
                 success = true,
                 encolado = true,
+                jobId,
                 mensaje = "Envío encolado. Los correos se enviarán en segundo plano."
             });
         }
