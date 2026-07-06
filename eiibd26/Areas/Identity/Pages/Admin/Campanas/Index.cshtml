@@ -106,6 +106,44 @@
                         </div>
                     </div>
 
+                    <!-- Progreso de esta audiencia (aparece al encolar un envío) -->
+                    <div id="progresoPanel" class="mt-4 p-3 rounded border d-none"
+                         style="background:#f8fbff;border-color:#c8e1f7!important;">
+                        <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                            <span class="fw-semibold text-secondary" style="font-size:.9rem;">
+                                <i class="bi bi-graph-up-arrow me-1"></i>Progreso de esta audiencia
+                            </span>
+                            <span id="progresoJobEstado" class="badge bg-secondary">—</span>
+                        </div>
+                        <div class="row g-2 text-center">
+                            <div class="col-4">
+                                <div class="p-2 rounded bg-white border h-100">
+                                    <div class="fw-bold text-success" style="font-size:1.4rem;line-height:1;" id="progEnviados">—</div>
+                                    <div class="text-muted mt-1" style="font-size:.72rem;">Enviados en total a esta audiencia</div>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="p-2 rounded bg-white border h-100">
+                                    <div class="fw-bold text-primary" style="font-size:1.4rem;line-height:1;" id="progFaltan">—</div>
+                                    <div class="text-muted mt-1" style="font-size:.72rem;">Pendientes por enviar</div>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="p-2 rounded bg-white border h-100">
+                                    <div class="fw-bold text-dark" style="font-size:1.4rem;line-height:1;" id="progTotal">—</div>
+                                    <div class="text-muted mt-1" style="font-size:.72rem;">Total de la audiencia</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between mt-3 flex-wrap gap-2">
+                            <span id="progresoMensaje" class="text-muted" style="font-size:.82rem;"></span>
+                            <button id="btnContinuarEnviando" class="btn btn-sm btn-success" disabled
+                                    title="Manda la siguiente tanda a los que aún faltan (misma audiencia, template y tamaño)">
+                                <i class="bi bi-arrow-right-circle me-1"></i>Continuar enviando
+                            </button>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -329,32 +367,113 @@
             });
         });
 
-        // ── Enviar batch ──
-        document.getElementById('btnEnviarAudiencia').addEventListener('click', function () {
+        // ── Progreso en vivo (polling del job Hangfire) ──
+        var pollTimer = null;
+        var POLL_INTERVAL_MS = 4000;
+        var POLL_MAX_MS = 5 * 60 * 1000; // salvaguarda: deja de refrescar tras ~5 min
+        var pollStart = 0;
+
+        function estadoBadge(estado) {
+            switch (estado) {
+                case 'Enqueued':   return { cls: 'bg-secondary', texto: 'En cola' };
+                case 'Processing': return { cls: 'bg-primary',   texto: 'Procesando…' };
+                case 'Succeeded':  return { cls: 'bg-success',   texto: 'Completado' };
+                case 'Failed':     return { cls: 'bg-danger',    texto: 'Falló' };
+                default:           return { cls: 'bg-secondary', texto: estado || '—' };
+            }
+        }
+
+        function detenerPolling() {
+            if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        }
+
+        function pintarProgreso(d) {
+            document.getElementById('progEnviados').textContent = d.enviados;
+            document.getElementById('progFaltan').textContent   = d.faltan;
+            document.getElementById('progTotal').textContent    = d.total;
+            var b = estadoBadge(d.jobEstado);
+            var badgeEl = document.getElementById('progresoJobEstado');
+            badgeEl.className = 'badge ' + b.cls;
+            badgeEl.textContent = b.texto;
+        }
+
+        function consultarProgreso(aud, jobId) {
+            var url = basePath + '?handler=ProgresoAudiencia&audiencia=' + encodeURIComponent(aud);
+            if (jobId) url += '&jobId=' + encodeURIComponent(jobId);
+            return fetch(url)
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (!d || d.error) return null;
+                    pintarProgreso(d);
+                    return d.jobEstado;
+                })
+                .catch(function () { return null; });
+        }
+
+        function iniciarPolling(aud, jobId) {
+            detenerPolling();
+            pollStart = Date.now();
+            document.getElementById('progresoPanel').classList.remove('d-none');
+            document.getElementById('btnContinuarEnviando').disabled = true;
+            document.getElementById('progresoMensaje').innerHTML =
+                '<span class="spinner-border spinner-border-sm me-1"></span>Enviando en segundo plano…';
+
+            var tick = function () {
+                consultarProgreso(aud, jobId).then(function (estado) {
+                    if (estado === 'Succeeded') {
+                        detenerPolling();
+                        document.getElementById('progresoMensaje').innerHTML =
+                            '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Envío completado.</span>';
+                        document.getElementById('btnEnviarAudiencia').disabled = false;
+                        document.getElementById('btnContinuarEnviando').disabled = false;
+                        actualizarConteo(); // refresca el contador de elegibles ya excluidos
+                    } else if (estado === 'Failed') {
+                        detenerPolling();
+                        document.getElementById('progresoMensaje').innerHTML =
+                            '<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>El job falló. Revisa el panel de Hangfire.</span>';
+                        document.getElementById('btnEnviarAudiencia').disabled = false;
+                        actualizarConteo();
+                    } else if (Date.now() - pollStart > POLL_MAX_MS) {
+                        detenerPolling();
+                        document.getElementById('progresoMensaje').innerHTML =
+                            '<span class="text-muted">Seguimiento automático detenido (tiempo máximo). Recarga para ver el estado final.</span>';
+                        document.getElementById('btnEnviarAudiencia').disabled = false;
+                    }
+                });
+            };
+            tick(); // lectura inmediata
+            pollTimer = setInterval(tick, POLL_INTERVAL_MS);
+        }
+
+        // ── Enviar batch (reutilizable: botón principal y "Continuar enviando") ──
+        function dispararEnvio(skipConfirm) {
             var audiencia  = document.getElementById('audienciaSelect').value;
             var templateId = templateSel.value;
-            var cantidadEl = document.getElementById('cantidadSelect');
-            var cantidad   = parseInt(cantidadEl.value, 10);
+            var cantidad   = parseInt(document.getElementById('cantidadSelect').value, 10);
             var countEl    = document.getElementById('elegiblesCount');
-            var btn        = this;
+            var btn        = document.getElementById('btnEnviarAudiencia');
+            var btnCont    = document.getElementById('btnContinuarEnviando');
 
             if (!templateId) {
                 mostrarAviso('Selecciona un template antes de enviar.');
                 return;
             }
 
-            var templateNombre  = templateLabels[templateId] || templateId;
-            var audienciaNombre = audienciaLabels[audiencia] || audiencia;
-            var elegiblesTexto  = countEl.textContent.trim();
-            var cantidadTexto   = cantidad === -1 ? 'Todos los elegibles' : cantidad;
-            var confirmMsg = 'Vas a encolar el envío:\n  Template: ' + templateNombre +
-                '\n  Audiencia: ' + audienciaNombre +
-                '\n  Tamaño de tanda: ' + cantidadTexto +
-                '\n  Elegibles actuales: ' + elegiblesTexto + '\n\n¿Continuar?';
+            if (!skipConfirm) {
+                var templateNombre  = templateLabels[templateId] || templateId;
+                var audienciaNombre = audienciaLabels[audiencia] || audiencia;
+                var elegiblesTexto  = countEl.textContent.trim();
+                var cantidadTexto   = cantidad === -1 ? 'Todos los elegibles' : cantidad;
+                var confirmMsg = 'Vas a encolar el envío:\n  Template: ' + templateNombre +
+                    '\n  Audiencia: ' + audienciaNombre +
+                    '\n  Tamaño de tanda: ' + cantidadTexto +
+                    '\n  Elegibles actuales: ' + elegiblesTexto + '\n\n¿Continuar?';
+                if (!confirm(confirmMsg)) return;
+            }
 
-            if (!confirm(confirmMsg)) return;
-
+            // Deshabilita ambos botones mientras corre para evitar doble encolado accidental.
             btn.disabled = true;
+            btnCont.disabled = true;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Encolando...';
             ocultarAviso();
             ocultarStatus();
@@ -366,24 +485,32 @@
             })
             .then(function (r) { return r.json(); })
             .then(function (data) {
-                btn.disabled = false;
                 btn.innerHTML = '<i class="bi bi-send me-2"></i>Enviar batch';
                 if (!data.success) {
+                    btn.disabled = false;
                     mostrarAviso(data.error || 'Error desconocido.');
                     return;
                 }
-                // Envío en segundo plano: no hay resultados síncronos, solo confirmación de encolado.
                 mostrarStatus('success', '<i class="bi bi-check-circle me-1"></i>' +
                     (data.mensaje || 'Envío encolado. Los correos se enviarán en segundo plano.'));
-                // El conteo refleja la exclusión recién cuando el job termina; refrescar tras unos segundos.
-                setTimeout(actualizarConteo, 4000);
+                if (data.jobId) {
+                    // El botón de envío queda deshabilitado hasta que el job termine (lo re-habilita el polling).
+                    iniciarPolling(audiencia, data.jobId);
+                } else {
+                    // Sin jobId (caso improbable): comportamiento previo — refrescar conteo tras unos segundos.
+                    btn.disabled = false;
+                    setTimeout(actualizarConteo, 4000);
+                }
             })
             .catch(function () {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="bi bi-send me-2"></i>Enviar batch';
                 mostrarStatus('danger', '<i class="bi bi-exclamation-triangle me-1"></i>Error de conexión. Intenta de nuevo.');
             });
-        });
+        }
+
+        document.getElementById('btnEnviarAudiencia').addEventListener('click', function () { dispararEnvio(false); });
+        document.getElementById('btnContinuarEnviando').addEventListener('click', function () { dispararEnvio(true); });
 
         // ── Resetear envíos de la audiencia seleccionada (global) ──
         document.getElementById('btnResetearAudiencia').addEventListener('click', function () {
