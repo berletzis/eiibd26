@@ -23,8 +23,9 @@ public class ScrapingWorker : BackgroundService
         "mycrohnsandcolitisteam.com"
     };
 
-    // Identidad honesta del bot (token de producto usado para robots.txt y User-Agent)
+    // Identidad honesta del bot: mismo UA para el header HTTP y para evaluar robots.txt.
     private const string BotUserAgentProduct = "EIIBD-Indexer";
+    private const string BotUserAgentFull = "EIIBD-Indexer/1.0 (+https://eiibd.com/bot)";
 
     public ScrapingWorker(ILogger<ScrapingWorker> logger, IServiceProvider serviceProvider)
     {
@@ -79,20 +80,10 @@ public class ScrapingWorker : BackgroundService
                 Timeout = TimeSpan.FromSeconds(30)
             };
 
-            // User-Agent “de navegador”
+            // User-Agent honesto e identificable (mismo que se usa para evaluar robots.txt)
             httpClient.DefaultRequestHeaders.UserAgent.Clear();
-            httpClient.DefaultRequestHeaders.UserAgent.Add(
-                new ProductInfoHeaderValue("Mozilla", "5.0"));
-            httpClient.DefaultRequestHeaders.UserAgent.Add(
-                new ProductInfoHeaderValue("(Windows NT 10.0; Win64; x64)"));
-            httpClient.DefaultRequestHeaders.UserAgent.Add(
-                new ProductInfoHeaderValue("AppleWebKit", "537.36"));
-            httpClient.DefaultRequestHeaders.UserAgent.Add(
-                new ProductInfoHeaderValue("(KHTML, like Gecko)"));
-            httpClient.DefaultRequestHeaders.UserAgent.Add(
-                new ProductInfoHeaderValue("Chrome", "123.0.0.0"));
-            httpClient.DefaultRequestHeaders.UserAgent.Add(
-                new ProductInfoHeaderValue("Safari", "537.36"));
+            if (!httpClient.DefaultRequestHeaders.UserAgent.TryParseAdd(BotUserAgentFull))
+                httpClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", BotUserAgentFull);
 
             // robots.txt: parser + caché por host (se lee robots una sola vez por host)
             var robotsParser = new RobotsFileParser(httpClient);
