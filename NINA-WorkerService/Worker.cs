@@ -48,7 +48,7 @@ public class ScrapingWorker : BackgroundService
         // maxDepth/maxPages configurables: env var (Scraping__MaxPages), arg (--Scraping:MaxPages=N) o appsettings.
         var maxDepth = int.TryParse(_config["Scraping:MaxDepth"], out var cfgDepth) && cfgDepth > 0 ? cfgDepth : 10;
         var maxPages = int.TryParse(_config["Scraping:MaxPages"], out var cfgPages) && cfgPages > 0 ? cfgPages : 3000;
-        _logger.LogInformation("Config indexado: maxDepth={MaxDepth}, maxPages={MaxPages}", maxDepth, maxPages);
+        _logger.LogInformation("Config: maxDepth={MaxDepth}, maxPages={MaxPages}", maxDepth, maxPages);
         var defaultLanguage = "es"; // fallback de idioma si la página no lo declara
 
         try
