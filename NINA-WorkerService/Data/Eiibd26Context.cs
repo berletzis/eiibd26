@@ -24,6 +24,11 @@ public class Eiibd26Context : DbContext
     {
         // Mapear a nombres de tablas reales
         modelBuilder.Entity<SourceSite>().ToTable("SourceSite");
+        // Metadatos de fuente (largos coinciden con SQL/alter-sourcesite-metadatos.sql)
+        modelBuilder.Entity<SourceSite>().Property(s => s.Idioma).HasMaxLength(10);
+        modelBuilder.Entity<SourceSite>().Property(s => s.Pais).HasMaxLength(10);
+        modelBuilder.Entity<SourceSite>().Property(s => s.Categoria).HasMaxLength(100);
+        modelBuilder.Entity<SourceSite>().Property(s => s.UrlPublica).HasMaxLength(500);
         modelBuilder.Entity<ScrapedPage>().ToTable("ScrapedPage");
         modelBuilder.Entity<Article>().ToTable("Article");
         modelBuilder.Entity<ArticleTranslation>().ToTable("ArticleTranslation");
