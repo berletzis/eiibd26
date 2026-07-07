@@ -25,7 +25,7 @@ Priorizas estabilidad sobre velocidad. Nada de experimentos en producción.
 - NO modificar queries ni cálculos sin autorización explícita
 - NO cambiar rutas públicas (SEO en producción)
 - NO introducir CQRS, MediatR ni patrones nuevos sin discutir
-- NO tocar `NINA-WorkerService/` ni `Conectar3eros/`
+- Restricción de scope: se puede modificar cualquier proyecto de la solución (incluido NINA-WorkerService) cuando sea el objetivo explícito de la tarea acordada. Lo prohibido es el cambio disperso: tocar proyectos o archivos ajenos al objetivo "de paso". Cada sesión define qué proyecto(s) están en scope y no se sale de ahí sin confirmarlo. Conectar3eros permanece fuera de scope salvo indicación explícita.
 - NO hacer migraciones EF Core — los cambios de esquema se hacen con SQL directo
 - NO crear archivos `.md` dentro de `eiibd26/` — toda documentación va en `Documentation/`
 - Trabajar fase por fase — build limpio entre cada fase
@@ -58,7 +58,7 @@ eiibd/eiibd26/
 │   ├── Pages/                 ← Razor Pages públicas
 │   ├── Services/              ← Lógica de negocio
 │   └── wwwroot/               ← Archivos estáticos (NO poner .md aquí)
-├── NINA-WorkerService/        ← Worker de IA — NO TOCAR
+├── NINA-WorkerService/        ← Worker/scraper — fuera de scope salvo tarea explícita
 ├── Conectar3eros/             ← Integración terceros — NO TOCAR
 ├── SQL/                       ← Scripts SQL de cambios de esquema
 ├── Documentation/             ← TODA la documentación (este folder)
