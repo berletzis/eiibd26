@@ -23,6 +23,9 @@ public sealed class FuenteConfig
     public string? UrlPublica { get; set; }
     public string UrlInicial { get; set; } = string.Empty;
     public List<string> HostPermitidos { get; set; } = new();
+    // Opcional: si tiene prefijos, solo se sigue/indexa URLs cuyo path empiece con alguno
+    // (case-insensitive). Vacío/ausente = todo el host permitido.
+    public List<string> RutasPermitidas { get; set; } = new();
     public string? Idioma { get; set; }
     public string? Pais { get; set; }
     public string? Categoria { get; set; }

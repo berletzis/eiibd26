@@ -183,13 +183,23 @@ public class ScrapingWorker : BackgroundService
         var maxPages = fuente.MaxPages > 0 ? fuente.MaxPages : 3000;
         var defaultLanguage = string.IsNullOrWhiteSpace(fuente.Idioma) ? "es" : fuente.Idioma!;
         var hostsPermitidos = new HashSet<string>(fuente.HostPermitidos, StringComparer.OrdinalIgnoreCase);
+        // Restricción por sección (opcional): prefijos de path. Vacío = todo el host.
+        var rutasPermitidas = fuente.RutasPermitidas ?? new List<string>();
 
         var startUri = new Uri(fuente.UrlInicial);
         var baseUri = new Uri($"{startUri.Scheme}://{startUri.Host}/");
 
         _logger.LogInformation(
-            "Fuente '{Nombre}': inicio={Start}, maxDepth={MaxDepth}, maxPages={MaxPages}, idioma={Idioma}, pais={Pais}",
-            fuente.Nombre, fuente.UrlInicial, maxDepth, maxPages, fuente.Idioma, fuente.Pais);
+            "Fuente '{Nombre}': inicio={Start}, maxDepth={MaxDepth}, maxPages={MaxPages}, idioma={Idioma}, pais={Pais}, rutas={Rutas}",
+            fuente.Nombre, fuente.UrlInicial, maxDepth, maxPages, fuente.Idioma, fuente.Pais,
+            rutasPermitidas.Count == 0 ? "(todo el host)" : string.Join(",", rutasPermitidas));
+
+        // La URL inicial debe estar dentro de host + rutas permitidas; si no, no se indexa nada.
+        if (!EsUrlPermitida(startUri, hostsPermitidos, rutasPermitidas))
+        {
+            _logger.LogWarning("Fuente '{Nombre}': urlInicial fuera de hostPermitidos/rutasPermitidas; no se indexa nada.", fuente.Nombre);
+            return;
+        }
 
         // Cola de URLs (con profundidad) y visitadas en esta ejecución de la fuente.
         var queue = new Queue<(string Url, int Depth)>();
@@ -358,8 +368,9 @@ public class ScrapingWorker : BackgroundService
                     if (!Uri.TryCreate(link, UriKind.Absolute, out var linkUri))
                         continue;
 
-                    // Solo hosts permitidos de ESTA fuente (allow-list del JSON).
-                    if (!EsHostPermitido(linkUri, hostsPermitidos))
+                    // Solo host permitido Y (si aplica) dentro de las rutasPermitidas de la fuente.
+                    // Fuera de la sección permitida: no se sigue NI se indexa (se ignora por completo).
+                    if (!EsUrlPermitida(linkUri, hostsPermitidos, rutasPermitidas))
                         continue;
 
                     var normalized = NormalizeUrl(linkUri.ToString());
@@ -387,6 +398,20 @@ public class ScrapingWorker : BackgroundService
         if (permitidos.Contains(uri.Host)) return true;
         var sinWww = uri.Host.StartsWith("www.", StringComparison.OrdinalIgnoreCase) ? uri.Host.Substring(4) : uri.Host;
         return permitidos.Contains(sinWww);
+    }
+
+    // ¿La URL pertenece a la fuente? Host permitido Y (si hay rutasPermitidas) el path empieza
+    // con alguno de esos prefijos (case-insensitive). Sin rutasPermitidas = todo el host.
+    private static bool EsUrlPermitida(Uri uri, HashSet<string> hostsPermitidos, IReadOnlyList<string> rutasPermitidas)
+    {
+        if (!EsHostPermitido(uri, hostsPermitidos)) return false;
+        if (rutasPermitidas.Count == 0) return true;
+        foreach (var prefijo in rutasPermitidas)
+        {
+            if (string.IsNullOrEmpty(prefijo)) continue;
+            if (uri.AbsolutePath.StartsWith(prefijo, StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
     }
 
     private static string NormalizeUrl(string url)
