@@ -17,6 +17,7 @@ public class ScrapingWorker : BackgroundService
 {
     private readonly ILogger<ScrapingWorker> _logger;
     private readonly IServiceProvider _serviceProvider;
+    private readonly IConfiguration _config;
 
     // Lista blanca de hosts permitidos
     private static readonly string[] AllowedHosts = new[]
@@ -28,10 +29,11 @@ public class ScrapingWorker : BackgroundService
     private const string BotUserAgentProduct = "EIIBD-Indexer";
     private const string BotUserAgentFull = "EIIBD-Indexer/1.0 (+https://eiibd.com/bot)";
 
-    public ScrapingWorker(ILogger<ScrapingWorker> logger, IServiceProvider serviceProvider)
+    public ScrapingWorker(ILogger<ScrapingWorker> logger, IServiceProvider serviceProvider, IConfiguration config)
     {
         _logger = logger;
         _serviceProvider = serviceProvider;
+        _config = config;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -44,8 +46,10 @@ public class ScrapingWorker : BackgroundService
         // 1. Configuración del sitio y profundidad
         var baseUrl = "https://www.mycrohnsandcolitisteam.com/";
         var startUrl = "https://www.mycrohnsandcolitisteam.com/resources";
-        var maxDepth = 10;
-        var maxPages = 3000;
+        // maxDepth/maxPages configurables: env var (Scraping__MaxPages), arg (--Scraping:MaxPages=N) o appsettings.
+        var maxDepth = int.TryParse(_config["Scraping:MaxDepth"], out var cfgDepth) && cfgDepth > 0 ? cfgDepth : 10;
+        var maxPages = int.TryParse(_config["Scraping:MaxPages"], out var cfgPages) && cfgPages > 0 ? cfgPages : 3000;
+        _logger.LogInformation("Config indexado: maxDepth={MaxDepth}, maxPages={MaxPages}", maxDepth, maxPages);
         var defaultLanguage = "es"; // fallback de idioma si la página no lo declara
 
         try
