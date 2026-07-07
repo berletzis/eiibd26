@@ -37,8 +37,19 @@ public class ScrapingWorker : BackgroundService
         var db = scope.ServiceProvider.GetRequiredService<Eiibd26Context>();
 
         // Fuentes desde fuentes.json (editable a mano, viaja junto al ejecutable).
+        // Si falta o está mal formado: log claro y salida limpia (no crash).
         var fuentes = CargarFuentes();
+        if (fuentes == null)
+        {
+            _logger.LogError("fuentes.json ausente o mal formado; se aborta la corrida sin cambios.");
+            return;
+        }
         var activas = fuentes.Where(f => f.Activo).ToList();
+        if (activas.Count == 0)
+        {
+            _logger.LogWarning("No hay fuentes activas en fuentes.json; nada que indexar.");
+            return;
+        }
         _logger.LogInformation("Fuentes activas: {Count} de {Total}", activas.Count, fuentes.Count);
 
         // Un solo HttpClient (UA honesto) para todas las fuentes.
@@ -51,24 +62,72 @@ public class ScrapingWorker : BackgroundService
         {
             if (stoppingToken.IsCancellationRequested) break;
 
-            var site = await UpsertSourceSiteAsync(db, fuente, stoppingToken);
-            await IndexarFuenteAsync(db, httpClient, robotsCache, site, fuente, stoppingToken);
+            // Validar la fuente; una config inválida se salta sin tumbar el resto.
+            if (!EsFuenteValida(fuente, out var motivo))
+            {
+                _logger.LogWarning("Fuente '{Nombre}' inválida ({Motivo}); se salta.", fuente.Nombre, motivo);
+                continue;
+            }
+
+            // Aislar cada fuente: si una falla (red, robots, DB), se registra y se sigue con la siguiente.
+            try
+            {
+                var site = await UpsertSourceSiteAsync(db, fuente, stoppingToken);
+                await IndexarFuenteAsync(db, httpClient, robotsCache, site, fuente, stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Fuente '{Nombre}' falló; se continúa con la siguiente.", fuente.Nombre);
+            }
         }
 
         _logger.LogInformation("ScrapingWorker finalizado (ejecución única).");
     }
 
     // Carga y deserializa fuentes.json (System.Text.Json, case-insensitive; modo como enum de texto).
-    private List<FuenteConfig> CargarFuentes()
+    // Devuelve null si el archivo falta o está mal formado (el llamador aborta limpio).
+    private List<FuenteConfig>? CargarFuentes()
     {
         var path = Path.Combine(AppContext.BaseDirectory, "fuentes.json");
-        var json = File.ReadAllText(path);
-        var options = new JsonSerializerOptions
+        if (!File.Exists(path))
         {
-            PropertyNameCaseInsensitive = true,
-            Converters = { new JsonStringEnumConverter() }
-        };
-        return JsonSerializer.Deserialize<List<FuenteConfig>>(json, options) ?? new List<FuenteConfig>();
+            _logger.LogError("No existe fuentes.json en {Path}", path);
+            return null;
+        }
+        try
+        {
+            var json = File.ReadAllText(path);
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                Converters = { new JsonStringEnumConverter() }
+            };
+            return JsonSerializer.Deserialize<List<FuenteConfig>>(json, options) ?? new List<FuenteConfig>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "fuentes.json mal formado ({Path})", path);
+            return null;
+        }
+    }
+
+    // Valida una fuente: urlInicial http(s) absoluta y hostPermitidos no vacío.
+    private static bool EsFuenteValida(FuenteConfig fuente, out string motivo)
+    {
+        if (string.IsNullOrWhiteSpace(fuente.UrlInicial)
+            || !Uri.TryCreate(fuente.UrlInicial, UriKind.Absolute, out var u)
+            || (u.Scheme != Uri.UriSchemeHttp && u.Scheme != Uri.UriSchemeHttps))
+        {
+            motivo = "urlInicial inválida";
+            return false;
+        }
+        if (fuente.HostPermitidos == null || fuente.HostPermitidos.Count == 0)
+        {
+            motivo = "hostPermitidos vacío";
+            return false;
+        }
+        motivo = string.Empty;
+        return true;
     }
 
     private static HttpClient CrearHttpClient()
