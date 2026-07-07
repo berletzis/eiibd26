@@ -19,7 +19,7 @@ public class ScrapingWorker : BackgroundService
     // Lista blanca de hosts permitidos
     private static readonly string[] AllowedHosts = new[]
     {
-        "funeiico.com/"
+        "mycrohnsandcolitisteam.com"
     };
 
     public ScrapingWorker(ILogger<ScrapingWorker> logger, IServiceProvider serviceProvider)
@@ -36,8 +36,8 @@ public class ScrapingWorker : BackgroundService
         var db = scope.ServiceProvider.GetRequiredService<Eiibd26Context>();
 
         // 1. Configuración del sitio y profundidad
-        var baseUrl = "https://funeiico.com/";
-        var startUrl = "https://funeiico.com/";
+        var baseUrl = "https://www.mycrohnsandcolitisteam.com/";
+        var startUrl = "https://www.mycrohnsandcolitisteam.com/resources";
         var maxDepth = 10;
         var maxPages = 3000;
 
@@ -51,7 +51,7 @@ public class ScrapingWorker : BackgroundService
             {
                 site = new SourceSite
                 {
-                    Name = "crohns colitis foundation", // nombre amigable
+                    Name = "My Crohn's and Colitis Team (mycrohnsandcolitisteam.com)", // nombre amigable de la fuente
                     BaseUrl = baseUrl,
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow
