@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using NINA_WorkerService.Data;
 using NINA_WorkerService.Models;
 using NINA_WorkerService.Services;
+using TurnerSoftware.RobotsExclusionTools;
 
 namespace NINA_WorkerService;
 
@@ -21,6 +22,9 @@ public class ScrapingWorker : BackgroundService
     {
         "mycrohnsandcolitisteam.com"
     };
+
+    // Identidad honesta del bot (token de producto usado para robots.txt y User-Agent)
+    private const string BotUserAgentProduct = "EIIBD-Indexer";
 
     public ScrapingWorker(ILogger<ScrapingWorker> logger, IServiceProvider serviceProvider)
     {
@@ -90,11 +94,56 @@ public class ScrapingWorker : BackgroundService
             httpClient.DefaultRequestHeaders.UserAgent.Add(
                 new ProductInfoHeaderValue("Safari", "537.36"));
 
+            // robots.txt: parser + caché por host (se lee robots una sola vez por host)
+            var robotsParser = new RobotsFileParser(httpClient);
+            var robotsAccessRules = new RobotsFileAccessRules { AllowAllWhen404NotFound = true };
+            var robotsCache = new Dictionary<string, RobotsFile>(StringComparer.OrdinalIgnoreCase);
+
+            async Task<RobotsFile> GetRobotsAsync(Uri pageUri)
+            {
+                if (!robotsCache.TryGetValue(pageUri.Host, out var rf))
+                {
+                    try
+                    {
+                        var robotsUri = new Uri($"{pageUri.Scheme}://{pageUri.Host}/robots.txt");
+                        rf = await robotsParser.FromUriAsync(robotsUri, robotsAccessRules, stoppingToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "No se pudo leer robots.txt de {Host}; se asume permitido", pageUri.Host);
+                        rf = RobotsFile.AllowAllRobots(new Uri($"{pageUri.Scheme}://{pageUri.Host}"));
+                    }
+                    robotsCache[pageUri.Host] = rf;
+                }
+                return rf;
+            }
+
+            async Task DelayPoliteAsync(RobotsFile robots, CancellationToken ct)
+            {
+                double seconds = 1;
+                if (robots.TryGetEntryForUserAgent(BotUserAgentProduct, out var entry) && entry.CrawlDelay.HasValue)
+                    seconds = Math.Max(1.0, Convert.ToDouble(entry.CrawlDelay.Value));
+                await Task.Delay(TimeSpan.FromSeconds(seconds), ct);
+            }
+
             var pagesProcessed = 0;
+            var robotsSkipped = 0;
 
             while (queue.Count > 0 && !stoppingToken.IsCancellationRequested && pagesProcessed < maxPages)
             {
                 var (currentUrl, depth) = queue.Dequeue();
+
+                if (!Uri.TryCreate(currentUrl, UriKind.Absolute, out var currentUri))
+                    continue;
+
+                // robots.txt: ¿está permitido acceder a esta URL para nuestro bot?
+                var robots = await GetRobotsAsync(currentUri);
+                if (!robots.IsAllowedAccess(currentUri, BotUserAgentProduct))
+                {
+                    _logger.LogInformation("robots.txt DISALLOW {Url} — se salta", currentUrl);
+                    robotsSkipped++;
+                    continue;
+                }
 
                 _logger.LogInformation("Scrapeando {Url} (nivel {Depth})", currentUrl, depth);
 
@@ -132,8 +181,8 @@ public class ScrapingWorker : BackgroundService
                     db.ScrapedPages.Add(errorPage);
                     await db.SaveChangesAsync(stoppingToken);
 
-                    // Pequeña pausa para no ser agresivos
-                    await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
+                    // Pausa (respeta Crawl-delay de robots.txt si existe)
+                    await DelayPoliteAsync(robots, stoppingToken);
 
                     continue;
                 }
@@ -203,11 +252,11 @@ public class ScrapingWorker : BackgroundService
                     }
                 }
 
-                // Pausa entre peticiones para ser amables con el servidor
-                await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
+                // Pausa entre peticiones (respeta Crawl-delay de robots.txt si existe)
+                await DelayPoliteAsync(robots, stoppingToken);
             }
 
-            _logger.LogInformation("Scraping terminado. Páginas procesadas: {Count}", pagesProcessed);
+            _logger.LogInformation("Scraping terminado. Páginas: {Count}, saltadas por robots: {Skipped}", pagesProcessed, robotsSkipped);
         }
         catch (Exception ex)
         {
