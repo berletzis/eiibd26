@@ -134,6 +134,7 @@ public class ScrapingWorker : BackgroundService
             var pagesProcessed = 0;
             var robotsSkipped = 0;
             var indexed = 0;
+            var noMeta = 0;
             var errors = 0;
 
             while (queue.Count > 0 && !stoppingToken.IsCancellationRequested && pagesProcessed < maxPages)
@@ -167,69 +168,80 @@ public class ScrapingWorker : BackgroundService
                 // Extraer SOLO metadatos (nunca el cuerpo del artículo).
                 var meta = ExtractMetadata(html, currentUrl, defaultLanguage);
 
-                // Persistencia estilo índice (Opción A):
-                //  - ScrapedPage = ANCLA de URL: solo Url + SourceSiteId; ContentRaw = "" (jamás el HTML).
-                //  - Article = metadatos, colgado del ancla por ScrapedPageId; hereda la fuente vía el ancla.
-                var anchor = await db.ScrapedPages
-                    .FirstOrDefaultAsync(p => p.Url == currentUrl && p.SourceSiteId == site.SourceSiteId, stoppingToken);
-
-                if (anchor == null)
+                // FILTRO: solo se indexan páginas con meta-description (contenido real).
+                // Las páginas sin meta (secciones/listados) NO se indexan, pero SÍ se visitan
+                // para seguir descubriendo enlaces (el BFS continúa; ver extracción de enlaces abajo).
+                if (string.IsNullOrWhiteSpace(meta.Snippet))
                 {
-                    anchor = new ScrapedPage
-                    {
-                        SourceSiteId = site.SourceSiteId,
-                        Url = currentUrl,
-                        TitleRaw = null,
-                        ContentRaw = string.Empty,   // ANCLA: nunca se guarda el HTML del recurso externo
-                        ContentText = null,
-                        Language = meta.Language,
-                        ScrapedAt = DateTime.UtcNow,
-                        Status = "INDEXED"
-                    };
-                    db.ScrapedPages.Add(anchor);
-                    await db.SaveChangesAsync(stoppingToken); // obtener ScrapedPageId
+                    _logger.LogInformation("Sin meta-description, no se indexa: {Url}", currentUrl);
+                    noMeta++;
                 }
                 else
                 {
-                    anchor.ScrapedAt = DateTime.UtcNow;
-                    anchor.Status = "INDEXED";
-                    anchor.Language = meta.Language;
-                    anchor.ErrorMessage = null;
+                    // Persistencia estilo índice (Opción A):
+                    //  - ScrapedPage = ANCLA de URL: solo Url + SourceSiteId; ContentRaw = "" (jamás el HTML).
+                    //  - Article = metadatos, colgado del ancla por ScrapedPageId; hereda la fuente vía el ancla.
+                    var anchor = await db.ScrapedPages
+                        .FirstOrDefaultAsync(p => p.Url == currentUrl && p.SourceSiteId == site.SourceSiteId, stoppingToken);
+
+                    if (anchor == null)
+                    {
+                        anchor = new ScrapedPage
+                        {
+                            SourceSiteId = site.SourceSiteId,
+                            Url = currentUrl,
+                            TitleRaw = null,
+                            ContentRaw = string.Empty,   // ANCLA: nunca se guarda el HTML del recurso externo
+                            ContentText = null,
+                            Language = meta.Language,
+                            ScrapedAt = DateTime.UtcNow,
+                            Status = "INDEXED"
+                        };
+                        db.ScrapedPages.Add(anchor);
+                        await db.SaveChangesAsync(stoppingToken); // obtener ScrapedPageId
+                    }
+                    else
+                    {
+                        anchor.ScrapedAt = DateTime.UtcNow;
+                        anchor.Status = "INDEXED";
+                        anchor.Language = meta.Language;
+                        anchor.ErrorMessage = null;
+                        await db.SaveChangesAsync(stoppingToken);
+                    }
+
+                    // Upsert del Article (dedup por URL vía el ancla): actualizar metadatos, no duplicar.
+                    var article = await db.Articles
+                        .FirstOrDefaultAsync(a => a.ScrapedPageId == anchor.ScrapedPageId, stoppingToken);
+
+                    if (article == null)
+                    {
+                        article = new Article
+                        {
+                            ScrapedPageId = anchor.ScrapedPageId,
+                            NormalizedTitle = meta.Title,
+                            NormalizedContent = meta.Snippet,   // SOLO meta-descripción
+                            Language = meta.Language,
+                            MainTopic = meta.MainTopic,
+                            CreatedAt = DateTime.UtcNow,
+                            IsActive = true
+                        };
+                        db.Articles.Add(article);
+                    }
+                    else
+                    {
+                        article.NormalizedTitle = meta.Title;
+                        article.NormalizedContent = meta.Snippet;
+                        article.Language = meta.Language;
+                        article.MainTopic = meta.MainTopic;
+                        article.UpdatedAt = DateTime.UtcNow;
+                        article.IsActive = true;
+                    }
                     await db.SaveChangesAsync(stoppingToken);
+
+                    _logger.LogInformation("Indexado {Url} -> ArticleId {Id}", currentUrl, article.ArticleId);
+                    indexed++;
                 }
 
-                // Upsert del Article (dedup por URL vía el ancla): actualizar metadatos, no duplicar.
-                var article = await db.Articles
-                    .FirstOrDefaultAsync(a => a.ScrapedPageId == anchor.ScrapedPageId, stoppingToken);
-
-                if (article == null)
-                {
-                    article = new Article
-                    {
-                        ScrapedPageId = anchor.ScrapedPageId,
-                        NormalizedTitle = meta.Title,
-                        NormalizedContent = meta.Snippet,   // SOLO meta-descripción (o "" si no hay)
-                        Language = meta.Language,
-                        MainTopic = meta.MainTopic,
-                        CreatedAt = DateTime.UtcNow,
-                        IsActive = true
-                    };
-                    db.Articles.Add(article);
-                }
-                else
-                {
-                    article.NormalizedTitle = meta.Title;
-                    article.NormalizedContent = meta.Snippet;
-                    article.Language = meta.Language;
-                    article.MainTopic = meta.MainTopic;
-                    article.UpdatedAt = DateTime.UtcNow;
-                    article.IsActive = true;
-                }
-                await db.SaveChangesAsync(stoppingToken);
-
-                _logger.LogInformation("Indexado {Url} -> ArticleId {Id}", currentUrl, article.ArticleId);
-
-                indexed++;
                 pagesProcessed++;
 
                 // 6. Si aún no llegamos a profundidad máxima, extraer nuevos enlaces
@@ -261,7 +273,7 @@ public class ScrapingWorker : BackgroundService
                 await DelayPoliteAsync(robots, stoppingToken);
             }
 
-            _logger.LogInformation("Indexado terminado. Indexadas: {Indexed}, saltadas por robots: {Skipped}, errores: {Errors}", indexed, robotsSkipped, errors);
+            _logger.LogInformation("Indexado terminado. Indexadas: {Indexed} (con meta-description), saltadas sin meta: {NoMeta}, saltadas por robots: {Skipped}, errores: {Errors}", indexed, noMeta, robotsSkipped, errors);
         }
         catch (Exception ex)
         {
