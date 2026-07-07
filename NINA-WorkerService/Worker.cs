@@ -1,7 +1,8 @@
 ﻿using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
+using HtmlAgilityPack;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -45,6 +46,7 @@ public class ScrapingWorker : BackgroundService
         var startUrl = "https://www.mycrohnsandcolitisteam.com/resources";
         var maxDepth = 10;
         var maxPages = 3000;
+        var defaultLanguage = "es"; // fallback de idioma si la página no lo declara
 
         try
         {
@@ -119,6 +121,8 @@ public class ScrapingWorker : BackgroundService
 
             var pagesProcessed = 0;
             var robotsSkipped = 0;
+            var indexed = 0;
+            var errors = 0;
 
             while (queue.Count > 0 && !stoppingToken.IsCancellationRequested && pagesProcessed < maxPages)
             {
@@ -136,86 +140,84 @@ public class ScrapingWorker : BackgroundService
                     continue;
                 }
 
-                _logger.LogInformation("Scrapeando {Url} (nivel {Depth})", currentUrl, depth);
+                _logger.LogInformation("Indexando {Url} (nivel {Depth})", currentUrl, depth);
 
-                // 4. Verificar si ya tenemos última versión de esta URL en BD
-                var lastPage = await db.ScrapedPages
-                    .Where(p => p.Url == currentUrl)
-                    .OrderByDescending(p => p.ScrapedAt)
-                    .FirstOrDefaultAsync(stoppingToken);
-
-                string html;
-
-                try
+                // Descargar la página EN MEMORIA (con detección de charset). El HTML NO se persiste.
+                var (ok, html, error) = await DownloadHtmlAsync(httpClient, currentUrl, stoppingToken);
+                if (!ok)
                 {
-                    _logger.LogDebug("Descargando: {Url}", currentUrl);
-                    html = await httpClient.GetStringAsync(currentUrl, stoppingToken);
+                    _logger.LogWarning("Error descargando {Url}: {Error}", currentUrl, error);
+                    errors++;
+                    await DelayPoliteAsync(robots, stoppingToken);
+                    continue;
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Error descargando {Url}", currentUrl);
 
-                    // Guardar el fallo en ScrapedPage
-                    var errorPage = new ScrapedPage
+                // Extraer SOLO metadatos (nunca el cuerpo del artículo).
+                var meta = ExtractMetadata(html, currentUrl, defaultLanguage);
+
+                // Persistencia estilo índice (Opción A):
+                //  - ScrapedPage = ANCLA de URL: solo Url + SourceSiteId; ContentRaw = "" (jamás el HTML).
+                //  - Article = metadatos, colgado del ancla por ScrapedPageId; hereda la fuente vía el ancla.
+                var anchor = await db.ScrapedPages
+                    .FirstOrDefaultAsync(p => p.Url == currentUrl && p.SourceSiteId == site.SourceSiteId, stoppingToken);
+
+                if (anchor == null)
+                {
+                    anchor = new ScrapedPage
                     {
                         SourceSiteId = site.SourceSiteId,
                         Url = currentUrl,
                         TitleRaw = null,
-                        ContentRaw = string.Empty,
+                        ContentRaw = string.Empty,   // ANCLA: nunca se guarda el HTML del recurso externo
                         ContentText = null,
-                        Language = "es",
+                        Language = meta.Language,
                         ScrapedAt = DateTime.UtcNow,
-                        Status = "ERROR",
-                        ErrorMessage = ex.Message
+                        Status = "INDEXED"
                     };
-
-                    db.ScrapedPages.Add(errorPage);
-                    await db.SaveChangesAsync(stoppingToken);
-
-                    // Pausa (respeta Crawl-delay de robots.txt si existe)
-                    await DelayPoliteAsync(robots, stoppingToken);
-
-                    continue;
-                }
-
-                // 5. Calcular hash del contenido
-                var hash = ComputeSha256(html);
-
-                // Si ya teníamos una versión y el hash es igual → no insertamos nueva fila
-                if (lastPage != null && lastPage.HashContent != null &&
-                    lastPage.HashContent.SequenceEqual(hash))
-                {
-                    _logger.LogInformation("Sin cambios en {Url}. Actualizando solo ScrapedAt.", currentUrl);
-
-                    lastPage.ScrapedAt = DateTime.UtcNow;
-                    lastPage.Status = "OK";
-                    lastPage.ErrorMessage = null;
-
-                    await db.SaveChangesAsync(stoppingToken);
+                    db.ScrapedPages.Add(anchor);
+                    await db.SaveChangesAsync(stoppingToken); // obtener ScrapedPageId
                 }
                 else
                 {
-                    // Contenido nuevo o URL nueva → guardamos una nueva versión
-                    var scrapedPage = new ScrapedPage
-                    {
-                        SourceSiteId = site.SourceSiteId,
-                        Url = currentUrl,
-                        TitleRaw = null,      // luego extraeremos <title>
-                        ContentRaw = html,
-                        ContentText = null,   // luego lo limpiaremos
-                        Language = "es",      // más adelante puedes detectar idioma real
-                        ScrapedAt = DateTime.UtcNow,
-                        Status = "OK",
-                        HashContent = hash
-                    };
-
-                    db.ScrapedPages.Add(scrapedPage);
+                    anchor.ScrapedAt = DateTime.UtcNow;
+                    anchor.Status = "INDEXED";
+                    anchor.Language = meta.Language;
+                    anchor.ErrorMessage = null;
                     await db.SaveChangesAsync(stoppingToken);
-
-                    _logger.LogInformation("Guardada nueva versión de {Url} con ScrapedPageId {Id}",
-                        currentUrl, scrapedPage.ScrapedPageId);
                 }
 
+                // Upsert del Article (dedup por URL vía el ancla): actualizar metadatos, no duplicar.
+                var article = await db.Articles
+                    .FirstOrDefaultAsync(a => a.ScrapedPageId == anchor.ScrapedPageId, stoppingToken);
+
+                if (article == null)
+                {
+                    article = new Article
+                    {
+                        ScrapedPageId = anchor.ScrapedPageId,
+                        NormalizedTitle = meta.Title,
+                        NormalizedContent = meta.Snippet,   // SOLO meta-descripción (o "" si no hay)
+                        Language = meta.Language,
+                        MainTopic = meta.MainTopic,
+                        CreatedAt = DateTime.UtcNow,
+                        IsActive = true
+                    };
+                    db.Articles.Add(article);
+                }
+                else
+                {
+                    article.NormalizedTitle = meta.Title;
+                    article.NormalizedContent = meta.Snippet;
+                    article.Language = meta.Language;
+                    article.MainTopic = meta.MainTopic;
+                    article.UpdatedAt = DateTime.UtcNow;
+                    article.IsActive = true;
+                }
+                await db.SaveChangesAsync(stoppingToken);
+
+                _logger.LogInformation("Indexado {Url} -> ArticleId {Id}", currentUrl, article.ArticleId);
+
+                indexed++;
                 pagesProcessed++;
 
                 // 6. Si aún no llegamos a profundidad máxima, extraer nuevos enlaces
@@ -247,7 +249,7 @@ public class ScrapingWorker : BackgroundService
                 await DelayPoliteAsync(robots, stoppingToken);
             }
 
-            _logger.LogInformation("Scraping terminado. Páginas: {Count}, saltadas por robots: {Skipped}", pagesProcessed, robotsSkipped);
+            _logger.LogInformation("Indexado terminado. Indexadas: {Indexed}, saltadas por robots: {Skipped}, errores: {Errors}", indexed, robotsSkipped, errors);
         }
         catch (Exception ex)
         {
@@ -294,10 +296,80 @@ public class ScrapingWorker : BackgroundService
         return AllowedHosts.Contains(host, StringComparer.OrdinalIgnoreCase);
     }
 
-    private static byte[] ComputeSha256(string text)
+    // Descarga la página en memoria detectando el charset (header Content-Type -> <meta charset> -> UTF-8).
+    // Devuelve el HTML como string; el llamador lo usa para metadatos/enlaces y luego lo descarta.
+    private static async Task<(bool Ok, string Html, string? Error)> DownloadHtmlAsync(
+        HttpClient httpClient, string url, CancellationToken ct)
     {
-        using var sha256 = SHA256.Create();
-        var bytes = Encoding.UTF8.GetBytes(text);
-        return sha256.ComputeHash(bytes);
+        try
+        {
+            using var resp = await httpClient.GetAsync(url, ct);
+            if (!resp.IsSuccessStatusCode)
+                return (false, string.Empty, $"HTTP {(int)resp.StatusCode}");
+
+            var bytes = await resp.Content.ReadAsByteArrayAsync(ct);
+
+            var enc = Encoding.UTF8;
+            if (!TrySetEncoding(resp.Content.Headers.ContentType?.CharSet, ref enc))
+            {
+                // Sniff del <meta charset=...> en los primeros bytes (ASCII).
+                var probe = Encoding.ASCII.GetString(bytes, 0, Math.Min(bytes.Length, 4096));
+                var m = Regex.Match(probe, "charset\\s*=\\s*[\"']?([\\w-]+)", RegexOptions.IgnoreCase);
+                if (m.Success) TrySetEncoding(m.Groups[1].Value, ref enc);
+            }
+
+            return (true, enc.GetString(bytes), null);
+        }
+        catch (Exception ex)
+        {
+            return (false, string.Empty, ex.Message);
+        }
+    }
+
+    private static bool TrySetEncoding(string? name, ref Encoding enc)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return false;
+        try { enc = Encoding.GetEncoding(name.Trim().Trim('"', '\'')); return true; }
+        catch { return false; }
+    }
+
+    // Extrae SOLO metadatos de la página. NUNCA devuelve el cuerpo del artículo.
+    private static (string Title, string Snippet, string Language, string? MainTopic) ExtractMetadata(
+        string html, string currentUrl, string defaultLanguage)
+    {
+        var doc = new HtmlDocument();
+        doc.LoadHtml(html);
+        var root = doc.DocumentNode;
+
+        string? Meta(string attr, string name)
+        {
+            var node = root.SelectSingleNode(
+                $"//meta[translate(@{attr},'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')='{name}']");
+            var c = node?.GetAttributeValue("content", string.Empty);
+            return string.IsNullOrWhiteSpace(c) ? null : HtmlEntity.DeEntitize(c).Trim();
+        }
+
+        // Título: <title> | og:title | <h1> | (último recurso) la URL, para no violar NOT NULL.
+        var title = root.SelectSingleNode("//title")?.InnerText;
+        if (string.IsNullOrWhiteSpace(title)) title = Meta("property", "og:title");
+        if (string.IsNullOrWhiteSpace(title)) title = root.SelectSingleNode("//h1")?.InnerText;
+        title = string.IsNullOrWhiteSpace(title) ? currentUrl : HtmlEntity.DeEntitize(title).Trim();
+        if (title.Length > 500) title = title.Substring(0, 500);
+
+        // Snippet: SOLO meta description / og:description. Si no hay, "" (jamás el cuerpo del artículo).
+        var snippet = Meta("name", "description") ?? Meta("property", "og:description") ?? string.Empty;
+
+        // Idioma: <html lang> | og:locale | default de la fuente.
+        var lang = root.SelectSingleNode("//html")?.GetAttributeValue("lang", string.Empty);
+        if (string.IsNullOrWhiteSpace(lang)) lang = Meta("property", "og:locale");
+        if (string.IsNullOrWhiteSpace(lang)) lang = defaultLanguage;
+        lang = lang.Trim();
+        if (lang.Length > 10) lang = lang.Substring(0, 10);
+
+        // MainTopic: og:type si existe; si no, null.
+        var mainTopic = Meta("property", "og:type");
+        if (mainTopic != null && mainTopic.Length > 200) mainTopic = mainTopic.Substring(0, 200);
+
+        return (title, snippet, lang, mainTopic);
     }
 }
