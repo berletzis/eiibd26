@@ -9,7 +9,6 @@ using Microsoft.Extensions.Logging;
 using NINA_WorkerService.Data;
 using NINA_WorkerService.Models;
 using NINA_WorkerService.Services;
-using TurnerSoftware.RobotsExclusionTools;
 
 namespace NINA_WorkerService;
 
@@ -91,35 +90,44 @@ public class ScrapingWorker : BackgroundService
             if (!httpClient.DefaultRequestHeaders.UserAgent.TryParseAdd(BotUserAgentFull))
                 httpClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", BotUserAgentFull);
 
-            // robots.txt: parser + caché por host (se lee robots una sola vez por host)
-            var robotsParser = new RobotsFileParser(httpClient);
-            var robotsAccessRules = new RobotsFileAccessRules { AllowAllWhen404NotFound = true };
-            var robotsCache = new Dictionary<string, RobotsFile>(StringComparer.OrdinalIgnoreCase);
+            // robots.txt: matcher propio + caché por host (se lee robots una sola vez por host)
+            var robotsCache = new Dictionary<string, RobotsMatcher>(StringComparer.OrdinalIgnoreCase);
 
-            async Task<RobotsFile> GetRobotsAsync(Uri pageUri)
+            async Task<RobotsMatcher> GetRobotsAsync(Uri pageUri)
             {
-                if (!robotsCache.TryGetValue(pageUri.Host, out var rf))
+                if (!robotsCache.TryGetValue(pageUri.Host, out var matcher))
                 {
                     try
                     {
-                        var robotsUri = new Uri($"{pageUri.Scheme}://{pageUri.Host}/robots.txt");
-                        rf = await robotsParser.FromUriAsync(robotsUri, robotsAccessRules, stoppingToken);
+                        var robotsUrl = $"{pageUri.Scheme}://{pageUri.Host}/robots.txt";
+                        using var resp = await httpClient.GetAsync(robotsUrl, stoppingToken);
+                        if (resp.IsSuccessStatusCode)
+                        {
+                            var text = await resp.Content.ReadAsStringAsync(stoppingToken);
+                            matcher = RobotsMatcher.Parse(text);
+                        }
+                        else
+                        {
+                            // Sin robots.txt (404) u otro estado -> se asume permitido.
+                            _logger.LogInformation("robots.txt de {Host}: HTTP {Code} -> se asume permitido", pageUri.Host, (int)resp.StatusCode);
+                            matcher = RobotsMatcher.AllowAll();
+                        }
                     }
                     catch (Exception ex)
                     {
                         _logger.LogWarning(ex, "No se pudo leer robots.txt de {Host}; se asume permitido", pageUri.Host);
-                        rf = RobotsFile.AllowAllRobots(new Uri($"{pageUri.Scheme}://{pageUri.Host}"));
+                        matcher = RobotsMatcher.AllowAll();
                     }
-                    robotsCache[pageUri.Host] = rf;
+                    robotsCache[pageUri.Host] = matcher;
                 }
-                return rf;
+                return matcher;
             }
 
-            async Task DelayPoliteAsync(RobotsFile robots, CancellationToken ct)
+            async Task DelayPoliteAsync(RobotsMatcher robots, CancellationToken ct)
             {
                 double seconds = 1;
-                if (robots.TryGetEntryForUserAgent(BotUserAgentProduct, out var entry) && entry.CrawlDelay.HasValue)
-                    seconds = Math.Max(1.0, Convert.ToDouble(entry.CrawlDelay.Value));
+                var crawlDelay = robots.GetCrawlDelay(BotUserAgentProduct);
+                if (crawlDelay.HasValue) seconds = Math.Max(1.0, crawlDelay.Value);
                 await Task.Delay(TimeSpan.FromSeconds(seconds), ct);
             }
 
@@ -137,7 +145,7 @@ public class ScrapingWorker : BackgroundService
 
                 // robots.txt: ¿está permitido acceder a esta URL para nuestro bot?
                 var robots = await GetRobotsAsync(currentUri);
-                if (!robots.IsAllowedAccess(currentUri, BotUserAgentProduct))
+                if (!robots.IsAllowed(BotUserAgentProduct, currentUri.PathAndQuery))
                 {
                     _logger.LogInformation("robots.txt DISALLOW {Url} — se salta", currentUrl);
                     robotsSkipped++;
