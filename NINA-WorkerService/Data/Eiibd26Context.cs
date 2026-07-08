@@ -20,6 +20,9 @@ public class Eiibd26Context : DbContext
     public DbSet<ScrapingJob> ScrapingJobs => Set<ScrapingJob>();
     public DbSet<ScrapingJobLog> ScrapingJobLogs => Set<ScrapingJobLog>();
 
+    // Vista read-only del glosario (BD del Web) para el vocabulario de la firma.
+    public DbSet<GlossaryTerm> GlossaryTerms => Set<GlossaryTerm>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Mapear a nombres de tablas reales
@@ -37,6 +40,10 @@ public class Eiibd26Context : DbContext
         modelBuilder.Entity<ArticleBoost>().ToTable("ArticleBoost");
         modelBuilder.Entity<ScrapingJob>().ToTable("ScrapingJob");
         modelBuilder.Entity<ScrapingJobLog>().ToTable("ScrapingJobLog");
+
+        // GlossaryTerm: read-only, solo las 4 columnas que el Worker necesita
+        // (EF ignora el resto de la tabla). Nunca se escribe desde el Worker.
+        modelBuilder.Entity<GlossaryTerm>().ToTable("GlossaryTerm");
 
         // Relaciones
         modelBuilder.Entity<ScrapedPage>()

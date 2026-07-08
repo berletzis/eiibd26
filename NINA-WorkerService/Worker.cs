@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using eiibd26.Firma;
 using HtmlAgilityPack;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
@@ -35,6 +36,18 @@ public class ScrapingWorker : BackgroundService
 
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<Eiibd26Context>();
+
+        // Vocabulario EII (glosario de la BD del Web) para firmar externos con la
+        // biblioteca compartida. Mismo filtro que el Web: Activo=1 AND relación Directa (1).
+        var vocabNombres = await db.GlossaryTerms
+            .AsNoTracking()
+            .Where(t => t.Activo && t.MedicalRelationSuggestedId == 1)
+            .Select(t => t.Nombre)
+            .ToListAsync(stoppingToken);
+        var vocab = FirmaCalculator.CompilarVocabulario(vocabNombres);
+        _logger.LogInformation("Vocabulario EII cargado: {Count} términos (relación Directa) para firma de externos.", vocab.Count);
+        if (vocab.Count == 0)
+            _logger.LogWarning("Vocabulario EII vacío: los externos NO se firmarán en esta corrida.");
 
         // Fuentes desde fuentes.json (editable a mano, viaja junto al ejecutable).
         // Si falta o está mal formado: log claro y salida limpia (no crash).
@@ -79,7 +92,7 @@ public class ScrapingWorker : BackgroundService
             try
             {
                 var site = await UpsertSourceSiteAsync(db, fuente, stoppingToken);
-                await IndexarFuenteAsync(db, httpClient, robotsCache, site, fuente, stoppingToken);
+                await IndexarFuenteAsync(db, httpClient, robotsCache, site, fuente, vocab, stoppingToken);
             }
             catch (Exception ex)
             {
@@ -188,11 +201,15 @@ public class ScrapingWorker : BackgroundService
     // metadatos -> Article (ancla ScrapedPage, sin HTML). Parametrizado por la fuente.
     private async Task IndexarFuenteAsync(
         Eiibd26Context db, HttpClient httpClient, Dictionary<string, RobotsMatcher> robotsCache,
-        SourceSite site, FuenteConfig fuente, CancellationToken stoppingToken)
+        SourceSite site, FuenteConfig fuente, IReadOnlyList<VocabularioTermino> vocab, CancellationToken stoppingToken)
     {
         var maxDepth = fuente.MaxDepth > 0 ? fuente.MaxDepth : 10;
         var maxPages = fuente.MaxPages > 0 ? fuente.MaxPages : 3000;
         var defaultLanguage = string.IsNullOrWhiteSpace(fuente.Idioma) ? "es" : fuente.Idioma!;
+
+        // Firma solo para fuentes en español en 2B (inglés se firma en 2C con traducción).
+        var esEspanol = defaultLanguage.StartsWith("es", StringComparison.OrdinalIgnoreCase);
+        var firmarHabilitado = esEspanol && vocab.Count > 0;
         var hostsPermitidos = new HashSet<string>(fuente.HostPermitidos, StringComparer.OrdinalIgnoreCase);
         // Restricción por sección (opcional): prefijos de path. Vacío = todo el host.
         var rutasPermitidas = fuente.RutasPermitidas ?? new List<string>();
@@ -207,6 +224,8 @@ public class ScrapingWorker : BackgroundService
         var noMeta = 0;
         var errors = 0;
         var sitemapCount = 0;
+        var firmadas = 0;
+        var firmaOmitidaLastmod = 0;
 
         // robots.txt: matcher propio + caché por host (compartida entre fuentes).
         async Task<RobotsMatcher> GetRobotsAsync(Uri pageUri)
@@ -250,13 +269,19 @@ public class ScrapingWorker : BackgroundService
         // Persiste el ancla (sin HTML) + Article para una URL con metadatos válidos.
         // publishedAt: lastmod del sitemap (si vino), guardado en ScrapedPage.PublishedAt.
         async Task PersistirAsync(string currentUrl,
-            (string Title, string Snippet, string Language, string? MainTopic, string SnippetSource) meta, DateTime? publishedAt)
+            (string Title, string Snippet, string Language, string? MainTopic, string SnippetSource) meta, DateTime? publishedAt,
+            string? textoPlano)
         {
             // Persistencia estilo índice (Opción A):
             //  - ScrapedPage = ANCLA de URL: solo Url + SourceSiteId; ContentRaw = "" (jamás el HTML).
             //  - Article = metadatos, colgado del ancla por ScrapedPageId; hereda la fuente vía el ancla.
             var anchor = await db.ScrapedPages
                 .FirstOrDefaultAsync(p => p.Url == currentUrl && p.SourceSiteId == site.SourceSiteId, stoppingToken);
+
+            // Estado previo para la optimización lastmod de la firma (antes de mutar el ancla).
+            var esNuevo = anchor == null;
+            var oldPublishedAt = anchor?.PublishedAt;
+            var firmaExistente = anchor?.Firma;
 
             if (anchor == null)
             {
@@ -315,6 +340,27 @@ public class ScrapingWorker : BackgroundService
             await db.SaveChangesAsync(stoppingToken);
 
             _logger.LogInformation("Indexado ({Origen}) {Url} -> ArticleId {Id}", meta.SnippetSource, currentUrl, article.ArticleId);
+
+            // FIRMA DE COBERTURA (solo fuentes en español en 2B). El texto se usó en memoria
+            // (textoPlano) y aquí se calcula la firma con la biblioteca compartida; el texto NO
+            // se persiste. Optimización lastmod: no re-firmar si ya hay firma y PublishedAt no cambió.
+            if (firmarHabilitado)
+            {
+                var lastmodCambio = publishedAt.HasValue && oldPublishedAt != publishedAt;
+                var necesitaFirma = esNuevo || firmaExistente == null || lastmodCambio;
+                if (necesitaFirma)
+                {
+                    anchor.Firma = FirmaCalculator.Calcular(meta.Title, textoPlano, vocab);
+                    anchor.FirmaCalculadaEn = DateTime.UtcNow;
+                    await db.SaveChangesAsync(stoppingToken);
+                    firmadas++;
+                    _logger.LogInformation("Firmado {Url}", currentUrl);
+                }
+                else
+                {
+                    firmaOmitidaLastmod++;
+                }
+            }
         }
 
         // Procesa UNA URL con el flujo YA VALIDADO: robots + descarga(charset) + filtro meta + persistencia.
@@ -356,7 +402,10 @@ public class ScrapingWorker : BackgroundService
             }
             else
             {
-                await PersistirAsync(currentUrl, meta, lastmod);
+                // Texto principal para firmar (solo si esta fuente se firma): se extrae del
+                // HTML en memoria excluyendo script/style/nav/header/footer/aside; nunca se guarda.
+                var textoPlano = firmarHabilitado ? ExtraerTextoPrincipal(html) : null;
+                await PersistirAsync(currentUrl, meta, lastmod, textoPlano);
                 indexed++;
             }
 
@@ -473,8 +522,27 @@ public class ScrapingWorker : BackgroundService
         }
 
         _logger.LogInformation(
-            "Fuente '{Nombre}': sitemap con {N} URLs, {P} indexadas (con meta), {Q} sin meta, {R} por robots, {E} errores",
-            fuente.Nombre, sitemapCount, indexed, noMeta, robotsSkipped, errors);
+            "Fuente '{Nombre}': sitemap con {N} URLs, {P} indexadas (con meta), {Q} sin meta, {R} por robots, {E} errores. " +
+            "Firma (idioma={Idioma}, habilitada={Hab}): {F} firmadas, {L} omitidas por lastmod sin cambios.",
+            fuente.Nombre, sitemapCount, indexed, noMeta, robotsSkipped, errors,
+            defaultLanguage, firmarHabilitado, firmadas, firmaOmitidaLastmod);
+    }
+
+    // Extrae el texto principal para firmar: quita script/style/nav/header/footer/aside
+    // (ruido no editorial que contaminaría el conteo) y devuelve el texto del body.
+    // Solo para el cálculo de la firma EN MEMORIA; nunca se persiste.
+    private static string ExtraerTextoPrincipal(string html)
+    {
+        var doc = new HtmlDocument();
+        doc.LoadHtml(html);
+        var root = doc.DocumentNode;
+
+        var descartar = root.SelectNodes("//script|//style|//nav|//header|//footer|//aside");
+        if (descartar != null)
+            foreach (var n in descartar) n.Remove();
+
+        var body = root.SelectSingleNode("//body") ?? root;
+        return HtmlEntity.DeEntitize(body.InnerText ?? string.Empty);
     }
 
     // ¿El host de la URL está en la allow-list de la fuente? (el JSON lista www y no-www; el strip es red de seguridad)

@@ -15,6 +15,16 @@ public class ScrapedPage
     public string Status { get; set; } = "OK";
     public string? ErrorMessage { get; set; }
 
+    /// <summary>
+    /// Firma de cobertura EII del externo (JSON { v, totalTokens, counts }), calculada en
+    /// memoria durante el crawl con la biblioteca compartida eiibd26.Firma. NUNCA se guarda
+    /// el texto ni la traducción — solo esta firma. NULL = aún no firmado.
+    /// </summary>
+    public string? Firma { get; set; }
+
+    /// <summary>Momento del último cálculo de <see cref="Firma"/>. NULL = nunca firmado.</summary>
+    public DateTime? FirmaCalculadaEn { get; set; }
+
     public SourceSite SourceSite { get; set; } = null!;
     public Article? Article { get; set; }
 }
