@@ -111,9 +111,29 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     // Calidad de contenido
     public DbSet<eiibd26.Models.Calidad.ContenidoCalidad> ContenidoCalidad { get; set; }
 
+    // Motor de Cobertura — Fase 3
+    public DbSet<eiibd26.Models.Cobertura.CoberturaSimilitud> CoberturaSimilitudes { get; set; }
+    // Read-only: firma de externos (tabla ScrapedPage del Worker). El Web no la escribe.
+    public DbSet<eiibd26.Models.Cobertura.ScrapedPageRef> ScrapedPagesRef { get; set; }
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+
+        // Motor de Cobertura: similitud (tabla propia del Web, creada por SQL directo).
+        builder.Entity<eiibd26.Models.Cobertura.CoberturaSimilitud>(e =>
+        {
+            e.ToTable("CoberturaSimilitud");
+            e.Property(x => x.Score).HasPrecision(5, 4);
+            e.HasIndex(x => new { x.AId, x.BId, x.TipoPar }).IsUnique();
+        });
+
+        // Read-only de ScrapedPage (Worker). Solo lectura de la firma de externos.
+        builder.Entity<eiibd26.Models.Cobertura.ScrapedPageRef>(e =>
+        {
+            e.ToTable("ScrapedPage");
+            e.HasKey(x => x.ScrapedPageId);
+        });
 
         // Recursividad condiciones
         builder.Entity<condiciones>()
