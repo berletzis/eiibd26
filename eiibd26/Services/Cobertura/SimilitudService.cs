@@ -41,9 +41,11 @@ namespace eiibd26.Services.Cobertura
 
         private static readonly int[] EstadosVisibles = { 1, 2, 3 };
 
-        // Umbrales provisionales (para ver la distribución real y afinar).
-        private const double JaccardMin = 0.10; // pre-filtro (conjuntos de términos)
-        private const double CosenoMin = 0.30;  // guardado
+        // Compuertas de filtrado (Fase 3, afinadas con datos reales — evitan falsos 1.0
+        // de firmas pobres). El coseno en sí no se toca.
+        private const int RiquezaMin = 4;             // términos distintos mínimos por firma
+        private const int TerminosCompartidosMin = 3; // términos compartidos mínimos por par (pre-filtro)
+        private const double CosenoMin = 0.50;        // umbral de guardado (fijado con la distribución limpia)
 
         private const int FlushSize = 1000;
 
@@ -60,6 +62,7 @@ namespace eiibd26.Services.Cobertura
         {
             public int Id;
             public DateTime? FirmaEn;
+            public string? TituloNorm;   // solo propios (dedup por título); null en externos
             public Dictionary<string, int> Counts = null!;
             public HashSet<string> Terms = null!;
             public double Mag;
@@ -120,6 +123,12 @@ namespace eiibd26.Services.Cobertura
             void Procesar(Firmado a, Firmado b, byte tipo)
             {
                 procesados++;
+
+                // Dedup: en propio-propio, saltar duplicados por título (mismo título normalizado).
+                if (tipo == TipoParSimilitud.PropioPropio
+                    && !string.IsNullOrEmpty(a.TituloNorm) && a.TituloNorm == b.TituloNorm)
+                    return;
+
                 var key = (a.Id, b.Id, tipo);
                 if (mapa.TryGetValue(key, out var ex))
                 {
@@ -130,8 +139,9 @@ namespace eiibd26.Services.Cobertura
                     mapa.Remove(key);
                 }
 
-                var jac = Jaccard(a.Terms, b.Terms);
-                if (jac < JaccardMin) return;            // pre-filtro: descarta sin coseno
+                // Pre-filtro por solapamiento: exige >= S términos compartidos (evita los
+                // falsos 1.0 de firmas pobres que comparten 1 término).
+                if (Compartidos(a.Terms, b.Terms) < TerminosCompartidosMin) return;
 
                 var cos = Coseno(a, b);
                 if (cos <= CosenoMin) return;            // debajo del umbral de guardado
@@ -240,10 +250,10 @@ namespace eiibd26.Services.Cobertura
                 .Where(c => !c.Eliminado && c.EstadoPublicacion.HasValue
                             && EstadosVisibles.Contains(c.EstadoPublicacion.Value) && c.Firma != null)
                 .OrderBy(c => c.Id)
-                .Select(c => new { c.Id, c.Firma, c.FirmaCalculadaEn })
+                .Select(c => new { c.Id, c.Firma, c.FirmaCalculadaEn, c.ContenidoTitulo })
                 .ToListAsync(ct);
 
-            return Materializar(rows.Select(r => (r.Id, r.Firma, r.FirmaCalculadaEn)));
+            return Materializar(rows.Select(r => (r.Id, r.Firma, r.FirmaCalculadaEn, (string?)r.ContenidoTitulo)));
         }
 
         private async Task<List<Firmado>> CargarExternosAsync(CancellationToken ct)
@@ -254,20 +264,22 @@ namespace eiibd26.Services.Cobertura
                 .Select(s => new { s.ScrapedPageId, s.Firma, s.FirmaCalculadaEn })
                 .ToListAsync(ct);
 
-            return Materializar(rows.Select(r => (r.ScrapedPageId, r.Firma, r.FirmaCalculadaEn)));
+            return Materializar(rows.Select(r => (r.ScrapedPageId, r.Firma, r.FirmaCalculadaEn, (string?)null)));
         }
 
-        private static List<Firmado> Materializar(IEnumerable<(int Id, string? Firma, DateTime? FirmaEn)> rows)
+        private static List<Firmado> Materializar(IEnumerable<(int Id, string? Firma, DateTime? FirmaEn, string? Titulo)> rows)
         {
             var list = new List<Firmado>();
             foreach (var r in rows)
             {
                 var parsed = Parse(r.Firma);
-                if (parsed == null) continue; // firma vacía (sin conceptos) → no comparable
+                if (parsed == null) continue;                        // firma vacía → no comparable
+                if (parsed.Value.terms.Count < RiquezaMin) continue; // compuerta de riqueza (R)
                 list.Add(new Firmado
                 {
                     Id = r.Id,
                     FirmaEn = r.FirmaEn,
+                    TituloNorm = r.Titulo == null ? null : FirmaCalculator.Normalizar(r.Titulo),
                     Counts = parsed.Value.counts,
                     Terms = parsed.Value.terms,
                     Mag = parsed.Value.mag
@@ -291,14 +303,12 @@ namespace eiibd26.Services.Cobertura
             return (dto.Counts, new HashSet<string>(dto.Counts.Keys), Math.Sqrt(sumsq));
         }
 
-        private static double Jaccard(HashSet<string> a, HashSet<string> b)
+        private static int Compartidos(HashSet<string> a, HashSet<string> b)
         {
-            if (a.Count == 0 || b.Count == 0) return 0;
             var (small, large) = a.Count <= b.Count ? (a, b) : (b, a);
             int inter = 0;
             foreach (var t in small) if (large.Contains(t)) inter++;
-            int union = a.Count + b.Count - inter;
-            return union == 0 ? 0 : (double)inter / union;
+            return inter;
         }
 
         private static double Coseno(Firmado a, Firmado b)
