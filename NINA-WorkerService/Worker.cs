@@ -69,6 +69,12 @@ public class ScrapingWorker : BackgroundService
                 continue;
             }
 
+            // DIAGNÓSTICO: confirmar cómo se deserializó cada campo clave del JSON.
+            _logger.LogInformation(
+                "Fuente '{Nombre}' cargada: usarSitemap={Usar}, sitemapUrl={Sitemap}, urlInicial={Inicial}, maxPages={MaxPages}, excluirSitemaps=[{Excluir}]",
+                fuente.Nombre, fuente.UsarSitemap, fuente.SitemapUrl ?? "(null)", fuente.UrlInicial, fuente.MaxPages,
+                fuente.ExcluirSitemaps == null ? "" : string.Join(",", fuente.ExcluirSitemaps));
+
             // Aislar cada fuente: si una falla (red, robots, DB), se registra y se sigue con la siguiente.
             try
             {
@@ -363,26 +369,42 @@ public class ScrapingWorker : BackgroundService
 
         // --- Descubrimiento de URLs: sitemap (si aplica) o BFS de enlaces (fallback) ---
         List<SitemapReader.SitemapUrl>? sitemapUrls = null;
-        if (fuente.UsarSitemap)
+        string motivoBfs = "desconocido";
+        if (!fuente.UsarSitemap)
         {
-            var reader = new SitemapReader(httpClient, _logger);
-            var sitemapUrl = await reader.DescubrirSitemapAsync(fuente.UrlInicial, fuente.SitemapUrl, stoppingToken);
-            if (sitemapUrl != null)
+            motivoBfs = "usarSitemap=false";
+        }
+        else
+        {
+            try
             {
-                _logger.LogInformation("Fuente '{Nombre}': usando sitemap {Sitemap}", fuente.Nombre, sitemapUrl);
-                sitemapUrls = await reader.LeerUrlsAsync(sitemapUrl, fuente.ExcluirSitemaps ?? new List<string>(), stoppingToken);
-                sitemapCount = sitemapUrls.Count;
+                var reader = new SitemapReader(httpClient, _logger);
+                var sitemapUrl = await reader.DescubrirSitemapAsync(fuente.UrlInicial, fuente.SitemapUrl, stoppingToken);
+                if (sitemapUrl == null)
+                {
+                    motivoBfs = "no se encontró sitemap (JSON/robots/rutas estándar)";
+                }
+                else
+                {
+                    _logger.LogInformation("Fuente '{Nombre}': sitemap encontrado en {Sitemap}; leyendo URLs...", fuente.Nombre, sitemapUrl);
+                    sitemapUrls = await reader.LeerUrlsAsync(sitemapUrl, fuente.ExcluirSitemaps ?? new List<string>(), stoppingToken);
+                    sitemapCount = sitemapUrls.Count;
+                    if (sitemapCount == 0) motivoBfs = $"sitemap {sitemapUrl} devolvió 0 URLs";
+                }
             }
-            else
+            catch (Exception ex)
             {
-                _logger.LogWarning("Fuente '{Nombre}': no se encontró sitemap; se usa BFS de enlaces.", fuente.Nombre);
+                // DIAGNÓSTICO: no tragar la excepción; dejar claro por qué se cae a BFS.
+                _logger.LogError(ex, "ERROR sitemap fuente '{Nombre}' ({Sitemap}): {Msg}",
+                    fuente.Nombre, fuente.SitemapUrl ?? "(descubrir)", ex.Message);
+                motivoBfs = "excepción leyendo sitemap: " + ex.Message;
             }
         }
 
         if (sitemapUrls != null && sitemapUrls.Count > 0)
         {
             // MODO SITEMAP: la lista del sitemap reemplaza el BFS. No se descubren enlaces.
-            _logger.LogInformation("Fuente '{Nombre}': sitemap con {N} URLs", fuente.Nombre, sitemapCount);
+            _logger.LogInformation("Fuente '{Nombre}': usando SITEMAP con {N} URLs", fuente.Nombre, sitemapCount);
             var vistas = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var item in sitemapUrls)
             {
@@ -401,6 +423,8 @@ public class ScrapingWorker : BackgroundService
         else
         {
             // FALLBACK: BFS de enlaces (comportamiento anterior). La urlInicial debe estar dentro de host + rutas.
+            _logger.LogWarning("Fuente '{Nombre}': usando BFS de enlaces (motivo: {Motivo}); inicio={Inicial}",
+                fuente.Nombre, motivoBfs, NormalizeUrl(fuente.UrlInicial));
             if (!EsUrlPermitida(startUri, hostsPermitidos, rutasPermitidas))
             {
                 _logger.LogWarning("Fuente '{Nombre}': urlInicial fuera de hostPermitidos/rutasPermitidas; no se indexa nada.", fuente.Nombre);
