@@ -142,6 +142,10 @@ public class ScrapingWorker : BackgroundService
         httpClient.DefaultRequestHeaders.UserAgent.Clear();
         if (!httpClient.DefaultRequestHeaders.UserAgent.TryParseAdd(BotUserAgentFull))
             httpClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", BotUserAgentFull);
+        // Accept explícito: algunos servidores/WAF (ej. funeiico) responden HTTP 406 sin él.
+        // Incluye application/xml y */*, así los sitemaps y robots.txt siguen aceptándose.
+        httpClient.DefaultRequestHeaders.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+        httpClient.DefaultRequestHeaders.AcceptLanguage.ParseAdd("es,en;q=0.8");
         return httpClient;
     }
 
