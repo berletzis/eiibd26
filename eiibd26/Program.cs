@@ -383,6 +383,10 @@ try
     builder.Services.AddScoped<eiibd26.Services.Cobertura.IFirmaService, eiibd26.Services.Cobertura.FirmaService>();
     builder.Services.AddScoped<eiibd26.Jobs.FirmaContenidoJob>();
 
+    // Motor de Cobertura — Fase 3: similitud
+    builder.Services.AddScoped<eiibd26.Services.Cobertura.ISimilitudService, eiibd26.Services.Cobertura.SimilitudService>();
+    builder.Services.AddScoped<eiibd26.Jobs.SimilitudJob>();
+
     var hangfireConn = builder.Configuration.GetConnectionString("DefaultConnection");
     builder.Services.AddHangfire(cfg => cfg
         .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
