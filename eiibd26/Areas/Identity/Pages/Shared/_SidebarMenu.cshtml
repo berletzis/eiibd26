@@ -15,7 +15,13 @@
     bool IsStartingWith(string p) => path.StartsWith(p ?? "", StringComparison.OrdinalIgnoreCase);
 
     var contenidosRoot = "/Identity/Admin/Contenidos";
-    var contenidosOpen = IsStartingWith(contenidosRoot);
+    // Las páginas del Motor de Cobertura cuelgan de /Contenidos/ pero viven en su propia
+    // sección del menú; no deben auto-abrir el submenú de gestión de Contenidos.
+    bool EnMotorCobertura() =>
+        IsActive("/Identity/Admin/Contenidos/Firmas")
+        || IsActive("/Identity/Admin/Contenidos/FirmasExternas")
+        || IsActive("/Identity/Admin/Contenidos/Similitud");
+    var contenidosOpen = IsStartingWith(contenidosRoot) && !EnMotorCobertura();
 
     string userSlug = null;
     if (User.Identity?.IsAuthenticated == true)
@@ -101,24 +107,6 @@
                             </a>
                         </li>
                         <li>
-                            <a href="/Identity/Admin/Contenidos/Firmas"
-                               class="nav-link ms-4 @(IsActive("/Identity/Admin/Contenidos/Firmas") ? "active" : "")">
-                                <i class="bi bi-fingerprint"></i> Firmas de Contenido
-                            </a>
-                        </li>
-                        <li>
-                            <a href="/Identity/Admin/Contenidos/FirmasExternas"
-                               class="nav-link ms-4 @(IsActive("/Identity/Admin/Contenidos/FirmasExternas") ? "active" : "")">
-                                <i class="bi bi-globe"></i> Firmas de Externos
-                            </a>
-                        </li>
-                        <li>
-                            <a href="/Identity/Admin/Contenidos/Similitud"
-                               class="nav-link ms-4 @(IsActive("/Identity/Admin/Contenidos/Similitud") ? "active" : "")">
-                                <i class="bi bi-diagram-3"></i> Similitud de Cobertura
-                            </a>
-                        </li>
-                        <li>
                             <a href="/Identity/Admin/BannersInicio/Index"
                                class="nav-link ms-4 @(IsActive("/Identity/Admin/BannersInicio/Index") ? "active" : "")">
                                 <i class="bi bi-images"></i> Banners Inicio
@@ -186,6 +174,33 @@
                 <a href="/Identity/Admin/ApiKeys/Index"
                    class="nav-link ms-4 @(IsStartingWith("/Identity/Admin/ApiKeys") ? "active" : "")">
                     <i class="bi bi-key"></i> API Keys
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <span class="sidebar-section-label">
+                    <span class="sidebar-icon sidebar-icon--admin">
+                        <i class="bi bi-cpu"></i>
+                    </span>
+                    Motor de Cobertura
+                </span>
+            </li>
+            <li>
+                <a href="/Identity/Admin/Contenidos/Firmas"
+                   class="nav-link ms-4 @(IsActive("/Identity/Admin/Contenidos/Firmas") ? "active" : "")">
+                    <i class="bi bi-fingerprint"></i> Firmas de Contenido
+                </a>
+            </li>
+            <li>
+                <a href="/Identity/Admin/Contenidos/FirmasExternas"
+                   class="nav-link ms-4 @(IsActive("/Identity/Admin/Contenidos/FirmasExternas") ? "active" : "")">
+                    <i class="bi bi-globe"></i> Firmas de Externos
+                </a>
+            </li>
+            <li>
+                <a href="/Identity/Admin/Contenidos/Similitud"
+                   class="nav-link ms-4 @(IsActive("/Identity/Admin/Contenidos/Similitud") ? "active" : "")">
+                    <i class="bi bi-diagram-3"></i> Similitud de Cobertura
                 </a>
             </li>
         }
