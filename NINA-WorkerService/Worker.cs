@@ -49,6 +49,11 @@ public class ScrapingWorker : BackgroundService
         if (vocab.Count == 0)
             _logger.LogWarning("Vocabulario EII vacío: los externos NO se firmarán en esta corrida.");
 
+        // Traductor EN→ES (2C). Si no hay API key configurada, el inglés se deja sin firmar.
+        var translator = scope.ServiceProvider.GetRequiredService<Services.ITranslationService>();
+        _logger.LogInformation("Traducción EN→ES (Anthropic): {Estado}.",
+            translator.Habilitado ? "habilitada" : "DESHABILITADA (sin API key) — inglés no se firmará");
+
         // Fuentes desde fuentes.json (editable a mano, viaja junto al ejecutable).
         // Si falta o está mal formado: log claro y salida limpia (no crash).
         var fuentes = CargarFuentes();
@@ -92,7 +97,7 @@ public class ScrapingWorker : BackgroundService
             try
             {
                 var site = await UpsertSourceSiteAsync(db, fuente, stoppingToken);
-                await IndexarFuenteAsync(db, httpClient, robotsCache, site, fuente, vocab, stoppingToken);
+                await IndexarFuenteAsync(db, httpClient, robotsCache, site, fuente, vocab, translator, stoppingToken);
             }
             catch (Exception ex)
             {
@@ -201,15 +206,17 @@ public class ScrapingWorker : BackgroundService
     // metadatos -> Article (ancla ScrapedPage, sin HTML). Parametrizado por la fuente.
     private async Task IndexarFuenteAsync(
         Eiibd26Context db, HttpClient httpClient, Dictionary<string, RobotsMatcher> robotsCache,
-        SourceSite site, FuenteConfig fuente, IReadOnlyList<VocabularioTermino> vocab, CancellationToken stoppingToken)
+        SourceSite site, FuenteConfig fuente, IReadOnlyList<VocabularioTermino> vocab,
+        Services.ITranslationService translator, CancellationToken stoppingToken)
     {
         var maxDepth = fuente.MaxDepth > 0 ? fuente.MaxDepth : 10;
         var maxPages = fuente.MaxPages > 0 ? fuente.MaxPages : 3000;
         var defaultLanguage = string.IsNullOrWhiteSpace(fuente.Idioma) ? "es" : fuente.Idioma!;
 
-        // Firma solo para fuentes en español en 2B (inglés se firma en 2C con traducción).
+        // Español se firma directo (2B). Inglés se traduce y luego se firma (2C), si hay traductor.
         var esEspanol = defaultLanguage.StartsWith("es", StringComparison.OrdinalIgnoreCase);
-        var firmarHabilitado = esEspanol && vocab.Count > 0;
+        var esIngles = defaultLanguage.StartsWith("en", StringComparison.OrdinalIgnoreCase);
+        var firmarHabilitado = vocab.Count > 0 && (esEspanol || (esIngles && translator.Habilitado));
         var hostsPermitidos = new HashSet<string>(fuente.HostPermitidos, StringComparer.OrdinalIgnoreCase);
         // Restricción por sección (opcional): prefijos de path. Vacío = todo el host.
         var rutasPermitidas = fuente.RutasPermitidas ?? new List<string>();
@@ -226,6 +233,8 @@ public class ScrapingWorker : BackgroundService
         var sitemapCount = 0;
         var firmadas = 0;
         var firmaOmitidaLastmod = 0;
+        var traducidas = 0;
+        var firmaErrores = 0;
 
         // robots.txt: matcher propio + caché por host (compartida entre fuentes).
         async Task<RobotsMatcher> GetRobotsAsync(Uri pageUri)
@@ -350,11 +359,35 @@ public class ScrapingWorker : BackgroundService
                 var necesitaFirma = esNuevo || firmaExistente == null || lastmodCambio;
                 if (necesitaFirma)
                 {
-                    anchor.Firma = FirmaCalculator.Calcular(meta.Title, textoPlano, vocab);
-                    anchor.FirmaCalculadaEn = DateTime.UtcNow;
-                    await db.SaveChangesAsync(stoppingToken);
-                    firmadas++;
-                    _logger.LogInformation("Firmado {Url}", currentUrl);
+                    if (esIngles)
+                    {
+                        // Traducir EN→ES en memoria (título + cuerpo) y firmar la traducción.
+                        // La traducción NUNCA se persiste. El título va en el texto para que sus
+                        // conceptos cuenten en español; por eso se firma con título vacío.
+                        var traducido = await translator.TraducirAEspanolAsync($"{meta.Title}. {textoPlano}", stoppingToken);
+                        if (string.IsNullOrWhiteSpace(traducido))
+                        {
+                            firmaErrores++;
+                            _logger.LogWarning("Traducción vacía/fallida; no se firma {Url}", currentUrl);
+                        }
+                        else
+                        {
+                            anchor.Firma = FirmaCalculator.Calcular(null, traducido, vocab);
+                            anchor.FirmaCalculadaEn = DateTime.UtcNow;
+                            await db.SaveChangesAsync(stoppingToken);
+                            firmadas++;
+                            traducidas++;
+                            _logger.LogInformation("Traducido+firmado {Url}", currentUrl);
+                        }
+                    }
+                    else
+                    {
+                        anchor.Firma = FirmaCalculator.Calcular(meta.Title, textoPlano, vocab);
+                        anchor.FirmaCalculadaEn = DateTime.UtcNow;
+                        await db.SaveChangesAsync(stoppingToken);
+                        firmadas++;
+                        _logger.LogInformation("Firmado {Url}", currentUrl);
+                    }
                 }
                 else
                 {
@@ -523,9 +556,9 @@ public class ScrapingWorker : BackgroundService
 
         _logger.LogInformation(
             "Fuente '{Nombre}': sitemap con {N} URLs, {P} indexadas (con meta), {Q} sin meta, {R} por robots, {E} errores. " +
-            "Firma (idioma={Idioma}, habilitada={Hab}): {F} firmadas, {L} omitidas por lastmod sin cambios.",
+            "Firma (idioma={Idioma}, habilitada={Hab}): {F} firmadas, {T} traducidas (EN→ES), {L} omitidas por lastmod, {FE} errores de firma/traducción.",
             fuente.Nombre, sitemapCount, indexed, noMeta, robotsSkipped, errors,
-            defaultLanguage, firmarHabilitado, firmadas, firmaOmitidaLastmod);
+            defaultLanguage, firmarHabilitado, firmadas, traducidas, firmaOmitidaLastmod, firmaErrores);
     }
 
     // Extrae el texto principal para firmar: quita script/style/nav/header/footer/aside
