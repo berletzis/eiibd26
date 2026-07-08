@@ -1,0 +1,90 @@
+@page
+@model eiibd26.Areas.Identity.Pages.Admin.ApiKeys.IndexModel
+@{
+    ViewData["Title"] = "API Keys";
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">🔑 API Keys</h1>
+            <p class="text-muted mb-0">
+                Prefijo enmascarado de las keys de servicios externos (config efectiva).
+                Solo lectura — útil para identificar qué key está activa al rotar.
+            </p>
+        </div>
+    </div>
+
+    <div class="alert alert-secondary d-flex align-items-start gap-2" role="alert">
+        <i class="bi bi-shield-lock fs-5"></i>
+        <div>
+            Por seguridad, esta vista <strong>nunca</strong> muestra la key completa: solo un
+            prefijo y su longitud. El valor completo no sale del servidor.
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3">
+            <h5 class="mb-0">Servicios externos</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="ps-4">Servicio</th>
+                            <th>Clave de config</th>
+                            <th>Prefijo</th>
+                            <th>Estado</th>
+                            <th class="text-end pe-4">Longitud</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Model.Rows)
+                        {
+                            <tr>
+                                <td class="ps-4">
+                                    <strong class="d-block">@row.Servicio</strong>
+                                    @if (!string.IsNullOrEmpty(row.Nota))
+                                    {
+                                        <small class="text-muted">@row.Nota</small>
+                                    }
+                                </td>
+                                <td>
+                                    <code>@row.ConfigPath</code>
+                                </td>
+                                <td>
+                                    <span class="font-monospace">@row.Prefijo</span>
+                                </td>
+                                <td>
+                                    @if (row.Configurada)
+                                    {
+                                        <span class="badge bg-success">
+                                            <i class="bi bi-check-circle"></i> Configurada
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger">
+                                            <i class="bi bi-exclamation-triangle"></i> FALTANTE/vacía
+                                        </span>
+                                    }
+                                </td>
+                                <td class="text-end pe-4">
+                                    @if (row.Configurada)
+                                    {
+                                        <span class="text-muted">@row.Longitud</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
