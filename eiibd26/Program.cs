@@ -379,6 +379,10 @@ try
     builder.Services.AddScoped<eiibd26.Jobs.PushNotificationJob>();
     builder.Services.AddScoped<eiibd26.Jobs.CampanaEnvioJob>();
 
+    // Motor de Cobertura — Fase 1: firma de contenido propio
+    builder.Services.AddScoped<eiibd26.Services.Cobertura.IFirmaService, eiibd26.Services.Cobertura.FirmaService>();
+    builder.Services.AddScoped<eiibd26.Jobs.FirmaContenidoJob>();
+
     var hangfireConn = builder.Configuration.GetConnectionString("DefaultConnection");
     builder.Services.AddHangfire(cfg => cfg
         .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)

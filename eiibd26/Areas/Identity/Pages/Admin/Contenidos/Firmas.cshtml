@@ -1,0 +1,143 @@
+@page
+@model eiibd26.Areas.Identity.Pages.Admin.Contenidos.FirmasModel
+@{
+    ViewData["Title"] = "Firmas de contenido";
+    var pct = Model.Total > 0 ? (int)Math.Round(Model.Firmados * 100.0 / Model.Total) : 0;
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">🧬 Firmas de contenido</h1>
+            <p class="text-muted mb-0">
+                Motor de Cobertura · Fase 1 — firma de cobertura EII de los artículos publicados.
+            </p>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle"></i> @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle"></i> @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <p class="text-muted mb-1 small">Publicados (total)</p>
+                    <h3 class="mb-0" id="statTotal">@Model.Total</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <p class="text-muted mb-1 small">Firmados</p>
+                    <h3 class="mb-0 text-success" id="statFirmados">@Model.Firmados</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <p class="text-muted mb-1 small">Pendientes</p>
+                    <h3 class="mb-0 text-warning" id="statPendientes">@Model.Pendientes</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <p class="text-muted mb-1 small">Última firma</p>
+                    <h6 class="mb-0">
+                        @(Model.UltimaFirma?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")
+                    </h6>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="mb-0">Progreso</h5>
+                <span class="badge bg-primary" id="progressBadge">@Model.Firmados / @Model.Total</span>
+            </div>
+            <div class="progress" style="height: 22px;" role="progressbar" aria-label="Progreso de firmas">
+                <div id="progressBar"
+                     class="progress-bar progress-bar-striped bg-success"
+                     style="width: @pct%;">@pct%</div>
+            </div>
+            <small class="text-muted mt-2 d-block">
+                El cálculo corre en segundo plano (Hangfire). Esta barra se actualiza sola.
+            </small>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3">
+            <h5 class="mb-0">Acciones</h5>
+        </div>
+        <div class="card-body">
+            <div class="d-flex flex-wrap gap-2">
+                <form method="post" asp-page-handler="Recalcular" class="d-inline">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-arrow-repeat"></i> Recalcular firmas (pendientes)
+                    </button>
+                </form>
+
+                <form method="post" asp-page-handler="Forzar" class="d-inline"
+                      onsubmit="return confirm('Esto pondrá TODAS las firmas de publicados a NULL y las recalculará desde cero. ¿Continuar?');">
+                    <button type="submit" class="btn btn-outline-danger">
+                        <i class="bi bi-exclamation-octagon"></i> Forzar recálculo total
+                    </button>
+                </form>
+            </div>
+            <ul class="text-muted small mt-3 mb-0">
+                <li><strong>Recalcular firmas</strong>: firma solo los pendientes (Firma vacía). Idempotente y reanudable.</li>
+                <li><strong>Forzar recálculo total</strong>: borra todas las firmas y vuelve a firmar todo (usar si cambió el vocabulario EII).</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const bar = document.getElementById("progressBar");
+            const badge = document.getElementById("progressBadge");
+            const statFirmados = document.getElementById("statFirmados");
+            const statPendientes = document.getElementById("statPendientes");
+            const statTotal = document.getElementById("statTotal");
+
+            async function poll() {
+                try {
+                    const resp = await fetch("?handler=Progreso", { headers: { "X-Requested-With": "XMLHttpRequest" } });
+                    if (!resp.ok) return;
+                    const d = await resp.json();
+                    const pct = d.total > 0 ? Math.round(d.firmados * 100 / d.total) : 0;
+                    bar.style.width = pct + "%";
+                    bar.textContent = pct + "%";
+                    badge.textContent = d.firmados + " / " + d.total;
+                    statFirmados.textContent = d.firmados;
+                    statPendientes.textContent = d.pendientes;
+                    statTotal.textContent = d.total;
+                } catch (e) { /* silencioso: reintenta en el próximo tick */ }
+            }
+
+            // Poll cada 3s mientras haya pendientes; se detiene al completar.
+            setInterval(poll, 3000);
+            poll();
+        })();
+    </script>
+}

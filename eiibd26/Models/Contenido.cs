@@ -32,6 +32,16 @@ namespace eiibd26.Models
         public DateTime FechaCreado { get; set; }
         public bool Eliminado { get; set; }
         public Guid? IdUser { get; set; }
+
+        /// <summary>
+        /// Firma de cobertura EII: JSON disperso { v, totalTokens, counts{term→conteo} }.
+        /// Calculada por FirmaService sobre el vocabulario EII (glosario, relación Directa).
+        /// NULL = aún no firmado. Columna agregada por SQL directo (sin migración EF).
+        /// </summary>
+        public string? Firma { get; set; }
+
+        /// <summary>Momento del último cálculo de <see cref="Firma"/>. NULL = nunca firmado.</summary>
+        public DateTime? FirmaCalculadaEn { get; set; }
         /* Navigation properties (optional — enable if the related entity classes exist) */
         [ForeignKey("IdAutor")]
         public virtual Perfil AutorPerfil { get; set; }
