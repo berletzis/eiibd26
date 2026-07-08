@@ -173,8 +173,9 @@ public class ScrapingWorker : BackgroundService
         return site;
     }
 
-    // Indexa UNA fuente: BFS + robots + charset + filtro meta-description + metadatos -> Article (ancla ScrapedPage).
-    // Lógica ya validada; solo parametrizada por la fuente (allow-list, url inicial, límites, idioma).
+    // Indexa UNA fuente. URLs desde el sitemap (si usarSitemap) o, como fallback, por BFS de enlaces.
+    // A cada URL se le aplica el flujo YA VALIDADO: robots + charset + filtro meta-description +
+    // metadatos -> Article (ancla ScrapedPage, sin HTML). Parametrizado por la fuente.
     private async Task IndexarFuenteAsync(
         Eiibd26Context db, HttpClient httpClient, Dictionary<string, RobotsMatcher> robotsCache,
         SourceSite site, FuenteConfig fuente, CancellationToken stoppingToken)
@@ -189,24 +190,13 @@ public class ScrapingWorker : BackgroundService
         var startUri = new Uri(fuente.UrlInicial);
         var baseUri = new Uri($"{startUri.Scheme}://{startUri.Host}/");
 
-        _logger.LogInformation(
-            "Fuente '{Nombre}': inicio={Start}, maxDepth={MaxDepth}, maxPages={MaxPages}, idioma={Idioma}, pais={Pais}, rutas={Rutas}",
-            fuente.Nombre, fuente.UrlInicial, maxDepth, maxPages, fuente.Idioma, fuente.Pais,
-            rutasPermitidas.Count == 0 ? "(todo el host)" : string.Join(",", rutasPermitidas));
-
-        // La URL inicial debe estar dentro de host + rutas permitidas; si no, no se indexa nada.
-        if (!EsUrlPermitida(startUri, hostsPermitidos, rutasPermitidas))
-        {
-            _logger.LogWarning("Fuente '{Nombre}': urlInicial fuera de hostPermitidos/rutasPermitidas; no se indexa nada.", fuente.Nombre);
-            return;
-        }
-
-        // Cola de URLs (con profundidad) y visitadas en esta ejecución de la fuente.
-        var queue = new Queue<(string Url, int Depth)>();
-        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var normalizedStart = NormalizeUrl(fuente.UrlInicial);
-        queue.Enqueue((normalizedStart, 0));
-        visited.Add(normalizedStart);
+        // Contadores de la fuente.
+        var pagesProcessed = 0;
+        var robotsSkipped = 0;
+        var indexed = 0;
+        var noMeta = 0;
+        var errors = 0;
+        var sitemapCount = 0;
 
         // robots.txt: matcher propio + caché por host (compartida entre fuentes).
         async Task<RobotsMatcher> GetRobotsAsync(Uri pageUri)
@@ -247,18 +237,82 @@ public class ScrapingWorker : BackgroundService
             await Task.Delay(TimeSpan.FromSeconds(seconds), ct);
         }
 
-        var pagesProcessed = 0;
-        var robotsSkipped = 0;
-        var indexed = 0;
-        var noMeta = 0;
-        var errors = 0;
-
-        while (queue.Count > 0 && !stoppingToken.IsCancellationRequested && pagesProcessed < maxPages)
+        // Persiste el ancla (sin HTML) + Article para una URL con metadatos válidos.
+        // publishedAt: lastmod del sitemap (si vino), guardado en ScrapedPage.PublishedAt.
+        async Task PersistirAsync(string currentUrl,
+            (string Title, string Snippet, string Language, string? MainTopic) meta, DateTime? publishedAt)
         {
-            var (currentUrl, depth) = queue.Dequeue();
+            // Persistencia estilo índice (Opción A):
+            //  - ScrapedPage = ANCLA de URL: solo Url + SourceSiteId; ContentRaw = "" (jamás el HTML).
+            //  - Article = metadatos, colgado del ancla por ScrapedPageId; hereda la fuente vía el ancla.
+            var anchor = await db.ScrapedPages
+                .FirstOrDefaultAsync(p => p.Url == currentUrl && p.SourceSiteId == site.SourceSiteId, stoppingToken);
 
+            if (anchor == null)
+            {
+                anchor = new ScrapedPage
+                {
+                    SourceSiteId = site.SourceSiteId,
+                    Url = currentUrl,
+                    TitleRaw = null,
+                    ContentRaw = string.Empty,   // ANCLA: nunca se guarda el HTML del recurso externo
+                    ContentText = null,
+                    Language = meta.Language,
+                    PublishedAt = publishedAt,   // lastmod del sitemap (uso futuro: re-indexar solo lo cambiado)
+                    ScrapedAt = DateTime.UtcNow,
+                    Status = "INDEXED"
+                };
+                db.ScrapedPages.Add(anchor);
+                await db.SaveChangesAsync(stoppingToken); // obtener ScrapedPageId
+            }
+            else
+            {
+                anchor.ScrapedAt = DateTime.UtcNow;
+                anchor.Status = "INDEXED";
+                anchor.Language = meta.Language;
+                anchor.ErrorMessage = null;
+                if (publishedAt.HasValue) anchor.PublishedAt = publishedAt;
+                await db.SaveChangesAsync(stoppingToken);
+            }
+
+            // Upsert del Article (dedup por URL vía el ancla): actualizar metadatos, no duplicar.
+            var article = await db.Articles
+                .FirstOrDefaultAsync(a => a.ScrapedPageId == anchor.ScrapedPageId, stoppingToken);
+
+            if (article == null)
+            {
+                article = new Article
+                {
+                    ScrapedPageId = anchor.ScrapedPageId,
+                    NormalizedTitle = meta.Title,
+                    NormalizedContent = meta.Snippet,   // SOLO meta-descripción
+                    Language = meta.Language,
+                    MainTopic = meta.MainTopic,
+                    CreatedAt = DateTime.UtcNow,
+                    IsActive = true
+                };
+                db.Articles.Add(article);
+            }
+            else
+            {
+                article.NormalizedTitle = meta.Title;
+                article.NormalizedContent = meta.Snippet;
+                article.Language = meta.Language;
+                article.MainTopic = meta.MainTopic;
+                article.UpdatedAt = DateTime.UtcNow;
+                article.IsActive = true;
+            }
+            await db.SaveChangesAsync(stoppingToken);
+
+            _logger.LogInformation("Indexado {Url} -> ArticleId {Id}", currentUrl, article.ArticleId);
+        }
+
+        // Procesa UNA URL con el flujo YA VALIDADO: robots + descarga(charset) + filtro meta + persistencia.
+        // Devuelve el HTML (para descubrir enlaces en modo BFS) o "" si se saltó/erró. Incrementa contadores.
+        async Task<string> ProcesarUrlAsync(string currentUrl, DateTime? lastmod)
+        {
             if (!Uri.TryCreate(currentUrl, UriKind.Absolute, out var currentUri))
-                continue;
+                return string.Empty;
 
             // robots.txt: ¿está permitido acceder a esta URL para nuestro bot?
             var robots = await GetRobotsAsync(currentUri);
@@ -266,10 +320,10 @@ public class ScrapingWorker : BackgroundService
             {
                 _logger.LogInformation("robots.txt DISALLOW {Url} — se salta", currentUrl);
                 robotsSkipped++;
-                continue;
+                return string.Empty;
             }
 
-            _logger.LogInformation("Indexando {Url} (nivel {Depth})", currentUrl, depth);
+            _logger.LogInformation("Indexando {Url}", currentUrl);
 
             // Descargar la página EN MEMORIA (con detección de charset). El HTML NO se persiste.
             var (ok, html, error) = await DownloadHtmlAsync(httpClient, currentUrl, stoppingToken);
@@ -278,15 +332,13 @@ public class ScrapingWorker : BackgroundService
                 _logger.LogWarning("Error descargando {Url}: {Error}", currentUrl, error);
                 errors++;
                 await DelayPoliteAsync(robots, stoppingToken);
-                continue;
+                return string.Empty;
             }
 
             // Extraer SOLO metadatos (nunca el cuerpo del artículo).
             var meta = ExtractMetadata(html, currentUrl, defaultLanguage);
 
             // FILTRO: solo se indexan páginas con meta-description (contenido real).
-            // Las páginas sin meta (secciones/listados) NO se indexan, pero SÍ se visitan
-            // para seguir descubriendo enlaces (el BFS continúa; ver extracción de enlaces abajo).
             if (string.IsNullOrWhiteSpace(meta.Snippet))
             {
                 _logger.LogInformation("Sin meta-description, no se indexa: {Url}", currentUrl);
@@ -294,102 +346,107 @@ public class ScrapingWorker : BackgroundService
             }
             else
             {
-                // Persistencia estilo índice (Opción A):
-                //  - ScrapedPage = ANCLA de URL: solo Url + SourceSiteId; ContentRaw = "" (jamás el HTML).
-                //  - Article = metadatos, colgado del ancla por ScrapedPageId; hereda la fuente vía el ancla.
-                var anchor = await db.ScrapedPages
-                    .FirstOrDefaultAsync(p => p.Url == currentUrl && p.SourceSiteId == site.SourceSiteId, stoppingToken);
-
-                if (anchor == null)
-                {
-                    anchor = new ScrapedPage
-                    {
-                        SourceSiteId = site.SourceSiteId,
-                        Url = currentUrl,
-                        TitleRaw = null,
-                        ContentRaw = string.Empty,   // ANCLA: nunca se guarda el HTML del recurso externo
-                        ContentText = null,
-                        Language = meta.Language,
-                        ScrapedAt = DateTime.UtcNow,
-                        Status = "INDEXED"
-                    };
-                    db.ScrapedPages.Add(anchor);
-                    await db.SaveChangesAsync(stoppingToken); // obtener ScrapedPageId
-                }
-                else
-                {
-                    anchor.ScrapedAt = DateTime.UtcNow;
-                    anchor.Status = "INDEXED";
-                    anchor.Language = meta.Language;
-                    anchor.ErrorMessage = null;
-                    await db.SaveChangesAsync(stoppingToken);
-                }
-
-                // Upsert del Article (dedup por URL vía el ancla): actualizar metadatos, no duplicar.
-                var article = await db.Articles
-                    .FirstOrDefaultAsync(a => a.ScrapedPageId == anchor.ScrapedPageId, stoppingToken);
-
-                if (article == null)
-                {
-                    article = new Article
-                    {
-                        ScrapedPageId = anchor.ScrapedPageId,
-                        NormalizedTitle = meta.Title,
-                        NormalizedContent = meta.Snippet,   // SOLO meta-descripción
-                        Language = meta.Language,
-                        MainTopic = meta.MainTopic,
-                        CreatedAt = DateTime.UtcNow,
-                        IsActive = true
-                    };
-                    db.Articles.Add(article);
-                }
-                else
-                {
-                    article.NormalizedTitle = meta.Title;
-                    article.NormalizedContent = meta.Snippet;
-                    article.Language = meta.Language;
-                    article.MainTopic = meta.MainTopic;
-                    article.UpdatedAt = DateTime.UtcNow;
-                    article.IsActive = true;
-                }
-                await db.SaveChangesAsync(stoppingToken);
-
-                _logger.LogInformation("Indexado {Url} -> ArticleId {Id}", currentUrl, article.ArticleId);
+                await PersistirAsync(currentUrl, meta, lastmod);
                 indexed++;
             }
 
             pagesProcessed++;
-
-            // Si aún no llegamos a profundidad máxima, extraer nuevos enlaces (también en páginas sin meta).
-            if (depth < maxDepth)
-            {
-                foreach (var link in HtmlLinkExtractor.ExtractLinks(html, baseUri))
-                {
-                    if (!Uri.TryCreate(link, UriKind.Absolute, out var linkUri))
-                        continue;
-
-                    // Solo host permitido Y (si aplica) dentro de las rutasPermitidas de la fuente.
-                    // Fuera de la sección permitida: no se sigue NI se indexa (se ignora por completo).
-                    if (!EsUrlPermitida(linkUri, hostsPermitidos, rutasPermitidas))
-                        continue;
-
-                    var normalized = NormalizeUrl(linkUri.ToString());
-
-                    if (visited.Contains(normalized))
-                        continue;
-
-                    visited.Add(normalized);
-                    queue.Enqueue((normalized, depth + 1));
-                }
-            }
-
             // Pausa entre peticiones (respeta Crawl-delay de robots.txt si existe).
             await DelayPoliteAsync(robots, stoppingToken);
+            return html;
         }
 
         _logger.LogInformation(
-            "Fuente '{Nombre}': {Indexed} indexadas (con meta), {NoMeta} sin meta saltadas, {Robots} por robots, {Errors} errores",
-            fuente.Nombre, indexed, noMeta, robotsSkipped, errors);
+            "Fuente '{Nombre}': inicio={Start}, maxDepth={MaxDepth}, maxPages={MaxPages}, idioma={Idioma}, pais={Pais}, rutas={Rutas}",
+            fuente.Nombre, fuente.UrlInicial, maxDepth, maxPages, fuente.Idioma, fuente.Pais,
+            rutasPermitidas.Count == 0 ? "(todo el host)" : string.Join(",", rutasPermitidas));
+
+        // --- Descubrimiento de URLs: sitemap (si aplica) o BFS de enlaces (fallback) ---
+        List<SitemapReader.SitemapUrl>? sitemapUrls = null;
+        if (fuente.UsarSitemap)
+        {
+            var reader = new SitemapReader(httpClient, _logger);
+            var sitemapUrl = await reader.DescubrirSitemapAsync(fuente.UrlInicial, fuente.SitemapUrl, stoppingToken);
+            if (sitemapUrl != null)
+            {
+                _logger.LogInformation("Fuente '{Nombre}': usando sitemap {Sitemap}", fuente.Nombre, sitemapUrl);
+                sitemapUrls = await reader.LeerUrlsAsync(sitemapUrl, fuente.ExcluirSitemaps ?? new List<string>(), stoppingToken);
+                sitemapCount = sitemapUrls.Count;
+            }
+            else
+            {
+                _logger.LogWarning("Fuente '{Nombre}': no se encontró sitemap; se usa BFS de enlaces.", fuente.Nombre);
+            }
+        }
+
+        if (sitemapUrls != null && sitemapUrls.Count > 0)
+        {
+            // MODO SITEMAP: la lista del sitemap reemplaza el BFS. No se descubren enlaces.
+            _logger.LogInformation("Fuente '{Nombre}': sitemap con {N} URLs", fuente.Nombre, sitemapCount);
+            var vistas = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in sitemapUrls)
+            {
+                if (stoppingToken.IsCancellationRequested || pagesProcessed >= maxPages) break;
+
+                if (!Uri.TryCreate(item.Loc, UriKind.Absolute, out var uri)) continue;
+                // Respetar hostPermitidos (+ rutasPermitidas si la fuente las define).
+                if (!EsUrlPermitida(uri, hostsPermitidos, rutasPermitidas)) continue;
+
+                var normalized = NormalizeUrl(item.Loc);
+                if (!vistas.Add(normalized)) continue;
+
+                await ProcesarUrlAsync(normalized, item.LastMod);
+            }
+        }
+        else
+        {
+            // FALLBACK: BFS de enlaces (comportamiento anterior). La urlInicial debe estar dentro de host + rutas.
+            if (!EsUrlPermitida(startUri, hostsPermitidos, rutasPermitidas))
+            {
+                _logger.LogWarning("Fuente '{Nombre}': urlInicial fuera de hostPermitidos/rutasPermitidas; no se indexa nada.", fuente.Nombre);
+                return;
+            }
+
+            var queue = new Queue<(string Url, int Depth)>();
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var normalizedStart = NormalizeUrl(fuente.UrlInicial);
+            queue.Enqueue((normalizedStart, 0));
+            visited.Add(normalizedStart);
+
+            while (queue.Count > 0 && !stoppingToken.IsCancellationRequested && pagesProcessed < maxPages)
+            {
+                var (currentUrl, depth) = queue.Dequeue();
+
+                var html = await ProcesarUrlAsync(currentUrl, null);
+                if (html.Length == 0) continue; // saltada/errada: no se descubren enlaces
+
+                // Si aún no llegamos a profundidad máxima, extraer nuevos enlaces (también en páginas sin meta).
+                if (depth < maxDepth)
+                {
+                    foreach (var link in HtmlLinkExtractor.ExtractLinks(html, baseUri))
+                    {
+                        if (!Uri.TryCreate(link, UriKind.Absolute, out var linkUri))
+                            continue;
+
+                        // Solo host permitido Y (si aplica) dentro de las rutasPermitidas de la fuente.
+                        if (!EsUrlPermitida(linkUri, hostsPermitidos, rutasPermitidas))
+                            continue;
+
+                        var normalized = NormalizeUrl(linkUri.ToString());
+
+                        if (visited.Contains(normalized))
+                            continue;
+
+                        visited.Add(normalized);
+                        queue.Enqueue((normalized, depth + 1));
+                    }
+                }
+            }
+        }
+
+        _logger.LogInformation(
+            "Fuente '{Nombre}': sitemap con {N} URLs, {P} indexadas (con meta), {Q} sin meta, {R} por robots, {E} errores",
+            fuente.Nombre, sitemapCount, indexed, noMeta, robotsSkipped, errors);
     }
 
     // ¿El host de la URL está en la allow-list de la fuente? (el JSON lista www y no-www; el strip es red de seguridad)
