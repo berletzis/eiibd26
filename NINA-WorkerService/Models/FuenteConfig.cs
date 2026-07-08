@@ -33,4 +33,9 @@ public sealed class FuenteConfig
     public int MaxDepth { get; set; } = 10;
     public int MaxPages { get; set; } = 3000;
     public bool Activo { get; set; }
+
+    // Sitemap como fuente de URLs (v2). Si usarSitemap, la lista del sitemap reemplaza el BFS.
+    public bool UsarSitemap { get; set; } = true;
+    public string? SitemapUrl { get; set; }              // opcional; si no, se busca en robots.txt / rutas estándar
+    public List<string> ExcluirSitemaps { get; set; } = new(); // sub-sitemaps a excluir por nombre (substring)
 }
