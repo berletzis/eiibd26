@@ -4,7 +4,7 @@
 > Cobertura para retomar en cualquier sesión futura sin perder contexto: qué está
 > hecho, qué falta, qué se decidió y por qué, y qué **NO** hacer.
 >
-> Última actualización: 2026-07-08 · Fase 1 completada (commits `f7cae47`, `d300426`).
+> Última actualización: 2026-07-08 · Fases 1 y 2 completadas. Próximo: Fase 3 (similitud).
 > Documento hermano: [`vocabulario-conceptos-propuesta.md`](./vocabulario-conceptos-propuesta.md).
 
 ---
@@ -87,10 +87,31 @@ Commits: **`f7cae47`** (motor base) + **`d300426`** (vocabulario ampliado).
   contaba "crohn"** porque las condiciones no estaban en el vocabulario. Resuelto con
   los conceptos tipo-3.
 
-### ⏳ Fase 2 — Firmar externos (POR INICIAR)
+### ✅ Fase 2 — Firmar externos (COMPLETADA)
 
-Trae artículos del crawler (Worker/NINA), traduce si están en inglés, firma y guarda
-**solo la firma**. Tiene **decisiones de arquitectura pendientes** (ver sección 5).
+Commits: **`2879ff7`** (2A biblioteca) · **`8cce074`** + **`f19338a`** (2B español + panel) · **`72ebb7c`** (2C traducción).
+
+- **2A — Biblioteca compartida `eiibd26.Firma`** (net8.0, sin EF): lógica pura
+  (`FirmaCalculator`: `Normalizar`/`StripHtml`/`CompilarVocabulario`/`Calcular` +
+  `FirmaDto` + `VocabularioTermino`). El Web `FirmaService` delega en ella.
+  Verificado: 8/8 firmas byte-idénticas old-vs-new → las 105 propias no cambian.
+- **2B — Worker firma español (funeiico):** entidad read-only `GlossaryTerm`, lee el
+  vocabulario (mismo filtro que el Web), extrae texto principal con HtmlAgilityPack
+  (excluye `script/style/nav/header/footer/aside`), firma con la biblioteca y guarda
+  solo la firma en `ScrapedPage.Firma` + `FirmaCalculadaEn`. Optimización lastmod
+  (no re-firma si `PublishedAt` no cambió). **Validado: 68 funeiico firmados**,
+  formato correcto, `AnclasConHtml=0`. Panel admin read-only en el Web:
+  `/Identity/Admin/Contenidos/FirmasExternas`.
+- **2C — Traducción EN→ES (mycrohns):** `AnthropicTranslationService` (cliente HTTP
+  propio, replica el patrón del Web; **NO** toca NINA/GRIS). Inglés: traduce en
+  memoria → firma la traducción → guarda solo la firma; texto y traducción se
+  descartan. Optimización lastmod aplica igual.
+
+**Esquema (ejecutar):** `SQL/alter-scrapedpage-firma.sql` (Firma + FirmaCalculadaEn en ScrapedPage).
+
+**Config del Worker (2C):** sección `Anthropic` en `NINA-WorkerService/appsettings.json`
+(en disco, **no versionada** por sparse-checkout — contiene secretos). La `Anthropic:ApiKey`
+va en **user-secrets/env** del Worker, nunca hardcodeada. Sin key, el inglés se deja sin firmar.
 
 ### ⏳ Fase 3 — Cálculo de similitud (PENDIENTE)
 
@@ -105,17 +126,20 @@ Similitud de coseno propio-vs-externo (pre-filtro Jaccard) → persistir en una 
 
 ---
 
-## 5. Decisiones de arquitectura PENDIENTES para Fase 2 (preguntas abiertas)
+## 5. Decisiones de arquitectura de Fase 2 (RESUELTAS)
 
-1. **¿Dónde se firman los externos: Worker (EF10) o Web (EF8)?**
-   Tensión real: el **vocabulario** vive en el glosario (BD del Web) y **Anthropic**
-   (traducción) está cableado en el Web, **no** en el Worker. Hay **desajuste
-   EF8 (Web) / EF10 (Worker)** que hay que resolver.
-2. **¿Cómo comparte el Worker el vocabulario de 207 términos?** (query directa a la
-   BD del Web, endpoint interno, copia cacheada, etc.)
-3. **Umbral de similitud** para considerar "cubierto" / "duplicado".
-4. **Optimización:** no re-firmar externos cuyo `lastmod`/`PublishedAt` **no cambió**
-   (evitar traducir+firmar de nuevo lo mismo, ahorra llamadas a Anthropic).
+1. **¿Dónde se firman los externos?** → En el **Worker** (net10/EF10), en la misma
+   pasada del crawl. El desajuste EF8/EF10 se evitó con una **biblioteca compartida
+   net8.0 sin EF** (`eiibd26.Firma`) que ambos referencian.
+2. **¿Cómo comparte el Worker el vocabulario?** → Entidad **read-only `GlossaryTerm`**
+   en el `Eiibd26Context` del Worker (misma BD), mismo filtro que el Web.
+3. **Traducción EN→ES** → cliente Anthropic **propio** del Worker (patrón del Web,
+   key en config del Worker), sin tocar NINA/GRIS.
+4. **Optimización lastmod** → implementada: no re-firma/re-traduce si `PublishedAt`
+   no cambió.
+
+**Pendiente para Fase 3:** el **umbral de similitud** para considerar "cubierto" /
+"duplicado" (se define al implementar el cálculo coseno).
 
 ---
 
