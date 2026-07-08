@@ -246,7 +246,7 @@ public class ScrapingWorker : BackgroundService
         // Persiste el ancla (sin HTML) + Article para una URL con metadatos válidos.
         // publishedAt: lastmod del sitemap (si vino), guardado en ScrapedPage.PublishedAt.
         async Task PersistirAsync(string currentUrl,
-            (string Title, string Snippet, string Language, string? MainTopic) meta, DateTime? publishedAt)
+            (string Title, string Snippet, string Language, string? MainTopic, string SnippetSource) meta, DateTime? publishedAt)
         {
             // Persistencia estilo índice (Opción A):
             //  - ScrapedPage = ANCLA de URL: solo Url + SourceSiteId; ContentRaw = "" (jamás el HTML).
@@ -310,7 +310,7 @@ public class ScrapingWorker : BackgroundService
             }
             await db.SaveChangesAsync(stoppingToken);
 
-            _logger.LogInformation("Indexado {Url} -> ArticleId {Id}", currentUrl, article.ArticleId);
+            _logger.LogInformation("Indexado ({Origen}) {Url} -> ArticleId {Id}", meta.SnippetSource, currentUrl, article.ArticleId);
         }
 
         // Procesa UNA URL con el flujo YA VALIDADO: robots + descarga(charset) + filtro meta + persistencia.
@@ -347,7 +347,7 @@ public class ScrapingWorker : BackgroundService
             // FILTRO: solo se indexan páginas con meta-description (contenido real).
             if (string.IsNullOrWhiteSpace(meta.Snippet))
             {
-                _logger.LogInformation("Sin meta-description, no se indexa: {Url}", currentUrl);
+                _logger.LogInformation("Sin meta ni cuerpo útil, no se indexa: {Url}", currentUrl);
                 noMeta++;
             }
             else
@@ -563,8 +563,22 @@ public class ScrapingWorker : BackgroundService
         catch { return false; }
     }
 
-    // Extrae SOLO metadatos de la página. NUNCA devuelve el cuerpo del artículo.
-    private static (string Title, string Snippet, string Language, string? MainTopic) ExtractMetadata(
+    // Recorta un texto a un snippet corto (máx 160 chars ESTRICTO), cortando en límite de palabra
+    // y agregando "…" si se truncó. Colapsa espacios. Es un fragmento descriptivo, jamás el cuerpo.
+    private static string RecortarSnippet(string text, int max = 160)
+    {
+        text = Regex.Replace(text, "\\s+", " ").Trim();
+        if (text.Length <= max) return text;
+        var limite = max - 1; // reservar 1 char para el "…"
+        var cut = text.Substring(0, limite);
+        var lastSpace = cut.LastIndexOf(' ');
+        if (lastSpace > 0) cut = cut.Substring(0, lastSpace);
+        return cut.TrimEnd() + "…";
+    }
+
+    // Extrae SOLO metadatos + un snippet corto (meta-description o, si no hay, el primer párrafo
+    // real del cuerpo, máx 160 chars). NUNCA devuelve el cuerpo del artículo.
+    private static (string Title, string Snippet, string Language, string? MainTopic, string SnippetSource) ExtractMetadata(
         string html, string currentUrl, string defaultLanguage)
     {
         var doc = new HtmlDocument();
@@ -586,8 +600,44 @@ public class ScrapingWorker : BackgroundService
         title = string.IsNullOrWhiteSpace(title) ? currentUrl : HtmlEntity.DeEntitize(title).Trim();
         if (title.Length > 500) title = title.Substring(0, 500);
 
-        // Snippet: SOLO meta description / og:description. Si no hay, "" (jamás el cuerpo del artículo).
-        var snippet = Meta("name", "description") ?? Meta("property", "og:description") ?? string.Empty;
+        // Snippet: meta-description / og:description; si no hay, el primer párrafo real del cuerpo.
+        // Siempre limitado a 160 chars (RecortarSnippet); jamás se guarda más que ese fragmento.
+        string? PrimerParrafoSustancial()
+        {
+            var ps = root.SelectNodes(
+                "//p[not(ancestor::nav) and not(ancestor::header) and not(ancestor::footer) and not(ancestor::aside)]");
+            if (ps == null) return null;
+            foreach (var p in ps)
+            {
+                var txt = HtmlEntity.DeEntitize(p.InnerText ?? string.Empty);
+                txt = Regex.Replace(txt, "\\s+", " ").Trim();
+                if (txt.Length >= 40) return txt; // texto sustancial (ignora menús/labels/vacíos)
+            }
+            return null;
+        }
+
+        string snippet;
+        string snippetSource;
+        var metaDesc = Meta("name", "description") ?? Meta("property", "og:description");
+        if (!string.IsNullOrWhiteSpace(metaDesc))
+        {
+            snippet = RecortarSnippet(metaDesc);
+            snippetSource = "meta-description";
+        }
+        else
+        {
+            var parrafo = PrimerParrafoSustancial();
+            if (!string.IsNullOrWhiteSpace(parrafo))
+            {
+                snippet = RecortarSnippet(parrafo);
+                snippetSource = "cuerpo";
+            }
+            else
+            {
+                snippet = string.Empty;      // ni meta ni cuerpo útil -> no se indexará
+                snippetSource = string.Empty;
+            }
+        }
 
         // Idioma: <html lang> | og:locale | default de la fuente.
         var lang = root.SelectSingleNode("//html")?.GetAttributeValue("lang", string.Empty);
@@ -600,6 +650,6 @@ public class ScrapingWorker : BackgroundService
         var mainTopic = Meta("property", "og:type");
         if (mainTopic != null && mainTopic.Length > 200) mainTopic = mainTopic.Substring(0, 200);
 
-        return (title, snippet, lang, mainTopic);
+        return (title, snippet, lang, mainTopic, snippetSource);
     }
 }
