@@ -235,7 +235,7 @@ Utilidad de escritorio WinForms de un solo botón que **exporta miembros de una 
 
 | Secreto | Estado |
 |---|---|
-| Cadena de conexión con cuenta **`sa`** + contraseña → `132.148.74.136\ybridio`, DB `eiibd26` | **EXPUESTO** |
+| Cadena de conexión con cuenta **`sa`** + contraseña → `[servidor-redactado]`, DB `eiibd26` | **EXPUESTO** |
 | `GoogleMaps:ApiKey` | EXPUESTO |
 | `SendGrid:ApiKey` | EXPUESTO |
 | `Twilio:AccountSid` + `AuthToken` | EXPUESTO |

@@ -1,7 +1,7 @@
 # AUDITORÍA DE BASE DE DATOS — eiibd26
 
 **Fecha:** 2026-07-07
-**Base:** `eiibd26` (SQL Server, producción — `132.148.74.136\ybridio`)
+**Base:** `eiibd26` (SQL Server, producción — `[servidor-redactado]`)
 **Alcance:** Solo lectura absoluta.
 
 > ## ⚠️ Estado de esta auditoría
