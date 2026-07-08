@@ -4,7 +4,7 @@
 > Cobertura para retomar en cualquier sesión futura sin perder contexto: qué está
 > hecho, qué falta, qué se decidió y por qué, y qué **NO** hacer.
 >
-> Última actualización: 2026-07-08 · Fases 1 y 2 completadas. Próximo: Fase 3 (similitud).
+> Última actualización: 2026-07-08 · Fases 1-3 completadas. Próximo: Fase 4 (vistas).
 > Documento hermano: [`vocabulario-conceptos-propuesta.md`](./vocabulario-conceptos-propuesta.md).
 
 ---
@@ -113,10 +113,25 @@ Commits: **`2879ff7`** (2A biblioteca) · **`8cce074`** + **`f19338a`** (2B espa
 (en disco, **no versionada** por sparse-checkout — contiene secretos). La `Anthropic:ApiKey`
 va en **user-secrets/env** del Worker, nunca hardcodeada. Sin key, el inglés se deja sin firmar.
 
-### ⏳ Fase 3 — Cálculo de similitud (PENDIENTE)
+### ✅ Fase 3 — Cálculo de similitud (COMPLETADA)
 
-Similitud de coseno propio-vs-externo (pre-filtro Jaccard) → persistir en una tabla
-**`ArticleSimilarity`** (propioId, externoId, score, calculadoEn).
+Commits: **3A/3B** (servicio + esquema) · **3C** (job + panel).
+
+- **Tabla propia del Web `CoberturaSimilitud`** (NO se reusó `ArticleSimilarity` del
+  Worker: tenía FK a `Article` y no admitía ids de `contenidos` ni tipo de par).
+  Columnas: `AId` (propio), `BId` (propio o externo=`ScrapedPageId`), `TipoPar`
+  (1=propio-propio, 2=propio-externo), `Score`, `AFirmaEn`/`BFirmaEn` (incremental),
+  `CalculatedAt`. Índice único `(AId,BId,TipoPar)`. CREATE en
+  `SQL/create-coberturasimilitud.sql` (idempotente, lo ejecuta el usuario).
+- **`SimilitudService`:** deserializa firmas → vector disperso; **pre-filtro Jaccard
+  0.10** (reusa el patrón de `ContenidoCalidadService`/GRIS que evitó el GC thrashing);
+  **coseno** para los que pasan; guarda solo **coseno > 0.30**. Umbrales provisionales.
+- **Dirigida:** externo→propios + propios→propios (nunca externo-externo). Incremental
+  (salta pares cuya firma no cambió). Por lotes (flush 1000) para no reventar memoria.
+- **Lee `ScrapedPage` del Worker en read-only** (`ScrapedPageRef` en el
+  `ApplicationDbContext`); no la modifica.
+- **`SimilitudJob`** (Hangfire) + panel `/Identity/Admin/Contenidos/Similitud`:
+  botones Calcular / Recalcular total, progreso con polling y top-pares por score.
 
 ### ⏳ Fase 4 — Vistas (PENDIENTE)
 
