@@ -113,6 +113,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
 
     // Motor de Cobertura — Fase 3
     public DbSet<eiibd26.Models.Cobertura.CoberturaSimilitud> CoberturaSimilitudes { get; set; }
+    // Motor de Cobertura — Fase 5 (embeddings): tabla paralela de similitud por coseno denso.
+    public DbSet<eiibd26.Models.Cobertura.CoberturaSimilitudEmbedding> CoberturaSimilitudesEmbedding { get; set; }
     // Read-only: firma de externos (tabla ScrapedPage del Worker). El Web no la escribe.
     public DbSet<eiibd26.Models.Cobertura.ScrapedPageRef> ScrapedPagesRef { get; set; }
     // Read-only: sitios fuente (tabla SourceSite del Worker) — solo para mostrar el nombre.
@@ -127,6 +129,14 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
         {
             e.ToTable("CoberturaSimilitud");
             e.Property(x => x.Score).HasPrecision(5, 4);
+            e.HasIndex(x => new { x.AId, x.BId, x.TipoPar }).IsUnique();
+        });
+
+        // Motor de Cobertura — Fase 5: similitud por embeddings (tabla paralela, SQL directo).
+        builder.Entity<eiibd26.Models.Cobertura.CoberturaSimilitudEmbedding>(e =>
+        {
+            e.ToTable("CoberturaSimilitudEmbedding");
+            e.Property(x => x.Score).HasPrecision(6, 5);
             e.HasIndex(x => new { x.AId, x.BId, x.TipoPar }).IsUnique();
         });
 

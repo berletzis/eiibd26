@@ -414,6 +414,10 @@ try
     builder.Services.AddScoped<eiibd26.Services.Cobertura.IEmbeddingService, eiibd26.Services.Cobertura.EmbeddingService>();
     builder.Services.AddScoped<eiibd26.Jobs.EmbeddingContenidoJob>();
 
+    // Motor de Cobertura — Fase 5 (embeddings): similitud por coseno denso.
+    builder.Services.AddScoped<eiibd26.Services.Cobertura.ISimilitudEmbeddingService, eiibd26.Services.Cobertura.SimilitudEmbeddingService>();
+    builder.Services.AddScoped<eiibd26.Jobs.SimilitudEmbeddingJob>();
+
     var hangfireConn = builder.Configuration.GetConnectionString("DefaultConnection");
     builder.Services.AddHangfire(cfg => cfg
         .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)

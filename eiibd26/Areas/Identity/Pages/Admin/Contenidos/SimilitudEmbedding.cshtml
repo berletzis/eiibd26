@@ -1,0 +1,179 @@
+@page
+@model eiibd26.Areas.Identity.Pages.Admin.Contenidos.SimilitudEmbeddingModel
+@{
+    ViewData["Title"] = "Similitud por embeddings";
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">🧠🔗 Similitud por embeddings</h1>
+            <p class="text-muted mb-0">
+                Motor de Cobertura · Fase 5 — coseno denso sobre embeddings Voyage (sin pre-filtros).
+                Dirigida: externo→propios y propios→propios.
+            </p>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle"></i> @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (!Model.TablaDisponible)
+    {
+        <div class="alert alert-warning" role="alert">
+            <i class="bi bi-exclamation-triangle"></i> @Model.Aviso
+        </div>
+    }
+    else
+    {
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <p class="text-muted mb-1 small">Comparaciones estimadas</p>
+                        <h3 class="mb-0">@Model.TotalEstimado.ToString("N0")</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <p class="text-muted mb-1 small">Pares guardados (&gt; 0.40)</p>
+                        <h3 class="mb-0 text-success" id="statGuardados">@Model.Guardados.ToString("N0")</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <p class="text-muted mb-1 small">Último cálculo</p>
+                        <h6 class="mb-0">@(Model.Ultimo?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0">Progreso de la corrida</h5>
+                    <span class="badge bg-secondary" id="progressEstado">inactivo</span>
+                </div>
+                <div class="progress mb-2" style="height: 22px;" role="progressbar" aria-label="Progreso de similitud por embeddings">
+                    <div id="progressBar" class="progress-bar bg-info" style="width: 0%;">0%</div>
+                </div>
+                <small class="text-muted" id="progressTexto">Sin corrida activa.</small>
+
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    <form method="post" asp-page-handler="Calcular" class="d-inline">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-diagram-3"></i> Calcular similitud
+                        </button>
+                    </form>
+                    <form method="post" asp-page-handler="Reset" class="d-inline"
+                          onsubmit="return confirm('Esto BORRA todos los pares de embeddings y recalcula desde cero. ¿Continuar?');">
+                        <button type="submit" class="btn btn-outline-danger">
+                            <i class="bi bi-exclamation-octagon"></i> Recalcular total
+                        </button>
+                    </form>
+                </div>
+                <small class="text-muted d-block mt-2">
+                    Requiere que los propios (panel Embeddings) y los externos (Worker) ya estén embebidos.
+                </small>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0">Top pares por score</h5>
+            </div>
+            <div class="card-body p-0">
+                @if (Model.TopPares.Count == 0)
+                {
+                    <div class="text-center py-5">
+                        <i class="bi bi-inbox display-1 text-muted"></i>
+                        <p class="text-muted mt-3">Aún no hay pares. Corre "Calcular similitud".</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="ps-4">Tipo</th>
+                                    <th>A (propio)</th>
+                                    <th>B</th>
+                                    <th class="text-end pe-4">Score</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var p in Model.TopPares)
+                                {
+                                    <tr>
+                                        <td class="ps-4">
+                                            @if (p.TipoPar == 2)
+                                            {
+                                                <span class="badge bg-primary">propio ↔ externo</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">propio ↔ propio</span>
+                                            }
+                                        </td>
+                                        <td><small>@p.ATitulo</small></td>
+                                        <td><small>@p.BEtiqueta</small></td>
+                                        <td class="text-end pe-4">
+                                            <span class="fw-bold">@p.Score.ToString("0.00000")</span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const bar = document.getElementById("progressBar");
+            const estado = document.getElementById("progressEstado");
+            const texto = document.getElementById("progressTexto");
+            if (!bar) return;
+
+            async function poll() {
+                try {
+                    const r = await fetch("?handler=Progreso", { headers: { "X-Requested-With": "XMLHttpRequest" } });
+                    if (!r.ok) return;
+                    const d = await r.json();
+                    bar.style.width = d.pct + "%";
+                    bar.textContent = d.pct + "%";
+                    if (d.corriendo) {
+                        estado.className = "badge bg-info";
+                        estado.textContent = "corriendo";
+                        texto.textContent = d.procesados.toLocaleString() + " / " + d.total.toLocaleString() +
+                            " comparaciones · " + d.guardados.toLocaleString() + " guardados";
+                    } else {
+                        estado.className = "badge bg-secondary";
+                        estado.textContent = "inactivo";
+                        if (d.total > 0) {
+                            texto.textContent = "Última corrida: " + d.procesados.toLocaleString() + " / " +
+                                d.total.toLocaleString() + " comparaciones.";
+                        }
+                    }
+                } catch (e) { /* reintenta */ }
+            }
+            setInterval(poll, 3000);
+            poll();
+        })();
+    </script>
+}

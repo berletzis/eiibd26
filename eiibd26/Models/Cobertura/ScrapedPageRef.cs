@@ -17,5 +17,8 @@ namespace eiibd26.Models.Cobertura
         public string Language { get; set; } = "es";
         public string? Firma { get; set; }
         public DateTime? FirmaCalculadaEn { get; set; }
+        /// <summary>Embedding del externo (JSON de floats), escrito por el Worker. El Web solo lo lee.</summary>
+        public string? Embedding { get; set; }
+        public DateTime? EmbeddingCalculadoEn { get; set; }
     }
 }
