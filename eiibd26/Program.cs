@@ -390,6 +390,26 @@ try
     // Motor de Cobertura — Fase 4: vistas paciente + admin (solo lectura)
     builder.Services.AddScoped<eiibd26.Services.Cobertura.ICoberturaVistaService, eiibd26.Services.Cobertura.CoberturaVistaService>();
 
+    // Motor de Cobertura — Fase 5 (embeddings): cliente Voyage compartido (eiibd26.Voyage).
+    // Key en config (user-secrets/env, sección "Voyage"), NUNCA hardcodeada. Sin key → Habilitado=false.
+    builder.Services.AddSingleton<eiibd26.Voyage.IVoyageEmbeddingClient>(sp =>
+    {
+        var cfg = builder.Configuration.GetSection("Voyage");
+        var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("Voyage");
+        var opts = new eiibd26.Voyage.VoyageOptions
+        {
+            ApiKey = cfg["ApiKey"],
+            Model = cfg["Model"] ?? "voyage-4-large",
+            BaseUrl = cfg["BaseUrl"] ?? "https://api.voyageai.com/v1",
+            InputType = cfg["InputType"] ?? "document",
+            OutputDimension = cfg.GetValue<int?>("OutputDimension"),
+            TimeoutSeconds = cfg.GetValue<int?>("TimeoutSeconds") ?? 60,
+            MaxRetries = cfg.GetValue<int?>("MaxRetries") ?? 5,
+            Warn = msg => logger.LogWarning("{VoyageMsg}", msg)
+        };
+        return new eiibd26.Voyage.VoyageEmbeddingClient(opts);
+    });
+
     var hangfireConn = builder.Configuration.GetConnectionString("DefaultConnection");
     builder.Services.AddHangfire(cfg => cfg
         .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
