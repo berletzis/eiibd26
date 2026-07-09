@@ -1,0 +1,149 @@
+@page
+@model eiibd26.Areas.Identity.Pages.Admin.Contenidos.CoberturaModel
+@{
+    ViewData["Title"] = "Cobertura de temas";
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">🗺️ Cobertura de temas</h1>
+            <p class="text-muted mb-0">
+                Motor de Cobertura · Fase 4 — cada tema externo escaneado y su mejor artículo propio similar.
+                Los <strong>huecos</strong> (sin match) son oportunidades de contenido nuevo. Solo cuenta el lado propio como artículo real.
+            </p>
+        </div>
+    </div>
+
+    @if (!Model.TablaDisponible)
+    {
+        <div class="alert alert-warning" role="alert">
+            <i class="bi bi-exclamation-triangle"></i> @Model.Aviso
+        </div>
+    }
+    else
+    {
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <p class="text-muted mb-1 small">Temas externos</p>
+                        <h3 class="mb-0">@Model.Total.ToString("N0")</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <p class="text-muted mb-1 small">Cubiertos (&ge; 60%)</p>
+                        <h3 class="mb-0 text-success">@Model.Cubiertos.ToString("N0")</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <p class="text-muted mb-1 small">Débiles (50–60%)</p>
+                        <h3 class="mb-0 text-warning">@Model.Debiles.ToString("N0")</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <p class="text-muted mb-1 small">Huecos (sin match)</p>
+                        <h3 class="mb-0 text-danger">@Model.Huecos.ToString("N0")</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="btn-group mb-3" role="group" aria-label="Orden de la tabla">
+            <a asp-page="Cobertura" asp-route-orden="cubiertos"
+               class="btn btn-sm @(Model.Orden == "huecos" ? "btn-outline-secondary" : "btn-secondary")">
+                <i class="bi bi-check-circle"></i> Cubiertos primero
+            </a>
+            <a asp-page="Cobertura" asp-route-orden="huecos"
+               class="btn btn-sm @(Model.Orden == "huecos" ? "btn-danger" : "btn-outline-danger")">
+                <i class="bi bi-lightbulb"></i> Huecos primero
+            </a>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                @if (Model.Total == 0)
+                {
+                    <div class="text-center py-5">
+                        <i class="bi bi-inbox display-1 text-muted"></i>
+                        <p class="text-muted mt-3">No hay temas externos con firma. Firma externos y calcula similitud primero.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="ps-4">Tema externo</th>
+                                    <th>Sitio</th>
+                                    <th class="text-center">Estado</th>
+                                    <th class="text-end">Similitud</th>
+                                    <th class="pe-4">Mejor artículo propio</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var t in Model.Temas)
+                                {
+                                    <tr>
+                                        <td class="ps-4">
+                                            <a href="@t.Url" target="_blank" rel="noopener nofollow" title="Abrir el original (nueva pestaña)">
+                                                @t.Titulo <i class="bi bi-box-arrow-up-right small"></i>
+                                            </a>
+                                        </td>
+                                        <td><small class="text-muted">@t.SitioNombre</small></td>
+                                        <td class="text-center">
+                                            @if (t.Estado == "Cubierto")
+                                            {
+                                                <span class="badge bg-success">Cubierto</span>
+                                            }
+                                            else if (t.Estado == "Débil")
+                                            {
+                                                <span class="badge bg-warning text-dark">Débil</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Hueco</span>
+                                            }
+                                        </td>
+                                        <td class="text-end">
+                                            @if (t.Porcentaje.HasValue)
+                                            {
+                                                <span class="fw-bold">@t.Porcentaje%</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                        <td class="pe-4">
+                                            @if (t.MejorArticuloId.HasValue)
+                                            {
+                                                <a asp-page="/Contenidos/Detalle" asp-area="" asp-route-id="@t.MejorArticuloId" target="_blank">
+                                                    <small>@t.MejorArticuloTitulo</small>
+                                                </a>
+                                            }
+                                            else
+                                            {
+                                                <small class="text-muted fst-italic">Sin artículo similar — oportunidad</small>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
