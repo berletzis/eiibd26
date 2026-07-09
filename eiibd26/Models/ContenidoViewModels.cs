@@ -29,8 +29,9 @@ namespace eiibd26.Models
         // manual relations (contenidos añadidos manualmente)
         public List<RelatedContenidoVm> ManualRelated { get; set; } = new List<RelatedContenidoVm>();
 
-        // automatic related by categories
-        public List<RelatedContenidoVm> RelatedByCategories { get; set; } = new List<RelatedContenidoVm>();
+        // "Similares de EIIBD": propios parecidos por embeddings (propio↔propio). Jubila el
+        // antiguo "Recomendados" por categoría.
+        public List<RelatedContenidoVm> SimilaresEiibd { get; set; } = new List<RelatedContenidoVm>();
 
         // final combined: manual (up to N) then automatic (up to N), no duplicates
         public List<RelatedContenidoVm> AllRelated { get; set; } = new List<RelatedContenidoVm>();
@@ -68,5 +69,7 @@ namespace eiibd26.Models
         public string Note { get; set; } = ""; // optional: description from manual relation
         public bool IsManual { get; set; } = false;
         public RelatedType Type { get; set; } = RelatedType.Contenido;
+        /// <summary>% de coincidencia (solo "Similares de EIIBD", embeddings). null = no mostrar.</summary>
+        public int? MatchPercent { get; set; }
     }
 }

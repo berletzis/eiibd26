@@ -58,22 +58,20 @@ namespace eiibd26.Pages.Contenidos
         public ValidacionExistenteDto? MiValidacionDesc { get; set; }
         public List<ValidacionPublicaDto> ValidacionesPublicas { get; set; } = new();
 
-        // Motor de Cobertura (Fase 6): externos similares desde el motor de EMBEDDINGS, dos tabs.
-        // Tab "Artículos Similares" (subtema, Score ≥ 0.78).
-        public IReadOnlyList<ExternoSimilarDto> SimilaresItems { get; set; } = new List<ExternoSimilarDto>();
-        public bool SimilaresHasMore { get; set; }
-        public int SimilaresNextOffset { get; set; }
-        // Tab "Explora el tema" (área, 0.55 ≤ Score < 0.78).
-        public IReadOnlyList<ExternoSimilarDto> AreaItems { get; set; } = new List<ExternoSimilarDto>();
-        public bool AreaHasMore { get; set; }
-        public int AreaNextOffset { get; set; }
-        // Id del artículo (para los botones "Ver más" AJAX).
+        // Bloque "En otros sitios" (sidebar): UNA lista de externos (embeddings ≥ 0.55),
+        // ordenada por %, con "Ver más" AJAX (handler MasExternos, tab="externos").
+        public IReadOnlyList<ExternoSimilarDto> ExternosItems { get; set; } = new List<ExternoSimilarDto>();
+        public bool ExternosHasMore { get; set; }
+        public int ExternosNextOffset { get; set; }
+        // Id del artículo (para el botón "Ver más" AJAX).
         public int ArticuloId { get; set; }
-        // ¿Es artículo real (árbol General)? Gatea el bloque de tabs del Radar.
+        // ¿Es artículo real (árbol General)? Gatea el bloque externo del sidebar.
         public bool EsArticuloCobertura { get; set; }
 
         // Tamaño del bloque inicial y de cada "Ver más".
         private const int BloqueExternos = 5;
+        // Cuántos "Similares de EIIBD" (propio↔propio) mostrar.
+        private const int MaxSimilaresEiibd = 6;
 
         // Relative canonical path (e.g. "/categoria/slug")
         public string CanonicalUrl { get; set; }
@@ -377,98 +375,58 @@ namespace eiibd26.Pages.Contenidos
 
             vm.ManualRelated = manualContents;
 
-            // 6) Automatic related by categories
-            var automaticItems = new List<RelatedContenidoVm>();
-            if (catIds.Any())
+            // 6) "Similares de EIIBD" — propios parecidos por EMBEDDINGS (propio↔propio, TipoPar=1).
+            //    Jubila el antiguo "Recomendados" por categoría (impreciso). Excluye el actual y los
+            //    manuales para no repetir. Ordenado por % de coincidencia. Solo artículos (árbol General).
+            var similaresItems = new List<RelatedContenidoVm>();
+            try
             {
-                var relatedIds = await _db.ContenidosCategoriasRelacion
-                    .AsNoTracking()
-                    .Where(r => !r.Borrado && r.IdCategoria != null && catIds.Contains(r.IdCategoria.Value))
-                    .Select(r => r.IdContenido)
-                    .Distinct()
-                    .ToListAsync();
+                var simRefs = await _coberturaVista.ObtenerSimilaresPropiosAsync(entity.Id, MaxSimilaresEiibd + orderedManualContentIds.Count + 1);
+                var excluir = new HashSet<int>(orderedManualContentIds) { entity.Id };
+                var refsFiltrados = simRefs.Where(s => !excluir.Contains(s.Id)).Take(MaxSimilaresEiibd).ToList();
 
-                relatedIds.Remove(entity.Id);
-                foreach (var mid in orderedManualContentIds) relatedIds.Remove(mid);
-
-                if (relatedIds.Any())
+                if (refsFiltrados.Count > 0)
                 {
-                    automaticItems = await _db.Contenidos.AsNoTracking()
-                        .Where(c => relatedIds.Contains(c.Id) && !c.Eliminado)
-                        .OrderByDescending(c => c.FechaCreado)
-                        .Take(5)
-                        .Select(c => new RelatedContenidoVm
+                    var ids = refsFiltrados.Select(s => s.Id).ToList();
+                    var contents = (await _db.Contenidos.AsNoTracking()
+                            .Where(c => ids.Contains(c.Id) && !c.Eliminado)
+                            .Select(c => new { c.Id, c.ContenidoTitulo, c.URLImagenPrincipal, c.ContenidoTituloSlug, c.FechaCreado })
+                            .ToListAsync())
+                        .ToDictionary(c => c.Id);
+
+                    foreach (var sref in refsFiltrados) // preservar orden por score
+                    {
+                        if (!contents.TryGetValue(sref.Id, out var c)) continue;
+                        var slug = c.ContenidoTituloSlug ?? "";
+                        similaresItems.Add(new RelatedContenidoVm
                         {
                             Id = c.Id,
                             Title = c.ContenidoTitulo ?? "",
                             ImageUrl = string.IsNullOrEmpty(c.URLImagenPrincipal) ? null : "/uploads/contenidos/" + c.URLImagenPrincipal,
                             CreatedAt = c.FechaCreado,
-                            Slug = c.ContenidoTituloSlug ?? "",
+                            Slug = slug,
+                            SeoUrl = await BuildSeoUrlAsync(c.Id, slug),
                             IsManual = false,
-                            Type = RelatedType.Contenido
-                        })
-                        .ToListAsync();
-
-                    // Construir URL SEO para cada contenido autom�tico relacionado
-                    foreach (var a in automaticItems)
-                    {
-                        // Obtener categor�a primaria del contenido relacionado
-                        var relCatIds = await _db.ContenidosCategoriasRelacion.AsNoTracking()
-                            .Where(r => r.IdContenido == a.Id && !r.Borrado && r.IdCategoria != null)
-                            .Select(r => r.IdCategoria.Value)
-                            .Distinct()
-                            .ToListAsync();
-
-                        if (relCatIds.Any())
-                        {
-                            var relPrimaryCat = await _db.ContenidosCategorias.AsNoTracking()
-                                .Where(c => relCatIds.Contains(c.Sequence) && !c.Borrado)
-                                .OrderBy(c => c.CategoriaPadre.HasValue ? 0 : 1)
-                                .ThenBy(c => c.Sequence)
-                                .FirstOrDefaultAsync();
-
-                            if (relPrimaryCat != null)
-                            {
-                                var catSlug = !string.IsNullOrWhiteSpace(relPrimaryCat.CategoriaSlug)
-                                    ? relPrimaryCat.CategoriaSlug
-                                    : relPrimaryCat.Sequence.ToString();
-                                a.SeoUrl = $"/{catSlug}/{a.Slug}";
-                            }
-                        }
-
-                        // Fallback: si no tiene categor�a, usar /c/slug
-                        if (string.IsNullOrWhiteSpace(a.SeoUrl))
-                        {
-                            a.SeoUrl = $"/c/{a.Slug}";
-                        }
+                            Type = RelatedType.Contenido,
+                            MatchPercent = sref.Porcentaje
+                        });
                     }
                 }
             }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudieron cargar 'Similares de EIIBD' para {ContentId}", entity.Id);
+            }
 
-            vm.RelatedByCategories = automaticItems;
+            vm.SimilaresEiibd = similaresItems;
 
-            // 7) Combine AllRelated
+            // 7) Combine AllRelated (manual primero, luego similares; sin duplicados)
             var combined = new List<RelatedContenidoVm>();
             var seen = new HashSet<int>();
-
-            foreach (var m in vm.ManualRelated)
+            foreach (var m in vm.ManualRelated.Concat(vm.SimilaresEiibd))
             {
-                if (m != null && !seen.Contains(m.Id))
-                {
-                    combined.Add(m);
-                    seen.Add(m.Id);
-                }
+                if (m != null && seen.Add(m.Id)) combined.Add(m);
             }
-
-            foreach (var a in vm.RelatedByCategories)
-            {
-                if (a != null && !seen.Contains(a.Id))
-                {
-                    combined.Add(a);
-                    seen.Add(a.Id);
-                }
-            }
-
             vm.AllRelated = combined;
 
             // 8) Manual domain relations
@@ -541,25 +499,18 @@ namespace eiibd26.Pages.Contenidos
 
             Item = vm;
 
-            // Motor de Cobertura (Fase 6): externos similares desde embeddings, dos tabs.
-            // Solo si es artículo real (árbol General). Carga el primer bloque de cada tab;
-            // el resto se pide con "Ver más" (AJAX, handler MasExternos).
+            // Motor de Cobertura: bloque externo del sidebar ("En otros sitios"), UNA lista de
+            // externos (embeddings ≥ 0.55) ordenada por %, con "Ver más" AJAX. Solo si es artículo real.
             try
             {
                 EsArticuloCobertura = await _coberturaVista.EsArticuloAsync(entity.Id);
                 if (EsArticuloCobertura)
                 {
                     ArticuloId = entity.Id;
-
-                    var similares = await _coberturaVista.ObtenerSimilaresAsync(entity.Id, "similares", 0, BloqueExternos);
-                    SimilaresItems = similares.Items;
-                    SimilaresHasMore = similares.HasMore;
-                    SimilaresNextOffset = similares.NextOffset;
-
-                    var area = await _coberturaVista.ObtenerSimilaresAsync(entity.Id, "area", 0, BloqueExternos);
-                    AreaItems = area.Items;
-                    AreaHasMore = area.HasMore;
-                    AreaNextOffset = area.NextOffset;
+                    var externos = await _coberturaVista.ObtenerSimilaresAsync(entity.Id, "externos", 0, BloqueExternos);
+                    ExternosItems = externos.Items;
+                    ExternosHasMore = externos.HasMore;
+                    ExternosNextOffset = externos.NextOffset;
                 }
             }
             catch (Exception ex)
@@ -662,6 +613,34 @@ namespace eiibd26.Pages.Contenidos
             if (string.IsNullOrWhiteSpace(text)) return 0;
             var parts = Regex.Split(text.Trim(), @"\s+");
             return parts.Length;
+        }
+
+        /// <summary>URL SEO de un contenido: /{categoriaPrimaria}/{slug}, o /c/{slug} si no tiene categoría.</summary>
+        private async Task<string> BuildSeoUrlAsync(int id, string slug)
+        {
+            var relCatIds = await _db.ContenidosCategoriasRelacion.AsNoTracking()
+                .Where(r => r.IdContenido == id && !r.Borrado && r.IdCategoria != null)
+                .Select(r => r.IdCategoria.Value)
+                .Distinct()
+                .ToListAsync();
+
+            if (relCatIds.Any())
+            {
+                var primary = await _db.ContenidosCategorias.AsNoTracking()
+                    .Where(c => relCatIds.Contains(c.Sequence) && !c.Borrado)
+                    .OrderBy(c => c.CategoriaPadre.HasValue ? 0 : 1)
+                    .ThenBy(c => c.Sequence)
+                    .FirstOrDefaultAsync();
+
+                if (primary != null)
+                {
+                    var catSlug = !string.IsNullOrWhiteSpace(primary.CategoriaSlug)
+                        ? primary.CategoriaSlug
+                        : primary.Sequence.ToString();
+                    return $"/{catSlug}/{slug}";
+                }
+            }
+            return $"/c/{slug}";
         }
 
         /// <summary>

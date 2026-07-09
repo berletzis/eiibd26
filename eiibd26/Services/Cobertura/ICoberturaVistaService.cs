@@ -22,6 +22,13 @@ namespace eiibd26.Services.Cobertura
         /// </summary>
         Task<SimilaresPagina> ObtenerSimilaresAsync(int contenidoId, string tab, int offset, int take, CancellationToken ct = default);
 
+        /// <summary>
+        /// "Similares de EIIBD": artículos PROPIOS semánticamente parecidos al dado
+        /// (CoberturaSimilitudEmbedding TipoPar=1), top por Score, solo del árbol General.
+        /// Reemplaza el "Recomendados" por categoría. Vacío si el dado no es artículo.
+        /// </summary>
+        Task<IReadOnlyList<SimilarPropioDto>> ObtenerSimilaresPropiosAsync(int contenidoId, int take, CancellationToken ct = default);
+
         /// <summary>Grid admin: cada tema externo escaneado y su mejor match propio (artículo).</summary>
         Task<IReadOnlyList<CoberturaTemaDto>> ObtenerCoberturaTemasAsync(string? orden, CancellationToken ct = default);
     }
@@ -32,6 +39,14 @@ namespace eiibd26.Services.Cobertura
         public IReadOnlyList<ExternoSimilarDto> Items { get; init; } = System.Array.Empty<ExternoSimilarDto>();
         public bool HasMore { get; init; }
         public int NextOffset { get; init; }
+    }
+
+    /// <summary>Referencia a un artículo propio similar (por embeddings): Id + score.</summary>
+    public sealed class SimilarPropioDto
+    {
+        public int Id { get; init; }
+        public double Score { get; init; }
+        public int Porcentaje => (int)System.Math.Round(Score * 100);
     }
 
     /// <summary>Un sitio externo relacionado, para la vista paciente.</summary>

@@ -459,148 +459,90 @@
             </div>
 
 
-            @* Tabs for related content (manual / recommended / similar internet) *@
-            <div class="tabs" id="relatedTabs" role="tablist" aria-label="Contenido relacionado">
-                <div class="tab-list" role="tablist" aria-hidden="false">
-                    <button type="button" class="tab-btn active" data-panel="tab-manual" role="tab" aria-selected="true">Artículos relacionados (@(Model.Item?.ManualRelated?.Count() ?? 0))</button>
-                    <button type="button" class="tab-btn" data-panel="tab-reco" role="tab" aria-selected="false">Recomendados (@(Model.Item?.RelatedByCategories?.Count() ?? 0))</button>
-                </div>
+            @* ===== Contenido relacionado PROPIO: 2 bloques apilados (sin tabs) ===== *@
+            @{
+                Func<eiibd26.Models.RelatedContenidoVm, string> hrefDe = r =>
+                    !string.IsNullOrWhiteSpace(r.SeoUrl) ? r.SeoUrl
+                    : ("/c/" + (string.IsNullOrWhiteSpace(r.Slug) ? r.Id.ToString() : r.Slug));
+            }
 
-                <div class="tab-panels">
-                    <div id="tab-manual" class="tab-panel active" role="tabpanel" aria-hidden="false">
-                        @if (Model.Item?.ManualRelated?.Any() == true)
-                        {
-                            <div class="related-grid">
-                                @foreach (var r in Model.Item.ManualRelated)
-                                {
-                                    <a href="@(!string.IsNullOrWhiteSpace(r.SeoUrl) ? r.SeoUrl : ("/c/" + (string.IsNullOrWhiteSpace(r.Slug) ? r.Id.ToString() : r.Slug)))" style="text-decoration:none;color:inherit;">
-                                        <div class="related-card" title="@r.Note">
-                                            @if (!string.IsNullOrWhiteSpace(r.ImageUrl))
-                                            {
-                                                <img src="@r.ImageUrl" alt="@r.Title" loading="lazy" decoding="async" fetchpriority="low"
-                                                     onerror="this.onerror=null;this.src='@Url.Content("~/img/Enfermedad-Inflamatoria-Intestinal-BLOG.jpg")';" />
-                                            }
-                                            else
-                                            {
-                                                <div style="width:100%;height:180px;background:#f3f6fa;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:3rem;"><i class="bi bi-file-text"></i></div>
-                                            }
-                                            <div>
-                                                <div class="r-title">@r.Title</div>
-                                                <div class="r-meta">@r.CreatedAt.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</div>
-                                                @if (!string.IsNullOrWhiteSpace(r.Note))
-                                                {
-                                                    <div style="font-size:.82rem;color:#6b7280;margin-top:6px;">@r.Note</div>
-                                                }
-                                            </div>
-                                        </div>
-                                    </a>
-                                }
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="text-muted">No hay artículos relacionados manuales.</div>
-                        }
-                    </div>
-
-                    <div id="tab-reco" class="tab-panel" role="tabpanel" aria-hidden="true">
-                        @if (Model.Item?.RelatedByCategories?.Any() == true)
-                        {
-                            <div class="related-grid">
-                                @foreach (var r in Model.Item.RelatedByCategories)
-                                {
-                                    <a href="@(!string.IsNullOrWhiteSpace(r.SeoUrl) ? r.SeoUrl : ("/c/" + (string.IsNullOrWhiteSpace(r.Slug) ? r.Id.ToString() : r.Slug)))" style="text-decoration:none;color:inherit;">
-                                        <div class="related-card" title="@r.Note">
-                                            @if (!string.IsNullOrWhiteSpace(r.ImageUrl))
-                                            {
-                                                <img src="@r.ImageUrl" alt="@r.Title" loading="lazy" decoding="async" fetchpriority="low"
-                                                     onerror="this.onerror=null;this.src='@Url.Content("~/img/Enfermedad-Inflamatoria-Intestinal-BLOG.jpg")';" />
-                                            }
-                                            else
-                                            {
-                                                <div style="width:100%;height:180px;background:#f3f6fa;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:3rem;"><i class="bi bi-file-text"></i></div>
-                                            }
-                                            <div>
-                                                <div class="r-title">@r.Title</div>
-                                                <div class="r-meta">@r.CreatedAt.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</div>
-                                            </div>
-                                        </div>
-                                    </a>
-                                }
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="text-muted">No hay recomendaciones disponibles.</div>
-                        }
-                    </div>
-
-                </div>
-            </div>
-
-            @* Motor de Cobertura (Fase 4) — "Radar de Contenido". Bloque de tabs "Explora el tema"
-               debajo de Relacionados/Recomendados. Solo para artículos del árbol General. *@
-            @if (Model.EsArticuloCobertura)
+            @* Bloque 1: Relacionados (manual, curado) *@
+            @if (Model.Item?.ManualRelated?.Any() == true)
             {
-                <div class="eii-section" aria-label="Explora el tema">
-                    <p class="eii-text-muted eii-text-sm">
-                        Explora más sobre este tema, dentro y fuera de EIIBD — enlazamos al sitio original,
-                        el contenido vive allí.
-                    </p>
-
-                    <div class="tabs" id="radarTabs" role="tablist" aria-label="Explora el tema">
-                        <div class="tab-list" role="tablist" aria-hidden="false">
-                            <button type="button" class="tab-btn active" data-panel="tab-embeddings" role="tab" aria-selected="true">Artículos Similares</button>
-                            <button type="button" class="tab-btn" data-panel="tab-radar" role="tab" aria-selected="false">Explora el tema</button>
-                        </div>
-
-                        <div class="tab-panels">
-                            @* Tab "Artículos Similares" — subtema fino (embeddings, Score ≥ 0.78) *@
-                            <div id="tab-embeddings" class="tab-panel active" role="tabpanel" aria-hidden="false">
-                                @if (Model.SimilaresItems.Any())
-                                {
-                                    <div class="d-flex flex-column gap-3" id="lista-similares" data-tab="similares">
-                                        <partial name="_ExternosSimilares" model="Model.SimilaresItems" />
-                                    </div>
-                                    @if (Model.SimilaresHasMore)
-                                    {
-                                        <button type="button" class="eii-btn eii-btn--ghost eii-btn--sm mt-3 js-ver-mas"
-                                                data-aid="@Model.ArticuloId" data-tab="similares"
-                                                data-offset="@Model.SimilaresNextOffset" data-target="#lista-similares">
-                                            Ver más
-                                        </button>
-                                    }
-                                }
-                                else
-                                {
-                                    <p class="eii-text-muted">Aún no encontramos artículos muy parecidos a este en particular.</p>
-                                }
-                            </div>
-
-                            @* Tab "Explora el tema" — mismo área (embeddings, 0.55 ≤ Score < 0.78) *@
-                            <div id="tab-radar" class="tab-panel" role="tabpanel" aria-hidden="true">
-                                @if (Model.AreaItems.Any())
-                                {
-                                    <div class="d-flex flex-column gap-3" id="lista-area" data-tab="area">
-                                        <partial name="_ExternosSimilares" model="Model.AreaItems" />
-                                    </div>
-                                    @if (Model.AreaHasMore)
-                                    {
-                                        <button type="button" class="eii-btn eii-btn--ghost eii-btn--sm mt-3 js-ver-mas"
-                                                data-aid="@Model.ArticuloId" data-tab="area"
-                                                data-offset="@Model.AreaNextOffset" data-target="#lista-area">
-                                            Ver más
-                                        </button>
-                                    }
-                                }
-                                else
-                                {
-                                    <p class="eii-text-muted">Aún no encontramos otros sitios que traten este tema de forma cercana.</p>
-                                }
-                            </div>
-                        </div>
+                <section class="rel-block" aria-label="Artículos relacionados">
+                    <div class="rel-block-head">
+                        <span class="rel-ico"><i class="bi bi-pin-angle-fill"></i></span>
+                        <h2 class="rel-title">Relacionados</h2>
+                        <span class="rel-count">@Model.Item.ManualRelated.Count()</span>
                     </div>
-                </div>
+                    <p class="rel-sub">Artículos que enlazamos a mano con este tema.</p>
+                    <div class="related-grid">
+                        @foreach (var r in Model.Item.ManualRelated)
+                        {
+                            <a class="related-card" href="@hrefDe(r)" title="@r.Note">
+                                @if (!string.IsNullOrWhiteSpace(r.ImageUrl))
+                                {
+                                    <img src="@r.ImageUrl" alt="@r.Title" loading="lazy" decoding="async" fetchpriority="low"
+                                         onerror="this.onerror=null;this.src='@Url.Content("~/img/Enfermedad-Inflamatoria-Intestinal-BLOG.jpg")';" />
+                                }
+                                else
+                                {
+                                    <div class="related-card__ph"><i class="bi bi-file-text"></i></div>
+                                }
+                                <div>
+                                    <div class="r-title">@r.Title</div>
+                                    <div class="r-meta">@r.CreatedAt.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</div>
+                                    @if (!string.IsNullOrWhiteSpace(r.Note))
+                                    {
+                                        <div class="r-note">@r.Note</div>
+                                    }
+                                </div>
+                            </a>
+                        }
+                    </div>
+                </section>
+            }
+
+            @* Bloque 2: Similares de EIIBD (embeddings propio↔propio) *@
+            @if (Model.Item?.SimilaresEiibd?.Any() == true)
+            {
+                <section class="rel-block" aria-label="Similares de EIIBD">
+                    <div class="rel-block-head">
+                        <span class="rel-ico"><i class="bi bi-stars"></i></span>
+                        <h2 class="rel-title">Similares de EIIBD</h2>
+                        <span class="rel-count">@Model.Item.SimilaresEiibd.Count()</span>
+                    </div>
+                    <p class="rel-sub">Otros artículos nuestros parecidos a este, por significado.</p>
+                    <div class="related-grid">
+                        @foreach (var r in Model.Item.SimilaresEiibd)
+                        {
+                            <a class="related-card" href="@hrefDe(r)">
+                                @if (!string.IsNullOrWhiteSpace(r.ImageUrl))
+                                {
+                                    <img src="@r.ImageUrl" alt="@r.Title" loading="lazy" decoding="async" fetchpriority="low"
+                                         onerror="this.onerror=null;this.src='@Url.Content("~/img/Enfermedad-Inflamatoria-Intestinal-BLOG.jpg")';" />
+                                }
+                                else
+                                {
+                                    <div class="related-card__ph"><i class="bi bi-file-text"></i></div>
+                                }
+                                <div>
+                                    <div class="r-title">@r.Title</div>
+                                    <div class="r-meta">
+                                        @if (r.MatchPercent.HasValue)
+                                        {
+                                            <span class="r-match">@r.MatchPercent%</span> <span>de coincidencia</span>
+                                        }
+                                        else
+                                        {
+                                            @r.CreatedAt.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)
+                                        }
+                                    </div>
+                                </div>
+                            </a>
+                        }
+                    </div>
+                </section>
             }
 
             @if (Model.Item?.ManualPreguntas?.Any() == true)
@@ -866,7 +808,32 @@
                 </div>
             </div>
 
-            @if ((Model.Item?.ManualRelated?.Any() != true) && (Model.Item?.RelatedByCategories?.Any() != true) && (Model.Item?.ManualPreguntas?.Any() != true))
+            @* ===== EN OTROS SITIOS (externos, embeddings) — solo artículos del árbol General ===== *@
+            @if (Model.EsArticuloCobertura && Model.ExternosItems.Any())
+            {
+                <div class="sidebar-section">
+                    <div class="side-ext">
+                        <div class="side-ext__head">
+                            <span class="side-ext__ico"><i class="bi bi-compass"></i></span>
+                            <h4 class="side-ext__title">En otros sitios</h4>
+                        </div>
+                        <p class="side-ext__sub">Contenido de otros sitios de confianza sobre este tema. Abre el original.</p>
+                        <div class="ext-list" id="lista-externos" data-tab="externos">
+                            <partial name="_ExternosSimilares" model="Model.ExternosItems" />
+                        </div>
+                        @if (Model.ExternosHasMore)
+                        {
+                            <button type="button" class="ext-vermas js-ver-mas"
+                                    data-aid="@Model.ArticuloId" data-tab="externos"
+                                    data-offset="@Model.ExternosNextOffset" data-target="#lista-externos">
+                                Ver más
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if ((Model.Item?.ManualRelated?.Any() != true) && (Model.Item?.SimilaresEiibd?.Any() != true) && (Model.Item?.ManualPreguntas?.Any() != true))
             {
                 <div class="text-muted" style="font-size:.9rem; margin-top:12px;">No hay artículos o preguntas relacionadas.</div>
             }

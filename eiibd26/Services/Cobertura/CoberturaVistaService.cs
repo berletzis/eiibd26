@@ -95,9 +95,10 @@ namespace eiibd26.Services.Cobertura
             //   "area"      (mismo tema)   = 0.55 <= Score < 0.78
             var (minInc, maxExc) = tab switch
             {
-                "similares" => (UmbralSimilares, (decimal?)null),
-                "area"      => (UmbralArea, UmbralSimilares),
-                _           => (UmbralSimilares, (decimal?)null)  // tab desconocido → el más estricto
+                "similares" => (UmbralSimilares, (decimal?)null),        // subtema fino ≥ 0.78
+                "area"      => (UmbralArea, UmbralSimilares),            // solo la banda de área
+                "externos"  => (UmbralArea, (decimal?)null),            // TODOS los externos ≥ 0.55 (lista única del sidebar)
+                _           => (UmbralSimilares, (decimal?)null)
             };
 
             var q =
@@ -128,6 +129,32 @@ namespace eiibd26.Services.Cobertura
             }).ToList();
 
             return new SimilaresPagina { Items = items, HasMore = hasMore, NextOffset = offset + items.Count };
+        }
+
+        public async Task<IReadOnlyList<SimilarPropioDto>> ObtenerSimilaresPropiosAsync(
+            int contenidoId, int take, CancellationToken ct = default)
+        {
+            if (take <= 0) take = 6;
+
+            // Solo artículos reales (árbol General) en ambos extremos: no recomendar páginas de sistema.
+            var articuloIds = (await ArticuloIdsAsync(ct)).ToHashSet();
+            if (!articuloIds.Contains(contenidoId)) return Array.Empty<SimilarPropioDto>();
+
+            // Pares propio↔propio que tocan este artículo (pocos: ~decenas). El artículo puede ser A o B.
+            var pares = await _db.CoberturaSimilitudesEmbedding.AsNoTracking()
+                .Where(cs => cs.TipoPar == TipoParSimilitud.PropioPropio
+                             && (cs.AId == contenidoId || cs.BId == contenidoId))
+                .Select(cs => new { cs.AId, cs.BId, cs.Score })
+                .ToListAsync(ct);
+
+            return pares
+                .Select(p => new { OtherId = p.AId == contenidoId ? p.BId : p.AId, Score = (double)p.Score })
+                .Where(x => x.OtherId != contenidoId && articuloIds.Contains(x.OtherId))
+                .GroupBy(x => x.OtherId).Select(g => g.OrderByDescending(x => x.Score).First())
+                .OrderByDescending(x => x.Score)
+                .Take(take)
+                .Select(x => new SimilarPropioDto { Id = x.OtherId, Score = x.Score })
+                .ToList();
         }
 
         // ---- Vista admin ----
