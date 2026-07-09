@@ -20,6 +20,14 @@ namespace eiibd26.Services.Cobertura
         private const decimal UmbralSimilares = 0.78m;
         private const decimal UmbralArea = 0.55m;
 
+        // Panel admin "matriz de huecos": motor + umbrales por escala (NO comparables 1:1).
+        //   embeddings: cubierto ≥ 0.78 · área/oportunidad 0.55–0.78 · hueco < 0.55
+        //   firma:      cubierto ≥ 0.60 · débil 0.50–0.60 · hueco sin match (persistencia ≥ 0.50)
+        private const decimal CobEmbCubierto = UmbralSimilares; // 0.78 (mismo umbral ya calibrado del paciente)
+        private const decimal CobEmbFloor    = UmbralArea;      // 0.55 (bajo esto = hueco)
+        private const decimal CobFirCubierto = 0.60m;           // firma sin cambios
+        private const decimal CobFirFloor    = 0.50m;           // = CosenoMin firma (no filtra extra)
+
         // Raíz del árbol de categorías "artículo real".
         private const int CategoriaGeneral = 1;
 
@@ -159,25 +167,33 @@ namespace eiibd26.Services.Cobertura
 
         // ---- Vista admin ----
 
-        public async Task<IReadOnlyList<CoberturaTemaDto>> ObtenerCoberturaTemasAsync(string? orden, CancellationToken ct = default)
+        public async Task<IReadOnlyList<CoberturaTemaDto>> ObtenerCoberturaTemasAsync(string? orden, string? motor = null, CancellationToken ct = default)
         {
+            var usarFirma   = string.Equals(motor, "firma", StringComparison.OrdinalIgnoreCase);
+            var floor       = usarFirma ? CobFirFloor : CobEmbFloor;
+            var cubiertoMin = usarFirma ? CobFirCubierto : CobEmbCubierto;
             var articuloIds = await ArticuloIdsAsync(ct);
 
-            // Pares propio-externo donde el propio es ARTÍCULO (excluye páginas de sistema del lado propio).
-            var pares = await _db.CoberturaSimilitudes.AsNoTracking()
-                .Where(cs => cs.TipoPar == TipoParSimilitud.PropioExterno && articuloIds.Contains(cs.AId))
-                .Select(cs => new { cs.BId, cs.AId, cs.Score })
-                .ToListAsync(ct);
+            // Pares propio-externo donde el propio es ARTÍCULO (excluye páginas de sistema del lado propio),
+            // del motor elegido y sobre el piso de cobertura. Embeddings por defecto; ?motor=firma = fallback en vivo.
+            var pares = usarFirma
+                ? await _db.CoberturaSimilitudes.AsNoTracking()
+                    .Where(cs => cs.TipoPar == TipoParSimilitud.PropioExterno && articuloIds.Contains(cs.AId) && cs.Score >= floor)
+                    .Select(cs => new { cs.BId, cs.AId, cs.Score }).ToListAsync(ct)
+                : await _db.CoberturaSimilitudesEmbedding.AsNoTracking()
+                    .Where(cs => cs.TipoPar == TipoParSimilitud.PropioExterno && articuloIds.Contains(cs.AId) && cs.Score >= floor)
+                    .Select(cs => new { cs.BId, cs.AId, cs.Score }).ToListAsync(ct);
 
             var mejorPorExterno = pares
                 .GroupBy(p => p.BId)
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.Score).First());
 
-            // Todos los externos indexados (con firma).
-            var externos = await _db.ScrapedPagesRef.AsNoTracking()
-                .Where(s => s.Firma != null)
-                .Select(s => new { s.ScrapedPageId, s.Url, s.SourceSiteId, s.Language })
-                .ToListAsync(ct);
+            // Universo de temas externos: los indexados por el motor activo (firma o embedding).
+            var externos = usarFirma
+                ? await _db.ScrapedPagesRef.AsNoTracking().Where(s => s.Firma != null)
+                    .Select(s => new { s.ScrapedPageId, s.Url, s.SourceSiteId, s.Language }).ToListAsync(ct)
+                : await _db.ScrapedPagesRef.AsNoTracking().Where(s => s.Embedding != null && s.Embedding != "[]")
+                    .Select(s => new { s.ScrapedPageId, s.Url, s.SourceSiteId, s.Language }).ToListAsync(ct);
 
             var sitios = await NombresSitiosAsync(externos.Select(e => e.SourceSiteId), ct);
 
@@ -198,7 +214,8 @@ namespace eiibd26.Services.Cobertura
                     Idioma = e.Language ?? "",
                     MejorScore = best == null ? (double?)null : (double)best.Score,
                     MejorArticuloId = best?.AId,
-                    MejorArticuloTitulo = best != null && titulosArticulo.TryGetValue(best.AId, out var t) ? t : null
+                    MejorArticuloTitulo = best != null && titulosArticulo.TryGetValue(best.AId, out var t) ? t : null,
+                    Estado = best == null ? "Hueco" : (best.Score >= cubiertoMin ? "Cubierto" : "Débil")
                 };
             });
 

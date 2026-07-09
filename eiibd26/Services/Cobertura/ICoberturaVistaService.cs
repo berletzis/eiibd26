@@ -29,8 +29,9 @@ namespace eiibd26.Services.Cobertura
         /// </summary>
         Task<IReadOnlyList<SimilarPropioDto>> ObtenerSimilaresPropiosAsync(int contenidoId, int take, CancellationToken ct = default);
 
-        /// <summary>Grid admin: cada tema externo escaneado y su mejor match propio (artículo).</summary>
-        Task<IReadOnlyList<CoberturaTemaDto>> ObtenerCoberturaTemasAsync(string? orden, CancellationToken ct = default);
+        /// <summary>Grid admin: cada tema externo escaneado y su mejor match propio (artículo).
+        /// <paramref name="motor"/> = <c>null</c>/"embeddings" (Voyage, por defecto) o "firma" (fallback en vivo).</summary>
+        Task<IReadOnlyList<CoberturaTemaDto>> ObtenerCoberturaTemasAsync(string? orden, string? motor = null, CancellationToken ct = default);
     }
 
     /// <summary>Un bloque paginado de externos similares + si quedan más (para "Ver más").</summary>
@@ -77,8 +78,9 @@ namespace eiibd26.Services.Cobertura
         public string? MejorArticuloTitulo { get; init; }
 
         public int? Porcentaje => MejorScore == null ? (int?)null : (int)System.Math.Round(MejorScore.Value * 100);
-        /// <summary>Cubierto (≥0.60) · Débil (0.50–0.60) · Hueco (sin match).</summary>
-        public string Estado =>
-            MejorScore == null ? "Hueco" : MejorScore >= 0.60 ? "Cubierto" : "Débil";
+        /// <summary>Estado ya clasificado por el servicio según el motor activo (los umbrales difieren
+        /// entre firma y embeddings). Canónico: "Cubierto" · "Débil" · "Hueco". La vista re-rotula
+        /// "Débil" como "Área" en modo embeddings (esa banda ES la señal de oportunidad).</summary>
+        public string Estado { get; init; } = "Hueco";
     }
 }

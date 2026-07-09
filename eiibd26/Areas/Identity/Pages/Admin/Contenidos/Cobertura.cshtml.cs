@@ -30,6 +30,11 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         [Microsoft.AspNetCore.Mvc.BindProperty(SupportsGet = true)]
         public string? Orden { get; set; }
 
+        [Microsoft.AspNetCore.Mvc.BindProperty(SupportsGet = true)]
+        public string? Motor { get; set; }
+        public bool UsandoFirma => string.Equals(Motor, "firma", StringComparison.OrdinalIgnoreCase);
+        public string MotorNombre => UsandoFirma ? "Firma (conteo)" : "Embeddings (Voyage)";
+
         public bool TablaDisponible { get; private set; } = true;
         public string? Aviso { get; private set; }
 
@@ -43,7 +48,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         {
             try
             {
-                Temas = await _svc.ObtenerCoberturaTemasAsync(Orden);
+                Temas = await _svc.ObtenerCoberturaTemasAsync(Orden, Motor);
                 Cubiertos = Temas.Count(t => t.Estado == "Cubierto");
                 Debiles = Temas.Count(t => t.Estado == "Débil");
                 Huecos = Temas.Count(t => t.Estado == "Hueco");
@@ -51,7 +56,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             catch (Exception ex)
             {
                 TablaDisponible = false;
-                Aviso = "No se pudo leer la cobertura. ¿Existe la tabla CoberturaSimilitud y hay similitud calculada? Detalle: " + ex.Message;
+                Aviso = "No se pudo leer la cobertura del motor seleccionado. ¿Hay similitud calculada? Detalle: " + ex.Message;
                 _logger.LogWarning(ex, "[Cobertura] No se pudo leer el estado de cobertura.");
             }
         }
