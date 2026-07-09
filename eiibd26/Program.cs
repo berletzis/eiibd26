@@ -387,6 +387,9 @@ try
     builder.Services.AddScoped<eiibd26.Services.Cobertura.ISimilitudService, eiibd26.Services.Cobertura.SimilitudService>();
     builder.Services.AddScoped<eiibd26.Jobs.SimilitudJob>();
 
+    // Motor de Cobertura — Fase 4: vistas paciente + admin (solo lectura)
+    builder.Services.AddScoped<eiibd26.Services.Cobertura.ICoberturaVistaService, eiibd26.Services.Cobertura.CoberturaVistaService>();
+
     var hangfireConn = builder.Configuration.GetConnectionString("DefaultConnection");
     builder.Services.AddHangfire(cfg => cfg
         .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)

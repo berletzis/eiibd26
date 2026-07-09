@@ -10,6 +10,7 @@ using eiibd26.Data;
 using eiibd26.Models;
 using eiibd26.Models.Validacion;
 using eiibd26.Services.Validacion;
+using eiibd26.Services.Cobertura;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Identity;
@@ -21,6 +22,7 @@ namespace eiibd26.Pages.Contenidos
         private readonly ApplicationDbContext _db;
         private readonly IValidacionContenidoService _validacionService;
         private readonly UserManager<eiibd26.Models.ApplicationUser> _userManager;
+        private readonly ICoberturaVistaService _coberturaVista;
         private readonly ILogger<DetalleModel> _logger;
         private const int WordsPerMinute = 200;
 
@@ -30,11 +32,13 @@ namespace eiibd26.Pages.Contenidos
             ApplicationDbContext db,
             IValidacionContenidoService validacionService,
             UserManager<eiibd26.Models.ApplicationUser> userManager,
+            ICoberturaVistaService coberturaVista,
             ILogger<DetalleModel> logger)
         {
             _db                = db;
             _validacionService = validacionService;
             _userManager       = userManager;
+            _coberturaVista    = coberturaVista;
             _logger            = logger;
         }
 
@@ -53,6 +57,9 @@ namespace eiibd26.Pages.Contenidos
         public bool CanValidate { get; set; }
         public ValidacionExistenteDto? MiValidacionDesc { get; set; }
         public List<ValidacionPublicaDto> ValidacionesPublicas { get; set; } = new();
+
+        // Motor de Cobertura (Fase 4): sitios externos con contenido similar a este artículo.
+        public IReadOnlyList<ExternoSimilarDto> ExternosSimilares { get; set; } = new List<ExternoSimilarDto>();
 
         // Relative canonical path (e.g. "/categoria/slug")
         public string CanonicalUrl { get; set; }
@@ -519,6 +526,17 @@ namespace eiibd26.Pages.Contenidos
             }
 
             Item = vm;
+
+            // Motor de Cobertura (Fase 4): sitios externos con contenido similar.
+            // Solo si es artículo real (árbol General) y hay matches ≥ umbral paciente.
+            try
+            {
+                ExternosSimilares = await _coberturaVista.ObtenerExternosSimilaresAsync(entity.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudieron cargar externos similares para artículo {ContentId}", entity.Id);
+            }
 
             // Cargar estado de validación de contenido por profesionales
             try

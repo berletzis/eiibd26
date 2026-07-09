@@ -115,6 +115,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<eiibd26.Models.Cobertura.CoberturaSimilitud> CoberturaSimilitudes { get; set; }
     // Read-only: firma de externos (tabla ScrapedPage del Worker). El Web no la escribe.
     public DbSet<eiibd26.Models.Cobertura.ScrapedPageRef> ScrapedPagesRef { get; set; }
+    // Read-only: sitios fuente (tabla SourceSite del Worker) — solo para mostrar el nombre.
+    public DbSet<eiibd26.Models.Cobertura.SourceSiteRef> SourceSitesRef { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -133,6 +135,13 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
         {
             e.ToTable("ScrapedPage");
             e.HasKey(x => x.ScrapedPageId);
+        });
+
+        // Read-only de SourceSite (Worker). Solo para el nombre del sitio externo.
+        builder.Entity<eiibd26.Models.Cobertura.SourceSiteRef>(e =>
+        {
+            e.ToTable("SourceSite");
+            e.HasKey(x => x.SourceSiteId);
         });
 
         // Recursividad condiciones
