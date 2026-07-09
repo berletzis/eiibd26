@@ -1,0 +1,158 @@
+@page
+@model eiibd26.Areas.Identity.Pages.Admin.Contenidos.EmbeddingsModel
+@{
+    ViewData["Title"] = "Embeddings de contenido";
+    var pct = Model.Total > 0 ? (int)Math.Round(Model.Embebidos * 100.0 / Model.Total) : 0;
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">🧠 Embeddings de contenido</h1>
+            <p class="text-muted mb-0">
+                Motor de Cobertura · Fase 5 — embedding semántico (Voyage) de los artículos publicados.
+            </p>
+        </div>
+        <div class="text-end">
+            <span class="badge @(Model.VoyageHabilitado ? "bg-success" : "bg-danger")">
+                <i class="bi @(Model.VoyageHabilitado ? "bi-plug-fill" : "bi-plug")"></i>
+                Voyage @(Model.VoyageHabilitado ? "conectado" : "SIN API key")
+            </span>
+            <div class="small text-muted mt-1">@Model.Modelo</div>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle"></i> @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle"></i> @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (!Model.VoyageHabilitado)
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i>
+            Falta configurar <code>Voyage:ApiKey</code> (user-secrets / variable de entorno) y haber
+            ejecutado el SQL de esquema (columnas <code>Embedding*</code>). Sin eso no se puede embeber.
+        </div>
+    }
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <p class="text-muted mb-1 small">Publicados (total)</p>
+                    <h3 class="mb-0" id="statTotal">@Model.Total</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <p class="text-muted mb-1 small">Embebidos</p>
+                    <h3 class="mb-0 text-success" id="statEmbebidos">@Model.Embebidos</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <p class="text-muted mb-1 small">Pendientes</p>
+                    <h3 class="mb-0 text-warning" id="statPendientes">@Model.Pendientes</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <p class="text-muted mb-1 small">Último embedding</p>
+                    <h6 class="mb-0">
+                        @(Model.UltimoEmbedding?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")
+                    </h6>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="mb-0">Progreso</h5>
+                <span class="badge bg-primary" id="progressBadge">@Model.Embebidos / @Model.Total</span>
+            </div>
+            <div class="progress" style="height: 22px;" role="progressbar" aria-label="Progreso de embeddings">
+                <div id="progressBar"
+                     class="progress-bar progress-bar-striped bg-success"
+                     style="width: @pct%;">@pct%</div>
+            </div>
+            <small class="text-muted mt-2 d-block">
+                El cálculo corre en segundo plano (Hangfire) y llama a Voyage por lotes. Esta barra se actualiza sola.
+            </small>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3">
+            <h5 class="mb-0">Acciones</h5>
+        </div>
+        <div class="card-body">
+            <div class="d-flex flex-wrap gap-2">
+                <form method="post" asp-page-handler="Recalcular" class="d-inline">
+                    <button type="submit" class="btn btn-primary" @(Model.VoyageHabilitado ? "" : "disabled")>
+                        <i class="bi bi-arrow-repeat"></i> Embeber pendientes
+                    </button>
+                </form>
+
+                <form method="post" asp-page-handler="Forzar" class="d-inline"
+                      onsubmit="return confirm('Esto pondrá TODOS los embeddings de publicados a NULL y los recalculará desde cero (consume tokens de Voyage). ¿Continuar?');">
+                    <button type="submit" class="btn btn-outline-danger" @(Model.VoyageHabilitado ? "" : "disabled")>
+                        <i class="bi bi-exclamation-octagon"></i> Forzar recálculo total
+                    </button>
+                </form>
+            </div>
+            <ul class="text-muted small mt-3 mb-0">
+                <li><strong>Embeber pendientes</strong>: embebe solo los que no tienen embedding. Idempotente y reanudable.</li>
+                <li><strong>Forzar recálculo total</strong>: borra todos los embeddings y vuelve a embeber todo (usar si cambió el modelo).</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const bar = document.getElementById("progressBar");
+            const badge = document.getElementById("progressBadge");
+            const statEmbebidos = document.getElementById("statEmbebidos");
+            const statPendientes = document.getElementById("statPendientes");
+            const statTotal = document.getElementById("statTotal");
+
+            async function poll() {
+                try {
+                    const resp = await fetch("?handler=Progreso", { headers: { "X-Requested-With": "XMLHttpRequest" } });
+                    if (!resp.ok) return;
+                    const d = await resp.json();
+                    const pct = d.total > 0 ? Math.round(d.embebidos * 100 / d.total) : 0;
+                    bar.style.width = pct + "%";
+                    bar.textContent = pct + "%";
+                    badge.textContent = d.embebidos + " / " + d.total;
+                    statEmbebidos.textContent = d.embebidos;
+                    statPendientes.textContent = d.pendientes;
+                    statTotal.textContent = d.total;
+                } catch (e) { /* silencioso: reintenta en el próximo tick */ }
+            }
+
+            setInterval(poll, 3000);
+            poll();
+        })();
+    </script>
+}

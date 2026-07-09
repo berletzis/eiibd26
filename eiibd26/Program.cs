@@ -410,6 +410,10 @@ try
         return new eiibd26.Voyage.VoyageEmbeddingClient(opts);
     });
 
+    // Motor de Cobertura — Fase 5 (embeddings): servicio + job para embeber contenido propio.
+    builder.Services.AddScoped<eiibd26.Services.Cobertura.IEmbeddingService, eiibd26.Services.Cobertura.EmbeddingService>();
+    builder.Services.AddScoped<eiibd26.Jobs.EmbeddingContenidoJob>();
+
     var hangfireConn = builder.Configuration.GetConnectionString("DefaultConnection");
     builder.Services.AddHangfire(cfg => cfg
         .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)

@@ -42,6 +42,20 @@ namespace eiibd26.Models
 
         /// <summary>Momento del último cálculo de <see cref="Firma"/>. NULL = nunca firmado.</summary>
         public DateTime? FirmaCalculadaEn { get; set; }
+
+        /// <summary>
+        /// Embedding semántico denso (Voyage): JSON de un array de floats (p. ej. 1024 dims de
+        /// voyage-4-large). Complementa a <see cref="Firma"/> (conteo de vocabulario): el embedding
+        /// captura el significado para similitud fina "más como este". NULL = aún no embebido.
+        /// "[]" = sin texto embebible (páginas institucionales). Columna por SQL directo (sin migración).
+        /// </summary>
+        public string? Embedding { get; set; }
+
+        /// <summary>Modelo que generó el <see cref="Embedding"/> (p. ej. "voyage-4-large"), para detectar vectores obsoletos.</summary>
+        public string? EmbeddingModelo { get; set; }
+
+        /// <summary>Momento del último cálculo de <see cref="Embedding"/>. NULL = nunca embebido.</summary>
+        public DateTime? EmbeddingCalculadoEn { get; set; }
         /* Navigation properties (optional — enable if the related entity classes exist) */
         [ForeignKey("IdAutor")]
         public virtual Perfil AutorPerfil { get; set; }
