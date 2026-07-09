@@ -20,6 +20,10 @@ public class ScrapingWorker : BackgroundService
     private readonly ILogger<ScrapingWorker> _logger;
     private readonly IServiceProvider _serviceProvider;
 
+    // Denylist de patrones de URL global (exclusiones-globales.json), aplicada a todas las fuentes.
+    // Se carga una vez por corrida en ExecuteAsync. Vacía = comportamiento actual.
+    private IReadOnlyList<string> _exclusionesGlobal = System.Array.Empty<string>();
+
     // Identidad honesta del bot: mismo UA para el header HTTP y para evaluar robots.txt.
     private const string BotUserAgentProduct = "EIIBD-Indexer";
     private const string BotUserAgentFull = "EIIBD-Indexer/1.0 (+https://eiibd.com/bot)";
@@ -75,6 +79,12 @@ public class ScrapingWorker : BackgroundService
             return;
         }
         _logger.LogInformation("Fuentes activas: {Count} de {Total}", activas.Count, fuentes.Count);
+
+        // Exclusiones de URL globales (denylist que aplica a todas las fuentes, además de las suyas).
+        _exclusionesGlobal = CargarExclusionesGlobales();
+        _logger.LogInformation("Exclusiones globales cargadas: {Count}{Detalle}",
+            _exclusionesGlobal.Count,
+            _exclusionesGlobal.Count == 0 ? "" : " [" + string.Join(", ", _exclusionesGlobal) + "]");
 
         // Un solo HttpClient (UA honesto) para todas las fuentes.
         using var httpClient = CrearHttpClient();
@@ -138,6 +148,30 @@ public class ScrapingWorker : BackgroundService
         {
             _logger.LogError(ex, "fuentes.json mal formado ({Path})", path);
             return null;
+        }
+    }
+
+    // Carga exclusiones-globales.json (array de strings). Ausente o mal formado => lista vacía
+    // (retrocompatible: comportamiento idéntico al actual). Viaja junto al ejecutable como fuentes.json.
+    private IReadOnlyList<string> CargarExclusionesGlobales()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "exclusiones-globales.json");
+        if (!File.Exists(path))
+        {
+            _logger.LogInformation("exclusiones-globales.json ausente; sin exclusiones globales.");
+            return System.Array.Empty<string>();
+        }
+        try
+        {
+            var json = File.ReadAllText(path);
+            var lista = JsonSerializer.Deserialize<List<string>>(json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<string>();
+            return lista.Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => p.Trim()).ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "exclusiones-globales.json mal formado ({Path}); se ignora.", path);
+            return System.Array.Empty<string>();
         }
     }
 
@@ -253,6 +287,27 @@ public class ScrapingWorker : BackgroundService
         var embebidas = 0;
         var embedOmitidaLastmod = 0;
         var embedErrores = 0;
+
+        // Exclusión de URLs (denylist): patrones de la fuente + globales. Se valida una vez;
+        // los 're:' inválidos se avisan y se descartan (fail-open, nunca excluyen por accidente).
+        var exclusiones = (fuente.ExclusionesUrl ?? new List<string>())
+            .Concat(_exclusionesGlobal)
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(p => p.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(p =>
+            {
+                if (UrlExclusion.PatronValido(p, out var err)) return true;
+                _logger.LogWarning("Fuente '{Nombre}': patrón de exclusión inválido, se ignora: '{Patron}' ({Err})",
+                    fuente.Nombre, p, err);
+                return false;
+            })
+            .ToList();
+        var excluidas = 0;
+        var excluidasPorPatron = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        if (exclusiones.Count > 0)
+            _logger.LogInformation("Fuente '{Nombre}': {N} patrones de exclusión activos (fuente+global).",
+                fuente.Nombre, exclusiones.Count);
 
         // robots.txt: matcher propio + caché por host (compartida entre fuentes).
         async Task<RobotsMatcher> GetRobotsAsync(Uri pageUri)
@@ -461,6 +516,18 @@ public class ScrapingWorker : BackgroundService
             if (!Uri.TryCreate(currentUrl, UriKind.Absolute, out var currentUri))
                 return string.Empty;
 
+            // EXCLUSIÓN (denylist): antes de robots/fetch. No descarga, no almacena, no embebe y NO
+            // consume presupuesto de maxPages (pagesProcessed++ va después). robots.txt sigue mandando:
+            // esto solo AÑADE exclusiones, nunca habilita nada que robots prohíba.
+            var patronExcl = UrlExclusion.PatronQueExcluye(currentUri.PathAndQuery, exclusiones);
+            if (patronExcl != null)
+            {
+                _logger.LogInformation("URL excluida por patrón '{Patron}': {Url}", patronExcl, currentUrl);
+                excluidas++;
+                excluidasPorPatron[patronExcl] = excluidasPorPatron.GetValueOrDefault(patronExcl) + 1;
+                return string.Empty;
+            }
+
             // robots.txt: ¿está permitido acceder a esta URL para nuestro bot?
             var robots = await GetRobotsAsync(currentUri);
             if (!robots.IsAllowed(BotUserAgentProduct, currentUri.PathAndQuery))
@@ -532,7 +599,9 @@ public class ScrapingWorker : BackgroundService
                 else
                 {
                     _logger.LogInformation("Fuente '{Nombre}': sitemap encontrado en {Sitemap}; leyendo URLs...", fuente.Nombre, sitemapUrl);
-                    sitemapUrls = await reader.LeerUrlsAsync(sitemapUrl, fuente.ExcluirSitemaps ?? new List<string>(), stoppingToken);
+                    sitemapUrls = await reader.LeerUrlsAsync(sitemapUrl,
+                        fuente.SitemapsIncluidos ?? new List<string>(),
+                        fuente.ExcluirSitemaps ?? new List<string>(), stoppingToken);
                     sitemapCount = sitemapUrls.Count;
                     if (sitemapCount == 0) motivoBfs = $"sitemap {sitemapUrl} devolvió 0 URLs";
                 }
@@ -620,6 +689,12 @@ public class ScrapingWorker : BackgroundService
             fuente.Nombre, sitemapCount, indexed, noMeta, robotsSkipped, errors,
             defaultLanguage, firmarHabilitado, firmadas, traducidas, firmaOmitidaLastmod, firmaErrores,
             embedHabilitado, embebidas, embedOmitidaLastmod, embedErrores);
+
+        // Desglose de exclusiones por patrón (clave para validar el filtro en el smoke test).
+        if (excluidas > 0)
+            _logger.LogInformation("Fuente '{Nombre}': {E} URLs excluidas por patrón — {Detalle}",
+                fuente.Nombre, excluidas,
+                string.Join(", ", excluidasPorPatron.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key}={kv.Value}")));
     }
 
     // Texto para el embedding: título + cuerpo (ya en texto plano por ExtraerTextoPrincipal),

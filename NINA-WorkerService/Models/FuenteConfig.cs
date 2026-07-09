@@ -38,4 +38,13 @@ public sealed class FuenteConfig
     public bool UsarSitemap { get; set; } = true;
     public string? SitemapUrl { get; set; }              // opcional; si no, se busca en robots.txt / rutas estándar
     public List<string> ExcluirSitemaps { get; set; } = new(); // sub-sitemaps a excluir por nombre (substring)
+
+    // Allowlist de sub-sitemaps (modo IndiceMetadatos con sitemap-index): si tiene elementos,
+    // SOLO se procesan los sub-sitemaps cuya URL contenga alguno (substring, case-insensitive).
+    // Vacío/ausente = comportamiento actual (todos los sub-sitemaps salvo los de ExcluirSitemaps).
+    public List<string> SitemapsIncluidos { get; set; } = new();
+
+    // Denylist de patrones de URL propia de la fuente: substring / glob '*' / regex con prefijo 're:'.
+    // Se evalúa (case-insensitive) contra el path+query. Se combina con exclusiones-globales.json.
+    public List<string> ExclusionesUrl { get; set; } = new();
 }

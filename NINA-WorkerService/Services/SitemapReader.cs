@@ -74,9 +74,12 @@ public sealed class SitemapReader
 
     /// <summary>
     /// Lee todas las URLs finales (&lt;loc&gt; de tipo urlset) de un sitemap. Si es índice,
-    /// baja un nivel a cada sub-sitemap (excepto los excluidos por nombre) y junta sus URLs.
+    /// baja un nivel a cada sub-sitemap y junta sus URLs. Filtro de sub-sitemaps:
+    ///   - <paramref name="incluir"/> (allowlist): si tiene elementos, SOLO se procesan los sub-sitemaps
+    ///     cuya URL contenga alguno (substring, case-insensitive); el resto se ignora de raíz.
+    ///   - <paramref name="excluir"/> (denylist): quita los sub-sitemaps cuya URL contenga alguno.
     /// </summary>
-    public async Task<List<SitemapUrl>> LeerUrlsAsync(string sitemapUrl, IReadOnlyList<string> excluir, CancellationToken ct)
+    public async Task<List<SitemapUrl>> LeerUrlsAsync(string sitemapUrl, IReadOnlyList<string> incluir, IReadOnlyList<string> excluir, CancellationToken ct)
     {
         var result = new List<SitemapUrl>();
 
@@ -94,6 +97,11 @@ public sealed class SitemapReader
             _logger.LogInformation("Sitemap índice con {N} sub-sitemaps", subs.Count);
             foreach (var sub in subs)
             {
+                if (incluir.Count > 0 && !incluir.Any(x => sub.Contains(x, StringComparison.OrdinalIgnoreCase)))
+                {
+                    _logger.LogInformation("Sub-sitemap fuera de allowlist, ignorado: {Sub}", sub);
+                    continue;
+                }
                 if (excluir.Any(x => sub.Contains(x, StringComparison.OrdinalIgnoreCase)))
                 {
                     _logger.LogInformation("Sub-sitemap excluido: {Sub}", sub);
