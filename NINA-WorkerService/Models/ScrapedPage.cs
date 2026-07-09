@@ -25,6 +25,20 @@ public class ScrapedPage
     /// <summary>Momento del último cálculo de <see cref="Firma"/>. NULL = nunca firmado.</summary>
     public DateTime? FirmaCalculadaEn { get; set; }
 
+    /// <summary>
+    /// Embedding semántico denso (Voyage) del externo: JSON de un array de floats (1024 dims de
+    /// voyage-4-large). Como la firma, se calcula en memoria durante el crawl con el texto ya
+    /// extraído; NUNCA se guarda el texto. Multilingüe: el inglés se embebe SIN traducir.
+    /// NULL = aún no embebido. Columna por SQL directo (sin migración).
+    /// </summary>
+    public string? Embedding { get; set; }
+
+    /// <summary>Modelo que generó el <see cref="Embedding"/> (p. ej. "voyage-4-large").</summary>
+    public string? EmbeddingModelo { get; set; }
+
+    /// <summary>Momento del último cálculo de <see cref="Embedding"/>. NULL = nunca embebido.</summary>
+    public DateTime? EmbeddingCalculadoEn { get; set; }
+
     public SourceSite SourceSite { get; set; } = null!;
     public Article? Article { get; set; }
 }

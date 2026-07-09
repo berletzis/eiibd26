@@ -54,6 +54,12 @@ public class ScrapingWorker : BackgroundService
         _logger.LogInformation("Traducción EN→ES (Anthropic): {Estado}.",
             translator.Habilitado ? "habilitada" : "DESHABILITADA (sin API key) — inglés no se firmará");
 
+        // Embeddings (Voyage, Fase 4). Multilingüe: embebe el texto ORIGINAL (inglés SIN traducir).
+        // Independiente del vocabulario y del traductor. Solo se guarda el vector, nunca el texto.
+        var voyage = scope.ServiceProvider.GetRequiredService<eiibd26.Voyage.IVoyageEmbeddingClient>();
+        _logger.LogInformation("Embeddings (Voyage {Modelo}): {Estado}.",
+            voyage.Modelo, voyage.Habilitado ? "habilitados" : "DESHABILITADOS (sin API key) — externos no se embeberán");
+
         // Fuentes desde fuentes.json (editable a mano, viaja junto al ejecutable).
         // Si falta o está mal formado: log claro y salida limpia (no crash).
         var fuentes = CargarFuentes();
@@ -97,7 +103,7 @@ public class ScrapingWorker : BackgroundService
             try
             {
                 var site = await UpsertSourceSiteAsync(db, fuente, stoppingToken);
-                await IndexarFuenteAsync(db, httpClient, robotsCache, site, fuente, vocab, translator, stoppingToken);
+                await IndexarFuenteAsync(db, httpClient, robotsCache, site, fuente, vocab, translator, voyage, stoppingToken);
             }
             catch (Exception ex)
             {
@@ -207,7 +213,8 @@ public class ScrapingWorker : BackgroundService
     private async Task IndexarFuenteAsync(
         Eiibd26Context db, HttpClient httpClient, Dictionary<string, RobotsMatcher> robotsCache,
         SourceSite site, FuenteConfig fuente, IReadOnlyList<VocabularioTermino> vocab,
-        Services.ITranslationService translator, CancellationToken stoppingToken)
+        Services.ITranslationService translator, eiibd26.Voyage.IVoyageEmbeddingClient voyage,
+        CancellationToken stoppingToken)
     {
         var maxDepth = fuente.MaxDepth > 0 ? fuente.MaxDepth : 10;
         var maxPages = fuente.MaxPages > 0 ? fuente.MaxPages : 3000;
@@ -217,6 +224,8 @@ public class ScrapingWorker : BackgroundService
         var esEspanol = defaultLanguage.StartsWith("es", StringComparison.OrdinalIgnoreCase);
         var esIngles = defaultLanguage.StartsWith("en", StringComparison.OrdinalIgnoreCase);
         var firmarHabilitado = vocab.Count > 0 && (esEspanol || (esIngles && translator.Habilitado));
+        // Embedding: multilingüe → aplica a CUALQUIER idioma sin traducir ni vocabulario.
+        var embedHabilitado = voyage.Habilitado;
         var hostsPermitidos = new HashSet<string>(fuente.HostPermitidos, StringComparer.OrdinalIgnoreCase);
         // Restricción por sección (opcional): prefijos de path. Vacío = todo el host.
         var rutasPermitidas = fuente.RutasPermitidas ?? new List<string>();
@@ -235,6 +244,9 @@ public class ScrapingWorker : BackgroundService
         var firmaOmitidaLastmod = 0;
         var traducidas = 0;
         var firmaErrores = 0;
+        var embebidas = 0;
+        var embedOmitidaLastmod = 0;
+        var embedErrores = 0;
 
         // robots.txt: matcher propio + caché por host (compartida entre fuentes).
         async Task<RobotsMatcher> GetRobotsAsync(Uri pageUri)
@@ -287,10 +299,11 @@ public class ScrapingWorker : BackgroundService
             var anchor = await db.ScrapedPages
                 .FirstOrDefaultAsync(p => p.Url == currentUrl && p.SourceSiteId == site.SourceSiteId, stoppingToken);
 
-            // Estado previo para la optimización lastmod de la firma (antes de mutar el ancla).
+            // Estado previo para la optimización lastmod de la firma/embedding (antes de mutar el ancla).
             var esNuevo = anchor == null;
             var oldPublishedAt = anchor?.PublishedAt;
             var firmaExistente = anchor?.Firma;
+            var embeddingExistente = anchor?.Embedding;
 
             if (anchor == null)
             {
@@ -394,6 +407,45 @@ public class ScrapingWorker : BackgroundService
                     firmaOmitidaLastmod++;
                 }
             }
+
+            // EMBEDDING (Fase 4). Multilingüe: se embebe el texto ORIGINAL (título + cuerpo), SIN
+            // traducir, para cualquier idioma. El texto se usó en memoria (textoPlano) y aquí solo
+            // se guarda el VECTOR; el texto NUNCA se persiste. Optimización lastmod idéntica a la firma.
+            if (embedHabilitado)
+            {
+                var lastmodCambio = publishedAt.HasValue && oldPublishedAt != publishedAt;
+                var necesitaEmbedding = esNuevo || embeddingExistente == null || lastmodCambio;
+                if (necesitaEmbedding)
+                {
+                    var textoEmbed = ConstruirTextoEmbed(meta.Title, textoPlano);
+                    if (string.IsNullOrWhiteSpace(textoEmbed))
+                    {
+                        // Sin texto embebible: se deja NULL (no es error).
+                    }
+                    else
+                    {
+                        var vector = await voyage.EmbedUnoAsync(textoEmbed, stoppingToken);
+                        if (vector == null)
+                        {
+                            embedErrores++;
+                            _logger.LogWarning("Embedding vacío/fallido; no se embebe {Url}", currentUrl);
+                        }
+                        else
+                        {
+                            anchor.Embedding = JsonSerializer.Serialize(vector);
+                            anchor.EmbeddingModelo = voyage.Modelo;
+                            anchor.EmbeddingCalculadoEn = DateTime.UtcNow;
+                            await db.SaveChangesAsync(stoppingToken);
+                            embebidas++;
+                            _logger.LogInformation("Embebido {Url}", currentUrl);
+                        }
+                    }
+                }
+                else
+                {
+                    embedOmitidaLastmod++;
+                }
+            }
         }
 
         // Procesa UNA URL con el flujo YA VALIDADO: robots + descarga(charset) + filtro meta + persistencia.
@@ -435,9 +487,10 @@ public class ScrapingWorker : BackgroundService
             }
             else
             {
-                // Texto principal para firmar (solo si esta fuente se firma): se extrae del
-                // HTML en memoria excluyendo script/style/nav/header/footer/aside; nunca se guarda.
-                var textoPlano = firmarHabilitado ? ExtraerTextoPrincipal(html) : null;
+                // Texto principal para firmar y/o embeber: se extrae del HTML en memoria excluyendo
+                // script/style/nav/header/footer/aside; nunca se guarda. Se extrae si la fuente se
+                // firma O si hay embeddings (el embedding aplica a cualquier idioma sin traducir).
+                var textoPlano = (firmarHabilitado || embedHabilitado) ? ExtraerTextoPrincipal(html) : null;
                 await PersistirAsync(currentUrl, meta, lastmod, textoPlano);
                 indexed++;
             }
@@ -556,9 +609,25 @@ public class ScrapingWorker : BackgroundService
 
         _logger.LogInformation(
             "Fuente '{Nombre}': sitemap con {N} URLs, {P} indexadas (con meta), {Q} sin meta, {R} por robots, {E} errores. " +
-            "Firma (idioma={Idioma}, habilitada={Hab}): {F} firmadas, {T} traducidas (EN→ES), {L} omitidas por lastmod, {FE} errores de firma/traducción.",
+            "Firma (idioma={Idioma}, habilitada={Hab}): {F} firmadas, {T} traducidas (EN→ES), {L} omitidas por lastmod, {FE} errores de firma/traducción. " +
+            "Embedding (Voyage, habilitado={EmbHab}): {EM} embebidas, {EL} omitidas por lastmod, {EE} errores.",
             fuente.Nombre, sitemapCount, indexed, noMeta, robotsSkipped, errors,
-            defaultLanguage, firmarHabilitado, firmadas, traducidas, firmaOmitidaLastmod, firmaErrores);
+            defaultLanguage, firmarHabilitado, firmadas, traducidas, firmaOmitidaLastmod, firmaErrores,
+            embedHabilitado, embebidas, embedOmitidaLastmod, embedErrores);
+    }
+
+    // Texto para el embedding: título + cuerpo (ya en texto plano por ExtraerTextoPrincipal),
+    // colapsado y acotado. SIN traducir ni normalizar: el modelo multilingüe usa el significado
+    // natural. Solo EN MEMORIA; nunca se persiste el texto (solo el vector resultante).
+    private static readonly System.Text.RegularExpressions.Regex EspaciosEmbedRegex =
+        new(@"\s+", System.Text.RegularExpressions.RegexOptions.Compiled);
+    private const int MaxCharsEmbed = 32000;
+
+    private static string ConstruirTextoEmbed(string? titulo, string? cuerpo)
+    {
+        var texto = EspaciosEmbedRegex.Replace($"{titulo}. {cuerpo}", " ").Trim();
+        if (texto.Length > MaxCharsEmbed) texto = texto.Substring(0, MaxCharsEmbed);
+        return texto;
     }
 
     // Extrae el texto principal para firmar: quita script/style/nav/header/footer/aside
