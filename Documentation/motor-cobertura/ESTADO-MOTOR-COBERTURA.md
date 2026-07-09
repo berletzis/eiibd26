@@ -4,7 +4,9 @@
 > Cobertura para retomar en cualquier sesión futura sin perder contexto: qué está
 > hecho, qué falta, qué se decidió y por qué, y qué **NO** hacer.
 >
-> Última actualización: 2026-07-08 · Fases 1-4 completadas. Motor funcional de punta a punta.
+> Última actualización: 2026-07-08 · Fases 1-4 completadas (firma-vocabulario, punta a
+> punta). Paciente = "Radar de Contenido" (tab "Explora el tema"). Próximo: Motor de
+> Embeddings (Voyage AI) para el tab "Artículos Similares" — ver sección "Próximo".
 > Documento hermano: [`vocabulario-conceptos-propuesta.md`](./vocabulario-conceptos-propuesta.md).
 
 ---
@@ -135,7 +137,8 @@ Commits: **3A/3B** (servicio + esquema) · **3C** (job + panel).
 
 ### ✅ Fase 4 — Vistas (COMPLETADA)
 
-Commits: **4A** (paciente) · **4B** (admin). Servicio read-only `CoberturaVistaService`.
+Commits: **4A** (paciente) · **4B** (admin) · **4C** (bloque de tabs "Explora el tema").
+Servicio read-only `CoberturaVistaService`.
 
 **Discriminador "artículo real" (PASO 0):** `IdTipo` **NO sirve** (casi todo el
 contenido EII es `IdTipo=NULL`, mezclado con sistema). El discriminador validado es
@@ -144,13 +147,21 @@ contenido EII es `IdTipo=NULL`, mezclado con sistema). El discriminador validado
 páginas de sistema (Aviso de Privacidad, Términos, Mi Salud, Directorio…). El set se
 cachea en memoria (TTL 10 min).
 
-- **Paciente** (`Pages/Contenidos/_ExternosSimilares.cshtml`, sección al final de
-  `Detalle`, reemplaza el tab placeholder "Contenido similar en Internet"): 3-5
-  sitios externos con `Score ≥ 0.60` (umbral paciente, más alto que el 0.50 del
-  cálculo), etiqueta de relación protagonista ("Muy relacionado" ≥0.80 /
-  "Relacionado" 0.60-0.80) + % discreto. Enlace al **original** (nueva pestaña,
-  `rel="noopener nofollow"`), NUNCA republica. Título derivado del slug (TitleRaw es
-  NULL). Solo aparece si es artículo.
+- **Paciente — "Radar de Contenido"** (nombre interno de la feature; tab visible =
+  **"Explora el tema"**). Bloque de tabs en `Detalle`, **debajo** de "Artículos
+  relacionados / Recomendados", reutilizando el mismo patrón de tabs
+  (`.tabs/.tab-list/.tab-btn/.tab-panels`) + sistema eii-*. Solo aparece si el
+  artículo es del **árbol General** (flag `EsArticuloCobertura`, vía
+  `EsArticuloAsync`). Subtítulo del bloque comunica el valor + disciplina legal.
+  - **Tab 1 "Explora el tema"** (activo): partial `_ExternosSimilares` — 3-5 sitios
+    externos con `Score ≥ 0.60` (umbral paciente, más alto que el 0.50 del cálculo),
+    etiqueta protagonista ("Muy relacionado" ≥0.80 / "Relacionado" 0.60-0.80) + %
+    discreto. Enlace al **original** (nueva pestaña, `rel="noopener nofollow"`),
+    NUNCA republica. Título derivado del slug (`TitleRaw` es NULL).
+  - **Tab 2 "Artículos Similares"** (estado **"Próximamente"**): **placeholder** para
+    el **Motor de Embeddings (Voyage AI)** — ver sección "Próximo" abajo. Mostrará
+    los artículos semánticamente más parecidos a *este* en particular (no por
+    vocabulario/firma, sino por embeddings densos).
 - **Admin** (`/Identity/Admin/Contenidos/Cobertura`): por cada externo con firma, el
   mejor artículo propio similar (lado propio filtrado a artículo). Estados Cubierto
   (≥0.60) / Débil (0.50-0.60) / Hueco (sin match = oportunidad). Orden
@@ -160,6 +171,48 @@ cachea en memoria (TTL 10 min).
 **Pendiente menor:** algunos "huecos" del admin son páginas no-artículo del sitio
 externo (eventos, "celebrating people") — no hay árbol de categorías para externos,
 así que no se filtran. La mayoría de huecos sí son temas reales.
+
+---
+
+### 🔜 Próximo — Motor de Embeddings (Voyage AI) · alimenta el tab "Artículos Similares"
+
+> **Objetivo:** el tab **"Artículos Similares"** (hoy "Próximamente") mostrará los
+> artículos **semánticamente** más parecidos a *este* en particular, usando embeddings
+> densos (capturan significado más allá del vocabulario compartido). **Complementa** al
+> "Radar/Explora el tema" (que es de cobertura por firma-vocabulario), no lo reemplaza.
+
+**Distinción de las dos métricas (deliberada):**
+- **Firma (ya hecha):** conteo de vocabulario EII → "¿de qué temas EII trata?" → bueno
+  para cobertura, huecos, duplicados por tema.
+- **Embedding (nuevo):** vector semántico denso → "¿qué artículo se le parece más *a
+  este*?" → bueno para recomendación fina y "más como este".
+
+**Plan para la próxima sesión:**
+1. **Modelo:** Voyage AI **multilingüe** (contenido ES propio + externos ES/EN).
+   Candidato `voyage-3.5` o `voyage-multilingual-2` (~1024 dims). Confirmar modelo,
+   dims y costo antes de codear. No hay modelo médico específico; el general
+   multilingüe sirve.
+2. **Cliente propio** (patrón GRIS/Anthropic): `POST https://api.voyageai.com/v1/embeddings`,
+   body `{ input:[...], model, input_type }` (`document` al indexar). Key en config
+   (user-secrets/env), **NO hardcodeada**. Batch. **NO tocar NINA/GRIS/AiAnswerService.**
+3. **Qué se embebe:** título + cuerpo (propios); externos = el mismo texto que ya se
+   extrae/traduce en el Worker (Fase 2). **Disciplina legal: de los externos SOLO se
+   guarda el vector, nunca el texto** (el embedding es un derivado, como la firma).
+4. **Almacenamiento (SQL directo, sin migración):** columnas nuevas `Embedding`
+   (JSON/varbinary de floats) + `EmbeddingCalculadoEn` en `contenidos` y `ScrapedPage`.
+   SQL Server actual no tiene tipo `VECTOR` nativo (2025+) → serializar y calcular
+   coseno en memoria (mismo patrón que la firma). ALTER idempotente que corre el usuario.
+5. **Cálculo:** coseno entre embeddings, por lotes (reutilizar el patrón de
+   `SimilitudService`). **Tabla nueva** `CoberturaSimilitudEmbedding` (no mezclar con la
+   de firma para no confundir métricas). Dirigida igual que Fase 3.
+6. **Dónde corre:** propios en el Web (job Hangfire), externos en el Worker (misma
+   pasada del crawl, guardando solo el vector) — igual que la firma.
+7. **Vista:** el tab "Artículos Similares" leerá la tabla de embeddings (top N por
+   artículo), propios + externos (externos con enlace al original, nunca republicar).
+
+**Decisiones a confirmar mañana:** modelo/dims exactos · umbral de visualización del
+tab · si el tab muestra solo propios, solo externos o ambos (propuesta: ambos,
+propios primero) · tabla nueva vs. columna de método en `CoberturaSimilitud`.
 
 ---
 
