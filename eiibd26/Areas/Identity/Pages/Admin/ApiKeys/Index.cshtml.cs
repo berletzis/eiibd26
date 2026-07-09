@@ -45,6 +45,10 @@ namespace eiibd26.Areas.Identity.Pages.Admin.ApiKeys
             Rows.Add(Build("Anthropic (GRIS)", "AiAnswer:AnthropicApiKey", prefixLen: 6,
                 nota: "Misma key que NINA (GRIS solo cambia el modelo con Gris:Model)."));
 
+            // Voyage — embeddings del Motor de Cobertura (Web + Worker). Vive fuera de appsettings
+            // (user-secrets/env); por eso se lee de la config efectiva igual que las demás.
+            Rows.Add(Build("Voyage (embeddings)", "Voyage:ApiKey", prefixLen: 6));
+
             // SendGrid — envío de email
             Rows.Add(Build("SendGrid", "SendGrid:ApiKey", prefixLen: 6));
 
