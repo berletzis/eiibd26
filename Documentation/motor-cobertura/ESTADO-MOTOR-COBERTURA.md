@@ -4,7 +4,7 @@
 > Cobertura para retomar en cualquier sesión futura sin perder contexto: qué está
 > hecho, qué falta, qué se decidió y por qué, y qué **NO** hacer.
 >
-> Última actualización: 2026-07-08 · Fases 1-3 completadas. Próximo: Fase 4 (vistas).
+> Última actualización: 2026-07-08 · Fases 1-4 completadas. Motor funcional de punta a punta.
 > Documento hermano: [`vocabulario-conceptos-propuesta.md`](./vocabulario-conceptos-propuesta.md).
 
 ---
@@ -133,11 +133,33 @@ Commits: **3A/3B** (servicio + esquema) · **3C** (job + panel).
 - **`SimilitudJob`** (Hangfire) + panel `/Identity/Admin/Contenidos/Similitud`:
   botones Calcular / Recalcular total, progreso con polling y top-pares por score.
 
-### ⏳ Fase 4 — Vistas (PENDIENTE)
+### ✅ Fase 4 — Vistas (COMPLETADA)
 
-- **Paciente:** partial en `Contenidos/Detalle` — "sitios externos similares" + % de
-  similitud.
-- **Admin:** grid de temas escaneados con % de cobertura/similitud.
+Commits: **4A** (paciente) · **4B** (admin). Servicio read-only `CoberturaVistaService`.
+
+**Discriminador "artículo real" (PASO 0):** `IdTipo` **NO sirve** (casi todo el
+contenido EII es `IdTipo=NULL`, mezclado con sistema). El discriminador validado es
+**pertenecer al árbol de la categoría "General" (`contenidosCategorias.Sequence=1`
++ descendientes por `CategoriaPadre`)**. Sobre 105 publicados: 59 artículos vs 46
+páginas de sistema (Aviso de Privacidad, Términos, Mi Salud, Directorio…). El set se
+cachea en memoria (TTL 10 min).
+
+- **Paciente** (`Pages/Contenidos/_ExternosSimilares.cshtml`, sección al final de
+  `Detalle`, reemplaza el tab placeholder "Contenido similar en Internet"): 3-5
+  sitios externos con `Score ≥ 0.60` (umbral paciente, más alto que el 0.50 del
+  cálculo), etiqueta de relación protagonista ("Muy relacionado" ≥0.80 /
+  "Relacionado" 0.60-0.80) + % discreto. Enlace al **original** (nueva pestaña,
+  `rel="noopener nofollow"`), NUNCA republica. Título derivado del slug (TitleRaw es
+  NULL). Solo aparece si es artículo.
+- **Admin** (`/Identity/Admin/Contenidos/Cobertura`): por cada externo con firma, el
+  mejor artículo propio similar (lado propio filtrado a artículo). Estados Cubierto
+  (≥0.60) / Débil (0.50-0.60) / Hueco (sin match = oportunidad). Orden
+  cubiertos/huecos-primero. 163 temas → 123 cubiertos, 3 débiles, 37 huecos.
+- **Entidad read-only nueva:** `SourceSiteRef` (dbo.SourceSite) para el nombre del sitio.
+
+**Pendiente menor:** algunos "huecos" del admin son páginas no-artículo del sitio
+externo (eventos, "celebrating people") — no hay árbol de categorías para externos,
+así que no se filtran. La mayoría de huecos sí son temas reales.
 
 ---
 
