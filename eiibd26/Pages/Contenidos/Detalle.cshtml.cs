@@ -60,6 +60,8 @@ namespace eiibd26.Pages.Contenidos
 
         // Motor de Cobertura (Fase 4): sitios externos con contenido similar a este artículo.
         public IReadOnlyList<ExternoSimilarDto> ExternosSimilares { get; set; } = new List<ExternoSimilarDto>();
+        // ¿Es artículo real (árbol General)? Gatea el bloque de tabs "Explora el tema".
+        public bool EsArticuloCobertura { get; set; }
 
         // Relative canonical path (e.g. "/categoria/slug")
         public string CanonicalUrl { get; set; }
@@ -531,6 +533,7 @@ namespace eiibd26.Pages.Contenidos
             // Solo si es artículo real (árbol General) y hay matches ≥ umbral paciente.
             try
             {
+                EsArticuloCobertura = await _coberturaVista.EsArticuloAsync(entity.Id);
                 ExternosSimilares = await _coberturaVista.ObtenerExternosSimilaresAsync(entity.Id);
             }
             catch (Exception ex)

@@ -538,8 +538,46 @@
                 </div>
             </div>
 
-            @* Motor de Cobertura (Fase 4): sitios externos con contenido similar a este artículo. *@
-            <partial name="_ExternosSimilares" model="Model.ExternosSimilares" />
+            @* Motor de Cobertura (Fase 4) — "Radar de Contenido". Bloque de tabs "Explora el tema"
+               debajo de Relacionados/Recomendados. Solo para artículos del árbol General. *@
+            @if (Model.EsArticuloCobertura)
+            {
+                <div class="eii-section" aria-label="Explora el tema">
+                    <p class="eii-text-muted eii-text-sm">
+                        Explora más sobre este tema, dentro y fuera de EIIBD — enlazamos al sitio original,
+                        el contenido vive allí.
+                    </p>
+
+                    <div class="tabs" id="radarTabs" role="tablist" aria-label="Explora el tema">
+                        <div class="tab-list" role="tablist" aria-hidden="false">
+                            <button type="button" class="tab-btn active" data-panel="tab-radar" role="tab" aria-selected="true">Explora el tema</button>
+                            <button type="button" class="tab-btn" data-panel="tab-embeddings" role="tab" aria-selected="false">Artículos Similares</button>
+                        </div>
+
+                        <div class="tab-panels">
+                            <div id="tab-radar" class="tab-panel active" role="tabpanel" aria-hidden="false">
+                                <partial name="_ExternosSimilares" model="Model.ExternosSimilares" />
+                                @if (!Model.ExternosSimilares.Any())
+                                {
+                                    <p class="eii-text-muted">Aún no encontramos otros sitios que traten este tema de forma cercana.</p>
+                                }
+                            </div>
+
+                            <div id="tab-embeddings" class="tab-panel" role="tabpanel" aria-hidden="true">
+                                <div class="eii-card eii-card--flat eii-card--compact d-flex flex-column gap-2">
+                                    <span class="eii-tag eii-bg-primary-soft eii-text-primary eii-fw-semibold align-self-start">
+                                        <i class="bi bi-hourglass-split"></i>&nbsp;Próximamente
+                                    </span>
+                                    <p class="eii-text-muted mb-0">
+                                        Estamos afinando esta función para mostrarte los artículos más parecidos
+                                        a este en particular. Muy pronto.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
 
             @if (Model.Item?.ManualPreguntas?.Any() == true)
             {
@@ -817,56 +855,51 @@
 @section Scripts {
     <script>
         (function () {
-            // Tabs behavior for related content
-            const tabContainer = document.getElementById('relatedTabs');
-            if (!tabContainer) return;
+            // Tabs behavior — aplica a TODOS los bloques .tabs (Relacionados + Radar "Explora el tema").
+            document.querySelectorAll('.tabs').forEach(function (tabContainer) {
+                const buttons = tabContainer.querySelectorAll('.tab-btn');
+                const panels = tabContainer.querySelectorAll('.tab-panel');
+                if (!buttons.length) return;
 
-            const buttons = tabContainer.querySelectorAll('.tab-btn');
-            const panels = tabContainer.querySelectorAll('.tab-panel');
+                function activate(panelId, btn) {
+                    panels.forEach(p => {
+                        if (p.id === panelId) {
+                            p.classList.add('active');
+                            p.setAttribute('aria-hidden', 'false');
+                        } else {
+                            p.classList.remove('active');
+                            p.setAttribute('aria-hidden', 'true');
+                        }
+                    });
+                    buttons.forEach(b => {
+                        if (b === btn) {
+                            b.classList.add('active');
+                            b.setAttribute('aria-selected', 'true');
+                        } else {
+                            b.classList.remove('active');
+                            b.setAttribute('aria-selected', 'false');
+                        }
+                    });
+                }
 
-            function activate(panelId, btn) {
-                panels.forEach(p => {
-                    if (p.id === panelId) {
-                        p.classList.add('active');
-                        p.setAttribute('aria-hidden', 'false');
-                    } else {
-                        p.classList.remove('active');
-                        p.setAttribute('aria-hidden', 'true');
-                    }
+                buttons.forEach(btn => {
+                    btn.addEventListener('click', () => activate(btn.getAttribute('data-panel'), btn));
+
+                    btn.addEventListener('keydown', (e) => {
+                        // left/right navigation
+                        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                            e.preventDefault();
+                            const idx = Array.from(buttons).indexOf(btn);
+                            const nextIdx = e.key === 'ArrowRight' ? (idx + 1) % buttons.length : (idx - 1 + buttons.length) % buttons.length;
+                            buttons[nextIdx].focus();
+                        }
+                    });
                 });
-                buttons.forEach(b => {
-                    if (b === btn) {
-                        b.classList.add('active');
-                        b.setAttribute('aria-selected', 'true');
-                    } else {
-                        b.classList.remove('active');
-                        b.setAttribute('aria-selected', 'false');
-                    }
-                });
-            }
 
-            buttons.forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const panel = btn.getAttribute('data-panel');
-                    activate(panel, btn);
-                });
-
-                btn.addEventListener('keydown', (e) => {
-                    // left/right navigation
-                    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-                        e.preventDefault();
-                        const idx = Array.from(buttons).indexOf(btn);
-                        const nextIdx = e.key === 'ArrowRight' ? (idx + 1) % buttons.length : (idx - 1 + buttons.length) % buttons.length;
-                        buttons[nextIdx].focus();
-                    }
-                });
-            });
-
-            // set initial (first) active
-            if (buttons.length) {
+                // set initial (first) active
                 const first = buttons[0];
                 activate(first.getAttribute('data-panel'), first);
-            }
+            });
         })();
 
         // "Continuar leyendo" logic
