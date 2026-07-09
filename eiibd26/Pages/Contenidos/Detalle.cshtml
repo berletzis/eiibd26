@@ -550,29 +550,53 @@
 
                     <div class="tabs" id="radarTabs" role="tablist" aria-label="Explora el tema">
                         <div class="tab-list" role="tablist" aria-hidden="false">
-                            <button type="button" class="tab-btn active" data-panel="tab-radar" role="tab" aria-selected="true">Explora el tema</button>
-                            <button type="button" class="tab-btn" data-panel="tab-embeddings" role="tab" aria-selected="false">Artículos Similares</button>
+                            <button type="button" class="tab-btn active" data-panel="tab-embeddings" role="tab" aria-selected="true">Artículos Similares</button>
+                            <button type="button" class="tab-btn" data-panel="tab-radar" role="tab" aria-selected="false">Explora el tema</button>
                         </div>
 
                         <div class="tab-panels">
-                            <div id="tab-radar" class="tab-panel active" role="tabpanel" aria-hidden="false">
-                                <partial name="_ExternosSimilares" model="Model.ExternosSimilares" />
-                                @if (!Model.ExternosSimilares.Any())
+                            @* Tab "Artículos Similares" — subtema fino (embeddings, Score ≥ 0.78) *@
+                            <div id="tab-embeddings" class="tab-panel active" role="tabpanel" aria-hidden="false">
+                                @if (Model.SimilaresItems.Any())
                                 {
-                                    <p class="eii-text-muted">Aún no encontramos otros sitios que traten este tema de forma cercana.</p>
+                                    <div class="d-flex flex-column gap-3" id="lista-similares" data-tab="similares">
+                                        <partial name="_ExternosSimilares" model="Model.SimilaresItems" />
+                                    </div>
+                                    @if (Model.SimilaresHasMore)
+                                    {
+                                        <button type="button" class="eii-btn eii-btn--ghost eii-btn--sm mt-3 js-ver-mas"
+                                                data-aid="@Model.ArticuloId" data-tab="similares"
+                                                data-offset="@Model.SimilaresNextOffset" data-target="#lista-similares">
+                                            Ver más
+                                        </button>
+                                    }
+                                }
+                                else
+                                {
+                                    <p class="eii-text-muted">Aún no encontramos artículos muy parecidos a este en particular.</p>
                                 }
                             </div>
 
-                            <div id="tab-embeddings" class="tab-panel" role="tabpanel" aria-hidden="true">
-                                <div class="eii-card eii-card--flat eii-card--compact d-flex flex-column gap-2">
-                                    <span class="eii-tag eii-bg-primary-soft eii-text-primary eii-fw-semibold align-self-start">
-                                        <i class="bi bi-hourglass-split"></i>&nbsp;Próximamente
-                                    </span>
-                                    <p class="eii-text-muted mb-0">
-                                        Estamos afinando esta función para mostrarte los artículos más parecidos
-                                        a este en particular. Muy pronto.
-                                    </p>
-                                </div>
+                            @* Tab "Explora el tema" — mismo área (embeddings, 0.55 ≤ Score < 0.78) *@
+                            <div id="tab-radar" class="tab-panel" role="tabpanel" aria-hidden="true">
+                                @if (Model.AreaItems.Any())
+                                {
+                                    <div class="d-flex flex-column gap-3" id="lista-area" data-tab="area">
+                                        <partial name="_ExternosSimilares" model="Model.AreaItems" />
+                                    </div>
+                                    @if (Model.AreaHasMore)
+                                    {
+                                        <button type="button" class="eii-btn eii-btn--ghost eii-btn--sm mt-3 js-ver-mas"
+                                                data-aid="@Model.ArticuloId" data-tab="area"
+                                                data-offset="@Model.AreaNextOffset" data-target="#lista-area">
+                                            Ver más
+                                        </button>
+                                    }
+                                }
+                                else
+                                {
+                                    <p class="eii-text-muted">Aún no encontramos otros sitios que traten este tema de forma cercana.</p>
+                                }
                             </div>
                         </div>
                     </div>
@@ -899,6 +923,43 @@
                 // set initial (first) active
                 const first = buttons[0];
                 activate(first.getAttribute('data-panel'), first);
+            });
+        })();
+
+        // "Ver más" AJAX del Radar (embeddings): carga el siguiente bloque sin recargar la página.
+        (function () {
+            function onClick(btn) {
+                return async function () {
+                    const target = document.querySelector(btn.dataset.target);
+                    if (!target) return;
+                    const aid = btn.dataset.aid;
+                    const tab = btn.dataset.tab;
+                    const offset = btn.dataset.offset;
+                    btn.disabled = true;
+                    const original = btn.textContent;
+                    btn.textContent = 'Cargando…';
+                    try {
+                        const url = '?handler=MasExternos&aid=' + encodeURIComponent(aid) +
+                                    '&tab=' + encodeURIComponent(tab) + '&offset=' + encodeURIComponent(offset);
+                        const resp = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                        if (!resp.ok) { btn.disabled = false; btn.textContent = original; return; }
+                        const html = await resp.text();
+                        target.insertAdjacentHTML('beforeend', html.trim());
+                        if (resp.headers.get('X-Has-More') === '1') {
+                            btn.dataset.offset = resp.headers.get('X-Next-Offset');
+                            btn.disabled = false;
+                            btn.textContent = original;
+                        } else {
+                            btn.remove();  // no quedan más → ocultar el botón
+                        }
+                    } catch (e) {
+                        btn.disabled = false;
+                        btn.textContent = original;
+                    }
+                };
+            }
+            document.querySelectorAll('.js-ver-mas').forEach(function (btn) {
+                btn.addEventListener('click', onClick(btn));
             });
         })();
 

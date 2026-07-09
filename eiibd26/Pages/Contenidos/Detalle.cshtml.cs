@@ -58,10 +58,22 @@ namespace eiibd26.Pages.Contenidos
         public ValidacionExistenteDto? MiValidacionDesc { get; set; }
         public List<ValidacionPublicaDto> ValidacionesPublicas { get; set; } = new();
 
-        // Motor de Cobertura (Fase 4): sitios externos con contenido similar a este artículo.
-        public IReadOnlyList<ExternoSimilarDto> ExternosSimilares { get; set; } = new List<ExternoSimilarDto>();
-        // ¿Es artículo real (árbol General)? Gatea el bloque de tabs "Explora el tema".
+        // Motor de Cobertura (Fase 6): externos similares desde el motor de EMBEDDINGS, dos tabs.
+        // Tab "Artículos Similares" (subtema, Score ≥ 0.78).
+        public IReadOnlyList<ExternoSimilarDto> SimilaresItems { get; set; } = new List<ExternoSimilarDto>();
+        public bool SimilaresHasMore { get; set; }
+        public int SimilaresNextOffset { get; set; }
+        // Tab "Explora el tema" (área, 0.55 ≤ Score < 0.78).
+        public IReadOnlyList<ExternoSimilarDto> AreaItems { get; set; } = new List<ExternoSimilarDto>();
+        public bool AreaHasMore { get; set; }
+        public int AreaNextOffset { get; set; }
+        // Id del artículo (para los botones "Ver más" AJAX).
+        public int ArticuloId { get; set; }
+        // ¿Es artículo real (árbol General)? Gatea el bloque de tabs del Radar.
         public bool EsArticuloCobertura { get; set; }
+
+        // Tamaño del bloque inicial y de cada "Ver más".
+        private const int BloqueExternos = 5;
 
         // Relative canonical path (e.g. "/categoria/slug")
         public string CanonicalUrl { get; set; }
@@ -529,12 +541,26 @@ namespace eiibd26.Pages.Contenidos
 
             Item = vm;
 
-            // Motor de Cobertura (Fase 4): sitios externos con contenido similar.
-            // Solo si es artículo real (árbol General) y hay matches ≥ umbral paciente.
+            // Motor de Cobertura (Fase 6): externos similares desde embeddings, dos tabs.
+            // Solo si es artículo real (árbol General). Carga el primer bloque de cada tab;
+            // el resto se pide con "Ver más" (AJAX, handler MasExternos).
             try
             {
                 EsArticuloCobertura = await _coberturaVista.EsArticuloAsync(entity.Id);
-                ExternosSimilares = await _coberturaVista.ObtenerExternosSimilaresAsync(entity.Id);
+                if (EsArticuloCobertura)
+                {
+                    ArticuloId = entity.Id;
+
+                    var similares = await _coberturaVista.ObtenerSimilaresAsync(entity.Id, "similares", 0, BloqueExternos);
+                    SimilaresItems = similares.Items;
+                    SimilaresHasMore = similares.HasMore;
+                    SimilaresNextOffset = similares.NextOffset;
+
+                    var area = await _coberturaVista.ObtenerSimilaresAsync(entity.Id, "area", 0, BloqueExternos);
+                    AreaItems = area.Items;
+                    AreaHasMore = area.HasMore;
+                    AreaNextOffset = area.NextOffset;
+                }
             }
             catch (Exception ex)
             {
@@ -636,6 +662,20 @@ namespace eiibd26.Pages.Contenidos
             if (string.IsNullOrWhiteSpace(text)) return 0;
             var parts = Regex.Split(text.Trim(), @"\s+");
             return parts.Length;
+        }
+
+        /// <summary>
+        /// Motor de Cobertura (Fase 6) — "Ver más" AJAX del Radar. Devuelve el siguiente bloque de
+        /// externos del tab pedido como fragmento HTML (partial), con X-Has-More / X-Next-Offset en
+        /// headers para que el JS sepa si seguir mostrando el botón. Solo lectura de embeddings;
+        /// re-valida que el AId sea un artículo real (el servicio devuelve vacío si no lo es).
+        /// </summary>
+        public async Task<IActionResult> OnGetMasExternosAsync(int aid, string tab, int offset)
+        {
+            var pagina = await _coberturaVista.ObtenerSimilaresAsync(aid, tab, offset, BloqueExternos);
+            Response.Headers["X-Has-More"] = pagina.HasMore ? "1" : "0";
+            Response.Headers["X-Next-Offset"] = pagina.NextOffset.ToString();
+            return Partial("_ExternosSimilares", pagina.Items);
         }
     }
 }

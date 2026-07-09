@@ -14,9 +14,11 @@ namespace eiibd26.Services.Cobertura
     {
         private readonly ApplicationDbContext _db;
 
-        // Umbral de visualización paciente (más alto que el 0.50 del cálculo: solo relaciones fuertes).
-        private const double MinScorePaciente = 0.60;
-        private const int MaxExternosPaciente = 5;
+        // Umbrales de vista (embeddings), provisionales — a calibrar con datos reales:
+        //   "Artículos Similares" (subtema fino) = Score ≥ 0.78
+        //   "Explora el tema"     (mismo tema)   = 0.55 ≤ Score < 0.78
+        private const decimal UmbralSimilares = 0.78m;
+        private const decimal UmbralArea = 0.55m;
 
         // Raíz del árbol de categorías "artículo real".
         private const int CategoriaGeneral = 1;
@@ -80,26 +82,43 @@ namespace eiibd26.Services.Cobertura
 
         // ---- Vista paciente ----
 
-        public async Task<IReadOnlyList<ExternoSimilarDto>> ObtenerExternosSimilaresAsync(int contenidoId, CancellationToken ct = default)
+        public async Task<SimilaresPagina> ObtenerSimilaresAsync(
+            int contenidoId, string tab, int offset, int take, CancellationToken ct = default)
         {
+            if (take <= 0) take = 5;
+            if (offset < 0) offset = 0;
             if (!await EsArticuloAsync(contenidoId, ct))
-                return Array.Empty<ExternoSimilarDto>();
+                return new SimilaresPagina();
 
-            var min = (decimal)MinScorePaciente;
-            var pares = await (
-                from cs in _db.CoberturaSimilitudes.AsNoTracking()
+            // Dos umbrales sobre el MISMO motor de embeddings:
+            //   "similares" (subtema fino) = Score >= 0.78
+            //   "area"      (mismo tema)   = 0.55 <= Score < 0.78
+            var (minInc, maxExc) = tab switch
+            {
+                "similares" => (UmbralSimilares, (decimal?)null),
+                "area"      => (UmbralArea, UmbralSimilares),
+                _           => (UmbralSimilares, (decimal?)null)  // tab desconocido → el más estricto
+            };
+
+            var q =
+                from cs in _db.CoberturaSimilitudesEmbedding.AsNoTracking()
                 join sp in _db.ScrapedPagesRef.AsNoTracking() on cs.BId equals sp.ScrapedPageId
-                where cs.TipoPar == TipoParSimilitud.PropioExterno && cs.AId == contenidoId && cs.Score >= min
-                orderby cs.Score descending
-                select new { sp.ScrapedPageId, sp.Url, sp.SourceSiteId, cs.Score })
-                .Take(MaxExternosPaciente)
-                .ToListAsync(ct);
+                where cs.TipoPar == TipoParSimilitud.PropioExterno && cs.AId == contenidoId
+                      && cs.Score >= minInc && (maxExc == null || cs.Score < maxExc)
+                orderby cs.Score descending, cs.BId
+                select new { sp.ScrapedPageId, sp.Url, sp.SourceSiteId, cs.Score };
 
-            if (pares.Count == 0) return Array.Empty<ExternoSimilarDto>();
+            // Pide take+1 para saber si quedan más (barato: una sola query, sin COUNT aparte).
+            var rows = await q.Skip(offset).Take(take + 1).ToListAsync(ct);
+            var hasMore = rows.Count > take;
+            if (hasMore) rows = rows.Take(take).ToList();
 
-            var sitios = await NombresSitiosAsync(pares.Select(p => p.SourceSiteId), ct);
+            if (rows.Count == 0)
+                return new SimilaresPagina { Items = Array.Empty<ExternoSimilarDto>(), HasMore = false, NextOffset = offset };
 
-            return pares.Select(p => new ExternoSimilarDto
+            var sitios = await NombresSitiosAsync(rows.Select(p => p.SourceSiteId), ct);
+
+            var items = rows.Select(p => new ExternoSimilarDto
             {
                 ScrapedPageId = p.ScrapedPageId,
                 Url = p.Url,
@@ -107,6 +126,8 @@ namespace eiibd26.Services.Cobertura
                 Titulo = TituloDesdeUrl(p.Url),
                 Score = (double)p.Score
             }).ToList();
+
+            return new SimilaresPagina { Items = items, HasMore = hasMore, NextOffset = offset + items.Count };
         }
 
         // ---- Vista admin ----

@@ -15,13 +15,23 @@ namespace eiibd26.Services.Cobertura
         Task<bool> EsArticuloAsync(int contenidoId, CancellationToken ct = default);
 
         /// <summary>
-        /// Sitios externos con contenido similar al artículo dado (TipoPar=2, AId=artículo),
-        /// score ≥ umbral paciente (0.60), top N por score. Vacío si no es artículo.
+        /// Externos similares al artículo dado desde el MOTOR DE EMBEDDINGS
+        /// (CoberturaSimilitudEmbedding, TipoPar=2, AId=artículo), paginado para "Ver más".
+        /// <paramref name="tab"/> = <c>"similares"</c> (Score ≥ 0.78, subtema) o <c>"area"</c>
+        /// (0.55 ≤ Score &lt; 0.78, área). Ordenado desc. Vacío si no es artículo.
         /// </summary>
-        Task<IReadOnlyList<ExternoSimilarDto>> ObtenerExternosSimilaresAsync(int contenidoId, CancellationToken ct = default);
+        Task<SimilaresPagina> ObtenerSimilaresAsync(int contenidoId, string tab, int offset, int take, CancellationToken ct = default);
 
         /// <summary>Grid admin: cada tema externo escaneado y su mejor match propio (artículo).</summary>
         Task<IReadOnlyList<CoberturaTemaDto>> ObtenerCoberturaTemasAsync(string? orden, CancellationToken ct = default);
+    }
+
+    /// <summary>Un bloque paginado de externos similares + si quedan más (para "Ver más").</summary>
+    public sealed class SimilaresPagina
+    {
+        public IReadOnlyList<ExternoSimilarDto> Items { get; init; } = System.Array.Empty<ExternoSimilarDto>();
+        public bool HasMore { get; init; }
+        public int NextOffset { get; init; }
     }
 
     /// <summary>Un sitio externo relacionado, para la vista paciente.</summary>
@@ -33,9 +43,7 @@ namespace eiibd26.Services.Cobertura
         public string Titulo { get; init; } = "";
         public double Score { get; init; }
 
-        /// <summary>Etiqueta protagonista de la relación (según score).</summary>
-        public string Etiqueta => Score >= 0.80 ? "Muy relacionado" : "Relacionado";
-        /// <summary>% redondeado para mostrar de forma discreta.</summary>
+        /// <summary>% de coincidencia redondeado (única señal de score; el tab comunica el rol).</summary>
         public int Porcentaje => (int)System.Math.Round(Score * 100);
     }
 
