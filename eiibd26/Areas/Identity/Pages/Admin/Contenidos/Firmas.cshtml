@@ -89,24 +89,36 @@
             <h5 class="mb-0">Acciones</h5>
         </div>
         <div class="card-body">
-            <div class="d-flex flex-wrap gap-2">
-                <form method="post" asp-page-handler="Recalcular" class="d-inline">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-arrow-repeat"></i> Recalcular firmas (pendientes)
-                    </button>
-                </form>
+            @if (Model.FirmaLegacyActiva)
+            {
+                <div class="d-flex flex-wrap gap-2">
+                    <form method="post" asp-page-handler="Recalcular" class="d-inline">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-arrow-repeat"></i> Recalcular firmas (pendientes)
+                        </button>
+                    </form>
 
-                <form method="post" asp-page-handler="Forzar" class="d-inline"
-                      onsubmit="return confirm('Esto pondrá TODAS las firmas de publicados a NULL y las recalculará desde cero. ¿Continuar?');">
-                    <button type="submit" class="btn btn-outline-danger">
-                        <i class="bi bi-exclamation-octagon"></i> Forzar recálculo total
-                    </button>
-                </form>
-            </div>
-            <ul class="text-muted small mt-3 mb-0">
-                <li><strong>Recalcular firmas</strong>: firma solo los pendientes (Firma vacía). Idempotente y reanudable.</li>
-                <li><strong>Forzar recálculo total</strong>: borra todas las firmas y vuelve a firmar todo (usar si cambió el vocabulario EII).</li>
-            </ul>
+                    <form method="post" asp-page-handler="Forzar" class="d-inline"
+                          onsubmit="return confirm('Esto pondrá TODAS las firmas de publicados a NULL y las recalculará desde cero. ¿Continuar?');">
+                        <button type="submit" class="btn btn-outline-danger">
+                            <i class="bi bi-exclamation-octagon"></i> Forzar recálculo total
+                        </button>
+                    </form>
+                </div>
+                <ul class="text-muted small mt-3 mb-0">
+                    <li><strong>Recalcular firmas</strong>: firma solo los pendientes (Firma vacía). Idempotente y reanudable.</li>
+                    <li><strong>Forzar recálculo total</strong>: borra todas las firmas y vuelve a firmar todo (usar si cambió el vocabulario EII).</li>
+                </ul>
+            }
+            else
+            {
+                <div class="alert alert-secondary mb-0">
+                    <i class="bi bi-pause-circle"></i> <strong>Motor en standby.</strong>
+                    La firma-por-conteo fue jubilada a favor de los embeddings (Voyage). El estado de arriba es un
+                    <strong>snapshot congelado</strong> que el panel de Cobertura lee como referencia
+                    (<code>?motor=firma</code>). Ya no se recalcula.
+                </div>
+            }
         </div>
     </div>
 </div>

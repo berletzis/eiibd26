@@ -68,19 +68,31 @@
                 </div>
                 <small class="text-muted" id="progressTexto">Sin corrida activa.</small>
 
-                <div class="d-flex flex-wrap gap-2 mt-3">
-                    <form method="post" asp-page-handler="Calcular" class="d-inline">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-diagram-3"></i> Calcular similitud
-                        </button>
-                    </form>
-                    <form method="post" asp-page-handler="Reset" class="d-inline"
-                          onsubmit="return confirm('Esto BORRA todos los pares y recalcula desde cero. ¿Continuar?');">
-                        <button type="submit" class="btn btn-outline-danger">
-                            <i class="bi bi-exclamation-octagon"></i> Recalcular total
-                        </button>
-                    </form>
-                </div>
+                @if (Model.FirmaLegacyActiva)
+                {
+                    <div class="d-flex flex-wrap gap-2 mt-3">
+                        <form method="post" asp-page-handler="Calcular" class="d-inline">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-diagram-3"></i> Calcular similitud
+                            </button>
+                        </form>
+                        <form method="post" asp-page-handler="Reset" class="d-inline"
+                              onsubmit="return confirm('Esto BORRA todos los pares y recalcula desde cero. ¿Continuar?');">
+                            <button type="submit" class="btn btn-outline-danger">
+                                <i class="bi bi-exclamation-octagon"></i> Recalcular total
+                            </button>
+                        </form>
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-secondary mb-0 mt-3">
+                        <i class="bi bi-pause-circle"></i> <strong>Motor en standby.</strong>
+                        La similitud por firma-por-conteo fue jubilada a favor de los embeddings (Voyage). Los
+                        pares de abajo son un <strong>snapshot congelado</strong> que el panel de Cobertura lee
+                        como referencia (<code>?motor=firma</code>). Ya no se recalcula.
+                    </div>
+                }
             </div>
         </div>
 

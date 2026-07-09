@@ -36,6 +36,13 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         public DateTime? Ultimo { get; private set; }
         public List<TopParDto> TopPares { get; private set; } = new();
 
+        #region LEGACY — FIRMA POR CONTEO (standby 09JUL)
+        // Similitud por conteo (firma) jubilada a favor de embeddings Voyage. El snapshot de
+        // CoberturaSimilitud se conserva (Cobertura lo lee vía ?motor=firma); ya NO se recalcula.
+        // Reactivar temporalmente: FirmaLegacyActiva => true.
+        public bool FirmaLegacyActiva => false;
+        #endregion
+
         public async Task OnGetAsync()
         {
             try
@@ -68,6 +75,11 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
         public IActionResult OnPostCalcular()
         {
+            if (!FirmaLegacyActiva)
+            {
+                TempData["Error"] = "⏸️ Motor de similitud por firma en standby (jubilado por embeddings). El snapshot se conserva; no se recalcula.";
+                return RedirectToPage();
+            }
             _jobs.Enqueue<eiibd26.Jobs.SimilitudJob>(j => j.CalcularAsync());
             _logger.LogInformation("[Similitud] Job de cálculo encolado por admin.");
             TempData["Success"] = "✅ Cálculo de similitud encolado. Corre en segundo plano; el progreso se actualiza abajo.";
@@ -76,6 +88,11 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
 
         public async Task<IActionResult> OnPostResetAsync()
         {
+            if (!FirmaLegacyActiva)
+            {
+                TempData["Error"] = "⏸️ Motor de similitud por firma en standby. El snapshot se conserva; no se recalcula.";
+                return RedirectToPage();
+            }
             var borrados = await _svc.ResetearAsync();
             _jobs.Enqueue<eiibd26.Jobs.SimilitudJob>(j => j.CalcularAsync());
             _logger.LogInformation("[Similitud] Recálculo total: {Count} pares borrados y job re-encolado.", borrados);

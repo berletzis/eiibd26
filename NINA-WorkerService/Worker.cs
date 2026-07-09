@@ -223,7 +223,13 @@ public class ScrapingWorker : BackgroundService
         // Español se firma directo (2B). Inglés se traduce y luego se firma (2C), si hay traductor.
         var esEspanol = defaultLanguage.StartsWith("es", StringComparison.OrdinalIgnoreCase);
         var esIngles = defaultLanguage.StartsWith("en", StringComparison.OrdinalIgnoreCase);
-        var firmarHabilitado = vocab.Count > 0 && (esEspanol || (esIngles && translator.Habilitado));
+        // #region LEGACY — FIRMA POR CONTEO (standby 09JUL)
+        // Firma-por-conteo + traducción EN→ES jubiladas por embeddings Voyage (multilingüe, sin traducir).
+        // Código intacto y reversible: firmaLegacyActiva=true reactiva firma+traducción. El bloque
+        // EMBEDDING (embedHabilitado) es independiente y sigue activo.
+        var firmaLegacyActiva = false;
+        var firmarHabilitado = firmaLegacyActiva && vocab.Count > 0 && (esEspanol || (esIngles && translator.Habilitado));
+        // #endregion
         // Embedding: multilingüe → aplica a CUALQUIER idioma sin traducir ni vocabulario.
         var embedHabilitado = voyage.Habilitado;
         var hostsPermitidos = new HashSet<string>(fuente.HostPermitidos, StringComparer.OrdinalIgnoreCase);

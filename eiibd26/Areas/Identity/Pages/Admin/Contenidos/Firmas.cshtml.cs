@@ -42,6 +42,13 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         public int Pendientes => Total - Firmados;
         public DateTime? UltimaFirma { get; private set; }
 
+        #region LEGACY — FIRMA POR CONTEO (standby 09JUL)
+        // Motor firma-por-conteo jubilado a favor de embeddings Voyage (ver Documentation/motor-cobertura).
+        // El snapshot se conserva (Cobertura lo lee vía ?motor=firma); ya NO se recalcula.
+        // Reactivar temporalmente: FirmaLegacyActiva => true.
+        public bool FirmaLegacyActiva => false;
+        #endregion
+
         public async Task OnGetAsync()
         {
             (Total, Firmados) = await _firmaService.ObtenerProgresoAsync();
@@ -60,6 +67,11 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         /// <summary>Encola el job que firma solo los pendientes (Firma IS NULL).</summary>
         public IActionResult OnPostRecalcular()
         {
+            if (!FirmaLegacyActiva)
+            {
+                TempData["Error"] = "⏸️ Motor de firma en standby (jubilado por embeddings). El snapshot se conserva; no se recalcula.";
+                return RedirectToPage();
+            }
             _backgroundJobs.Enqueue<eiibd26.Jobs.FirmaContenidoJob>(j => j.FirmarPendientesAsync());
             _logger.LogInformation("[Firmas] Job de firma (pendientes) encolado por admin.");
             TempData["Success"] = "✅ Cálculo de firmas encolado. Se firmarán los pendientes en segundo plano.";
@@ -69,6 +81,11 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         /// <summary>Resetea todas las firmas a NULL y luego encola el job (recálculo desde cero).</summary>
         public async Task<IActionResult> OnPostForzarAsync()
         {
+            if (!FirmaLegacyActiva)
+            {
+                TempData["Error"] = "⏸️ Motor de firma en standby. El snapshot se conserva; no se recalcula.";
+                return RedirectToPage();
+            }
             var reseteadas = await _firmaService.ResetearFirmasAsync();
             _backgroundJobs.Enqueue<eiibd26.Jobs.FirmaContenidoJob>(j => j.FirmarPendientesAsync());
             _logger.LogInformation("[Firmas] Recálculo total forzado por admin. {Count} firmas reseteadas.", reseteadas);
