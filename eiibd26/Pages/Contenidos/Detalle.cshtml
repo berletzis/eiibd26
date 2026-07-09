@@ -939,7 +939,11 @@
                     const original = btn.textContent;
                     btn.textContent = 'Cargando…';
                     try {
-                        const url = '?handler=MasExternos&aid=' + encodeURIComponent(aid) +
+                        // Importante: apuntar al PATH REAL de la pagina (/Contenidos/Detalle), NO a la
+                        // URL SEO actual: el middleware de reescritura (Program.cs) reescribe el query
+                        // string de las URLs con slug y borraria ?handler=&aid=. El path /Contenidos/
+                        // esta excluido del middleware, asi el handler se invoca y devuelve solo el partial.
+                        const url = '/Contenidos/Detalle?handler=MasExternos&aid=' + encodeURIComponent(aid) +
                                     '&tab=' + encodeURIComponent(tab) + '&offset=' + encodeURIComponent(offset);
                         const resp = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                         if (!resp.ok) { btn.disabled = false; btn.textContent = original; return; }
