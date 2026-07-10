@@ -8,9 +8,12 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="h3 mb-1">🧠🔗 Similitud por embeddings</h1>
-            <p class="text-muted mb-0">
+            <p class="text-muted mb-1">
                 Motor de Cobertura · Fase 5 — coseno denso sobre embeddings Voyage (sin pre-filtros).
                 Dirigida: externo→propios y propios→propios.
+            </p>
+            <p class="eii-help-text mb-0">
+                <strong>Requisito:</strong> el contenido debe estar embebido antes. Los externos se embeben con el crawler del Worker.
             </p>
         </div>
     </div>
@@ -69,22 +72,29 @@
                 </div>
                 <small class="text-muted" id="progressTexto">Sin corrida activa.</small>
 
-                <div class="d-flex flex-wrap gap-2 mt-3">
-                    <form method="post" asp-page-handler="Calcular" class="d-inline">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-diagram-3"></i> Calcular similitud
-                        </button>
-                    </form>
-                    <form method="post" asp-page-handler="Reset" class="d-inline"
-                          onsubmit="return confirm('Esto BORRA todos los pares de embeddings y recalcula desde cero. ¿Continuar?');">
-                        <button type="submit" class="btn btn-outline-danger">
-                            <i class="bi bi-exclamation-octagon"></i> Recalcular total
-                        </button>
-                    </form>
+                <div class="d-flex flex-wrap gap-4 mt-3">
+                    <div>
+                        <form method="post" asp-page-handler="Calcular" class="d-inline">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-diagram-3"></i> Calcular similitud
+                            </button>
+                        </form>
+                        <span class="eii-help-text">
+                            Calcula solo los pares nuevos o cuyos embeddings cambiaron. No re-embebe ni llama a Voyage: sin costo. Úsalo tras subir contenido o correr el crawler. No borra nada.
+                        </span>
+                    </div>
+                    <div>
+                        <form method="post" asp-page-handler="Reset" class="d-inline"
+                              onsubmit="return confirm('Esto borra y reconstruye todos los pares. ¿Continuar?');">
+                            <button type="submit" class="btn btn-outline-danger">
+                                <i class="bi bi-exclamation-octagon"></i> Recalcular total
+                            </button>
+                        </form>
+                        <span class="eii-help-text eii-help-text--warning">
+                            ⚠️ Borra todos los pares y los reconstruye desde cero. Solo si cambiaste el umbral de similitud (0.40). Es más lento. Para contenido nuevo no lo necesitas — usa "Calcular similitud".
+                        </span>
+                    </div>
                 </div>
-                <small class="text-muted d-block mt-2">
-                    Requiere que los propios (panel Embeddings) y los externos (Worker) ya estén embebidos.
-                </small>
             </div>
         </div>
 
