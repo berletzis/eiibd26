@@ -18,6 +18,18 @@
         .op-sim__label { font-weight: 400; color: var(--eii-text-soft); }
         .op-sim--amber { color: var(--eii-warning); }
         .op-sim--green { color: var(--eii-success); }
+        .op-help > summary { cursor: pointer; font-weight: 600; list-style: none; }
+        .op-help > summary::-webkit-details-marker { display: none; }
+        .op-help > summary .bi-chevron-down { transition: transform .2s; }
+        .op-help[open] > summary .bi-chevron-down { transform: rotate(180deg); }
+        .op-help-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: var(--eii-space-3, 1rem);
+            margin-top: var(--eii-space-3, 1rem);
+        }
+        .op-help-grid .eii-help-text { max-width: none; margin-top: var(--eii-space-2, .5rem); }
+        .op-help__title { font-size: var(--eii-text-sm, .9rem); font-weight: 700; margin: 0; }
     </style>
 }
 
@@ -101,6 +113,47 @@
                 inspirarte, no para copiar.
             </span>
         </div>
+
+        <!-- Panel explicativo (estático, colapsado por defecto) -->
+        <details class="eii-card op-help mb-3">
+            <summary class="d-flex align-items-center justify-content-between">
+                <span><i class="bi bi-question-circle me-2"></i>¿Cómo leer esto?</span>
+                <i class="bi bi-chevron-down text-muted"></i>
+            </summary>
+            <div class="op-help-grid">
+                <div class="eii-card eii-card--ghost">
+                    <h3 class="op-help__title">¿Qué mide el porcentaje?</h3>
+                    <span class="eii-help-text">
+                        Es qué tan parecido es el tema, por significado — no por palabras compartidas.
+                        Lo calcula el motor de embeddings: entiende que "dieta india para Crohn" y
+                        "Alimentación" tratan de lo mismo aunque no usen las mismas palabras.
+                    </span>
+                </div>
+                <div class="eii-card eii-card--ghost">
+                    <h3 class="op-help__title">¿Por qué un parecido medio (55–65%) no es un error?</h3>
+                    <span class="eii-help-text">
+                        Un porcentaje medio significa mismo tema general, ángulo específico distinto.
+                        Ejemplo: ya tienes "Alimentación" (general), pero te falta el "plan de dieta india"
+                        (específico). Por eso aparece en Ampliar — es una oportunidad de profundizar, no un duplicado.
+                    </span>
+                </div>
+                <div class="eii-card eii-card--ghost">
+                    <h3 class="op-help__title">¿Qué significan las bandas?</h3>
+                    <span class="eii-help-text">
+                        Sin cubrir (menos de 55%): no tenemos nada cercano, conviene escribir nuevo.
+                        Ampliar (55–78%): tocamos el tema pero falta el ángulo, amplía o escribe el específico.
+                        Cubierto (78% o más): ya lo tienes, no aparece aquí.
+                    </span>
+                </div>
+                <div class="eii-card eii-card--ghost">
+                    <h3 class="op-help__title">No es un detector de copia</h3>
+                    <span class="eii-help-text">
+                        El porcentaje mide cercanía de tema, no si el texto es igual. La fuente externa es
+                        referencia para inspirarte y contrastar, nunca para copiar.
+                    </span>
+                </div>
+            </div>
+        </details>
 
         <!-- Pestañas -->
         <ul class="nav nav-tabs mb-3" role="tablist">
