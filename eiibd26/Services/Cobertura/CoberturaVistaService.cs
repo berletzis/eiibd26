@@ -23,8 +23,12 @@ namespace eiibd26.Services.Cobertura
         // Panel admin "matriz de huecos": motor + umbrales por escala (NO comparables 1:1).
         //   embeddings: cubierto ≥ 0.78 · área/oportunidad 0.55–0.78 · hueco < 0.55
         //   firma:      cubierto ≥ 0.60 · débil 0.50–0.60 · hueco sin match (persistencia ≥ 0.50)
-        private const decimal CobEmbCubierto = UmbralSimilares; // 0.78 (mismo umbral ya calibrado del paciente)
-        private const decimal CobEmbFloor    = UmbralArea;      // 0.55 (bajo esto = hueco)
+        // Umbrales EDITORIALES (admin: panel de cobertura + vista Oportunidades). Independientes
+        // del paciente: arrancan con los mismos valores (0.78/0.55) pero ya NO aliasan
+        // UmbralArea/UmbralSimilares, así se pueden tunear sin afectar lo que ve el paciente
+        // en "En otros sitios"/Radar/"Similares de EIIBD".
+        private const decimal CobEmbCubiertoEditorial = 0.78m; // ≥ esto = cubierto
+        private const decimal CobEmbFloorEditorial    = 0.55m; // bajo esto = hueco
         private const decimal CobFirCubierto = 0.60m;           // firma sin cambios
         private const decimal CobFirFloor    = 0.50m;           // = CosenoMin firma (no filtra extra)
 
@@ -170,8 +174,8 @@ namespace eiibd26.Services.Cobertura
         public async Task<IReadOnlyList<CoberturaTemaDto>> ObtenerCoberturaTemasAsync(string? orden, string? motor = null, CancellationToken ct = default)
         {
             var usarFirma   = string.Equals(motor, "firma", StringComparison.OrdinalIgnoreCase);
-            var floor       = usarFirma ? CobFirFloor : CobEmbFloor;
-            var cubiertoMin = usarFirma ? CobFirCubierto : CobEmbCubierto;
+            var floor       = usarFirma ? CobFirFloor : CobEmbFloorEditorial;
+            var cubiertoMin = usarFirma ? CobFirCubierto : CobEmbCubiertoEditorial;
             var articuloIds = await ArticuloIdsAsync(ct);
 
             // Pares propio-externo donde el propio es ARTÍCULO (excluye páginas de sistema del lado propio),
