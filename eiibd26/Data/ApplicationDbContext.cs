@@ -122,6 +122,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<eiibd26.Models.Cobertura.ScrapedPageRef> ScrapedPagesRef { get; set; }
     // Read-only: sitios fuente (tabla SourceSite del Worker) — solo para mostrar el nombre.
     public DbSet<eiibd26.Models.Cobertura.SourceSiteRef> SourceSitesRef { get; set; }
+    // Read-only: metadatos de externos (tabla Article del Worker) — solo para el título real.
+    public DbSet<eiibd26.Models.Cobertura.ArticleRef> ArticlesRef { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -155,6 +157,13 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
         {
             e.ToTable("SourceSite");
             e.HasKey(x => x.SourceSiteId);
+        });
+
+        // Read-only de Article (Worker). Solo para el título real del externo (NormalizedTitle).
+        builder.Entity<eiibd26.Models.Cobertura.ArticleRef>(e =>
+        {
+            e.ToTable("Article");
+            e.HasKey(x => x.ArticleId);
         });
 
         // Oportunidades de contenido: estado del backlog editorial (tabla propia, SQL directo).

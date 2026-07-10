@@ -57,6 +57,18 @@ namespace eiibd26.Services.Contenidos
                 .Select(s => new { s.ScrapedPageId, s.EmbeddingCalculadoEn })
                 .ToDictionaryAsync(s => s.ScrapedPageId, s => s.EmbeddingCalculadoEn, ct);
 
+            // Título real del externo: el Worker ya lo persiste en Article.NormalizedTitle
+            // (title → og:title → h1). Se usa para el display; si un externo no tiene Article,
+            // se cae al slug de la URL (CoberturaTemaDto.Titulo). Join por ScrapedPageId.
+            var idsExternos = temas.Select(t => t.ScrapedPageId).ToList();
+            var titulosReales = (await _db.ArticlesRef.AsNoTracking()
+                    .Where(a => a.ScrapedPageId != null && idsExternos.Contains(a.ScrapedPageId.Value)
+                                && a.NormalizedTitle != "")
+                    .Select(a => new { a.ArticleId, ScrapedPageId = a.ScrapedPageId!.Value, a.NormalizedTitle })
+                    .ToListAsync(ct))
+                .GroupBy(a => a.ScrapedPageId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.ArticleId).First().NormalizedTitle);
+
             EstadoBacklog EstadoDe(int id) => estados.TryGetValue(id, out var e) ? e : EstadoBacklog.Nuevo;
 
             bool PasaFiltros(CoberturaTemaDto t)
@@ -70,7 +82,10 @@ namespace eiibd26.Services.Contenidos
             OportunidadRowDto Fila(CoberturaTemaDto t, bool incluirCercano) => new()
             {
                 ScrapedPageId = t.ScrapedPageId,
-                Titulo = t.Titulo,
+                // Título real (Article.NormalizedTitle) si existe; si no, el slug de la URL.
+                Titulo = titulosReales.TryGetValue(t.ScrapedPageId, out var real) && !string.IsNullOrWhiteSpace(real)
+                    ? real
+                    : t.Titulo,
                 Fuente = t.SitioNombre,
                 Url = t.Url,
                 PropioCercanoTitulo = incluirCercano ? t.MejorArticuloTitulo : null,
