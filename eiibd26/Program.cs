@@ -390,6 +390,9 @@ try
     // Motor de Cobertura — Fase 4: vistas paciente + admin (solo lectura)
     builder.Services.AddScoped<eiibd26.Services.Cobertura.ICoberturaVistaService, eiibd26.Services.Cobertura.CoberturaVistaService>();
 
+    // Oportunidades de contenido (F1): proyección editorial del motor de cobertura + estado del backlog.
+    builder.Services.AddScoped<eiibd26.Services.Contenidos.IOportunidadesService, eiibd26.Services.Contenidos.OportunidadesService>();
+
     // Motor de Cobertura — Fase 5 (embeddings): cliente Voyage compartido (eiibd26.Voyage).
     // Key en config (user-secrets/env, sección "Voyage"), NUNCA hardcodeada. Sin key → Habilitado=false.
     builder.Services.AddSingleton<eiibd26.Voyage.IVoyageEmbeddingClient>(sp =>

@@ -1,0 +1,236 @@
+@page
+@model eiibd26.Areas.Identity.Pages.Admin.Contenidos.OportunidadesModel
+@using eiibd26.Models.Contenidos
+@using eiibd26.Services.Contenidos
+@{
+    ViewData["Title"] = "Oportunidades de contenido";
+}
+
+@section Styles {
+    <style>
+        .op-kpi { min-width: 180px; }
+        .op-kpi .op-kpi__num { font-size: 2.2rem; font-weight: 700; line-height: 1; }
+        .op-row__cercano { font-size: var(--eii-text-xs); color: var(--eii-text-soft); }
+        .op-estado-select { max-width: 170px; }
+        .op-saved { color: var(--eii-success, #198754); opacity: 0; transition: opacity .2s; }
+        .op-saved.show { opacity: 1; }
+    </style>
+}
+
+<div class="eii-page">
+
+    <div class="eii-page-header">
+        <div class="eii-page-header__content">
+            <h1 class="eii-page-title">Oportunidades de contenido</h1>
+            <p class="eii-page-subtitle mb-0">
+                Temas que cubren sitios de confianza y a la plataforma le faltan.
+            </p>
+        </div>
+        <div class="eii-page-header__actions">
+            <a asp-page="./Contenidos" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i>Volver a Contenidos
+            </a>
+        </div>
+    </div>
+
+    <form id="formToken" style="display:none;">@Html.AntiForgeryToken()</form>
+
+    @if (!Model.Vista.Disponible)
+    {
+        <div class="eii-card">
+            <div class="alert alert-warning mb-0">
+                <i class="bi bi-exclamation-triangle me-2"></i>@Model.Vista.Aviso
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- KPIs -->
+        <div class="d-flex gap-3 flex-wrap mb-4">
+            <div class="eii-card op-kpi">
+                <div class="op-kpi__num text-primary">@Model.Vista.TotalSinCubrir</div>
+                <div class="text-muted">Sin cubrir</div>
+            </div>
+            <div class="eii-card op-kpi">
+                <div class="op-kpi__num text-warning-emphasis">@Model.Vista.TotalAmpliar</div>
+                <div class="text-muted">Para ampliar</div>
+            </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="eii-card mb-3">
+            <form method="get" class="row g-2 align-items-end">
+                <div class="col-auto">
+                    <label class="form-label small fw-semibold mb-1" for="fuente">Fuente</label>
+                    <select id="fuente" name="Fuente" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todas</option>
+                        @foreach (var f in Model.Vista.Fuentes)
+                        {
+                            <option value="@f" selected="@(string.Equals(f, Model.Fuente, StringComparison.OrdinalIgnoreCase))">@f</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <label class="form-label small fw-semibold mb-1" for="estadoFiltro">Estado del backlog</label>
+                    <select id="estadoFiltro" class="form-select form-select-sm op-estado-select">
+                        <option value="">Todos</option>
+                        <option value="0">Nuevo</option>
+                        <option value="1">Planificado</option>
+                        <option value="2">En progreso</option>
+                        <option value="3">Publicado</option>
+                        @if (Model.VerDescartados)
+                        {
+                            <option value="4">Descartado</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="verDescartados" name="VerDescartados"
+                               value="true" @(Model.VerDescartados ? "checked" : "") onchange="this.form.submit()">
+                        <label class="form-check-label small" for="verDescartados">Ver descartados</label>
+                    </div>
+                </div>
+            </form>
+            <span class="eii-help-text">
+                Estos temas aparecen porque sitios de confianza los cubren. El enlace externo es para
+                inspirarte, no para copiar.
+            </span>
+        </div>
+
+        <!-- Pestañas -->
+        <ul class="nav nav-tabs mb-3" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="tab-nuevo-btn" data-bs-toggle="tab" data-bs-target="#tab-nuevo"
+                        type="button" role="tab">
+                    Escribir nuevo <span class="badge bg-primary ms-1">@Model.Vista.TotalSinCubrir</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-ampliar-btn" data-bs-toggle="tab" data-bs-target="#tab-ampliar"
+                        type="button" role="tab">
+                    Ampliar <span class="badge bg-secondary ms-1">@Model.Vista.TotalAmpliar</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-mejorar-btn" data-bs-toggle="tab" data-bs-target="#tab-mejorar"
+                        type="button" role="tab">
+                    Mejorar
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+
+            <!-- Escribir nuevo -->
+            <div class="tab-pane fade show active" id="tab-nuevo" role="tabpanel">
+                @if (Model.Vista.SinCubrir.Count == 0)
+                {
+                    <div class="eii-card text-center text-muted py-5">
+                        <i class="bi bi-check2-circle d-block mb-2" style="font-size:2rem;"></i>
+                        No hay temas sin cubrir con los filtros actuales.
+                    </div>
+                }
+                else
+                {
+                    <partial name="_OportunidadesTabla" model="@(new OportunidadesTablaVm { Filas = Model.Vista.SinCubrir, MostrarCercano = false })" />
+                }
+            </div>
+
+            <!-- Ampliar -->
+            <div class="tab-pane fade" id="tab-ampliar" role="tabpanel">
+                @if (Model.Vista.Ampliar.Count == 0)
+                {
+                    <div class="eii-card text-center text-muted py-5">
+                        <i class="bi bi-check2-circle d-block mb-2" style="font-size:2rem;"></i>
+                        No hay temas para ampliar con los filtros actuales.
+                    </div>
+                }
+                else
+                {
+                    <partial name="_OportunidadesTabla" model="@(new OportunidadesTablaVm { Filas = Model.Vista.Ampliar, MostrarCercano = true })" />
+                }
+            </div>
+
+            <!-- Mejorar (placeholder F2) -->
+            <div class="tab-pane fade" id="tab-mejorar" role="tabpanel">
+                <div class="eii-card text-center text-muted py-5">
+                    <i class="bi bi-hourglass-split d-block mb-2" style="font-size:2rem;"></i>
+                    <div class="fw-semibold">Próximamente</div>
+                    <div class="small">Artículos propios que ya existen pero conviene mejorar.</div>
+                </div>
+            </div>
+
+        </div>
+    }
+</div>
+
+@section Scripts {
+<script>
+    function getToken() {
+        return document.querySelector('#formToken [name="__RequestVerificationToken"]').value;
+    }
+
+    // Cambio de estado del backlog por fila.
+    document.addEventListener('change', async function (e) {
+        const sel = e.target.closest('.op-estado-select-row');
+        if (!sel) return;
+
+        const tr = sel.closest('tr');
+        const refId = sel.dataset.refid;
+        const estado = sel.value;
+        sel.disabled = true;
+
+        try {
+            const fd = new FormData();
+            fd.append('__RequestVerificationToken', getToken());
+            fd.append('tipo', 'Externo');
+            fd.append('refId', refId);
+            fd.append('estado', estado);
+            const res = await fetch('?handler=Estado', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (!data.ok) throw new Error(data.error || 'Error');
+
+            // Actualiza el chip de estado de la fila.
+            tr.dataset.estado = estado;
+            const chip = tr.querySelector('.op-estado-chip');
+            if (chip) chip.outerHTML = chipHtml(estado);
+
+            const saved = tr.querySelector('.op-saved');
+            if (saved) { saved.classList.add('show'); setTimeout(() => saved.classList.remove('show'), 1500); }
+
+            // Descartado desaparece del listado si no se están viendo descartados.
+            const verDesc = document.getElementById('verDescartados');
+            if (estado === '4' && !(verDesc && verDesc.checked)) {
+                tr.style.transition = 'opacity .3s';
+                tr.style.opacity = '0';
+                setTimeout(() => tr.remove(), 300);
+            }
+        } catch (err) {
+            alert('No se pudo guardar el estado: ' + err.message);
+        } finally {
+            sel.disabled = false;
+        }
+    });
+
+    function chipHtml(estado) {
+        const map = {
+            '0': ['Nuevo', 'bg-light text-muted'],
+            '1': ['Planificado', 'bg-info-subtle text-info-emphasis'],
+            '2': ['En progreso', 'bg-warning-subtle text-warning-emphasis'],
+            '3': ['Publicado', 'bg-success-subtle text-success-emphasis'],
+            '4': ['Descartado', 'bg-secondary-subtle text-secondary-emphasis']
+        };
+        const [txt, cls] = map[estado] || map['0'];
+        return '<span class="op-estado-chip badge ' + cls + '">' + txt + '</span>';
+    }
+
+    // Filtro por estado del backlog (cliente, sobre las filas cargadas).
+    document.getElementById('estadoFiltro')?.addEventListener('change', function () {
+        const val = this.value;
+        document.querySelectorAll('.tab-content tr[data-estado]').forEach(function (tr) {
+            tr.style.display = (val === '' || tr.dataset.estado === val) ? '' : 'none';
+        });
+    });
+</script>
+}

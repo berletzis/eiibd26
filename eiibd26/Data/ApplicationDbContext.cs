@@ -111,6 +111,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     // Calidad de contenido
     public DbSet<eiibd26.Models.Calidad.ContenidoCalidad> ContenidoCalidad { get; set; }
 
+    // Oportunidades de contenido (F1): estado editable del backlog. Tabla propia (SQL directo).
+    public DbSet<eiibd26.Models.Contenidos.OportunidadEstado> OportunidadEstado { get; set; }
+
     // Motor de Cobertura — Fase 3
     public DbSet<eiibd26.Models.Cobertura.CoberturaSimilitud> CoberturaSimilitudes { get; set; }
     // Motor de Cobertura — Fase 5 (embeddings): tabla paralela de similitud por coseno denso.
@@ -152,6 +155,13 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
         {
             e.ToTable("SourceSite");
             e.HasKey(x => x.SourceSiteId);
+        });
+
+        // Oportunidades de contenido: estado del backlog editorial (tabla propia, SQL directo).
+        builder.Entity<eiibd26.Models.Contenidos.OportunidadEstado>(e =>
+        {
+            e.ToTable("OportunidadEstado");
+            e.HasIndex(x => new { x.Tipo, x.RefId }).IsUnique();
         });
 
         // Recursividad condiciones

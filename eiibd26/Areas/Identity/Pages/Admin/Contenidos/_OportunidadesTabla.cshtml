@@ -1,0 +1,90 @@
+@model eiibd26.Services.Contenidos.OportunidadesTablaVm
+@using eiibd26.Models.Contenidos
+@{
+    string EstadoLabel(EstadoBacklog e) => e switch
+    {
+        EstadoBacklog.Planificado => "Planificado",
+        EstadoBacklog.EnProgreso  => "En progreso",
+        EstadoBacklog.Publicado   => "Publicado",
+        EstadoBacklog.Descartado  => "Descartado",
+        _                         => "Nuevo"
+    };
+    string EstadoBadge(EstadoBacklog e) => e switch
+    {
+        EstadoBacklog.Planificado => "bg-info-subtle text-info-emphasis",
+        EstadoBacklog.EnProgreso  => "bg-warning-subtle text-warning-emphasis",
+        EstadoBacklog.Publicado   => "bg-success-subtle text-success-emphasis",
+        EstadoBacklog.Descartado  => "bg-secondary-subtle text-secondary-emphasis",
+        _                         => "bg-light text-muted"
+    };
+    var estados = new[]
+    {
+        EstadoBacklog.Nuevo, EstadoBacklog.Planificado, EstadoBacklog.EnProgreso,
+        EstadoBacklog.Publicado, EstadoBacklog.Descartado
+    };
+}
+
+<div class="eii-card p-0 overflow-hidden">
+    <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+            <tr>
+                <th>Tema</th>
+                <th style="width:140px;">Fuente</th>
+                @if (Model.MostrarCercano)
+                {
+                    <th>Lo más cercano que tenemos</th>
+                }
+                <th style="width:120px;">Estado</th>
+                <th style="width:190px;" class="text-end">Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var f in Model.Filas)
+            {
+                <tr data-estado="@((byte)f.EstadoBacklog)">
+                    <td>
+                        <div class="fw-semibold">@f.Titulo</div>
+                        @if (!Model.MostrarCercano)
+                        {
+                            <div class="op-row__cercano">No tenemos nada parecido todavía.</div>
+                        }
+                    </td>
+                    <td><span class="text-muted small">@f.Fuente</span></td>
+                    @if (Model.MostrarCercano)
+                    {
+                        <td>
+                            @if (f.PropioCercanoId.HasValue)
+                            {
+                                <a href="./Detalle?id=@f.PropioCercanoId" target="_blank" rel="noopener"
+                                   class="text-decoration-none">@f.PropioCercanoTitulo</a>
+                            }
+                            else
+                            {
+                                <span class="op-row__cercano">Tenemos algo parecido.</span>
+                            }
+                        </td>
+                    }
+                    <td>
+                        <span class="op-estado-chip badge @EstadoBadge(f.EstadoBacklog)">@EstadoLabel(f.EstadoBacklog)</span>
+                    </td>
+                    <td class="text-end">
+                        <div class="d-inline-flex align-items-center gap-2">
+                            <i class="bi bi-check-circle-fill op-saved" title="Guardado"></i>
+                            <select class="form-select form-select-sm op-estado-select op-estado-select-row"
+                                    data-refid="@f.ScrapedPageId" aria-label="Estado del backlog">
+                                @foreach (var e in estados)
+                                {
+                                    <option value="@((byte)e)" selected="@(e == f.EstadoBacklog)">@EstadoLabel(e)</option>
+                                }
+                            </select>
+                            <a href="@f.Url" target="_blank" rel="noopener nofollow"
+                               class="btn btn-sm btn-outline-secondary" title="Ver referencia externa (para inspirarte, no copiar)">
+                                <i class="bi bi-box-arrow-up-right"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
