@@ -21,6 +21,12 @@ namespace eiibd26.Services.Contenidos
         public string? PropioCercanoTitulo { get; init; }
         public int? PropioCercanoId { get; init; }
 
+        /// <summary>
+        /// % de similitud (coseno de embeddings redondeado, <c>Round(MejorScore*100)</c>).
+        /// Solo se llena en "Ampliar"; en "Escribir nuevo" es null (no hay match).
+        /// </summary>
+        public int? PorcentajeSimilitud { get; init; }
+
         /// <summary>Estado del backlog editable por el editor.</summary>
         public EstadoBacklog EstadoBacklog { get; init; }
     }

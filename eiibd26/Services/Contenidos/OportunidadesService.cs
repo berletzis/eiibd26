@@ -75,6 +75,8 @@ namespace eiibd26.Services.Contenidos
                 Url = t.Url,
                 PropioCercanoTitulo = incluirCercano ? t.MejorArticuloTitulo : null,
                 PropioCercanoId = incluirCercano ? t.MejorArticuloId : null,
+                // % de similitud: mismo dato del motor (Round(MejorScore*100)); solo en Ampliar.
+                PorcentajeSimilitud = incluirCercano ? t.Porcentaje : null,
                 EstadoBacklog = EstadoDe(t.ScrapedPageId)
             };
 
