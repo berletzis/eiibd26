@@ -1,23 +1,22 @@
 @model IReadOnlyList<eiibd26.Services.Cobertura.ExternoSimilarDto>
 @*
     Bloque "En otros sitios" (sidebar) — items de externos (embeddings). SIN imagen (el crawler
-    no las guarda): marca del sitio (inicial) + título + % + ícono ↗. Enlaza SIEMPRE al original
-    (nueva pestaña, rel="noopener nofollow"); nunca republica. Se usa en el render inicial y en
-    la respuesta AJAX de "Ver más" (los <a> se agregan al final de la lista).
+    no las guarda): badge con el % de similitud (coloreado por relevancia, morado) + título +
+    ícono ↗. Enlaza SIEMPRE al original (nueva pestaña, rel="noopener nofollow"); nunca republica.
+    Se usa en el render inicial y en la respuesta AJAX de "Ver más" (los <a> se agregan al final).
 *@
 @if (Model != null)
 {
     foreach (var e in Model)
     {
-        var inicial = string.IsNullOrWhiteSpace(e.SitioNombre) ? "?" : e.SitioNombre.Trim().Substring(0, 1).ToUpperInvariant();
+        var banda = e.Porcentaje >= 80 ? "ext-fav--strong" : "ext-fav--soft";
         <a class="ext-item" href="@e.Url" target="_blank" rel="noopener nofollow"
            title="Abrir en @e.SitioNombre (nueva pestaña)">
-            <span class="ext-fav" aria-hidden="true">@inicial</span>
+            <span class="ext-fav @banda" aria-label="@e.Porcentaje% relacionado con lo que lees">@e.Porcentaje%</span>
             <span class="ext-body">
                 <span class="ext-title">@e.Titulo</span>
                 <span class="ext-meta">
                     <span class="ext-site">@e.SitioNombre</span>
-                    <span class="ext-pct">@e.Porcentaje%</span>
                     <i class="bi bi-box-arrow-up-right ext-out" aria-hidden="true"></i>
                 </span>
             </span>
