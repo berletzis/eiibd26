@@ -1,0 +1,140 @@
+@page
+@using eiibd26.Models.Platillos
+@model eiibd26.Areas.Identity.Pages.Admin.Platillos.IndexModel
+@{
+    ViewData["Title"] = "Platillos";
+}
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+        <h1 class="h4 mb-0">Platillos</h1>
+        <a class="eii-btn eii-btn--primary" href="/Identity/Admin/Platillos/Detalle">
+            <i class="bi bi-plus-lg"></i> Nuevo platillo
+        </a>
+    </div>
+    <p class="eii-form-text mb-4">Catálogo de platillos. La captura completa se hace en el detalle.</p>
+
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="alert alert-success" role="alert">@Model.SuccessMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+    }
+
+    <div class="eii-card mb-4">
+        <div class="eii-card__body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label class="eii-label" for="Q">Buscar</label>
+                    <input class="eii-input" id="Q" name="Q" value="@Model.Q" placeholder="Código o nombre…" autocomplete="off" />
+                </div>
+                <div class="col-md-4">
+                    <label class="eii-label" for="CategoriaId">Categoría</label>
+                    <select class="eii-select" id="CategoriaId" name="CategoriaId">
+                        <option value="">(Todas)</option>
+                        @foreach (var c in Model.Categorias)
+                        {
+                            @if (Model.CategoriaId == c.Id)
+                            {
+                                <option value="@c.Id" selected>@c.Nombre @(c.Activo ? "" : "(inactiva)")</option>
+                            }
+                            else
+                            {
+                                <option value="@c.Id">@c.Nombre @(c.Activo ? "" : "(inactiva)")</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="d-inline-flex align-items-center gap-1">
+                        <input class="eii-checkbox" type="checkbox" name="MostrarInactivos" value="true" @(Model.MostrarInactivos ? "checked" : "") />
+                        <span>Mostrar inactivos</span>
+                    </label>
+                </div>
+                <div class="col-12 d-flex gap-2">
+                    <button type="submit" class="eii-btn eii-btn--primary">Buscar</button>
+                    <a class="eii-btn eii-btn--ghost" href="/Identity/Admin/Platillos/Index">Limpiar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="eii-card">
+        <div class="eii-card__body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="eii-form-text">@Model.TotalCount platillo(s)</span>
+                <span class="eii-form-text">Página @Model.PageNumber de @Model.TotalPages</span>
+            </div>
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th>Categoría</th>
+                        <th>Ingredientes</th>
+                        <th>Estado</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in Model.Items)
+                    {
+                        <tr>
+                            <td>@r.Codigo</td>
+                            <td>@r.Nombre</td>
+                            <td>@(r.Categoria ?? "—")</td>
+                            <td>@r.NumIngredientes</td>
+                            <td>
+                                @if (r.Activo)
+                                {
+                                    <span class="eii-badge">Activo</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Inactivo</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                <a class="eii-btn eii-btn--ghost eii-btn--sm" href="/Identity/Admin/Platillos/Detalle?id=@r.Id">Editar</a>
+                                <form method="post" asp-page-handler="ToggleActivo" class="d-inline">
+                                    <input type="hidden" name="id" value="@r.Id" />
+                                    <input type="hidden" name="q" value="@Model.Q" />
+                                    <input type="hidden" name="categoriaId" value="@Model.CategoriaId" />
+                                    <input type="hidden" name="pageNumber" value="@Model.PageNumber" />
+                                    <input type="hidden" name="mostrarInactivos" value="@Model.MostrarInactivos.ToString().ToLower()" />
+                                    <button type="submit" class="eii-btn eii-btn--link eii-btn--sm">@(r.Activo ? "Desactivar" : "Reactivar")</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    @if (!Model.Items.Any())
+                    {
+                        <tr><td colspan="6" class="text-center text-muted py-3">No hay platillos con esos criterios.</td></tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (Model.TotalPages > 1)
+            {
+                <div class="d-flex justify-content-center gap-2 mt-3">
+                    @if (Model.PageNumber > 1)
+                    {
+                        <a class="eii-btn eii-btn--ghost eii-btn--sm"
+                           href="/Identity/Admin/Platillos/Index?Q=@Model.Q&CategoriaId=@Model.CategoriaId&MostrarInactivos=@Model.MostrarInactivos&PageNumber=@(Model.PageNumber - 1)&PageSize=@Model.PageSize">
+                            ← Anterior
+                        </a>
+                    }
+                    @if (Model.PageNumber < Model.TotalPages)
+                    {
+                        <a class="eii-btn eii-btn--ghost eii-btn--sm"
+                           href="/Identity/Admin/Platillos/Index?Q=@Model.Q&CategoriaId=@Model.CategoriaId&MostrarInactivos=@Model.MostrarInactivos&PageNumber=@(Model.PageNumber + 1)&PageSize=@Model.PageSize">
+                            Siguiente →
+                        </a>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>

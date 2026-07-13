@@ -1,0 +1,417 @@
+@page "{id?}"
+@using eiibd26.Models.Platillos
+@model eiibd26.Areas.Identity.Pages.Admin.Platillos.DetalleModel
+@{
+    ViewData["Title"] = Model.Id.HasValue ? "Editar platillo" : "Nuevo platillo";
+    var editing = Model.Id.HasValue;
+    var codigoValue = editing ? Model.Codigo : (string.IsNullOrEmpty(Model.Codigo) ? Model.SuggestedCodigo : Model.Codigo);
+
+    // Renglones actuales serializados: JS construye la tabla desde el <template> (fuente única de markup).
+    var rowsData = (Model.Rows ?? new List<eiibd26.Areas.Identity.Pages.Admin.Platillos.DetalleModel.RowInput>())
+        .Where(r => r.IngredienteId > 0)
+        .Select(r => new
+        {
+            ingredienteId = r.IngredienteId,
+            nombre = Model.IngredienteInfo.TryGetValue(r.IngredienteId, out var info) ? info.Nombre : "",
+            activo = !Model.IngredienteInfo.TryGetValue(r.IngredienteId, out var info2) || info2.Activo,
+            textoOriginal = r.TextoOriginal,
+            cantidad = r.Cantidad,
+            unidadId = r.UnidadId,
+            esAlGusto = r.EsAlGusto,
+            notaPreparacion = r.NotaPreparacion,
+            atributoUsoIds = r.AtributoUsoIds ?? new List<int>()
+        })
+        .ToList();
+    var rowsJson = System.Text.Json.JsonSerializer.Serialize(rowsData);
+}
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h4 mb-0">@(editing ? "Editar platillo" : "Nuevo platillo")</h1>
+        <a class="eii-btn eii-btn--ghost" href="/Identity/Admin/Platillos/Index">← Volver a la lista</a>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="alert alert-success" role="alert">@Model.SuccessMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+    }
+
+    @* ===== Card de reglas: las 8 con su porqué (obligatoria) ===== *@
+    <div class="eii-card mb-4">
+        <div class="eii-card__body">
+            <button class="eii-btn eii-btn--link p-0" type="button" data-bs-toggle="collapse" data-bs-target="#reglasCaptura" aria-expanded="false">
+                <i class="bi bi-info-circle"></i> Cómo capturar un platillo (y por qué así)
+            </button>
+            <div class="collapse mt-3" id="reglasCaptura">
+                <ol class="eii-help-text mb-0">
+                    <li class="mb-2"><strong>Los pasos van con tus propias palabras (2–3 líneas).</strong> Porque los pasos de la fuente tienen derechos de autor. Los datos sí los podemos tomar; el texto no.</li>
+                    <li class="mb-2"><strong>Siempre acredita la fuente: nombre y enlace.</strong> Porque el mérito es de quien lo escribió. Enlazamos al original, nunca lo republicamos.</li>
+                    <li class="mb-2"><strong>El texto original se copia tal cual.</strong> Porque nos da trazabilidad: si dudamos de una cantidad, verificamos de dónde salió.</li>
+                    <li class="mb-2"><strong>El ingrediente va limpio, genérico y en singular.</strong> Porque el paciente filtra por ingrediente. Si cada platillo escribe "cebolla" distinto, el filtro no lo relaciona y le mostramos comida que no tolera.</li>
+                    <li class="mb-2"><strong>Antes de inventar un ingrediente, revisa el catálogo.</strong> Porque "cebollas" junto a "cebolla" crea un duplicado que el filtro trata como dos alimentos distintos.</li>
+                    <li class="mb-2"><strong>El ingrediente es el alimento base; la preparación va aparte.</strong> "naranja" + uso "en jugo", nunca "jugo de naranja". Porque si no, los ingredientes se multiplican y el filtro se rompe.</li>
+                    <li class="mb-2"><strong>Marca cómo se usa en ESE platillo: crudo / frito / en jugo.</strong> Porque para alguien con EII la cebolla cruda y la cocida no son lo mismo. Mucha gente tolera cocido lo que no tolera crudo.</li>
+                    <li class="mb-0"><strong>Grupo = qué ES el alimento. Atributos = cómo se comporta.</strong> Porque el paciente casi siempre filtra por grupo o atributo ("no tolero lácteos"), rara vez por un ingrediente suelto.</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" asp-page-handler="Guardar" autocomplete="off">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="Id" />
+
+        @* ===== Datos generales ===== *@
+        <div class="eii-card mb-4">
+            <div class="eii-card__body">
+                <h2 class="eii-card__title h6 mb-3">Datos generales</h2>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="eii-label eii-label--required" asp-for="Codigo">Código</label>
+                        <input class="eii-input" asp-for="Codigo" value="@codigoValue" maxlength="20" required />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="eii-label eii-label--required" asp-for="Nombre">Nombre</label>
+                        <input class="eii-input" asp-for="Nombre" maxlength="250" required />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="eii-label eii-label--required" asp-for="CategoriaId">Categoría</label>
+                        @* asp-for marca el <option> seleccionado; NO agregar selected manual (selected="False" igual selecciona). *@
+                        <select class="eii-select" asp-for="CategoriaId" required>
+                            <option value="">(Seleccionar)</option>
+                            @foreach (var c in Model.Categorias)
+                            {
+                                <option value="@c.Id">@c.Nombre @(c.Activo ? "" : "(inactiva)")</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="eii-label" asp-for="Porciones">Porciones</label>
+                        <input class="eii-input" type="number" asp-for="Porciones" min="0" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="eii-label" asp-for="TiempoPrepMin">Tiempo (min)</label>
+                        <input class="eii-input" type="number" asp-for="TiempoPrepMin" min="0" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="eii-label" asp-for="Dificultad">Dificultad</label>
+                        <select class="eii-select" asp-for="Dificultad">
+                            <option value="">(Sin especificar)</option>
+                            @foreach (var d in eiibd26.Areas.Identity.Pages.Admin.Platillos.DetalleModel.Dificultades)
+                            {
+                                <option value="@d">@d</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="eii-label" asp-for="PasosResumidos">Pasos resumidos (tus propias palabras, 2–3 líneas)</label>
+                        <textarea class="eii-textarea" asp-for="PasosResumidos" rows="3" maxlength="2000"></textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="eii-label eii-label--required" asp-for="FuenteNombre">Fuente (nombre)</label>
+                        <input class="eii-input" asp-for="FuenteNombre" maxlength="300" required />
+                        <span class="eii-form-text">Para contenido propio de EIIBD, poné "EIIBD" o "Receta propia".</span>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="eii-label" asp-for="FuenteUrl">Fuente (enlace)</label>
+                        <input class="eii-input" asp-for="FuenteUrl" maxlength="1000" placeholder="https://… o (revista impresa)" />
+                    </div>
+                    <div class="col-12">
+                        <label class="eii-label" asp-for="Notas">Notas</label>
+                        <input class="eii-input" asp-for="Notas" maxlength="1000" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ===== Ingredientes ===== *@
+        <div class="eii-card mb-4">
+            <div class="eii-card__body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h2 class="eii-card__title h6 mb-0">Ingredientes</h2>
+                    <button type="button" class="eii-btn eii-btn--neutral eii-btn--sm" id="btnAddRow"><i class="bi bi-plus-lg"></i> Agregar renglón</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Ingrediente</th>
+                                <th>Texto original</th>
+                                <th>Cantidad</th>
+                                <th>Unidad</th>
+                                <th>Al gusto</th>
+                                <th>Nota prep.</th>
+                                <th>Uso</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="rowsBody"></tbody>
+                    </table>
+                </div>
+                <p class="eii-form-text mt-2" id="emptyRowsHint">Sin ingredientes todavía. Usá "Agregar renglón".</p>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2 mb-4">
+            <button type="submit" class="eii-btn eii-btn--primary">@(editing ? "Guardar cambios" : "Crear platillo")</button>
+            <a class="eii-btn eii-btn--ghost" href="/Identity/Admin/Platillos/Index">Cancelar</a>
+        </div>
+    </form>
+
+    @* ===== Panel de alta de ingrediente en línea (AJAX, no recarga) ===== *@
+    <div class="eii-card mb-4" id="nuevoIngPanel" hidden>
+        <div class="eii-card__body">
+            <h2 class="eii-card__title h6 mb-1">Nuevo ingrediente</h2>
+            <p class="eii-form-text mb-3">Se crea en el catálogo y se asigna al renglón, sin perder lo que ya cargaste.</p>
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <label class="eii-label eii-label--required" for="niNombre">Nombre</label>
+                    <input class="eii-input" id="niNombre" maxlength="200" autocomplete="off" />
+                </div>
+                <div class="col-md-4">
+                    <label class="eii-label eii-label--required" for="niGrupo">Grupo</label>
+                    <select class="eii-select" id="niGrupo">
+                        <option value="">(Seleccionar grupo)</option>
+                        @foreach (var g in Model.GruposParaAlta)
+                        {
+                            <option value="@g.Id">@g.Nombre</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="eii-label">Atributos intrínsecos</label>
+                    <div class="d-flex flex-wrap gap-3">
+                        @foreach (var a in Model.IntrinsecosParaAlta)
+                        {
+                            <label class="d-inline-flex align-items-center gap-1">
+                                <input class="eii-checkbox ni-attr" type="checkbox" value="@a.Id" />
+                                <span>@a.Nombre</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+                <div class="col-12 d-flex gap-2">
+                    <button type="button" class="eii-btn eii-btn--primary" id="niCrear">Crear y usar</button>
+                    <button type="button" class="eii-btn eii-btn--ghost" id="niCancelar">Cancelar</button>
+                    <span class="eii-form-error" id="niError"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* ===== Template de renglón (única fuente de markup) ===== *@
+<template id="rowTemplate">
+    <tr class="ing-row">
+        <td>
+            <div class="position-relative">
+                @* Rows.Index debe ir dentro de un <td>: un hijo directo de <tr> lo expulsa el parser HTML. *@
+                <input type="hidden" name="Rows.Index" value="__KEY__" />
+                <input class="eii-input ing-input" placeholder="Buscar ingrediente…" autocomplete="off" />
+                <input type="hidden" class="ing-id" name="Rows[__KEY__].IngredienteId" value="0" />
+                <ul class="eii-autocomplete__dropdown ing-suggestions"></ul>
+                <div class="ing-inactivo text-muted small" hidden>⚠ ingrediente inactivo</div>
+                <button type="button" class="eii-btn eii-btn--link eii-btn--sm btn-nuevo-ing">+ nuevo ingrediente</button>
+            </div>
+        </td>
+        <td><input class="eii-input" name="Rows[__KEY__].TextoOriginal" maxlength="500" autocomplete="off" /></td>
+        <td><input class="eii-input inp-cantidad" type="number" step="0.001" min="0" name="Rows[__KEY__].Cantidad" /></td>
+        <td>
+            <select class="eii-select" name="Rows[__KEY__].UnidadId">
+                <option value="">—</option>
+                @foreach (var u in Model.Unidades)
+                {
+                    <option value="@u.Id">@u.Nombre @(u.Activo ? "" : "(inactivo)")</option>
+                }
+            </select>
+        </td>
+        <td>
+            <input type="hidden" name="Rows[__KEY__].EsAlGusto" value="false" />
+            <input type="checkbox" class="eii-checkbox chk-algusto" name="Rows[__KEY__].EsAlGusto" value="true" />
+        </td>
+        <td><input class="eii-input" name="Rows[__KEY__].NotaPreparacion" maxlength="500" autocomplete="off" /></td>
+        <td>
+            <div class="d-flex flex-wrap gap-2">
+                @foreach (var a in Model.AtributosUso)
+                {
+                    <label class="d-inline-flex align-items-center gap-1">
+                        <input type="checkbox" class="eii-checkbox chk-uso" name="Rows[__KEY__].AtributoUsoIds" value="@a.Id" />
+                        <span class="small">@a.Nombre @(a.Activo ? "" : "(inactivo)")</span>
+                    </label>
+                }
+            </div>
+        </td>
+        <td><button type="button" class="eii-btn eii-btn--link eii-btn--sm btn-remove-row" title="Quitar">✕</button></td>
+    </tr>
+</template>
+
+@section Scripts {
+    <script>
+        (function () {
+            const AUTO_URL = '/api/ingredientes/autocomplete';
+            const CREAR_URL = '/Identity/Admin/Platillos/Detalle?handler=CrearIngrediente';
+            const existing = @Html.Raw(rowsJson);
+
+            const tpl = document.getElementById('rowTemplate');
+            const body = document.getElementById('rowsBody');
+            const emptyHint = document.getElementById('emptyRowsHint');
+            let counter = 0;
+
+            function token() {
+                return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+            }
+            function refreshEmpty() {
+                emptyHint.hidden = body.querySelectorAll('tr').length > 0;
+            }
+
+            function addRow(data) {
+                const key = counter++;
+                const html = tpl.innerHTML.replaceAll('__KEY__', String(key));
+                body.insertAdjacentHTML('beforeend', html);
+                const tr = body.lastElementChild;
+                if (data) fillRow(tr, data);
+                refreshEmpty();
+                return tr;
+            }
+
+            function fillRow(tr, d) {
+                tr.querySelector('.ing-input').value = d.nombre || '';
+                tr.querySelector('.ing-id').value = d.ingredienteId || 0;
+                if (d.activo === false) tr.querySelector('.ing-inactivo').hidden = false;
+                const q = (sel) => tr.querySelector(sel);
+                if (d.textoOriginal != null) q('input[name$=".TextoOriginal"]').value = d.textoOriginal;
+                if (d.cantidad != null) q('.inp-cantidad').value = d.cantidad;
+                if (d.unidadId != null) q('select[name$=".UnidadId"]').value = d.unidadId;
+                const alg = q('.chk-algusto');
+                if (d.esAlGusto) { alg.checked = true; toggleCantidad(tr); }
+                if (d.notaPreparacion != null) q('input[name$=".NotaPreparacion"]').value = d.notaPreparacion;
+                (d.atributoUsoIds || []).forEach(id => {
+                    const c = tr.querySelector('.chk-uso[value="' + id + '"]');
+                    if (c) c.checked = true;
+                });
+            }
+
+            function toggleCantidad(tr) {
+                const alg = tr.querySelector('.chk-algusto');
+                const cant = tr.querySelector('.inp-cantidad');
+                if (alg.checked) { cant.value = ''; cant.disabled = true; }
+                else { cant.disabled = false; }
+            }
+
+            // ---- Alta / quita de renglones ----
+            document.getElementById('btnAddRow').addEventListener('click', () => addRow(null));
+
+            body.addEventListener('click', (e) => {
+                if (e.target.closest('.btn-remove-row')) {
+                    e.target.closest('tr').remove();
+                    refreshEmpty();
+                }
+            });
+
+            body.addEventListener('change', (e) => {
+                if (e.target.classList.contains('chk-algusto')) toggleCantidad(e.target.closest('tr'));
+            });
+
+            // ---- Autocomplete de ingrediente (delegado) ----
+            body.addEventListener('input', async (e) => {
+                if (!e.target.classList.contains('ing-input')) return;
+                const input = e.target;
+                const tr = input.closest('tr');
+                const sug = tr.querySelector('.ing-suggestions');
+                const hid = tr.querySelector('.ing-id');
+                tr.querySelector('.ing-inactivo').hidden = true;
+                hid.value = 0; // al teclear se anula la selección previa
+                const q = input.value.trim();
+                sug.innerHTML = '';
+                if (q.length < 2) return;
+
+                const myTok = (input._tok = (input._tok || 0) + 1);
+                let resp;
+                try { resp = await fetch(AUTO_URL + '?q=' + encodeURIComponent(q)); }
+                catch { return; }
+                if (myTok !== input._tok || !resp.ok) return;
+                const data = await resp.json();
+                if (input.value.trim() !== q) return;
+                data.forEach(item => {
+                    const li = document.createElement('li');
+                    li.className = 'eii-autocomplete__item';
+                    li.textContent = item.grupo ? (item.nombre + ' · ' + item.grupo) : item.nombre;
+                    li.addEventListener('mousedown', (ev) => {
+                        ev.preventDefault();
+                        input.value = item.nombre;
+                        hid.value = item.id;
+                        sug.innerHTML = '';
+                    });
+                    sug.appendChild(li);
+                });
+            });
+
+            body.addEventListener('blur', (e) => {
+                if (e.target.classList.contains('ing-input')) {
+                    const sug = e.target.closest('tr').querySelector('.ing-suggestions');
+                    setTimeout(() => { sug.innerHTML = ''; }, 200);
+                }
+            }, true);
+
+            // ---- Alta de ingrediente en línea (AJAX) ----
+            const panel = document.getElementById('nuevoIngPanel');
+            const niNombre = document.getElementById('niNombre');
+            const niGrupo = document.getElementById('niGrupo');
+            const niError = document.getElementById('niError');
+            let targetRow = null;
+
+            body.addEventListener('click', (e) => {
+                const btn = e.target.closest('.btn-nuevo-ing');
+                if (!btn) return;
+                targetRow = btn.closest('tr');
+                niError.textContent = '';
+                niNombre.value = targetRow.querySelector('.ing-input').value.trim();
+                niGrupo.value = '';
+                panel.querySelectorAll('.ni-attr').forEach(c => c.checked = false);
+                panel.hidden = false;
+                panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                niNombre.focus();
+            });
+
+            document.getElementById('niCancelar').addEventListener('click', () => { panel.hidden = true; targetRow = null; });
+
+            document.getElementById('niCrear').addEventListener('click', async () => {
+                niError.textContent = '';
+                const nombre = niNombre.value.trim();
+                const grupoId = niGrupo.value;
+                if (!nombre) { niError.textContent = 'El nombre es obligatorio.'; return; }
+                if (!grupoId) { niError.textContent = 'Seleccioná un grupo.'; return; }
+
+                const fd = new FormData();
+                fd.append('nombre', nombre);
+                fd.append('grupoId', grupoId);
+                panel.querySelectorAll('.ni-attr:checked').forEach(c => fd.append('atributoIds', c.value));
+                fd.append('__RequestVerificationToken', token());
+
+                let resp;
+                try { resp = await fetch(CREAR_URL, { method: 'POST', body: fd }); }
+                catch { niError.textContent = 'Error de red.'; return; }
+                const data = await resp.json().catch(() => null);
+                if (!resp.ok || !data || !data.ok) {
+                    niError.textContent = (data && data.mensaje) ? data.mensaje : 'No se pudo crear.';
+                    return;
+                }
+                if (targetRow) {
+                    targetRow.querySelector('.ing-input').value = data.nombre;
+                    targetRow.querySelector('.ing-id').value = data.id;
+                    targetRow.querySelector('.ing-inactivo').hidden = true;
+                }
+                panel.hidden = true;
+                targetRow = null;
+            });
+
+            // ---- Construcción inicial de renglones ----
+            (existing || []).forEach(addRow);
+            refreshEmpty();
+        })();
+    </script>
+}
