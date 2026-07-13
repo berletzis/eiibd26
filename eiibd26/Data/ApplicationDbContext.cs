@@ -125,6 +125,18 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     // Read-only: metadatos de externos (tabla Article del Worker) — solo para el título real.
     public DbSet<eiibd26.Models.Cobertura.ArticleRef> ArticlesRef { get; set; }
 
+    // Módulo de Platillos (tablas propias Plat*, creadas por SQL directo). Módulo autocontenido.
+    public DbSet<eiibd26.Models.Platillos.PlatGrupo> PlatGrupos { get; set; }
+    public DbSet<eiibd26.Models.Platillos.PlatAtributo> PlatAtributos { get; set; }
+    public DbSet<eiibd26.Models.Platillos.PlatCategoria> PlatCategorias { get; set; }
+    public DbSet<eiibd26.Models.Platillos.PlatUnidad> PlatUnidades { get; set; }
+    public DbSet<eiibd26.Models.Platillos.PlatIngrediente> PlatIngredientes { get; set; }
+    public DbSet<eiibd26.Models.Platillos.PlatIngredienteAtributo> PlatIngredienteAtributos { get; set; }
+    public DbSet<eiibd26.Models.Platillos.PlatPlatillo> PlatPlatillos { get; set; }
+    public DbSet<eiibd26.Models.Platillos.PlatPlatilloIngrediente> PlatPlatilloIngredientes { get; set; }
+    public DbSet<eiibd26.Models.Platillos.PlatPlatilloIngredienteAtributo> PlatPlatilloIngredienteAtributos { get; set; }
+    public DbSet<eiibd26.Models.Platillos.PlatPerfilExclusion> PlatPerfilExclusiones { get; set; }
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -845,6 +857,113 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
              // DB-005: Restrict evita borrado masivo de experiencia médica al eliminar condición.
              // El borrado de condiciones clínicas no debe propagarse a perfiles de médicos.
              .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ===================== Módulo de Platillos =====================
+        // Tablas propias Plat* (SQL directo). OnDelete Restrict en todas las FKs para
+        // calcar el NO ACTION del esquema y evitar cascadas que EF no debería propagar.
+        // Sin HasQueryFilter por Activo: una referencia a un catálogo desactivado debe
+        // seguir funcionando (§7.2). El filtro por Activo va explícito en los combos.
+
+        builder.Entity<eiibd26.Models.Platillos.PlatGrupo>(b =>
+        {
+            b.ToTable("PlatGrupo");
+            b.HasIndex(x => x.Nombre).IsUnique();
+        });
+
+        builder.Entity<eiibd26.Models.Platillos.PlatAtributo>(b =>
+        {
+            b.ToTable("PlatAtributo");
+            b.HasIndex(x => x.Nombre).IsUnique();
+        });
+
+        builder.Entity<eiibd26.Models.Platillos.PlatCategoria>(b =>
+        {
+            b.ToTable("PlatCategoria");
+            b.HasIndex(x => x.Nombre).IsUnique();
+        });
+
+        builder.Entity<eiibd26.Models.Platillos.PlatUnidad>(b =>
+        {
+            b.ToTable("PlatUnidad");
+            b.HasIndex(x => x.Nombre).IsUnique();
+        });
+
+        builder.Entity<eiibd26.Models.Platillos.PlatIngrediente>(b =>
+        {
+            b.ToTable("PlatIngrediente");
+            b.HasIndex(x => x.Nombre).IsUnique();
+            b.HasOne(x => x.Grupo)
+             .WithMany(g => g.Ingredientes)
+             .HasForeignKey(x => x.GrupoId)
+             .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<eiibd26.Models.Platillos.PlatIngredienteAtributo>(b =>
+        {
+            b.ToTable("PlatIngredienteAtributo");
+            b.HasKey(x => new { x.IngredienteId, x.AtributoId });
+            b.HasOne(x => x.Ingrediente)
+             .WithMany(i => i.Atributos)
+             .HasForeignKey(x => x.IngredienteId)
+             .OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.Atributo)
+             .WithMany()
+             .HasForeignKey(x => x.AtributoId)
+             .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<eiibd26.Models.Platillos.PlatPlatillo>(b =>
+        {
+            b.ToTable("PlatPlatillo");
+            b.HasIndex(x => x.Codigo).IsUnique();
+            b.HasOne(x => x.Categoria)
+             .WithMany(c => c.Platillos)
+             .HasForeignKey(x => x.CategoriaId)
+             .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<eiibd26.Models.Platillos.PlatPlatilloIngrediente>(b =>
+        {
+            b.ToTable("PlatPlatilloIngrediente");
+            b.Property(x => x.Cantidad).HasPrecision(9, 3);
+            // Arista de pertenencia: los renglones mueren con su platillo (CASCADE, calca la DB).
+            b.HasOne(x => x.Platillo)
+             .WithMany(p => p.Ingredientes)
+             .HasForeignKey(x => x.PlatilloId)
+             .OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Ingrediente)
+             .WithMany()
+             .HasForeignKey(x => x.IngredienteId)
+             .OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.Unidad)
+             .WithMany()
+             .HasForeignKey(x => x.UnidadId)
+             .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<eiibd26.Models.Platillos.PlatPlatilloIngredienteAtributo>(b =>
+        {
+            b.ToTable("PlatPlatilloIngredienteAtributo");
+            b.HasKey(x => new { x.PlatilloIngredienteId, x.AtributoId });
+            // Hijo puro: el atributo de uso muere con su renglón (CASCADE, calca la DB).
+            b.HasOne(x => x.PlatilloIngrediente)
+             .WithMany(pi => pi.Atributos)
+             .HasForeignKey(x => x.PlatilloIngredienteId)
+             .OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Atributo)
+             .WithMany()
+             .HasForeignKey(x => x.AtributoId)
+             .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<eiibd26.Models.Platillos.PlatPerfilExclusion>(b =>
+        {
+            b.ToTable("PlatPerfilExclusion");
+            // Único filtrado: una exclusión activa por (usuario, tipo, refId) — espeja el índice SQL.
+            b.HasIndex(x => new { x.idUsuario, x.Tipo, x.RefId })
+             .IsUnique()
+             .HasFilter("[Eliminado] = 0");
         });
     }
 
