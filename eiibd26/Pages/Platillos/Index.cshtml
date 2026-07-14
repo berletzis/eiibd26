@@ -7,15 +7,11 @@
 }
 
 @section Styles {
+    @* Reusa el chrome de búsqueda/filtros de Contenidos/Index (.se-*, .filters-toggle-header,
+       .tag, .more-tags-toggle) — ya vive en este archivo compartido. Cero CSS nuevo. *@
+    <link rel="stylesheet" href="~/css/contenidos-cards.css" asp-append-version="true" />
     <style>
         .plat-page { padding-top: var(--eii-space-6); padding-bottom: var(--eii-space-7); }
-
-        .plat-toolbar {
-            display: flex; flex-wrap: wrap; gap: var(--eii-space-3);
-            align-items: flex-end; margin-bottom: var(--eii-space-4);
-        }
-        .plat-toolbar .plat-search { flex: 1 1 320px; }
-        .plat-toolbar .plat-cat { flex: 0 1 220px; }
 
         .plat-chips { display: flex; flex-wrap: wrap; gap: var(--eii-space-2); align-items: center; }
         .plat-chip-x { margin-left: var(--eii-space-2); opacity: .8; }
@@ -50,51 +46,102 @@
             </div>
         </div>
 
-        @* ===== Barra de búsqueda + categoría (GET) ===== *@
-        <form method="get" action="/Platillos" class="plat-toolbar" role="search" aria-label="Buscar platillos">
-            <div class="plat-search">
-                <label class="eii-label" for="q">Buscar</label>
-                <input class="eii-input" id="q" name="q" value="@(Model.SearchQuery ?? "")"
-                       placeholder="Nombre del platillo…" autocomplete="off" />
-            </div>
-            <div class="plat-cat">
-                <label class="eii-label" for="categoria">Categoría</label>
-                <select class="eii-select" id="categoria" name="categoria">
-                    <option value="">Todas</option>
-                    @foreach (var c in Model.Categorias)
-                    {
-                        <option value="@c.Id" selected="@(Model.Categoria == c.Id)">@c.Nombre</option>
-                    }
-                </select>
-            </div>
-            <div>
-                <button type="submit" class="eii-btn eii-btn--primary">
-                    <i class="bi bi-search"></i> Buscar
-                </button>
-            </div>
-
-            @* Conserva el modo/filtros actuales al buscar *@
-            @if (Model.VerTodos)
+        @* ===== Buscador + filtro por categoría (espejo de Contenidos/Index) ===== *@
+        @{
+            const int TAG_PREVIEW = 12;
+            // Querystring base que preserva búsqueda y modo (todo MENOS 'categoria'). Mismo criterio
+            // que usaban los hidden del form anterior: los tags de categoría se comportan igual que
+            // pulsar "Buscar", sin cambiar la semántica de filtrado del backend.
+            var baseParams = new List<string>();
+            if (!string.IsNullOrWhiteSpace(Model.SearchQuery)) baseParams.Add("q=" + Uri.EscapeDataString(Model.SearchQuery));
+            if (Model.VerTodos)
             {
-                <input type="hidden" name="verTodos" value="true" />
+                baseParams.Add("verTodos=true");
             }
             else
             {
-                <input type="hidden" name="f" value="true" />
-                @if (Model.FilterGrupoIds.Any())
-                {
-                    <input type="hidden" name="grupos" value="@string.Join(",", Model.FilterGrupoIds)" />
-                }
-                @if (Model.FilterIngredienteIds.Any())
-                {
-                    <input type="hidden" name="ingredientes" value="@string.Join(",", Model.FilterIngredienteIds)" />
-                }
-                @if (Model.FilterAtributoIds.Any())
-                {
-                    <input type="hidden" name="atributos" value="@string.Join(",", Model.FilterAtributoIds)" />
-                }
+                baseParams.Add("f=true");
+                if (Model.FilterGrupoIds.Any()) baseParams.Add("grupos=" + Uri.EscapeDataString(string.Join(",", Model.FilterGrupoIds)));
+                if (Model.FilterIngredienteIds.Any()) baseParams.Add("ingredientes=" + Uri.EscapeDataString(string.Join(",", Model.FilterIngredienteIds)));
+                if (Model.FilterAtributoIds.Any()) baseParams.Add("atributos=" + Uri.EscapeDataString(string.Join(",", Model.FilterAtributoIds)));
             }
-        </form>
+            Func<int?, string> catUrl = id =>
+            {
+                var ps = new List<string>(baseParams);
+                if (id.HasValue) ps.Add("categoria=" + id.Value);
+                return "/Platillos" + (ps.Count > 0 ? "?" + string.Join("&", ps) : "");
+            };
+        }
+
+        <div class="se-header" role="region" aria-label="Buscador de platillos">
+            <label for="q" class="se-search-label">Busca un platillo por su nombre.</label>
+            <form method="get" action="/Platillos" class="se-search" role="search" aria-label="Buscar platillos">
+                <input id="q" name="q" class="se-search-input" value="@(Model.SearchQuery ?? "")"
+                       placeholder="Nombre del platillo…" autocomplete="off" aria-label="Buscar platillos" />
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <button class="se-btn se-btn-primary" type="submit" title="Buscar" aria-label="Buscar">
+                        <i class="bi bi-search" style="font-size:1.05rem;"></i>
+                    </button>
+                </div>
+                @* Conserva la categoría activa al buscar por texto *@
+                @if (Model.Categoria.HasValue)
+                {
+                    <input type="hidden" name="categoria" value="@Model.Categoria" />
+                }
+                @* Conserva el modo/filtros actuales al buscar *@
+                @if (Model.VerTodos)
+                {
+                    <input type="hidden" name="verTodos" value="true" />
+                }
+                else
+                {
+                    <input type="hidden" name="f" value="true" />
+                    @if (Model.FilterGrupoIds.Any())
+                    {
+                        <input type="hidden" name="grupos" value="@string.Join(",", Model.FilterGrupoIds)" />
+                    }
+                    @if (Model.FilterIngredienteIds.Any())
+                    {
+                        <input type="hidden" name="ingredientes" value="@string.Join(",", Model.FilterIngredienteIds)" />
+                    }
+                    @if (Model.FilterAtributoIds.Any())
+                    {
+                        <input type="hidden" name="atributos" value="@string.Join(",", Model.FilterAtributoIds)" />
+                    }
+                }
+            </form>
+
+            @if (Model.Categorias.Any())
+            {
+                <div class="filters-toggle-header" id="filtersToggle" role="button" tabindex="0" aria-expanded="false" aria-controls="catFiltersCollapse">
+                    <h3>Filtrar por categoría</h3>
+                    <i class="bi bi-chevron-down toggle-icon"></i>
+                </div>
+
+                <div class="collapse" id="catFiltersCollapse">
+                    <div class="tags-blocks" role="region" aria-label="Filtros por categoría">
+                        <div class="tag-group" aria-label="Categorías">
+                            <div class="group-tags" data-group="categorias">
+                                <label class="group-title">Categorías</label>
+                                <button type="button" class="tag @(!Model.Categoria.HasValue ? "active" : "")" data-cat-url="@catUrl(null)">Todas</button>
+                                @{ var idx = 0; }
+                                @foreach (var c in Model.Categorias)
+                                {
+                                    var active = Model.Categoria == c.Id;
+                                    <button type="button" class="tag @(active ? "active" : "")" data-cat-url="@catUrl(c.Id)"
+                                            data-overflow="@(idx >= TAG_PREVIEW ? "true" : "false")" hidden="@(idx >= TAG_PREVIEW)">@c.Nombre</button>
+                                    idx++;
+                                }
+                                @if (Model.Categorias.Count > TAG_PREVIEW)
+                                {
+                                    <button type="button" class="more-tags-toggle" data-toggle-group="categorias" aria-expanded="false">Ver más</button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
 
         @* ===== Chips de filtros activos ===== *@
         @if (hayFiltros)
@@ -279,6 +326,66 @@
                     btn.disabled = false;
                     btn.textContent = original;
                 }
+            });
+        })();
+
+        // ===== Filtro por categoría: panel colapsable con cookie (espejo de Contenidos/Index) =====
+        (function () {
+            function setCookie(name, value, days) {
+                const d = new Date();
+                d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
+                document.cookie = name + "=" + value + ";expires=" + d.toUTCString() + ";path=/";
+            }
+            function getCookie(name) {
+                const nameEQ = name + "=";
+                const ca = document.cookie.split(';');
+                for (let i = 0; i < ca.length; i++) {
+                    let c = ca[i];
+                    while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+                    if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+                }
+                return null;
+            }
+
+            document.addEventListener('DOMContentLoaded', function () {
+                const collapseEl = document.getElementById('catFiltersCollapse');
+                const toggleBtn = document.getElementById('filtersToggle');
+                if (collapseEl && toggleBtn) {
+                    (function initCollapse() {
+                        if (typeof bootstrap === 'undefined' || !bootstrap.Collapse) { setTimeout(initCollapse, 50); return; }
+                        const bsCollapse = new bootstrap.Collapse(collapseEl, { toggle: false });
+                        const saved = getCookie('platillos_filters_expanded');
+                        if (saved === 'true') { bsCollapse.show(); toggleBtn.setAttribute('aria-expanded', 'true'); }
+                        else if (saved === 'false') { bsCollapse.hide(); toggleBtn.setAttribute('aria-expanded', 'false'); }
+
+                        toggleBtn.addEventListener('click', function () {
+                            const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+                            if (isExpanded) { bsCollapse.hide(); setCookie('platillos_filters_expanded', 'false', 30); }
+                            else { bsCollapse.show(); setCookie('platillos_filters_expanded', 'true', 30); }
+                        });
+                        collapseEl.addEventListener('shown.bs.collapse', function () { toggleBtn.setAttribute('aria-expanded', 'true'); setCookie('platillos_filters_expanded', 'true', 30); });
+                        collapseEl.addEventListener('hidden.bs.collapse', function () { toggleBtn.setAttribute('aria-expanded', 'false'); setCookie('platillos_filters_expanded', 'false', 30); });
+                    })();
+                }
+
+                // Tag de categoría → navega (single-select; preserva búsqueda y modo en el href)
+                document.querySelectorAll('.tag[data-cat-url]').forEach(function (t) {
+                    t.addEventListener('click', function () {
+                        const url = t.getAttribute('data-cat-url');
+                        if (url) window.location.href = url;
+                    });
+                });
+
+                // "Ver más": muestra/oculta los tags de overflow (atributo nativo hidden, sin CSS)
+                document.querySelectorAll('.more-tags-toggle[data-toggle-group="categorias"]').forEach(function (mt) {
+                    mt.addEventListener('click', function () {
+                        const expanded = mt.getAttribute('aria-expanded') === 'true';
+                        document.querySelectorAll('.group-tags[data-group="categorias"] .tag[data-overflow="true"]')
+                            .forEach(function (el) { el.hidden = expanded; });
+                        mt.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+                        mt.textContent = expanded ? 'Ver más' : 'Ver menos';
+                    });
+                });
             });
         })();
     </script>
