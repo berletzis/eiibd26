@@ -31,6 +31,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
         [BindProperty] public string? FuenteNombre { get; set; }
         [BindProperty] public string? FuenteUrl { get; set; }
         [BindProperty] public string? Notas { get; set; }
+        [BindProperty] public bool Activo { get; set; }   // Publicado (visible para pacientes). Requiere ≥1 ingrediente.
 
         // ---- Renglones de ingredientes (delete-all + insert al guardar) ----
         [BindProperty] public List<RowInput> Rows { get; set; } = new();
@@ -38,6 +39,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
         public class RowInput
         {
             public int IngredienteId { get; set; }
+            public string? IngredienteTexto { get; set; }   // lo que el admin tecleó en el buscador (para detectar id=0 con texto)
             public string? TextoOriginal { get; set; }
             public decimal? Cantidad { get; set; }
             public int? UnidadId { get; set; }
@@ -79,6 +81,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
                 FuenteNombre = p.FuenteNombre;
                 FuenteUrl = p.FuenteUrl;
                 Notas = p.Notas;
+                Activo = p.Activo;
 
                 Rows = p.Ingredientes
                     .OrderBy(r => r.Id)
@@ -94,6 +97,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
                     })
                     .ToList();
             }
+
+            if (!id.HasValue) Activo = true;   // nuevo platillo: por defecto publicado (el guard exige ingredientes)
 
             await LoadLookupsAsync();
             return Page();
@@ -123,10 +128,32 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
                 if (dupCodigo) errores.Add($"Ya existe un platillo con el código \"{codigo}\".");
             }
 
-            // Renglones válidos: los que tienen ingrediente seleccionado.
-            var rowsValidas = (Rows ?? new List<RowInput>())
-                .Where(r => r.IngredienteId > 0)
-                .ToList();
+            // Renglones: NUNCA descartar en silencio un renglón con contenido.
+            //  - Con ingrediente seleccionado (IngredienteId > 0) → válido.
+            //  - Con contenido pero sin ingrediente (id = 0) → se RECHAZA el guardado con mensaje claro.
+            //  - Completamente vacío (sin texto ni datos) → se ignora en silencio (fila que el admin agregó y no llenó).
+            var rowsPost = Rows ?? new List<RowInput>();
+            var rowsValidas = new List<RowInput>();
+            for (int idx = 0; idx < rowsPost.Count; idx++)
+            {
+                var r = rowsPost[idx];
+                if (r.IngredienteId > 0) { rowsValidas.Add(r); continue; }
+
+                bool tieneContenido =
+                    !string.IsNullOrWhiteSpace(r.IngredienteTexto) ||
+                    !string.IsNullOrWhiteSpace(r.TextoOriginal) ||
+                    r.Cantidad.HasValue || r.UnidadId.HasValue || r.EsAlGusto ||
+                    !string.IsNullOrWhiteSpace(r.NotaPreparacion) ||
+                    (r.AtributoUsoIds?.Any() ?? false);
+
+                if (tieneContenido)
+                {
+                    var quePuso = !string.IsNullOrWhiteSpace(r.IngredienteTexto)
+                        ? $"\"{r.IngredienteTexto!.Trim()}\""
+                        : "(sin nombre)";
+                    errores.Add($"El renglón {idx + 1} {quePuso} no tiene un ingrediente válido: selecciónalo de la lista, o créalo con el botón.");
+                }
+            }
 
             // Validar que cada ingrediente exista.
             var ingIds = rowsValidas.Select(r => r.IngredienteId).Distinct().ToList();
@@ -136,6 +163,11 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
                 .ToListAsync();
             if (ingIds.Any(x => !ingExistentes.Contains(x)))
                 errores.Add("Uno de los renglones referencia un ingrediente que no existe.");
+
+            // No se puede publicar un platillo sin ingredientes: el motor lo mostraría al paciente
+            // como compatible por ausencia de datos. Como borrador (Activo=false) sí se permite.
+            if (Activo && rowsValidas.Count == 0)
+                errores.Add("No puedes publicar un platillo sin ingredientes: el filtro no puede analizarlo. Agrega al menos uno, o desmarca \"Publicado\" para guardarlo como borrador.");
 
             if (errores.Any())
             {
@@ -153,12 +185,13 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
             }
             else
             {
-                platillo = new PlatPlatillo { Activo = true, FechaCreacion = DateTime.UtcNow };
+                platillo = new PlatPlatillo { FechaCreacion = DateTime.UtcNow };
                 var uid = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
                 if (Guid.TryParse(uid, out var g)) platillo.CreadoPorUserId = g;
                 _db.PlatPlatillos.Add(platillo);
             }
 
+            platillo.Activo = Activo;
             platillo.Codigo = codigo;
             platillo.Nombre = nombre;
             platillo.CategoriaId = CategoriaId;
@@ -207,7 +240,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
 
             await _db.SaveChangesAsync();
 
-            SuccessMessage = idActual > 0 ? "Platillo actualizado." : "Platillo creado.";
+            SuccessMessage = (idActual > 0 ? "Platillo actualizado." : "Platillo creado.")
+                + (Activo ? "" : " Guardado como borrador: no aparece para pacientes hasta publicarlo.");
             return RedirectToPage(new { id = platillo.Id });
         }
 

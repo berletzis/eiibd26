@@ -7,13 +7,22 @@
     var codigoValue = editing ? Model.Codigo : (string.IsNullOrEmpty(Model.Codigo) ? Model.SuggestedCodigo : Model.Codigo);
 
     // Renglones actuales serializados: JS construye la tabla desde el <template> (fuente única de markup).
+    // Incluye renglones inválidos (con contenido pero sin ingrediente) para que sobrevivan al re-render de error.
     var rowsData = (Model.Rows ?? new List<eiibd26.Areas.Identity.Pages.Admin.Platillos.DetalleModel.RowInput>())
-        .Where(r => r.IngredienteId > 0)
+        .Where(r => r.IngredienteId > 0
+            || !string.IsNullOrWhiteSpace(r.IngredienteTexto)
+            || !string.IsNullOrWhiteSpace(r.TextoOriginal)
+            || r.Cantidad.HasValue || r.UnidadId.HasValue || r.EsAlGusto
+            || !string.IsNullOrWhiteSpace(r.NotaPreparacion)
+            || (r.AtributoUsoIds?.Any() ?? false))
         .Select(r => new
         {
             ingredienteId = r.IngredienteId,
-            nombre = Model.IngredienteInfo.TryGetValue(r.IngredienteId, out var info) ? info.Nombre : "",
-            activo = !Model.IngredienteInfo.TryGetValue(r.IngredienteId, out var info2) || info2.Activo,
+            nombre = r.IngredienteId > 0
+                ? (Model.IngredienteInfo.TryGetValue(r.IngredienteId, out var info) ? info.Nombre : "")
+                : (r.IngredienteTexto ?? ""),
+            activo = r.IngredienteId == 0 || !Model.IngredienteInfo.TryGetValue(r.IngredienteId, out var info2) || info2.Activo,
+            invalido = r.IngredienteId == 0,
             textoOriginal = r.TextoOriginal,
             cantidad = r.Cantidad,
             unidadId = r.UnidadId,
@@ -124,6 +133,14 @@
                         <label class="eii-label" asp-for="Notas">Notas</label>
                         <input class="eii-input" asp-for="Notas" maxlength="1000" />
                     </div>
+                    <div class="col-12">
+                        <label class="d-inline-flex align-items-center gap-2">
+                            <input type="hidden" name="Activo" value="false" />
+                            <input type="checkbox" class="eii-checkbox" name="Activo" value="true" @(Model.Activo ? "checked" : "") />
+                            <span><strong>Publicado</strong> (visible para pacientes)</span>
+                        </label>
+                        <span class="eii-form-text d-block">Un platillo sin ingredientes no se puede publicar: el filtro no puede analizarlo. Déjalo como borrador hasta capturarlos.</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -133,7 +150,7 @@
             <div class="eii-card__body">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <h2 class="eii-card__title h6 mb-0">Ingredientes</h2>
-                    <button type="button" class="eii-btn eii-btn--neutral eii-btn--sm" id="btnAddRow"><i class="bi bi-plus-lg"></i> Agregar renglón</button>
+                    <button type="button" class="eii-btn eii-btn--neutral eii-btn--sm" id="btnAddRow"><i class="bi bi-plus-lg"></i> Agregar ingrediente</button>
                 </div>
                 <div class="table-responsive">
                     <table class="table align-middle mb-0">
@@ -157,7 +174,7 @@
                     <p class="mb-1">"Cocido" es la ausencia de "crudo". Si no marcas crudo, el ingrediente ya está cocido — da igual si es hervido, al vapor, horneado o a la plancha. Eso no lleva check: descríbelo en <strong>Nota de preparación</strong>. Nadie excluye "lo hervido".</p>
                     <p class="mb-0"><em>Ejemplo:</em> Zanahoria hervida → Ingrediente: zanahoria · Nota de preparación: "hervida" · Uso: ningún check.</p>
                 </div>
-                <p class="eii-form-text mt-2" id="emptyRowsHint">Sin ingredientes todavía. Usa "Agregar renglón".</p>
+                <p class="eii-form-text mt-2" id="emptyRowsHint">Sin ingredientes todavía. Usa "Agregar ingrediente".</p>
             </div>
         </div>
 
@@ -167,42 +184,51 @@
         </div>
     </form>
 
-    @* ===== Panel de alta de ingrediente en línea (AJAX, no recarga) ===== *@
-    <div class="eii-card mb-4" id="nuevoIngPanel" hidden>
-        <div class="eii-card__body">
-            <h2 class="eii-card__title h6 mb-1">Nuevo ingrediente</h2>
-            <p class="eii-form-text mb-3">Se crea en el catálogo y se asigna al renglón, sin perder lo que ya cargaste.</p>
-            <div class="row g-3">
-                <div class="col-md-5">
-                    <label class="eii-label eii-label--required" for="niNombre">Nombre</label>
-                    <input class="eii-input" id="niNombre" maxlength="200" autocomplete="off" />
+    @* ===== Modal: crear ingrediente en el catálogo maestro (AJAX, no recarga) ===== *@
+    <div class="modal fade" id="nuevoIngModal" tabindex="-1" aria-labelledby="nuevoIngModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title h6 mb-0" id="nuevoIngModalTitle">Crear ingrediente en el catálogo</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
-                <div class="col-md-4">
-                    <label class="eii-label eii-label--required" for="niGrupo">Grupo</label>
-                    <select class="eii-select" id="niGrupo">
-                        <option value="">(Seleccionar grupo)</option>
-                        @foreach (var g in Model.GruposParaAlta)
-                        {
-                            <option value="@g.Id">@g.Nombre</option>
-                        }
-                    </select>
-                </div>
-                <div class="col-12">
-                    <label class="eii-label">Atributos intrínsecos</label>
-                    <div class="d-flex flex-wrap gap-3">
-                        @foreach (var a in Model.IntrinsecosParaAlta)
-                        {
-                            <label class="d-inline-flex align-items-center gap-1">
-                                <input class="eii-checkbox ni-attr" type="checkbox" value="@a.Id" />
-                                <span>@a.Nombre</span>
-                            </label>
-                        }
+                <div class="modal-body">
+                    <p class="eii-help-text mb-3">
+                        <i class="bi bi-globe"></i> Se agrega al <strong>catálogo maestro</strong> y queda disponible para todos los platillos, no solo para éste.
+                    </p>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="eii-label eii-label--required" for="niNombre">Nombre</label>
+                            <input class="eii-input" id="niNombre" maxlength="200" autocomplete="off" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="eii-label eii-label--required" for="niGrupo">Grupo</label>
+                            <select class="eii-select" id="niGrupo">
+                                <option value="">(Seleccionar grupo)</option>
+                                @foreach (var g in Model.GruposParaAlta)
+                                {
+                                    <option value="@g.Id">@g.Nombre</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="eii-label">Atributos intrínsecos</label>
+                            <div class="d-flex flex-wrap gap-3">
+                                @foreach (var a in Model.IntrinsecosParaAlta)
+                                {
+                                    <label class="d-inline-flex align-items-center gap-1">
+                                        <input class="eii-checkbox ni-attr" type="checkbox" value="@a.Id" />
+                                        <span>@a.Nombre</span>
+                                    </label>
+                                }
+                            </div>
+                        </div>
                     </div>
+                    <div class="eii-form-error mt-3" id="niError"></div>
                 </div>
-                <div class="col-12 d-flex gap-2">
+                <div class="modal-footer">
+                    <button type="button" class="eii-btn eii-btn--ghost" data-bs-dismiss="modal">Cancelar</button>
                     <button type="button" class="eii-btn eii-btn--primary" id="niCrear">Crear y usar</button>
-                    <button type="button" class="eii-btn eii-btn--ghost" id="niCancelar">Cancelar</button>
-                    <span class="eii-form-error" id="niError"></span>
                 </div>
             </div>
         </div>
@@ -216,11 +242,11 @@
             <div class="position-relative">
                 @* Rows.Index debe ir dentro de un <td>: un hijo directo de <tr> lo expulsa el parser HTML. *@
                 <input type="hidden" name="Rows.Index" value="__KEY__" />
-                <input class="eii-input ing-input" placeholder="Buscar ingrediente…" autocomplete="off" />
+                <input class="eii-input ing-input" name="Rows[__KEY__].IngredienteTexto" placeholder="Buscar ingrediente…" autocomplete="off" />
                 <input type="hidden" class="ing-id" name="Rows[__KEY__].IngredienteId" value="0" />
                 <ul class="eii-autocomplete__dropdown ing-suggestions"></ul>
                 <div class="ing-inactivo text-muted small" hidden>⚠ ingrediente inactivo</div>
-                <button type="button" class="eii-btn eii-btn--link eii-btn--sm btn-nuevo-ing">+ nuevo ingrediente</button>
+                <div class="ing-invalido eii-form-error small" hidden>Selecciona el ingrediente de la lista, o créalo con el enlace.</div>
             </div>
         </td>
         <td><input class="eii-input" name="Rows[__KEY__].TextoOriginal" maxlength="500" autocomplete="off" /></td>
@@ -298,6 +324,10 @@
                     const c = tr.querySelector('.chk-uso[value="' + id + '"]');
                     if (c) c.checked = true;
                 });
+                if (d.invalido) {
+                    tr.querySelector('.ing-input').classList.add('eii-input--error');
+                    tr.querySelector('.ing-invalido').hidden = false;
+                }
             }
 
             function toggleCantidad(tr) {
@@ -329,6 +359,8 @@
                 const sug = tr.querySelector('.ing-suggestions');
                 const hid = tr.querySelector('.ing-id');
                 tr.querySelector('.ing-inactivo').hidden = true;
+                tr.querySelector('.ing-invalido').hidden = true;   // el admin está corrigiendo
+                input.classList.remove('eii-input--error');
                 hid.value = 0; // al teclear se anula la selección previa
                 const q = input.value.trim();
                 sug.innerHTML = '';
@@ -341,6 +373,26 @@
                 if (myTok !== input._tok || !resp.ok) return;
                 const data = await resp.json();
                 if (input.value.trim() !== q) return;
+
+                if (!data || data.length === 0) {
+                    // Sin resultados → única puerta de entrada a crear en el catálogo.
+                    const li = document.createElement('li');
+                    li.className = 'eii-autocomplete__item ing-crear';
+                    const span = document.createElement('span');
+                    span.textContent = 'No encontramos «' + q + '». ';
+                    const strong = document.createElement('strong');
+                    strong.textContent = 'Crearlo en el catálogo';
+                    li.appendChild(span);
+                    li.appendChild(strong);
+                    li.addEventListener('mousedown', (ev) => {
+                        ev.preventDefault();
+                        sug.innerHTML = '';
+                        abrirModalCrear(tr, q);
+                    });
+                    sug.appendChild(li);
+                    return;
+                }
+
                 data.forEach(item => {
                     const li = document.createElement('li');
                     li.className = 'eii-autocomplete__item';
@@ -349,6 +401,8 @@
                         ev.preventDefault();
                         input.value = item.nombre;
                         hid.value = item.id;
+                        input.classList.remove('eii-input--error');
+                        tr.querySelector('.ing-invalido').hidden = true;
                         sug.innerHTML = '';
                     });
                     sug.appendChild(li);
@@ -362,27 +416,32 @@
                 }
             }, true);
 
-            // ---- Alta de ingrediente en línea (AJAX) ----
-            const panel = document.getElementById('nuevoIngPanel');
+            // ---- Alta de ingrediente en el catálogo (modal, AJAX) ----
+            const modalEl = document.getElementById('nuevoIngModal');
             const niNombre = document.getElementById('niNombre');
             const niGrupo = document.getElementById('niGrupo');
             const niError = document.getElementById('niError');
             let targetRow = null;
+            let modalInstance = null;
 
-            body.addEventListener('click', (e) => {
-                const btn = e.target.closest('.btn-nuevo-ing');
-                if (!btn) return;
-                targetRow = btn.closest('tr');
+            function getModal() {
+                if (!modalInstance && window.bootstrap && bootstrap.Modal) {
+                    modalInstance = new bootstrap.Modal(modalEl);
+                }
+                return modalInstance;
+            }
+
+            // Único punto de entrada: el ítem "Crearlo en el catálogo" del autocomplete sin resultados.
+            function abrirModalCrear(tr, nombrePrefill) {
+                targetRow = tr;
                 niError.textContent = '';
-                niNombre.value = targetRow.querySelector('.ing-input').value.trim();
+                niNombre.value = (nombrePrefill || (tr ? tr.querySelector('.ing-input').value.trim() : '')).trim();
                 niGrupo.value = '';
-                panel.querySelectorAll('.ni-attr').forEach(c => c.checked = false);
-                panel.hidden = false;
-                panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                niNombre.focus();
-            });
-
-            document.getElementById('niCancelar').addEventListener('click', () => { panel.hidden = true; targetRow = null; });
+                modalEl.querySelectorAll('.ni-attr').forEach(c => c.checked = false);
+                const m = getModal();
+                if (m) m.show();
+                setTimeout(() => niNombre.focus(), 250);
+            }
 
             document.getElementById('niCrear').addEventListener('click', async () => {
                 niError.textContent = '';
@@ -394,7 +453,7 @@
                 const fd = new FormData();
                 fd.append('nombre', nombre);
                 fd.append('grupoId', grupoId);
-                panel.querySelectorAll('.ni-attr:checked').forEach(c => fd.append('atributoIds', c.value));
+                modalEl.querySelectorAll('.ni-attr:checked').forEach(c => fd.append('atributoIds', c.value));
                 fd.append('__RequestVerificationToken', token());
 
                 let resp;
@@ -405,12 +464,16 @@
                     niError.textContent = (data && data.mensaje) ? data.mensaje : 'No se pudo crear.';
                     return;
                 }
+                // Se asigna automáticamente al renglón que lo invocó; el resto del form no se toca.
                 if (targetRow) {
                     targetRow.querySelector('.ing-input').value = data.nombre;
                     targetRow.querySelector('.ing-id').value = data.id;
                     targetRow.querySelector('.ing-inactivo').hidden = true;
+                    targetRow.querySelector('.ing-invalido').hidden = true;
+                    targetRow.querySelector('.ing-input').classList.remove('eii-input--error');
                 }
-                panel.hidden = true;
+                const m = getModal();
+                if (m) m.hide();
                 targetRow = null;
             });
 

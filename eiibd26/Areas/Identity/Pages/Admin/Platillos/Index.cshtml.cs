@@ -96,6 +96,12 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
         {
             var ent = await _db.PlatPlatillos.FirstOrDefaultAsync(x => x.Id == id);
             if (ent == null) { ErrorMessage = "Platillo no encontrado."; }
+            else if (!ent.Activo && !await _db.PlatPlatilloIngredientes.AnyAsync(x => x.PlatilloId == ent.Id))
+            {
+                // Publicar (activar) un platillo sin ingredientes lo haría pasar todos los filtros
+                // del paciente por ausencia de datos. No se permite.
+                ErrorMessage = $"No puedes publicar \"{ent.Nombre}\": no tiene ingredientes. El filtro no puede analizarlo; captúralos primero.";
+            }
             else
             {
                 ent.Activo = !ent.Activo;
