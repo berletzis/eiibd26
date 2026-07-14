@@ -70,6 +70,24 @@ namespace eiibd26.Controllers
                     entries.Add((loc, "monthly", "0.6"));
             }
 
+            // Detalle de platillos: activos y con >=1 ingrediente (misma regla de seguridad que el
+            // listado y la vista). Contenido real (ingredientes + pasos + fuente) → siempre indexable.
+            var platConIng = await _db.PlatPlatilloIngredientes.AsNoTracking()
+                .Select(pi => pi.PlatilloId).Distinct().ToListAsync();
+            var platillos = await _db.PlatPlatillos.AsNoTracking()
+                .Where(p => p.Activo && platConIng.Contains(p.Id))
+                .OrderBy(p => p.Codigo)
+                .Select(p => p.Nombre)
+                .ToListAsync();
+            foreach (var nombre in platillos)
+            {
+                var slug = SlugHelper.GenerateSlug(nombre);
+                if (string.IsNullOrWhiteSpace(slug)) continue;
+                var loc = $"{hostBase}/Platillos/{Uri.EscapeDataString(slug)}";
+                if (seen.Add(loc))
+                    entries.Add((loc, "weekly", "0.6"));
+            }
+
             var xml = BuildXml(entries);
             _cache.Set(CacheKey, xml, TimeSpan.FromMinutes(30));
             return File(Encoding.UTF8.GetBytes(xml), "application/xml; charset=utf-8");

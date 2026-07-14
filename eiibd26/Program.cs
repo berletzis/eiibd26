@@ -193,6 +193,10 @@ try
             options.Conventions.AddPageRoute("/DirectorioMedicos/Detalle", "/medicos/{slug}");
             // Map SEO-friendly route /Platillos/Ingrediente/{slug} -> vista de ingrediente ("Puedo comer queso?")
             options.Conventions.AddPageRoute("/Platillos/Ingrediente", "/Platillos/Ingrediente/{slug}");
+            // Map SEO-friendly route /Platillos/{slug} -> detalle público del platillo.
+            // 2 segmentos: no colisiona con /Platillos (Index), /Platillos/Mas (literal) ni
+            // /Platillos/Ingrediente/{slug} (3 segmentos).
+            options.Conventions.AddPageRoute("/Platillos/Detalle", "/Platillos/{slug}");
 
             // PROTECCIÓN: autorizar TODO el área Identity por defecto
             options.Conventions.AuthorizeAreaFolder("Identity", "/");
