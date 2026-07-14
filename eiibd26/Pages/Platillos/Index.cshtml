@@ -17,11 +17,11 @@
         .plat-chip-x { margin-left: var(--eii-space-2); opacity: .8; }
 
         .plat-grid {
-            display: grid; grid-template-columns: repeat(3, 1fr);
+            display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: var(--eii-space-4); align-items: start; margin-bottom: var(--eii-space-5);
         }
-        @@media (max-width: 991.98px) { .plat-grid { grid-template-columns: repeat(2, 1fr); } }
-        @@media (max-width: 575.98px) { .plat-grid { grid-template-columns: 1fr; } }
+        @@media (max-width: 991.98px) { .plat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @@media (max-width: 575.98px) { .plat-grid { grid-template-columns: minmax(0, 1fr); } }
 
         .plat-card__meta { display: flex; flex-wrap: wrap; gap: var(--eii-space-2); align-items: center; margin-bottom: var(--eii-space-2); }
         .plat-card__pasos { color: var(--eii-text-soft); font-size: var(--eii-text-sm); line-height: 1.55; margin: var(--eii-space-2) 0; }
@@ -111,24 +111,56 @@
                 }
             </form>
 
-            @if (Model.Categorias.Any())
-            {
-                <div class="filters-toggle-header" id="filtersToggle" role="button" tabindex="0" aria-expanded="false" aria-controls="catFiltersCollapse">
-                    <h3>Filtrar por categoría</h3>
-                    <i class="bi bi-chevron-down toggle-icon"></i>
-                </div>
+            @* ===== Abajo, dos columnas: "Filtrando por" | "Filtrar por categoría" — mismo componente .tag ===== *@
+            @{ bool hasLeft = hayFiltros || (Model.IsAuth && !Model.HasProfile); }
+            <div class="row mt-2">
+                @if (hasLeft)
+                {
+                    <div class="col-md-6 mb-3 mb-md-0">
+                        <div class="tag-group">
+                            <div class="group-tags">
+                                <label class="group-title">Filtrando por</label>
+                                @if (hayFiltros)
+                                {
+                                    @foreach (var chip in Model.Chips)
+                                    {
+                                        <button type="button" class="tag active" data-nav-url="@Model.BuildRemoveUrl(chip.Tipo, chip.RefId)" title="Quitar de esta búsqueda">
+                                            @chip.Nombre <span class="plat-chip-x" aria-hidden="true">✕</span>
+                                        </button>
+                                    }
+                                    <a href="@Model.BuildVerTodosUrl()" class="eii-btn eii-btn--sm eii-btn--ghost">Ver todos los platillos</a>
+                                }
+                                else
+                                {
+                                    <span class="eii-form-text mb-0">Estás viendo todos los platillos. Dinos lo que no toleras y filtramos por ti.</span>
+                                    <a href="/Identity/Usuario/UsuarioAlimentacion" class="eii-btn eii-btn--sm eii-btn--primary">
+                                        <i class="bi bi-basket"></i> Lo que no tolero
+                                    </a>
+                                }
+                            </div>
+                            @if (hayFiltros)
+                            {
+                                <p class="eii-help-text mb-0 mt-2">
+                                    Quitar un filtro aquí es solo para esta búsqueda. Para cambiarlo de forma
+                                    permanente, ve a <a href="/Identity/Usuario/UsuarioAlimentacion">Lo que no tolero</a> en tu panel.
+                                </p>
+                            }
+                        </div>
+                    </div>
+                }
 
-                <div class="collapse" id="catFiltersCollapse">
-                    <div class="tags-blocks" role="region" aria-label="Filtros por categoría">
-                        <div class="tag-group" aria-label="Categorías">
+                @if (Model.Categorias.Any())
+                {
+                    <div class="@(hasLeft ? "col-md-6" : "col-12")">
+                        <div class="tag-group">
                             <div class="group-tags" data-group="categorias">
-                                <label class="group-title">Categorías</label>
-                                <button type="button" class="tag @(!Model.Categoria.HasValue ? "active" : "")" data-cat-url="@catUrl(null)">Todas</button>
+                                <label class="group-title">Filtrar por categoría</label>
+                                <button type="button" class="tag @(!Model.Categoria.HasValue ? "active" : "")" data-nav-url="@catUrl(null)">Todas</button>
                                 @{ var idx = 0; }
                                 @foreach (var c in Model.Categorias)
                                 {
                                     var active = Model.Categoria == c.Id;
-                                    <button type="button" class="tag @(active ? "active" : "")" data-cat-url="@catUrl(c.Id)"
+                                    <button type="button" class="tag @(active ? "active" : "")" data-nav-url="@catUrl(c.Id)"
                                             data-overflow="@(idx >= TAG_PREVIEW ? "true" : "false")" hidden="@(idx >= TAG_PREVIEW)">@c.Nombre</button>
                                     idx++;
                                 }
@@ -139,44 +171,19 @@
                             </div>
                         </div>
                     </div>
-                </div>
-            }
+                }
+            </div>
         </div>
 
-        @* ===== Chips de filtros activos ===== *@
+        @* ===== "Esto no es una dieta": pegado al contador, solo cuando se filtra por perfil ===== *@
         @if (hayFiltros)
         {
-            <div class="eii-card mb-4">
-                <div class="eii-card__body">
-                    <div class="plat-chips mb-2">
-                        <span class="eii-label mb-0 me-1">Filtrando por:</span>
-                        @foreach (var chip in Model.Chips)
-                        {
-                            <a href="@Model.BuildRemoveUrl(chip.Tipo, chip.RefId)"
-                               class="eii-btn eii-btn--sm eii-btn--primary" title="Quitar de esta búsqueda">
-                                @chip.Nombre <span class="plat-chip-x">✕</span>
-                            </a>
-                        }
-                        <a href="@Model.BuildVerTodosUrl()" class="eii-btn eii-btn--sm eii-btn--ghost">Ver todos los platillos</a>
-                    </div>
-                    <p class="eii-help-text mb-0">
-                        Quitar un filtro aquí es solo para esta búsqueda. Para cambiar lo que no toleras de forma
-                        permanente, ve a <a href="/Identity/Usuario/UsuarioAlimentacion">Lo que no tolero</a> en tu panel.
-                    </p>
-                </div>
-            </div>
-        }
-        else if (Model.IsAuth && !Model.HasProfile)
-        {
-            <div class="eii-card mb-4">
-                <div class="eii-card__body d-flex flex-wrap gap-3 align-items-center justify-content-between">
-                    <div class="eii-form-text mb-0">
-                        Estás viendo todos los platillos. Dinos lo que no toleras y filtramos por ti.
-                    </div>
-                    <a href="/Identity/Usuario/UsuarioAlimentacion" class="eii-btn eii-btn--sm eii-btn--primary">
-                        <i class="bi bi-basket"></i> Lo que no tolero
-                    </a>
-                </div>
+            <div class="eii-callout eii-callout--info">
+                <p class="mb-0">
+                    <strong>Esto no es una dieta.</strong> Solo te mostramos los platillos que no contienen lo que tú
+                    dijiste que no toleras. No sabemos nada de tu enfermedad, tu tratamiento, ni de si estás en brote.
+                    Que un platillo aparezca aquí no significa que te haga bien. Tu dieta la diseñas con tu médico o nutriólogo.
+                </p>
             </div>
         }
 
@@ -329,49 +336,14 @@
             });
         })();
 
-        // ===== Filtro por categoría: panel colapsable con cookie (espejo de Contenidos/Index) =====
+        // ===== Filtros: navegación de cápsulas (categoría y exclusión) + "Ver más" =====
         (function () {
-            function setCookie(name, value, days) {
-                const d = new Date();
-                d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
-                document.cookie = name + "=" + value + ";expires=" + d.toUTCString() + ";path=/";
-            }
-            function getCookie(name) {
-                const nameEQ = name + "=";
-                const ca = document.cookie.split(';');
-                for (let i = 0; i < ca.length; i++) {
-                    let c = ca[i];
-                    while (c.charAt(0) === ' ') c = c.substring(1, c.length);
-                    if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
-                }
-                return null;
-            }
-
             document.addEventListener('DOMContentLoaded', function () {
-                const collapseEl = document.getElementById('catFiltersCollapse');
-                const toggleBtn = document.getElementById('filtersToggle');
-                if (collapseEl && toggleBtn) {
-                    (function initCollapse() {
-                        if (typeof bootstrap === 'undefined' || !bootstrap.Collapse) { setTimeout(initCollapse, 50); return; }
-                        const bsCollapse = new bootstrap.Collapse(collapseEl, { toggle: false });
-                        const saved = getCookie('platillos_filters_expanded');
-                        if (saved === 'true') { bsCollapse.show(); toggleBtn.setAttribute('aria-expanded', 'true'); }
-                        else if (saved === 'false') { bsCollapse.hide(); toggleBtn.setAttribute('aria-expanded', 'false'); }
-
-                        toggleBtn.addEventListener('click', function () {
-                            const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
-                            if (isExpanded) { bsCollapse.hide(); setCookie('platillos_filters_expanded', 'false', 30); }
-                            else { bsCollapse.show(); setCookie('platillos_filters_expanded', 'true', 30); }
-                        });
-                        collapseEl.addEventListener('shown.bs.collapse', function () { toggleBtn.setAttribute('aria-expanded', 'true'); setCookie('platillos_filters_expanded', 'true', 30); });
-                        collapseEl.addEventListener('hidden.bs.collapse', function () { toggleBtn.setAttribute('aria-expanded', 'false'); setCookie('platillos_filters_expanded', 'false', 30); });
-                    })();
-                }
-
-                // Tag de categoría → navega (single-select; preserva búsqueda y modo en el href)
-                document.querySelectorAll('.tag[data-cat-url]').forEach(function (t) {
+                // Cápsula .tag → navega (categoría: single-select; exclusión: quita el filtro).
+                // El href preserva búsqueda y modo; no cambia la semántica de filtrado del backend.
+                document.querySelectorAll('.tag[data-nav-url]').forEach(function (t) {
                     t.addEventListener('click', function () {
-                        const url = t.getAttribute('data-cat-url');
+                        const url = t.getAttribute('data-nav-url');
                         if (url) window.location.href = url;
                     });
                 });
