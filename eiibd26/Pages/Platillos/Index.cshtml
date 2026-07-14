@@ -35,7 +35,7 @@
         .plat-cercano:last-child { border-bottom: none; }
         .plat-cercano__motivo { color: var(--eii-text-soft); font-size: var(--eii-text-sm); }
 
-        .plat-pager { display: flex; gap: var(--eii-space-2); justify-content: center; flex-wrap: wrap; margin-top: var(--eii-space-5); }
+        .load-more-wrap { display: flex; justify-content: center; width: 100%; margin-top: var(--eii-space-5); }
     </style>
 }
 
@@ -156,55 +156,18 @@
         @* ===== Resultados ===== *@
         @if (Model.Items.Any())
         {
-            <div class="plat-grid">
-                @foreach (var p in Model.Items)
-                {
-                    <article class="eii-card">
-                        <div class="eii-card__body">
-                            <div class="plat-card__meta">
-                                @if (!string.IsNullOrWhiteSpace(p.Categoria))
-                                {
-                                    <span class="eii-badge">@p.Categoria</span>
-                                }
-                                <span class="eii-help-text">@p.NumIngredientes ingredientes</span>
-                            </div>
-                            <h2 class="eii-card__title h6 mb-1">@p.Nombre</h2>
-                            @if (!string.IsNullOrWhiteSpace(p.PasosResumidos))
-                            {
-                                <p class="plat-card__pasos">@p.PasosResumidos</p>
-                            }
-                            @if (!string.IsNullOrWhiteSpace(p.FuenteNombre))
-                            {
-                                <div class="plat-card__fuente">
-                                    Fuente:
-                                    @if (!string.IsNullOrWhiteSpace(p.FuenteUrl))
-                                    {
-                                        <a href="@p.FuenteUrl" target="_blank" rel="noopener nofollow">@p.FuenteNombre</a>
-                                    }
-                                    else
-                                    {
-                                        @p.FuenteNombre
-                                    }
-                                </div>
-                            }
-                        </div>
-                    </article>
-                }
+            <div class="plat-grid" id="platGrid">
+                <partial name="~/Pages/Shared/_PlatilloItems.cshtml" model="Model.Items" />
             </div>
 
-            @if (Model.TotalPages > 1)
+            @if (Model.TotalCumplen > Model.Items.Count)
             {
-                <nav class="plat-pager" aria-label="Paginación">
-                    @if (Model.PageNumber > 1)
-                    {
-                        <a class="eii-btn eii-btn--sm eii-btn--ghost" href="@Model.BuildPageUrl(Model.PageNumber - 1)">‹ Anterior</a>
-                    }
-                    <span class="eii-btn eii-btn--sm eii-btn--ghost" aria-current="page">Página @Model.PageNumber de @Model.TotalPages</span>
-                    @if (Model.PageNumber < Model.TotalPages)
-                    {
-                        <a class="eii-btn eii-btn--sm eii-btn--ghost" href="@Model.BuildPageUrl(Model.PageNumber + 1)">Siguiente ›</a>
-                    }
-                </nav>
+                <div class="load-more-wrap" id="loadMoreWrap">
+                    <button id="loadMoreBtn" class="eii-btn eii-btn--primary"
+                            data-nextpage="@(Model.PageNumber + 1)" data-pagesize="@Model.PageSize" data-total="@Model.TotalCumplen">
+                        Cargar más
+                    </button>
+                </div>
             }
         }
         else if (Model.Cercanos.Any())
@@ -248,3 +211,75 @@
         }
     </div>
 </main>
+
+@section Scripts {
+    <script>
+        (function () {
+            const btn = document.getElementById('loadMoreBtn');
+            if (!btn) return;
+            const grid = document.getElementById('platGrid');
+            const wrap = document.getElementById('loadMoreWrap');
+
+            // Estado de filtro ACTUAL (ya resuelto: perfil o query string). Se materializa con f=true
+            // para que /Platillos/Mas reproduzca exactamente las mismas exclusiones que esta página.
+            const F = {
+                q: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.SearchQuery ?? "")),
+                categoria: @(Model.Categoria?.ToString() ?? "null"),
+                verTodos: @(Model.VerTodos ? "true" : "false"),
+                grupos: '@string.Join(",", Model.FilterGrupoIds)',
+                ingredientes: '@string.Join(",", Model.FilterIngredienteIds)',
+                atributos: '@string.Join(",", Model.FilterAtributoIds)'
+            };
+
+            function buildParams(next, pageSize) {
+                const p = new URLSearchParams();
+                p.set('PageNumber', String(next));
+                p.set('PageSize', String(pageSize));
+                if (F.q) p.set('q', F.q);
+                if (F.categoria != null) p.set('categoria', String(F.categoria));
+                if (F.verTodos) {
+                    p.set('verTodos', 'true');
+                } else {
+                    p.set('f', 'true');
+                    if (F.grupos) p.set('grupos', F.grupos);
+                    if (F.ingredientes) p.set('ingredientes', F.ingredientes);
+                    if (F.atributos) p.set('atributos', F.atributos);
+                }
+                return p;
+            }
+
+            btn.addEventListener('click', async () => {
+                const next = parseInt(btn.dataset.nextpage, 10);
+                const pageSize = parseInt(btn.dataset.pagesize, 10);
+                btn.disabled = true;
+                const original = btn.textContent;
+                btn.textContent = 'Cargando…';
+                try {
+                    const res = await fetch('/Platillos/Mas?' + buildParams(next, pageSize).toString(),
+                        { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const html = await res.text();
+                    const total = parseInt(res.headers.get('X-Total-Count') || '0', 10);
+
+                    const temp = document.createElement('div');
+                    temp.innerHTML = html;
+                    const nuevas = temp.querySelectorAll('.eii-card').length;
+                    while (temp.firstChild) grid.appendChild(temp.firstChild);
+
+                    btn.dataset.nextpage = String(next + 1);
+                    const cargadas = grid.querySelectorAll('.eii-card').length;
+                    if (nuevas === 0 || cargadas >= total) {
+                        wrap.remove();   // no vienen más
+                    } else {
+                        btn.disabled = false;
+                        btn.textContent = original;
+                    }
+                } catch (e) {
+                    console.error(e);
+                    btn.disabled = false;
+                    btn.textContent = original;
+                }
+            });
+        })();
+    </script>
+}
