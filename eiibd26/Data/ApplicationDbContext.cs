@@ -140,8 +140,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<eiibd26.Models.Platillos.PlatNotaClinica> PlatNotasClinicas { get; set; }
     public DbSet<eiibd26.Models.Platillos.PlatNotaSeccion> PlatNotaSecciones { get; set; }
     public DbSet<eiibd26.Models.Platillos.PlatNotaReferencia> PlatNotaReferencias { get; set; }
-    // Voto de utilidad del ingrediente (tabla propia, NO reusa ArticleRating).
-    public DbSet<eiibd26.Models.Platillos.PlatIngredienteCalificacion> PlatIngredienteCalificaciones { get; set; }
+    // Voto de utilidad genérico (platillo o ingrediente). Tabla propia, NO reusa ArticleRating.
+    public DbSet<eiibd26.Models.Platillos.PlatCalificacion> PlatCalificaciones { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -1000,16 +1000,12 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
              .OnDelete(DeleteBehavior.Cascade);
         });
 
-        builder.Entity<eiibd26.Models.Platillos.PlatIngredienteCalificacion>(b =>
+        builder.Entity<eiibd26.Models.Platillos.PlatCalificacion>(b =>
         {
-            b.ToTable("PlatIngredienteCalificacion");
-            // Un voto por (ingrediente, usuario) — espeja UQ_PlatIngredienteCalificacion_IngUser.
-            b.HasIndex(x => new { x.IngredienteId, x.idUsuario }).IsUnique();
-            // FK al ingrediente (CASCADE, calca la DB). idUsuario sin FK física (aislamiento).
-            b.HasOne<eiibd26.Models.Platillos.PlatIngrediente>()
-             .WithMany()
-             .HasForeignKey(x => x.IngredienteId)
-             .OnDelete(DeleteBehavior.Cascade);
+            b.ToTable("PlatCalificacion");
+            // Un voto por (tipo, destino, usuario) — espeja UQ_PlatCalificacion_Destino_User.
+            // Destino polimórfico: SIN FK física (aislamiento), igual que PlatNotaClinica.
+            b.HasIndex(x => new { x.TipoDestino, x.DestinoId, x.idUsuario }).IsUnique();
         });
     }
 
