@@ -129,13 +129,23 @@ Se llama después de confirmar reclamaciones o guardar perfil.
 ## Patrones establecidos
 
 ### Checkboxes bool en Razor Pages
+**Usa `asp-for`.** El InputTagHelper genera el checkbox (value=true) + su hidden (value=false)
+en el orden correcto y el binder lo round-trippea solo:
 ```html
-<!-- CORRECTO: hidden false + checkbox true con el mismo name -->
-<input type="hidden" name="MiBool" value="false" />
-<input type="checkbox" name="MiBool" value="true" @(Model.MiBool ? "checked" : "") />
+<input asp-for="MiBool" type="checkbox" class="eii-checkbox" />
 ```
 ```csharp
 [BindProperty] public bool MiBool { get; set; }
+```
+
+⚠️ NO uses el patrón manual con el **hidden primero**. Al marcar, el navegador postea en orden
+DOM `MiBool=false&MiBool=true`; el binder de bool toma `FirstValue` = **"false"** y la propiedad
+queda en false aunque el check esté marcado (bug real, 2026-07-13, checkbox "Publicado" de
+Platillos). Si por algún motivo lo haces manual, el **checkbox va PRIMERO y el hidden DESPUÉS**:
+```html
+<!-- Solo si no puedes usar asp-for: checkbox primero, hidden después -->
+<input type="checkbox" name="MiBool" value="true" @(Model.MiBool ? "checked" : "") />
+<input type="hidden" name="MiBool" value="false" />
 ```
 
 ### Fotos de médico → sincronizar con Perfil.Avatar

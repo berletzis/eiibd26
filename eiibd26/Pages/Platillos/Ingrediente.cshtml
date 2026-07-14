@@ -3,9 +3,16 @@
 @{
     ViewData["Title"] = Model.MetaTitle;
     var canonical = $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}/Platillos/Ingrediente/{Model.Slug}";
+    // Sin notas clínicas la página es delgada: noindex hasta que un médico cargue contenido.
+    // Se reactiva solo cuando el ingrediente o su grupo tengan NotasEII.
+    var tieneContenido = !string.IsNullOrWhiteSpace(Model.IngredienteNotasEII) || !string.IsNullOrWhiteSpace(Model.GrupoNotasEII);
 }
 
 @section Head {
+    @if (!tieneContenido)
+    {
+        <meta name="robots" content="noindex,follow" />
+    }
     <meta name="description" content="@Model.MetaDescription" />
     <link rel="canonical" href="@canonical" />
     <meta property="og:title" content="@Model.MetaTitle" />
