@@ -24,7 +24,7 @@ namespace eiibd26.Pages.Platillos
         [BindProperty(SupportsGet = true, Name = "atributos")] public string? AtributosCsv { get; set; }
         [BindProperty(SupportsGet = true, Name = "categoria")] public int? Categoria { get; set; }
         [BindProperty(SupportsGet = true, Name = "verTodos")] public bool VerTodos { get; set; }
-        // f=1 => el query string manda (el usuario está filtrando). Sin f => perfil (entrada fresca).
+        // f=true => el query string manda (el usuario está filtrando). Sin f => perfil (entrada fresca).
         [BindProperty(SupportsGet = true, Name = "f")] public bool Filtrado { get; set; }
 
         // Filtros efectivos aplicados
@@ -241,7 +241,7 @@ namespace eiibd26.Pages.Platillos
         }
 
         // Construye el query string quitando un filtro (para el link de "quitar chip").
-        // Siempre agrega f=1: al quitar un chip pasamos a modo query-string, sin tocar la base.
+        // Siempre agrega f=true: al quitar un chip pasamos a modo query-string, sin tocar la base.
         public string BuildRemoveUrl(string tipo, int refId)
         {
             var g = new List<int>(FilterGrupoIds);
@@ -255,7 +255,8 @@ namespace eiibd26.Pages.Platillos
 
         public string BuildUrl(List<int> g, List<int> i, List<int> a)
         {
-            var qs = new List<string> { "f=1" };
+            // Ojo: el binder de bool acepta "true"/"false", NO "1". Emitir "true" o queda en false.
+            var qs = new List<string> { "f=true" };
             if (!string.IsNullOrWhiteSpace(SearchQuery)) qs.Add("q=" + Uri.EscapeDataString(SearchQuery));
             if (Categoria.HasValue) qs.Add("categoria=" + Categoria.Value);
             if (g.Any()) qs.Add("grupos=" + string.Join(",", g));
@@ -268,7 +269,7 @@ namespace eiibd26.Pages.Platillos
         public string BuildPageUrl(int page)
         {
             var qs = new List<string>();
-            qs.Add(VerTodos ? "verTodos=1" : "f=1");
+            qs.Add(VerTodos ? "verTodos=true" : "f=true");
             if (!string.IsNullOrWhiteSpace(SearchQuery)) qs.Add("q=" + Uri.EscapeDataString(SearchQuery));
             if (Categoria.HasValue) qs.Add("categoria=" + Categoria.Value);
             if (!VerTodos)
@@ -284,7 +285,7 @@ namespace eiibd26.Pages.Platillos
         // "Ver todos los platillos" — sin filtros de exclusión, conservando búsqueda/categoría.
         public string BuildVerTodosUrl()
         {
-            var qs = new List<string> { "verTodos=1" };
+            var qs = new List<string> { "verTodos=true" };
             if (!string.IsNullOrWhiteSpace(SearchQuery)) qs.Add("q=" + Uri.EscapeDataString(SearchQuery));
             if (Categoria.HasValue) qs.Add("categoria=" + Categoria.Value);
             return "/Platillos?" + string.Join("&", qs);
