@@ -37,8 +37,11 @@ namespace eiibd26.Pages.Platillos
         public bool ExcluidoPorTi { get; private set; }
         public string? MotivoExclusion { get; private set; }
 
-        public List<string> PlatillosNombres { get; private set; } = new();
+        public List<PlatilloMiniVm> Platillos { get; private set; } = new();
         public int PlatillosCount { get; private set; }
+        public bool PlatillosHasMore { get; private set; }
+        public int PlatillosNextOffset { get; private set; }
+        private const int PlatillosPageSize = 5;
 
         public string MetaTitle { get; private set; } = "";
         public string MetaDescription { get; private set; } = "";
@@ -110,19 +113,12 @@ namespace eiibd26.Pages.Platillos
                 }
             }
 
-            // Platillos ACTIVOS que lo contienen.
-            var platIds = await _db.PlatPlatilloIngredientes.AsNoTracking()
-                .Where(pi => pi.IngredienteId == ing.Id)
-                .Select(pi => pi.PlatilloId).Distinct().ToListAsync();
-            if (platIds.Any())
-            {
-                var plats = await _db.PlatPlatillos.AsNoTracking()
-                    .Where(p => p.Activo && platIds.Contains(p.Id))
-                    .OrderBy(p => p.Codigo)
-                    .Select(p => p.Nombre).ToListAsync();
-                PlatillosNombres = plats;
-                PlatillosCount = plats.Count;
-            }
+            // Platillos ACTIVOS que lo contienen — primera página (5); el resto por "Ver más" AJAX.
+            var (platItems, platTotal) = await CargarPlatillosAsync(ing.Id, 0, PlatillosPageSize);
+            Platillos = platItems;
+            PlatillosCount = platTotal;
+            PlatillosHasMore = platTotal > platItems.Count;
+            PlatillosNextOffset = platItems.Count;
 
             // Meta: en el idioma del paciente, no el del catálogo.
             MetaTitle = $"¿Puedo comer {Nombre} con colitis o Crohn (EII)?";
@@ -132,5 +128,59 @@ namespace eiibd26.Pages.Platillos
 
             return Page();
         }
+
+        // Carga una página de platillos ACTIVOS que contienen el ingrediente, como mini-VMs para el
+        // sidebar. Mismo criterio que la vista pública (Activo, orden por Codigo). Reusado por el
+        // render inicial y por el handler AJAX de "Ver más".
+        private async Task<(List<PlatilloMiniVm> Items, int Total)> CargarPlatillosAsync(int ingredienteId, int skip, int take)
+        {
+            var platIds = await _db.PlatPlatilloIngredientes.AsNoTracking()
+                .Where(pi => pi.IngredienteId == ingredienteId)
+                .Select(pi => pi.PlatilloId).Distinct().ToListAsync();
+            if (!platIds.Any()) return (new List<PlatilloMiniVm>(), 0);
+
+            var baseQ = _db.PlatPlatillos.AsNoTracking()
+                .Where(p => p.Activo && platIds.Contains(p.Id))
+                .OrderBy(p => p.Codigo);
+
+            var total = await baseQ.CountAsync();
+
+            var pagina = await baseQ.Skip(skip).Take(take)
+                .Select(p => new
+                {
+                    p.Nombre,
+                    Categoria = _db.PlatCategorias.Where(c => c.Id == p.CategoriaId).Select(c => c.Nombre).FirstOrDefault(),
+                    NumIng = _db.PlatPlatilloIngredientes.Count(pi => pi.PlatilloId == p.Id)
+                })
+                .ToListAsync();
+
+            var items = pagina.Select(p => new PlatilloMiniVm
+            {
+                Nombre = p.Nombre,
+                Slug = SlugHelper.GenerateSlug(p.Nombre),
+                Meta = !string.IsNullOrWhiteSpace(p.Categoria) ? p.Categoria! : $"{p.NumIng} ingredientes"
+            }).ToList();
+
+            return (items, total);
+        }
+
+        // "Ver más" AJAX (mismo patrón que Contenidos OnGetMasExternos): devuelve SOLO el partial de
+        // filas + X-Has-More / X-Next-Offset en headers para que el JS sepa si dejar el botón.
+        public async Task<IActionResult> OnGetMasPlatillosAsync(int ing, int offset)
+        {
+            var (items, total) = await CargarPlatillosAsync(ing, offset, PlatillosPageSize);
+            var served = offset + items.Count;
+            Response.Headers["X-Has-More"] = served < total ? "1" : "0";
+            Response.Headers["X-Next-Offset"] = served.ToString();
+            return Partial("_PlatilloMiniItems", items);
+        }
+    }
+
+    // Mini-VM para las filas de "Platillos que lo incluyen" (sidebar): título + slug + meta chica.
+    public class PlatilloMiniVm
+    {
+        public string Nombre { get; set; } = "";
+        public string Slug { get; set; } = "";
+        public string Meta { get; set; } = "";
     }
 }

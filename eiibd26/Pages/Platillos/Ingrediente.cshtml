@@ -185,28 +185,40 @@
                 </p>
             </div>
 
-            @* ===== PLATILLOS QUE LO INCLUYEN (movido al sidebar para equilibrar la columna) ===== *@
-            <div class="sidebar-section sidebar-static">
-                <div class="sidebar-section-header-static">
-                    <h4 class="sidebar-section-title">Platillos que lo incluyen</h4>
+            @* ===== PLATILLOS QUE LO INCLUYEN — espejo de "En otros sitios": .ext-item + "Ver más" AJAX.
+                    Filas clicables al detalle del platillo; partial compartido (render inicial + AJAX). ===== *@
+            @if (Model.PlatillosCount > 0)
+            {
+                <div class="sidebar-section">
+                    <div class="side-ext">
+                        <div class="side-ext__head">
+                            <span class="side-ext__ico"><i class="bi bi-egg-fried"></i></span>
+                            <h4 class="side-ext__title">Platillos que lo incluyen</h4>
+                        </div>
+                        <div class="ext-list" id="lista-platillos">
+                            <partial name="_PlatilloMiniItems" model="Model.Platillos" />
+                        </div>
+                        @if (Model.PlatillosHasMore)
+                        {
+                            <button type="button" class="ext-vermas js-ver-mas-plat"
+                                    data-ing="@Model.IngredienteId" data-offset="@Model.PlatillosNextOffset" data-target="#lista-platillos">
+                                Ver más
+                            </button>
+                        }
+                    </div>
                 </div>
-                <div class="sidebar-section-content-static">
-                    @if (Model.PlatillosCount > 0)
-                    {
-                        <ul class="eii-form-text mb-2">
-                            @foreach (var n in Model.PlatillosNombres)
-                            {
-                                <li>@n</li>
-                            }
-                        </ul>
-                        <a class="eii-btn eii-btn--sm eii-btn--primary" href="/Platillos">Ver todos los platillos</a>
-                    }
-                    else
-                    {
+            }
+            else
+            {
+                <div class="sidebar-section sidebar-static">
+                    <div class="sidebar-section-header-static">
+                        <h4 class="sidebar-section-title">Platillos que lo incluyen</h4>
+                    </div>
+                    <div class="sidebar-section-content-static">
                         <p class="eii-form-text mb-0">Todavía no hay platillos publicados con @Model.Nombre.</p>
-                    }
+                    </div>
                 </div>
-            </div>
+            }
         </aside>
     </div>
 </div>
@@ -310,6 +322,41 @@
             });
 
             loadState();
+        })();
+
+        // "Ver más" de "Platillos que lo incluyen" — mismo patrón AJAX que el Radar de Contenidos:
+        // fetch al handler MasPlatillos, agrega el partial al final y quita el botón cuando no hay más.
+        (function () {
+            const btn = document.querySelector('.js-ver-mas-plat');
+            if (!btn) return;
+            btn.addEventListener('click', async function () {
+                const target = document.querySelector(btn.dataset.target);
+                if (!target) return;
+                const ing = btn.dataset.ing;
+                const offset = btn.dataset.offset;
+                btn.disabled = true;
+                const original = btn.textContent;
+                btn.textContent = 'Cargando…';
+                try {
+                    // Apunta al PATH REAL de la página (no a la URL /Ingrediente/{slug}) para no arrastrar el slug.
+                    const url = '/Platillos/Ingrediente?handler=MasPlatillos&ing=' + encodeURIComponent(ing) +
+                                '&offset=' + encodeURIComponent(offset);
+                    const resp = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                    if (!resp.ok) { btn.disabled = false; btn.textContent = original; return; }
+                    const html = await resp.text();
+                    target.insertAdjacentHTML('beforeend', html.trim());
+                    if (resp.headers.get('X-Has-More') === '1') {
+                        btn.dataset.offset = resp.headers.get('X-Next-Offset');
+                        btn.disabled = false;
+                        btn.textContent = original;
+                    } else {
+                        btn.remove();  // no quedan más → ocultar el botón
+                    }
+                } catch (e) {
+                    btn.disabled = false;
+                    btn.textContent = original;
+                }
+            });
         })();
     </script>
 }
