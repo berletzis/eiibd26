@@ -126,9 +126,9 @@ namespace eiibd26.Pages.Platillos
 
             // Meta: en el idioma del paciente, no el del catálogo.
             MetaTitle = $"¿Puedo comer {Nombre} con colitis o Crohn (EII)?";
-            MetaDescription = $"{Nombre} no está prohibido en la enfermedad inflamatoria intestinal; "
-                + "lo que varía es la tolerancia de cada persona. Mira las notas, el contexto clínico "
-                + "y los platillos que lo incluyen, y decídelo con tu médico.";
+            MetaDescription = "En la enfermedad inflamatoria intestinal no hay alimentos prohibidos por regla; "
+                + "lo que cambia es cuánto los tolera cada persona. Consulta las notas clínicas, el contexto "
+                + $"y los platillos con {Nombre}, y decídelo con tu médico.";
 
             return Page();
         }
