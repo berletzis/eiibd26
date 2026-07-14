@@ -1,0 +1,185 @@
+@page
+@using eiibd26.Models.Platillos
+@model eiibd26.Areas.Identity.Pages.Usuario.UsuarioAlimentacionModel
+@{
+    ViewData["Title"] = "Lo que no tolero";
+}
+
+<div class="container py-4">
+    <h1 class="h4 mb-1">Lo que no tolero</h1>
+    <p class="eii-form-text mb-4">
+        Marca los alimentos y características que no toleras. Con esto, en
+        <a href="/Platillos">Platillos</a> te mostramos solo los platillos que sí puedes comer.
+    </p>
+
+    @Html.AntiForgeryToken()
+
+    @* ===== Grupos ===== *@
+    <div class="eii-card mb-4">
+        <div class="eii-card__body">
+            <h2 class="eii-card__title h6 mb-1">Grupos de alimentos</h2>
+            <p class="eii-form-text mb-3">Por ejemplo: "no tolero los lácteos". Excluye todo el grupo de una vez.</p>
+            <div class="d-flex flex-wrap gap-2">
+                @foreach (var g in Model.GruposDisponibles)
+                {
+                    var on = Model.ExcludedGrupoIds.Contains(g.Id);
+                    <button type="button" class="eii-btn eii-btn--sm chip @(on ? "eii-btn--primary" : "eii-btn--ghost")"
+                            data-tipo="Grupo" data-refid="@g.Id" data-on="@(on ? "1" : "0")">
+                        @g.Nombre
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+
+    @* ===== Atributos ===== *@
+    <div class="eii-card mb-4">
+        <div class="eii-card__body">
+            <h2 class="eii-card__title h6 mb-1">Características</h2>
+            <p class="eii-form-text mb-3">Cómo es o cómo se prepara el alimento. Ej: "no tolero el gluten" o "no tolero lo crudo".</p>
+
+            <label class="eii-label mb-2">Cómo es el alimento</label>
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                @foreach (var a in Model.AtributosIntrinsecos)
+                {
+                    var on = Model.ExcludedAtributoIds.Contains(a.Id);
+                    <button type="button" class="eii-btn eii-btn--sm chip @(on ? "eii-btn--primary" : "eii-btn--ghost")"
+                            data-tipo="Atributo" data-refid="@a.Id" data-on="@(on ? "1" : "0")">
+                        @a.Nombre
+                    </button>
+                }
+            </div>
+
+            <label class="eii-label mb-2">Cómo se prepara</label>
+            <div class="d-flex flex-wrap gap-2">
+                @foreach (var a in Model.AtributosUso)
+                {
+                    var on = Model.ExcludedAtributoIds.Contains(a.Id);
+                    <button type="button" class="eii-btn eii-btn--sm chip @(on ? "eii-btn--primary" : "eii-btn--ghost")"
+                            data-tipo="Atributo" data-refid="@a.Id" data-on="@(on ? "1" : "0")">
+                        @a.Nombre
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+
+    @* ===== Ingredientes ===== *@
+    <div class="eii-card mb-4">
+        <div class="eii-card__body">
+            <h2 class="eii-card__title h6 mb-1">Ingredientes puntuales</h2>
+            <p class="eii-form-text mb-3">Un alimento específico que no toleras. Ej: "cebolla".</p>
+
+            <div class="position-relative mb-3">
+                <input class="eii-input" id="ingBuscar" placeholder="Buscar ingrediente…" autocomplete="off" />
+                <ul class="eii-autocomplete__dropdown" id="ingSugerencias"></ul>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2" id="ingChips">
+                @foreach (var i in Model.ExcludedIngredientes)
+                {
+                    <button type="button" class="eii-btn eii-btn--sm eii-btn--primary chip-ing" data-refid="@i.Id" title="Quitar">
+                        @i.Nombre ✕
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+
+    <p class="eii-help-text">
+        Esto es tu perfil permanente. En <a href="/Platillos">Platillos</a> puedes quitar un filtro solo para
+        una búsqueda sin cambiarlo aquí.
+    </p>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const URL_AGREGAR = '/Identity/Usuario/UsuarioAlimentacion?handler=AgregarExclusion';
+            const URL_ELIMINAR = '/Identity/Usuario/UsuarioAlimentacion?handler=EliminarExclusion';
+            const URL_AUTO = '/api/ingredientes/autocomplete';
+
+            function token() {
+                return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+            }
+            async function post(url, tipo, refId) {
+                const fd = new FormData();
+                fd.append('tipo', tipo);
+                fd.append('refId', refId);
+                fd.append('__RequestVerificationToken', token());
+                const resp = await fetch(url, { method: 'POST', body: fd });
+                return resp.ok ? resp.json().catch(() => null) : null;
+            }
+
+            // ---- Chips toggle (grupos + atributos) ----
+            document.querySelectorAll('.chip[data-tipo]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    if (btn.disabled) return;
+                    btn.disabled = true;
+                    const on = btn.dataset.on === '1';
+                    const tipo = btn.dataset.tipo, refId = btn.dataset.refid;
+                    const res = await post(on ? URL_ELIMINAR : URL_AGREGAR, tipo, refId);
+                    if (res && res.ok) {
+                        btn.dataset.on = on ? '0' : '1';
+                        btn.classList.toggle('eii-btn--primary', !on);
+                        btn.classList.toggle('eii-btn--ghost', on);
+                    }
+                    btn.disabled = false;
+                });
+            });
+
+            // ---- Ingredientes: autocomplete + agregar chip ----
+            const buscar = document.getElementById('ingBuscar');
+            const sug = document.getElementById('ingSugerencias');
+            const chips = document.getElementById('ingChips');
+
+            function addIngChip(id, nombre) {
+                if (chips.querySelector('.chip-ing[data-refid="' + id + '"]')) return;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'eii-btn eii-btn--sm eii-btn--primary chip-ing';
+                btn.dataset.refid = id;
+                btn.title = 'Quitar';
+                btn.textContent = nombre + ' ✕';
+                chips.appendChild(btn);
+            }
+
+            buscar.addEventListener('input', async () => {
+                const q = buscar.value.trim();
+                sug.innerHTML = '';
+                if (q.length < 2) return;
+                const myTok = (buscar._tok = (buscar._tok || 0) + 1);
+                let resp;
+                try { resp = await fetch(URL_AUTO + '?q=' + encodeURIComponent(q)); } catch { return; }
+                if (myTok !== buscar._tok || !resp.ok) return;
+                const data = await resp.json();
+                if (buscar.value.trim() !== q) return;
+                data.forEach(item => {
+                    const li = document.createElement('li');
+                    li.className = 'eii-autocomplete__item';
+                    li.textContent = item.grupo ? (item.nombre + ' · ' + item.grupo) : item.nombre;
+                    li.addEventListener('mousedown', async (ev) => {
+                        ev.preventDefault();
+                        sug.innerHTML = '';
+                        buscar.value = '';
+                        const res = await post(URL_AGREGAR, 'Ingrediente', item.id);
+                        if (res && res.ok) addIngChip(item.id, item.nombre);
+                    });
+                    sug.appendChild(li);
+                });
+            });
+
+            buscar.addEventListener('blur', () => { setTimeout(() => { sug.innerHTML = ''; }, 200); });
+
+            chips.addEventListener('click', async (e) => {
+                const btn = e.target.closest('.chip-ing');
+                if (!btn || btn.disabled) return;
+                btn.disabled = true;
+                const refId = btn.dataset.refid;
+                const res = await post(URL_ELIMINAR, 'Ingrediente', refId);
+                if (res && res.ok) btn.remove();
+                else btn.disabled = false;
+            });
+        })();
+    </script>
+}
