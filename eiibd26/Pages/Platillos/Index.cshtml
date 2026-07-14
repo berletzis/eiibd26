@@ -1,0 +1,250 @@
+@page "/Platillos"
+@model eiibd26.Pages.Platillos.IndexModel
+@{
+    ViewData["Title"] = "Platillos";
+    bool hayFiltros = Model.Chips.Any();
+    bool modoQuery = Model.Filtrado || Model.VerTodos;
+}
+
+@section Styles {
+    <style>
+        .plat-page { padding-top: var(--eii-space-6); padding-bottom: var(--eii-space-7); }
+
+        .plat-toolbar {
+            display: flex; flex-wrap: wrap; gap: var(--eii-space-3);
+            align-items: flex-end; margin-bottom: var(--eii-space-4);
+        }
+        .plat-toolbar .plat-search { flex: 1 1 320px; }
+        .plat-toolbar .plat-cat { flex: 0 1 220px; }
+
+        .plat-chips { display: flex; flex-wrap: wrap; gap: var(--eii-space-2); align-items: center; }
+        .plat-chip-x { margin-left: var(--eii-space-2); opacity: .8; }
+
+        .plat-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: var(--eii-space-4); align-items: start; margin-bottom: var(--eii-space-5);
+        }
+        @@media (max-width: 991.98px) { .plat-grid { grid-template-columns: repeat(2, 1fr); } }
+        @@media (max-width: 575.98px) { .plat-grid { grid-template-columns: 1fr; } }
+
+        .plat-card__meta { display: flex; flex-wrap: wrap; gap: var(--eii-space-2); align-items: center; margin-bottom: var(--eii-space-2); }
+        .plat-card__pasos { color: var(--eii-text-soft); font-size: var(--eii-text-sm); line-height: 1.55; margin: var(--eii-space-2) 0; }
+        .plat-card__fuente { color: var(--eii-text-soft); font-size: var(--eii-text-xs); margin-top: var(--eii-space-2); }
+
+        .plat-cercano { display: flex; flex-direction: column; gap: var(--eii-space-1); padding: var(--eii-space-3) 0; border-bottom: 1px solid var(--eii-border); }
+        .plat-cercano:last-child { border-bottom: none; }
+        .plat-cercano__motivo { color: var(--eii-text-soft); font-size: var(--eii-text-sm); }
+
+        .plat-pager { display: flex; gap: var(--eii-space-2); justify-content: center; flex-wrap: wrap; margin-top: var(--eii-space-5); }
+    </style>
+}
+
+<main class="plat-page" role="main" aria-label="Platillos">
+    <div class="container py-4">
+        <div class="eii-page-header">
+            <div class="eii-page-header__content">
+                <h1 class="eii-page-title">Platillos</h1>
+                <p class="eii-form-text mb-0">
+                    Platillos que puedes preparar. Si nos dices lo que no toleras, te mostramos solo los que sí puedes comer.
+                </p>
+            </div>
+        </div>
+
+        @* ===== Barra de búsqueda + categoría (GET) ===== *@
+        <form method="get" action="/Platillos" class="plat-toolbar" role="search" aria-label="Buscar platillos">
+            <div class="plat-search">
+                <label class="eii-label" for="q">Buscar</label>
+                <input class="eii-input" id="q" name="q" value="@(Model.SearchQuery ?? "")"
+                       placeholder="Nombre del platillo…" autocomplete="off" />
+            </div>
+            <div class="plat-cat">
+                <label class="eii-label" for="categoria">Categoría</label>
+                <select class="eii-select" id="categoria" name="categoria">
+                    <option value="">Todas</option>
+                    @foreach (var c in Model.Categorias)
+                    {
+                        <option value="@c.Id" selected="@(Model.Categoria == c.Id)">@c.Nombre</option>
+                    }
+                </select>
+            </div>
+            <div>
+                <button type="submit" class="eii-btn eii-btn--primary">
+                    <i class="bi bi-search"></i> Buscar
+                </button>
+            </div>
+
+            @* Conserva el modo/filtros actuales al buscar *@
+            @if (Model.VerTodos)
+            {
+                <input type="hidden" name="verTodos" value="1" />
+            }
+            else
+            {
+                <input type="hidden" name="f" value="1" />
+                @if (Model.FilterGrupoIds.Any())
+                {
+                    <input type="hidden" name="grupos" value="@string.Join(",", Model.FilterGrupoIds)" />
+                }
+                @if (Model.FilterIngredienteIds.Any())
+                {
+                    <input type="hidden" name="ingredientes" value="@string.Join(",", Model.FilterIngredienteIds)" />
+                }
+                @if (Model.FilterAtributoIds.Any())
+                {
+                    <input type="hidden" name="atributos" value="@string.Join(",", Model.FilterAtributoIds)" />
+                }
+            }
+        </form>
+
+        @* ===== Chips de filtros activos ===== *@
+        @if (hayFiltros)
+        {
+            <div class="eii-card mb-4">
+                <div class="eii-card__body">
+                    <div class="plat-chips mb-2">
+                        <span class="eii-label mb-0 me-1">Filtrando por:</span>
+                        @foreach (var chip in Model.Chips)
+                        {
+                            <a href="@Model.BuildRemoveUrl(chip.Tipo, chip.RefId)"
+                               class="eii-btn eii-btn--sm eii-btn--primary" title="Quitar de esta búsqueda">
+                                @chip.Nombre <span class="plat-chip-x">✕</span>
+                            </a>
+                        }
+                        <a href="@Model.BuildVerTodosUrl()" class="eii-btn eii-btn--sm eii-btn--ghost">Ver todos los platillos</a>
+                    </div>
+                    <p class="eii-help-text mb-0">
+                        Quitar un filtro aquí es solo para esta búsqueda. Para cambiar lo que no toleras de forma
+                        permanente, ve a <a href="/Identity/Usuario/UsuarioAlimentacion">Lo que no tolero</a> en tu panel.
+                    </p>
+                </div>
+            </div>
+        }
+        else if (Model.IsAuth && !Model.HasProfile)
+        {
+            <div class="eii-card mb-4">
+                <div class="eii-card__body d-flex flex-wrap gap-3 align-items-center justify-content-between">
+                    <div class="eii-form-text mb-0">
+                        Estás viendo todos los platillos. Dinos lo que no toleras y filtramos por ti.
+                    </div>
+                    <a href="/Identity/Usuario/UsuarioAlimentacion" class="eii-btn eii-btn--sm eii-btn--primary">
+                        <i class="bi bi-basket"></i> Lo que no tolero
+                    </a>
+                </div>
+            </div>
+        }
+
+        @* ===== Contador X de Y + volver a perfil ===== *@
+        <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
+            <div class="eii-form-text mb-0">
+                @if (hayFiltros)
+                {
+                    <strong>@Model.TotalCumplen</strong> <span>de @Model.TotalEnScope platillos cumplen tu perfil.</span>
+                }
+                else
+                {
+                    <strong>@Model.TotalEnScope</strong> <span>platillos.</span>
+                }
+            </div>
+            @if (modoQuery && Model.IsAuth && Model.HasProfile)
+            {
+                <a href="@Model.BuildPerfilUrl()" class="eii-btn eii-btn--sm eii-btn--ghost">
+                    <i class="bi bi-arrow-counterclockwise"></i> Volver a mi perfil
+                </a>
+            }
+        </div>
+
+        @* ===== Resultados ===== *@
+        @if (Model.Items.Any())
+        {
+            <div class="plat-grid">
+                @foreach (var p in Model.Items)
+                {
+                    <article class="eii-card">
+                        <div class="eii-card__body">
+                            <div class="plat-card__meta">
+                                @if (!string.IsNullOrWhiteSpace(p.Categoria))
+                                {
+                                    <span class="eii-badge">@p.Categoria</span>
+                                }
+                                <span class="eii-help-text">@p.NumIngredientes ingredientes</span>
+                            </div>
+                            <h2 class="eii-card__title h6 mb-1">@p.Nombre</h2>
+                            @if (!string.IsNullOrWhiteSpace(p.PasosResumidos))
+                            {
+                                <p class="plat-card__pasos">@p.PasosResumidos</p>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(p.FuenteNombre))
+                            {
+                                <div class="plat-card__fuente">
+                                    Fuente:
+                                    @if (!string.IsNullOrWhiteSpace(p.FuenteUrl))
+                                    {
+                                        <a href="@p.FuenteUrl" target="_blank" rel="noopener nofollow">@p.FuenteNombre</a>
+                                    }
+                                    else
+                                    {
+                                        @p.FuenteNombre
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </article>
+                }
+            </div>
+
+            @if (Model.TotalPages > 1)
+            {
+                <nav class="plat-pager" aria-label="Paginación">
+                    @if (Model.PageNumber > 1)
+                    {
+                        <a class="eii-btn eii-btn--sm eii-btn--ghost" href="@Model.BuildPageUrl(Model.PageNumber - 1)">‹ Anterior</a>
+                    }
+                    <span class="eii-btn eii-btn--sm eii-btn--ghost" aria-current="page">Página @Model.PageNumber de @Model.TotalPages</span>
+                    @if (Model.PageNumber < Model.TotalPages)
+                    {
+                        <a class="eii-btn eii-btn--sm eii-btn--ghost" href="@Model.BuildPageUrl(Model.PageNumber + 1)">Siguiente ›</a>
+                    }
+                </nav>
+            }
+        }
+        else if (Model.Cercanos.Any())
+        {
+            @* Estado vacío: nunca lista vacía — mostramos los más cercanos con su motivo *@
+            <div class="eii-card">
+                <div class="eii-card__body">
+                    <h2 class="eii-card__title h6 mb-1">Ningún platillo cumple tu perfil completo</h2>
+                    <p class="eii-form-text">Estos son los más cercanos — solo tienen algo que marcaste que no toleras:</p>
+                    <div>
+                        @foreach (var c in Model.Cercanos)
+                        {
+                            <div class="plat-cercano">
+                                <span class="fw-semibold">@c.Nombre</span>
+                                <span class="plat-cercano__motivo">Solo tiene: @string.Join(", ", c.Motivo)</span>
+                            </div>
+                        }
+                    </div>
+                    <div class="mt-3">
+                        <a href="@Model.BuildVerTodosUrl()" class="eii-btn eii-btn--sm eii-btn--primary">Ver todos los platillos</a>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="eii-card">
+                <div class="eii-card__body">
+                    <p class="eii-form-text mb-0">
+                        @if (!string.IsNullOrWhiteSpace(Model.SearchQuery) || Model.Categoria.HasValue)
+                        {
+                            <span>No hay platillos con esos criterios. <a href="/Platillos">Ver todos</a>.</span>
+                        }
+                        else
+                        {
+                            <span>Aún no hay platillos publicados.</span>
+                        }
+                    </p>
+                </div>
+            </div>
+        }
+    </div>
+</main>
