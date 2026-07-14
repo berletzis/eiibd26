@@ -31,6 +31,8 @@
 
 @section Styles {
     <link rel="stylesheet" href="~/css/detalle.css" asp-append-version="true" />
+    @* .tag: mismo componente de cápsula (más grande) que ya vive en el CSS compartido *@
+    <link rel="stylesheet" href="~/css/contenidos-cards.css" asp-append-version="true" />
 }
 
 <div class="conte-detail">
@@ -42,14 +44,15 @@
     <div class="eii-page-header mb-3">
         <div class="eii-page-header__content">
             <h1 class="eii-page-title mb-2">¿Puedo comer @Model.Nombre?</h1>
+            @* Cápsulas de grupo/atributo: mismo componente .tag (tamaño completo), no miniatura *@
             <div class="d-flex flex-wrap gap-2 align-items-center">
                 @if (!string.IsNullOrWhiteSpace(Model.GrupoNombre))
                 {
-                    <span class="eii-badge">@Model.GrupoNombre</span>
+                    <span class="tag">@Model.GrupoNombre</span>
                 }
                 @foreach (var a in Model.Atributos)
                 {
-                    <span class="eii-badge">@a</span>
+                    <span class="tag">@a</span>
                 }
             </div>
         </div>
@@ -71,30 +74,32 @@
                 </div>
             }
 
-            @* ===== Contenido clínico: FLUYE como artículo (misma escala que Contenidos/Detalle) ===== *@
-            <div class="contenido-html">
-                @* El hecho honesto: aside informativo (no es cita) → callout --info *@
-                <div class="eii-callout eii-callout--info">
-                    <p>
-                        <strong>No es un alimento prohibido en la enfermedad inflamatoria intestinal.</strong>
-                        No existe un "sí" ni un "no" que valga para todos: lo que cambia es cuánto lo tolera cada persona,
-                        y eso depende de tu caso, tu momento y tu tratamiento.
-                    </p>
-                </div>
-
-                @* Nota del ingrediente (solo si el candado la deja pasar) *@
-                @if (Model.IngredienteNota != null)
-                {
-                    <partial name="_NotaClinica" model="Model.IngredienteNota" />
-                }
-
-                @* Contexto clínico del grupo (solo si el candado la deja pasar) *@
-                @if (Model.GrupoNota != null)
-                {
-                    <h2>En el grupo: @Model.GrupoNombre</h2>
-                    <partial name="_NotaClinica" model="Model.GrupoNota" />
-                }
+            @* ===== El hecho honesto: callout suelto, SIN card alrededor (es un callout, no una caja) ===== *@
+            <div class="eii-callout eii-callout--info">
+                <p>
+                    <strong>No es un alimento prohibido en la enfermedad inflamatoria intestinal.</strong>
+                    No existe un "sí" ni un "no" que valga para todos: lo que cambia es cuánto lo tolera cada persona,
+                    y eso depende de tu caso, tu momento y tu tratamiento.
+                </p>
             </div>
+
+            @* ===== Contenido clínico: FLUYE como artículo (misma escala que Contenidos/Detalle).
+                    Solo se pinta el .contenido-html si el candado deja pasar alguna nota — así no
+                    queda una caja blanca vacía cuando el ingrediente/grupo no tiene nota revisada. ===== *@
+            @if (Model.IngredienteNota != null || Model.GrupoNota != null)
+            {
+                <div class="contenido-html">
+                    @if (Model.IngredienteNota != null)
+                    {
+                        <partial name="_NotaClinica" model="Model.IngredienteNota" />
+                    }
+                    @if (Model.GrupoNota != null)
+                    {
+                        <h2>En el grupo: @Model.GrupoNombre</h2>
+                        <partial name="_NotaClinica" model="Model.GrupoNota" />
+                    }
+                </div>
+            }
 
             @* ===== Comunidad y experiencia (cards): widgets, apagados en v1 (módulo Tolerancia #16) ===== *@
             <div class="eii-card mb-4">
@@ -112,11 +117,11 @@
 
             @* ===== Aviso legal (card morado) — versión móvil; el sidebar lo oculta en desktop ===== *@
             <div class="aviso-termino-inline aviso-termino-box mb-4">
-                <p class="aviso-title mb-2">Aviso Importante</p>
+                <p class="aviso-title mb-2">Esto no es una dieta</p>
                 <p class="aviso-text">
-                    Esta información es educativa y no reemplaza el consejo de un
-                    médico profesional. <strong>Siempre consulta con tu médico</strong>
-                    sobre tu condición y tratamiento.
+                    Solo te mostramos los platillos que <strong>no contienen lo que tú dijiste que no toleras</strong>. No sabemos
+                    nada de tu enfermedad, tu tratamiento, ni de si estás en brote. Que un platillo aparezca aquí
+                    <strong>no significa que te haga bien</strong>. Tu dieta la diseñas con tu médico o nutriólogo.
                 </p>
             </div>
         </article>
@@ -172,11 +177,11 @@
             @* ===== AVISO LEGAL (card morado) — debajo de Compartir; hijo directo de .right-panel para
                     que la responsive de detalle.css lo oculte en móvil (se muestra el inline del artículo) ===== *@
             <div class="aviso-termino-box">
-                <p class="aviso-title mb-2">Aviso Importante</p>
+                <p class="aviso-title mb-2">Esto no es una dieta</p>
                 <p class="aviso-text">
-                    Esta información es educativa y no reemplaza el consejo de un
-                    médico profesional. <strong>Siempre consulta con tu médico</strong>
-                    sobre tu condición y tratamiento.
+                    Solo te mostramos los platillos que <strong>no contienen lo que tú dijiste que no toleras</strong>. No sabemos
+                    nada de tu enfermedad, tu tratamiento, ni de si estás en brote. Que un platillo aparezca aquí
+                    <strong>no significa que te haga bien</strong>. Tu dieta la diseñas con tu médico o nutriólogo.
                 </p>
             </div>
 
