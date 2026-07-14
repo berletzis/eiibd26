@@ -131,6 +131,39 @@
         </article>
 
         <aside class="right-panel" aria-label="Acciones">
+            @* ===== CALIFICAR (tabla propia PlatIngredienteCalificacion, NO ArticleRating) ===== *@
+            <div class="sidebar-section sidebar-static">
+                <div class="sidebar-section-header-static">
+                    <h4 class="sidebar-section-title">Calificar</h4>
+                </div>
+                <div class="sidebar-section-content-static">
+                    <div class="article-rating" id="ingredienteRating" data-ingrediente-id="@Model.IngredienteId">
+                        <div class="rating-buttons">
+                            @if (User.Identity?.IsAuthenticated ?? false)
+                            {
+                                <button type="button" class="rating-btn rating-like" data-rating="like" title="Me fue útil">
+                                    <i class="bi bi-hand-thumbs-up"></i>
+                                    <span class="rating-text">Me fue útil</span>
+                                    <span class="rating-count" id="likeCount">...</span>
+                                </button>
+                                <button type="button" class="rating-btn rating-dislike" data-rating="dislike" title="No me fue útil">
+                                    <i class="bi bi-hand-thumbs-down"></i>
+                                    <span class="rating-text">No me fue útil</span>
+                                    <span class="rating-count" id="dislikeCount">...</span>
+                                </button>
+                            }
+                            else
+                            {
+                                <div class="rating-login-hint">
+                                    <a href="/Identity/Account/Login?ReturnUrl=@Uri.EscapeDataString(HttpContext.Request.Path + HttpContext.Request.QueryString)">Inicia sesión</a> para calificar
+                                </div>
+                            }
+                        </div>
+                        <div class="rating-message" id="ratingMessage" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+
             @* ===== COMPARTIR (siempre visible, sin toggle) ===== *@
             <div class="sidebar-section sidebar-static">
                 <div class="sidebar-section-header-static">
@@ -192,6 +225,83 @@
                 if (href.indexOf('mailto:') === 0) { window.location.href = href; return; }
                 openPopup(href);
             }, { passive: false });
+        })();
+
+        // Calificación del ingrediente (espejo del rating de artículos, contra PlatIngredienteCalificacion).
+        (function () {
+            const container = document.getElementById('ingredienteRating');
+            if (!container) return;
+
+            const ingredienteId = container.getAttribute('data-ingrediente-id');
+            const likeBtn = container.querySelector('.rating-like');
+            const dislikeBtn = container.querySelector('.rating-dislike');
+            const likeCount = document.getElementById('likeCount');
+            const dislikeCount = document.getElementById('dislikeCount');
+            const ratingMessage = document.getElementById('ratingMessage');
+            const endpoint = `/api/platillos/ingredientes/${ingredienteId}/calificacion`;
+
+            function showMessage(text, type) {
+                if (!ratingMessage) return;
+                ratingMessage.textContent = text;
+                ratingMessage.className = 'rating-message ' + (type || 'info');
+                ratingMessage.style.display = 'block';
+            }
+            function hideMessage() { if (ratingMessage) ratingMessage.style.display = 'none'; }
+
+            async function loadState() {
+                try {
+                    const resp = await fetch(endpoint);
+                    const data = await resp.json();
+                    if (data.ok && data.estadisticas) {
+                        if (likeCount) likeCount.textContent = data.estadisticas.likes || 0;
+                        if (dislikeCount) dislikeCount.textContent = data.estadisticas.dislikes || 0;
+                        if (data.ratingUsuario) {
+                            if (data.ratingUsuario.tipo === 'like' && likeBtn) likeBtn.classList.add('active');
+                            else if (data.ratingUsuario.tipo === 'dislike' && dislikeBtn) dislikeBtn.classList.add('active');
+                        }
+                    }
+                } catch (err) {
+                    if (likeCount) likeCount.textContent = '0';
+                    if (dislikeCount) dislikeCount.textContent = '0';
+                }
+            }
+
+            async function sendRating(ratingType) {
+                try {
+                    showMessage('Guardando...', 'info');
+                    const resp = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ratingType: ratingType })
+                    });
+                    const data = await resp.json();
+                    if (data.ok) {
+                        if (data.estadisticas) {
+                            if (likeCount) likeCount.textContent = data.estadisticas.likes || 0;
+                            if (dislikeCount) dislikeCount.textContent = data.estadisticas.dislikes || 0;
+                        }
+                        if (likeBtn) likeBtn.classList.toggle('active', ratingType === 'like');
+                        if (dislikeBtn) dislikeBtn.classList.toggle('active', ratingType === 'dislike');
+                        showMessage('✅ ¡Gracias por tu opinión!', 'success');
+                        setTimeout(hideMessage, 3000);
+                    } else {
+                        showMessage('❌ ' + (data.error || 'Error al guardar'), 'error');
+                    }
+                } catch (err) {
+                    showMessage('❌ Error de conexión', 'error');
+                }
+            }
+
+            if (likeBtn) likeBtn.addEventListener('click', function () {
+                if (likeBtn.classList.contains('active')) return;
+                sendRating('like');
+            });
+            if (dislikeBtn) dislikeBtn.addEventListener('click', function () {
+                if (dislikeBtn.classList.contains('active')) return;
+                sendRating('dislike');
+            });
+
+            loadState();
         })();
     </script>
 }
