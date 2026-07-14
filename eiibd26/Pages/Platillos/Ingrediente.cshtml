@@ -1,0 +1,136 @@
+@page
+@model eiibd26.Pages.Platillos.IngredienteModel
+@{
+    ViewData["Title"] = Model.MetaTitle;
+    var canonical = $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}/Platillos/Ingrediente/{Model.Slug}";
+}
+
+@section Head {
+    <meta name="description" content="@Model.MetaDescription" />
+    <link rel="canonical" href="@canonical" />
+    <meta property="og:title" content="@Model.MetaTitle" />
+    <meta property="og:description" content="@Model.MetaDescription" />
+    <meta property="og:type" content="article" />
+}
+
+<main class="container py-4" role="main">
+    <nav aria-label="miga" class="mb-3">
+        <a class="eii-btn eii-btn--ghost eii-btn--sm" href="/Platillos"><i class="bi bi-arrow-left"></i> Platillos</a>
+    </nav>
+
+    @* ===== 1. Qué es ===== *@
+    <div class="eii-page-header mb-3">
+        <div class="eii-page-header__content">
+            <h1 class="eii-page-title mb-2">¿Puedo comer @Model.Nombre?</h1>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                @if (!string.IsNullOrWhiteSpace(Model.GrupoNombre))
+                {
+                    <span class="eii-badge">@Model.GrupoNombre</span>
+                }
+                @foreach (var a in Model.Atributos)
+                {
+                    <span class="eii-badge">@a</span>
+                }
+            </div>
+        </div>
+    </div>
+
+    @* ===== 2. El hecho honesto ===== *@
+    <div class="eii-card mb-4">
+        <div class="eii-card__body">
+            <p class="mb-0">
+                <strong>@Model.Nombre no es un alimento prohibido en la enfermedad inflamatoria intestinal.</strong>
+                No existe un "sí" o un "no" que valga para todos: lo que cambia es cuánto lo tolera cada persona,
+                y eso depende de tu caso, tu momento y tu tratamiento.
+            </p>
+        </div>
+    </div>
+
+    @* ===== 3. Notas del ingrediente ===== *@
+    @if (!string.IsNullOrWhiteSpace(Model.IngredienteNotasEII))
+    {
+        <div class="eii-card mb-4">
+            <div class="eii-card__body">
+                <h2 class="eii-card__title h6 mb-2"><i class="bi bi-lightbulb"></i> Sobre @Model.Nombre</h2>
+                @foreach (var linea in Model.IngredienteNotasEII.Replace("\r", "").Split('\n', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    <p class="mb-1">@linea</p>
+                }
+            </div>
+        </div>
+    }
+
+    @* ===== 4. Contexto clínico del grupo ===== *@
+    @if (!string.IsNullOrWhiteSpace(Model.GrupoNotasEII))
+    {
+        <div class="eii-card mb-4">
+            <div class="eii-card__body">
+                <h2 class="eii-card__title h6 mb-2"><i class="bi bi-heart-pulse"></i> Contexto: @Model.GrupoNombre</h2>
+                @foreach (var linea in Model.GrupoNotasEII.Replace("\r", "").Split('\n', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    <p class="mb-1">@linea</p>
+                }
+            </div>
+        </div>
+    }
+
+    @* ===== 5. Tu perfil ===== *@
+    @if (Model.ExcluidoPorTi)
+    {
+        <div class="eii-card mb-4">
+            <div class="eii-card__body">
+                <h2 class="eii-card__title h6 mb-2"><i class="bi bi-person-check"></i> En tu perfil</h2>
+                <p class="eii-form-text mb-2">@Model.MotivoExclusion Por eso no te aparece en tus platillos.</p>
+                <a class="eii-btn eii-btn--sm eii-btn--ghost" href="/Identity/Usuario/UsuarioAlimentacion">
+                    <i class="bi bi-basket"></i> Lo que no tolero
+                </a>
+            </div>
+        </div>
+    }
+
+    @* ===== 6. Platillos que lo contienen ===== *@
+    <div class="eii-card mb-4">
+        <div class="eii-card__body">
+            <h2 class="eii-card__title h6 mb-2">Platillos que lo incluyen</h2>
+            @if (Model.PlatillosCount > 0)
+            {
+                <ul class="eii-form-text mb-3">
+                    @foreach (var n in Model.PlatillosNombres)
+                    {
+                        <li>@n</li>
+                    }
+                </ul>
+                <a class="eii-btn eii-btn--sm eii-btn--primary" href="/Platillos">Ver todos los platillos</a>
+            }
+            else
+            {
+                <p class="eii-form-text mb-0">Todavía no hay platillos publicados con @Model.Nombre.</p>
+            }
+        </div>
+    </div>
+
+    @* ===== 7. Comunidad y experiencia — maquetado, apagado en v1 (módulo de Tolerancia #16) ===== *@
+    <div class="eii-card mb-4">
+        <div class="eii-card__body">
+            <h2 class="eii-card__title h6 mb-2">Lo que reporta la comunidad</h2>
+            <p class="eii-form-text mb-0">Nadie ha registrado su tolerancia a este alimento todavía. Pronto podrás ser el primero.</p>
+        </div>
+    </div>
+    <div class="eii-card mb-4">
+        <div class="eii-card__body">
+            <h2 class="eii-card__title h6 mb-2">Tu experiencia</h2>
+            <p class="eii-form-text mb-0">Aún no registras tu tolerancia a este alimento. Esta función llegará pronto.</p>
+        </div>
+    </div>
+
+    @* ===== 8. Cierre — siempre visible ===== *@
+    <div class="eii-card mb-4">
+        <div class="eii-card__body">
+            <p class="eii-help-text mb-0">
+                <i class="bi bi-info-circle"></i> Esto no es consejo médico. Son datos para que los lleves a tu
+                médico o nutriólogo y decidan juntos. Restringir alimentos "por si acaso" tiene su propio costo:
+                no evites nada sin motivo.
+            </p>
+        </div>
+    </div>
+</main>

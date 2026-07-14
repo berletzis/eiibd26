@@ -56,6 +56,11 @@ namespace eiibd26.Controllers
                 xw.WriteElementString("lastmod", DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"));
                 xw.WriteEndElement();
 
+                xw.WriteStartElement("sitemap");
+                xw.WriteElementString("loc", $"{hostBase}/sitemap-platillos.xml");
+                xw.WriteElementString("lastmod", DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"));
+                xw.WriteEndElement();
+
                 xw.WriteEndElement();
                 xw.WriteEndDocument();
             }

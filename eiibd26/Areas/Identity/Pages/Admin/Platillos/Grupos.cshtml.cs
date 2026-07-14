@@ -23,6 +23,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
         [BindProperty] public int Id { get; set; }
         [BindProperty] public string? Nombre { get; set; }
         [BindProperty] public int Orden { get; set; }
+        [BindProperty] public string? NotasEII { get; set; }
 
         [TempData] public string? SuccessMessage { get; set; }
         [TempData] public string? ErrorMessage { get; set; }
@@ -33,7 +34,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
             if (EditId.HasValue)
             {
                 var ent = Items.FirstOrDefault(x => x.Id == EditId.Value);
-                if (ent != null) { Id = ent.Id; Nombre = ent.Nombre; Orden = ent.Orden; }
+                if (ent != null) { Id = ent.Id; Nombre = ent.Nombre; Orden = ent.Orden; NotasEII = ent.NotasEII; }
             }
         }
 
@@ -66,12 +67,13 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
                 if (ent == null) { ErrorMessage = "Grupo no encontrado."; return RedirectToPage(); }
                 ent.Nombre = nombre;
                 ent.Orden = Orden;
+                ent.NotasEII = string.IsNullOrWhiteSpace(NotasEII) ? null : NotasEII.Trim();
                 await _db.SaveChangesAsync();
                 SuccessMessage = "Grupo actualizado.";
             }
             else
             {
-                _db.PlatGrupos.Add(new PlatGrupo { Nombre = nombre, Orden = Orden, Activo = true });
+                _db.PlatGrupos.Add(new PlatGrupo { Nombre = nombre, Orden = Orden, Activo = true, NotasEII = string.IsNullOrWhiteSpace(NotasEII) ? null : NotasEII.Trim() });
                 await _db.SaveChangesAsync();
                 SuccessMessage = "Grupo creado.";
             }
