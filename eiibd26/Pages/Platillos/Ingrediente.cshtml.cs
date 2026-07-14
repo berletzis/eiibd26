@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using eiibd26.Data;
 using eiibd26.Helpers;
+using eiibd26.Services.Platillos;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -16,14 +17,21 @@ namespace eiibd26.Pages.Platillos
     public class IngredienteModel : PageModel
     {
         private readonly ApplicationDbContext _db;
-        public IngredienteModel(ApplicationDbContext db) => _db = db;
+        private readonly IPlatNotaClinicaService _notas;
+        public IngredienteModel(ApplicationDbContext db, IPlatNotaClinicaService notas)
+        {
+            _db = db;
+            _notas = notas;
+        }
 
         public string Slug { get; private set; } = "";
         public int IngredienteId { get; private set; }
         public string Nombre { get; private set; } = "";
         public string GrupoNombre { get; private set; } = "";
-        public string? GrupoNotasEII { get; private set; }
-        public string? IngredienteNotasEII { get; private set; }
+        // Notas clínicas YA filtradas por el candado (null = no hay nada que mostrar). El candado
+        // vive en PlatNotaClinicaService; esta vista NUNCA consulta la tabla directo.
+        public PlatNotaVisibleDto? IngredienteNota { get; private set; }
+        public PlatNotaVisibleDto? GrupoNota { get; private set; }
         public List<string> Atributos { get; private set; } = new();
 
         public bool ExcluidoPorTi { get; private set; }
@@ -43,7 +51,7 @@ namespace eiibd26.Pages.Platillos
             // Resolver el ingrediente por slug (catálogo chico y curado → match en memoria).
             var activos = await _db.PlatIngredientes.AsNoTracking()
                 .Where(i => i.Activo)
-                .Select(i => new { i.Id, i.Nombre, i.GrupoId, i.NotasEII })
+                .Select(i => new { i.Id, i.Nombre, i.GrupoId })
                 .ToListAsync();
             var ing = activos.FirstOrDefault(i => SlugHelper.GenerateSlug(i.Nombre) == slug);
             if (ing == null) return NotFound();
@@ -51,13 +59,15 @@ namespace eiibd26.Pages.Platillos
             Slug = slug;
             IngredienteId = ing.Id;
             Nombre = ing.Nombre;
-            IngredienteNotasEII = ing.NotasEII;
 
             var grupo = await _db.PlatGrupos.AsNoTracking()
                 .Where(g => g.Id == ing.GrupoId)
-                .Select(g => new { g.Nombre, g.NotasEII }).FirstOrDefaultAsync();
+                .Select(g => new { g.Nombre }).FirstOrDefaultAsync();
             GrupoNombre = grupo?.Nombre ?? "";
-            GrupoNotasEII = grupo?.NotasEII;
+
+            // Notas clínicas: SIEMPRE por el servicio (candado). Devuelve null si no hay nada visible.
+            IngredienteNota = await _notas.ObtenerNotaVisibleParaPacienteAsync("Ingrediente", ing.Id);
+            GrupoNota = await _notas.ObtenerNotaVisibleParaPacienteAsync("Grupo", ing.GrupoId);
 
             // Atributos intrínsecos (cómo es siempre: gluten, lactosa, picante…).
             var atrIds = await _db.PlatIngredienteAtributos.AsNoTracking()

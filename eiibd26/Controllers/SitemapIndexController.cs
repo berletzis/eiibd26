@@ -56,14 +56,15 @@ namespace eiibd26.Controllers
                 xw.WriteElementString("lastmod", DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"));
                 xw.WriteEndElement();
 
-                // Sitemap de Platillos FUERA del índice a propósito: las 59 páginas de ingrediente
-                // están casi vacías hasta que un médico cargue las notas clínicas (PlatGrupo/
-                // PlatIngrediente.NotasEII). Indexarlas vacías daña el dominio. Reactivar (descomentar)
-                // cuando haya contenido. La vista además emite noindex por página sin notas.
-                // xw.WriteStartElement("sitemap");
-                // xw.WriteElementString("loc", $"{hostBase}/sitemap-platillos.xml");
-                // xw.WriteElementString("lastmod", DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"));
-                // xw.WriteEndElement();
+                // Sitemap de Platillos: seguro de reactivar. Ya NO lista las 59 páginas vacías —
+                // el propio sitemap-platillos.xml solo incluye ingredientes con nota clínica REVISADA
+                // (candado en PlatNotaClinicaService). Hoy puede venir con solo el listado /Platillos
+                // y se auto-puebla cuando un médico aprueba notas. La vista además emite noindex por
+                // página sin nota visible.
+                xw.WriteStartElement("sitemap");
+                xw.WriteElementString("loc", $"{hostBase}/sitemap-platillos.xml");
+                xw.WriteElementString("lastmod", DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"));
+                xw.WriteEndElement();
 
                 xw.WriteEndElement();
                 xw.WriteEndDocument();

@@ -1,0 +1,48 @@
+@model eiibd26.Services.Platillos.PlatNotaVisibleDto
+@*
+    Cuerpo de una nota clínica YA filtrada por el candado (el servicio solo entrega notas visibles).
+    Render puro: secciones en orden (párrafos y viñetas) + bloque "Referencias" con rel="noopener".
+*@
+@foreach (var sec in Model.Secciones)
+{
+    @if (!string.IsNullOrWhiteSpace(sec.Titulo))
+    {
+        <h3 class="h6 mb-1 mt-3">@sec.Titulo</h3>
+    }
+    @foreach (var bloque in sec.Bloques)
+    {
+        @if (bloque.EsLista)
+        {
+            <ul class="mb-2">
+                @foreach (var li in bloque.Lineas)
+                {
+                    <li>@li</li>
+                }
+            </ul>
+        }
+        else
+        {
+            <p class="mb-2">@(bloque.Lineas.Count > 0 ? bloque.Lineas[0] : "")</p>
+        }
+    }
+}
+
+@if (Model.Referencias.Count > 0)
+{
+    <h3 class="h6 mb-1 mt-3">Referencias</h3>
+    <ul class="eii-form-text mb-0">
+        @foreach (var r in Model.Referencias)
+        {
+            <li>
+                @if (!string.IsNullOrWhiteSpace(r.Url))
+                {
+                    <a href="@r.Url" target="_blank" rel="noopener">@r.Titulo</a>
+                }
+                else
+                {
+                    @r.Titulo
+                }
+            </li>
+        }
+    </ul>
+}

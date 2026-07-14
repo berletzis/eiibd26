@@ -136,6 +136,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<eiibd26.Models.Platillos.PlatPlatilloIngrediente> PlatPlatilloIngredientes { get; set; }
     public DbSet<eiibd26.Models.Platillos.PlatPlatilloIngredienteAtributo> PlatPlatilloIngredienteAtributos { get; set; }
     public DbSet<eiibd26.Models.Platillos.PlatPerfilExclusion> PlatPerfilExclusiones { get; set; }
+    // Notas clínicas estructuradas. Leer SIEMPRE vía PlatNotaClinicaService (el candado vive ahí).
+    public DbSet<eiibd26.Models.Platillos.PlatNotaClinica> PlatNotasClinicas { get; set; }
+    public DbSet<eiibd26.Models.Platillos.PlatNotaSeccion> PlatNotaSecciones { get; set; }
+    public DbSet<eiibd26.Models.Platillos.PlatNotaReferencia> PlatNotaReferencias { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -964,6 +968,34 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
             b.HasIndex(x => new { x.idUsuario, x.Tipo, x.RefId })
              .IsUnique()
              .HasFilter("[Eliminado] = 0");
+        });
+
+        // ---- Notas clínicas (relación polimórfica TipoDestino+DestinoId, sin FK a grupo/ingrediente) ----
+        builder.Entity<eiibd26.Models.Platillos.PlatNotaClinica>(b =>
+        {
+            b.ToTable("PlatNotaClinica");
+            // Espeja UQ_PlatNotaClinica_Destino: una nota por (tipo, destino).
+            b.HasIndex(x => new { x.TipoDestino, x.DestinoId }).IsUnique();
+        });
+
+        builder.Entity<eiibd26.Models.Platillos.PlatNotaSeccion>(b =>
+        {
+            b.ToTable("PlatNotaSeccion");
+            // Hijo puro: la sección muere con su nota (CASCADE, calca la DB).
+            b.HasOne(x => x.Nota)
+             .WithMany(n => n.Secciones)
+             .HasForeignKey(x => x.NotaClinicaId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<eiibd26.Models.Platillos.PlatNotaReferencia>(b =>
+        {
+            b.ToTable("PlatNotaReferencia");
+            // Hijo puro: la referencia muere con su nota (CASCADE, calca la DB).
+            b.HasOne(x => x.Nota)
+             .WithMany(n => n.Referencias)
+             .HasForeignKey(x => x.NotaClinicaId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
     }
 

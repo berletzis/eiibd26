@@ -3,9 +3,9 @@
 @{
     ViewData["Title"] = Model.MetaTitle;
     var canonical = $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}/Platillos/Ingrediente/{Model.Slug}";
-    // Sin notas clínicas la página es delgada: noindex hasta que un médico cargue contenido.
-    // Se reactiva solo cuando el ingrediente o su grupo tengan NotasEII.
-    var tieneContenido = !string.IsNullOrWhiteSpace(Model.IngredienteNotasEII) || !string.IsNullOrWhiteSpace(Model.GrupoNotasEII);
+    // Sin nota clínica REVISADA la página es delgada: noindex hasta que un médico apruebe contenido.
+    // Se reactiva solo (y el sitemap la incluye solo) cuando el ingrediente o su grupo tienen nota visible.
+    var tieneContenido = Model.IngredienteNota != null || Model.GrupoNota != null;
 }
 
 @section Head {
@@ -53,30 +53,24 @@
         </div>
     </div>
 
-    @* ===== 3. Notas del ingrediente ===== *@
-    @if (!string.IsNullOrWhiteSpace(Model.IngredienteNotasEII))
+    @* ===== 3. Nota del ingrediente (solo si el candado la deja pasar) ===== *@
+    @if (Model.IngredienteNota != null)
     {
         <div class="eii-card mb-4">
             <div class="eii-card__body">
                 <h2 class="eii-card__title h6 mb-2"><i class="bi bi-lightbulb"></i> Sobre @Model.Nombre</h2>
-                @foreach (var linea in Model.IngredienteNotasEII.Replace("\r", "").Split('\n', StringSplitOptions.RemoveEmptyEntries))
-                {
-                    <p class="mb-1">@linea</p>
-                }
+                <partial name="_NotaClinica" model="Model.IngredienteNota" />
             </div>
         </div>
     }
 
-    @* ===== 4. Contexto clínico del grupo ===== *@
-    @if (!string.IsNullOrWhiteSpace(Model.GrupoNotasEII))
+    @* ===== 4. Contexto clínico del grupo (solo si el candado la deja pasar) ===== *@
+    @if (Model.GrupoNota != null)
     {
         <div class="eii-card mb-4">
             <div class="eii-card__body">
                 <h2 class="eii-card__title h6 mb-2"><i class="bi bi-heart-pulse"></i> Contexto: @Model.GrupoNombre</h2>
-                @foreach (var linea in Model.GrupoNotasEII.Replace("\r", "").Split('\n', StringSplitOptions.RemoveEmptyEntries))
-                {
-                    <p class="mb-1">@linea</p>
-                }
+                <partial name="_NotaClinica" model="Model.GrupoNota" />
             </div>
         </div>
     }

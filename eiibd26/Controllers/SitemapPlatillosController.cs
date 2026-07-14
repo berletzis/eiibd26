@@ -10,23 +10,28 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using eiibd26.Data;
 using eiibd26.Helpers;
+using eiibd26.Services.Platillos;
 
 namespace eiibd26.Controllers
 {
-    // Sitemap de la seccion Platillos: el listado + una URL por ingrediente activo
-    // (/Platillos/Ingrediente/{slug}). Catalogo chico → un solo urlset, sin paginar.
+    // Sitemap de la seccion Platillos: el listado + una URL por ingrediente que TENGA nota clinica
+    // visible (revisada por medico), propia o de su grupo. Catalogo chico → un solo urlset, sin paginar.
+    // Regla: una pagina sin contenido revisado no se indexa NI aparece en el sitemap (mismo candado
+    // que la vista). Asi el sitemap se auto-puebla cuando un medico aprueba, sin tocar codigo.
     [Route("")]
     [AllowAnonymous]
     public class SitemapPlatillosController : Controller
     {
         private readonly ApplicationDbContext _db;
         private readonly IMemoryCache _cache;
+        private readonly IPlatNotaClinicaService _notas;
         private const string CacheKey = "sitemap_platillos_xml";
 
-        public SitemapPlatillosController(ApplicationDbContext db, IMemoryCache cache)
+        public SitemapPlatillosController(ApplicationDbContext db, IMemoryCache cache, IPlatNotaClinicaService notas)
         {
             _db = db;
             _cache = cache;
+            _notas = notas;
         }
 
         // GET /sitemap-platillos.xml
@@ -40,8 +45,12 @@ namespace eiibd26.Controllers
 
             var ingredientes = await _db.PlatIngredientes.AsNoTracking()
                 .Where(i => i.Activo)
-                .Select(i => i.Nombre)
+                .Select(i => new { i.Id, i.Nombre, i.GrupoId })
                 .ToListAsync();
+
+            // Mismo candado que la vista: incluir un ingrediente solo si el o su grupo tienen nota visible.
+            var ingConNota = await _notas.ObtenerDestinosConNotaVisibleAsync("Ingrediente");
+            var grpConNota = await _notas.ObtenerDestinosConNotaVisibleAsync("Grupo");
 
             var entries = new List<(string Loc, string ChangeFreq, string Priority)>
             {
@@ -49,9 +58,12 @@ namespace eiibd26.Controllers
             };
 
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var nombre in ingredientes)
+            foreach (var ing in ingredientes)
             {
-                var slug = SlugHelper.GenerateSlug(nombre);
+                // Sin nota revisada (propia o de grupo) → fuera del sitemap.
+                if (!ingConNota.Contains(ing.Id) && !grpConNota.Contains(ing.GrupoId)) continue;
+
+                var slug = SlugHelper.GenerateSlug(ing.Nombre);
                 if (string.IsNullOrWhiteSpace(slug)) continue;
                 var loc = $"{hostBase}/Platillos/Ingrediente/{Uri.EscapeDataString(slug)}";
                 if (seen.Add(loc))
