@@ -57,40 +57,7 @@
 
     <div class="detail-grid" role="main">
         <article class="content-panel">
-            @* ===== 2. El hecho honesto ===== *@
-            <div class="eii-card mb-4">
-                <div class="eii-card__body">
-                    <p class="mb-0">
-                        <strong>No es un alimento prohibido en la enfermedad inflamatoria intestinal.</strong>
-                        No existe un "sí" ni un "no" que valga para todos: lo que cambia es cuánto lo tolera cada persona,
-                        y eso depende de tu caso, tu momento y tu tratamiento.
-                    </p>
-                </div>
-            </div>
-
-            @* ===== 3. Nota del ingrediente (solo si el candado la deja pasar) ===== *@
-            @if (Model.IngredienteNota != null)
-            {
-                <div class="eii-card mb-4">
-                    <div class="eii-card__body">
-                        <h2 class="eii-card__title h6 mb-2"><i class="bi bi-lightbulb"></i> Sobre @Model.Nombre</h2>
-                        <partial name="_NotaClinica" model="Model.IngredienteNota" />
-                    </div>
-                </div>
-            }
-
-            @* ===== 4. Contexto clínico del grupo (solo si el candado la deja pasar) ===== *@
-            @if (Model.GrupoNota != null)
-            {
-                <div class="eii-card mb-4">
-                    <div class="eii-card__body">
-                        <h2 class="eii-card__title h6 mb-2"><i class="bi bi-heart-pulse"></i> Contexto: @Model.GrupoNombre</h2>
-                        <partial name="_NotaClinica" model="Model.GrupoNota" />
-                    </div>
-                </div>
-            }
-
-            @* ===== 5. Tu perfil ===== *@
+            @* ===== Fit personalizado (card): personalizado/accionable → sí va en caja ===== *@
             @if (Model.ExcluidoPorTi)
             {
                 <div class="eii-card mb-4">
@@ -104,7 +71,32 @@
                 </div>
             }
 
-            @* ===== 6. Comunidad y experiencia — maquetado, apagado en v1 (módulo de Tolerancia #16) ===== *@
+            @* ===== Contenido clínico: FLUYE como artículo (misma escala que Contenidos/Detalle) ===== *@
+            <div class="contenido-html">
+                @* El hecho honesto: aside informativo (no es cita) → callout --info *@
+                <div class="eii-callout eii-callout--info">
+                    <p>
+                        <strong>No es un alimento prohibido en la enfermedad inflamatoria intestinal.</strong>
+                        No existe un "sí" ni un "no" que valga para todos: lo que cambia es cuánto lo tolera cada persona,
+                        y eso depende de tu caso, tu momento y tu tratamiento.
+                    </p>
+                </div>
+
+                @* Nota del ingrediente (solo si el candado la deja pasar) *@
+                @if (Model.IngredienteNota != null)
+                {
+                    <partial name="_NotaClinica" model="Model.IngredienteNota" />
+                }
+
+                @* Contexto clínico del grupo (solo si el candado la deja pasar) *@
+                @if (Model.GrupoNota != null)
+                {
+                    <h2>En el grupo: @Model.GrupoNombre</h2>
+                    <partial name="_NotaClinica" model="Model.GrupoNota" />
+                }
+            </div>
+
+            @* ===== Comunidad y experiencia (cards): widgets, apagados en v1 (módulo Tolerancia #16) ===== *@
             <div class="eii-card mb-4">
                 <div class="eii-card__body">
                     <h2 class="eii-card__title h6 mb-2">Lo que reporta la comunidad</h2>
@@ -118,16 +110,12 @@
                 </div>
             </div>
 
-            @* ===== 7. Cierre — siempre visible ===== *@
-            <div class="eii-card mb-4">
-                <div class="eii-card__body">
-                    <p class="eii-help-text mb-0">
-                        <i class="bi bi-info-circle"></i> Esto no es consejo médico. Son datos para que los lleves a tu
-                        médico o nutriólogo y decidan juntos. Restringir alimentos "por si acaso" tiene su propio costo:
-                        no evites nada sin motivo.
-                    </p>
-                </div>
-            </div>
+            @* ===== Cierre: nota discreta, sin caja ===== *@
+            <p class="eii-help-text">
+                <i class="bi bi-info-circle"></i> Esto no es consejo médico. Son datos para que los lleves a tu
+                médico o nutriólogo y decidan juntos. Restringir alimentos "por si acaso" tiene su propio costo:
+                no evites nada sin motivo.
+            </p>
         </article>
 
         <aside class="right-panel" aria-label="Acciones">

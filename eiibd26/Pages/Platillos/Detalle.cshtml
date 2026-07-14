@@ -33,22 +33,29 @@
     <div class="eii-page-header mb-3">
         <div class="eii-page-header__content">
             <h1 class="eii-page-title mb-2">@Model.Nombre</h1>
-            <div class="d-flex flex-wrap gap-2 align-items-center">
+            <div class="meta-byline">
+                @{ var hasPrev = false; }
                 @if (!string.IsNullOrWhiteSpace(Model.Categoria))
                 {
                     <span class="eii-badge">@Model.Categoria</span>
+                    hasPrev = true;
                 }
                 @if (Model.Porciones.HasValue)
                 {
-                    <span class="eii-help-text"><i class="bi bi-people"></i> @Model.Porciones porciones</span>
+                    if (hasPrev) { <span class="meta-sep">·</span> }
+                    <span><i class="bi bi-people"></i> @Model.Porciones porciones</span>
+                    hasPrev = true;
                 }
                 @if (Model.TiempoPrepMin.HasValue)
                 {
-                    <span class="eii-help-text"><i class="bi bi-clock"></i> @Model.TiempoPrepMin min</span>
+                    if (hasPrev) { <span class="meta-sep">·</span> }
+                    <span><i class="bi bi-clock"></i> @Model.TiempoPrepMin min</span>
+                    hasPrev = true;
                 }
                 @if (!string.IsNullOrWhiteSpace(Model.Dificultad))
                 {
-                    <span class="eii-help-text"><i class="bi bi-bar-chart"></i> @Model.Dificultad</span>
+                    if (hasPrev) { <span class="meta-sep">·</span> }
+                    <span><i class="bi bi-bar-chart"></i> @Model.Dificultad</span>
                 }
             </div>
         </div>
@@ -84,69 +91,58 @@
                 </div>
             </div>
 
-            @* ===== Ingredientes ===== *@
-            <div class="eii-card mb-4">
-                <div class="eii-card__body">
-                    <h2 class="eii-card__title h6 mb-2">Ingredientes</h2>
-                    <ul class="list-unstyled mb-0">
-                        @foreach (var r in Model.Ingredientes)
-                        {
-                            <li class="mb-2 d-flex flex-wrap gap-2 align-items-center">
-                                <a href="/Platillos/Ingrediente/@r.Slug">@r.Nombre</a>
-                                @if (r.EsAlGusto)
-                                {
-                                    <span class="eii-help-text">al gusto</span>
-                                }
-                                else if (r.Cantidad.HasValue)
-                                {
-                                    <span class="eii-help-text">@r.Cantidad.Value.ToString("0.###") @r.Unidad</span>
-                                }
-                                @foreach (var u in r.Usos)
-                                {
-                                    <span class="eii-badge">@u</span>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(r.NotaPreparacion))
-                                {
-                                    <span class="eii-help-text">— @r.NotaPreparacion</span>
-                                }
-                            </li>
-                        }
-                    </ul>
-                </div>
+            @* ===== Contenido que FLUYE como artículo (misma escala que Contenidos/Detalle) ===== *@
+            <div class="contenido-html">
+                <h2>Ingredientes</h2>
+                <ul>
+                    @foreach (var r in Model.Ingredientes)
+                    {
+                        <li>
+                            <a href="/Platillos/Ingrediente/@r.Slug">@r.Nombre</a>
+                            @if (r.EsAlGusto)
+                            {
+                                <span class="eii-help-text">al gusto</span>
+                            }
+                            else if (r.Cantidad.HasValue)
+                            {
+                                <span class="eii-help-text">@r.Cantidad.Value.ToString("0.###") @r.Unidad</span>
+                            }
+                            @foreach (var u in r.Usos)
+                            {
+                                <span class="eii-badge">@u</span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(r.NotaPreparacion))
+                            {
+                                <span class="eii-help-text">— @r.NotaPreparacion</span>
+                            }
+                        </li>
+                    }
+                </ul>
+
+                @if (!string.IsNullOrWhiteSpace(Model.PasosResumidos))
+                {
+                    <h2>Preparación</h2>
+                    @foreach (var linea in Model.PasosResumidos.Replace("\r", "").Split('\n', StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        <p>@linea</p>
+                    }
+                }
             </div>
 
-            @* ===== Preparación (nuestro texto) ===== *@
-            @if (!string.IsNullOrWhiteSpace(Model.PasosResumidos))
-            {
-                <div class="eii-card mb-4">
-                    <div class="eii-card__body">
-                        <h2 class="eii-card__title h6 mb-2">Preparación</h2>
-                        @foreach (var linea in Model.PasosResumidos.Replace("\r", "").Split('\n', StringSplitOptions.RemoveEmptyEntries))
-                        {
-                            <p class="mb-2">@linea</p>
-                        }
-                    </div>
-                </div>
-            }
-
-            @* ===== Crédito de la fuente — siempre visible ===== *@
+            @* ===== Crédito de la fuente: línea discreta, sin caja ===== *@
             @if (!string.IsNullOrWhiteSpace(Model.FuenteNombre))
             {
-                <div class="eii-card mb-4">
-                    <div class="eii-card__body">
-                        <p class="eii-help-text mb-0">
-                            Fuente:
-                            @if (!string.IsNullOrWhiteSpace(Model.FuenteUrl))
-                            {
-                                <a href="@Model.FuenteUrl" target="_blank" rel="noopener nofollow">@Model.FuenteNombre</a>
-                            }
-                            else
-                            {
-                                @Model.FuenteNombre
-                            }
-                        </p>
-                    </div>
-                </div>
+                <p class="eii-help-text">
+                    Fuente:
+                    @if (!string.IsNullOrWhiteSpace(Model.FuenteUrl))
+                    {
+                        <a href="@Model.FuenteUrl" target="_blank" rel="noopener nofollow">@Model.FuenteNombre</a>
+                    }
+                    else
+                    {
+                        @Model.FuenteNombre
+                    }
+                </p>
             }
         </article>
 
