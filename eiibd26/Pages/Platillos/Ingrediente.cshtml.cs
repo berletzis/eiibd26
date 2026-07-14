@@ -5,7 +5,11 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using eiibd26.Data;
 using eiibd26.Helpers;
+using eiibd26.Models;
+using eiibd26.Models.Validacion;
 using eiibd26.Services.Platillos;
+using eiibd26.Services.Validacion;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -16,12 +20,23 @@ namespace eiibd26.Pages.Platillos
     // Principio: evidencia, no veredicto. NUNCA dice sí/no. Ruta /Platillos/Ingrediente/{slug}.
     public class IngredienteModel : PageModel
     {
+        // Roles que pueden validar una nota (señal de confianza; NO cambia la visibilidad al paciente).
+        private static readonly string[] _validationRoles = ["Medico", "Administrador"];
+
         private readonly ApplicationDbContext _db;
         private readonly IPlatNotaClinicaService _notas;
-        public IngredienteModel(ApplicationDbContext db, IPlatNotaClinicaService notas)
+        private readonly IValidacionContenidoService _validaciones;
+        private readonly UserManager<ApplicationUser> _userManager;
+        public IngredienteModel(
+            ApplicationDbContext db,
+            IPlatNotaClinicaService notas,
+            IValidacionContenidoService validaciones,
+            UserManager<ApplicationUser> userManager)
         {
             _db = db;
             _notas = notas;
+            _validaciones = validaciones;
+            _userManager = userManager;
         }
 
         public string Slug { get; private set; } = "";
@@ -33,6 +48,17 @@ namespace eiibd26.Pages.Platillos
         public PlatNotaVisibleDto? IngredienteNota { get; private set; }
         public PlatNotaVisibleDto? GrupoNota { get; private set; }
         public List<string> Atributos { get; private set; } = new();
+
+        // ===== Validación médica (F2b) — señal de confianza, inline con cada nota.
+        // NO cambia lo que ve el paciente; solo el flag Publicado del admin controla la visibilidad.
+        public bool CanValidate { get; private set; }
+        public ValidacionExistenteDto? MiValidIngrediente { get; private set; }
+        public ValidacionExistenteDto? MiValidGrupo { get; private set; }
+        public List<ValidacionPublicaDto> ValidadoresIngrediente { get; private set; } = new();
+        public List<ValidacionPublicaDto> ValidadoresGrupo { get; private set; } = new();
+
+        [TempData] public string? ValidationMessage { get; set; }
+        [TempData] public bool ValidationSuccess { get; set; }
 
         public bool ExcluidoPorTi { get; private set; }
         public string? MotivoExclusion { get; private set; }
@@ -126,7 +152,76 @@ namespace eiibd26.Pages.Platillos
                 + "lo que cambia es cuánto los tolera cada persona. Consulta las notas clínicas, el contexto "
                 + $"y los platillos con {Nombre}, y decídelo con tu médico.";
 
+            await CargarValidacionAsync();
+
             return Page();
+        }
+
+        // Validación por nota visible. El sello (validadores públicos) lo ve cualquiera; la tarjeta de
+        // validar y el pre-llenado solo si el usuario es Médico/Administrador. La nota que llega aquí YA
+        // está publicada (el candado del servicio solo entrega notas visibles), así que validar aplica
+        // únicamente a contenido live.
+        private async Task CargarValidacionAsync()
+        {
+            if (IngredienteNota != null)
+                ValidadoresIngrediente = await _validaciones.ObtenerValidacionesPublicasAsync(
+                    TipoContenidoValidado.NotaClinicaIngrediente, IngredienteNota.Id);
+            if (GrupoNota != null)
+                ValidadoresGrupo = await _validaciones.ObtenerValidacionesPublicasAsync(
+                    TipoContenidoValidado.NotaClinicaIngrediente, GrupoNota.Id);
+
+            if (!(User?.Identity?.IsAuthenticated ?? false)) return;
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return;
+            var roles = await _userManager.GetRolesAsync(user);
+            CanValidate = roles.Any(r => _validationRoles.Contains(r));
+            if (!CanValidate) return;
+
+            var uid = user.Id.ToString();
+            if (IngredienteNota != null)
+                MiValidIngrediente = await _validaciones.ObtenerMiValidacionAsync(
+                    TipoContenidoValidado.NotaClinicaIngrediente, IngredienteNota.Id, uid);
+            if (GrupoNota != null)
+                MiValidGrupo = await _validaciones.ObtenerMiValidacionAsync(
+                    TipoContenidoValidado.NotaClinicaIngrediente, GrupoNota.Id, uid);
+        }
+
+        // POST: guardar/actualizar la validación de UNA nota (por su NotaClinicaId). Solo Médico/Admin.
+        // Es una SEÑAL: no publica ni despublica. Redirige a la misma página del ingrediente (slug).
+        public async Task<IActionResult> OnPostGuardarValidacionNotaAsync(int? contenidoId, string? slug, string? comentario)
+        {
+            if (!(User?.Identity?.IsAuthenticated ?? false)) return Challenge();
+
+            if (contenidoId == null || string.IsNullOrWhiteSpace(slug))
+            {
+                ValidationMessage = "Datos de la nota inválidos.";
+                ValidationSuccess = false;
+                return RedirectToPage(new { slug });
+            }
+
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Challenge();
+
+            var roles = await _userManager.GetRolesAsync(user);
+            if (!roles.Any(r => _validationRoles.Contains(r)))
+            {
+                ValidationMessage = "No tienes permiso para validar. Se requiere rol Médico o Administrador.";
+                ValidationSuccess = false;
+                return RedirectToPage(new { slug });
+            }
+
+            var result = await _validaciones.GuardarValidacionAsync(
+                TipoContenidoValidado.NotaClinicaIngrediente, contenidoId.Value, user.Id.ToString(), comentario);
+
+            (ValidationSuccess, ValidationMessage) = result switch
+            {
+                UpsertResult.Creada      => (true,  "Validación registrada. Gracias por respaldar esta nota."),
+                UpsertResult.Actualizada => (true,  "Comentario de validación actualizado."),
+                UpsertResult.SinCambios  => (true,  "No hay cambios que guardar."),
+                _                        => (false, "Error al guardar la validación. Intenta de nuevo.")
+            };
+
+            return RedirectToPage(new { slug });
         }
 
         // Carga una página de platillos ACTIVOS que contienen el ingrediente, como mini-VMs para el
@@ -183,4 +278,7 @@ namespace eiibd26.Pages.Platillos
         public string Slug { get; set; } = "";
         public string Meta { get; set; } = "";
     }
+
+    // NotaValidacionVm se movió a su propio archivo Pages/Platillos/NotaValidacionVm.cs
+    // (tipo compartido entre la vista y el partial _NotaValidacion.cshtml).
 }

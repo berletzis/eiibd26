@@ -278,6 +278,10 @@ namespace eiibd26.Services.Validacion
                 .Where(v => v.TipoContenido == TipoContenidoValidado.PerfilMedico)
                 .Select(v => v.ContenidoId).Distinct().ToList();
 
+            var notaIds = validaciones
+                .Where(v => v.TipoContenido == TipoContenidoValidado.NotaClinicaIngrediente)
+                .Select(v => v.ContenidoId).Distinct().ToList();
+
             var terminoTitulos = terminoIds.Any()
                 ? await _db.GlossaryTerms
                     .AsNoTracking()
@@ -302,9 +306,33 @@ namespace eiibd26.Services.Validacion
                     .ToListAsync()
                 : new();
 
+            // Notas clínicas de Platillos: título de la nota + (si el destino es un ingrediente) su slug
+            // para armar la URL pública. Las notas de grupo no tienen página propia → sin URL.
+            var notas = notaIds.Any()
+                ? await _db.PlatNotasClinicas
+                    .AsNoTracking()
+                    .Where(n => notaIds.Contains(n.Id))
+                    .Select(n => new { n.Id, n.Titulo, n.TipoDestino, n.DestinoId })
+                    .ToListAsync()
+                : new();
+
+            var notaIngredienteDestinoIds = notas
+                .Where(n => n.TipoDestino == "Ingrediente")
+                .Select(n => n.DestinoId).Distinct().ToList();
+
+            var notaIngredienteNombres = notaIngredienteDestinoIds.Any()
+                ? await _db.PlatIngredientes
+                    .AsNoTracking()
+                    .Where(i => notaIngredienteDestinoIds.Contains(i.Id))
+                    .Select(i => new { i.Id, i.Nombre })
+                    .ToListAsync()
+                : new();
+            var ingredienteNombreDict = notaIngredienteNombres.ToDictionary(i => i.Id, i => i.Nombre);
+
             var terminoDict      = terminoTitulos.ToDictionary(t => t.Id);
             var articuloDict     = articuloTitulos.ToDictionary(t => t.Id);
             var medicoNombreDict = medicoNombres.ToDictionary(m => m.Id, m => m.Nombre);
+            var notaDict         = notas.ToDictionary(n => n.Id);
 
             return validaciones.Select(v =>
             {
@@ -328,6 +356,16 @@ namespace eiibd26.Services.Validacion
                 {
                     titulo = nombre;
                     url    = $"/DirectorioMedicos/Detalle/{v.ContenidoId}";
+                }
+                else if (v.TipoContenido == TipoContenidoValidado.NotaClinicaIngrediente
+                    && notaDict.TryGetValue(v.ContenidoId, out var nota))
+                {
+                    titulo = string.IsNullOrWhiteSpace(nota.Titulo) ? "Nota clínica" : nota.Titulo;
+                    // Solo las notas de ingrediente tienen página pública propia; las de grupo se
+                    // muestran dentro de la página del ingrediente, sin URL canónica única.
+                    if (nota.TipoDestino == "Ingrediente"
+                        && ingredienteNombreDict.TryGetValue(nota.DestinoId, out var ingNombre))
+                        url = $"/Platillos/Ingrediente/{eiibd26.Helpers.SlugHelper.GenerateSlug(ingNombre)}";
                 }
 
                 return new ValidacionAdminDto

@@ -60,6 +60,16 @@
 
     <div class="detail-grid" role="main">
         <article class="content-panel">
+            @* ===== Feedback de validación médica (solo tras un POST de validar) ===== *@
+            @if (Model.ValidationMessage != null)
+            {
+                <div class="alert @(Model.ValidationSuccess ? "alert-success" : "alert-warning") alert-dismissible fade show mb-3" role="alert">
+                    <i class="bi bi-@(Model.ValidationSuccess ? "check-circle" : "exclamation-circle") me-1"></i>
+                    @Model.ValidationMessage
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+
             @* ===== Fit personalizado (card): personalizado/accionable → sí va en caja ===== *@
             @if (Model.ExcluidoPorTi)
             {
@@ -84,21 +94,38 @@
             </div>
 
             @* ===== Contenido clínico: FLUYE como artículo (misma escala que Contenidos/Detalle).
-                    Solo se pinta el .contenido-html si el candado deja pasar alguna nota — así no
-                    queda una caja blanca vacía cuando el ingrediente/grupo no tiene nota revisada. ===== *@
-            @if (Model.IngredienteNota != null || Model.GrupoNota != null)
+                    Cada nota va en su propio bloque, con su sello + tarjeta de validación INLINE debajo
+                    (dos notas posibles: la del ingrediente y la de su grupo). Sin nota, no se pinta nada. ===== *@
+            @if (Model.IngredienteNota != null)
             {
                 <div class="contenido-html">
-                    @if (Model.IngredienteNota != null)
-                    {
-                        <partial name="_NotaClinica" model="Model.IngredienteNota" />
-                    }
-                    @if (Model.GrupoNota != null)
-                    {
-                        <h2>En el grupo: @Model.GrupoNombre</h2>
-                        <partial name="_NotaClinica" model="Model.GrupoNota" />
-                    }
+                    <partial name="_NotaClinica" model="Model.IngredienteNota" />
                 </div>
+                @await Html.PartialAsync("_NotaValidacion", new eiibd26.Pages.Platillos.NotaValidacionVm
+                {
+                    NotaId       = Model.IngredienteNota.Id,
+                    DestinoLabel = Model.Nombre,
+                    Slug         = Model.Slug,
+                    CanValidate  = Model.CanValidate,
+                    MiValidacion = Model.MiValidIngrediente,
+                    Validadores  = Model.ValidadoresIngrediente
+                })
+            }
+            @if (Model.GrupoNota != null)
+            {
+                <div class="contenido-html">
+                    <h2>En el grupo: @Model.GrupoNombre</h2>
+                    <partial name="_NotaClinica" model="Model.GrupoNota" />
+                </div>
+                @await Html.PartialAsync("_NotaValidacion", new eiibd26.Pages.Platillos.NotaValidacionVm
+                {
+                    NotaId       = Model.GrupoNota.Id,
+                    DestinoLabel = $"el grupo {Model.GrupoNombre}",
+                    Slug         = Model.Slug,
+                    CanValidate  = Model.CanValidate,
+                    MiValidacion = Model.MiValidGrupo,
+                    Validadores  = Model.ValidadoresGrupo
+                })
             }
 
             @* ===== Comunidad y experiencia (cards): widgets, apagados en v1 (módulo Tolerancia #16) ===== *@

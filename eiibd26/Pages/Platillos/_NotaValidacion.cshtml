@@ -1,0 +1,75 @@
+@using eiibd26.Services.Validacion
+@model eiibd26.Pages.Platillos.NotaValidacionVm
+@*
+    Bloque de validación de UNA nota clínica, INLINE bajo su contenido (no en el sidebar): con dos
+    notas en la misma página —la del ingrediente y la de su grupo— pegar cada sello/tarjeta a su nota
+    evita que el médico dude cuál valida. La validación es SEÑAL, no interruptor: no cambia lo que ve
+    el paciente (eso lo decide solo el flag Publicado del admin).
+
+    · Sello para el paciente: "Validado por Profesionales de la Salud", espejo del glosario, reusando
+      las clases .validaciones-profesionales / .validacion-item de detalle.css (cero CSS nuevo). Solo
+      si la nota tiene ≥1 validación.
+    · Tarjeta del médico: _ValidacionContenidoMedico (mismo componente del glosario), llaveada por el
+      NotaClinicaId de ESTA nota, posteando al handler GuardarValidacionNota. Solo si CanValidate.
+*@
+
+@if (Model.Validadores != null && Model.Validadores.Any())
+{
+    <div class="validaciones-profesionales mt-3 mb-4">
+        <div class="validaciones-profesionales__header">
+            <div class="validaciones-profesionales__header-icon">
+                <i class="bi bi-patch-check-fill"></i>
+            </div>
+            <h4 class="validaciones-profesionales__title">Validado por Profesionales de la Salud</h4>
+        </div>
+        <div class="validaciones-profesionales__body">
+            @foreach (var v in Model.Validadores)
+            {
+                <div class="validacion-item">
+                    @if (!string.IsNullOrWhiteSpace(v.AvatarUrl))
+                    {
+                        <img src="@v.AvatarUrl" alt="@v.UserDisplay" class="validacion-avatar"
+                             loading="lazy" decoding="async"
+                             onerror="this.onerror=null;this.src='/img/default-avatar.png';" />
+                    }
+                    else
+                    {
+                        <div class="validacion-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
+                    }
+                    <div>
+                        <div class="validacion-name">
+                            @if (!string.IsNullOrWhiteSpace(v.Slug))
+                            {
+                                <a href="/medicos/@v.Slug" class="text-decoration-none">@v.UserDisplay</a>
+                            }
+                            else
+                            {
+                                @v.UserDisplay
+                            }
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(v.Comentario))
+                        {
+                            <p class="validacion-comment mb-0">"@v.Comentario"</p>
+                        }
+                        <span class="validacion-date">@v.CreadoEn.ToString("MMMM yyyy")</span>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@if (Model.CanValidate)
+{
+    <p class="eii-help-text mb-2">
+        <i class="bi bi-clipboard2-pulse me-1"></i>
+        Validar la nota de <strong>@Model.DestinoLabel</strong> (tu respaldo profesional; no cambia lo que ve el paciente).
+    </p>
+    @await Html.PartialAsync("_ValidacionContenidoMedico", new ValidacionContenidoPartialVm
+    {
+        ContenidoId = Model.NotaId,
+        Slug        = Model.Slug,
+        PageHandler = "GuardarValidacionNota",
+        Existente   = Model.MiValidacion
+    })
+}
