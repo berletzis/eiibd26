@@ -335,8 +335,10 @@ try
     builder.Services.AddScoped<eiibd26.Services.Calidad.IContenidoCalidadService, eiibd26.Services.Calidad.ContenidoCalidadService>();
     builder.Services.AddScoped<eiibd26.Services.Calidad.IGrisEvaluadorService, eiibd26.Services.Calidad.GrisEvaluadorService>();
     builder.Services.AddScoped<eiibd26.Services.ShortUrl.IShortUrlService, eiibd26.Services.ShortUrl.ShortUrlService>();
-    // Platillos — notas clínicas. Único punto de lectura con candado de revisión médica.
+    // Platillos — notas clínicas. Único punto de lectura con candado de publicación.
     builder.Services.AddScoped<eiibd26.Services.Platillos.IPlatNotaClinicaService, eiibd26.Services.Platillos.PlatNotaClinicaService>();
+    // Platillos — escritura admin de notas (guardar borrador / publicar / despublicar), reglas en un solo lugar.
+    builder.Services.AddScoped<eiibd26.Services.Platillos.IPlatNotaAdminService, eiibd26.Services.Platillos.PlatNotaAdminService>();
 
     // Register HttpClient for Anthropic API
     builder.Services.AddHttpClient("AnthropicClient", (serviceProvider, client) =>

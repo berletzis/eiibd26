@@ -14,21 +14,21 @@ namespace eiibd26.Services.Platillos
         public PlatNotaClinicaService(ApplicationDbContext db) => _db = db;
 
         // Predicado del candado, en un solo lugar. Cualquier consulta de lectura lo comparte:
-        // revisada + activa + al menos una sección con contenido real (Contenido no vacío).
-        // "Ausencia de datos ≠ seguridad": una nota revisada pero vacía NO es visible.
+        // publicada + activa + al menos una sección con contenido real (Contenido no vacío).
+        // "Ausencia de datos ≠ seguridad": una nota publicada pero vacía NO es visible.
         private static bool EsVisible(Models.Platillos.PlatNotaClinica n) =>
-            n.RevisadaPorMedico && n.Activo
+            n.Publicado && n.Activo
             && n.Secciones.Any(s => s.Contenido != null && s.Contenido.Trim() != "");
 
         public async Task<PlatNotaVisibleDto?> ObtenerNotaVisibleParaPacienteAsync(string tipoDestino, int destinoId)
         {
             if (string.IsNullOrWhiteSpace(tipoDestino)) return null;
 
-            // EL CANDADO en la consulta: revisada + activa. El filtro de contenido se remata en memoria
+            // EL CANDADO en la consulta: publicada + activa. El filtro de contenido se remata en memoria
             // (parseo de bloques), pero la consulta ya exige ≥1 sección con contenido → paridad con bulk.
             var nota = await _db.PlatNotasClinicas.AsNoTracking()
                 .Where(n => n.TipoDestino == tipoDestino && n.DestinoId == destinoId
-                            && n.RevisadaPorMedico && n.Activo
+                            && n.Publicado && n.Activo
                             && n.Secciones.Any(s => s.Contenido != null && s.Contenido.Trim() != ""))
                 .Select(n => new
                 {
@@ -82,7 +82,7 @@ namespace eiibd26.Services.Platillos
             if (string.IsNullOrWhiteSpace(tipoDestino)) return new HashSet<int>();
 
             var ids = await _db.PlatNotasClinicas.AsNoTracking()
-                .Where(n => n.TipoDestino == tipoDestino && n.RevisadaPorMedico && n.Activo
+                .Where(n => n.TipoDestino == tipoDestino && n.Publicado && n.Activo
                             && n.Secciones.Any(s => s.Contenido != null && s.Contenido.Trim() != ""))
                 .Select(n => n.DestinoId)
                 .ToListAsync();

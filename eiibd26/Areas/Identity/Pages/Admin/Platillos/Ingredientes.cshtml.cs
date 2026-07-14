@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using eiibd26.Data;
 using eiibd26.Models.Platillos;
+using eiibd26.Services.Platillos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -14,8 +16,15 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
     [Authorize(Roles = "Administrador")]
     public class IngredientesModel : PageModel
     {
+        private const string TipoDestino = "Ingrediente";
+
         private readonly ApplicationDbContext _db;
-        public IngredientesModel(ApplicationDbContext db) => _db = db;
+        private readonly IPlatNotaAdminService _notas;
+        public IngredientesModel(ApplicationDbContext db, IPlatNotaAdminService notas)
+        {
+            _db = db;
+            _notas = notas;
+        }
 
         public List<PlatIngrediente> Items { get; set; } = new();
 
@@ -23,7 +32,13 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
         public List<PlatGrupo> GrupoOptions { get; set; } = new();
         public List<PlatAtributo> AtributoOptions { get; set; } = new();   // intrínsecos (Ambito='Ingrediente')
 
+        // Estado de la nota clínica por IngredienteId (columna de la lista).
+        public Dictionary<int, PlatNotaEstado> NotaEstados { get; set; } = new();
+        // Panel lateral de nota: no null cuando NotaId trae un ingrediente a editar.
+        public PlatNotaEditVm? NotaEdit { get; set; }
+
         [BindProperty(SupportsGet = true)] public int? EditId { get; set; }
+        [BindProperty(SupportsGet = true)] public int? NotaId { get; set; }
 
         [BindProperty] public int Id { get; set; }
         [BindProperty] public string? Nombre { get; set; }
@@ -31,13 +46,32 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
         [BindProperty] public string? NotasEII { get; set; }
         [BindProperty] public List<int> SelectedAtributoIds { get; set; } = new();
 
+        // Binding del formulario de nota (panel lateral).
+        [BindProperty] public int NotaDestinoId { get; set; }
+        [BindProperty] public string? NotaTitulo { get; set; }
+        [BindProperty] public List<PlatNotaSeccionInput> NotaSecciones { get; set; } = new();
+        [BindProperty] public List<PlatNotaReferenciaInput> NotaReferencias { get; set; } = new();
+
         [TempData] public string? SuccessMessage { get; set; }
         [TempData] public string? ErrorMessage { get; set; }
 
         public async Task OnGetAsync()
         {
             await LoadAsync();
+            await CargarPanelNotaAsync();
         }
+
+        // Carga el panel lateral si la URL trae ?notaId= (ingrediente a editar).
+        private async Task CargarPanelNotaAsync()
+        {
+            if (!NotaId.HasValue) return;
+            var ing = Items.FirstOrDefault(i => i.Id == NotaId.Value);
+            if (ing == null) return;
+            NotaEdit = await _notas.CargarAsync(TipoDestino, ing.Id, ing.Nombre);
+        }
+
+        private Guid CurrentUserId() =>
+            Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : Guid.Empty;
 
         private async Task LoadAsync()
         {
@@ -46,6 +80,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
                 .Include(i => i.Atributos).ThenInclude(a => a.Atributo)
                 .OrderBy(i => i.Nombre)
                 .ToListAsync();
+
+            // Estado de nota por ingrediente (Sin nota / Borrador / Publicada), en una sola consulta.
+            NotaEstados = await _notas.ObtenerEstadosAsync(TipoDestino);
 
             // Combos: solo activos para registros nuevos. Si estamos editando, incluir además
             // la referencia ya asignada aunque esté inactiva (§7.2: no se pierde lo capturado).
@@ -167,6 +204,31 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
             await _db.SaveChangesAsync();
             SuccessMessage = ent.Activo ? "Ingrediente reactivado." : "Ingrediente desactivado.";
             return RedirectToPage();
+        }
+
+        // ---- Nota clínica (panel lateral). Reglas en PlatNotaAdminService; aquí handlers finos. ----
+
+        public async Task<IActionResult> OnPostGuardarNotaAsync()
+        {
+            var (ok, msg) = await _notas.GuardarBorradorAsync(
+                TipoDestino, NotaDestinoId, NotaTitulo, NotaSecciones, NotaReferencias);
+            if (ok) SuccessMessage = msg; else ErrorMessage = msg;
+            // Reabre el panel en el mismo ingrediente para seguir editando / publicar.
+            return RedirectToPage(new { notaId = NotaDestinoId });
+        }
+
+        public async Task<IActionResult> OnPostPublicarNotaAsync(int destinoId)
+        {
+            var (ok, msg) = await _notas.PublicarAsync(TipoDestino, destinoId, CurrentUserId());
+            if (ok) SuccessMessage = msg; else ErrorMessage = msg;
+            return RedirectToPage(new { notaId = destinoId });
+        }
+
+        public async Task<IActionResult> OnPostDespublicarNotaAsync(int destinoId)
+        {
+            var (ok, msg) = await _notas.DespublicarAsync(TipoDestino, destinoId);
+            if (ok) SuccessMessage = msg; else ErrorMessage = msg;
+            return RedirectToPage(new { notaId = destinoId });
         }
     }
 }

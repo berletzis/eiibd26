@@ -5,12 +5,12 @@ namespace eiibd26.Services.Platillos
 {
     /// <summary>
     /// ÚNICO punto de acceso de lectura a las notas clínicas para el paciente. El candado
-    /// (RevisadaPorMedico = 1 AND Activo = 1 AND ≥1 sección con contenido) vive aquí y en
+    /// (Publicado = 1 AND Activo = 1 AND ≥1 sección con contenido) vive aquí y en
     /// ningún otro lado: ninguna vista consulta PlatNotaClinica directo. Así es IMPOSIBLE
     /// pedir una nota sin el candado, no solo "poco probable".
     ///
-    /// Regla de oro que estas firmas garantizan: nota inexistente, nota no revisada y nota
-    /// revisada-pero-sin-contenido devuelven exactamente lo mismo — nada.
+    /// Regla de oro que estas firmas garantizan: nota inexistente, nota no publicada y nota
+    /// publicada-pero-sin-contenido devuelven exactamente lo mismo — nada.
     /// </summary>
     public interface IPlatNotaClinicaService
     {
