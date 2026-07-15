@@ -526,6 +526,12 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
         {
             b.ToTable("ValidacionesContenidoProfesional");
             b.HasKey(v => v.Id);
+            // Las columnas TipoContenido y Estado son TINYINT en la BD, pero los enums son int por
+            // defecto. Sin esto, EF lee con GetInt32 sobre un TINYINT → InvalidCastException (Byte→Int32)
+            // al materializar la entidad completa (p.ej. ObtenerMiValidacionAsync). HasConversion<byte>
+            // los mapea como byte: lectura y escritura correctas.
+            b.Property(v => v.TipoContenido).HasConversion<byte>();
+            b.Property(v => v.Estado).HasConversion<byte>();
             b.HasIndex(v => new { v.TipoContenido, v.ContenidoId, v.UsuarioMedicoId })
              .IsUnique()
              .HasDatabaseName("IX_VCP_Unique_TipoContenidoId_Medico");
@@ -533,6 +539,13 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
              .HasDatabaseName("IX_VCP_UsuarioMedicoId");
             b.HasIndex(v => new { v.TipoContenido, v.ContenidoId })
              .HasDatabaseName("IX_VCP_TipoContenido_ContenidoId");
+        });
+
+        // Espejo: ValidacionRespuestaProfesional.Estado también es TINYINT (enum int) y sin config →
+        // mismo bug latente Byte→Int32 al materializar. Misma conversión (no tiene TipoContenido).
+        builder.Entity<eiibd26.Models.Validacion.ValidacionRespuestaProfesional>(b =>
+        {
+            b.Property(v => v.Estado).HasConversion<byte>();
         });
 
         // LaboratoryType — catálogo jerárquico
