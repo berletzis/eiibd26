@@ -10,6 +10,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
 {
+    /// <summary>
+    /// Listado de categorías — solo la lista (banco de trabajo). El alta y la edición viven en
+    /// CategoriaDetalle, que se abre en pestaña aparte. Aquí queda la baja lógica, que es una
+    /// acción de la propia lista.
+    /// </summary>
     [Authorize(Roles = "Administrador")]
     public class CategoriasModel : PageModel
     {
@@ -18,64 +23,16 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
 
         public List<PlatCategoria> Items { get; set; } = new();
 
-        [BindProperty(SupportsGet = true)] public int? EditId { get; set; }
-
-        [BindProperty] public int Id { get; set; }
-        [BindProperty] public string? Nombre { get; set; }
-        [BindProperty] public int Orden { get; set; }
-
         [TempData] public string? SuccessMessage { get; set; }
         [TempData] public string? ErrorMessage { get; set; }
 
-        public async Task OnGetAsync()
-        {
-            await LoadAsync();
-            if (EditId.HasValue)
-            {
-                var ent = Items.FirstOrDefault(x => x.Id == EditId.Value);
-                if (ent != null) { Id = ent.Id; Nombre = ent.Nombre; Orden = ent.Orden; }
-            }
-        }
+        public async Task OnGetAsync() => await LoadAsync();
 
         private async Task LoadAsync()
         {
             Items = await _db.PlatCategorias.AsNoTracking()
                 .OrderBy(x => x.Orden).ThenBy(x => x.Nombre)
                 .ToListAsync();
-        }
-
-        public async Task<IActionResult> OnPostGuardarAsync()
-        {
-            var nombre = (Nombre ?? "").Trim();
-            if (string.IsNullOrWhiteSpace(nombre))
-            {
-                ErrorMessage = "El nombre es obligatorio.";
-                return RedirectToPage(new { editId = Id > 0 ? Id : (int?)null });
-            }
-
-            var dup = await _db.PlatCategorias.AnyAsync(x => x.Nombre.ToLower() == nombre.ToLower() && x.Id != Id);
-            if (dup)
-            {
-                ErrorMessage = $"Ya existe una categoría llamada \"{nombre}\".";
-                return RedirectToPage(new { editId = Id > 0 ? Id : (int?)null });
-            }
-
-            if (Id > 0)
-            {
-                var ent = await _db.PlatCategorias.FirstOrDefaultAsync(x => x.Id == Id);
-                if (ent == null) { ErrorMessage = "Categoría no encontrada."; return RedirectToPage(); }
-                ent.Nombre = nombre;
-                ent.Orden = Orden;
-                await _db.SaveChangesAsync();
-                SuccessMessage = "Categoría actualizada.";
-            }
-            else
-            {
-                _db.PlatCategorias.Add(new PlatCategoria { Nombre = nombre, Orden = Orden, Activo = true });
-                await _db.SaveChangesAsync();
-                SuccessMessage = "Categoría creada.";
-            }
-            return RedirectToPage();
         }
 
         public async Task<IActionResult> OnPostToggleActivoAsync(int id)
