@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using eiibd26.Data;
 using eiibd26.Helpers;
+using eiibd26.Services.Platillos;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -17,7 +18,12 @@ namespace eiibd26.Pages.Platillos
     public class DetalleModel : PageModel
     {
         private readonly ApplicationDbContext _db;
-        public DetalleModel(ApplicationDbContext db) => _db = db;
+        private readonly IPlatNotaClinicaService _notas;
+        public DetalleModel(ApplicationDbContext db, IPlatNotaClinicaService notas)
+        {
+            _db = db;
+            _notas = notas;
+        }
 
         public string Slug { get; private set; } = "";
         public int PlatilloId { get; private set; }
@@ -40,6 +46,9 @@ namespace eiibd26.Pages.Platillos
             public bool EsAlGusto;
             public string? NotaPreparacion;
             public List<string> Usos = new();   // crudo / frito / en jugo
+            // ¿Hay contenido clínico PUBLICADO que ver en su página? (su nota o la de su grupo).
+            // Se determina por el candado (bulk); si una nota se despublica, esto se apaga solo.
+            public bool TieneNota;
         }
 
         // ¿Cómo encaja contigo?
@@ -105,9 +114,18 @@ namespace eiibd26.Pages.Platillos
                 .Where(a => usoIds.Contains(a.Id))
                 .ToDictionaryAsync(a => a.Id, a => a.Nombre);
 
+            // Badge "¿Puedo comerlo?": ¿el ingrediente tiene contenido clínico PUBLICADO que ver — su
+            // propia nota o la de su grupo (ambas se muestran en su página)? Vía el candado (bulk, sin
+            // N+1); NUNCA una query propia que pueda colar borradores. Si una nota se despublica, el
+            // badge se apaga solo porque depende del mismo servicio.
+            var ingConNota = await _notas.ObtenerDestinosConNotaVisibleAsync("Ingrediente");
+            var grupoConNota = await _notas.ObtenerDestinosConNotaVisibleAsync("Grupo");
+
             foreach (var r in rows)
             {
                 var nom = ingNombre.TryGetValue(r.IngredienteId, out var nn) ? nn : "(ingrediente)";
+                var tieneNota = ingConNota.Contains(r.IngredienteId)
+                    || (ingGrupo.TryGetValue(r.IngredienteId, out var gid) && grupoConNota.Contains(gid));
                 Ingredientes.Add(new RowVm
                 {
                     Nombre = nom,
@@ -118,7 +136,8 @@ namespace eiibd26.Pages.Platillos
                     NotaPreparacion = r.NotaPreparacion,
                     Usos = r.Atributos
                         .Select(a => atrNombre.TryGetValue(a.AtributoId, out var an) ? an : null)
-                        .Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x!).OrderBy(x => x).ToList()
+                        .Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x!).OrderBy(x => x).ToList(),
+                    TieneNota = tieneNota
                 });
             }
 
