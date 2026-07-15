@@ -3,11 +3,19 @@
 @model eiibd26.Areas.Identity.Pages.Admin.Platillos.UnidadesModel
 @{
     ViewData["Title"] = "Platillos · Unidades";
-    var editing = Model.Id > 0;
 }
 
-<div class="container py-4">
-    <h1 class="h4 mb-1">Unidades de medida</h1>
+@section Styles {
+    <link rel="stylesheet" href="~/css/admin-grid.css" asp-append-version="true" />
+}
+
+<div class="eii-page eii-page--wide">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+        <h1 class="eii-page-title eii-page-title--sm mb-0">Unidades de medida</h1>
+        <a class="eii-btn eii-btn--primary" asp-page="UnidadDetalle" target="_blank" rel="noopener">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i> Nueva unidad
+        </a>
+    </div>
     <p class="eii-form-text mb-4">pieza, taza, g, kg, ml, l, cda, cdta, al gusto, paquete, bandeja, tarro.</p>
 
     @if (!string.IsNullOrEmpty(Model.SuccessMessage))
@@ -19,65 +27,54 @@
         <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
     }
 
-    <div class="eii-card mb-4">
-        <div class="eii-card__body">
-            <h2 class="eii-card__title h6 mb-3">@(editing ? "Editar unidad" : "Nueva unidad")</h2>
-            <form method="post" asp-page-handler="Guardar" class="row g-3">
-                <input type="hidden" asp-for="Id" />
-                <div class="col-md-8">
-                    <label class="eii-label eii-label--required" asp-for="Nombre">Nombre</label>
-                    <input class="eii-input" asp-for="Nombre" maxlength="100" autocomplete="off" required />
-                </div>
-                <div class="col-12 d-flex gap-2">
-                    <button type="submit" class="eii-btn eii-btn--primary">@(editing ? "Guardar cambios" : "Crear")</button>
-                    @if (editing)
-                    {
-                        <a class="eii-btn eii-btn--ghost" asp-page="Unidades">Cancelar</a>
-                    }
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div class="eii-card">
-        <div class="eii-card__body">
-            <table class="table align-middle mb-0">
-                <thead>
+    <div class="eii-admin-grid-wrap">
+        @* El id es obligatorio: stateSave lo usa como llave. Nada de fila "no hay
+           registros" — DataTables la pone vía data-eii-grid-empty (si fuera una
+           <tr> real, la contaría como registro). *@
+        <table id="gridUnidades"
+               class="table table-hover align-middle mb-0"
+               data-eii-grid
+               data-eii-grid-empty="Aún no hay unidades."
+               data-eii-grid-order="0:asc">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Estado</th>
+                    <th data-no-sort class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var u in Model.Items)
+                {
                     <tr>
-                        <th>Nombre</th>
-                        <th>Estado</th>
-                        <th class="text-end">Acciones</th>
+                        <td>@u.Nombre</td>
+                        <td>
+                            @if (u.Activo)
+                            {
+                                <span class="eii-badge">Activo</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">Inactivo</span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            <a class="eii-btn eii-btn--ghost eii-btn--sm"
+                               asp-page="UnidadDetalle" asp-route-id="@u.Id"
+                               target="_blank" rel="noopener">Editar</a>
+                            <form method="post" asp-page-handler="ToggleActivo" asp-route-id="@u.Id" class="d-inline">
+                                <button type="submit" class="eii-btn eii-btn--link eii-btn--sm">@(u.Activo ? "Desactivar" : "Reactivar")</button>
+                            </form>
+                        </td>
                     </tr>
-                </thead>
-                <tbody>
-                    @foreach (var u in Model.Items)
-                    {
-                        <tr>
-                            <td>@u.Nombre</td>
-                            <td>
-                                @if (u.Activo)
-                                {
-                                    <span class="eii-badge">Activo</span>
-                                }
-                                else
-                                {
-                                    <span class="text-muted">Inactivo</span>
-                                }
-                            </td>
-                            <td class="text-end">
-                                <a class="eii-btn eii-btn--ghost eii-btn--sm" asp-page="Unidades" asp-route-editId="@u.Id">Editar</a>
-                                <form method="post" asp-page-handler="ToggleActivo" asp-route-id="@u.Id" class="d-inline">
-                                    <button type="submit" class="eii-btn eii-btn--link eii-btn--sm">@(u.Activo ? "Desactivar" : "Reactivar")</button>
-                                </form>
-                            </td>
-                        </tr>
-                    }
-                    @if (!Model.Items.Any())
-                    {
-                        <tr><td colspan="3" class="text-center text-muted py-3">Aún no hay unidades.</td></tr>
-                    }
-                </tbody>
-            </table>
-        </div>
+                }
+            </tbody>
+        </table>
     </div>
 </div>
+
+@section Scripts {
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script src="~/js/admin-grid.js" asp-append-version="true"></script>
+}
