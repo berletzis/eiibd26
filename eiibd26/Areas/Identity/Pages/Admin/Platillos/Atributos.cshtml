@@ -3,11 +3,19 @@
 @model eiibd26.Areas.Identity.Pages.Admin.Platillos.AtributosModel
 @{
     ViewData["Title"] = "Platillos · Atributos";
-    var editing = Model.Id > 0;
 }
 
-<div class="container py-4">
-    <h1 class="h4 mb-1">Atributos</h1>
+@section Styles {
+    <link rel="stylesheet" href="~/css/admin-grid.css" asp-append-version="true" />
+}
+
+<div class="eii-page eii-page--wide">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+        <h1 class="eii-page-title eii-page-title--sm mb-0">Atributos</h1>
+        <a class="eii-btn eii-btn--primary" asp-page="AtributoDetalle" target="_blank" rel="noopener">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i> Nuevo atributo
+        </a>
+    </div>
     <p class="eii-form-text mb-4">
         Cómo se comporta un alimento. <strong>Ingrediente</strong> = intrínseco, cómo es siempre (gluten, picante, cítrico).
         <strong>Uso</strong> = cómo se usa en un platillo (crudo, frito, en jugo).
@@ -22,90 +30,56 @@
         <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
     }
 
-    <div class="eii-card mb-4">
-        <div class="eii-card__body">
-            <h2 class="eii-card__title h6 mb-3">@(editing ? "Editar atributo" : "Nuevo atributo")</h2>
-            <form method="post" asp-page-handler="Guardar" class="row g-3">
-                <input type="hidden" asp-for="Id" />
-                <div class="col-md-5">
-                    <label class="eii-label eii-label--required" asp-for="Nombre">Nombre</label>
-                    <input class="eii-input" asp-for="Nombre" maxlength="100" autocomplete="off" required />
-                </div>
-                <div class="col-md-4">
-                    <label class="eii-label eii-label--required" asp-for="Ambito">Ámbito</label>
-                    <select class="eii-select" asp-for="Ambito" required>
-                        <option value="">(Seleccionar)</option>
-                        @foreach (var a in eiibd26.Areas.Identity.Pages.Admin.Platillos.AtributosModel.Ambitos)
-                        {
-                            @if (Model.Ambito == a)
+    <div class="eii-admin-grid-wrap">
+        @* Sin data-eii-grid-order: el servidor ordena por Ámbito y luego Nombre
+           (dos columnas), y el componente respeta ese orden por defecto. *@
+        <table id="gridAtributos"
+               class="table table-hover align-middle mb-0"
+               data-eii-grid
+               data-eii-grid-empty="Aún no hay atributos.">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Ámbito</th>
+                    <th>Descripción</th>
+                    <th>Estado</th>
+                    <th data-no-sort class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var a in Model.Items)
+                {
+                    <tr>
+                        <td>@a.Nombre</td>
+                        <td><span class="eii-badge">@a.Ambito</span></td>
+                        <td class="text-muted">@a.Descripcion</td>
+                        <td>
+                            @if (a.Activo)
                             {
-                                <option value="@a" selected>@a</option>
+                                <span class="eii-badge">Activo</span>
                             }
                             else
                             {
-                                <option value="@a">@a</option>
+                                <span class="text-muted">Inactivo</span>
                             }
-                        }
-                    </select>
-                </div>
-                <div class="col-12">
-                    <label class="eii-label" asp-for="Descripcion">Descripción</label>
-                    <input class="eii-input" asp-for="Descripcion" maxlength="500" autocomplete="off" />
-                </div>
-                <div class="col-12 d-flex gap-2">
-                    <button type="submit" class="eii-btn eii-btn--primary">@(editing ? "Guardar cambios" : "Crear")</button>
-                    @if (editing)
-                    {
-                        <a class="eii-btn eii-btn--ghost" asp-page="Atributos">Cancelar</a>
-                    }
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div class="eii-card">
-        <div class="eii-card__body">
-            <table class="table align-middle mb-0">
-                <thead>
-                    <tr>
-                        <th>Nombre</th>
-                        <th>Ámbito</th>
-                        <th>Descripción</th>
-                        <th>Estado</th>
-                        <th class="text-end">Acciones</th>
+                        </td>
+                        <td class="text-end">
+                            <a class="eii-btn eii-btn--ghost eii-btn--sm"
+                               asp-page="AtributoDetalle" asp-route-id="@a.Id"
+                               target="_blank" rel="noopener">Editar</a>
+                            <form method="post" asp-page-handler="ToggleActivo" asp-route-id="@a.Id" class="d-inline">
+                                <button type="submit" class="eii-btn eii-btn--link eii-btn--sm">@(a.Activo ? "Desactivar" : "Reactivar")</button>
+                            </form>
+                        </td>
                     </tr>
-                </thead>
-                <tbody>
-                    @foreach (var a in Model.Items)
-                    {
-                        <tr>
-                            <td>@a.Nombre</td>
-                            <td><span class="eii-badge">@a.Ambito</span></td>
-                            <td class="text-muted">@a.Descripcion</td>
-                            <td>
-                                @if (a.Activo)
-                                {
-                                    <span class="eii-badge">Activo</span>
-                                }
-                                else
-                                {
-                                    <span class="text-muted">Inactivo</span>
-                                }
-                            </td>
-                            <td class="text-end">
-                                <a class="eii-btn eii-btn--ghost eii-btn--sm" asp-page="Atributos" asp-route-editId="@a.Id">Editar</a>
-                                <form method="post" asp-page-handler="ToggleActivo" asp-route-id="@a.Id" class="d-inline">
-                                    <button type="submit" class="eii-btn eii-btn--link eii-btn--sm">@(a.Activo ? "Desactivar" : "Reactivar")</button>
-                                </form>
-                            </td>
-                        </tr>
-                    }
-                    @if (!Model.Items.Any())
-                    {
-                        <tr><td colspan="5" class="text-center text-muted py-3">Aún no hay atributos.</td></tr>
-                    }
-                </tbody>
-            </table>
-        </div>
+                }
+            </tbody>
+        </table>
     </div>
 </div>
+
+@section Scripts {
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script src="~/js/admin-grid.js" asp-append-version="true"></script>
+}

@@ -1,0 +1,85 @@
+@page "{id?}"
+@model eiibd26.Areas.Identity.Pages.Admin.Platillos.AtributoDetalleModel
+@{
+    var editing = Model.Id.HasValue && Model.Id.Value > 0;
+    ViewData["Title"] = editing ? "Editar atributo" : "Nuevo atributo";
+    var listaUrl = Url.Page("Atributos");
+}
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h4 mb-0">@(editing ? "Editar atributo" : "Nuevo atributo")</h1>
+        <a class="eii-btn eii-btn--ghost" href="@listaUrl">← Volver al listado</a>
+    </div>
+
+    <p class="eii-form-text mb-3">
+        <strong>Ingrediente</strong> = intrínseco, cómo es siempre (gluten, picante, cítrico).
+        <strong>Uso</strong> = cómo se usa en un platillo (crudo, frito, en jugo).
+    </p>
+
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="alert alert-success" role="alert">
+            @Model.SuccessMessage
+            <a href="@listaUrl" class="alert-link ms-2">Volver al listado</a>
+        </div>
+        @* Solo tras un guardado exitoso: avisa a la pestaña del grid, que mostrará
+           su píldora "Actualizar". No recarga ni cierra nada de esta pestaña. *@
+        <div data-eii-grid-notify="atributo" hidden></div>
+    }
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+    }
+
+    <div class="eii-card">
+        <div class="eii-card__body">
+            <form method="post" asp-page-handler="Guardar" class="row g-3">
+                <input type="hidden" asp-for="Id" />
+                <div class="col-md-5">
+                    <label class="eii-label eii-label--required" asp-for="Nombre">Nombre</label>
+                    <input class="eii-input" asp-for="Nombre" maxlength="100" autocomplete="off" required autofocus />
+                </div>
+                <div class="col-md-4">
+                    <label class="eii-label eii-label--required" asp-for="Ambito">Ámbito</label>
+                    <select class="eii-select" asp-for="Ambito" required>
+                        <option value="">(Seleccionar)</option>
+                        @foreach (var a in eiibd26.Areas.Identity.Pages.Admin.Platillos.AtributoDetalleModel.Ambitos)
+                        {
+                            @if (Model.Ambito == a)
+                            {
+                                <option value="@a" selected>@a</option>
+                            }
+                            else
+                            {
+                                <option value="@a">@a</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="eii-label" asp-for="Descripcion">Descripción</label>
+                    <input class="eii-input" asp-for="Descripcion" maxlength="500" autocomplete="off" />
+                </div>
+                @if (editing && !Model.Activo)
+                {
+                    <div class="col-12">
+                        <span class="eii-form-text">
+                            <i class="bi bi-info-circle" aria-hidden="true"></i>
+                            Este atributo está inactivo. Se reactiva desde el listado.
+                        </span>
+                    </div>
+                }
+                <div class="col-12 d-flex gap-2">
+                    <button type="submit" class="eii-btn eii-btn--primary">@(editing ? "Guardar cambios" : "Crear")</button>
+                    <a class="eii-btn eii-btn--ghost" href="@listaUrl">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @* Sin DataTables: acá admin-grid.js solo hace el aviso de guardado. *@
+    <script src="~/js/admin-grid.js" asp-append-version="true"></script>
+}
