@@ -30,6 +30,9 @@
      data-eii-grid-server       URL de un handler GridData → modo server-side
      <th data-no-sort>          columna no ordenable
 
+   Y en cualquier form del grid, un botón con data-eii-confirm="mensaje" pide
+   confirmación antes de enviar. Sin el atributo, el submit va sin fricción.
+
    EL ID DE LA TABLA ES OBLIGATORIO: stateSave guarda en localStorage con la
    llave DataTables_{id}_{pathname}. Sin id, la llave no es estable y el estado
    no sobrevive a la recarga — que es justo lo que hace usable a la píldora.
@@ -163,6 +166,22 @@
         });
     }
 
+    /* ---------- Confirmación antes de un submit con consecuencias ---------- */
+    /* Genérico a propósito: el componente NO sabe de notas ni de grupos. La página
+       decide CUÁNDO hay que confirmar y con qué texto — si el atributo no está, el
+       submit procede sin fricción. window.confirm es el mecanismo que ya usan los
+       grids admin (BannersInicio, Campañas): mismo patrón, sin modal nuevo. */
+    function initConfirmaciones() {
+        document.addEventListener("submit", function (e) {
+            var form = e.target;
+            if (!form || form.tagName !== "FORM") return;
+            var disparador = form.querySelector("[data-eii-confirm]");
+            if (!disparador) return;
+            var msg = disparador.getAttribute("data-eii-confirm");
+            if (msg && !window.confirm(msg)) e.preventDefault();
+        });
+    }
+
     /* ---------- Aviso desde la pestaña de edición ---------- */
     function initAvisoGuardado(el) {
         var msg = { tipo: "guardado", entidad: el.getAttribute("data-eii-grid-notify") || "" };
@@ -189,6 +208,7 @@
         if (grids.length || document.querySelector("[data-eii-grid-listen]")) initEscuchaGuardado();
 
         document.querySelectorAll("[data-eii-grid-notify]").forEach(initAvisoGuardado);
+        initConfirmaciones();
     }
 
     if (document.readyState === "loading") {

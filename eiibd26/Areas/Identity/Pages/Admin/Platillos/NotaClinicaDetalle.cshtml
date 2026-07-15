@@ -1,0 +1,311 @@
+@page "{tipo}/{destinoId:int}"
+@using eiibd26.Services.Platillos
+@model eiibd26.Areas.Identity.Pages.Admin.Platillos.NotaClinicaDetalleModel
+@{
+    ViewData["Title"] = $"Nota clínica de: {Model.Nota.DestinoNombre}";
+    var listaUrl = Url.Page(Model.ListaPage);
+    // Siempre al menos una fila de sección, para no dar un editor sin dónde escribir.
+    var secciones = Model.Nota.Secciones.Count > 0
+        ? Model.Nota.Secciones
+        : new List<PlatNotaSeccionInput> { new() };
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/admin-nota.css" asp-append-version="true" />
+}
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h4 mb-0">
+            Nota clínica de: <span class="text-capitalize">@Model.Nota.DestinoNombre</span>
+        </h1>
+        <a class="eii-btn eii-btn--ghost" href="@listaUrl">← Volver al listado</a>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="alert alert-success" role="alert">
+            @Model.SuccessMessage
+            <a href="@listaUrl" class="alert-link ms-2">Volver al listado</a>
+        </div>
+        @* Solo tras un guardado exitoso: avisa a la pestaña del listado, que mostrará su
+           píldora "Actualizar" (cambió el estado de la nota en su columna). *@
+        <div data-eii-grid-notify="nota" hidden></div>
+    }
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+    }
+
+    @*
+        BLOQUE DE CONTEXTO — obligatorio, va ANTES del editor.
+        Abrir una nota nunca debe ser un formulario en el vacío: el editor tiene que ver
+        de inmediato qué anota y para quién aplica.
+    *@
+    <div class="eii-card mb-4">
+        <div class="eii-card__body">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                <span class="eii-badge">@(Model.EsGrupo ? "Grupo" : "Ingrediente")</span>
+                <partial name="_NotaEstadoBadge" model="Model.Nota.Estado" />
+                <span class="eii-form-text">
+                    <i class="bi bi-patch-check" aria-hidden="true"></i>
+                    @if (Model.ValidacionesCount == 0)
+                    {
+                        <text>Sin validaciones médicas</text>
+                    }
+                    else if (Model.ValidacionesCount == 1)
+                    {
+                        <text>1 validación médica</text>
+                    }
+                    else
+                    {
+                        <text>@Model.ValidacionesCount validaciones médicas</text>
+                    }
+                </span>
+            </div>
+
+            @if (!Model.EsGrupo)
+            {
+                @* --- Ficha del ingrediente: su grupo y sus atributos intrínsecos --- *@
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <span class="eii-form-text d-block">Grupo</span>
+                        <span class="text-capitalize">@(Model.GrupoNombre ?? "—")</span>
+                    </div>
+                    <div class="col-md-8">
+                        <span class="eii-form-text d-block mb-1">Atributos intrínsecos</span>
+                        @if (Model.Atributos.Any())
+                        {
+                            foreach (var a in Model.Atributos)
+                            {
+                                <span class="eii-badge">@a</span>
+                            }
+                        }
+                        else
+                        {
+                            <span class="text-muted">Ninguno.</span>
+                        }
+                    </div>
+                </div>
+
+                <hr class="my-3" />
+
+                @*
+                    TRAMPA 1: el enlace público puede mentir. La vista pública da 404 si el
+                    ingrediente está inactivo, y no muestra la nota si sigue en borrador.
+                    Enlace solo si está activo, y siempre con leyenda honesta de qué verá.
+                *@
+                @if (Model.DestinoActivo)
+                {
+                    <a class="eii-btn eii-btn--ghost eii-btn--sm"
+                       href="/Platillos/Ingrediente/@Model.DestinoSlug" target="_blank" rel="noopener">
+                        <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i> Verla como el paciente
+                    </a>
+                    <span class="eii-form-text ms-2">
+                        @if (Model.Nota.Publicado)
+                        {
+                            <text>Publicada: el paciente ve esta nota en esa página.</text>
+                        }
+                        else
+                        {
+                            <text><strong>Tu nota todavía no aparece ahí:</strong> está en borrador. Verás la página, pero sin la nota hasta que la publiques.</text>
+                        }
+                    </span>
+                }
+                else
+                {
+                    <span class="eii-form-text">
+                        <i class="bi bi-eye-slash" aria-hidden="true"></i>
+                        Este ingrediente está <strong>inactivo</strong>: no tiene página pública, así que no hay
+                        nada que ver como paciente. Reactívalo desde el listado si debe ser visible.
+                    </span>
+                }
+            }
+            else
+            {
+                @*
+                    TRAMPA 2: un grupo NO tiene página pública propia. Su nota sale en la página
+                    de CADA ingrediente del grupo — ese es su alcance, y por eso no hay un botón
+                    único "verla como el paciente": el camino es la lista.
+                *@
+                <span class="eii-form-text d-block mb-2">
+                    Alcance: esta nota aparece en la página de <strong>cada uno</strong> de estos ingredientes.
+                    Un grupo no tiene página pública propia.
+                </span>
+                @if (Model.IngredientesDelGrupo.Any())
+                {
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach (var i in Model.IngredientesDelGrupo)
+                        {
+                            @if (i.Activo)
+                            {
+                                <a class="eii-btn eii-btn--ghost eii-btn--sm text-capitalize"
+                                   href="/Platillos/Ingrediente/@i.Slug" target="_blank" rel="noopener">
+                                    @i.Nombre <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+                                </a>
+                            }
+                            else
+                            {
+                                <span class="eii-badge text-capitalize" title="Inactivo: no tiene página pública">
+                                    @i.Nombre (inactivo)
+                                </span>
+                            }
+                        }
+                    </div>
+                    @if (!Model.Nota.Publicado)
+                    {
+                        <span class="eii-form-text d-block mt-2">
+                            <strong>Tu nota todavía no aparece en ninguna:</strong> está en borrador.
+                        </span>
+                    }
+                }
+                else
+                {
+                    <span class="text-muted">
+                        Este grupo no tiene ingredientes todavía: la nota no se mostraría en ninguna página.
+                    </span>
+                }
+            }
+        </div>
+    </div>
+
+    @* --- Editor: secciones + bibliografía --- *@
+    <div class="eii-card">
+        <div class="eii-card__body">
+            <form method="post" asp-page-handler="GuardarNota" id="notaForm">
+                <div class="mb-3">
+                    <label class="eii-label" for="NotaTitulo">Título de la nota</label>
+                    <input class="eii-input" id="NotaTitulo" name="NotaTitulo" maxlength="200"
+                           autocomplete="off" value="@Model.Nota.Titulo"
+                           placeholder="Ej. ¿Puedo comer @Model.Nota.DestinoNombre?" />
+                </div>
+
+                <label class="eii-label">Secciones</label>
+                <span class="eii-form-text d-block mb-2">
+                    El cuerpo de la nota, en orden. Una viñeta por línea si empieza con &laquo;- &raquo;.
+                    Necesitas al menos una sección con contenido para poder publicar.
+                </span>
+
+                <div data-nota-secciones>
+                    @{ var si = 0; }
+                    @foreach (var s in secciones)
+                    {
+                        var key = si.ToString();
+                        si++;
+                        <div class="eii-nota-row" data-nota-row>
+                            <input type="hidden" name="NotaSecciones.Index" value="@key" />
+                            <div class="eii-nota-row__grid">
+                                <input class="eii-input" name="NotaSecciones[@key].Titulo" maxlength="200"
+                                       autocomplete="off" value="@s.Titulo"
+                                       placeholder="Título de la sección (opcional)" />
+                                <textarea class="eii-textarea" name="NotaSecciones[@key].Contenido" rows="4"
+                                          placeholder="Contenido de la sección…">@s.Contenido</textarea>
+                            </div>
+                            <button type="button" class="eii-nota-row__del" data-nota-del aria-label="Quitar sección">&times;</button>
+                        </div>
+                    }
+                </div>
+                <button type="button" class="eii-nota-addbtn" data-nota-add-seccion>
+                    <i class="bi bi-plus-lg" aria-hidden="true"></i> Agregar sección
+                </button>
+
+                <label class="eii-label mt-4">Referencias (bibliografía)</label>
+                <span class="eii-form-text d-block mb-2">Opcional. Se muestran al final de la nota. La URL es opcional.</span>
+
+                <div data-nota-referencias>
+                    @{ var ri = 0; }
+                    @foreach (var r in Model.Nota.Referencias)
+                    {
+                        var key = ri.ToString();
+                        ri++;
+                        <div class="eii-nota-row" data-nota-row>
+                            <input type="hidden" name="NotaReferencias.Index" value="@key" />
+                            <div class="eii-nota-row__grid">
+                                <input class="eii-input" name="NotaReferencias[@key].Titulo" maxlength="500"
+                                       autocomplete="off" value="@r.Titulo"
+                                       placeholder="Título / cita de la referencia" />
+                                <input class="eii-input" name="NotaReferencias[@key].Url" maxlength="1000"
+                                       autocomplete="off" value="@r.Url" placeholder="https://… (opcional)" />
+                            </div>
+                            <button type="button" class="eii-nota-row__del" data-nota-del aria-label="Quitar referencia">&times;</button>
+                        </div>
+                    }
+                </div>
+                <button type="button" class="eii-nota-addbtn" data-nota-add-ref>
+                    <i class="bi bi-plus-lg" aria-hidden="true"></i> Agregar referencia
+                </button>
+
+                <div class="mt-4 d-flex gap-2">
+                    <button type="submit" class="eii-btn eii-btn--primary">Guardar borrador</button>
+                    <a class="eii-btn eii-btn--ghost" href="@listaUrl">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @*
+        Publicar / despublicar: acto DELIBERADO y aparte del guardado (regla de F2a).
+        Guardar siempre deja en borrador; para publicar hay que guardar primero.
+    *@
+    <div class="eii-card mt-3">
+        <div class="eii-card__body d-flex flex-wrap align-items-center justify-content-between gap-3">
+            @if (Model.Nota.Publicado)
+            {
+                <span class="eii-form-text">
+                    <i class="bi bi-eye" aria-hidden="true"></i> Visible para los pacientes.
+                </span>
+                <form method="post" asp-page-handler="DespublicarNota">
+                    <button type="submit" class="eii-btn eii-btn--ghost">Despublicar</button>
+                </form>
+            }
+            else
+            {
+                <span class="eii-form-text">
+                    @if (Model.Nota.PuedePublicar)
+                    {
+                        <text><i class="bi bi-eye-slash" aria-hidden="true"></i> Borrador: el paciente no la ve. Guarda tus cambios antes de publicar.</text>
+                    }
+                    else
+                    {
+                        <text><i class="bi bi-exclamation-circle" aria-hidden="true"></i> Agrega y guarda una sección con contenido para poder publicar.</text>
+                    }
+                </span>
+                <form method="post" asp-page-handler="PublicarNota">
+                    <button type="submit" class="eii-btn eii-btn--primary" @(Model.Nota.PuedePublicar ? "" : "disabled")>Publicar</button>
+                </form>
+            }
+        </div>
+    </div>
+</div>
+
+@* Plantillas para filas nuevas (JS clona y reemplaza __IDX__ por una llave única). *@
+<template id="tpl-nota-seccion">
+    <div class="eii-nota-row" data-nota-row>
+        <input type="hidden" name="NotaSecciones.Index" value="__IDX__" />
+        <div class="eii-nota-row__grid">
+            <input class="eii-input" name="NotaSecciones[__IDX__].Titulo" maxlength="200"
+                   autocomplete="off" placeholder="Título de la sección (opcional)" />
+            <textarea class="eii-textarea" name="NotaSecciones[__IDX__].Contenido" rows="4"
+                      placeholder="Contenido de la sección…"></textarea>
+        </div>
+        <button type="button" class="eii-nota-row__del" data-nota-del aria-label="Quitar sección">&times;</button>
+    </div>
+</template>
+<template id="tpl-nota-referencia">
+    <div class="eii-nota-row" data-nota-row>
+        <input type="hidden" name="NotaReferencias.Index" value="__IDX__" />
+        <div class="eii-nota-row__grid">
+            <input class="eii-input" name="NotaReferencias[__IDX__].Titulo" maxlength="500"
+                   autocomplete="off" placeholder="Título / cita de la referencia" />
+            <input class="eii-input" name="NotaReferencias[__IDX__].Url" maxlength="1000"
+                   autocomplete="off" placeholder="https://… (opcional)" />
+        </div>
+        <button type="button" class="eii-nota-row__del" data-nota-del aria-label="Quitar referencia">&times;</button>
+    </div>
+</template>
+
+@section Scripts {
+    <script src="~/js/admin-nota.js" asp-append-version="true"></script>
+    @* Sin DataTables: acá admin-grid.js solo avisa al listado del guardado. *@
+    <script src="~/js/admin-grid.js" asp-append-version="true"></script>
+}

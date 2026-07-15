@@ -4,11 +4,21 @@
 @model eiibd26.Areas.Identity.Pages.Admin.Platillos.GruposModel
 @{
     ViewData["Title"] = "Platillos · Grupos";
-    var editing = Model.Id > 0;
 }
 
-<div class="container py-4">
-    <h1 class="h4 mb-1">Grupos de alimentos</h1>
+@section Styles {
+    <link rel="stylesheet" href="~/css/admin-grid.css" asp-append-version="true" />
+    @* Solo por el badge de estado de la nota en la columna. *@
+    <link rel="stylesheet" href="~/css/admin-nota.css" asp-append-version="true" />
+}
+
+<div class="eii-page eii-page--wide">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+        <h1 class="eii-page-title eii-page-title--sm mb-0">Grupos de alimentos</h1>
+        <a class="eii-btn eii-btn--primary" asp-page="GrupoDetalle" target="_blank" rel="noopener">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i> Nuevo grupo
+        </a>
+    </div>
     <p class="eii-form-text mb-4">Qué <strong>ES</strong> el alimento (lácteo, verdura, pescado…). El paciente casi siempre filtra por grupo.</p>
 
     @if (!string.IsNullOrEmpty(Model.SuccessMessage))
@@ -20,103 +30,80 @@
         <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
     }
 
-    <div class="eii-card mb-4">
-        <div class="eii-card__body">
-            <h2 class="eii-card__title h6 mb-3">@(editing ? "Editar grupo" : "Nuevo grupo")</h2>
-            <form method="post" asp-page-handler="Guardar" class="row g-3">
-                <input type="hidden" asp-for="Id" />
-                <div class="col-md-7">
-                    <label class="eii-label eii-label--required" asp-for="Nombre">Nombre</label>
-                    <input class="eii-input" asp-for="Nombre" maxlength="100" autocomplete="off" required />
-                </div>
-                <div class="col-md-3">
-                    <label class="eii-label" asp-for="Orden">Orden</label>
-                    <input class="eii-input" type="number" asp-for="Orden" />
-                </div>
-                <div class="col-12">
-                    <label class="eii-label" asp-for="NotasEII">Nota interna (EII)</label>
-                    <textarea class="eii-textarea" asp-for="NotasEII" rows="3" maxlength="2000"
-                              placeholder="Apuntes rápidos para el equipo. Ej. «intolerancia común», «cruda irrita en brote»."></textarea>
-                    <span class="eii-form-text"><strong>Interna: no se muestra al paciente.</strong> Referencia del equipo admin. El contenido que ve el paciente va en la <strong>Nota clínica</strong> (botón «Nota»), que se publica aparte.</span>
-                </div>
-                <div class="col-12 d-flex gap-2">
-                    <button type="submit" class="eii-btn eii-btn--primary">@(editing ? "Guardar cambios" : "Crear")</button>
-                    @if (editing)
-                    {
-                        <a class="eii-btn eii-btn--ghost" asp-page="Grupos">Cancelar</a>
-                    }
-                </div>
-            </form>
-        </div>
-    </div>
+    <div class="eii-admin-grid-wrap">
+        @* Sin data-eii-grid-order: el servidor ordena por Orden y luego Nombre. *@
+        <table id="gridGrupos"
+               class="table table-hover align-middle mb-0"
+               data-eii-grid
+               data-eii-grid-empty="Aún no hay grupos.">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Orden</th>
+                    <th>Nota clínica</th>
+                    <th>Estado</th>
+                    <th data-no-sort class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var g in Model.Items)
+                {
+                    var estadoNota = Model.NotaEstados.TryGetValue(g.Id, out var en) ? en : PlatNotaEstado.SinNota;
 
-    <div class="eii-card">
-        <div class="eii-card__body">
-            <div class="eii-list-search">
-                <i class="bi bi-search" aria-hidden="true"></i>
-                <input type="search" class="eii-input" data-nota-filter autocomplete="off"
-                       placeholder="Buscar grupo…" aria-label="Buscar grupo" />
-            </div>
-            <table class="table align-middle mb-0" data-nota-filterable>
-                <thead>
+                    @*
+                        Aviso al DESACTIVAR un grupo cuya nota clínica está publicada: el grupo es
+                        vocabulario, pero su nota tiene candado propio y NO se retira sola — seguirá
+                        visible en las páginas de sus ingredientes. Solo UI: el filtro de lectura
+                        (n.Publicado && n.Activo) no se toca, y el toggle procede si el admin acepta.
+                        Publicada ya significa "pasa el candado" (publicada + activa + con contenido),
+                        así que no avisamos de notas que en realidad nadie ve.
+                        Si es null, Razor omite el atributo → el submit va sin fricción.
+                    *@
+                    var avisoNotaPublicada = (g.Activo && estadoNota == PlatNotaEstado.Publicada)
+                        ? "Este grupo tiene una nota clínica publicada que seguirá visible en las páginas de sus ingredientes; despublícala desde su nota si quieres retirarla."
+                        : null;
                     <tr>
-                        <th>Nombre</th>
-                        <th>Orden</th>
-                        <th>Nota clínica</th>
-                        <th>Estado</th>
-                        <th class="text-end">Acciones</th>
+                        <td>@g.Nombre</td>
+                        <td>@g.Orden</td>
+                        <td>
+                            <a class="text-decoration-none"
+                               asp-page="NotaClinicaDetalle" asp-route-tipo="Grupo" asp-route-destinoId="@g.Id"
+                               target="_blank" rel="noopener"
+                               title="Editar nota clínica de @g.Nombre">
+                                <partial name="_NotaEstadoBadge" model="estadoNota" />
+                            </a>
+                        </td>
+                        <td>
+                            @if (g.Activo)
+                            {
+                                <span class="eii-badge">Activo</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">Inactivo</span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            <a class="eii-btn eii-btn--ghost eii-btn--sm"
+                               asp-page="NotaClinicaDetalle" asp-route-tipo="Grupo" asp-route-destinoId="@g.Id"
+                               target="_blank" rel="noopener">Nota</a>
+                            <a class="eii-btn eii-btn--ghost eii-btn--sm"
+                               asp-page="GrupoDetalle" asp-route-id="@g.Id"
+                               target="_blank" rel="noopener">Editar</a>
+                            <form method="post" asp-page-handler="ToggleActivo" asp-route-id="@g.Id" class="d-inline">
+                                <button type="submit" class="eii-btn eii-btn--link eii-btn--sm"
+                                        data-eii-confirm="@avisoNotaPublicada">@(g.Activo ? "Desactivar" : "Reactivar")</button>
+                            </form>
+                        </td>
                     </tr>
-                </thead>
-                <tbody>
-                    @foreach (var g in Model.Items)
-                    {
-                        var estadoNota = Model.NotaEstados.TryGetValue(g.Id, out var en) ? en : PlatNotaEstado.SinNota;
-                        <tr>
-                            <td data-nombre>@g.Nombre</td>
-                            <td>@g.Orden</td>
-                            <td>
-                                <a class="text-decoration-none" asp-page="Grupos" asp-route-notaId="@g.Id"
-                                   title="Editar nota clínica de @g.Nombre">
-                                    <partial name="_NotaEstadoBadge" model="estadoNota" />
-                                </a>
-                            </td>
-                            <td>
-                                @if (g.Activo)
-                                {
-                                    <span class="eii-badge">Activo</span>
-                                }
-                                else
-                                {
-                                    <span class="text-muted">Inactivo</span>
-                                }
-                            </td>
-                            <td class="text-end">
-                                <a class="eii-btn eii-btn--ghost eii-btn--sm" asp-page="Grupos" asp-route-notaId="@g.Id">Nota</a>
-                                <a class="eii-btn eii-btn--ghost eii-btn--sm" asp-page="Grupos" asp-route-editId="@g.Id">Editar</a>
-                                <form method="post" asp-page-handler="ToggleActivo" asp-route-id="@g.Id" class="d-inline">
-                                    <button type="submit" class="eii-btn eii-btn--link eii-btn--sm">@(g.Activo ? "Desactivar" : "Reactivar")</button>
-                                </form>
-                            </td>
-                        </tr>
-                    }
-                    @if (!Model.Items.Any())
-                    {
-                        <tr data-nota-empty><td colspan="5" class="text-center text-muted py-3">Aún no hay grupos.</td></tr>
-                    }
-                </tbody>
-            </table>
-        </div>
+                }
+            </tbody>
+        </table>
     </div>
 </div>
 
-@if (Model.NotaEdit != null)
-{
-    <partial name="_NotaClinicaPanel" model="Model.NotaEdit" />
-}
-
-@section Styles {
-    <link rel="stylesheet" href="~/css/admin-nota-panel.css" asp-append-version="true" />
-}
 @section Scripts {
-    <script src="~/js/admin-nota-panel.js" asp-append-version="true"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script src="~/js/admin-grid.js" asp-append-version="true"></script>
 }
