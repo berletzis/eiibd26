@@ -12,7 +12,7 @@ IF NOT EXISTS (
 BEGIN
     CREATE TABLE dbo.ValidacionesContenidoProfesional (
         Id              INT IDENTITY(1,1) NOT NULL,
-        TipoContenido   TINYINT NOT NULL,        -- 1 = Termino, 2 = Articulo
+        TipoContenido   TINYINT NOT NULL,        -- 1 = Termino, 2 = Articulo, 3 = PerfilMedico, 4 = NotaClinicaIngrediente
         ContenidoId     INT NOT NULL,            -- GlossaryTerm.Id | Contenido.Id
         UsuarioMedicoId NVARCHAR(450) NOT NULL,  -- AspNetUsers.Id
         Comentario      NVARCHAR(800) NULL,
@@ -24,7 +24,7 @@ BEGIN
         NotaModeracion  NVARCHAR(500) NULL,
 
         CONSTRAINT PK_ValidacionesContenidoProfesional PRIMARY KEY (Id),
-        CONSTRAINT CK_VCP_TipoContenido CHECK (TipoContenido IN (1, 2)),
+        CONSTRAINT CK_VCP_TipoContenido CHECK (TipoContenido IN (1, 2, 3, 4)),
         CONSTRAINT CK_VCP_Estado CHECK (Estado IN (1, 2, 3))
     );
     PRINT 'Tabla ValidacionesContenidoProfesional creada.';
