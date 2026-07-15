@@ -278,7 +278,4 @@ namespace eiibd26.Pages.Platillos
         public string Slug { get; set; } = "";
         public string Meta { get; set; } = "";
     }
-
-    // NotaValidacionVm se movió a su propio archivo Pages/Platillos/NotaValidacionVm.cs
-    // (tipo compartido entre la vista y el partial _NotaValidacion.cshtml).
 }

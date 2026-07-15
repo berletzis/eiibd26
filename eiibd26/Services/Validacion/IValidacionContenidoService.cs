@@ -43,6 +43,9 @@ namespace eiibd26.Services.Validacion
         public string Slug { get; set; } = "";
         public string PageHandler { get; set; } = "GuardarValidacion";
         public ValidacionExistenteDto? Existente { get; set; }
+        // Título del card (header). Default = el del glosario; Platillos lo rotula por nota
+        // ("Validar nota de: queso") para distinguir la tarjeta del ingrediente de la del grupo.
+        public string Titulo { get; set; } = "Validar contenido";
     }
 
     public interface IValidacionContenidoService

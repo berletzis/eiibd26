@@ -101,15 +101,8 @@
                 <div class="contenido-html">
                     <partial name="_NotaClinica" model="Model.IngredienteNota" />
                 </div>
-                @await Html.PartialAsync("_NotaValidacion", new eiibd26.Pages.Platillos.NotaValidacionVm
-                {
-                    NotaId       = Model.IngredienteNota.Id,
-                    DestinoLabel = Model.Nombre,
-                    Slug         = Model.Slug,
-                    CanValidate  = Model.CanValidate,
-                    MiValidacion = Model.MiValidIngrediente,
-                    Validadores  = Model.ValidadoresIngrediente
-                })
+                @* Sello para el paciente: bajo el contenido de la nota (la tarjeta de validar va al sidebar). *@
+                <partial name="_NotaSello" model="Model.ValidadoresIngrediente" />
             }
             @if (Model.GrupoNota != null)
             {
@@ -117,15 +110,7 @@
                     <h2>En el grupo: @Model.GrupoNombre</h2>
                     <partial name="_NotaClinica" model="Model.GrupoNota" />
                 </div>
-                @await Html.PartialAsync("_NotaValidacion", new eiibd26.Pages.Platillos.NotaValidacionVm
-                {
-                    NotaId       = Model.GrupoNota.Id,
-                    DestinoLabel = $"el grupo {Model.GrupoNombre}",
-                    Slug         = Model.Slug,
-                    CanValidate  = Model.CanValidate,
-                    MiValidacion = Model.MiValidGrupo,
-                    Validadores  = Model.ValidadoresGrupo
-                })
+                <partial name="_NotaSello" model="Model.ValidadoresGrupo" />
             }
 
             @* ===== Comunidad y experiencia (cards): widgets, apagados en v1 (módulo Tolerancia #16) ===== *@
@@ -211,6 +196,35 @@
                     <strong>no significa que te haga bien</strong>. Tu dieta la diseñas con tu médico o nutriólogo.
                 </p>
             </div>
+
+            @* ===== VALIDAR NOTA (solo médico/admin) — tarjeta en el sidebar, su hábitat natural (.sidebar-section),
+                    igual que el glosario. Una por nota visible, rotulada con cuál valida; el sello que ve el paciente
+                    va aparte, en la columna principal. Cada tarjeta se llavea por su NotaClinicaId. ===== *@
+            @if (Model.CanValidate)
+            {
+                @if (Model.IngredienteNota != null)
+                {
+                    @await Html.PartialAsync("_ValidacionContenidoMedico", new eiibd26.Services.Validacion.ValidacionContenidoPartialVm
+                    {
+                        ContenidoId = Model.IngredienteNota.Id,
+                        Slug        = Model.Slug,
+                        PageHandler = "GuardarValidacionNota",
+                        Titulo      = $"Validar nota de: {Model.Nombre}",
+                        Existente   = Model.MiValidIngrediente
+                    })
+                }
+                @if (Model.GrupoNota != null)
+                {
+                    @await Html.PartialAsync("_ValidacionContenidoMedico", new eiibd26.Services.Validacion.ValidacionContenidoPartialVm
+                    {
+                        ContenidoId = Model.GrupoNota.Id,
+                        Slug        = Model.Slug,
+                        PageHandler = "GuardarValidacionNota",
+                        Titulo      = $"Validar nota de: {Model.GrupoNombre}",
+                        Existente   = Model.MiValidGrupo
+                    })
+                }
+            }
 
             @* ===== PLATILLOS QUE LO INCLUYEN — espejo de "En otros sitios": .ext-item + "Ver más" AJAX.
                     Filas clicables al detalle del platillo; partial compartido (render inicial + AJAX). ===== *@
