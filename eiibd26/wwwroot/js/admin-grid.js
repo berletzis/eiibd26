@@ -13,6 +13,11 @@
         Se renderiza SOLO tras un guardado exitoso. Al cargar, avisa a la
         pestaña del grid. No recarga nada, no cierra nada.
 
+   Una lista que NO usa DataTables (Platillos/Index, que conserva su búsqueda y
+   paginación server-side) puede pedir solo la píldora con data-eii-grid-listen
+   en su contenedor. Sin eso, no habría a qué engancharse: la escucha va con el
+   grid, no con la página.
+
    El grid NUNCA se mueve solo: muestra la píldora y el usuario decide. Al
    pulsar "Actualizar" recarga, y stateSave lo devuelve a su búsqueda / orden /
    página — por eso las dos piezas van juntas.
@@ -179,7 +184,9 @@
     function init() {
         var grids = document.querySelectorAll("[data-eii-grid]");
         grids.forEach(initGrid);
-        if (grids.length) initEscuchaGuardado();
+
+        // La píldora también sirve a listas sin DataTables (data-eii-grid-listen).
+        if (grids.length || document.querySelector("[data-eii-grid-listen]")) initEscuchaGuardado();
 
         document.querySelectorAll("[data-eii-grid-notify]").forEach(initAvisoGuardado);
     }

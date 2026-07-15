@@ -5,11 +5,23 @@
     ViewData["Title"] = "Platillos";
 }
 
-<div class="container py-4">
+@section Styles {
+    <link rel="stylesheet" href="~/css/admin-grid.css" asp-append-version="true" />
+}
+
+@*
+    ÚNICO catálogo SIN DataTables, a propósito: los demás son vocabularios acotados
+    (≤57 filas), pero Platillos es contenido que crece. Conserva su motor server-side
+    intacto — búsqueda Q, filtro de categoría (con §7.2), Mostrar inactivos y paginación.
+    Aquí solo se le puso el traje visual de la familia + la píldora de "Actualizar"
+    (data-eii-grid-listen, ya que sin DataTables no hay grid al que engancharla).
+*@
+
+<div class="eii-page eii-page--wide">
     <div class="d-flex justify-content-between align-items-center mb-1">
-        <h1 class="h4 mb-0">Platillos</h1>
-        <a class="eii-btn eii-btn--primary" href="/Identity/Admin/Platillos/Detalle">
-            <i class="bi bi-plus-lg"></i> Nuevo platillo
+        <h1 class="eii-page-title eii-page-title--sm mb-0">Platillos</h1>
+        <a class="eii-btn eii-btn--primary" href="/Identity/Admin/Platillos/Detalle" target="_blank" rel="noopener">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i> Nuevo platillo
         </a>
     </div>
     <p class="eii-form-text mb-4">Catálogo de platillos. La captura completa se hace en el detalle.</p>
@@ -23,102 +35,103 @@
         <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
     }
 
-    <div class="eii-card mb-4">
-        <div class="eii-card__body">
-            <form method="get" class="row g-3 align-items-end">
-                <div class="col-md-5">
-                    <label class="eii-label" for="Q">Buscar</label>
-                    <input class="eii-input" id="Q" name="Q" value="@Model.Q" placeholder="Código o nombre…" autocomplete="off" />
-                </div>
-                <div class="col-md-4">
-                    <label class="eii-label" for="CategoriaId">Categoría</label>
-                    <select class="eii-select" id="CategoriaId" name="CategoriaId">
-                        <option value="">(Todas)</option>
-                        @foreach (var c in Model.Categorias)
+    <div class="eii-admin-grid-wrap" data-eii-grid-listen>
+        @* Controles arriba de la tabla: mismo reparto que DataTables da a los otros
+           grids (filtros arriba, tabla, paginador abajo). El motor no cambia. *@
+        <form method="get" class="row g-3 align-items-end mb-3">
+            <div class="col-md-5">
+                <label class="eii-label" for="Q">Buscar</label>
+                <input class="eii-input" id="Q" name="Q" value="@Model.Q" placeholder="Código o nombre…" autocomplete="off" />
+            </div>
+            <div class="col-md-4">
+                <label class="eii-label" for="CategoriaId">Categoría</label>
+                <select class="eii-select" id="CategoriaId" name="CategoriaId">
+                    <option value="">(Todas)</option>
+                    @foreach (var c in Model.Categorias)
+                    {
+                        @if (Model.CategoriaId == c.Id)
                         {
-                            @if (Model.CategoriaId == c.Id)
+                            <option value="@c.Id" selected>@c.Nombre @(c.Activo ? "" : "(inactiva)")</option>
+                        }
+                        else
+                        {
+                            <option value="@c.Id">@c.Nombre @(c.Activo ? "" : "(inactiva)")</option>
+                        }
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="d-inline-flex align-items-center gap-1">
+                    <input class="eii-checkbox" type="checkbox" name="MostrarInactivos" value="true" @(Model.MostrarInactivos ? "checked" : "") />
+                    <span>Mostrar inactivos</span>
+                </label>
+            </div>
+            <div class="col-12 d-flex gap-2">
+                <button type="submit" class="eii-btn eii-btn--primary eii-btn--sm">Buscar</button>
+                <a class="eii-btn eii-btn--ghost eii-btn--sm" href="/Identity/Admin/Platillos/Index">Limpiar</a>
+            </div>
+        </form>
+
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                    <th>Categoría</th>
+                    <th>Ingredientes</th>
+                    <th>Estado</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in Model.Items)
+                {
+                    <tr>
+                        <td>@r.Codigo</td>
+                        <td>@r.Nombre</td>
+                        <td>@(r.Categoria ?? "—")</td>
+                        <td>@r.NumIngredientes</td>
+                        <td>
+                            @if (r.Activo)
                             {
-                                <option value="@c.Id" selected>@c.Nombre @(c.Activo ? "" : "(inactiva)")</option>
+                                <span class="eii-badge">Activo</span>
                             }
                             else
                             {
-                                <option value="@c.Id">@c.Nombre @(c.Activo ? "" : "(inactiva)")</option>
+                                <span class="text-muted">Inactivo</span>
                             }
-                        }
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="d-inline-flex align-items-center gap-1">
-                        <input class="eii-checkbox" type="checkbox" name="MostrarInactivos" value="true" @(Model.MostrarInactivos ? "checked" : "") />
-                        <span>Mostrar inactivos</span>
-                    </label>
-                </div>
-                <div class="col-12 d-flex gap-2">
-                    <button type="submit" class="eii-btn eii-btn--primary">Buscar</button>
-                    <a class="eii-btn eii-btn--ghost" href="/Identity/Admin/Platillos/Index">Limpiar</a>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div class="eii-card">
-        <div class="eii-card__body">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="eii-form-text">@Model.TotalCount platillo(s)</span>
-                <span class="eii-form-text">Página @Model.PageNumber de @Model.TotalPages</span>
-            </div>
-            <table class="table align-middle mb-0">
-                <thead>
-                    <tr>
-                        <th>Código</th>
-                        <th>Nombre</th>
-                        <th>Categoría</th>
-                        <th>Ingredientes</th>
-                        <th>Estado</th>
-                        <th class="text-end">Acciones</th>
+                        </td>
+                        <td class="text-end">
+                            <a class="eii-btn eii-btn--ghost eii-btn--sm"
+                               href="/Identity/Admin/Platillos/Detalle?id=@r.Id"
+                               target="_blank" rel="noopener">Editar</a>
+                            <form method="post" asp-page-handler="ToggleActivo" class="d-inline">
+                                <input type="hidden" name="id" value="@r.Id" />
+                                <input type="hidden" name="q" value="@Model.Q" />
+                                <input type="hidden" name="categoriaId" value="@Model.CategoriaId" />
+                                <input type="hidden" name="pageNumber" value="@Model.PageNumber" />
+                                <input type="hidden" name="mostrarInactivos" value="@Model.MostrarInactivos.ToString().ToLower()" />
+                                <button type="submit" class="eii-btn eii-btn--link eii-btn--sm">@(r.Activo ? "Desactivar" : "Reactivar")</button>
+                            </form>
+                        </td>
                     </tr>
-                </thead>
-                <tbody>
-                    @foreach (var r in Model.Items)
-                    {
-                        <tr>
-                            <td>@r.Codigo</td>
-                            <td>@r.Nombre</td>
-                            <td>@(r.Categoria ?? "—")</td>
-                            <td>@r.NumIngredientes</td>
-                            <td>
-                                @if (r.Activo)
-                                {
-                                    <span class="eii-badge">Activo</span>
-                                }
-                                else
-                                {
-                                    <span class="text-muted">Inactivo</span>
-                                }
-                            </td>
-                            <td class="text-end">
-                                <a class="eii-btn eii-btn--ghost eii-btn--sm" href="/Identity/Admin/Platillos/Detalle?id=@r.Id">Editar</a>
-                                <form method="post" asp-page-handler="ToggleActivo" class="d-inline">
-                                    <input type="hidden" name="id" value="@r.Id" />
-                                    <input type="hidden" name="q" value="@Model.Q" />
-                                    <input type="hidden" name="categoriaId" value="@Model.CategoriaId" />
-                                    <input type="hidden" name="pageNumber" value="@Model.PageNumber" />
-                                    <input type="hidden" name="mostrarInactivos" value="@Model.MostrarInactivos.ToString().ToLower()" />
-                                    <button type="submit" class="eii-btn eii-btn--link eii-btn--sm">@(r.Activo ? "Desactivar" : "Reactivar")</button>
-                                </form>
-                            </td>
-                        </tr>
-                    }
-                    @if (!Model.Items.Any())
-                    {
-                        <tr><td colspan="6" class="text-center text-muted py-3">No hay platillos con esos criterios.</td></tr>
-                    }
-                </tbody>
-            </table>
+                }
+                @if (!Model.Items.Any())
+                {
+                    <tr><td colspan="6" class="text-center text-muted py-3">No hay platillos con esos criterios.</td></tr>
+                }
+            </tbody>
+        </table>
 
+        @* Pie: conteo a la izquierda, paginador a la derecha — como el info/paginate
+           de DataTables en los otros grids. La paginación sigue siendo server-side. *@
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <span class="eii-form-text">
+                @Model.TotalCount platillo(s) · Página @Model.PageNumber de @Model.TotalPages
+            </span>
             @if (Model.TotalPages > 1)
             {
-                <div class="d-flex justify-content-center gap-2 mt-3">
+                <div class="d-flex gap-2">
                     @if (Model.PageNumber > 1)
                     {
                         <a class="eii-btn eii-btn--ghost eii-btn--sm"
@@ -138,3 +151,8 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    @* Sin DataTables: acá admin-grid.js solo escucha el aviso y ofrece la píldora. *@
+    <script src="~/js/admin-grid.js" asp-append-version="true"></script>
+}
