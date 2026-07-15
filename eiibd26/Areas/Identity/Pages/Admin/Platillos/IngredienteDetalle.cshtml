@@ -1,0 +1,114 @@
+@page "{id?}"
+@using eiibd26.Models.Platillos
+@model eiibd26.Areas.Identity.Pages.Admin.Platillos.IngredienteDetalleModel
+@{
+    var editing = Model.Id.HasValue && Model.Id.Value > 0;
+    ViewData["Title"] = editing ? "Editar ingrediente" : "Nuevo ingrediente";
+    var listaUrl = Url.Page("Ingredientes");
+}
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h4 mb-0">@(editing ? "Editar ingrediente" : "Nuevo ingrediente")</h1>
+        <a class="eii-btn eii-btn--ghost" href="@listaUrl">← Volver al listado</a>
+    </div>
+
+    <p class="eii-form-text mb-3">
+        El alimento base, limpio, genérico y en singular. El paciente filtra por ingrediente:
+        si cada platillo escribe "cebolla" distinto, el filtro no lo relaciona.
+        <strong>Antes de crear uno, revisa que no exista ya.</strong>
+    </p>
+
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="alert alert-success" role="alert">
+            @Model.SuccessMessage
+            <a href="@listaUrl" class="alert-link ms-2">Volver al listado</a>
+        </div>
+        @* Solo tras un guardado exitoso: avisa a la pestaña del grid, que mostrará
+           su píldora "Actualizar". No recarga ni cierra nada de esta pestaña. *@
+        <div data-eii-grid-notify="ingrediente" hidden></div>
+    }
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+    }
+
+    <div class="eii-card">
+        <div class="eii-card__body">
+            <form method="post" asp-page-handler="Guardar" class="row g-3">
+                <input type="hidden" asp-for="Id" />
+                <div class="col-md-6">
+                    <label class="eii-label eii-label--required" asp-for="Nombre">Nombre</label>
+                    <input class="eii-input" asp-for="Nombre" maxlength="200" autocomplete="off" required autofocus />
+                    <span class="eii-form-text">Se guarda en minúscula y singular. Ej: "cebolla", no "Cebollas".</span>
+                </div>
+                <div class="col-md-6">
+                    <label class="eii-label eii-label--required" asp-for="GrupoId">Grupo</label>
+                    @* §7.2: el combo incluye el grupo asignado aunque esté inactivo, para no perderlo al editar. *@
+                    <select class="eii-select" asp-for="GrupoId" required>
+                        <option value="">(Seleccionar grupo)</option>
+                        @foreach (var g in Model.GrupoOptions)
+                        {
+                            @if (Model.GrupoId == g.Id)
+                            {
+                                <option value="@g.Id" selected>@g.Nombre @(g.Activo ? "" : "(inactivo)")</option>
+                            }
+                            else
+                            {
+                                <option value="@g.Id">@g.Nombre @(g.Activo ? "" : "(inactivo)")</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="eii-label">Atributos intrínsecos</label>
+                    <span class="eii-form-text d-block mb-2">Cómo es SIEMPRE el alimento (gluten, picante, cítrico…). No cómo se usa en un platillo.</span>
+                    @* §7.2: incluye los atributos ya asignados aunque estén inactivos. *@
+                    <div class="d-flex flex-wrap gap-3">
+                        @if (!Model.AtributoOptions.Any())
+                        {
+                            <span class="text-muted">No hay atributos intrínsecos en el catálogo todavía.</span>
+                        }
+                        @foreach (var a in Model.AtributoOptions)
+                        {
+                            <label class="d-inline-flex align-items-center gap-1">
+                                <input class="eii-checkbox" type="checkbox" name="SelectedAtributoIds" value="@a.Id"
+                                       @(Model.SelectedAtributoIds.Contains(a.Id) ? "checked" : "") />
+                                <span>@a.Nombre @(a.Activo ? "" : "(inactivo)")</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+                <div class="col-12">
+                    <label class="eii-label" asp-for="NotasEII">Nota interna (EII)</label>
+                    <textarea class="eii-textarea" asp-for="NotasEII" rows="2" maxlength="1000"
+                              placeholder="Apuntes rápidos para el equipo. Ej. «intolerancia común», «cruda irrita en brote»."></textarea>
+                    <span class="eii-form-text">
+                        <strong>Interna: no se muestra al paciente.</strong> Referencia del equipo admin.
+                        El contenido que ve el paciente va en la <strong>Nota clínica</strong>, que tiene su
+                        propia página y se publica aparte.
+                    </span>
+                </div>
+                @if (editing && !Model.Activo)
+                {
+                    <div class="col-12">
+                        <span class="eii-form-text">
+                            <i class="bi bi-info-circle" aria-hidden="true"></i>
+                            Este ingrediente está inactivo. Se reactiva desde el listado.
+                        </span>
+                    </div>
+                }
+                <div class="col-12 d-flex gap-2">
+                    <button type="submit" class="eii-btn eii-btn--primary">@(editing ? "Guardar cambios" : "Crear")</button>
+                    <a class="eii-btn eii-btn--ghost" href="@listaUrl">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @* Sin DataTables: acá admin-grid.js solo hace el aviso de guardado. *@
+    <script src="~/js/admin-grid.js" asp-append-version="true"></script>
+}

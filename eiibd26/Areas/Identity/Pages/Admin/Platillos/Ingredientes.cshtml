@@ -4,11 +4,21 @@
 @model eiibd26.Areas.Identity.Pages.Admin.Platillos.IngredientesModel
 @{
     ViewData["Title"] = "Platillos · Ingredientes";
-    var editing = Model.Id > 0;
 }
 
-<div class="container py-4">
-    <h1 class="h4 mb-1">Ingredientes</h1>
+@section Styles {
+    <link rel="stylesheet" href="~/css/admin-grid.css" asp-append-version="true" />
+    @* Solo por el badge de estado de la nota en la columna. *@
+    <link rel="stylesheet" href="~/css/admin-nota.css" asp-append-version="true" />
+}
+
+<div class="eii-page eii-page--wide">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+        <h1 class="eii-page-title eii-page-title--sm mb-0">Ingredientes</h1>
+        <a class="eii-btn eii-btn--primary" asp-page="IngredienteDetalle" target="_blank" rel="noopener">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i> Nuevo ingrediente
+        </a>
+    </div>
     <p class="eii-form-text mb-4">
         El alimento base, limpio, genérico y en singular. El paciente filtra por ingrediente:
         si cada platillo escribe "cebolla" distinto, el filtro no lo relaciona.
@@ -24,142 +34,73 @@
         <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
     }
 
-    <div class="eii-card mb-4">
-        <div class="eii-card__body">
-            <h2 class="eii-card__title h6 mb-3">@(editing ? "Editar ingrediente" : "Nuevo ingrediente")</h2>
-            <form method="post" asp-page-handler="Guardar" class="row g-3">
-                <input type="hidden" asp-for="Id" />
-                <div class="col-md-6">
-                    <label class="eii-label eii-label--required" asp-for="Nombre">Nombre</label>
-                    <input class="eii-input" asp-for="Nombre" maxlength="200" autocomplete="off" required />
-                    <span class="eii-form-text">Se guarda en minúscula y singular. Ej: "cebolla", no "Cebollas".</span>
-                </div>
-                <div class="col-md-6">
-                    <label class="eii-label eii-label--required" asp-for="GrupoId">Grupo</label>
-                    <select class="eii-select" asp-for="GrupoId" required>
-                        <option value="">(Seleccionar grupo)</option>
-                        @foreach (var g in Model.GrupoOptions)
-                        {
-                            @if (Model.GrupoId == g.Id)
+    <div class="eii-admin-grid-wrap">
+        <table id="gridIngredientes"
+               class="table table-hover align-middle mb-0"
+               data-eii-grid
+               data-eii-grid-empty="Aún no hay ingredientes."
+               data-eii-grid-order="0:asc">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Grupo</th>
+                    <th>Atributos</th>
+                    <th>Nota clínica</th>
+                    <th>Estado</th>
+                    <th data-no-sort class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var i in Model.Items)
+                {
+                    var estadoNota = Model.NotaEstados.TryGetValue(i.Id, out var en) ? en : PlatNotaEstado.SinNota;
+                    <tr>
+                        <td>@i.Nombre</td>
+                        <td>@(i.Grupo?.Nombre ?? "—")</td>
+                        <td>
+                            @foreach (var a in i.Atributos)
                             {
-                                <option value="@g.Id" selected>@g.Nombre @(g.Activo ? "" : "(inactivo)")</option>
+                                <span class="eii-badge">@(a.Atributo?.Nombre)</span>
+                            }
+                        </td>
+                        <td>
+                            <a class="text-decoration-none"
+                               asp-page="NotaClinicaDetalle" asp-route-tipo="Ingrediente" asp-route-destinoId="@i.Id"
+                               target="_blank" rel="noopener"
+                               title="Editar nota clínica de @i.Nombre">
+                                <partial name="_NotaEstadoBadge" model="estadoNota" />
+                            </a>
+                        </td>
+                        <td>
+                            @if (i.Activo)
+                            {
+                                <span class="eii-badge">Activo</span>
                             }
                             else
                             {
-                                <option value="@g.Id">@g.Nombre @(g.Activo ? "" : "(inactivo)")</option>
+                                <span class="text-muted">Inactivo</span>
                             }
-                        }
-                    </select>
-                </div>
-                <div class="col-12">
-                    <label class="eii-label">Atributos intrínsecos</label>
-                    <span class="eii-form-text d-block mb-2">Cómo es SIEMPRE el alimento (gluten, picante, cítrico…). No cómo se usa en un platillo.</span>
-                    <div class="d-flex flex-wrap gap-3">
-                        @if (!Model.AtributoOptions.Any())
-                        {
-                            <span class="text-muted">No hay atributos intrínsecos en el catálogo todavía.</span>
-                        }
-                        @foreach (var a in Model.AtributoOptions)
-                        {
-                            <label class="d-inline-flex align-items-center gap-1">
-                                <input class="eii-checkbox" type="checkbox" name="SelectedAtributoIds" value="@a.Id"
-                                       @(Model.SelectedAtributoIds.Contains(a.Id) ? "checked" : "") />
-                                <span>@a.Nombre @(a.Activo ? "" : "(inactivo)")</span>
-                            </label>
-                        }
-                    </div>
-                </div>
-                <div class="col-12">
-                    <label class="eii-label" asp-for="NotasEII">Nota interna (EII)</label>
-                    <textarea class="eii-textarea" asp-for="NotasEII" rows="2" maxlength="1000"
-                              placeholder="Apuntes rápidos para el equipo. Ej. «intolerancia común», «cruda irrita en brote»."></textarea>
-                    <span class="eii-form-text"><strong>Interna: no se muestra al paciente.</strong> Referencia del equipo admin. El contenido que ve el paciente va en la <strong>Nota clínica</strong> (botón «Nota»), que se publica aparte.</span>
-                </div>
-                <div class="col-12 d-flex gap-2">
-                    <button type="submit" class="eii-btn eii-btn--primary">@(editing ? "Guardar cambios" : "Crear")</button>
-                    @if (editing)
-                    {
-                        <a class="eii-btn eii-btn--ghost" asp-page="Ingredientes">Cancelar</a>
-                    }
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div class="eii-card">
-        <div class="eii-card__body">
-            <div class="eii-list-search">
-                <i class="bi bi-search" aria-hidden="true"></i>
-                <input type="search" class="eii-input" data-nota-filter autocomplete="off"
-                       placeholder="Buscar ingrediente…" aria-label="Buscar ingrediente" />
-            </div>
-            <table class="table align-middle mb-0" data-nota-filterable>
-                <thead>
-                    <tr>
-                        <th>Nombre</th>
-                        <th>Grupo</th>
-                        <th>Atributos</th>
-                        <th>Nota clínica</th>
-                        <th>Estado</th>
-                        <th class="text-end">Acciones</th>
+                        </td>
+                        <td class="text-end">
+                            <a class="eii-btn eii-btn--ghost eii-btn--sm"
+                               asp-page="NotaClinicaDetalle" asp-route-tipo="Ingrediente" asp-route-destinoId="@i.Id"
+                               target="_blank" rel="noopener">Nota</a>
+                            <a class="eii-btn eii-btn--ghost eii-btn--sm"
+                               asp-page="IngredienteDetalle" asp-route-id="@i.Id"
+                               target="_blank" rel="noopener">Editar</a>
+                            <form method="post" asp-page-handler="ToggleActivo" asp-route-id="@i.Id" class="d-inline">
+                                <button type="submit" class="eii-btn eii-btn--link eii-btn--sm">@(i.Activo ? "Desactivar" : "Reactivar")</button>
+                            </form>
+                        </td>
                     </tr>
-                </thead>
-                <tbody>
-                    @foreach (var i in Model.Items)
-                    {
-                        var estadoNota = Model.NotaEstados.TryGetValue(i.Id, out var en) ? en : PlatNotaEstado.SinNota;
-                        <tr>
-                            <td data-nombre>@i.Nombre</td>
-                            <td>@(i.Grupo?.Nombre ?? "—")</td>
-                            <td>
-                                @foreach (var a in i.Atributos)
-                                {
-                                    <span class="eii-badge">@(a.Atributo?.Nombre)</span>
-                                }
-                            </td>
-                            <td>
-                                <a class="text-decoration-none" asp-page="Ingredientes" asp-route-notaId="@i.Id"
-                                   title="Editar nota clínica de @i.Nombre">
-                                    <partial name="_NotaEstadoBadge" model="estadoNota" />
-                                </a>
-                            </td>
-                            <td>
-                                @if (i.Activo)
-                                {
-                                    <span class="eii-badge">Activo</span>
-                                }
-                                else
-                                {
-                                    <span class="text-muted">Inactivo</span>
-                                }
-                            </td>
-                            <td class="text-end">
-                                <a class="eii-btn eii-btn--ghost eii-btn--sm" asp-page="Ingredientes" asp-route-notaId="@i.Id">Nota</a>
-                                <a class="eii-btn eii-btn--ghost eii-btn--sm" asp-page="Ingredientes" asp-route-editId="@i.Id">Editar</a>
-                                <form method="post" asp-page-handler="ToggleActivo" asp-route-id="@i.Id" class="d-inline">
-                                    <button type="submit" class="eii-btn eii-btn--link eii-btn--sm">@(i.Activo ? "Desactivar" : "Reactivar")</button>
-                                </form>
-                            </td>
-                        </tr>
-                    }
-                    @if (!Model.Items.Any())
-                    {
-                        <tr data-nota-empty><td colspan="6" class="text-center text-muted py-3">Aún no hay ingredientes.</td></tr>
-                    }
-                </tbody>
-            </table>
-        </div>
+                }
+            </tbody>
+        </table>
     </div>
 </div>
 
-@if (Model.NotaEdit != null)
-{
-    <partial name="_NotaClinicaPanel" model="Model.NotaEdit" />
-}
-
-@section Styles {
-    <link rel="stylesheet" href="~/css/admin-nota-panel.css" asp-append-version="true" />
-}
 @section Scripts {
-    <script src="~/js/admin-nota-panel.js" asp-append-version="true"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script src="~/js/admin-grid.js" asp-append-version="true"></script>
 }
