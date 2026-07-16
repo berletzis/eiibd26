@@ -153,7 +153,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
         }
 
         // Handler para tracking desde la matriz, recibe fecha como texto para evitar error de formato
-        public async Task<IActionResult> OnPostTrackSintomaMatrizAsync(int sintomaUsuarioId, string estado, string fecha,
+        public async Task<IActionResult> OnPostTrackSintomaMatrizAsync(int sintomaUsuarioId, string? estado, string? fecha,
             int? dolor, bool? tieneSangrado, int? frecuenciaId)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;

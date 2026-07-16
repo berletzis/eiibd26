@@ -241,7 +241,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             }
         }
 
-        public async Task<IActionResult> OnPostTrackSintomaAsync(int sintomaUsuarioId, string estado, int? dolor, bool? tieneSangrado, int? frecuenciaId)
+        public async Task<IActionResult> OnPostTrackSintomaAsync(int sintomaUsuarioId, string? estado, int? dolor, bool? tieneSangrado, int? frecuenciaId)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (userId == null) return Unauthorized();

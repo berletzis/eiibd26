@@ -187,7 +187,7 @@ public class DashboardModel : PageModel
         return RedirectToPage();
     }
 
-    public async Task<IActionResult> OnPostSolicitarContenidoAsync(string tituloSolicitud)
+    public async Task<IActionResult> OnPostSolicitarContenidoAsync(string? tituloSolicitud)
     {
         if (string.IsNullOrWhiteSpace(tituloSolicitud))
         {

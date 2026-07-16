@@ -82,7 +82,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
 
         private static bool TipoValido(string? tipo) => tipo == TipoGrupo || tipo == TipoIngrediente;
 
-        public async Task<IActionResult> OnGetAsync(string tipo, int destinoId)
+        public async Task<IActionResult> OnGetAsync(string? tipo, int destinoId)
         {
             if (!TipoValido(tipo)) return NotFound();
             Tipo = tipo;
@@ -158,7 +158,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
         private Guid CurrentUserId() =>
             Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : Guid.Empty;
 
-        public async Task<IActionResult> OnPostGuardarNotaAsync(string tipo, int destinoId)
+        public async Task<IActionResult> OnPostGuardarNotaAsync(string? tipo, int destinoId)
         {
             if (!TipoValido(tipo)) return NotFound();
 
@@ -168,7 +168,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
             return RedirectToPage(new { tipo, destinoId });
         }
 
-        public async Task<IActionResult> OnPostPublicarNotaAsync(string tipo, int destinoId)
+        public async Task<IActionResult> OnPostPublicarNotaAsync(string? tipo, int destinoId)
         {
             if (!TipoValido(tipo)) return NotFound();
 
@@ -177,7 +177,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
             return RedirectToPage(new { tipo, destinoId });
         }
 
-        public async Task<IActionResult> OnPostDespublicarNotaAsync(string tipo, int destinoId)
+        public async Task<IActionResult> OnPostDespublicarNotaAsync(string? tipo, int destinoId)
         {
             if (!TipoValido(tipo)) return NotFound();
 

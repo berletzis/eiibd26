@@ -38,7 +38,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.ShortUrls
             BaseUrl = $"{Request.Scheme}://{Request.Host}";
         }
 
-        public async Task<IActionResult> OnPostCrearAsync(string urlDestino, string? origen)
+        public async Task<IActionResult> OnPostCrearAsync(string? urlDestino, string? origen)
         {
             if (string.IsNullOrWhiteSpace(urlDestino))
             {

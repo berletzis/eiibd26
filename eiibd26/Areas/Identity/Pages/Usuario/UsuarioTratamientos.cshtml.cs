@@ -175,7 +175,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             return BadRequest();
         }
 
-        public async Task<IActionResult> OnPostEditarFechaFinAsync(int tratId, string nuevaFechaFin = null)
+        public async Task<IActionResult> OnPostEditarFechaFinAsync(int tratId, string? nuevaFechaFin = null)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (userId == null) return Unauthorized();

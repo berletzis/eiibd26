@@ -401,8 +401,13 @@ public class IndexModel : PageModel
         return new JsonResult(new { success = true });
     }
 
-    public async Task<IActionResult> OnPostOtorgarBadgeAsync(int medicoId, string codigo)
+    public async Task<IActionResult> OnPostOtorgarBadgeAsync(int medicoId, string? codigo)
     {
+        // string? + validación explícita: con NRT, 'string codigo' es implícitamente [Required]
+        // y un código vacío daría 400 antes de entrar. Aquí el cuerpo no lo validaba.
+        if (string.IsNullOrWhiteSpace(codigo))
+            return new JsonResult(new { success = false, error = "El código de badge es obligatorio." });
+
         var result = await _badgeService.OtorgarBadgeAsync(medicoId, codigo, "admin");
         return new JsonResult(new { success = result });
     }
@@ -424,8 +429,12 @@ public class IndexModel : PageModel
         return new JsonResult(new { success = true, total = ids.Count });
     }
 
-    public async Task<IActionResult> OnPostRevocarBadgeAsync(int medicoId, string codigo)
+    public async Task<IActionResult> OnPostRevocarBadgeAsync(int medicoId, string? codigo)
     {
+        // string? + validación explícita: ver OnPostOtorgarBadgeAsync.
+        if (string.IsNullOrWhiteSpace(codigo))
+            return new JsonResult(new { success = false, error = "El código de badge es obligatorio." });
+
         // D-04: delegar al servicio (registra trazabilidad en historial)
         var result = await _badgeService.RevocarBadgeAsync(medicoId, codigo, "admin");
         return new JsonResult(new { success = result });
