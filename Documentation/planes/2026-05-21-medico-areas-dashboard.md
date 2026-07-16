@@ -58,10 +58,11 @@ GO
 
 - [ ] **Step 1.2: Aplicar a la BD**
 
-Usando la connection string del proyecto (`Server=132.148.74.136\\ybridio;Database=eiibd26;user id=sa;password=U3xc3pt!0n!22;TrustServerCertificate=True;MultipleActiveResultSets=true`), ejecutar con sqlcmd o PowerShell+SqlClient:
+Usando la connection string del proyecto (la real vive en user secrets / la variable de entorno `ConnectionStrings__DefaultConnection` — ver `SECRETS.md`; nunca se escribe en un doc), ejecutar con sqlcmd o PowerShell+SqlClient:
 
 ```powershell
-sqlcmd -S "132.148.74.136\ybridio" -d eiibd26 -U sa -P "U3xc3pt!0n!22" -i "Migrations\2026-05-21_MedicoAreaEii.sql"
+# Credenciales desde el entorno — nunca literales en un doc (ver SECRETS.md).
+sqlcmd -S "$env:EIIBD_SQL_SERVER" -d eiibd26 -U "$env:EIIBD_SQL_USER" -P "$env:EIIBD_SQL_PASSWORD" -i "Migrations\2026-05-21_MedicoAreaEii.sql"
 ```
 
 Verificar: `SELECT name FROM sys.tables WHERE name = 'MedicoAreaEii'` → debe devolver 1 fila.
