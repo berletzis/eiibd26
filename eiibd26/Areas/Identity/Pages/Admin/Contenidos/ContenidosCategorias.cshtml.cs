@@ -34,10 +34,12 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             public string Label { get; set; } = ""; // hierarchical label for select
         }
 
-        public void OnGet()
+        public async Task OnGetAsync()
         {
             // load parent select for modals
-            LoadSelectList().GetAwaiter().GetResult();
+            // Antes: LoadSelectList().GetAwaiter().GetResult() â€” sync-over-async, bloquea un hilo
+            // del pool en una I/O remota. El resto de los llamadores ya usaban await.
+            await LoadSelectList();
         }
 
         private async Task LoadSelectList()
@@ -248,7 +250,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
                 {
                     var exists = await _db.ContenidosCategorias.AnyAsync(c => c.CategoriaSlug != null && c.CategoriaSlug.ToLower() == slug.ToLower());
                     if (exists)
-                        return new JsonResult(new { success = false, message = "El slug ya está en uso. Elija otro valor." });
+                        return new JsonResult(new { success = false, message = "El slug ya estï¿½ en uso. Elija otro valor." });
                 }
 
                 var now = DateTime.UtcNow;
@@ -293,7 +295,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         public async Task<IActionResult> OnPostEditarCategoriaAsync()
         {
             if (string.IsNullOrWhiteSpace(Request.Form["Sequence"]))
-                return BadRequest(new { success = false, message = "Clave inválida" });
+                return BadRequest(new { success = false, message = "Clave invï¿½lida" });
 
             var seq = int.Parse(Request.Form["Sequence"]);
             var nombre = (Request.Form["Nombre"].ToString() ?? "").Trim();
@@ -306,11 +308,11 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             var borrado = Request.Form["Borrado"].ToString() == "true";
 
             var ent = await _db.ContenidosCategorias.FirstOrDefaultAsync(x => x.Sequence == seq);
-            if (ent == null) return new JsonResult(new { success = false, message = "Categoría no encontrada." });
+            if (ent == null) return new JsonResult(new { success = false, message = "Categorï¿½a no encontrada." });
 
             // Prevent self-parenting
             if (padre.HasValue && padre.Value == ent.Sequence)
-                return new JsonResult(new { success = false, message = "Una categoría no puede ser padre de sí misma." });
+                return new JsonResult(new { success = false, message = "Una categorï¿½a no puede ser padre de sï¿½ misma." });
 
             // validations
             if (string.IsNullOrWhiteSpace(nombre))
@@ -329,7 +331,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
             {
                 var exists = await _db.ContenidosCategorias.AnyAsync(c => c.Sequence != seq && c.CategoriaSlug != null && c.CategoriaSlug.ToLower() == slug.ToLower());
                 if (exists)
-                    return new JsonResult(new { success = false, message = "El slug ya está en uso por otra categoría." });
+                    return new JsonResult(new { success = false, message = "El slug ya estï¿½ en uso por otra categorï¿½a." });
             }
 
             ent.Nombre = nombre ?? ent.Nombre;
@@ -360,10 +362,10 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         public async Task<IActionResult> OnPostEliminarCategoriaAsync(int sequence)
         {
             var ent = await _db.ContenidosCategorias.FirstOrDefaultAsync(x => x.Sequence == sequence && !x.Borrado);
-            if (ent == null) return new JsonResult(new { success = false, message = "Categoría no encontrada o ya eliminada." });
+            if (ent == null) return new JsonResult(new { success = false, message = "Categorï¿½a no encontrada o ya eliminada." });
 
             var hasChildren = await _db.ContenidosCategorias.AnyAsync(x => x.CategoriaPadre == ent.Sequence && !x.Borrado);
-            if (hasChildren) return new JsonResult(new { success = false, message = "No puede eliminar categoría que tiene hijos." });
+            if (hasChildren) return new JsonResult(new { success = false, message = "No puede eliminar categorï¿½a que tiene hijos." });
 
             ent.Borrado = true;
             ent.FechaModificacion = DateTime.UtcNow;
@@ -378,7 +380,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Contenidos
         public async Task<IActionResult> OnPostRestaurarCategoriaAsync(int sequence)
         {
             var ent = await _db.ContenidosCategorias.FirstOrDefaultAsync(x => x.Sequence == sequence && x.Borrado);
-            if (ent == null) return new JsonResult(new { success = false, message = "Categoría no encontrada o no está eliminada." });
+            if (ent == null) return new JsonResult(new { success = false, message = "Categorï¿½a no encontrada o no estï¿½ eliminada." });
 
             ent.Borrado = false;
             ent.FechaModificacion = DateTime.UtcNow;
