@@ -36,10 +36,15 @@ public class MoodApiController : ControllerBase
     [HttpPost("quick")]
     [IgnoreAntiforgeryToken]
     public async Task<IActionResult> QuickMood(
-        [FromQuery] string token,
+        [FromQuery] string? token,
         [FromQuery] int valor,
         CancellationToken ct = default)
     {
+        // B-6: con NRT, 'string token' era implícitamente [Required] y un token ausente
+        // devolvía el 400 genérico del framework en vez del contrato JSON de este endpoint.
+        if (string.IsNullOrWhiteSpace(token))
+            return Unauthorized(new { ok = false, error = "Token inválido o expirado." });
+
         var userId = _tokenService.ValidarToken(token);
         if (userId is null)
         {

@@ -50,8 +50,8 @@ internal static class SecretsValidator
         var fullMessage =
             $"[SecretsValidator] Missing required configuration secrets:{Environment.NewLine}" +
             $"{messageBody}{Environment.NewLine}" +
-            $"Set them in appsettings.Production.json (on the server) or as environment variables " +
-            $"using double-underscore separators (e.g. SendGrid__ApiKey). See SECRETS.md.";
+            $"Set them as environment variables on the server, using double-underscore " +
+            $"separators (e.g. SendGrid__ApiKey). See SECRETS.md.";
 
         // Always write to stderr/stdout so the message is visible in IIS stdout logs
         // even before the ASP.NET Core logging pipeline is fully initialized.

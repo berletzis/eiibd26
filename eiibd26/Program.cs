@@ -32,10 +32,11 @@ try
     if (string.IsNullOrWhiteSpace(connectionString))
     {
         Console.Error.WriteLine("[STARTUP] FATAL: ConnectionStrings:DefaultConnection is missing or empty.");
-        Console.Error.WriteLine("[STARTUP] Set it in appsettings.Production.json on the server. See SECRETS.md.");
+        Console.Error.WriteLine("[STARTUP] Set it as an environment variable on the server: " +
+            "ConnectionStrings__DefaultConnection (double underscore). See SECRETS.md.");
         throw new InvalidOperationException(
             "Connection string 'DefaultConnection' not found or empty. " +
-            "Set ConnectionStrings:DefaultConnection in appsettings.Production.json on the server.");
+            "Set the environment variable ConnectionStrings__DefaultConnection on the server. See SECRETS.md.");
     }
 
     // Configuración de DbContext con resiliencia de errores transitorios
@@ -100,10 +101,13 @@ try
     if (dataProtectionReady)
         dpBuilder.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath));
 
-    // Configurar tiempo de vida de tokens de reseteo de contraseña
+    // Configurar tiempo de vida de tokens de reseteo de contraseña.
+    // B-1: el código decía 3 días y el comentario 24 horas. Se resuelve a favor de lo más
+    // corto: un token de reseteo es una llave temporal a la cuenta — 24 h basta para que
+    // el usuario abra su correo, y reduce la ventana si el correo queda expuesto.
     builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
     {
-        options.TokenLifespan = TimeSpan.FromDays(3); // 24 horas
+        options.TokenLifespan = TimeSpan.FromHours(24);
     });
 
     // Cookie configuration (seguridad mejorada)
