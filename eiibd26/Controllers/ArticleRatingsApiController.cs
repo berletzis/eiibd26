@@ -101,6 +101,13 @@ public class ArticleRatingsApiController : ControllerBase
                 return BadRequest(new { ok = false, error = "Tipo de calificación inválido. Use 'like' o 'dislike'" });
             }
 
+            // M-4: solo usuarios autenticados. El voto anónimo permitía inflar o hundir el
+            // rating de contenido médico con un loop de curl. Va antes de comprobar que el
+            // artículo existe para no responder sobre su existencia a quien no tiene sesión.
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
+                return Unauthorized(new { ok = false, error = "Inicia sesión para calificar" });
+
             // Verificar que el artículo existe
             var articleExists = await _context.Contenidos
                 .AnyAsync(c => c.Id == articleId && !c.Eliminado);
@@ -110,29 +117,12 @@ public class ArticleRatingsApiController : ControllerBase
                 return NotFound(new { ok = false, error = "Artículo no encontrado" });
             }
 
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var ipAddress = GetClientIpAddress();
-            ArticleRating? existing = null;
 
-            // Buscar rating existente
-            if (!string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out var userGuid))
-            {
-                // Usuario autenticado: buscar por UserId
-                existing = await _context.ArticleRatings
-                    .FirstOrDefaultAsync(ar => ar.ArticleId == articleId && ar.UserId == userGuid);
-            }
-            else if (!string.IsNullOrEmpty(ipAddress))
-            {
-                // Usuario anónimo: buscar por IP (últimas 24 horas para evitar conflictos)
-                var yesterday = DateTime.UtcNow.AddDays(-1);
-                existing = await _context.ArticleRatings
-                    .Where(ar => ar.ArticleId == articleId 
-                              && ar.UserId == null 
-                              && ar.IpAddress == ipAddress
-                              && ar.CreatedAt >= yesterday)
-                    .OrderByDescending(ar => ar.CreatedAt)
-                    .FirstOrDefaultAsync();
-            }
+            // Un voto por usuario y artículo. La deduplicación por IP de la rama anónima
+            // desaparece con ella: la identidad ya la da la sesión.
+            var existing = await _context.ArticleRatings
+                .FirstOrDefaultAsync(ar => ar.ArticleId == articleId && ar.UserId == userGuid);
 
             if (existing != null)
             {
@@ -141,7 +131,7 @@ public class ArticleRatingsApiController : ControllerBase
                 existing.UpdatedAt = DateTime.UtcNow;
 
                 _logger.LogInformation("Usuario {UserId} actualizó rating de artículo {ArticleId} a {RatingType}",
-                    userId ?? "anónimo", articleId, ratingType);
+                    userId, articleId, ratingType);
             }
             else
             {
@@ -150,7 +140,7 @@ public class ArticleRatingsApiController : ControllerBase
                 {
                     ArticleId = articleId,
                     RatingType = ratingType,
-                    UserId = !string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out var guid) ? guid : null,
+                    UserId = userGuid,
                     IpAddress = ipAddress,
                     CreatedAt = DateTime.UtcNow
                 };
@@ -158,7 +148,7 @@ public class ArticleRatingsApiController : ControllerBase
                 _context.ArticleRatings.Add(newRating);
 
                 _logger.LogInformation("Usuario {UserId} creó rating de artículo {ArticleId}: {RatingType}",
-                    userId ?? "anónimo", articleId, ratingType);
+                    userId, articleId, ratingType);
             }
 
             await _context.SaveChangesAsync();

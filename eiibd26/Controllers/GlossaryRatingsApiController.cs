@@ -83,39 +83,32 @@ public class GlossaryRatingsApiController : ControllerBase
             if (!Enum.TryParse<RatingType>(request.RatingType, true, out var ratingType))
                 return BadRequest(new { ok = false, error = "Tipo de calificación inválido. Use 'like' o 'dislike'" });
 
+            // M-4: solo usuarios autenticados. El voto anónimo permitía inflar o hundir el
+            // rating de contenido médico con un loop de curl. Va antes de comprobar que el
+            // término existe para no responder sobre su existencia a quien no tiene sesión.
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
+                return Unauthorized(new { ok = false, error = "Inicia sesión para calificar" });
+
             var termExists = await _context.GlossaryTerms
                 .AnyAsync(t => t.Id == termId && t.Activo);
 
             if (!termExists)
                 return NotFound(new { ok = false, error = "Término no encontrado" });
 
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var ipAddress = GetClientIpAddress();
-            GlossaryTermRating? existing = null;
 
-            if (!string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out var userGuid))
-            {
-                existing = await _context.GlossaryTermRatings
-                    .FirstOrDefaultAsync(r => r.TermId == termId && r.UserId == userGuid);
-            }
-            else if (!string.IsNullOrEmpty(ipAddress))
-            {
-                var yesterday = DateTime.UtcNow.AddDays(-1);
-                existing = await _context.GlossaryTermRatings
-                    .Where(r => r.TermId == termId
-                             && r.UserId == null
-                             && r.IpAddress == ipAddress
-                             && r.CreatedAt >= yesterday)
-                    .OrderByDescending(r => r.CreatedAt)
-                    .FirstOrDefaultAsync();
-            }
+            // Un voto por usuario y término. La deduplicación por IP de la rama anónima
+            // desaparece con ella: la identidad ya la da la sesión.
+            var existing = await _context.GlossaryTermRatings
+                .FirstOrDefaultAsync(r => r.TermId == termId && r.UserId == userGuid);
 
             if (existing != null)
             {
                 existing.RatingType = ratingType;
                 existing.UpdatedAt = DateTime.UtcNow;
                 _logger.LogInformation("Usuario {UserId} actualizó rating de término {TermId} a {RatingType}",
-                    userId ?? "anónimo", termId, ratingType);
+                    userId, termId, ratingType);
             }
             else
             {
@@ -123,13 +116,13 @@ public class GlossaryRatingsApiController : ControllerBase
                 {
                     TermId = termId,
                     RatingType = ratingType,
-                    UserId = !string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out var guid) ? guid : null,
+                    UserId = userGuid,
                     IpAddress = ipAddress,
                     CreatedAt = DateTime.UtcNow
                 };
                 _context.GlossaryTermRatings.Add(newRating);
                 _logger.LogInformation("Usuario {UserId} creó rating de término {TermId}: {RatingType}",
-                    userId ?? "anónimo", termId, ratingType);
+                    userId, termId, ratingType);
             }
 
             await _context.SaveChangesAsync();
