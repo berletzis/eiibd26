@@ -16,6 +16,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Caching.Memory;
 
 // Global startup exception handler — writes the full exception to stdout/stderr
 // so it appears in the IIS stdout log (.\logs\stdout_*.log) before the 500.30 page.
@@ -913,9 +914,6 @@ try
                 var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (!string.IsNullOrEmpty(userIdClaim))
                 {
-                    // resolver DB por scope
-                    using var scope = context.RequestServices.CreateScope();
-                    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                     if (!Guid.TryParse(userIdClaim, out var userGuid))
                     {
                         // claim inválido: forzar signout
@@ -924,7 +922,22 @@ try
                         return;
                     }
 
-                    var exists = await db.Users.AsNoTracking().AnyAsync(u => u.Id == userGuid);
+                    // M-5: el chequeo se cachea por usuario. Antes iba a SQL remoto en CADA request
+                    // autenticado. La ventana de 3 min es coherente con el SecurityStampValidator
+                    // (validationInterval de 2 min), que es quien de verdad corta sesiones de
+                    // usuarios eliminados/suspendidos; este middleware solo evita el error
+                    // "Unable to load user" durante esa ventana. El scope de DI ahora solo se crea
+                    // cuando la caché falla, no en cada request.
+                    var cache = context.RequestServices.GetRequiredService<IMemoryCache>();
+                    var cacheKey = "user-exists:" + userGuid;
+                    if (!cache.TryGetValue(cacheKey, out bool exists))
+                    {
+                        using var scope = context.RequestServices.CreateScope();
+                        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                        exists = await db.Users.AsNoTracking().AnyAsync(u => u.Id == userGuid);
+                        cache.Set(cacheKey, exists, TimeSpan.FromMinutes(3));
+                    }
+
                     if (!exists)
                     {
                         // user was removed from DB, sign out and redirect to login
