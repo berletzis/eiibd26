@@ -382,8 +382,12 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             }
         }
 
-        public async Task<JsonResult> OnGetGenerateSlugAsync(string baseText, Guid? userId = null)
+        public async Task<JsonResult> OnGetGenerateSlugAsync(string? baseText)
         {
+            // El dueño sale del claim, NUNCA del query string: mismo patrón de raíz que C-3.
+            // Se usa solo para excluirte a ti mismo del chequeo de duplicados.
+            var userId = GetUserIdGuid();
+
             if (string.IsNullOrWhiteSpace(baseText))
                 return new JsonResult(new { slug = "" });
 
@@ -404,8 +408,12 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
             return new JsonResult(new { slug = candidate });
         }
 
-        public async Task<JsonResult> OnGetCheckSlugAsync(string slug, Guid? userId = null)
+        public async Task<JsonResult> OnGetCheckSlugAsync(string? slug)
         {
+            // El dueño sale del claim, NUNCA del query string: mismo patrón de raíz que C-3.
+            // Se usa solo para excluirte a ti mismo del chequeo de duplicados.
+            var userId = GetUserIdGuid();
+
             var s = Slugify(slug ?? "");
             if (string.IsNullOrWhiteSpace(s))
                 return new JsonResult(new { exists = false, suggestion = "" });
@@ -471,19 +479,17 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage
                 return Page();
             }
 
-            // ASIGNAR idUser PRIMERO
-            if (Perfil.idUser == Guid.Empty)
+            // SIEMPRE forzar el dueño al usuario autenticado.
+            // NUNCA confiar en el Perfil.idUser posteado: viene de un hidden manipulable (IDOR).
+            var current = GetUserIdGuid();
+            if (current == null)
             {
-                var current = GetUserIdGuid();
-                if (current == null)
-                {
-                    ErrorMessage = "Usuario no autenticado.";
-                    ModelState.AddModelError(string.Empty, ErrorMessage);
-                    CreateSelectLists();
-                    return Page();
-                }
-                Perfil.idUser = current.Value;
+                ErrorMessage = "Usuario no autenticado.";
+                ModelState.AddModelError(string.Empty, ErrorMessage);
+                CreateSelectLists();
+                return Page();
             }
+            Perfil.idUser = current.Value;   // incondicional: ignora lo que venga del form
 
             // PROCESAR CHECKBOXES
             Perfil.PermitirTelefonoReal = FormBool("Perfil.PermitirTelefonoReal");

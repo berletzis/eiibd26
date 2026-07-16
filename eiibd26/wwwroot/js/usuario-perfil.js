@@ -114,7 +114,8 @@
         var slugStatusIcon = el('slug-status-icon');
         var slugStatusBadge = el('slug-status-badge');
         var suggestionsList = el('slug-suggestions-list');
-        var userId = (el('Perfil_idUser') && el('Perfil_idUser').value) ? el('Perfil_idUser').value : '';
+        // El userId ya NO viaja desde el cliente: los handlers CheckSlug/GenerateSlug lo toman
+        // del claim. Por eso también se quitó el hidden Perfil.idUser de la vista.
 
         function updatePreview(slug) {
             if (!slug) {
@@ -149,7 +150,6 @@
                 else suggestionsUrl = window.location.origin + (suggestionsUrl.indexOf('?') === 0 ? window.location.pathname : '') + suggestionsUrl;
             }
             var url = suggestionsUrl + (suggestionsUrl.indexOf('?') !== -1 ? '&' : '?') + 'baseText=' + encodeURIComponent(baseText) + '&count=3';
-            if (userId) url += '&userId=' + encodeURIComponent(userId);
             fetch(url, { method: 'GET', credentials: 'same-origin' }).then(function (resp) { return safeParseResponse(resp); }).then(function (data) {
                 clearSuggestions(); var list = buildSuggestionListFromResponse(data); if (!list.length) return; list.forEach(function (s) {
                     var li = document.createElement('li'); var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'slug-suggestion-pill'; btn.textContent = s; btn.addEventListener('click', function () { slugInput.value = s; updatePreview(s); if (slugErr) slugErr.style.display = 'none'; if (slugOk) { slugOk.style.display = 'block'; slugOk.textContent = 'Has seleccionado: ' + s; } setStatus(true, 'Disponible'); }); li.appendChild(btn); suggestionsList.appendChild(li);
@@ -166,7 +166,6 @@
                 if (!val) { if (slugOk) slugOk.style.display = 'none'; if (slugErr) slugErr.style.display = 'none'; clearStatus(); clearSuggestions(); return; }
                 timeout = setTimeout(function () {
                     var url = (checkUrl || window.location.pathname + '?handler=CheckSlug') + '&slug=' + encodeURIComponent(val);
-                    if (userId) url += '&userId=' + encodeURIComponent(userId);
                     fetch(url, { method: 'GET', credentials: 'same-origin' }).then(function (resp) { return safeParseResponse(resp); }).then(function (json) {
                         if (json.exists) {
                             if (slugErr) { slugErr.style.display = 'block'; slugErr.textContent = 'El slug ya está en uso.'; }
