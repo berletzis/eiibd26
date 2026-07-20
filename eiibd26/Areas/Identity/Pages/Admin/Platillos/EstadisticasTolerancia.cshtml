@@ -1,0 +1,110 @@
+@page
+@model eiibd26.Areas.Identity.Pages.Admin.Platillos.EstadisticasToleranciaModel
+@{
+    ViewData["Title"] = "Platillos · Estadísticas de tolerancia";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/admin-grid.css" asp-append-version="true" />
+}
+
+<div class="eii-page eii-page--wide">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+        <h1 class="eii-page-title eii-page-title--sm mb-0">Estadísticas de tolerancia</h1>
+        <a class="eii-btn eii-btn--ghost"
+           asp-page-handler="ExportarCsv"
+           asp-route-tipo="@Model.FiltroTipo"
+           asp-route-todos="@(Model.MostrarTodos ? "true" : null)">
+            <i class="bi bi-download" aria-hidden="true"></i> Exportar CSV
+        </a>
+    </div>
+    <p class="eii-form-text mb-3">
+        Votos de las encuestas <code>/tolero/{slug}</code>. Solo lectura: consenso crudo de la comunidad
+        (Sí / A veces / No) y el <strong>% público</strong> que ve el paciente (Laplace; si n &lt; 10 aún no se muestra).
+    </p>
+
+    @* ===== Filtros (GET, re-render server-side: los conteos se recalculan por tipo) ===== *@
+    <form method="get" class="d-flex flex-wrap align-items-center gap-3 mb-3">
+        <div class="d-flex align-items-center gap-2">
+            <label for="tipo" class="eii-form-text mb-0">Tipo de EII:</label>
+            <select id="tipo" name="tipo" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+                <option value="0" selected="@(Model.FiltroTipo == 0)">Todos</option>
+                <option value="1" selected="@(Model.FiltroTipo == 1)">CUCI</option>
+                <option value="2" selected="@(Model.FiltroTipo == 2)">Crohn</option>
+            </select>
+        </div>
+        <div class="form-check mb-0">
+            <input class="form-check-input" type="checkbox" id="todos" name="todos" value="true"
+                   checked="@Model.MostrarTodos" onchange="this.form.submit()" />
+            <label class="form-check-label eii-form-text" for="todos">Mostrar todos (incluir ingredientes con 0 votos)</label>
+        </div>
+        <noscript><button type="submit" class="eii-btn eii-btn--primary eii-btn--sm">Aplicar</button></noscript>
+    </form>
+
+    @if (Model.FiltroTipo != 0)
+    {
+        <div class="eii-callout eii-callout--info mb-3">
+            <p class="mb-0">
+                <i class="bi bi-info-circle me-1"></i>
+                El filtro por tipo cuenta solo votos de <strong>usuarios registrados</strong> con tipo conocido.
+                Los votos anónimos no tienen tipo de EII y quedan fuera de este consenso (por diseño; es la base del módulo #16).
+            </p>
+        </div>
+    }
+
+    <p class="eii-form-text mb-3">
+        @Model.IngredientesConVotos ingrediente(s) con votos · @Model.TotalVotos voto(s) en total@(Model.FiltroTipo switch { 1 => " (CUCI)", 2 => " (Crohn)", _ => "" }).
+    </p>
+
+    <div class="eii-admin-grid-wrap">
+        <table id="gridTolerancia"
+               class="table table-hover align-middle mb-0"
+               data-eii-grid
+               data-eii-grid-empty="Aún no hay votos que mostrar."
+               data-eii-grid-order="4:desc">
+            <thead>
+                <tr>
+                    <th>Ingrediente</th>
+                    <th class="text-end">Sí</th>
+                    <th class="text-end">A veces</th>
+                    <th class="text-end">No</th>
+                    <th class="text-end">Total (n)</th>
+                    <th class="text-end">% público</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in Model.Rows)
+                {
+                    <tr>
+                        <td>
+                            <a class="eii-btn eii-btn--link eii-btn--sm p-0"
+                               href="/tolero/@eiibd26.Helpers.SlugHelper.GenerateSlug(r.Nombre)" target="_blank" rel="noopener">
+                                @r.Nombre
+                            </a>
+                        </td>
+                        <td class="text-end">@r.Si</td>
+                        <td class="text-end">@r.AVeces</td>
+                        <td class="text-end">@r.No</td>
+                        <td class="text-end"><strong>@r.Total</strong></td>
+                        <td class="text-end" data-order="@(r.PctPublico ?? -1)">
+                            @if (r.PctPublico.HasValue)
+                            {
+                                <span>@r.PctPublico%</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted" title="n &lt; 10: aún no se muestra al paciente">insuficiente</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script src="~/js/admin-grid.js" asp-append-version="true"></script>
+}
