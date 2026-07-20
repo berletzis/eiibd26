@@ -1,0 +1,238 @@
+/* =============================================================================
+   Encuesta de tolerancia — /tolero/{slug}. SOLO presentación.
+   Mobile-first. Reusa los tokens --eii-* (NO inventa colores nuevos).
+   ============================================================================= */
+
+/* ── Columna centrada y angosta (Cambio 1) ─────────────────────────────────── */
+.tolero-wrap {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: var(--eii-space-5) var(--eii-space-4) var(--eii-space-8);
+    font-size: var(--eii-text-md);            /* +1 punto para legibilidad móvil */
+    line-height: var(--eii-leading-normal);
+    color: var(--eii-text);
+}
+/* Ritmo vertical consistente entre secciones */
+.tolero-wrap > * + * { margin-top: var(--eii-space-5); }
+
+/* ── Encabezado (Cambio 2) ─────────────────────────────────────────────────── */
+.tolero-head { text-align: center; }
+.tolero-title {
+    margin: 0 0 var(--eii-space-2);
+    font-size: var(--eii-text-2xl);
+    font-weight: var(--eii-fw-bold);
+    line-height: var(--eii-leading-tight);
+    color: var(--eii-text-heading);
+}
+.tolero-sub {
+    margin: 0;
+    font-size: var(--eii-text-sm);
+    color: var(--eii-text-soft);
+}
+
+/* ── Botones de voto: grandes, full-width, color por semántica ─────────────── */
+.tolero-votes { display: flex; flex-direction: column; gap: var(--eii-space-3); }
+.tolero-vote {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--eii-space-2);
+    width: 100%;
+    min-height: 52px;                          /* área de toque cómoda */
+    padding: var(--eii-space-3) var(--eii-space-4);
+    border: 1.5px solid transparent;
+    border-radius: var(--eii-radius-lg);
+    background: var(--eii-surface);
+    font-size: var(--eii-text-md);
+    font-weight: var(--eii-fw-semibold);
+    cursor: pointer;
+    user-select: none;
+    transition: transform var(--eii-transition-fast),
+                box-shadow var(--eii-transition-base),
+                border-color var(--eii-transition-base);
+}
+.tolero-vote i { font-size: 1.2em; }
+.tolero-vote:active { transform: translateY(1px); }
+.tolero-vote:focus-visible { outline: 2px solid var(--eii-primary); outline-offset: 2px; }
+
+.tolero-vote--si {
+    background: var(--eii-success-soft);
+    color: var(--eii-success-hover);
+    border-color: var(--eii-success-border);
+}
+.tolero-vote--si:hover { border-color: var(--eii-success); box-shadow: var(--eii-shadow-sm); }
+
+.tolero-vote--aveces {
+    background: var(--eii-warning-soft);
+    color: var(--eii-warning-hover);
+    border-color: var(--eii-warning-border);
+}
+.tolero-vote--aveces:hover { border-color: var(--eii-warning); box-shadow: var(--eii-shadow-sm); }
+
+.tolero-vote--no {
+    background: var(--eii-danger-soft);
+    color: var(--eii-danger-hover);
+    border-color: var(--eii-danger-border);
+}
+.tolero-vote--no:hover { border-color: var(--eii-danger); box-shadow: var(--eii-shadow-sm); }
+
+/* Opción resaltada por el link de correo (?intent=): anillo morado */
+.tolero-vote.is-intent {
+    border-color: var(--eii-primary);
+    box-shadow: 0 0 0 3px var(--eii-primary-soft);
+}
+
+/* Variante chica para los botones de "¿Cambiar?" */
+.tolero-vote--sm {
+    min-height: 38px;
+    padding: var(--eii-space-1) var(--eii-space-3);
+    font-size: var(--eii-text-sm);
+    border-radius: var(--eii-radius-md);
+    width: auto;
+}
+
+.tolero-note {
+    margin: 0;
+    text-align: center;
+    font-size: var(--eii-text-sm);
+    color: var(--eii-text-soft);
+}
+
+/* ── Resultado de la comunidad: el "premio" ────────────────────────────────── */
+.tolero-result {
+    padding: var(--eii-space-6) var(--eii-space-5);
+    background: var(--eii-surface);
+    border: 1px solid var(--eii-border);
+    border-radius: var(--eii-radius-xl);
+    box-shadow: var(--eii-shadow-sm);
+    text-align: center;
+}
+/* Ritmo interno uniforme para ambos estados (barra o guard) */
+.tolero-result > * + * { margin-top: var(--eii-space-4); }
+.tolero-result__pct {
+    font-size: var(--eii-text-3xl);
+    font-weight: var(--eii-fw-bold);
+    line-height: 1.05;
+    color: var(--eii-success-hover);
+}
+.tolero-result__pct-label {
+    display: block;
+    margin-top: var(--eii-space-1);
+    font-size: var(--eii-text-base);
+    font-weight: var(--eii-fw-medium);
+    color: var(--eii-text-soft);
+}
+.tolero-result__title {
+    margin: 0;
+    font-size: var(--eii-text-sm);
+    font-weight: var(--eii-fw-semibold);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--eii-text-soft);
+}
+
+/* Barra de proporción Sí / A veces / No */
+.tolero-bar {
+    display: flex;
+    width: 100%;
+    height: 16px;
+    border-radius: var(--eii-radius-full);
+    overflow: hidden;
+    background: var(--eii-surface-subtle);
+}
+.tolero-bar__seg { height: 100%; }
+.tolero-bar__seg--si { background: var(--eii-success); }
+.tolero-bar__seg--aveces { background: var(--eii-warning); }
+.tolero-bar__seg--no { background: var(--eii-danger); }
+
+.tolero-legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--eii-space-2) var(--eii-space-4);
+    font-size: var(--eii-text-sm);
+    color: var(--eii-text);
+}
+.tolero-legend__dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: var(--eii-space-1);
+    border-radius: var(--eii-radius-full);
+    vertical-align: middle;
+}
+.tolero-legend__dot--si { background: var(--eii-success); }
+.tolero-legend__dot--aveces { background: var(--eii-warning); }
+.tolero-legend__dot--no { background: var(--eii-danger); }
+
+.tolero-n {
+    margin: 0;
+    font-size: var(--eii-text-sm);
+    color: var(--eii-text-soft);
+}
+
+/* Guard n<10: reemplaza número + barra */
+.tolero-guard {
+    margin: 0;
+    font-size: var(--eii-text-lg);
+    font-weight: var(--eii-fw-semibold);
+    line-height: var(--eii-leading-tight);
+    color: var(--eii-text-heading);
+}
+
+/* ── Tu respuesta / ¿Cambiar? ──────────────────────────────────────────────── */
+.tolero-you {
+    padding: var(--eii-space-4);
+    background: var(--eii-primary-soft);
+    border-radius: var(--eii-radius-lg);
+    text-align: center;
+}
+.tolero-you__label { margin: 0 0 var(--eii-space-3); }
+.tolero-change {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--eii-space-2);
+}
+.tolero-change__title { font-size: var(--eii-text-sm); color: var(--eii-text-soft); }
+
+/* ── CTA prominente, ancho completo ────────────────────────────────────────── */
+.tolero-cta {
+    padding: var(--eii-space-6) var(--eii-space-5);
+    background: var(--eii-surface);
+    border: 1px solid var(--eii-border);
+    border-radius: var(--eii-radius-xl);
+    box-shadow: var(--eii-shadow-sm);
+    text-align: center;
+}
+.tolero-cta__title {
+    margin: 0 0 var(--eii-space-2);
+    font-size: var(--eii-text-lg);
+    font-weight: var(--eii-fw-semibold);
+    color: var(--eii-text-heading);
+}
+.tolero-cta__text {
+    margin: 0 0 var(--eii-space-4);
+    font-size: var(--eii-text-sm);
+    color: var(--eii-text-soft);
+}
+/* Par de acciones: apilado en móvil, lado a lado en desktop; misma altura */
+.tolero-cta__actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--eii-space-2);
+}
+.tolero-cta__actions .eii-btn { width: 100%; }
+@media (min-width: 480px) {
+    .tolero-cta__actions { flex-direction: row; }
+    .tolero-cta__actions .eii-btn { flex: 1; }
+}
+
+/* Volver */
+.tolero-back { text-align: center; }
+
+/* ── Desktop: título un punto más grande (sigue centrado a 560px) ──────────── */
+@media (min-width: 576px) {
+    .tolero-title { font-size: var(--eii-text-3xl); }
+}
