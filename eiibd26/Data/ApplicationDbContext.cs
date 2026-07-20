@@ -142,6 +142,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<eiibd26.Models.Platillos.PlatNotaReferencia> PlatNotaReferencias { get; set; }
     // Voto de utilidad genérico (platillo o ingrediente). Tabla propia, NO reusa ArticleRating.
     public DbSet<eiibd26.Models.Platillos.PlatCalificacion> PlatCalificaciones { get; set; }
+    // Votos de la encuesta de tolerancia (/tolero/{slug}). Un voto por usuario/cookie por ingrediente.
+    public DbSet<eiibd26.Models.Platillos.PlatTolerVoto> PlatTolerVotos { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -1019,6 +1021,18 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
             // Un voto por (tipo, destino, usuario) — espeja UQ_PlatCalificacion_Destino_User.
             // Destino polimórfico: SIN FK física (aislamiento), igual que PlatNotaClinica.
             b.HasIndex(x => new { x.TipoDestino, x.DestinoId, x.idUsuario }).IsUnique();
+        });
+
+        builder.Entity<eiibd26.Models.Platillos.PlatTolerVoto>(b =>
+        {
+            b.ToTable("PlatTolerVoto");
+            // TINYINT en la BD (CHECK 1..3); enum en el modelo. Igual que los otros enums del repo.
+            b.Property(v => v.Tolera).HasConversion<byte>();
+            // Un voto por (ingrediente, usuario) y por (ingrediente, cookie) — espejan los UNIQUE
+            // filtrados de SQL. Filtro para tolerar el NULL del otro origen; el upsert cambia el voto.
+            b.HasIndex(v => new { v.IngredienteId, v.UserId }).IsUnique().HasFilter("[UserId] IS NOT NULL");
+            b.HasIndex(v => new { v.IngredienteId, v.AnonId }).IsUnique().HasFilter("[AnonId] IS NOT NULL");
+            b.HasIndex(v => v.IngredienteId);
         });
     }
 

@@ -159,6 +159,26 @@ try
             limiterOptions.QueueLimit = 0;
         });
 
+        // Encuesta de tolerancia (/tolero/{slug}): 30 req/min por IP. Pública y anónima a propósito
+        // (alcance viral); el rate-limit + la cookie de dedup contienen el abuso. Generoso para no
+        // afectar uso legítimo. Particionado por IP como shorturl.
+        options.AddPolicy("tolero", httpContext =>
+        {
+            var xff = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+            var ip = !string.IsNullOrEmpty(xff)
+                ? xff.Split(',')[0].Trim()
+                : httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+            return System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: ip,
+                factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 30,
+                    Window      = TimeSpan.FromSeconds(60),
+                    QueueLimit  = 0
+                });
+        });
+
         // Short-URL: 30 req/min por IP (particionado para no contaminar otras rutas)
         options.AddPolicy("shorturl", httpContext =>
         {

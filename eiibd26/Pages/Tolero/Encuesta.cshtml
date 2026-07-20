@@ -1,0 +1,196 @@
+@page "/tolero/{slug}"
+@model eiibd26.Pages.Tolero.EncuestaModel
+@{
+    ViewData["Title"] = $"¿Toleras el {Model.Nombre}? — la comunidad EII responde";
+    var canonical = $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}/tolero/{Model.Slug}";
+    var ogDesc = $"Responde en un toque si toleras el {Model.Nombre} y mira qué reporta la comunidad EII. "
+        + "Es la experiencia de la comunidad, no un consejo médico: tu cuerpo es único.";
+
+    // ?intent= (link de correo) resalta una opción; nunca vota solo.
+    string IntentCls(string opcion) => Model.IntentDestacado == opcion ? " is-intent" : "";
+
+    // Porcentajes de DISPLAY para la barra/leyenda (proporción sobre n). El último absorbe el
+    // redondeo para que sumen 100. Presentación pura — no toca la lógica del PageModel.
+    int n = Model.TotalRespuestas;
+    int siPct = n > 0 ? (int)System.Math.Round(Model.CountSi * 100.0 / n) : 0;
+    int avPct = n > 0 ? (int)System.Math.Round(Model.CountAVeces * 100.0 / n) : 0;
+    int noPct = n > 0 ? System.Math.Max(0, 100 - siPct - avPct) : 0;
+    string resp = n == 1 ? "respuesta" : "respuestas";   // singular cuando n == 1
+}
+
+@section Head {
+    @* Página de engagement, no de contenido indexable: que no compita en SEO con /Platillos/Ingrediente. *@
+    <meta name="robots" content="noindex,follow" />
+    <meta name="description" content="@ogDesc" />
+    <link rel="canonical" href="@canonical" />
+    <meta property="og:title" content="¿Toleras el @Model.Nombre?" />
+    <meta property="og:description" content="@ogDesc" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="@canonical" />
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/tolero.css" asp-append-version="true" />
+}
+
+<div class="tolero-wrap">
+
+    <header class="tolero-head">
+        <h1 class="tolero-title">¿Toleras el @Model.Nombre?</h1>
+        <p class="tolero-sub">Una pregunta, un toque. Así vive la comunidad EII este alimento.</p>
+    </header>
+
+    @if (Model.ErrorVoto != null)
+    {
+        <div class="eii-callout eii-callout--warning">
+            <p class="mb-0"><i class="bi bi-exclamation-circle me-1"></i> @Model.ErrorVoto</p>
+        </div>
+    }
+
+    @if (!Model.YaVoto)
+    {
+        @* ===== Voto: 3 opciones. POST siempre (el GET nunca vota → anti-prefetch de correo). ===== *@
+        <form method="post" asp-page-handler="Votar" asp-route-slug="@Model.Slug" id="formVoto">
+            <div class="tolero-votes">
+                <button type="submit" name="tolera" value="1" class="tolero-vote tolero-vote--si@(IntentCls("si"))">
+                    <i class="bi bi-emoji-smile"></i> Sí, lo tolero bien
+                </button>
+                <button type="submit" name="tolera" value="2" class="tolero-vote tolero-vote--aveces@(IntentCls("aveces"))">
+                    <i class="bi bi-emoji-neutral"></i> A veces / depende
+                </button>
+                <button type="submit" name="tolera" value="3" class="tolero-vote tolero-vote--no@(IntentCls("no"))">
+                    <i class="bi bi-emoji-frown"></i> No, me cae mal
+                </button>
+            </div>
+        </form>
+        <p class="tolero-note">Tu respuesta es anónima para la comunidad. Puedes cambiarla después.</p>
+    }
+    else
+    {
+        @* ===== Resultado de la comunidad — el "premio" ===== *@
+        <div class="tolero-result">
+            <p class="tolero-result__title">Lo que reporta la comunidad</p>
+
+            @if (Model.MostrarPorcentaje)
+            {
+                <div class="tolero-result__pct">
+                    @Model.PorcentajeTolera%<span class="tolero-result__pct-label">lo tolera bien</span>
+                </div>
+
+                <div class="tolero-bar" role="img" aria-label="Sí @siPct%, A veces @avPct%, No @noPct%">
+                    @if (siPct > 0) { <div class="tolero-bar__seg tolero-bar__seg--si" style="width:@(siPct)%"></div> }
+                    @if (avPct > 0) { <div class="tolero-bar__seg tolero-bar__seg--aveces" style="width:@(avPct)%"></div> }
+                    @if (noPct > 0) { <div class="tolero-bar__seg tolero-bar__seg--no" style="width:@(noPct)%"></div> }
+                </div>
+
+                <div class="tolero-legend">
+                    <span><span class="tolero-legend__dot tolero-legend__dot--si"></span>Sí @siPct%</span>
+                    <span><span class="tolero-legend__dot tolero-legend__dot--aveces"></span>A veces @avPct%</span>
+                    <span><span class="tolero-legend__dot tolero-legend__dot--no"></span>No @noPct%</span>
+                </div>
+            }
+            else
+            {
+                <p class="tolero-guard">Aún no hay suficientes respuestas — sé de los primeros 🙌</p>
+                <div class="tolero-legend">
+                    <span><span class="tolero-legend__dot tolero-legend__dot--si"></span>Sí @Model.CountSi</span>
+                    <span><span class="tolero-legend__dot tolero-legend__dot--aveces"></span>A veces @Model.CountAVeces</span>
+                    <span><span class="tolero-legend__dot tolero-legend__dot--no"></span>No @Model.CountNo</span>
+                </div>
+            }
+
+            <p class="tolero-n">n = @n @resp de la comunidad</p>
+        </div>
+
+        @* ===== Tu propio voto + posibilidad de cambiarlo ===== *@
+        <div class="tolero-you">
+            <p class="tolero-you__label">
+                Tu respuesta:
+                <strong>
+                    @(Model.MiVoto switch
+                    {
+                        eiibd26.Models.Platillos.PlatToleraNivel.Si => "Sí, lo tolero bien",
+                        eiibd26.Models.Platillos.PlatToleraNivel.AVeces => "A veces / depende",
+                        eiibd26.Models.Platillos.PlatToleraNivel.No => "No, me cae mal",
+                        _ => "—"
+                    })
+                </strong>
+            </p>
+            <form method="post" asp-page-handler="Votar" asp-route-slug="@Model.Slug" class="tolero-change" id="formCambiar">
+                <span class="tolero-change__title">¿Cambiar?</span>
+                <button type="submit" name="tolera" value="1" class="tolero-vote tolero-vote--sm tolero-vote--si">Sí</button>
+                <button type="submit" name="tolera" value="2" class="tolero-vote tolero-vote--sm tolero-vote--aveces">A veces</button>
+                <button type="submit" name="tolera" value="3" class="tolero-vote tolero-vote--sm tolero-vote--no">No</button>
+            </form>
+        </div>
+
+        @* ===== CTA según sesión ===== *@
+        @if (Model.EsAnonimo)
+        {
+            @* Embudo de Facebook: el anónimo se lleva a crear perfil. *@
+            <div class="tolero-cta">
+                <p class="tolero-cta__title">Lleva tu propio registro</p>
+                <p class="tolero-cta__text">
+                    Crea tu perfil y guarda lo que <strong>tú</strong> toleras y lo que no. Es gratis y privado.
+                    ¿Ya tienes cuenta? Inicia sesión.
+                </p>
+                <div class="tolero-cta__actions">
+                    <a class="eii-btn eii-btn--solid eii-btn--lg" href="/Identity/Account/Register">
+                        <i class="bi bi-person-plus"></i> Crear mi perfil
+                    </a>
+                    @* Vuelve a ESTA encuesta tras entrar (ReturnUrl con el slug actual). Ícono/convención del login del menú. *@
+                    <a class="eii-btn eii-btn--neutral eii-btn--lg" href="/Identity/Account/Login?ReturnUrl=@Uri.EscapeDataString($"/tolero/{Model.Slug}")">
+                        <i class="bi bi-box-arrow-in-right"></i> Iniciar sesión
+                    </a>
+                </div>
+            </div>
+        }
+        else if (Model.MiVoto == eiibd26.Models.Platillos.PlatToleraNivel.No)
+        {
+            @* Logueado que votó No: cerrar el círculo con sus exclusiones reales. *@
+            <div class="tolero-cta">
+                <p class="tolero-cta__title">¿Lo llevas a tu registro?</p>
+                <p class="tolero-cta__text">
+                    Marca el @Model.Nombre en <strong>Lo que no tolero</strong> y dejaremos de sugerirte platillos que lo contienen.
+                </p>
+                <a class="eii-btn eii-btn--solid eii-btn--lg eii-btn--full" href="/Identity/Usuario/UsuarioAlimentacion">
+                    <i class="bi bi-basket"></i> Lo que no tolero
+                </a>
+            </div>
+        }
+    }
+
+    @* ===== Disclaimer fijo (siempre): experiencia de la comunidad, no consejo médico. ===== *@
+    <div class="aviso-termino-inline aviso-termino-box">
+        <p class="aviso-title mb-2">Esto no es una dieta</p>
+        <p class="aviso-text">
+            Esto es la <strong>experiencia de la comunidad</strong>, no un consejo médico. Que la mayoría
+            tolere un alimento <strong>no significa que a ti te caiga bien</strong>: tu cuerpo es único y depende
+            de tu enfermedad, tu momento y tu tratamiento. Tu dieta la diseñas con tu médico o nutriólogo.
+        </p>
+    </div>
+
+    <nav class="tolero-back" aria-label="volver">
+        <a class="eii-btn eii-btn--ghost eii-btn--sm" href="/Platillos/Ingrediente/@Model.Slug">
+            <i class="bi bi-arrow-right"></i> Ver más sobre el @Model.Nombre
+        </a>
+    </nav>
+</div>
+
+@section Scripts {
+    <script>
+        // Anti-doble-envío. OJO: NO deshabilitar el botón dentro del handler de submit — un botón
+        // disabled se EXCLUYE del form data, y como el value del botón ES el voto (name="tolera"),
+        // se perdería. Se difiere el disabled con setTimeout(0): el form ya serializó para entonces.
+        document.querySelectorAll('#formVoto, #formCambiar').forEach(function (f) {
+            var enviando = false;
+            f.addEventListener('submit', function (e) {
+                if (enviando) { e.preventDefault(); return; }  // segundo clic real → bloquear
+                enviando = true;
+                setTimeout(function () {
+                    f.querySelectorAll('button[type="submit"]').forEach(function (b) { b.disabled = true; });
+                }, 0);
+            });
+        });
+    </script>
+}
