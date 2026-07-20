@@ -123,7 +123,9 @@
     margin-top: var(--eii-space-9);
 }
 
-.contenido-html > h1:first-child {
+/* El primer hijo del cuerpo arranca a ras del borde superior, sea cual sea su
+   tag (h1 de artículo, o el h2 "En el grupo:"/h3 de una nota clínica). */
+.contenido-html > :first-child {
     margin-top: 0;
 }
 
@@ -195,6 +197,190 @@
 .contenido-html a:visited {
     color: var(--eii-primary-hover);
 }
+
+/* ── Link inline discreto ("más info") — NO pastilla ──────────────────────────
+   Se lee como enlace ligero, sin fondo/borde de .eii-badge. Reusa tokens.
+   Usado por el "¿Puedo comerlo?" del detalle de platillo. */
+.eii-inline-link {
+    color: var(--eii-primary);
+    font-size: var(--eii-text-sm);
+    font-weight: var(--eii-fw-medium);
+    text-decoration: none;
+    white-space: nowrap;
+}
+.eii-inline-link:hover,
+.eii-inline-link:focus-visible {
+    color: var(--eii-primary-hover);
+    text-decoration: underline;
+}
+/* Dentro del cuerpo de artículo, .contenido-html a fuerza subrayado + color de
+   enlace (por eso el original era <span>); este override lo neutraliza. */
+.contenido-html a.eii-inline-link {
+    color: var(--eii-primary);
+    text-decoration: none;
+}
+.contenido-html a.eii-inline-link:hover {
+    color: var(--eii-primary-hover);
+    text-decoration: underline;
+    text-decoration-color: var(--eii-primary);
+}
+.contenido-html a.eii-inline-link:visited {
+    color: var(--eii-primary);
+}
+
+/* ── Detalle de platillo: secciones, ingredientes en mini-cards, chips de encaje ──
+   Título de sección FUERA del card (Ingredientes / Preparación). */
+.detalle-section-title {
+    font-size: var(--eii-text-xl);
+    font-weight: var(--eii-fw-semibold);
+    color: var(--eii-text-heading);
+    margin: 0 0 var(--eii-space-3);
+}
+.detalle-section-title .bi { color: var(--eii-primary); }
+
+/* Grilla responsive: ~2 col en móvil, 3-4 en desktop. */
+.ingredientes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--eii-space-3);
+    margin-bottom: var(--eii-space-5);
+}
+.ingrediente-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--eii-surface);
+    border: 1px solid var(--eii-border);
+    border-radius: var(--eii-radius-md);
+    padding: var(--eii-space-3);
+}
+.ingrediente-card__name {
+    font-weight: var(--eii-fw-semibold);
+    color: var(--eii-text-link);
+    text-decoration: none;
+    line-height: var(--eii-leading-tight);
+}
+.ingrediente-card__name:hover { text-decoration: underline; }
+.ingrediente-card__meta {
+    font-size: var(--eii-text-sm);
+    color: var(--eii-text-soft);
+    margin-top: 2px;
+}
+.ingrediente-card__note {
+    font-size: var(--eii-text-xs);
+    color: var(--eii-text-soft);
+    margin-top: 2px;
+}
+/* Pie separado por hairline; margin-top:auto lo empuja al fondo → pies alineados en la fila. */
+.ingrediente-card__foot {
+    margin-top: auto;
+    padding-top: var(--eii-space-2);
+    border-top: 1px solid var(--eii-border);
+    font-size: var(--eii-text-sm);
+}
+.ingrediente-card__sin-ficha {
+    color: var(--eii-text-soft);
+    font-size: var(--eii-text-xs);
+}
+
+/* Chips "✓ sin X" del callout de encaje (verde suave). */
+.encaje-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--eii-space-2);
+    margin-top: var(--eii-space-2);
+}
+.encaje-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--eii-text-sm);
+    color: var(--eii-text);
+    background: var(--eii-surface);
+    border: 1px solid var(--eii-success-border);
+    border-radius: 999px;
+    padding: 3px 11px;
+}
+.encaje-chip .bi { color: var(--eii-success); }
+.encaje-chip--more {
+    border-color: var(--eii-border-strong);
+    color: var(--eii-text-soft);
+}
+
+/* ── Notas clínicas del detalle de ingrediente: UN card por nota (sin caja interna) ──
+   Dos notas (propia + grupo) distinguidas SIN color: la propia con etiqueta; la del
+   grupo con banda gris de encabezado + borde izquierdo. El .contenido-html es solo
+   tipografía (su shell se neutraliza) para NO anidar un card dentro del card. */
+.nota-card {
+    background: var(--eii-surface);
+    border: 1px solid var(--eii-border);
+    border-radius: var(--eii-radius-lg);
+    margin-bottom: var(--eii-space-4);
+    overflow: hidden;
+}
+.nota-card .contenido-html {
+    padding: var(--eii-space-5);
+    max-width: none;
+    margin: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+/* Etiqueta chica de la nota propia ("Sobre {ingrediente}"): lo específico. */
+.nota-card__label {
+    display: flex;
+    align-items: center;
+    gap: var(--eii-space-2);
+    padding: var(--eii-space-5) var(--eii-space-5) 0;
+    font-size: var(--eii-text-xs);
+    font-weight: var(--eii-fw-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--eii-text-soft);
+}
+.nota-card__label .bi { color: var(--eii-text-soft); }
+/* Menos hueco entre la etiqueta y el contenido (el contenido ya trae su padding). */
+.nota-card__label + .contenido-html { padding-top: var(--eii-space-3); }
+/* Nota del grupo: banda gris de encabezado (flush) + borde izquierdo = contexto de grupo, sin color. */
+.nota-card--grupo { border-left: 3px solid var(--eii-border-strong); }
+.nota-card__band {
+    display: flex;
+    align-items: center;
+    gap: var(--eii-space-2);
+    background: var(--eii-surface-subtle);
+    border-bottom: 1px solid var(--eii-border);
+    padding: var(--eii-space-3) var(--eii-space-5);
+    font-size: var(--eii-text-sm);
+    font-weight: var(--eii-fw-medium);
+    color: var(--eii-text);
+}
+.nota-card__band .bi { color: var(--eii-text-soft); }
+
+/* Referencias: bloque secundario al pie de cada nota (hairline + título muted + lista chica),
+   sin card propio. Scopeado a .nota-card por si el partial _NotaClinica se reusa en otra vista. */
+.nota-refs {
+    margin-top: var(--eii-space-6);
+    padding-top: var(--eii-space-4);
+    border-top: 1px solid var(--eii-border);
+}
+.nota-refs__title {
+    font-size: var(--eii-text-xs);
+    font-weight: var(--eii-fw-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--eii-text-soft);
+    margin: 0 0 var(--eii-space-3);
+}
+.nota-card .nota-refs__list {
+    margin: 0;
+    padding-left: var(--eii-space-5);
+}
+.nota-card .nota-refs__list li {
+    font-size: var(--eii-text-sm);
+    color: var(--eii-text-soft);
+    margin-bottom: var(--eii-space-2);
+    padding-left: 0;
+}
+.nota-card .nota-refs__list li::marker { color: var(--eii-text-soft); }
 
 /* Strong/Bold */
 .contenido-html strong,

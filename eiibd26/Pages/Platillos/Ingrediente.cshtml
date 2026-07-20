@@ -93,22 +93,29 @@
                 </p>
             </div>
 
-            @* ===== Contenido clínico: FLUYE como artículo (misma escala que Contenidos/Detalle).
-                    Cada nota va en su propio bloque, con su sello + tarjeta de validación INLINE debajo
-                    (dos notas posibles: la del ingrediente y la de su grupo). Sin nota, no se pinta nada. ===== *@
+            @* ===== Contenido clínico: cada nota en su propio CARD estructurado (no "blog"), con su
+                    sello de validación debajo. Dos notas posibles: la del ingrediente y la de su grupo,
+                    distinguidas sin color (etiqueta vs banda + borde). Sin nota, no se pinta nada. ===== *@
+            @* ===== Nota propia del ingrediente: UN card, sin caja interna, con etiqueta chica arriba. ===== *@
             @if (Model.IngredienteNota != null)
             {
-                <div class="contenido-html">
-                    <partial name="_NotaClinica" model="Model.IngredienteNota" />
+                <div class="nota-card">
+                    <div class="nota-card__label"><i class="bi bi-card-text" aria-hidden="true"></i> Sobre @Model.Nombre</div>
+                    <div class="contenido-html">
+                        <partial name="_NotaClinica" model="Model.IngredienteNota" />
+                    </div>
                 </div>
                 @* Sello para el paciente: bajo el contenido de la nota (la tarjeta de validar va al sidebar). *@
                 <partial name="_NotaSello" model="Model.ValidadoresIngrediente" />
             }
+            @* ===== Nota del grupo: UN card con banda gris de encabezado + borde izquierdo (contexto, sin color). ===== *@
             @if (Model.GrupoNota != null)
             {
-                <div class="contenido-html">
-                    <h2>En el grupo: @Model.GrupoNombre</h2>
-                    <partial name="_NotaClinica" model="Model.GrupoNota" />
+                <div class="nota-card nota-card--grupo">
+                    <div class="nota-card__band"><i class="bi bi-diagram-3" aria-hidden="true"></i> Aplica a todo el grupo · @Model.GrupoNombre</div>
+                    <div class="contenido-html">
+                        <partial name="_NotaClinica" model="Model.GrupoNota" />
+                    </div>
                 </div>
                 <partial name="_NotaSello" model="Model.ValidadoresGrupo" />
             }

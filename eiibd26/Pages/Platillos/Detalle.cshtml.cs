@@ -57,6 +57,9 @@ namespace eiibd26.Pages.Platillos
         public bool Cumple { get; private set; }
         public List<EncajeItem> Rompen { get; private set; } = new();
         public class EncajeItem { public string Ingrediente = ""; public string Detalle = ""; }
+        // Nombres de TODO lo que el usuario declaró que no tolera (grupos + características + ingredientes),
+        // para enlistar en el callout de encaje las intolerancias que este platillo respeta.
+        public List<string> Exclusiones { get; private set; } = new();
 
         public string MetaTitle { get; private set; } = "";
         public string MetaDescription { get; private set; } = "";
@@ -167,6 +170,17 @@ namespace eiibd26.Pages.Platillos
                     var atrExclNombre = await _db.PlatAtributos.AsNoTracking()
                         .Where(a => exAtr.Contains(a.Id))
                         .ToDictionaryAsync(a => a.Id, a => a.Nombre);
+                    var exIngNombre = await _db.PlatIngredientes.AsNoTracking()
+                        .Where(i => exIng.Contains(i.Id))
+                        .Select(i => i.Nombre).ToListAsync();
+
+                    // Lista honesta para el callout: lo que el usuario declaró que no tolera, agrupado por
+                    // tipo (grupos → características → ingredientes) y ordenado dentro de cada uno.
+                    Exclusiones = grupoNombre.Values.OrderBy(n => n)
+                        .Concat(atrExclNombre.Values.OrderBy(n => n))
+                        .Concat(exIngNombre.OrderBy(n => n))
+                        .Where(n => !string.IsNullOrWhiteSpace(n))
+                        .ToList();
 
                     var vistos = new HashSet<int>();
                     foreach (var r in rows)
