@@ -318,8 +318,15 @@ try
     // SEC-010/011: Validación de ownership para datos clínicos del paciente
     builder.Services.AddScoped<eiibd26.Services.ClinicalOwnershipValidator>();
 
+    // Un worker local apuntando a la BD de prod procesaría la cola/agenda REAL (correos, push, IA).
+    // Gate por env var para poder correr una instancia de PRUEBA sin efectos: en prod la var NO está
+    // seteada, así que TODO arranca igual que antes. Cubre los dos workers que escriben a prod al boot:
+    // el ScheduledNotificationWorker (envía push programado) y el Hangfire server (procesa la cola).
+    var deshabilitarWorkers = Environment.GetEnvironmentVariable("EIIBD_DISABLE_BACKGROUND_WORKERS") == "1";
+
     // ⭐ NUEVO: Background Service para procesar notificaciones programadas
-    builder.Services.AddHostedService<eiibd26.Services.ScheduledNotificationWorker>();
+    if (!deshabilitarWorkers)
+        builder.Services.AddHostedService<eiibd26.Services.ScheduledNotificationWorker>();
 
     // ===== AI ANSWER SERVICES =====
     // Configure AI Answer settings
@@ -462,7 +469,10 @@ try
         .UseSimpleAssemblyNameTypeSerializer()
         .UseRecommendedSerializerSettings()
         .UseSqlServerStorage(hangfireConn));
-    builder.Services.AddHangfireServer(opt => opt.WorkerCount = 2);
+    // AddHangfire (storage/cliente) SIEMPRE se registra para que IBackgroundJobClient resuelva por DI.
+    // Solo el SERVER (que procesa jobs) se gatea: sin server, una instancia local no ejecuta la cola.
+    if (!deshabilitarWorkers)
+        builder.Services.AddHangfireServer(opt => opt.WorkerCount = 2);
 
     // Log AI service initialization
     var logger = LoggerFactory.Create(b => b.AddConsole()).CreateLogger("Startup");
