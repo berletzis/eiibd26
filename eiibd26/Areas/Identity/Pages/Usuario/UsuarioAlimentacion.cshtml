@@ -6,7 +6,7 @@
 }
 
 <div class="container py-4">
-    <h1 class="h4 mb-1">Lo que no tolero</h1>
+    <h1 class="eii-page-title">Lo que no tolero</h1>
     <p class="eii-form-text mb-4">
         Marca los alimentos y características que no toleras. Con esto, en
         <a href="/Platillos">Platillos</a> te mostramos solo los platillos que sí puedes comer.
@@ -78,9 +78,12 @@
             <div class="d-flex flex-wrap gap-2" id="ingChips">
                 @foreach (var i in Model.ExcludedIngredientes)
                 {
-                    <button type="button" class="eii-btn eii-btn--sm eii-btn--primary chip-ing" data-refid="@i.Id" title="Quitar">
-                        @i.Nombre ✕
-                    </button>
+                    <span class="eii-badge eii-card__label bg-info mb-1 d-inline-flex align-items-center chip-ing" data-refid="@i.Id">
+                        @i.Nombre
+                        <button type="button" class="eii-btn eii-btn--neutral btn-sm btn-link p-0 ms-1 badge-ing-del" style="color:red; border:none;" title="Quitar">
+                            <i class="bi bi-x-circle"></i>
+                        </button>
+                    </span>
                 }
             </div>
         </div>
@@ -135,13 +138,19 @@
 
             function addIngChip(id, nombre) {
                 if (chips.querySelector('.chip-ing[data-refid="' + id + '"]')) return;
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'eii-btn eii-btn--sm eii-btn--primary chip-ing';
-                btn.dataset.refid = id;
-                btn.title = 'Quitar';
-                btn.textContent = nombre + ' ✕';
-                chips.appendChild(btn);
+                const pill = document.createElement('span');
+                pill.className = 'eii-badge eii-card__label bg-info mb-1 d-inline-flex align-items-center chip-ing';
+                pill.dataset.refid = id;
+                pill.appendChild(document.createTextNode(nombre));
+                const del = document.createElement('button');
+                del.type = 'button';
+                del.className = 'eii-btn eii-btn--neutral btn-sm btn-link p-0 ms-1 badge-ing-del';
+                del.style.color = 'red';
+                del.style.border = 'none';
+                del.title = 'Quitar';
+                del.innerHTML = '<i class="bi bi-x-circle"></i>';
+                pill.appendChild(del);
+                chips.appendChild(pill);
             }
 
             buscar.addEventListener('input', async () => {
@@ -172,13 +181,15 @@
             buscar.addEventListener('blur', () => { setTimeout(() => { sug.innerHTML = ''; }, 200); });
 
             chips.addEventListener('click', async (e) => {
-                const btn = e.target.closest('.chip-ing');
-                if (!btn || btn.disabled) return;
-                btn.disabled = true;
-                const refId = btn.dataset.refid;
+                const del = e.target.closest('.badge-ing-del');
+                if (!del || del.disabled) return;
+                const pill = del.closest('.chip-ing');
+                if (!pill) return;
+                del.disabled = true;
+                const refId = pill.dataset.refid;
                 const res = await post(URL_ELIMINAR, 'Ingrediente', refId);
-                if (res && res.ok) btn.remove();
-                else btn.disabled = false;
+                if (res && res.ok) pill.remove();
+                else del.disabled = false;
             });
         })();
     </script>
