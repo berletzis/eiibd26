@@ -23,6 +23,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
         [BindProperty] public int? Id { get; set; }
         [BindProperty] public string? Nombre { get; set; }
         [BindProperty] public int Orden { get; set; }
+        [BindProperty] public string? Descripcion { get; set; }
 
         /// <summary>Solo informativo: la baja lógica se hace desde el grid.</summary>
         public bool Activo { get; private set; } = true;
@@ -43,6 +44,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
                 Id = ent.Id;
                 Nombre = ent.Nombre;
                 Orden = ent.Orden;
+                Descripcion = ent.Descripcion;
                 Activo = ent.Activo;
             }
             return Page();
@@ -75,12 +77,19 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
                 }
                 ent.Nombre = nombre;
                 ent.Orden = Orden;
+                ent.Descripcion = string.IsNullOrWhiteSpace(Descripcion) ? null : Descripcion.Trim();
                 await _db.SaveChangesAsync();
                 SuccessMessage = "Categoría actualizada.";
                 return RedirectToPage(new { id = ent.Id });
             }
 
-            var nueva = new PlatCategoria { Nombre = nombre, Orden = Orden, Activo = true };
+            var nueva = new PlatCategoria
+            {
+                Nombre = nombre,
+                Orden = Orden,
+                Activo = true,
+                Descripcion = string.IsNullOrWhiteSpace(Descripcion) ? null : Descripcion.Trim()
+            };
             _db.PlatCategorias.Add(nueva);
             await _db.SaveChangesAsync();
             SuccessMessage = "Categoría creada.";
