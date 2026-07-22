@@ -306,81 +306,113 @@
     color: var(--eii-text-soft);
 }
 
-/* ── Notas clínicas del detalle de ingrediente: UN card por nota (sin caja interna) ──
-   Dos notas (propia + grupo) distinguidas SIN color: la propia con etiqueta; la del
-   grupo con banda gris de encabezado + borde izquierdo. El .contenido-html es solo
-   tipografía (su shell se neutraliza) para NO anidar un card dentro del card. */
+/* Datos rápidos del ingrediente: reusa la primitiva .eii-stat (detalle de platillo). Rejilla
+   propia que crece de 2 a 3 columnas cuando entre el 3er dato (tolerancia); 2 fijas en móvil. */
+.ing-facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--eii-space-3);
+    margin: 0 0 var(--eii-space-5);
+}
+@media (max-width: 575.98px) {
+    .ing-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ── Notas clínicas del detalle de ingrediente: UN card por nota, hijos = FILAS (no cajas) ──
+   v4 (reemplaza v1/v2/v3): la nota se escanea tipo FAQ. UN card con filas separadas por hairline;
+   ni .contenido-html ni ningún wrapper interno llevan estilo de caja (sin fondo, borde, radius ni
+   padding propio) → un solo borde por nota. La distinción propia-vs-grupo es por la fila de
+   encabezado, sin color. Tipografía SCOPEADA a .nota-card: NO afecta a Contenidos/Detalle. */
 .nota-card {
     background: var(--eii-surface);
     border: 1px solid var(--eii-border);
-    border-radius: var(--eii-radius-lg);
+    border-radius: var(--eii-radius-xl);
     margin-bottom: var(--eii-space-4);
-    overflow: hidden;
+    overflow: hidden;   /* las filas respetan la esquina redondeada */
 }
+/* Wrapper interno SIN caja: cero fondo/borde/radius/padding — las filas traen su propio aire. */
 .nota-card .contenido-html {
-    padding: var(--eii-space-5);
-    max-width: none;
+    padding: 0;
     margin: 0;
+    max-width: none;
     background: transparent;
     border: none;
     box-shadow: none;
 }
-/* Etiqueta chica de la nota propia ("Sobre {ingrediente}"): lo específico. */
-.nota-card__label {
-    display: flex;
-    align-items: center;
-    gap: var(--eii-space-2);
-    padding: var(--eii-space-5) var(--eii-space-5) 0;
-    font-size: var(--eii-text-xs);
-    font-weight: var(--eii-fw-semibold);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--eii-text-soft);
+
+/* Fila 1 = encabezado (parte del card): título de card ESTÁNDAR (reusa .eii-card__title), igual
+   que los demás cards del sitio. Sin ícono, sin chip, sin fondo gris — ambas notas en blanco. La
+   nota de grupo se distingue SOLO por el texto del título ("Aplica a todo el grupo: X"). */
+.nota-card__head {
+    padding: var(--eii-space-4) var(--eii-space-5);
 }
-.nota-card__label .bi { color: var(--eii-text-soft); }
-/* Menos hueco entre la etiqueta y el contenido (el contenido ya trae su padding). */
-.nota-card__label + .contenido-html { padding-top: var(--eii-space-3); }
-/* Nota del grupo: banda gris de encabezado (flush) + borde izquierdo = contexto de grupo, sin color. */
-.nota-card--grupo { border-left: 3px solid var(--eii-border-strong); }
-.nota-card__band {
-    display: flex;
-    align-items: center;
-    gap: var(--eii-space-2);
-    background: var(--eii-surface-subtle);
-    border-bottom: 1px solid var(--eii-border);
-    padding: var(--eii-space-3) var(--eii-space-5);
-    font-size: var(--eii-text-sm);
-    font-weight: var(--eii-fw-medium);
+
+/* Una fila por sección (pregunta/respuesta tipo FAQ), separada por hairline de 0.5px. */
+.nota-card .nota-row {
+    padding: var(--eii-space-4) var(--eii-space-5);   /* ~16px 20px */
+    border-top: 0.5px solid var(--eii-border);
+}
+.nota-card .nota-row__q {
+    margin: 0 0 var(--eii-space-1);
+    font-size: 0.9375rem;                 /* 15px — no hay token entre sm(14) y base(16); valor del mockup v4 */
+    font-weight: var(--eii-fw-medium);    /* 500 */
+    line-height: 1.4;
     color: var(--eii-text);
 }
-.nota-card__band .bi { color: var(--eii-text-soft); }
-
-/* Referencias: bloque secundario al pie de cada nota (hairline + título muted + lista chica),
-   sin card propio. Scopeado a .nota-card por si el partial _NotaClinica se reusa en otra vista. */
-.nota-refs {
-    margin-top: var(--eii-space-6);
-    padding-top: var(--eii-space-4);
-    border-top: 1px solid var(--eii-border);
+.nota-card .nota-row__a,
+.nota-card .nota-row__a p,
+.nota-card .nota-row__a li {
+    font-size: 0.9375rem;                 /* 15px */
+    line-height: 1.7;
+    color: var(--eii-text-soft);
 }
-.nota-refs__title {
+.nota-card .nota-row__a p { margin: 0 0 var(--eii-space-2); }
+.nota-card .nota-row__a p:last-child { margin-bottom: 0; }
+.nota-card .nota-row__a ul { margin: 0; padding-left: var(--eii-space-5); }
+.nota-card .nota-row__a li { margin-bottom: var(--eii-space-1); }
+
+/* Última fila = Referencias: compacta, en una línea (no sección con viñetas). Es una .nota-row más
+   (hereda su padding + hairline). Scopeada a .nota-card por si el partial _NotaClinica se reusa. */
+.nota-card .nota-refs {
     font-size: var(--eii-text-xs);
+    line-height: 1.6;
+    color: var(--eii-text-soft);
+}
+.nota-card .nota-refs__label {
     font-weight: var(--eii-fw-semibold);
     text-transform: uppercase;
     letter-spacing: 0.05em;
+}
+.nota-card .nota-refs__sep { margin: 0 var(--eii-space-1); color: var(--eii-border-strong); }
+.nota-card .nota-refs a { color: var(--eii-text-soft); text-decoration: underline; }
+.nota-card .nota-refs a:hover { color: var(--eii-primary); }
+
+/* Leyenda honesta cuando la nota NO trae referencias (sustituye al bloque Referencias). Es una
+   .nota-row más (hereda padding + hairline). El texto lo elige el .cshtml según el estado real de
+   la nota; aquí solo el matiz visual: respaldada = ícono de confianza, orientativa = neutro. */
+.nota-card .nota-legend {
+    display: flex;
+    gap: var(--eii-space-2);
+    font-size: var(--eii-text-xs);
+    line-height: 1.6;
     color: var(--eii-text-soft);
-    margin: 0 0 var(--eii-space-3);
 }
-.nota-card .nota-refs__list {
-    margin: 0;
-    padding-left: var(--eii-space-5);
+.nota-card .nota-legend__ico { flex-shrink: 0; margin-top: 0.15em; }
+.nota-card .nota-legend p { margin: 0; }
+.nota-card .nota-legend--respaldada .nota-legend__ico { color: var(--eii-primary); }
+.nota-card .nota-legend--orientativa .nota-legend__ico { color: var(--eii-text-soft); }
+
+/* Anexo 5: nota de PRECAUCIÓN de seguridad — mismo card, matiz ÁMBAR para que se lea como aviso,
+   separada de la de tolerancia. Tokens de warning (sin colores hardcodeados). */
+.nota-card--precaucion {
+    border-color: var(--eii-warning-border);
+    background: var(--eii-warning-soft);
 }
-.nota-card .nota-refs__list li {
-    font-size: var(--eii-text-sm);
-    color: var(--eii-text-soft);
-    margin-bottom: var(--eii-space-2);
-    padding-left: 0;
-}
-.nota-card .nota-refs__list li::marker { color: var(--eii-text-soft); }
+.nota-card--precaucion .nota-card__head { color: var(--eii-warning-hover); }
+.nota-card--precaucion .nota-row { border-top-color: var(--eii-warning-border); }
+/* Leyenda "sin validar" de la precaución: caveat más marcado que el de tolerancia. */
+.nota-card .nota-legend--precaucion { color: var(--eii-warning-hover); }
+.nota-card .nota-legend--precaucion .nota-legend__ico { color: var(--eii-warning); }
 
 /* Strong/Bold */
 .contenido-html strong,

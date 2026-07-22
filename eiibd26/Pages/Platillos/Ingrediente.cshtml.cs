@@ -47,6 +47,9 @@ namespace eiibd26.Pages.Platillos
         // vive en PlatNotaClinicaService; esta vista NUNCA consulta la tabla directo.
         public PlatNotaVisibleDto? IngredienteNota { get; private set; }
         public PlatNotaVisibleDto? GrupoNota { get; private set; }
+        // Anexo 5: nota de PRECAUCIÓN de seguridad del grupo (si el grupo es de riesgo y la nota está
+        // publicada). Se pinta como callout ámbar aparte. Su leyenda depende de la validación médica.
+        public PlatNotaVisibleDto? PrecaucionNota { get; private set; }
         public List<string> Atributos { get; private set; } = new();
 
         // ===== Validación médica (F2b) — señal de confianza, inline con cada nota.
@@ -54,8 +57,10 @@ namespace eiibd26.Pages.Platillos
         public bool CanValidate { get; private set; }
         public ValidacionExistenteDto? MiValidIngrediente { get; private set; }
         public ValidacionExistenteDto? MiValidGrupo { get; private set; }
+        public ValidacionExistenteDto? MiValidPrecaucion { get; private set; }
         public List<ValidacionPublicaDto> ValidadoresIngrediente { get; private set; } = new();
         public List<ValidacionPublicaDto> ValidadoresGrupo { get; private set; } = new();
+        public List<ValidacionPublicaDto> ValidadoresPrecaucion { get; private set; } = new();
 
         [TempData] public string? ValidationMessage { get; set; }
         [TempData] public bool ValidationSuccess { get; set; }
@@ -97,6 +102,8 @@ namespace eiibd26.Pages.Platillos
             // Notas clínicas: SIEMPRE por el servicio (candado). Devuelve null si no hay nada visible.
             IngredienteNota = await _notas.ObtenerNotaVisibleParaPacienteAsync("Ingrediente", ing.Id);
             GrupoNota = await _notas.ObtenerNotaVisibleParaPacienteAsync("Grupo", ing.GrupoId);
+            // Precaución de seguridad: nota de GRUPO con TipoNota='Precaucion'. Aplica a todo el grupo.
+            PrecaucionNota = await _notas.ObtenerNotaVisibleParaPacienteAsync("Grupo", ing.GrupoId, "Precaucion");
 
             // Atributos intrínsecos (cómo es siempre: gluten, lactosa, picante…).
             var atrIds = await _db.PlatIngredienteAtributos.AsNoTracking()
@@ -169,6 +176,9 @@ namespace eiibd26.Pages.Platillos
             if (GrupoNota != null)
                 ValidadoresGrupo = await _validaciones.ObtenerValidacionesPublicasAsync(
                     TipoContenidoValidado.NotaClinicaIngrediente, GrupoNota.Id);
+            if (PrecaucionNota != null)
+                ValidadoresPrecaucion = await _validaciones.ObtenerValidacionesPublicasAsync(
+                    TipoContenidoValidado.NotaClinicaIngrediente, PrecaucionNota.Id);
 
             if (!(User?.Identity?.IsAuthenticated ?? false)) return;
             var user = await _userManager.GetUserAsync(User);
@@ -184,6 +194,9 @@ namespace eiibd26.Pages.Platillos
             if (GrupoNota != null)
                 MiValidGrupo = await _validaciones.ObtenerMiValidacionAsync(
                     TipoContenidoValidado.NotaClinicaIngrediente, GrupoNota.Id, uid);
+            if (PrecaucionNota != null)
+                MiValidPrecaucion = await _validaciones.ObtenerMiValidacionAsync(
+                    TipoContenidoValidado.NotaClinicaIngrediente, PrecaucionNota.Id, uid);
         }
 
         // POST: guardar/actualizar la validación de UNA nota (por su NotaClinicaId). Solo Médico/Admin.

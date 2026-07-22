@@ -1,57 +1,55 @@
 @model eiibd26.Services.Platillos.PlatNotaVisibleDto
 @*
     Cuerpo de una nota clínica YA filtrada por el candado (el servicio solo entrega notas visibles).
-    Render puro y SIN clases de caja: fluye como artículo dentro de .contenido-html (la tipografía
-    —h3, p, ul— la pone el contenedor, misma escala que Contenidos/Detalle). Secciones en orden
-    (párrafos y viñetas) + bloque "Referencias" con rel="noopener".
-    Nota: el realce por callout de secciones "Importante"/"seguridad" se hará cuando el CRUD del
-    médico (F2) marque un TIPO de sección; hoy los títulos del seed son inconsistentes y adivinar
-    por texto sería frágil en contenido clínico.
+    v4: se escanea tipo FAQ. Cada sección = una FILA (pregunta + respuesta), separada por hairline;
+    NADA lleva estilo de caja (los estilos .nota-row* viven en detalle.css, scopeados a .nota-card).
+    Última fila = Referencias en una línea. El realce por "Importante"/"seguridad" se hará cuando el
+    CRUD del médico (F2) marque un TIPO de sección; adivinar por texto sería frágil en contenido clínico.
 *@
 @foreach (var sec in Model.Secciones)
 {
-    @if (!string.IsNullOrWhiteSpace(sec.Titulo))
-    {
-        <h3>@sec.Titulo</h3>
-    }
-    @foreach (var bloque in sec.Bloques)
-    {
-        @if (bloque.EsLista)
+    <div class="nota-row">
+        @if (!string.IsNullOrWhiteSpace(sec.Titulo))
         {
-            <ul>
-                @foreach (var li in bloque.Lineas)
+            <p class="nota-row__q">@sec.Titulo</p>
+        }
+        <div class="nota-row__a">
+            @foreach (var bloque in sec.Bloques)
+            {
+                @if (bloque.EsLista)
                 {
-                    <li>@li</li>
+                    <ul>
+                        @foreach (var li in bloque.Lineas)
+                        {
+                            <li>@li</li>
+                        }
+                    </ul>
                 }
-            </ul>
-        }
-        else
-        {
-            <p>@(bloque.Lineas.Count > 0 ? bloque.Lineas[0] : "")</p>
-        }
-    }
+                else
+                {
+                    <p>@(bloque.Lineas.Count > 0 ? bloque.Lineas[0] : "")</p>
+                }
+            }
+        </div>
+    </div>
 }
 
 @if (Model.Referencias.Count > 0)
 {
-    @* Referencias como bloque secundario al pie de la nota (hairline + título muted), no como
-       sección más del artículo. Los estilos .nota-refs* viven en detalle.css, scopeados a .nota-card. *@
-    <div class="nota-refs">
-        <div class="nota-refs__title">Referencias</div>
-        <ul class="nota-refs__list">
-            @foreach (var r in Model.Referencias)
+    @* Referencias en UNA línea al pie ("Referencias · X · Y"), como última fila (no sección con viñetas). *@
+    <div class="nota-row nota-refs">
+        <span class="nota-refs__label">Referencias</span>
+        @foreach (var r in Model.Referencias)
+        {
+            <span class="nota-refs__sep" aria-hidden="true">·</span>
+            @if (!string.IsNullOrWhiteSpace(r.Url))
             {
-                <li>
-                    @if (!string.IsNullOrWhiteSpace(r.Url))
-                    {
-                        <a href="@r.Url" target="_blank" rel="noopener">@r.Titulo</a>
-                    }
-                    else
-                    {
-                        @r.Titulo
-                    }
-                </li>
+                <a href="@r.Url" target="_blank" rel="noopener">@r.Titulo</a>
             }
-        </ul>
+            else
+            {
+                <span>@r.Titulo</span>
+            }
+        }
     </div>
 }

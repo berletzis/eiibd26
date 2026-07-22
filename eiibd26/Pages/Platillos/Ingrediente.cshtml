@@ -5,7 +5,7 @@
     var canonical = $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}/Platillos/Ingrediente/{Model.Slug}";
     // Sin nota clínica REVISADA la página es delgada: noindex hasta que un médico apruebe contenido.
     // Se reactiva solo (y el sitemap la incluye solo) cuando el ingrediente o su grupo tienen nota visible.
-    var tieneContenido = Model.IngredienteNota != null || Model.GrupoNota != null;
+    var tieneContenido = Model.IngredienteNota != null || Model.GrupoNota != null || Model.PrecaucionNota != null;
 
     // Compartir: puro cliente, URL canónica del ingrediente + su título (espejo de Contenidos/Detalle).
     var shareUrl = canonical;
@@ -43,18 +43,24 @@
     @* ===== 1. Qué es ===== *@
     <div class="eii-page-header mb-3">
         <div class="eii-page-header__content">
-            <h1 class="eii-page-title mb-2">¿Puedo comer @Model.Nombre?</h1>
-            @* Cápsulas de grupo/atributo: mismo componente .tag (tamaño completo), no miniatura *@
-            <div class="d-flex flex-wrap gap-2 align-items-center">
-                @if (!string.IsNullOrWhiteSpace(Model.GrupoNombre))
-                {
-                    <span class="tag">@Model.GrupoNombre</span>
-                }
-                @foreach (var a in Model.Atributos)
-                {
-                    <span class="tag">@a</span>
-                }
-            </div>
+            <h1 class="eii-page-title mb-0">¿Puedo comer @Model.Nombre?</h1>
+        </div>
+    </div>
+
+    @* ===== Datos rápidos (ancla visual): reusa la primitiva .eii-stat del detalle de platillo.
+            Grupo + atributos intrínsecos; el 3er slot (% de tolerancia de la comunidad) entra
+            cuando la encuesta /tolero esté viva. 2 columnas en móvil. Reemplaza a las cápsulas
+            .tag del encabezado (misma info, sin duplicar). ===== *@
+    <div class="ing-facts">
+        <div class="eii-stat eii-stat--primary">
+            <i class="bi bi-diagram-3 eii-stat__icon" aria-hidden="true"></i>
+            <span class="eii-stat__value">@(string.IsNullOrWhiteSpace(Model.GrupoNombre) ? "—" : Model.GrupoNombre)</span>
+            <span class="eii-stat__label">grupo</span>
+        </div>
+        <div class="eii-stat eii-stat--info">
+            <i class="bi bi-tags eii-stat__icon" aria-hidden="true"></i>
+            <span class="eii-stat__value">@(Model.Atributos.Count > 0 ? string.Join(", ", Model.Atributos) : "Ninguno")</span>
+            <span class="eii-stat__label">atributos intrínsecos</span>
         </div>
     </div>
 
@@ -100,24 +106,76 @@
             @if (Model.IngredienteNota != null)
             {
                 <div class="nota-card">
-                    <div class="nota-card__label"><i class="bi bi-card-text" aria-hidden="true"></i> Sobre @Model.Nombre</div>
+                    <div class="nota-card__head">
+                        <h2 class="eii-card__title">Sobre @Model.Nombre</h2>
+                    </div>
                     <div class="contenido-html">
                         <partial name="_NotaClinica" model="Model.IngredienteNota" />
+                        @* Sin referencias: leyenda honesta según el estado real (validada vs orientativa). *@
+                        @if (Model.IngredienteNota.Referencias.Count == 0)
+                        {
+                            <partial name="_NotaSinReferencias" model="Model.ValidadoresIngrediente.Count >= 1" />
+                        }
                     </div>
                 </div>
                 @* Sello para el paciente: bajo el contenido de la nota (la tarjeta de validar va al sidebar). *@
                 <partial name="_NotaSello" model="Model.ValidadoresIngrediente" />
             }
-            @* ===== Nota del grupo: UN card con banda gris de encabezado + borde izquierdo (contexto, sin color). ===== *@
+            @* ===== Nota del grupo: MISMO card blanco que la propia (sin chip, sin fondo, sin ícono).
+                    Se distingue SOLO por el texto del título ("Aplica a todo el grupo: {grupo}"). ===== *@
             @if (Model.GrupoNota != null)
             {
-                <div class="nota-card nota-card--grupo">
-                    <div class="nota-card__band"><i class="bi bi-diagram-3" aria-hidden="true"></i> Aplica a todo el grupo · @Model.GrupoNombre</div>
+                <div class="nota-card">
+                    <div class="nota-card__head">
+                        <h2 class="eii-card__title">Aplica a todo el grupo: @Model.GrupoNombre</h2>
+                    </div>
                     <div class="contenido-html">
                         <partial name="_NotaClinica" model="Model.GrupoNota" />
+                        @* Sin referencias: leyenda honesta según el estado real (validada vs orientativa). *@
+                        @if (Model.GrupoNota.Referencias.Count == 0)
+                        {
+                            <partial name="_NotaSinReferencias" model="Model.ValidadoresGrupo.Count >= 1" />
+                        }
                     </div>
                 </div>
                 <partial name="_NotaSello" model="Model.ValidadoresGrupo" />
+            }
+
+            @* ===== Precaución de seguridad (Anexo 5): callout ÁMBAR, separado de la tolerancia.
+                    Es una nota IA como las demás (candado intacto) pero de eje SEGURIDAD, atada al grupo
+                    de riesgo. Decisión de diseño: se publica y muestra su ESTADO — leyenda cauta si aún
+                    no la valida un profesional, tranquilizadora si sí. Nunca finge respaldo. ===== *@
+            @if (Model.PrecaucionNota != null)
+            {
+                <div class="nota-card nota-card--precaucion">
+                    <div class="nota-card__head">
+                        <h2 class="eii-card__title">
+                            <i class="bi bi-shield-exclamation" aria-hidden="true"></i> Precaución de seguridad
+                        </h2>
+                    </div>
+                    <div class="contenido-html">
+                        <partial name="_NotaClinica" model="Model.PrecaucionNota" />
+                        @* Leyenda por estado de VALIDACIÓN (no de referencias): honesta, nunca fija. *@
+                        @if (Model.ValidadoresPrecaucion.Count >= 1)
+                        {
+                            <div class="nota-row nota-legend nota-legend--respaldada">
+                                <i class="bi bi-patch-check nota-legend__ico" aria-hidden="true"></i>
+                                <p>Un profesional de la salud respalda este aviso de seguridad.</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="nota-row nota-legend nota-legend--precaucion">
+                                <i class="bi bi-exclamation-triangle nota-legend__ico" aria-hidden="true"></i>
+                                <p>
+                                    Este aviso de seguridad <strong>todavía no lo ha validado un profesional de la salud</strong>.
+                                    Es orientativo; coméntalo con tu médico o nutriólogo.
+                                </p>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <partial name="_NotaSello" model="Model.ValidadoresPrecaucion" />
             }
 
             @* ===== Comunidad y experiencia (cards): widgets, apagados en v1 (módulo Tolerancia #16) ===== *@
@@ -229,6 +287,17 @@
                         PageHandler = "GuardarValidacionNota",
                         Titulo      = $"Validar nota de: {Model.GrupoNombre}",
                         Existente   = Model.MiValidGrupo
+                    })
+                }
+                @if (Model.PrecaucionNota != null)
+                {
+                    @await Html.PartialAsync("_ValidacionContenidoMedico", new eiibd26.Services.Validacion.ValidacionContenidoPartialVm
+                    {
+                        ContenidoId = Model.PrecaucionNota.Id,
+                        Slug        = Model.Slug,
+                        PageHandler = "GuardarValidacionNota",
+                        Titulo      = $"Validar precaución de: {Model.GrupoNombre}",
+                        Existente   = Model.MiValidPrecaucion
                     })
                 }
             }
