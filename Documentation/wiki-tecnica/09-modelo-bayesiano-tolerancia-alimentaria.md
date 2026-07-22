@@ -1,7 +1,29 @@
-# Modelo bayesiano de tolerancia alimentaria (DISEÑO — no construido)
+# Modelo de tolerancia alimentaria (MVP implementado + bayesiano pendiente)
 
 > Wiki técnica interna — no publicar.
-> **Estado: NO IMPLEMENTADO.** Este artículo documenta un módulo *previsto*, no código existente. La fórmula bayesiana concreta (priors, actualización) **no está en el repositorio**; lo que sigue distingue explícitamente lo confirmado en los documentos de diseño de lo que sería la formulación estándar prevista.
+> **Estado (actualizado 17 JUL 2026): MVP IMPLEMENTADO.** La recolección de datos y el estimador suavizado **ya están en producción** (encuesta `/tolero/{slug}`). Lo que sigue pendiente es el bayesiano completo: prior informado, intervalo creíble y segmentación por tipo de EII. Este doc distingue las dos cosas.
+
+## Lo que YA está implementado (MVP, 17 JUL 2026)
+
+**Recolección** — tabla `PlatTolerVoto` (SQL directo, `SQL/platillos-toler-voto.sql`):
+- `IngredienteId`, `Tolera` TINYINT (1=Sí, 2=A veces, 3=No), `UserId` / `AnonId` (dedup: un voto por paciente o por cookie, con índices únicos filtrados), `FechaVoto`.
+- **`CondicionIdPrincipal`** (condición cruda del paciente al votar) + **`TipoEII`** derivado (1=CUCI, 2=Crohn). Se guardan **desde ahora** aunque el MVP no segmente, para que el bayesiano tenga la data lista. La cruda es la fuente de verdad (permite recalcular si se renombra una condición).
+- Front: `Pages/Tolero/Encuesta.cshtml(.cs)`. Admin: `Admin/Platillos/EstadisticasTolerancia`.
+
+**Estimador actual (suavizado de Laplace)** — en `Encuesta.cshtml.cs`:
+```
+% = (s + 1) / ((s + f) + 2)      s = votos "Sí", f = votos "No"
+```
+- **"A veces" queda fuera del binario** (se muestra aparte en el desglose).
+- **Guard:** si el total de respuestas `n < 10` (`MinVotos`), **no se muestra porcentaje** — se muestra "Aún no hay suficientes respuestas". Evita el "100% con 2 votos".
+
+**Nota conceptual importante:** ese estimador **ya es bayesiano** — es exactamente la media posterior de un Beta-Binomial con prior `Beta(1,1)` (la regla de sucesión de Laplace). O sea, el MVP no es "un atajo antes del bayesiano": es el caso más simple del bayesiano descrito abajo, con prior uniforme. Lo que falta es sofisticarlo.
+
+## Lo que FALTA (el bayesiano completo)
+1. **Prior informado** (`Beta(α₀, β₀)` distinto de 1,1) si se quiere regularizar más o menos.
+2. **Intervalo creíble** al 95% (cuantiles del posterior) para decidir cuándo el dato es confiable, en vez del corte fijo `n ≥ 10`.
+3. **Segmentación por tipo de EII** — "X% de pacientes con Crohn toleran…". La data (`TipoEII`, `CondicionIdPrincipal`) ya se está guardando; falta el cálculo y la UI.
+4. Decidir el tratamiento de **"A veces"** (hoy fuera del binario; podría ser crédito parcial o un modelo ordinal de 3 niveles).
 
 ## Qué problema resolvería
 

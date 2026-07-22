@@ -8,26 +8,49 @@
 ## Contexto (modelo)
 En `Ingrediente.cshtml` se renderizan dos notas posibles (líneas ~99-114): la **nota propia del ingrediente** (`Model.IngredienteNota`) y la **nota del grupo** (`Model.GrupoNota`, hoy con un `<h2>En el grupo: {grupo}</h2>`). Pueden aparecer 0, 1 o 2. El `_NotaClinica` partial pinta secciones + referencias.
 
-## Diseño v2 (mockup v2 revisado con el owner — ITERA sobre lo ya aplicado en v1)
-Plano, neutral, con aire. **Clave: UN solo card por nota — QUITAR el card interno.** (v1 quedó con card-dentro-de-card, doble borde; eso es lo primero que hay que corregir.)
+## Diseño v4 (mockup v4 aprobado por el owner — REEMPLAZA v1, v2 y v3)
+El anidado ya falló **dos veces**. v4 cambia el enfoque para que sea **estructuralmente imposible**: la nota es UN card cuyos hijos son **filas**, no cajas.
 
-### 1. Nota propia del ingrediente
-**Un solo card**, sin caja interna. Arriba, una etiqueta chica: "Sobre el {ingrediente}" (ícono + muted, uppercase suave, letter-spacing). Las secciones fluyen **directo dentro del mismo card**. Solo si `IngredienteNota != null`.
+### 0. LO CRÍTICO — la causa del anidado y su regla
+El anidado se repite porque el markup **envuelve la nota en un card nuevo mientras `.contenido-html` conserva su propio estilo de caja** (background, border, radius, padding) → dos superficies.
+**Regla tajante:** la nota se renderiza como **UN solo card**; sus hijos son **filas separadas por hairline**. En este contexto, `.contenido-html` (y cualquier wrapper interno) **NO debe llevar estilo de caja** — sin fondo, sin borde, sin radius, sin padding propio. Verificar en el render que solo hay **un** borde por nota.
 
-### 2. Nota del grupo — distinguida, sutil (sin banda pesada)
-**Un solo card**, distinguido así (reemplaza la banda gris ancha + el borde izquierdo de v1):
-- Un **chip pill** arriba: "Aplica a todo el grupo · {grupo}" (fondo suave `--eii-surface`, borde hairline, `border-radius` full, ícono de jerarquía). Reemplaza el `<h2>En el grupo: {grupo}</h2>`.
-- El card **sutilmente recesado**: fondo `--eii-surface-subtle` / `surface-1` — un punto más apagado que el blanco de la nota propia. Eso lo marca como "contexto de grupo", plano y sin color.
+### 1. Fila de datos rápidos (arriba) — YA IMPLEMENTADA ✅
+Grupo + Atributos intrínsecos como mini-cards suaves, estilo stat cards del detalle de platillo. **Se queda tal cual.** Dejar hueco para un tercero: el **% de tolerancia de la comunidad** cuando `/tolero` esté vivo.
 
-### 3. Referencias como bloque aparte (por nota)
-Hoy fluyen dentro del contenido (`_NotaClinica`: `<h3>Referencias</h3> <ul>`). Sacarlas a un **bloque secundario al pie de cada card**: hairline divisor + título chico muted "Referencias" (uppercase suave) + la lista, en peso secundario. **Sin card propio.**
+### 2. Estructura de cada nota — filas tipo FAQ
+Las secciones de la nota **son preguntas** ("¿Qué son?", "¿Qué suele pasar?"), así que van como **lista pregunta/respuesta**, no como prosa con títulos. Eso es lo que mata el "post de blog": se escanea en vez de leerse.
 
-### General — toques "para esta época"
-- **Un card por nota, sin caja interna** (lo más importante de esta iteración).
-- Radius suave (16px), padding generoso (~1.25rem), `line-height: 1.7`, más espacio entre secciones.
-- Títulos de sección en **peso medio (500)**, no negro pesado — se siente editorial, no denso (mata el "parece blog").
-- Plano: sin sombras fuertes. La jerarquía es por **superficie** (recesado) + **chip**, no por color.
+UN card, con filas separadas por `border-top: 0.5px solid var(--eii-border)`:
+- **Fila 1 = encabezado** (parte del card, NO un wrapper por fuera):
+  - Nota propia → etiqueta chica "Sobre el {ingrediente}" (uppercase suave, muted).
+  - Nota de grupo → **chip** "Aplica a todo el grupo · {grupo}" con ícono de jerarquía, sobre un fondo de fila levemente distinto (`surface-1`) para distinguirla.
+- **Una fila por sección:** pregunta (**15px, peso 500, `--eii-text`**) + respuesta debajo (**15px, `line-height: 1.7`, `--eii-text-soft`**). Padding de fila ~14px 18px.
+- **Última fila = Referencias**, compacta y en una línea: "Referencias · ESPEN 2023 · CCF". Sin sección con viñetas.
+
+### 3. Jerarquía
+Por **peso y color**, no por cajas: pregunta fuerte, respuesta en secundario. Radius 16px en el card, `overflow: hidden` para que las filas respeten la esquina.
+
+### 3b. Ajustes v5 — encabezados (APROBADO por el owner; REEMPLAZA el tratamiento de encabezado de v4)
+Sobre la estructura de filas de v4, aplicar estos 4 cambios:
+1. **Sin íconos** en ninguno de los dos encabezados (fuera el de "Sobre el arroz" y el de jerarquía del grupo).
+2. **Sin cápsula/chip** en el encabezado del grupo → **texto plano**.
+3. **Ambos encabezados como título de card estándar**, igual que los demás cards del sitio ("Calificar", "Compartir", "Platillos que lo incluyen"): caja normal (**no uppercase**), tamaño y peso de título de card, color de heading, con el padding/divisor que ya usan. **Reusar la clase existente** (`.eii-card__title` o equivalente) — no inventar un estilo nuevo.
+4. **Sin fondo gris** en el encabezado ni en el card de la nota de grupo → **mismo blanco** que la nota propia.
+
+**Consecuencia asumida:** la nota de grupo ya no se distingue por chip, fondo ni ícono, sino **por el texto de su título** ("Aplica a todo el grupo: cereal" vs "Sobre el arroz"). Es suficiente y más limpio — **no** agregar otro distintivo para compensar.
+
+**Se mantiene de v4:** una sola superficie por nota (sin caja interna), filas de sección separadas por hairline, y las referencias en una línea compacta al pie.
+
+### 6. Realce de "Importante" — DECISIÓN DEL OWNER (leer antes de implementar)
+En el mockup la sección "Importante" va destacada en un bloque ámbar suave, y se ve bien. **PERO** el propio `_NotaClinica.cshtml` documenta una decisión contraria: *"el realce por callout de secciones 'Importante'/'seguridad' se hará cuando el CRUD marque un TIPO de sección; hoy los títulos son inconsistentes y adivinar por texto sería frágil en contenido clínico."*
+- **Opción A (recomendada):** **no** realzar por coincidencia de texto. Las secciones van uniformes; la mejora de tipografía y aire ya resuelve lo denso. Respeta la decisión documentada y evita destacar la sección equivocada en contenido médico.
+- **Opción B:** agregar un campo **"tipo de sección"** al editor de notas (tarea chica aparte) y realzar **por dato**, no por texto. Es el camino limpio.
+Implementar **Opción A** salvo que el owner diga lo contrario.
+
+### General
 - El callout azul "No es un alimento prohibido…" se queda como está (arriba, suelto).
+- Plano, sin sombras fuertes. La jerarquía es por superficie + chip + los datos rápidos, no por saturar de color.
 
 ## Cuidado de scope
 `_NotaClinica.cshtml` puede estar **compartido** (el comentario menciona "misma escala que Contenidos/Detalle"). Antes de restilar las referencias en el partial, **verificar dónde más se usa**; si se comparte, scopear los estilos nuevos al contenedor del ingrediente (una clase propia) para no afectar otras vistas. La banda de "Aplica al grupo" va en `Ingrediente.cshtml` (no en el partial).
