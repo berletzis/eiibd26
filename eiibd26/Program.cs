@@ -342,6 +342,8 @@ try
     builder.Services.AddScoped<eiibd26.Services.AI.ISimilarQuestionDetector, eiibd26.Services.AI.SimilarQuestionDetector>();
     // ⭐ NUEVO: Servicio especializado para generar descripciones de Síntomas y Tratamientos
     builder.Services.AddScoped<eiibd26.Services.AI.ISintomasTratamientosAiService, eiibd26.Services.AI.SintomasTratamientosAiService>();
+    // ⭐ NUEVO: Servicio hermano para generar contenido del módulo Platillos (notas clínicas, NotasEII, descripciones)
+    builder.Services.AddScoped<eiibd26.Services.AI.IPlatillosAiService, eiibd26.Services.AI.PlatillosAiService>();
 
     // ⭐ GLOSSARY MODULE: Servicios para navegación médica desacoplada
     builder.Services.AddScoped<eiibd26.Services.Glossary.Adapters.IMedicalDataAdapter, eiibd26.Services.Glossary.Adapters.MedicalDataAdapter>();

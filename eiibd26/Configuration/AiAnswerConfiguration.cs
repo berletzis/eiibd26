@@ -53,6 +53,18 @@ namespace eiibd26.Configuration
         public bool Enabled { get; set; } = true;
 
         /// <summary>
+        /// Lista blanca de fuentes clínicas que la IA puede citar en contenido MÉDICO
+        /// (notas clínicas de grupo/ingrediente del módulo Platillos). Candado anti-alucinación:
+        /// el modelo tiene PROHIBIDO citar cualquier fuente fuera de esta lista; si ninguna aplica,
+        /// no cita nada y marca la nota para revisión prioritaria. Editable en appsettings sin recompilar.
+        /// </summary>
+        public List<string> FuentesClinicasPermitidas { get; set; } = new List<string>
+        {
+            "ESPEN 2023",
+            "Crohn's & Colitis Foundation"
+        };
+
+        /// <summary>
         /// Palabras o frases prohibidas que activarán el fallback de seguridad
         /// </summary>
         public List<string> ForbiddenPhrases { get; set; } = new List<string>
