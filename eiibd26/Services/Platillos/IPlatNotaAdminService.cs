@@ -18,11 +18,15 @@ namespace eiibd26.Services.Platillos
     /// </summary>
     public interface IPlatNotaAdminService
     {
+        // El parámetro tipoNota ('Tolerancia' | 'Precaucion') es la dimensión del Anexo 5. Default
+        // 'Tolerancia' → todos los llamadores actuales (editor de tolerancia) siguen igual sin tocarlos.
+        // La precaución (grupo de riesgo) pasa 'Precaucion' y comparte TODAS las reglas de escritura.
+
         /// <summary>Carga la nota del destino para editar (o un VM vacío si no existe). Incluye borradores.</summary>
-        Task<PlatNotaEditVm> CargarAsync(string tipoDestino, int destinoId, string destinoNombre);
+        Task<PlatNotaEditVm> CargarAsync(string tipoDestino, int destinoId, string destinoNombre, string tipoNota = "Tolerancia");
 
         /// <summary>Estado de la nota por DestinoId para un tipo, en una sola consulta (columna de la lista).</summary>
-        Task<Dictionary<int, PlatNotaEstado>> ObtenerEstadosAsync(string tipoDestino);
+        Task<Dictionary<int, PlatNotaEstado>> ObtenerEstadosAsync(string tipoDestino, string tipoNota = "Tolerancia");
 
         /// <summary>
         /// Guarda contenido (upsert nota + delete-all/insert de secciones y referencias) y SIEMPRE
@@ -32,12 +36,13 @@ namespace eiibd26.Services.Platillos
             string tipoDestino, int destinoId,
             string? titulo,
             List<PlatNotaSeccionInput> secciones,
-            List<PlatNotaReferenciaInput> referencias);
+            List<PlatNotaReferenciaInput> referencias,
+            string tipoNota = "Tolerancia");
 
         /// <summary>Levanta el candado si pasa el guard (≥1 sección con contenido). Estampa quién y cuándo.</summary>
-        Task<(bool Ok, string Mensaje)> PublicarAsync(string tipoDestino, int destinoId, Guid userId);
+        Task<(bool Ok, string Mensaje)> PublicarAsync(string tipoDestino, int destinoId, Guid userId, string tipoNota = "Tolerancia");
 
         /// <summary>Baja el candado: la nota deja de ser visible. Limpia la estampa de publicación.</summary>
-        Task<(bool Ok, string Mensaje)> DespublicarAsync(string tipoDestino, int destinoId);
+        Task<(bool Ok, string Mensaje)> DespublicarAsync(string tipoDestino, int destinoId, string tipoNota = "Tolerancia");
     }
 }

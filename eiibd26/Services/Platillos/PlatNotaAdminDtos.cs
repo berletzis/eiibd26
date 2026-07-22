@@ -33,6 +33,7 @@ namespace eiibd26.Services.Platillos
         public string TipoDestino { get; set; } = "";      // 'Grupo' | 'Ingrediente'
         public int DestinoId { get; set; }
         public string DestinoNombre { get; set; } = "";
+        public string TipoNota { get; set; } = "Tolerancia"; // 'Tolerancia' | 'Precaucion' (Anexo 5)
         public int? NotaId { get; set; }                    // null si aún no existe fila
         public string Titulo { get; set; } = "";
         public bool Publicado { get; set; }

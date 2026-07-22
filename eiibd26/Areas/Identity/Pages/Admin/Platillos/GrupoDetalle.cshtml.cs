@@ -25,6 +25,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
         [BindProperty] public string? Nombre { get; set; }
         [BindProperty] public int Orden { get; set; }
         [BindProperty] public string? NotasEII { get; set; }
+        /// <summary>Anexo 5: tipo de riesgo del grupo (null/vacío = sin riesgo). Habilita la nota de precaución.</summary>
+        [BindProperty] public string? RiesgoTipo { get; set; }
 
         /// <summary>Solo informativo: la baja lógica se hace desde el grid.</summary>
         public bool Activo { get; private set; } = true;
@@ -46,6 +48,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
                 Nombre = ent.Nombre;
                 Orden = ent.Orden;
                 NotasEII = ent.NotasEII;
+                RiesgoTipo = ent.RiesgoTipo;
                 Activo = ent.Activo;
             }
             return Page();
@@ -79,6 +82,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
                 ent.Nombre = nombre;
                 ent.Orden = Orden;
                 ent.NotasEII = string.IsNullOrWhiteSpace(NotasEII) ? null : NotasEII.Trim();
+                ent.RiesgoTipo = string.IsNullOrWhiteSpace(RiesgoTipo) ? null : RiesgoTipo.Trim();
                 await _db.SaveChangesAsync();
                 SuccessMessage = "Grupo actualizado.";
                 return RedirectToPage(new { id = ent.Id });
@@ -89,7 +93,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
                 Nombre = nombre,
                 Orden = Orden,
                 Activo = true,
-                NotasEII = string.IsNullOrWhiteSpace(NotasEII) ? null : NotasEII.Trim()
+                NotasEII = string.IsNullOrWhiteSpace(NotasEII) ? null : NotasEII.Trim(),
+                RiesgoTipo = string.IsNullOrWhiteSpace(RiesgoTipo) ? null : RiesgoTipo.Trim()
             };
             _db.PlatGrupos.Add(nuevo);
             await _db.SaveChangesAsync();

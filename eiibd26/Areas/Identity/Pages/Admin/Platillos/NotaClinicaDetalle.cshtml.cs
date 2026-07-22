@@ -29,6 +29,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
     {
         public const string TipoGrupo = "Grupo";
         public const string TipoIngrediente = "Ingrediente";
+        public const string NotaTolerancia = "Tolerancia";
+        public const string NotaPrecaucion = "Precaucion";
 
         private readonly ApplicationDbContext _db;
         private readonly IPlatNotaAdminService _notas;
@@ -46,6 +48,15 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
 
         public string Tipo { get; private set; } = "";
         public PlatNotaEditVm Nota { get; private set; } = new();
+
+        /// <summary>Anexo 5: 'Tolerancia' (default) | 'Precaucion'. Viene por query string; la precaución
+        /// solo es válida para un GRUPO de riesgo.</summary>
+        [BindProperty(SupportsGet = true)] public string TipoNota { get; set; } = NotaTolerancia;
+        public bool EsPrecaucion => TipoNota == NotaPrecaucion;
+        /// <summary>Solo para precaución: el tipo de riesgo del grupo (null si el grupo no es de riesgo).</summary>
+        public string? RiesgoTipo { get; private set; }
+
+        private string TipoNotaNorm => TipoNota == NotaPrecaucion ? NotaPrecaucion : NotaTolerancia;
 
         // ---- Bloque de contexto ----
         public bool DestinoActivo { get; private set; }
@@ -86,6 +97,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
         {
             if (!TipoValido(tipo)) return NotFound();
             Tipo = tipo;
+            TipoNota = TipoNotaNorm;
+            // La precaución (Anexo 5) es SIEMPRE de grupo: se escribe una vez y aplica a sus ingredientes.
+            if (EsPrecaucion && Tipo != TipoGrupo) return NotFound();
 
             var cargado = await CargarContextoAsync(destinoId);
             if (!cargado)
@@ -109,7 +123,8 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
                 if (grupo == null) return false;
 
                 DestinoActivo = grupo.Activo;
-                Nota = await _notas.CargarAsync(TipoGrupo, grupo.Id, grupo.Nombre);
+                RiesgoTipo = grupo.RiesgoTipo;
+                Nota = await _notas.CargarAsync(TipoGrupo, grupo.Id, grupo.Nombre, TipoNotaNorm);
 
                 // El alcance: una nota de "lácteos" aplica a queso, leche, yogur… El editor
                 // tiene que verlo antes de escribir.
@@ -161,29 +176,32 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
         public async Task<IActionResult> OnPostGuardarNotaAsync(string? tipo, int destinoId)
         {
             if (!TipoValido(tipo)) return NotFound();
+            if (EsPrecaucion && tipo != TipoGrupo) return NotFound();
 
             var (ok, msg) = await _notas.GuardarBorradorAsync(
-                tipo, destinoId, NotaTitulo, NotaSecciones, NotaReferencias);
+                tipo, destinoId, NotaTitulo, NotaSecciones, NotaReferencias, TipoNotaNorm);
             if (ok) SuccessMessage = msg; else ErrorMessage = msg;
-            return RedirectToPage(new { tipo, destinoId });
+            return RedirectToPage(new { tipo, destinoId, tipoNota = TipoNotaNorm });
         }
 
         public async Task<IActionResult> OnPostPublicarNotaAsync(string? tipo, int destinoId)
         {
             if (!TipoValido(tipo)) return NotFound();
+            if (EsPrecaucion && tipo != TipoGrupo) return NotFound();
 
-            var (ok, msg) = await _notas.PublicarAsync(tipo, destinoId, CurrentUserId());
+            var (ok, msg) = await _notas.PublicarAsync(tipo, destinoId, CurrentUserId(), TipoNotaNorm);
             if (ok) SuccessMessage = msg; else ErrorMessage = msg;
-            return RedirectToPage(new { tipo, destinoId });
+            return RedirectToPage(new { tipo, destinoId, tipoNota = TipoNotaNorm });
         }
 
         public async Task<IActionResult> OnPostDespublicarNotaAsync(string? tipo, int destinoId)
         {
             if (!TipoValido(tipo)) return NotFound();
+            if (EsPrecaucion && tipo != TipoGrupo) return NotFound();
 
-            var (ok, msg) = await _notas.DespublicarAsync(tipo, destinoId);
+            var (ok, msg) = await _notas.DespublicarAsync(tipo, destinoId, TipoNotaNorm);
             if (ok) SuccessMessage = msg; else ErrorMessage = msg;
-            return RedirectToPage(new { tipo, destinoId });
+            return RedirectToPage(new { tipo, destinoId, tipoNota = TipoNotaNorm });
         }
     }
 }

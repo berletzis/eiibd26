@@ -19,11 +19,21 @@ namespace eiibd26.Models.Platillos
     /// </summary>
     public class PlatNotaClinica
     {
+        /// <summary>Nota normal de tolerancia digestiva (la de siempre). Default en BD.</summary>
+        public const string TipoTolerancia = "Tolerancia";
+        /// <summary>Anexo 5: aviso de seguridad alimentaria (infección en inmunosuprimidos). Se pinta
+        /// como callout ámbar aparte, atada a un grupo de riesgo (PlatGrupo.RiesgoTipo).</summary>
+        public const string TipoPrecaucion = "Precaucion";
+
         [Key]
         public int Id { get; set; }
 
         /// <summary>'Grupo' | 'Ingrediente'. Relación polimórfica con DestinoId (sin FK física, por aislamiento).</summary>
         public string TipoDestino { get; set; } = "";
+
+        /// <summary>Anexo 5: 'Tolerancia' (default) | 'Precaucion'. Discrimina la nota de tolerancia de la
+        /// de seguridad, para render distinto y para no colisionar en el mismo (TipoDestino, DestinoId).</summary>
+        public string TipoNota { get; set; } = TipoTolerancia;
 
         /// <summary>Id de PlatGrupo o PlatIngrediente según TipoDestino.</summary>
         public int DestinoId { get; set; }

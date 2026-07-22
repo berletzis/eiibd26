@@ -2,25 +2,55 @@
 @using eiibd26.Services.Platillos
 @model eiibd26.Areas.Identity.Pages.Admin.Platillos.NotaClinicaDetalleModel
 @{
-    ViewData["Title"] = $"Nota clínica de: {Model.Nota.DestinoNombre}";
+    var etiquetaNota = Model.EsPrecaucion ? "Nota de precaución de" : "Nota clínica de";
+    ViewData["Title"] = $"{etiquetaNota}: {Model.Nota.DestinoNombre}";
     var listaUrl = Url.Page(Model.ListaPage);
     // Siempre al menos una fila de sección, para no dar un editor sin dónde escribir.
     var secciones = Model.Nota.Secciones.Count > 0
         ? Model.Nota.Secciones
         : new List<PlatNotaSeccionInput> { new() };
+    // El endpoint de IA depende del tipo de nota: precaución (grupo de riesgo) vs tolerancia.
+    var iaEndpoint = Model.EsPrecaucion
+        ? $"/api/admin/platillos/grupo/{Model.NotaDestinoId}/generate-precaucion"
+        : $"/api/admin/platillos/{(Model.EsGrupo ? "grupo" : "ingrediente")}/{Model.NotaDestinoId}/generate-nota";
 }
 
 @section Styles {
     <link rel="stylesheet" href="~/css/admin-nota.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/admin-ia.css" asp-append-version="true" />
 }
 
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h4 mb-0">
-            Nota clínica de: <span class="text-capitalize">@Model.Nota.DestinoNombre</span>
+            @etiquetaNota: <span class="text-capitalize">@Model.Nota.DestinoNombre</span>
         </h1>
         <a class="eii-btn eii-btn--ghost" href="@listaUrl">← Volver al listado</a>
     </div>
+
+    @if (Model.EsPrecaucion)
+    {
+        <div class="eii-callout eii-callout--warning mb-3">
+            <p class="mb-1">
+                <i class="bi bi-shield-exclamation" aria-hidden="true"></i>
+                <strong>Aviso de seguridad alimentaria</strong> — es una nota aparte de la de tolerancia.
+                Se pinta al paciente como recuadro ámbar y aplica a <strong>todos los ingredientes</strong> del grupo.
+            </p>
+            <p class="mb-0 eii-form-text">
+                Reglas de esta nota: <strong>siempre condicional</strong> a que el tratamiento baje las defensas
+                (no todos lo hacen; la mesalazina no) y atada a la <strong>preparación</strong> (crudo/poco cocido),
+                nunca «evita X». Nace borrador; publícala cuando esté revisada.
+                @if (string.IsNullOrWhiteSpace(Model.RiesgoTipo))
+                {
+                    <text><br /><strong>Ojo:</strong> este grupo no tiene marcado un tipo de riesgo. Asígnalo en el editor del grupo para poder generar el borrador con IA.</text>
+                }
+                else
+                {
+                    <text><br />Tipo de riesgo del grupo: <strong>@Model.RiesgoTipo</strong>.</text>
+                }
+            </p>
+        </div>
+    }
 
     @if (!string.IsNullOrEmpty(Model.SuccessMessage))
     {
@@ -173,6 +203,19 @@
     <div class="eii-card">
         <div class="eii-card__body">
             <form method="post" asp-page-handler="GuardarNota" id="notaForm">
+                <input type="hidden" name="TipoNota" value="@Model.TipoNota" />
+                <div class="mb-3">
+                    <button type="button" class="btn-generar-ia" data-ia-btn data-ia-kind="nota"
+                            data-ia-endpoint="@iaEndpoint">
+                        <i class="bi bi-stars" aria-hidden="true"></i>
+                        <span>Generar borrador con IA</span>
+                    </button>
+                    <span class="eii-form-text d-block mt-1">
+                        Rellena título, secciones y referencias. <strong>No guarda ni publica:</strong> revisa
+                        el contenido y guárdalo tú. Solo cita fuentes de la lista blanca aprobada.
+                    </span>
+                </div>
+
                 <div class="mb-3">
                     <label class="eii-label" for="NotaTitulo">Título de la nota</label>
                     <input class="eii-input" id="NotaTitulo" name="NotaTitulo" maxlength="200"
@@ -211,6 +254,14 @@
 
                 <label class="eii-label mt-4">Referencias (bibliografía)</label>
                 <span class="eii-form-text d-block mb-2">Opcional. Se muestran al final de la nota. La URL es opcional.</span>
+                <span class="eii-form-text d-block mb-2">
+                    <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                    <strong>Regla editorial:</strong> entre más fuerte o contraintuitivo lo que afirma la nota,
+                    más obligatoria es la referencia. Una nota que <strong>desafía una creencia común</strong>
+                    necesita una referencia de la lista blanca aprobada; una de <strong>sentido común</strong>
+                    se sostiene con la validación médica. Sin referencias, el paciente ve una leyenda honesta
+                    según el estado: respaldada (si un médico la validó) u orientativa (si no).
+                </span>
 
                 <div data-nota-referencias>
                     @{ var ri = 0; }
@@ -255,6 +306,7 @@
                     <i class="bi bi-eye" aria-hidden="true"></i> Visible para los pacientes.
                 </span>
                 <form method="post" asp-page-handler="DespublicarNota">
+                    <input type="hidden" name="TipoNota" value="@Model.TipoNota" />
                     <button type="submit" class="eii-btn eii-btn--ghost">Despublicar</button>
                 </form>
             }
@@ -271,6 +323,7 @@
                     }
                 </span>
                 <form method="post" asp-page-handler="PublicarNota">
+                    <input type="hidden" name="TipoNota" value="@Model.TipoNota" />
                     <button type="submit" class="eii-btn eii-btn--primary" @(Model.Nota.PuedePublicar ? "" : "disabled")>Publicar</button>
                 </form>
             }
@@ -308,4 +361,5 @@
     <script src="~/js/admin-nota.js" asp-append-version="true"></script>
     @* Sin DataTables: acá admin-grid.js solo avisa al listado del guardado. *@
     <script src="~/js/admin-grid.js" asp-append-version="true"></script>
+    <script src="~/js/admin-platillos-ia.js" asp-append-version="true"></script>
 }

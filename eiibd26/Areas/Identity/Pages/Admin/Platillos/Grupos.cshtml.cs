@@ -31,8 +31,11 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
 
         public List<PlatGrupo> Items { get; set; } = new();
 
-        /// <summary>Estado de la nota clínica por GrupoId (columna de la lista).</summary>
+        /// <summary>Estado de la nota clínica (tolerancia) por GrupoId (columna de la lista).</summary>
         public Dictionary<int, PlatNotaEstado> NotaEstados { get; set; } = new();
+
+        /// <summary>Anexo 5: estado de la nota de PRECAUCIÓN por GrupoId. Solo importa en grupos de riesgo.</summary>
+        public Dictionary<int, PlatNotaEstado> PrecaucionEstados { get; set; } = new();
 
         [TempData] public string? SuccessMessage { get; set; }
         [TempData] public string? ErrorMessage { get; set; }
@@ -47,6 +50,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
 
             // Estado de nota por grupo (Sin nota / Borrador / Publicada), en una sola consulta.
             NotaEstados = await _notas.ObtenerEstadosAsync(TipoDestino);
+            PrecaucionEstados = await _notas.ObtenerEstadosAsync(TipoDestino, "Precaucion");
         }
 
         public async Task<IActionResult> OnPostToggleActivoAsync(int id)

@@ -14,8 +14,10 @@ namespace eiibd26.Services.Platillos
     /// </summary>
     public interface IPlatNotaClinicaService
     {
-        /// <summary>La nota visible del destino, o null si no debe verse (candado cerrado o sin contenido).</summary>
-        Task<PlatNotaVisibleDto?> ObtenerNotaVisibleParaPacienteAsync(string tipoDestino, int destinoId);
+        /// <summary>La nota visible del destino, o null si no debe verse (candado cerrado o sin contenido).
+        /// tipoNota ('Tolerancia' | 'Precaucion', Anexo 5) default 'Tolerancia' → los llamadores actuales
+        /// siguen igual; la precaución (grupo de riesgo) pasa 'Precaucion'.</summary>
+        Task<PlatNotaVisibleDto?> ObtenerNotaVisibleParaPacienteAsync(string tipoDestino, int destinoId, string tipoNota = "Tolerancia");
 
         /// <summary>
         /// Conjunto de DestinoId de un tipo ('Grupo' | 'Ingrediente') que TIENEN nota visible.

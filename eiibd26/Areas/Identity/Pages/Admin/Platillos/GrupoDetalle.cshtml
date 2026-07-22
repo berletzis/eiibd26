@@ -48,6 +48,47 @@
                         El contenido que ve el paciente va en la <strong>Nota clínica</strong>, que tiene su
                         propia página y se publica aparte.
                     </span>
+                    @if (editing)
+                    {
+                        <div>
+                            <button type="button" class="btn-generar-ia" data-ia-btn data-ia-kind="texto"
+                                    data-ia-endpoint="/api/admin/platillos/grupo/@Model.Id/generate-notaseii"
+                                    data-ia-target="#NotasEII">
+                                <i class="bi bi-stars" aria-hidden="true"></i>
+                                <span>Generar con IA</span>
+                            </button>
+                        </div>
+                    }
+                </div>
+                <div class="col-12">
+                    <label class="eii-label" asp-for="RiesgoTipo">Grupo de riesgo (seguridad alimentaria)</label>
+                    <input class="eii-input" asp-for="RiesgoTipo" maxlength="30" autocomplete="off"
+                           list="riesgoTipoOpciones"
+                           placeholder="Vacío = sin riesgo. Ej. marisco-crudo, carne-poco-cocida, sin-pasteurizar" />
+                    <datalist id="riesgoTipoOpciones">
+                        <option value="marisco-crudo"></option>
+                        <option value="pescado-crudo"></option>
+                        <option value="carne-poco-cocida"></option>
+                        <option value="huevo-crudo"></option>
+                        <option value="sin-pasteurizar"></option>
+                        <option value="embutido"></option>
+                        <option value="germinados"></option>
+                    </datalist>
+                    <span class="eii-form-text">
+                        Solo si el grupo tiene riesgo de <strong>infección</strong> con defensas bajas (crudo/poco cocido).
+                        Al marcarlo, el grupo puede tener una <strong>nota de precaución</strong> (aparte de la de tolerancia).
+                    </span>
+                    @if (editing && !string.IsNullOrWhiteSpace(Model.RiesgoTipo))
+                    {
+                        <div class="mt-2">
+                            <a class="eii-btn eii-btn--ghost eii-btn--sm"
+                               asp-page="NotaClinicaDetalle" asp-route-tipo="Grupo" asp-route-destinoId="@Model.Id"
+                               asp-route-tipoNota="Precaucion" target="_blank" rel="noopener">
+                                <i class="bi bi-shield-exclamation" aria-hidden="true"></i> Editar nota de precaución
+                            </a>
+                            <span class="eii-form-text ms-1">Guarda primero el tipo de riesgo si acabas de cambiarlo.</span>
+                        </div>
+                    }
                 </div>
                 @if (editing && !Model.Activo)
                 {
@@ -67,7 +108,12 @@
     </div>
 </div>
 
+@section Styles {
+    <link rel="stylesheet" href="~/css/admin-ia.css" asp-append-version="true" />
+}
+
 @section Scripts {
     @* Sin DataTables: acá admin-grid.js solo hace el aviso de guardado. *@
     <script src="~/js/admin-grid.js" asp-append-version="true"></script>
+    <script src="~/js/admin-platillos-ia.js" asp-append-version="true"></script>
 }

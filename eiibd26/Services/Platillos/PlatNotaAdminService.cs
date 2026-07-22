@@ -19,18 +19,19 @@ namespace eiibd26.Services.Platillos
         private static bool TieneContenido(IEnumerable<PlatNotaSeccion> secciones) =>
             secciones.Any(s => !string.IsNullOrWhiteSpace(s.Contenido));
 
-        public async Task<PlatNotaEditVm> CargarAsync(string tipoDestino, int destinoId, string destinoNombre)
+        public async Task<PlatNotaEditVm> CargarAsync(string tipoDestino, int destinoId, string destinoNombre, string tipoNota = "Tolerancia")
         {
             var nota = await _db.PlatNotasClinicas.AsNoTracking()
                 .Include(n => n.Secciones)
                 .Include(n => n.Referencias)
-                .FirstOrDefaultAsync(n => n.TipoDestino == tipoDestino && n.DestinoId == destinoId);
+                .FirstOrDefaultAsync(n => n.TipoDestino == tipoDestino && n.DestinoId == destinoId && n.TipoNota == tipoNota);
 
             var vm = new PlatNotaEditVm
             {
                 TipoDestino = tipoDestino,
                 DestinoId = destinoId,
-                DestinoNombre = destinoNombre
+                DestinoNombre = destinoNombre,
+                TipoNota = tipoNota
             };
 
             if (nota == null)
@@ -60,12 +61,12 @@ namespace eiibd26.Services.Platillos
             return vm;
         }
 
-        public async Task<Dictionary<int, PlatNotaEstado>> ObtenerEstadosAsync(string tipoDestino)
+        public async Task<Dictionary<int, PlatNotaEstado>> ObtenerEstadosAsync(string tipoDestino, string tipoNota = "Tolerancia")
         {
             // Una sola consulta: por destino, ¿publicada+activa? y ¿tiene contenido? El mapeo a estado
             // se hace en memoria para no depender de traducir el enum en SQL.
             var filas = await _db.PlatNotasClinicas.AsNoTracking()
-                .Where(n => n.TipoDestino == tipoDestino)
+                .Where(n => n.TipoDestino == tipoDestino && n.TipoNota == tipoNota)
                 .Select(n => new
                 {
                     n.DestinoId,
@@ -91,12 +92,13 @@ namespace eiibd26.Services.Platillos
             string tipoDestino, int destinoId,
             string? titulo,
             List<PlatNotaSeccionInput> secciones,
-            List<PlatNotaReferenciaInput> referencias)
+            List<PlatNotaReferenciaInput> referencias,
+            string tipoNota = "Tolerancia")
         {
             var nota = await _db.PlatNotasClinicas
                 .Include(n => n.Secciones)
                 .Include(n => n.Referencias)
-                .FirstOrDefaultAsync(n => n.TipoDestino == tipoDestino && n.DestinoId == destinoId);
+                .FirstOrDefaultAsync(n => n.TipoDestino == tipoDestino && n.DestinoId == destinoId && n.TipoNota == tipoNota);
 
             var tituloLimpio = string.IsNullOrWhiteSpace(titulo) ? "" : titulo!.Trim();
 
@@ -106,6 +108,7 @@ namespace eiibd26.Services.Platillos
                 {
                     TipoDestino = tipoDestino,
                     DestinoId = destinoId,
+                    TipoNota = tipoNota,
                     Titulo = tituloLimpio,
                     Activo = true,
                     FechaCreacion = DateTime.UtcNow
@@ -161,11 +164,11 @@ namespace eiibd26.Services.Platillos
             return (true, msg);
         }
 
-        public async Task<(bool Ok, string Mensaje)> PublicarAsync(string tipoDestino, int destinoId, Guid userId)
+        public async Task<(bool Ok, string Mensaje)> PublicarAsync(string tipoDestino, int destinoId, Guid userId, string tipoNota = "Tolerancia")
         {
             var nota = await _db.PlatNotasClinicas
                 .Include(n => n.Secciones)
-                .FirstOrDefaultAsync(n => n.TipoDestino == tipoDestino && n.DestinoId == destinoId);
+                .FirstOrDefaultAsync(n => n.TipoDestino == tipoDestino && n.DestinoId == destinoId && n.TipoNota == tipoNota);
 
             if (nota == null)
                 return (false, "No hay nota que publicar. Guarda primero el contenido.");
@@ -181,10 +184,10 @@ namespace eiibd26.Services.Platillos
             return (true, "Nota publicada. Ya es visible para los pacientes.");
         }
 
-        public async Task<(bool Ok, string Mensaje)> DespublicarAsync(string tipoDestino, int destinoId)
+        public async Task<(bool Ok, string Mensaje)> DespublicarAsync(string tipoDestino, int destinoId, string tipoNota = "Tolerancia")
         {
             var nota = await _db.PlatNotasClinicas
-                .FirstOrDefaultAsync(n => n.TipoDestino == tipoDestino && n.DestinoId == destinoId);
+                .FirstOrDefaultAsync(n => n.TipoDestino == tipoDestino && n.DestinoId == destinoId && n.TipoNota == tipoNota);
 
             if (nota == null)
                 return (false, "No hay nota que despublicar.");

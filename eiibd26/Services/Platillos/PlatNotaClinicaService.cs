@@ -20,14 +20,14 @@ namespace eiibd26.Services.Platillos
             n.Publicado && n.Activo
             && n.Secciones.Any(s => s.Contenido != null && s.Contenido.Trim() != "");
 
-        public async Task<PlatNotaVisibleDto?> ObtenerNotaVisibleParaPacienteAsync(string tipoDestino, int destinoId)
+        public async Task<PlatNotaVisibleDto?> ObtenerNotaVisibleParaPacienteAsync(string tipoDestino, int destinoId, string tipoNota = "Tolerancia")
         {
             if (string.IsNullOrWhiteSpace(tipoDestino)) return null;
 
             // EL CANDADO en la consulta: publicada + activa. El filtro de contenido se remata en memoria
             // (parseo de bloques), pero la consulta ya exige ≥1 sección con contenido → paridad con bulk.
             var nota = await _db.PlatNotasClinicas.AsNoTracking()
-                .Where(n => n.TipoDestino == tipoDestino && n.DestinoId == destinoId
+                .Where(n => n.TipoDestino == tipoDestino && n.DestinoId == destinoId && n.TipoNota == tipoNota
                             && n.Publicado && n.Activo
                             && n.Secciones.Any(s => s.Contenido != null && s.Contenido.Trim() != ""))
                 .Select(n => new

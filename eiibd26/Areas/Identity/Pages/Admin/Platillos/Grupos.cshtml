@@ -72,6 +72,21 @@
                                title="Editar nota clínica de @g.Nombre">
                                 <partial name="_NotaEstadoBadge" model="estadoNota" />
                             </a>
+                            @* Anexo 5: solo grupos de riesgo tienen nota de precaución. Segunda línea, ámbar. *@
+                            @if (!string.IsNullOrWhiteSpace(g.RiesgoTipo))
+                            {
+                                var estadoPrec = Model.PrecaucionEstados.TryGetValue(g.Id, out var ep) ? ep : PlatNotaEstado.SinNota;
+                                <div class="mt-1">
+                                    <a class="text-decoration-none d-inline-flex align-items-center gap-1"
+                                       asp-page="NotaClinicaDetalle" asp-route-tipo="Grupo" asp-route-destinoId="@g.Id"
+                                       asp-route-tipoNota="Precaucion" target="_blank" rel="noopener"
+                                       title="Editar nota de precaución de @g.Nombre (@g.RiesgoTipo)">
+                                        <i class="bi bi-shield-exclamation eii-text-warning" aria-hidden="true"></i>
+                                        <span class="eii-form-text">Precaución:</span>
+                                        <partial name="_NotaEstadoBadge" model="estadoPrec" />
+                                    </a>
+                                </div>
+                            }
                         </td>
                         <td>
                             @if (g.Activo)
