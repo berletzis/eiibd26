@@ -23,15 +23,18 @@ namespace eiibd26.Controllers
     {
         private readonly ApplicationDbContext _db;
         private readonly IPlatillosAiService _ai;
+        private readonly IReferenciaRecuperacionService _referencias;
         private readonly ILogger<PlatillosAiController> _logger;
 
         public PlatillosAiController(
             ApplicationDbContext db,
             IPlatillosAiService ai,
+            IReferenciaRecuperacionService referencias,
             ILogger<PlatillosAiController> logger)
         {
             _db = db;
             _ai = ai;
+            _referencias = referencias;
             _logger = logger;
         }
 
@@ -50,9 +53,11 @@ namespace eiibd26.Controllers
                 .Select(i => i.Nombre)
                 .ToListAsync(ct);
 
+            // Consulta de recuperación: el tema del grupo + sus ingredientes (señal semántica).
+            var consulta = $"{grupo.Nombre} {string.Join(" ", ingredientes.Take(15))}".Trim();
             return await GenerarNotaAsync(
                 () => _ai.GenerarNotaClinicaGrupoAsync(grupo.Nombre, ingredientes, ct),
-                $"grupo {id}");
+                consulta, $"grupo {id}", ct);
         }
 
         // ─── Nota de PRECAUCIÓN de un GRUPO de riesgo (Anexo 5) ───────────────────────
@@ -72,9 +77,10 @@ namespace eiibd26.Controllers
                 .Select(i => i.Nombre)
                 .ToListAsync(ct);
 
+            var consulta = $"{grupo.Nombre} seguridad alimentaria infección {grupo.RiesgoTipo}".Trim();
             return await GenerarNotaAsync(
                 () => _ai.GenerarNotaPrecaucionGrupoAsync(grupo.Nombre, grupo.RiesgoTipo, ingredientes, ct),
-                $"precaución grupo {id}");
+                consulta, $"precaución grupo {id}", ct);
         }
 
         // ─── Nota clínica de INGREDIENTE ──────────────────────────────────────────────
@@ -95,9 +101,10 @@ namespace eiibd26.Controllers
                 .OrderBy(n => n)
                 .ToList();
 
+            var consulta = $"{ing.Nombre} {ing.Grupo?.Nombre} {string.Join(" ", atributos)}".Trim();
             return await GenerarNotaAsync(
                 () => _ai.GenerarNotaClinicaIngredienteAsync(ing.Nombre, ing.Grupo?.Nombre, atributos, ct),
-                $"ingrediente {id}");
+                consulta, $"ingrediente {id}", ct);
         }
 
         // ─── NotasEII (texto corto) para GRUPO / INGREDIENTE ──────────────────────────
@@ -153,11 +160,16 @@ namespace eiibd26.Controllers
         // ─── Helpers de respuesta ─────────────────────────────────────────────────────
 
         private async Task<IActionResult> GenerarNotaAsync(
-            Func<Task<NotaClinicaGeneradaDto>> generar, string ctx)
+            Func<Task<NotaClinicaGeneradaDto>> generar, string consultaRecuperacion, string ctx, CancellationToken ct)
         {
             try
             {
                 var nota = await generar();
+
+                // Referencias REALES recuperadas del índice (Nivel 1). Best-effort: si no hay nada,
+                // lista vacía y la nota queda con su leyenda honesta. El modelo no aporta URLs.
+                var candidatas = await _referencias.RecuperarAsync(consultaRecuperacion, ct);
+
                 return Ok(new
                 {
                     ok = true,
@@ -166,7 +178,14 @@ namespace eiibd26.Controllers
                     queSuelePasar = nota.QueSuelePasar,
                     importante = nota.Importante,
                     fuentes = nota.Fuentes,
-                    revisionPrioritaria = nota.RevisionPrioritaria
+                    revisionPrioritaria = nota.RevisionPrioritaria,
+                    referenciasCandidatas = candidatas.Select(c => new
+                    {
+                        titulo = c.Titulo,
+                        url = c.Url,
+                        sitio = c.Sitio,
+                        porcentaje = c.Porcentaje
+                    })
                 });
             }
             catch (Exception ex)

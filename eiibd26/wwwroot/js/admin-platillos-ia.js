@@ -146,11 +146,78 @@
             }
 
             mostrarRevision(btn, !!data.revisionPrioritaria);
+            mostrarSugerencias(data.referenciasCandidatas);
         } catch (e) {
             alert("No se pudo generar la nota: " + e.message);
         } finally {
             spinnerOff(btn);
         }
+    }
+
+    // ---- Referencias recuperadas (links reales del índice) -------------------
+    function escaparHtml(s) {
+        var d = document.createElement("div");
+        d.textContent = (s == null) ? "" : String(s);
+        return d.innerHTML;
+    }
+
+    // Inserta una referencia en el editor: reusa una fila vacía o crea una nueva.
+    function agregarReferencia(titulo, url) {
+        var contenedor = document.querySelector("[data-nota-referencias]");
+        if (!contenedor) return;
+        var rows = Array.prototype.slice.call(contenedor.querySelectorAll("[data-nota-row]"));
+        var target = rows.find(function (r) {
+            var t = r.querySelector('[name$=".Titulo"]');
+            var u = r.querySelector('[name$=".Url"]');
+            return (!t || !String(t.value || "").trim()) && (!u || !String(u.value || "").trim());
+        });
+        if (!target) {
+            var addBtn = document.querySelector("[data-nota-add-ref]");
+            if (addBtn) addBtn.click();
+            rows = contenedor.querySelectorAll("[data-nota-row]");
+            target = rows[rows.length - 1];
+        }
+        if (!target) return;
+        setCampo(target, '[name$=".Titulo"]', titulo);
+        setCampo(target, '[name$=".Url"]', url);
+    }
+
+    function mostrarSugerencias(cands) {
+        var panel = document.querySelector("#eii-ref-sugeridas");
+        if (!panel) return;
+        cands = Array.isArray(cands) ? cands : [];
+        if (cands.length === 0) { panel.hidden = true; panel.innerHTML = ""; return; }
+
+        // Título/URL vienen de páginas externas crawleadas → escapar SIEMPRE (anti-inyección).
+        var html = '<div class="eii-ref-sugeridas__head">' +
+            '<i class="bi bi-link-45deg" aria-hidden="true"></i> Referencias sugeridas ' +
+            '(links reales recuperados del índice). Revisa que respalden lo que dice la nota antes de agregarlas.' +
+            '</div>';
+        cands.forEach(function (c) {
+            var meta = escaparHtml(c.sitio || "");
+            if (c.porcentaje != null) meta += (meta ? " · " : "") + c.porcentaje + "% similar";
+            html += '<div class="eii-ref-sug">' +
+                '<div class="eii-ref-sug__info">' +
+                '<a href="' + escaparHtml(c.url) + '" target="_blank" rel="noopener" class="eii-ref-sug__title">' +
+                escaparHtml(c.titulo || c.url) + '</a>' +
+                '<span class="eii-ref-sug__meta">' + meta + '</span>' +
+                '</div>' +
+                '<button type="button" class="eii-btn eii-btn--ghost eii-btn--sm eii-ref-sug__add">Agregar</button>' +
+                '</div>';
+        });
+        panel.innerHTML = html;
+        panel.hidden = false;
+
+        panel.querySelectorAll(".eii-ref-sug").forEach(function (row, i) {
+            var c = cands[i];
+            var add = row.querySelector(".eii-ref-sug__add");
+            if (!add) return;
+            add.addEventListener("click", function () {
+                agregarReferencia(c.titulo || c.url, c.url);
+                add.disabled = true;
+                add.textContent = "Agregada ✓";
+            });
+        });
     }
 
     function init() {
