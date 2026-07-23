@@ -178,17 +178,64 @@
                 <partial name="_NotaSello" model="Model.ValidadoresPrecaucion" />
             }
 
-            @* ===== Comunidad y experiencia (cards): widgets, apagados en v1 (módulo Tolerancia #16) ===== *@
+            @* ===== Comunidad y experiencia (#16) — SOLO LECTURA. Votar vive en /tolero/{slug}; aquí no
+                 se embebe el formulario. El resultado sale del helper compartido: mismo número que /tolero. ===== *@
             <div class="eii-card mb-4">
                 <div class="eii-card__body">
                     <h2 class="eii-card__title h6 mb-2">Lo que reporta la comunidad</h2>
-                    <p class="eii-form-text mb-0">Nadie ha registrado su tolerancia a este alimento todavía. Pronto podrás ser el primero.</p>
+                    @if (Model.Tolerancia is { MostrarPorcentaje: true } t)
+                    {
+                        <p class="mb-1"><strong class="fs-5">@t.PorcentajeTolera %</strong> lo tolera bien</p>
+                        <p class="eii-form-text mb-1">
+                            Lo más probable es que esté <strong>entre @t.CiBajo % y @t.CiAlto %</strong>.
+                        </p>
+                        <p class="eii-form-text mb-2">
+                            n = @t.TotalRespuestas @(t.TotalRespuestas == 1 ? "respuesta" : "respuestas") de la comunidad
+                        </p>
+                    }
+                    else
+                    {
+                        <p class="eii-form-text mb-2">Aún no hay suficientes respuestas para mostrar un resultado.</p>
+                    }
+                    <a class="eii-btn eii-btn--solid eii-btn--sm" href="/tolero/@Model.Slug">
+                        <i class="bi bi-chat-square-heart"></i> Responder
+                    </a>
+                    <p class="eii-form-text mb-0 mt-2">
+                        Es la <strong>experiencia de la comunidad</strong>, no un consejo médico.
+                    </p>
                 </div>
             </div>
             <div class="eii-card mb-4">
                 <div class="eii-card__body">
                     <h2 class="eii-card__title h6 mb-2">Tu experiencia</h2>
-                    <p class="eii-form-text mb-0">Aún no registras tu tolerancia a este alimento. Esta función llegará pronto.</p>
+                    @if (Model.MiVotoTolerancia is { } voto)
+                    {
+                        var etiqueta = voto switch
+                        {
+                            eiibd26.Models.Platillos.PlatToleraNivel.No => "No toleras",
+                            eiibd26.Models.Platillos.PlatToleraNivel.AVeces => "A veces",
+                            eiibd26.Models.Platillos.PlatToleraNivel.Si => "Sí toleras",
+                            _ => "—"
+                        };
+                        <p class="mb-2">Registraste: <strong>@etiqueta</strong> @Model.Nombre.</p>
+                        <a class="eii-btn eii-btn--neutral eii-btn--sm" href="/tolero/@Model.Slug">
+                            <i class="bi bi-pencil"></i> Cambiar respuesta
+                        </a>
+                    }
+                    else if (User.Identity?.IsAuthenticated ?? false)
+                    {
+                        <p class="eii-form-text mb-2">Aún no registras tu tolerancia a @Model.Nombre.</p>
+                        <a class="eii-btn eii-btn--solid eii-btn--sm" href="/tolero/@Model.Slug">
+                            <i class="bi bi-chat-square-heart"></i> Responder
+                        </a>
+                    }
+                    else
+                    {
+                        <p class="eii-form-text mb-2">¿Toleras @Model.Nombre? Comparte tu experiencia con la comunidad.</p>
+                        <a class="eii-btn eii-btn--solid eii-btn--sm" href="/tolero/@Model.Slug">
+                            <i class="bi bi-chat-square-heart"></i> Responder
+                        </a>
+                    }
                 </div>
             </div>
 

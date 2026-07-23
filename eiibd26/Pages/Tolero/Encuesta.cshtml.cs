@@ -267,30 +267,19 @@ namespace eiibd26.Pages.Tolero
                             && !e.Eliminado);
         }
 
+        // Resultado comunitario "Todos" — vía el helper COMPARTIDO, para que /tolero y la ficha de
+        // ingrediente jamás muestren cifras distintas. El cálculo (posterior + gate) no vive aquí.
         private async Task CargarResultadosAsync()
         {
-            var grupos = await _db.PlatTolerVotos.AsNoTracking()
-                .Where(v => v.IngredienteId == IngredienteId)
-                .GroupBy(v => v.Tolera)
-                .Select(g => new { Nivel = g.Key, Count = g.Count() })
-                .ToListAsync();
-
-            CountSi = grupos.FirstOrDefault(g => g.Nivel == PlatToleraNivel.Si)?.Count ?? 0;
-            CountAVeces = grupos.FirstOrDefault(g => g.Nivel == PlatToleraNivel.AVeces)?.Count ?? 0;
-            CountNo = grupos.FirstOrDefault(g => g.Nivel == PlatToleraNivel.No)?.Count ?? 0;
-            TotalRespuestas = CountSi + CountAVeces + CountNo;
-
-            // Modelo #16: posterior Beta(1+Sí, 1+No). "A veces" NO entra al binario; se muestra aparte
-            // en el desglose. El gate exige n suficiente Y un intervalo suficientemente angosto — si no
-            // pasa, NUNCA se muestra un porcentaje. Segmento "Todos" (sin filtrar por tipo de EII).
-            var est = ToleranciaBayes.Estimar(CountSi, CountNo);
-            MostrarPorcentaje = ToleranciaBayes.PasaGate(est, TotalRespuestas);
-            if (MostrarPorcentaje)
-            {
-                PorcentajeTolera = est.MediaRedondeada;
-                CiBajo = est.CiBajoRedondeado;
-                CiAlto = est.CiAltoRedondeado;
-            }
+            var r = await ToleranciaResultadoCalculo.ParaIngredienteAsync(_db, IngredienteId);
+            CountSi = r.CountSi;
+            CountAVeces = r.CountAVeces;
+            CountNo = r.CountNo;
+            TotalRespuestas = r.TotalRespuestas;
+            MostrarPorcentaje = r.MostrarPorcentaje;
+            PorcentajeTolera = r.PorcentajeTolera;
+            CiBajo = r.CiBajo;
+            CiAlto = r.CiAlto;
         }
 
         // Condición principal del usuario (id crudo) + clasificación best-effort a tipo de EII.

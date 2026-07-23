@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using eiibd26.Data;
 using eiibd26.Helpers;
 using eiibd26.Models;
+using eiibd26.Models.Platillos;
 using eiibd26.Models.Validacion;
 using eiibd26.Services.Platillos;
 using eiibd26.Services.Validacion;
@@ -68,6 +69,12 @@ namespace eiibd26.Pages.Platillos
         public bool ExcluidoPorTi { get; private set; }
         public string? MotivoExclusion { get; private set; }
 
+        // ===== Tolerancia comunitaria (#16) — solo lectura; votar sigue viviendo en /tolero/{slug}.
+        /// <summary>Resultado "Todos" del helper compartido: mismo número que /tolero. Null solo si falla la carga.</summary>
+        public ToleranciaResultado? Tolerancia { get; private set; }
+        /// <summary>Voto propio del usuario LOGUEADO (no se lee la cookie anónima aquí). Null = no votó / anónimo.</summary>
+        public PlatToleraNivel? MiVotoTolerancia { get; private set; }
+
         public List<PlatilloMiniVm> Platillos { get; private set; } = new();
         public int PlatillosCount { get; private set; }
         public bool PlatillosHasMore { get; private set; }
@@ -125,6 +132,11 @@ namespace eiibd26.Pages.Platillos
                     .Where(e => e.idUsuario == uid && !e.Eliminado)
                     .Select(e => new { e.Tipo, e.RefId }).ToListAsync();
 
+                // "Tu experiencia": el voto propio (solo logueado; la cookie anónima no se lee en la ficha).
+                MiVotoTolerancia = await _db.PlatTolerVotos.AsNoTracking()
+                    .Where(v => v.IngredienteId == ing.Id && v.UserId == uid)
+                    .Select(v => (PlatToleraNivel?)v.Tolera).FirstOrDefaultAsync();
+
                 if (exclus.Any(e => e.Tipo == "Ingrediente" && e.RefId == ing.Id))
                 {
                     ExcluidoPorTi = true;
@@ -145,6 +157,9 @@ namespace eiibd26.Pages.Platillos
                     }
                 }
             }
+
+            // Tolerancia comunitaria "Todos" — MISMO helper que /tolero, para no mostrar cifras distintas.
+            Tolerancia = await ToleranciaResultadoCalculo.ParaIngredienteAsync(_db, ing.Id);
 
             // Platillos ACTIVOS que lo contienen — primera página (5); el resto por "Ver más" AJAX.
             var (platItems, platTotal) = await CargarPlatillosAsync(ing.Id, 0, PlatillosPageSize);
