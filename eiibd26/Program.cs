@@ -223,6 +223,11 @@ try
             // /Platillos/Ingrediente/{slug} (3 segmentos).
             options.Conventions.AddPageRoute("/Platillos/Detalle", "/Platillos/{slug}");
 
+            // Alias amigables de la página de registro de profesional (RegisterM, área Identity).
+            // Solo AGREGAN rutas: la original /Identity/Account/RegisterM sigue igual (SEO intacto).
+            options.Conventions.AddAreaPageRoute("Identity", "/Account/RegisterM", "profesionaldelasalud/invitacion");
+            options.Conventions.AddAreaPageRoute("Identity", "/Account/RegisterM", "medico/invitacion");
+
             // PROTECCIÓN: autorizar TODO el área Identity por defecto
             options.Conventions.AuthorizeAreaFolder("Identity", "/");
 
@@ -1054,7 +1059,10 @@ try
     using (var scope = app.Services.CreateScope())
     {
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
-        foreach (var role in new[] { "Paciente", "Medico", "Admin", "Administrador" })
+        // "MedicoPendiente": profesional registrado pero NO aprobado para validar. Puede completar su
+        // perfil, pero el gating de validación solo acepta "Medico"/"Administrador". El admin lo
+        // promueve MedicoPendiente → Medico al aprobarlo. Registrarse ≠ poder validar.
+        foreach (var role in new[] { "Paciente", "Medico", "MedicoPendiente", "Admin", "Administrador" })
         {
             if (!await roleManager.RoleExistsAsync(role))
                 await roleManager.CreateAsync(new ApplicationRole { Name = role });

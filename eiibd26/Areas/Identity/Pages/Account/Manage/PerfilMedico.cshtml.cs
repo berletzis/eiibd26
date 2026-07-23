@@ -47,9 +47,16 @@ namespace eiibd26.Areas.Identity.Pages.Account.Manage;
 //   si ModelState es inválido para evitar guardar cambios parciales.
 // ════════════════════════════════════════════════════════════════════
 
-[Authorize(Roles = "Medico")]
+// MedicoPendiente incluido a propósito: un profesional recién registrado (aún NO aprobado para
+// validar) DEBE poder completar su perfil. La capacidad de VALIDAR es aparte y sigue exigiendo
+// "Medico"/"Administrador" en cada página de validación.
+[Authorize(Roles = "Medico,MedicoPendiente")]
 public class PerfilMedicoModel : PageModel
 {
+    /// <summary>Lista curada de títulos profesionales para el combo del perfil. "Otro" habilita texto libre.</summary>
+    public static readonly string[] TitulosCurados =
+        { "Dr.", "Dra.", "Nut.", "Lic. en Nutrición", "Psic.", "Enf.", "Mtro.", "Mtra.", "Q.F.B.", "Otro" };
+
     private readonly ApplicationDbContext _db;
     private readonly IMedicoBadgeService _badgeService;
     private readonly IWebHostEnvironment _env;
@@ -102,6 +109,10 @@ public class PerfilMedicoModel : PageModel
         [MaxLength(500)] public string? Foto { get; set; }
         [MaxLength(200)] public string? NombreCompleto { get; set; }
         [MaxLength(200)] public string? Especialidad { get; set; }
+        /// <summary>Título profesional elegido de la lista curada (o "Otro" → texto libre corto).
+        /// Se guarda en la ficha vinculada (MedicoDirectorio.Titulo). Solo se muestra en público tras
+        /// la aprobación del admin (badge verificado).</summary>
+        [MaxLength(50)] public string? Titulo { get; set; }
         [MaxLength(2000)] public string? Biografia { get; set; }
         public List<string> Hospitales { get; set; } = new();
         [MaxLength(500)] public string? HorariosAtencion { get; set; }
@@ -213,6 +224,7 @@ public class PerfilMedicoModel : PageModel
             Input.Slug             = perfil.Slug;
             Input.NombreCompleto   = perfil.Medico?.NombreCompleto;
             Input.Especialidad     = perfil.Medico?.Especialidad;
+            Input.Titulo           = perfil.Medico?.Titulo;
 
             // Ubicación de la comunidad (readonly reference)
             ComunidadCiudad = perfil.Medico?.Ciudad;
@@ -371,6 +383,13 @@ public class PerfilMedicoModel : PageModel
         perfil.Telefono         = Input.Telefono;
         perfil.Instagram        = Input.Instagram;
         perfil.LinkedIn         = Input.LinkedIn;
+
+        // Título profesional → vive en la ficha (MedicoDirectorio.Titulo), que alimenta el display.
+        // Solo escribible si ya hay ficha vinculada; sin ella el título lo pone el admin al crearla.
+        // El display público sigue gateado por el badge verificado (la aprobación avala el título).
+        if (perfil.Medico is not null)
+            perfil.Medico.Titulo = string.IsNullOrWhiteSpace(Input.Titulo) ? null : Input.Titulo.Trim();
+
         perfil.PaisCodigo = Input.PaisCodigo;
         perfil.Ciudad     = Input.Ciudad;
         perfil.Latitud          = Input.Latitud;

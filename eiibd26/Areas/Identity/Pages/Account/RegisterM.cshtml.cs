@@ -6,6 +6,7 @@ using System.Text.Encodings.Web;
 using System.Text.RegularExpressions;
 using eiibd26.Data;
 using eiibd26.Models;
+using eiibd26.Models.Directorio;
 using eiibd26.Models.Medico;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
@@ -140,9 +141,30 @@ public class RegisterMModel : PageModel
 
             _db.Perfil.Add(perfil);
 
+            // Ficha del directorio, creada al registro pero NO pública y SIN reclamar: así el pendiente
+            // aparece en el panel admin (con su especialidad/cédula declaradas) para poder aprobarlo,
+            // sin depender de una propuesta/claim de paciente. NombreCompleto = placeholder (el correo):
+            // el nombre REAL lo pone el admin al aprobar — el registrante no puede autoasignarse un nombre
+            // que se muestre (el display exige badge verificado, que solo da el admin).
+            var ficha = new MedicoDirectorio
+            {
+                NombreCompleto     = emailLocal,
+                Especialidad       = string.IsNullOrWhiteSpace(Input.Especialidad) ? null : Input.Especialidad.Trim(),
+                CedulaProfesional  = string.IsNullOrWhiteSpace(Input.CedulaProfesional) ? null : Input.CedulaProfesional.Trim(),
+                NombrePais         = codigoPais,
+                AspNetUserId       = user.Id,
+                EstatusValidacion  = Models.Directorio.Enums.EstatusValidacionCedula.PendienteValidacion,
+                EstatusReclamacion = Models.Directorio.Enums.EstatusReclamacion.NoReclamado,
+                Activo             = false,
+                VisiblePublicamente = false,
+                FechaCreacion      = DateTimeOffset.UtcNow
+            };
+            _db.MedicosDirectorio.Add(ficha);
+            await _db.SaveChangesAsync();   // obtener ficha.Id para vincular
+
             _db.MedicosPerfilExtendido.Add(new MedicoPerfilExtendido
             {
-                MedicoId        = null,
+                MedicoId        = ficha.Id,   // vinculada desde el registro
                 UserId          = user.Id,
                 FechaCreado     = DateTime.UtcNow,
                 FechaModificado = DateTime.UtcNow
@@ -150,10 +172,13 @@ public class RegisterMModel : PageModel
 
             await _db.SaveChangesAsync();
 
-            await _userManager.AddToRoleAsync(user, "Medico");
+            // Registrarse ≠ poder validar. Se otorga "MedicoPendiente" (completa su perfil, pero NO
+            // valida). El admin lo promueve a "Medico" al aprobarlo. El flujo token (Activar) sigue
+            // dando "Medico" directo — esa vía ya trae validación de identidad por email.
+            await _userManager.AddToRoleAsync(user, "MedicoPendiente");
             await _userManager.AddClaimAsync(user, new Claim(ClaimTypes.Email, user.Email!));
 
-            _logger.LogInformation("Médico registrado: {Email}", user.Email);
+            _logger.LogInformation("Profesional de la salud registrado (pendiente de aprobación): {Email}", user.Email);
 
             try
             {

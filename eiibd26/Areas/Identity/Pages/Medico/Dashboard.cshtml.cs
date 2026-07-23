@@ -8,7 +8,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace eiibd26.Areas.Identity.Pages.Medico;
 
-[Authorize(Roles = "Medico")]
+// MedicoPendiente incluido: el profesional pendiente aterriza aquí tras registrarse. Ver su panel
+// es inofensivo; las acciones de validar/responder tienen su propio gating por rol/nivel.
+[Authorize(Roles = "Medico,MedicoPendiente")]
 public class DashboardModel : PageModel
 {
     private readonly ApplicationDbContext _db;

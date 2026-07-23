@@ -15,7 +15,14 @@ namespace eiibd26.Services.Validacion
     public class ValidacionPublicaDto
     {
         public int Id { get; set; }
+        /// <summary>Nombre a mostrar: si tiene nombre aprobado → "{Titulo} {Nombre}" (sin "Dr." asumido);
+        /// si no → "Profesional verificado" (genérico, anónimo).</summary>
         public string UserDisplay { get; set; } = "";
+        /// <summary>true = validador aprobado con nombre público. false = anónimo ("Profesional verificado").
+        /// La vista usa esto para no repetir la etiqueta genérica por cada fila anónima.</summary>
+        public bool TieneNombre { get; set; }
+        /// <summary>Especialidad del profesional (solo cuando TieneNombre). Texto chico bajo el nombre.</summary>
+        public string? Especialidad { get; set; }
         public string? AvatarUrl { get; set; }
         public string? Slug { get; set; }
         public string? Comentario { get; set; }

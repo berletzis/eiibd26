@@ -8,6 +8,12 @@
 *@
 @if (Model != null && Model.Any())
 {
+    @* Un solo encabezado "Validado por"; luego las filas. Las que tienen nombre aprobado se pintan
+       como {Titulo} {Nombre} + especialidad; las anónimas NO repiten la etiqueta genérica por fila:
+       se resumen en UNA sola línea "Profesional verificado" al final. *@
+    var conNombre = Model.Where(v => v.TieneNombre).ToList();
+    var anonimos  = Model.Where(v => !v.TieneNombre).ToList();
+
     <div class="validaciones-profesionales mt-3 mb-4">
         <div class="validaciones-profesionales__header">
             <div class="validaciones-profesionales__header-icon">
@@ -16,7 +22,7 @@
             <h4 class="validaciones-profesionales__title">Validado por Profesionales de la Salud</h4>
         </div>
         <div class="validaciones-profesionales__body">
-            @foreach (var v in Model)
+            @foreach (var v in conNombre)
             {
                 <div class="validacion-item">
                     @if (!string.IsNullOrWhiteSpace(v.AvatarUrl))
@@ -39,12 +45,38 @@
                             {
                                 @v.UserDisplay
                             }
+                            <i class="bi bi-patch-check-fill validacion-check" aria-hidden="true"></i>
                         </div>
+                        @if (!string.IsNullOrWhiteSpace(v.Especialidad))
+                        {
+                            <span class="validacion-especialidad">@v.Especialidad</span>
+                        }
                         @if (!string.IsNullOrWhiteSpace(v.Comentario))
                         {
                             <p class="validacion-comment mb-0">"@v.Comentario"</p>
                         }
                         <span class="validacion-date">@v.CreadoEn.ToString("MMMM yyyy")</span>
+                    </div>
+                </div>
+            }
+
+            @* Resumen único de los validadores sin nombre aprobado — no se repite por fila. *@
+            @if (anonimos.Any())
+            {
+                <div class="validacion-item">
+                    <div class="validacion-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
+                    <div>
+                        <div class="validacion-name">
+                            @if (anonimos.Count == 1)
+                            {
+                                <text>Profesional verificado</text>
+                            }
+                            else
+                            {
+                                <text>@anonimos.Count profesionales verificados</text>
+                            }
+                            <i class="bi bi-patch-check-fill validacion-check" aria-hidden="true"></i>
+                        </div>
                     </div>
                 </div>
             }

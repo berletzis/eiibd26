@@ -60,6 +60,7 @@
                         <option value="verificado">Verificados</option>
                         <option value="pendiente">Pendientes</option>
                         <option value="claim">Con claim</option>
+                        <option value="porAprobar">Por aprobar (validar)</option>
                     </select>
                 </div>
                 <div class="dt-controls-right">
@@ -343,8 +344,19 @@
 
 <!-- 1. Datos profesionales -->
 <p class="panel-section-title">Datos profesionales</p>
-<div class="mb-2"><label class="eii-label d-block mb-1">Nombre completo <span class="text-danger">*</span></label>
-    <input type="text" id="ep_nombre" class="form-control form-control-sm" value="${esc(d.nombreCompleto)}" required></div>
+<div class="row g-2 mb-2">
+    <div class="col-4"><label class="eii-label d-block mb-1">Título</label>
+        <input type="text" id="ep_titulo" class="form-control form-control-sm" maxlength="50"
+               list="ep_titulo_opts" value="${esc(d.titulo)}" placeholder="Nut., Dr...">
+        <datalist id="ep_titulo_opts">
+            <option value="Dr."></option><option value="Dra."></option><option value="Nut."></option>
+            <option value="Lic. en Nutrición"></option><option value="Psic."></option><option value="Enf."></option>
+            <option value="Mtro."></option><option value="Mtra."></option><option value="Q.F.B."></option>
+        </datalist>
+    </div>
+    <div class="col-8"><label class="eii-label d-block mb-1">Nombre completo <span class="text-danger">*</span></label>
+        <input type="text" id="ep_nombre" class="form-control form-control-sm" value="${esc(d.nombreCompleto)}" required></div>
+</div>
 <div class="row g-2 mb-2">
     <div class="col-6"><label class="eii-label d-block mb-1">Especialidad</label><input type="text" id="ep_especialidad" class="form-control form-control-sm" value="${esc(d.especialidad)}"></div>
     <div class="col-6"><label class="eii-label d-block mb-1">Subespecialidad</label><input type="text" id="ep_subespecialidad" class="form-control form-control-sm" value="${esc(d.subespecialidad)}"></div>
@@ -385,7 +397,20 @@
 </div>
 ${d.cedulaVerificada && d.fechaCedulaVerificada ? `<p class="text-muted small mb-2">Verificada: ${d.fechaCedulaVerificada}</p>` : ''}
 
-<!-- 4. Claim -->
+<!-- 4. Aprobación para validar (REQ parte C) -->
+${d.puedeAprobar ? `
+<p class="panel-section-title">Aprobación para validar</p>
+<div class="mb-2">
+    <span class="badge bg-warning text-dark">Pendiente de aprobación</span>
+    <div class="mt-1">
+        <button class="btn btn-sm btn-success" onclick="aprobarProfesional(${d.id})">
+            <i class="bi bi-patch-check-fill me-1"></i>Aprobar para validar
+        </button>
+    </div>
+    <p class="text-muted small mb-0 mt-1">Le da capacidad de validar. El nombre se muestra al público al verificar la cédula (badge verificado), aparte.</p>
+</div>` : ''}
+
+<!-- 5. Claim -->
 <p class="panel-section-title">Claim</p>
 <div class="mb-2">
     ${d.perfilReclamado
@@ -537,6 +562,7 @@ ${(d.validacionesRespuesta || []).length > 0
         var body = new URLSearchParams({
             id,
             nombreCompleto:    document.getElementById('ep_nombre').value,
+            titulo:            document.getElementById('ep_titulo')?.value || '',
             especialidad:      document.getElementById('ep_especialidad').value,
             subespecialidad:   document.getElementById('ep_subespecialidad').value,
             cedulaProfesional: document.getElementById('ep_cedula').value,
@@ -562,6 +588,13 @@ ${(d.validacionesRespuesta || []).length > 0
         if (!confirm(handler === 'AprobarClaim' ? '¿Aprobar claim?' : '¿Rechazar claim?')) return;
         const r = await postJson('@Url.Page(null, "X")'.replace('X', handler), { id });
         if (r.success) { tabla.ajax.reload(null, false); await abrirEditar(id); }
+    }
+
+    async function aprobarProfesional(id) {
+        if (!confirm('¿Aprobar a este profesional para que pueda validar contenido?')) return;
+        const r = await postJson('@Url.Page(null, "AprobarProfesional")', { id });
+        if (r.success) { tabla.ajax.reload(null, false); await abrirEditar(id); }
+        else alert(r.message || 'No se pudo aprobar.');
     }
 
     async function otorgarBadge(medicoId, codigo) {

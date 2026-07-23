@@ -15,6 +15,13 @@ public class MedicoDirectorio
     [Display(Name = "Nombre completo")]
     public string NombreCompleto { get; set; } = string.Empty;
 
+    /// <summary>Título profesional (Nut., Dr., Lic. en Nutrición…). Alimenta el display público:
+    /// el nombre se arma {Titulo} {NombreCompleto}. Null → solo el nombre (nunca asumir "Dr.").
+    /// Solo aparece en público cuando el admin aprueba el nombre (badge verificado).</summary>
+    [MaxLength(50)]
+    [Display(Name = "Título")]
+    public string? Titulo { get; set; }
+
     [MaxLength(50)]
     [Display(Name = "Cédula profesional")]
     public string? CedulaProfesional { get; set; }

@@ -152,10 +152,10 @@ namespace eiibd26.Services.Validacion
             var nombresMedico = await _db.MedicosDirectorio
                 .AsNoTracking()
                 .Where(m => medicoIds.Contains(m.Id))
-                .Select(m => new { m.Id, m.NombreCompleto })
+                .Select(m => new { m.Id, m.NombreCompleto, m.Titulo, m.Especialidad })
                 .ToListAsync();
 
-            var nombreDict = nombresMedico.ToDictionary(m => m.Id, m => m.NombreCompleto);
+            var nombreDict = nombresMedico.ToDictionary(m => m.Id, m => m);
 
             var medicoIdByUser = perfiles.Where(p => p.MedicoId.HasValue)
                 .ToDictionary(p => p.UserId!.Value, p => p.MedicoId!.Value);
@@ -176,13 +176,22 @@ namespace eiibd26.Services.Validacion
             {
                 if (!Guid.TryParse(v.UsuarioMedicoId, out var guid)) continue;
 
+                // Display: nombre aprobado → "{Titulo} {Nombre}" (sin "Dr." asumido); si no → genérico.
                 string display;
+                bool tieneNombre = false;
+                string? especialidadDisp = null;
                 if (medicoIdByUser.TryGetValue(guid, out var medicoId)
                     && badgesVerificados.Contains(medicoId)
-                    && nombreDict.TryGetValue(medicoId, out var nombre))
-                    display = $"Dr. {nombre}";
+                    && nombreDict.TryGetValue(medicoId, out var ficha)
+                    && !string.IsNullOrWhiteSpace(ficha.NombreCompleto))
+                {
+                    var t = string.IsNullOrWhiteSpace(ficha.Titulo) ? "" : ficha.Titulo!.Trim() + " ";
+                    display = $"{t}{ficha.NombreCompleto.Trim()}";
+                    tieneNombre = true;
+                    especialidadDisp = string.IsNullOrWhiteSpace(ficha.Especialidad) ? null : ficha.Especialidad!.Trim();
+                }
                 else
-                    display = "Médico verificado";
+                    display = "Profesional verificado";
 
                 string? avatarUrl = null;
                 if (avatarByUser.TryGetValue(guid, out var avatarVal)
@@ -197,6 +206,8 @@ namespace eiibd26.Services.Validacion
                 {
                     Id            = v.Id,
                     UserDisplay   = display,
+                    TieneNombre   = tieneNombre,
+                    Especialidad  = especialidadDisp,
                     AvatarUrl     = avatarUrl,
                     Slug          = slug,
                     Comentario    = v.Comentario,
@@ -426,11 +437,11 @@ namespace eiibd26.Services.Validacion
                 ? await _db.MedicosDirectorio
                     .AsNoTracking()
                     .Where(m => medicoIds.Contains(m.Id))
-                    .Select(m => new { m.Id, m.NombreCompleto })
+                    .Select(m => new { m.Id, m.NombreCompleto, m.Titulo, m.Especialidad })
                     .ToListAsync()
                 : new();
 
-            var nombreDict    = nombresMedico.ToDictionary(m => m.Id, m => m.NombreCompleto);
+            var nombreDict    = nombresMedico.ToDictionary(m => m.Id, m => m);
             var medicoIdByUser = perfiles.Where(p => p.MedicoId.HasValue)
                 .ToDictionary(p => p.UserId!.Value, p => p.MedicoId!.Value);
             var slugByMedico  = perfiles.Where(p => p.MedicoId.HasValue && p.Slug != null)
@@ -449,13 +460,22 @@ namespace eiibd26.Services.Validacion
             {
                 if (!Guid.TryParse(v.UsuarioMedicoId, out var guid)) continue;
 
+                // Display: nombre aprobado → "{Titulo} {Nombre}" (sin "Dr." asumido); si no → genérico.
                 string display;
+                bool tieneNombre = false;
+                string? especialidadDisp = null;
                 if (medicoIdByUser.TryGetValue(guid, out var medicoId)
                     && badgesVerificados.Contains(medicoId)
-                    && nombreDict.TryGetValue(medicoId, out var nombre))
-                    display = $"Dr. {nombre}";
+                    && nombreDict.TryGetValue(medicoId, out var ficha)
+                    && !string.IsNullOrWhiteSpace(ficha.NombreCompleto))
+                {
+                    var t = string.IsNullOrWhiteSpace(ficha.Titulo) ? "" : ficha.Titulo!.Trim() + " ";
+                    display = $"{t}{ficha.NombreCompleto.Trim()}";
+                    tieneNombre = true;
+                    especialidadDisp = string.IsNullOrWhiteSpace(ficha.Especialidad) ? null : ficha.Especialidad!.Trim();
+                }
                 else
-                    display = "Médico verificado";
+                    display = "Profesional verificado";
 
                 string? avatarUrl = null;
                 if (avatarByUser.TryGetValue(guid, out var avatarVal)
@@ -470,6 +490,8 @@ namespace eiibd26.Services.Validacion
                 {
                     Id            = v.Id,
                     UserDisplay   = display,
+                    TieneNombre   = tieneNombre,
+                    Especialidad  = especialidadDisp,
                     AvatarUrl     = avatarUrl,
                     Slug          = slug,
                     Comentario    = v.Comentario,
@@ -540,11 +562,11 @@ namespace eiibd26.Services.Validacion
                 ? await _db.MedicosDirectorio
                     .AsNoTracking()
                     .Where(m => medicoIds.Contains(m.Id))
-                    .Select(m => new { m.Id, m.NombreCompleto })
+                    .Select(m => new { m.Id, m.NombreCompleto, m.Titulo, m.Especialidad })
                     .ToListAsync()
                 : new();
 
-            var nombreDict     = nombresMedico.ToDictionary(m => m.Id, m => m.NombreCompleto);
+            var nombreDict     = nombresMedico.ToDictionary(m => m.Id, m => m);
             var medicoIdByUser = perfiles.Where(p => p.MedicoId.HasValue)
                 .ToDictionary(p => p.UserId!.Value, p => p.MedicoId!.Value);
             var slugByMedico   = perfiles.Where(p => p.MedicoId.HasValue && p.Slug != null)
@@ -571,13 +593,22 @@ namespace eiibd26.Services.Validacion
 
                 if (!seen.Add(guid)) continue; // mismo médico ya incluido para este término
 
+                // Display: nombre aprobado → "{Titulo} {Nombre}" (sin "Dr." asumido); si no → genérico.
                 string display;
+                bool tieneNombre = false;
+                string? especialidadDisp = null;
                 if (medicoIdByUser.TryGetValue(guid, out var medicoId)
                     && badgesVerificados.Contains(medicoId)
-                    && nombreDict.TryGetValue(medicoId, out var nombre))
-                    display = $"Dr. {nombre}";
+                    && nombreDict.TryGetValue(medicoId, out var ficha)
+                    && !string.IsNullOrWhiteSpace(ficha.NombreCompleto))
+                {
+                    var t = string.IsNullOrWhiteSpace(ficha.Titulo) ? "" : ficha.Titulo!.Trim() + " ";
+                    display = $"{t}{ficha.NombreCompleto.Trim()}";
+                    tieneNombre = true;
+                    especialidadDisp = string.IsNullOrWhiteSpace(ficha.Especialidad) ? null : ficha.Especialidad!.Trim();
+                }
                 else
-                    display = "Médico verificado";
+                    display = "Profesional verificado";
 
                 string? avatarUrl = null;
                 if (avatarByUser.TryGetValue(guid, out var avatarVal)
@@ -591,6 +622,8 @@ namespace eiibd26.Services.Validacion
                 var dto = new ValidacionPublicaDto
                 {
                     UserDisplay   = display,
+                    TieneNombre   = tieneNombre,
+                    Especialidad  = especialidadDisp,
                     AvatarUrl     = avatarUrl,
                     Slug          = slug,
                     CreadoEn      = e.CreadoEn

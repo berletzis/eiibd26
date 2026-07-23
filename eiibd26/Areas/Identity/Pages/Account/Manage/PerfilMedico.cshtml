@@ -230,9 +230,50 @@
                                             <label asp-for="Input.NombreCompleto">Nombre completo</label>
                                             <div class="form-text text-muted">Proviene del directorio EII. Vincula tu perfil para editarlo.</div>
                                         </div>
-                                        <div class="form-floating">
+                                        <div class="form-floating mb-2">
                                             <input asp-for="Input.Especialidad" class="form-control" placeholder="Especialidad" readonly />
                                             <label asp-for="Input.Especialidad">Especialidad</label>
+                                        </div>
+                                        @{
+                                            var titulosCurados = eiibd26.Areas.Identity.Pages.Account.Manage.PerfilMedicoModel.TitulosCurados;
+                                            var tituloActual = Model.Input.Titulo ?? "";
+                                            var esCurado = !string.IsNullOrWhiteSpace(tituloActual)
+                                                && titulosCurados.Contains(tituloActual) && tituloActual != "Otro";
+                                            var mostrarOtro = !string.IsNullOrWhiteSpace(tituloActual) && !esCurado;
+                                        }
+                                        <div class="row g-2">
+                                            <div class="col-6">
+                                                <div class="form-floating">
+                                                    <select id="tituloSelect" class="form-select" @(Model.PerfilVinculado ? "" : "disabled")>
+                                                        <option value="">(Sin título)</option>
+                                                        @foreach (var t in titulosCurados)
+                                                        {
+                                                            var sel = (esCurado && t == tituloActual) || (mostrarOtro && t == "Otro");
+                                                            <option value="@t" selected="@sel">@t</option>
+                                                        }
+                                                    </select>
+                                                    <label for="tituloSelect">Título profesional</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="form-floating">
+                                                    <input asp-for="Input.Titulo" id="tituloTexto" class="form-control" maxlength="50"
+                                                           placeholder="Título" autocomplete="off"
+                                                           style="@(mostrarOtro ? "" : "display:none;")"
+                                                           @(Model.PerfilVinculado ? "" : "disabled") />
+                                                    <label asp-for="Input.Titulo">Título (texto)</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="form-text text-muted">
+                                            @if (Model.PerfilVinculado)
+                                            {
+                                                <text>Cómo apareces al validar: <strong>«@(string.IsNullOrWhiteSpace(tituloActual) ? "" : tituloActual + " ")»</strong> + tu nombre. Se muestra al público solo cuando un administrador aprueba tu perfil.</text>
+                                            }
+                                            else
+                                            {
+                                                <text>Disponible cuando un administrador configure tu ficha. Mientras tanto, tu alta queda pendiente de aprobación.</text>
+                                            }
                                         </div>
                                     </div>
                                 </div>
@@ -481,6 +522,23 @@
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script>
+        // ── Título profesional: el select llena el texto (fuente de verdad = #tituloTexto). "Otro" → texto libre. ──
+        (function () {
+            var sel = document.getElementById('tituloSelect');
+            var txt = document.getElementById('tituloTexto');
+            if (!sel || !txt) return;
+            sel.addEventListener('change', function () {
+                if (sel.value === 'Otro') {
+                    txt.style.display = '';
+                    if (txt.value === 'Otro') txt.value = '';
+                    txt.focus();
+                } else {
+                    txt.style.display = 'none';
+                    txt.value = sel.value; // curado o "" (Sin título)
+                }
+            });
+        })();
+
         // ── Hospitales ──
         document.getElementById('btn-add-hospital').addEventListener('click', function () {
             const c = document.getElementById('hospitales-container');

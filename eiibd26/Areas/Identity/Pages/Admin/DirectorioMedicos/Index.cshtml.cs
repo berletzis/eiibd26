@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using eiibd26.Data;
+using eiibd26.Models;
 using eiibd26.Models.Directorio;
 using eiibd26.Models.Directorio.Enums;
 using eiibd26.Models.Validacion;
@@ -22,6 +23,7 @@ public class IndexModel : PageModel
     private readonly IMedicoDirectorioService _dirService;
     private readonly IValidacionContenidoService _validacionService;
     private readonly IValidacionRespuestaService _validacionRespuestaService;
+    private readonly Microsoft.AspNetCore.Identity.UserManager<ApplicationUser> _userManager;
     private readonly ILogger<IndexModel> _logger;
 
     public string GoogleMapsApiKey => _googleMapsApiKey;
@@ -31,6 +33,7 @@ public class IndexModel : PageModel
         IMedicoDirectorioService dirService,
         IValidacionContenidoService validacionService,
         IValidacionRespuestaService validacionRespuestaService,
+        Microsoft.AspNetCore.Identity.UserManager<ApplicationUser> userManager,
         ILogger<IndexModel> logger)
     {
         _db = db;
@@ -39,6 +42,7 @@ public class IndexModel : PageModel
         _dirService = dirService;
         _validacionService = validacionService;
         _validacionRespuestaService = validacionRespuestaService;
+        _userManager = userManager;
         _logger = logger;
     }
 
@@ -71,6 +75,16 @@ public class IndexModel : PageModel
             query = query.Where(m => m.EstatusValidacion != EstatusValidacionCedula.Validado);
         else if (filtroVerificado == "claim")
             query = query.Where(m => m.EstatusReclamacion == EstatusReclamacion.EnProceso);
+        else if (filtroVerificado == "porAprobar")
+        {
+            // Profesionales registrados pendientes de aprobación para validar: su cuenta vinculada
+            // está en el rol "MedicoPendiente" (REQ parte C). Se resuelve por AspNetUserRoles.
+            var rolePendienteId = await _db.Roles
+                .Where(r => r.Name == "MedicoPendiente").Select(r => r.Id).FirstOrDefaultAsync();
+            var pendingUserIds = _db.UserRoles
+                .Where(ur => ur.RoleId == rolePendienteId).Select(ur => ur.UserId);
+            query = query.Where(m => m.AspNetUserId != null && pendingUserIds.Contains(m.AspNetUserId.Value));
+        }
 
         var total = await query.CountAsync();
 
@@ -220,9 +234,22 @@ public class IndexModel : PageModel
         }
         catch { }
 
+        // ¿La cuenta vinculada está pendiente de aprobación para validar? (REQ parte C)
+        bool puedeAprobar = false;
+        if (m.AspNetUserId is not null)
+        {
+            try
+            {
+                var u = await _userManager.FindByIdAsync(m.AspNetUserId.Value.ToString());
+                if (u is not null) puedeAprobar = await _userManager.IsInRoleAsync(u, "MedicoPendiente");
+            }
+            catch { }
+        }
+
         return new JsonResult(new
         {
             id = m.Id, nombreCompleto = m.NombreCompleto,
+            titulo = m.Titulo ?? "", puedeAprobar,
             especialidad = m.Especialidad ?? "", subespecialidad = m.Subespecialidad ?? "",
             cedulaProfesional = m.CedulaProfesional ?? "",
             nombrePais = m.NombrePais ?? "", ciudad = m.Ciudad ?? "",
@@ -281,7 +308,7 @@ public class IndexModel : PageModel
     public async Task<IActionResult> OnPostEditarAsync(
         int id, string nombreCompleto, string? especialidad, string? subespecialidad,
         string? cedulaProfesional, string? nombrePais, string? ciudad, string? estado,
-        string? hospitalClinica, bool cedulaVerificada, bool eliminado)
+        string? hospitalClinica, bool cedulaVerificada, bool eliminado, string? titulo = null)
     {
         if (string.IsNullOrWhiteSpace(nombreCompleto))
             return new JsonResult(new { ok = false, message = "El nombre es obligatorio." });
@@ -292,6 +319,7 @@ public class IndexModel : PageModel
         var cambioVerificacion = medico.CedulaVerificada != cedulaVerificada;
 
         medico.NombreCompleto    = nombreCompleto.Trim();
+        medico.Titulo            = string.IsNullOrWhiteSpace(titulo) ? null : titulo.Trim();
         medico.Especialidad      = especialidad?.Trim();
         medico.Subespecialidad   = subespecialidad?.Trim();
         medico.CedulaProfesional = cedulaProfesional?.Trim();
@@ -390,6 +418,31 @@ public class IndexModel : PageModel
         try { await _badgeService.EvaluarBadgesAutomaticosAsync(id); } catch { }
         return new JsonResult(new { success = true });
     }
+
+    // ── Aprobar profesional para VALIDAR (REQ parte C): promueve la cuenta vinculada
+    //    MedicoPendiente → Medico. SOLO da capacidad de validar; NO revela el nombre (eso es el badge
+    //    verificado, acto aparte) ni publica la ficha en el directorio (VisiblePublicamente, edición aparte).
+    public async Task<IActionResult> OnPostAprobarProfesionalAsync()
+    {
+        if (!Request.HasFormContentType || string.IsNullOrWhiteSpace(Request.Form["id"])) return BadRequest();
+        var id = int.Parse(Request.Form["id"]!);
+        var m = await _db.MedicosDirectorio.FirstOrDefaultAsync(x => x.Id == id);
+        if (m is null) return new JsonResult(new { success = false, message = "Ficha no encontrada." });
+        if (m.AspNetUserId is null)
+            return new JsonResult(new { success = false, message = "La ficha no está vinculada a una cuenta; no hay a quién aprobar." });
+
+        var user = await _userManager.FindByIdAsync(m.AspNetUserId.Value.ToString());
+        if (user is null) return new JsonResult(new { success = false, message = "Cuenta vinculada no encontrada." });
+
+        if (await _userManager.IsInRoleAsync(user, "MedicoPendiente"))
+            await _userManager.RemoveFromRoleAsync(user, "MedicoPendiente");
+        if (!await _userManager.IsInRoleAsync(user, "Medico"))
+            await _userManager.AddToRoleAsync(user, "Medico");
+
+        _logger.LogInformation("Profesional aprobado para validar: ficha {MedicoId}, cuenta {UserId}", id, user.Id);
+        return new JsonResult(new { success = true });
+    }
+
     public async Task<IActionResult> OnPostRechazarClaimAsync()
     {
         if (!Request.HasFormContentType || string.IsNullOrWhiteSpace(Request.Form["id"])) return BadRequest();
