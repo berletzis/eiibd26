@@ -35,16 +35,24 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
         private readonly ApplicationDbContext _db;
         private readonly IPlatNotaAdminService _notas;
         private readonly IValidacionContenidoService _validaciones;
+        private readonly Configuration.AiAnswerConfiguration _aiConfig;
 
         public NotaClinicaDetalleModel(
             ApplicationDbContext db,
             IPlatNotaAdminService notas,
-            IValidacionContenidoService validaciones)
+            IValidacionContenidoService validaciones,
+            Microsoft.Extensions.Options.IOptions<Configuration.AiAnswerConfiguration> aiConfig)
         {
             _db = db;
             _notas = notas;
             _validaciones = validaciones;
+            _aiConfig = aiConfig.Value;
         }
+
+        /// <summary>Lista blanca de fuentes clínicas aprobadas (lectura en vivo desde config). Se pasa
+        /// a la vista para MARCAR en ámbar las referencias manuales que no la matcheen — no bloquea,
+        /// solo hace revisar. El candado de la IA vive en PlatillosAiService y no se toca.</summary>
+        public IReadOnlyList<string> FuentesPermitidas => _aiConfig.FuentesClinicasPermitidas ?? new List<string>();
 
         public string Tipo { get; private set; } = "";
         public PlatNotaEditVm Nota { get; private set; } = new();

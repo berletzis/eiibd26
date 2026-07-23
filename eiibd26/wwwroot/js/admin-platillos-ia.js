@@ -134,7 +134,10 @@
                 setCampo(filasSec[i], '[name$=".Contenido"]', s.contenido);
             });
 
-            // Referencias: una por fuente válida (ya filtradas por lista blanca en el backend).
+            // Referencias: REGENERAR = borrador nuevo. Reemplaza TODAS las referencias por las de la
+            // IA (ya filtradas por lista blanca). Se limpian primero las anteriores para no arrastrar
+            // una manual o heredada de un estado previo (el usuario ya confirmó el sobrescribir).
+            limpiarReferencias();
             var fuentes = Array.isArray(data.fuentes) ? data.fuentes : [];
             if (fuentes.length > 0) {
                 var filasRef = asegurarFilas("[data-nota-referencias]", "[data-nota-add-ref]", fuentes.length);
@@ -144,6 +147,7 @@
                     setCampo(filasRef[i], '[name$=".Url"]', "");
                 });
             }
+            marcarTodasLasReferencias();
 
             mostrarRevision(btn, !!data.revisionPrioritaria);
             mostrarSugerencias(data.referenciasCandidatas);
@@ -180,6 +184,7 @@
         if (!target) return;
         setCampo(target, '[name$=".Titulo"]', titulo);
         setCampo(target, '[name$=".Url"]', url);
+        marcarFila(target);   // el .value programático no dispara 'input'
     }
 
     function mostrarSugerencias(cands) {
@@ -220,6 +225,73 @@
         });
     }
 
+    // ---- Referencias fuera de la lista blanca: marca ámbar (no bloquea) ------
+    // Espeja la lógica tolerante de FiltrarPorListaBlanca (backend): sin acentos/mayúsculas,
+    // match bidireccional contains/contained-by. Solo AVISA para que el humano revise.
+    function normalizar(s) {
+        return (s == null ? "" : String(s)).trim().toLowerCase()
+            .normalize("NFD").replace(/[̀-ͯ]/g, "");
+    }
+
+    var fuentesPermitidasNorm = (function () {
+        var el = document.querySelector("#eii-fuentes-permitidas");
+        if (!el) return [];
+        try {
+            var arr = JSON.parse(el.textContent || "[]");
+            return (Array.isArray(arr) ? arr : []).map(normalizar).filter(Boolean);
+        } catch (e) { return []; }
+    })();
+
+    function esFueraDeLista(titulo) {
+        var t = normalizar(titulo);
+        if (!t) return false;                                  // vacío = sin marca
+        if (fuentesPermitidasNorm.length === 0) return false;  // sin lista, no marcamos nada
+        return !fuentesPermitidasNorm.some(function (p) {
+            return t.indexOf(p) !== -1 || p.indexOf(t) !== -1;
+        });
+    }
+
+    function limpiarReferencias() {
+        var c = document.querySelector("[data-nota-referencias]");
+        if (!c) return;
+        c.querySelectorAll("[data-nota-row]").forEach(function (r) { r.remove(); });
+    }
+
+    function marcarFila(row) {
+        if (!row) return;
+        var titInput = row.querySelector('[name$=".Titulo"]');
+        if (!titInput) return;
+        var fuera = esFueraDeLista(titInput.value);
+        row.classList.toggle("eii-nota-row--fuera", fuera);
+        var aviso = row.querySelector(".eii-ref-fuera");
+        if (fuera && !aviso) {
+            aviso = document.createElement("div");
+            aviso.className = "eii-ref-fuera";
+            aviso.innerHTML = '<i class="bi bi-exclamation-triangle" aria-hidden="true"></i> ' +
+                "Fuera de la lista blanca aprobada — verifica que sea una fuente real y que respalde lo que dice la nota.";
+            var grid = row.querySelector(".eii-nota-row__grid");
+            if (grid) grid.insertAdjacentElement("afterend", aviso); else row.appendChild(aviso);
+        }
+        if (aviso) aviso.hidden = !fuera;
+    }
+
+    function marcarTodasLasReferencias() {
+        var c = document.querySelector("[data-nota-referencias]");
+        if (!c) return;
+        c.querySelectorAll("[data-nota-row]").forEach(marcarFila);
+    }
+
+    function initMarcaReferencias() {
+        marcarTodasLasReferencias();   // al cargar (sirve de lente de auditoría sobre lo ya generado)
+        // Re-evaluar al escribir/pegar en el título de una referencia (delegado: cubre filas nuevas).
+        document.addEventListener("input", function (e) {
+            var input = e.target;
+            if (input && input.matches && input.matches('[name^="NotaReferencias"][name$=".Titulo"]')) {
+                marcarFila(input.closest("[data-nota-row]"));
+            }
+        });
+    }
+
     function init() {
         document.querySelectorAll("[data-ia-btn]").forEach(function (btn) {
             btn.addEventListener("click", function () {
@@ -227,6 +299,7 @@
                 else generarTexto(btn);
             });
         });
+        initMarcaReferencias();
     }
 
     if (document.readyState === "loading") {
