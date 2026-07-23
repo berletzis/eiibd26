@@ -31,11 +31,17 @@
             la n del segmento. Cuando dice «insuficiente», el dato no da para mostrarse — es la misma regla
             que decide lo que ve el paciente. La fórmula exacta está al pie de la página.
         </p>
+        <p class="mb-1">
+            <strong>Registrados con condición</strong> cuenta los votos de usuarios logueados con condición
+            registrada, de cualquier tipo — es más amplio que Crohn+CUCI (incluye a quienes no clasificaron
+            a esos dos) y más chico que «Todos» (excluye anónimos). <strong>CUCI</strong> y <strong>Crohn</strong>
+            son subconjuntos suyos: solo los que sí clasificaron por tipo.
+        </p>
         <p class="mb-0">
-            Los segmentos <strong>CUCI</strong> y <strong>Crohn</strong> solo cuentan votos de usuarios
-            registrados con tipo de EII conocido. Los anónimos cuentan en «Todos» pero no en los segmentos
-            (@Model.VotosSinTipo voto(s) sin tipo), así que ahí el gate se activa mucho más seguido.
-            <strong>El desglose por tipo es interno</strong>: en público solo se expone «Todos».
+            Los anónimos cuentan <em>únicamente</em> en «Todos»: no traen tipo ni condición, así que quedan
+            fuera de «Registrados con condición», «CUCI» y «Crohn» (@Model.VotosSinTipo voto(s) sin tipo en
+            total), y por eso el gate se activa más seguido en esos cortes.
+            <strong>El desglose es interno</strong>: en público solo se expone «Todos».
         </p>
     </div>
 
@@ -96,6 +102,7 @@
                     <th class="text-end">Todos <span class="text-muted">(público)</span></th>
                     <th class="text-end">CUCI</th>
                     <th class="text-end">Crohn</th>
+                    <th class="text-end">Registrados<br /><span class="text-muted">con condición</span></th>
                     <th>Envío</th>
                     <th data-no-sort>Acciones</th>
                 </tr>
@@ -114,7 +121,7 @@
                         <td class="text-end">@r.Todos.AVeces</td>
                         <td class="text-end">@r.Todos.No</td>
                         <td class="text-end"><strong>@r.Todos.Total</strong></td>
-                        @foreach (var s in new[] { r.Todos, r.Cuci, r.Crohn })
+                        @foreach (var s in new[] { r.Todos, r.Cuci, r.Crohn, r.RegistradosConCondicion })
                         {
                             <td class="text-end" data-order="@(s.Muestra ? s.MediaInt : -1)">
                                 @if (s.Muestra)
@@ -219,9 +226,10 @@
                 </li>
             </ul>
             <p>
-                <strong>Segmentos:</strong> «Todos» usa todos los votos. «CUCI» y «Crohn» solo cuentan votos de
-                usuarios logueados con tipo de EII conocido — los anónimos no traen tipo, así que el n por
-                segmento es menor y el gate muerde más seguido.
+                <strong>Segmentos:</strong> «Todos» usa todos los votos. «Registrados con condición» toma los
+                de usuarios logueados con condición registrada (cualquier tipo). «CUCI» y «Crohn» son
+                subconjuntos suyos: solo los que clasificaron a ese tipo. Los anónimos solo cuentan en «Todos»,
+                así que el n de los demás cortes es menor y el gate muerde más seguido.
             </p>
             <p class="mb-0">
                 Dato comunitario, orientativo. Sesgo de autoselección; no sustituye indicación médica ni

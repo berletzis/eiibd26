@@ -130,7 +130,13 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
             {
                 var url = UrlEncuesta(r.Slug);
                 var enviada = r.EnviadaEn?.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) ?? "";
-                foreach (var (segmento, s) in new[] { ("Todos", r.Todos), ("CUCI", r.Cuci), ("Crohn", r.Crohn) })
+                foreach (var (segmento, s) in new[]
+                {
+                    ("Todos", r.Todos),
+                    ("CUCI", r.Cuci),
+                    ("Crohn", r.Crohn),
+                    ("Registrados con condicion", r.RegistradosConCondicion)
+                })
                 {
                     sb.Append('"').Append(r.Nombre.Replace("\"", "\"\"")).Append('"').Append(',')
                       .Append(url).Append(',')
@@ -151,16 +157,29 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
             return File(bytes, "text/csv", "tolerancia-bayes.csv");
         }
 
-        // Agregado de PlatTolerVoto por (ingrediente, tipo de EII) en una sola pasada; los tres
-        // segmentos se arman en memoria a partir de ese cruce. El estado de envío se cruza aparte.
+        // Agregado de PlatTolerVoto por (ingrediente, tipo de EII, con-condición) en una sola pasada;
+        // los cuatro segmentos se arman en memoria a partir de ese cruce. El estado de envío se cruza
+        // aparte.
+        //
+        // Por qué "con-condición" tiene que ser su propia dimensión y no basta TipoEII: un TipoEII NULL
+        // agrupa DOS poblaciones distintas — los anónimos (sin condición) y los registrados cuya
+        // condición no clasificó a Crohn/CUCI (colitis indeterminada, etc.). "Registrados con condición"
+        // debe incluir a los segundos y excluir a los primeros, así que necesita el flag explícito.
         private async Task<List<Row>> BuildRowsAsync(bool todos, bool soloPendientes)
         {
             var agg = await _db.PlatTolerVotos.AsNoTracking()
-                .GroupBy(v => new { v.IngredienteId, v.TipoEII })
-                .Select(g => new
+                .GroupBy(v => new
                 {
-                    g.Key.IngredienteId,
-                    g.Key.TipoEII,
+                    v.IngredienteId,
+                    v.TipoEII,
+                    // Definición del REQ: logueado (UserId) Y con condición principal registrada.
+                    ConCondicion = v.UserId != null && v.CondicionIdPrincipal != null
+                })
+                .Select(g => new GrupoDto
+                {
+                    IngredienteId = g.Key.IngredienteId,
+                    TipoEII = g.Key.TipoEII,
+                    ConCondicion = g.Key.ConCondicion,
                     Si = g.Count(v => v.Tolera == PlatToleraNivel.Si),
                     AVeces = g.Count(v => v.Tolera == PlatToleraNivel.AVeces),
                     No = g.Count(v => v.Tolera == PlatToleraNivel.No)
@@ -215,9 +234,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
                 porIngrediente.TryGetValue(i.Id, out var grupos);
                 grupos ??= new();
 
-                Segmento Armar(byte? tipo) // tipo null = "Todos" (no filtra)
+                Segmento Armar(Func<GrupoDto, bool> filtro)
                 {
-                    var sel = tipo == null ? grupos : grupos.Where(g => g.TipoEII == tipo).ToList();
+                    var sel = grupos.Where(filtro);
                     return Segmento.Crear(sel.Sum(g => g.Si), sel.Sum(g => g.AVeces), sel.Sum(g => g.No));
                 }
 
@@ -233,9 +252,11 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
                     Slug = slug,
                     SlugColisionado = slugsDuplicados.Contains(slug),
                     EnviadaEn = enviadaEn,
-                    Todos = Armar(null),
-                    Cuci = Armar(1),
-                    Crohn = Armar(2)
+                    Todos = Armar(_ => true),
+                    Cuci = Armar(g => g.TipoEII == 1),
+                    Crohn = Armar(g => g.TipoEII == 2),
+                    // Superconjunto de Crohn+CUCI: incluye a los registrados cuya condición no clasificó.
+                    RegistradosConCondicion = Armar(g => g.ConCondicion)
                 };
             })
             .Where(r => !soloPendientes || !r.Enviada)
@@ -245,6 +266,18 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
         }
 
         private sealed class NombreDto { public int Id { get; set; } public string Nombre { get; set; } = ""; }
+
+        /// <summary>Conteo de votos por (ingrediente, tipo de EII, con-condición). Insumo de los segmentos.</summary>
+        private sealed class GrupoDto
+        {
+            public int IngredienteId { get; set; }
+            public byte? TipoEII { get; set; }
+            /// <summary>Logueado con condición principal registrada (definición de "Registrados con condición").</summary>
+            public bool ConCondicion { get; set; }
+            public int Si { get; set; }
+            public int AVeces { get; set; }
+            public int No { get; set; }
+        }
 
         public sealed class Row
         {
@@ -266,6 +299,11 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
             public Segmento Cuci { get; set; } = Segmento.Vacio;
             /// <summary>Solo votos de registrados con TipoEII = 2.</summary>
             public Segmento Crohn { get; set; } = Segmento.Vacio;
+            /// <summary>
+            /// Votos de usuarios logueados con condición principal registrada, de CUALQUIER tipo. Más
+            /// amplio que Crohn+CUCI (incluye a los que no clasificaron); ⊆ Todos (excluye anónimos).
+            /// </summary>
+            public Segmento RegistradosConCondicion { get; set; } = Segmento.Vacio;
         }
 
         /// <summary>Consenso de un (ingrediente, segmento) con su posterior ya resuelto.</summary>
