@@ -56,13 +56,24 @@
         <div class="form-check mb-0">
             <input class="form-check-input" type="checkbox" id="pendientes" name="pendientes" value="true"
                    checked="@Model.SoloPendientes" onchange="this.form.submit()" />
-            <label class="form-check-label eii-form-text" for="pendientes">
-                Solo pendientes de enviar
-                <span class="text-muted">(incluye los de 0 votos: son justo los que falta mandar)</span>
-            </label>
+            <label class="form-check-label eii-form-text" for="pendientes">Solo pendientes de enviar</label>
         </div>
         <noscript><button type="submit" class="eii-btn eii-btn--primary eii-btn--sm">Aplicar</button></noscript>
     </form>
+
+    @if (Model.SoloPendientes && !Model.MostrarTodos)
+    {
+        @* Los filtros son ortogonales: "pendientes" no amplía el universo. Como lo que falta por
+           mandar suele ser justo lo que no tiene votos, se avisa para que la cola no parezca vacía. *@
+        <div class="eii-callout eii-callout--info mb-3">
+            <p class="mb-0">
+                <i class="bi bi-info-circle me-1"></i>
+                Estás viendo pendientes <strong>solo entre los ingredientes que ya tienen votos</strong>.
+                Marca también «Mostrar todos» para ver la cola completa — lo que falta por enviar suele
+                ser justamente lo que aún no tiene ninguna respuesta.
+            </p>
+        </div>
+    }
 
     <p class="eii-form-text mb-3">
         @Model.IngredientesConVotos ingrediente(s) con votos · @Model.TotalVotos voto(s) en total ·

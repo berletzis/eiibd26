@@ -188,11 +188,13 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
             // Nombres: si "mostrar todos", todos los ingredientes activos (incluye 0 votos, para ver
             // cobertura); si no, solo los que tienen al menos un voto.
             //
-            // "Pendientes de enviar" IMPLICA el universo completo: lo que falta por mandar son
-            // justamente los que todavía no tienen votos, y con el universo chico la lista saldría
-            // casi vacía — el filtro no serviría para lo único que sirve, que es trabajar la cola.
+            // Los dos filtros son ORTOGONALES por decisión del owner: "mostrar todos" define el
+            // universo de ingredientes y "solo pendientes" filtra por estado de envío dentro de ese
+            // universo. Ninguno implica al otro. Consecuencia a tener presente: para ver la cola
+            // completa de lo que falta mandar hay que marcar los DOS, porque lo que aún no se envía
+            // suele ser justo lo que no tiene votos. La vista lo dice cuando aplica.
             List<NombreDto> ings;
-            if (todos || soloPendientes)
+            if (todos)
             {
                 ings = await _db.PlatIngredientes.AsNoTracking()
                     .Where(i => i.Activo)
