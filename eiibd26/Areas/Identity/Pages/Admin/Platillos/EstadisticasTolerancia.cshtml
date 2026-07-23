@@ -13,7 +13,8 @@
         <h1 class="eii-page-title eii-page-title--sm mb-0">Estadísticas de tolerancia</h1>
         <a class="eii-btn eii-btn--ghost"
            asp-page-handler="ExportarCsv"
-           asp-route-todos="@(Model.MostrarTodos ? "true" : null)">
+           asp-route-todos="@(Model.MostrarTodos ? "true" : null)"
+           asp-route-pendientes="@(Model.SoloPendientes ? "true" : null)">
             <i class="bi bi-download" aria-hidden="true"></i> Exportar CSV
         </a>
     </div>
@@ -38,18 +39,34 @@
         </p>
     </div>
 
-    @* ===== Filtro de cobertura (GET, re-render server-side) ===== *@
+    @if (Model.MensajeOk != null)
+    {
+        <div class="alert alert-success py-2" role="status">
+            <i class="bi bi-check-circle me-1"></i> @Model.MensajeOk
+        </div>
+    }
+
+    @* ===== Filtros (GET, re-render server-side) ===== *@
     <form method="get" class="d-flex flex-wrap align-items-center gap-3 mb-3">
         <div class="form-check mb-0">
             <input class="form-check-input" type="checkbox" id="todos" name="todos" value="true"
                    checked="@Model.MostrarTodos" onchange="this.form.submit()" />
             <label class="form-check-label eii-form-text" for="todos">Mostrar todos (incluir ingredientes con 0 votos)</label>
         </div>
+        <div class="form-check mb-0">
+            <input class="form-check-input" type="checkbox" id="pendientes" name="pendientes" value="true"
+                   checked="@Model.SoloPendientes" onchange="this.form.submit()" />
+            <label class="form-check-label eii-form-text" for="pendientes">
+                Solo pendientes de enviar
+                <span class="text-muted">(incluye los de 0 votos: son justo los que falta mandar)</span>
+            </label>
+        </div>
         <noscript><button type="submit" class="eii-btn eii-btn--primary eii-btn--sm">Aplicar</button></noscript>
     </form>
 
     <p class="eii-form-text mb-3">
-        @Model.IngredientesConVotos ingrediente(s) con votos · @Model.TotalVotos voto(s) en total.
+        @Model.IngredientesConVotos ingrediente(s) con votos · @Model.TotalVotos voto(s) en total ·
+        @Model.Pendientes pendiente(s) de enviar en esta lista.
     </p>
 
     <div class="eii-admin-grid-wrap">
@@ -68,6 +85,8 @@
                     <th class="text-end">Todos <span class="text-muted">(público)</span></th>
                     <th class="text-end">CUCI</th>
                     <th class="text-end">Crohn</th>
+                    <th>Envío</th>
+                    <th data-no-sort>Acciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -108,6 +127,57 @@
                                 }
                             </td>
                         }
+
+                        @* ── Envío: última vez marcada (dato manual) ── *@
+                        <td data-order="@(r.EnviadaEn?.Ticks ?? 0)">
+                            @if (r.Enviada)
+                            {
+                                <span class="badge bg-success-subtle text-success-emphasis">Enviada</span>
+                                <div class="eii-form-text">@r.EnviadaEn!.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary-subtle text-secondary-emphasis">Pendiente</span>
+                            }
+                        </td>
+
+                        @* ── Acciones: copiar liga + marcar/deshacer ── *@
+                        <td>
+                            @{ var urlEncuesta = Model.UrlEncuesta(r.Slug); }
+                            <div class="d-flex flex-wrap gap-1">
+                                <button type="button" class="btn btn-outline-secondary btn-sm js-copiar-liga"
+                                        data-url="@urlEncuesta" title="@urlEncuesta">
+                                    <i class="bi bi-clipboard" aria-hidden="true"></i> Copiar liga
+                                </button>
+                                @if (r.SlugColisionado)
+                                {
+                                    <span class="text-warning align-self-center"
+                                          title="Otro ingrediente activo genera este mismo slug (@r.Slug): la liga es ambigua y puede abrir la encuesta del otro. Desempata los nombres antes de difundirla.">
+                                        <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                                        <span class="visually-hidden">Slug ambiguo</span>
+                                    </span>
+                                }
+
+                                <form method="post" class="d-inline"
+                                      asp-page-handler="@(r.Enviada ? "DeshacerEnvio" : "MarcarEnviada")"
+                                      asp-route-id="@r.IngredienteId"
+                                      asp-route-todos="@(Model.MostrarTodos ? "true" : null)"
+                                      asp-route-pendientes="@(Model.SoloPendientes ? "true" : null)">
+                                    @if (r.Enviada)
+                                    {
+                                        <button type="submit" class="btn btn-outline-secondary btn-sm">
+                                            <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Deshacer
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button type="submit" class="btn btn-outline-primary btn-sm">
+                                            <i class="bi bi-send-check" aria-hidden="true"></i> Marcar enviada
+                                        </button>
+                                    }
+                                </form>
+                            </div>
+                        </td>
                     </tr>
                 }
             </tbody>
@@ -154,4 +224,42 @@
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
     <script src="~/js/admin-grid.js" asp-append-version="true"></script>
+    <script>
+    (function () {
+        "use strict";
+        // Copiar la liga pública de la encuesta. Delegado en document: DataTables re-renderiza las
+        // filas al paginar/ordenar/buscar, así que un listener por botón se perdería.
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('.js-copiar-liga');
+            if (!btn) return;
+
+            var url = btn.getAttribute('data-url');
+            var original = btn.innerHTML;
+
+            function ok() {
+                btn.innerHTML = '<i class="bi bi-clipboard-check"></i> ¡Copiada!';
+                setTimeout(function () { btn.innerHTML = original; }, 2000);
+            }
+
+            // navigator.clipboard exige contexto seguro (https/localhost); respaldo con textarea.
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(url).then(ok).catch(function () { respaldo(url, ok); });
+            } else {
+                respaldo(url, ok);
+            }
+        });
+
+        function respaldo(texto, hecho) {
+            var ta = document.createElement('textarea');
+            ta.value = texto;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); hecho(); } catch (err) { window.prompt('Copia la liga:', texto); }
+            ta.remove();
+        }
+    })();
+    </script>
 }

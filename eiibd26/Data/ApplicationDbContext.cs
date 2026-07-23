@@ -144,6 +144,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<eiibd26.Models.Platillos.PlatCalificacion> PlatCalificaciones { get; set; }
     // Votos de la encuesta de tolerancia (/tolero/{slug}). Un voto por usuario/cookie por ingrediente.
     public DbSet<eiibd26.Models.Platillos.PlatTolerVoto> PlatTolerVotos { get; set; }
+    public DbSet<eiibd26.Models.Platillos.PlatToleroEnvio> PlatToleroEnvios { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -1033,6 +1034,14 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
             b.HasIndex(v => new { v.IngredienteId, v.UserId }).IsUnique().HasFilter("[UserId] IS NOT NULL");
             b.HasIndex(v => new { v.IngredienteId, v.AnonId }).IsUnique().HasFilter("[AnonId] IS NOT NULL");
             b.HasIndex(v => v.IngredienteId);
+        });
+
+        builder.Entity<eiibd26.Models.Platillos.PlatToleroEnvio>(b =>
+        {
+            b.ToTable("PlatToleroEnvio");
+            // Una fila por ingrediente — espeja UQ_PlatToleroEnvio_Ingrediente. El "marcar enviada"
+            // es un upsert sobre esta fila, no un log: aquí solo vive la última vez.
+            b.HasIndex(e => e.IngredienteId).IsUnique();
         });
     }
 
