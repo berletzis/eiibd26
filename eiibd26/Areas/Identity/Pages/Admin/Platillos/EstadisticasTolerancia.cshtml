@@ -26,10 +26,9 @@
     <div class="eii-callout eii-callout--info mb-3">
         <p class="mb-1">
             <i class="bi bi-info-circle me-1"></i>
-            <strong>Cómo leerlo.</strong> Prior Beta(1,1); posterior Beta(1+Sí, 1+No). «A veces» queda
-            fuera del binario (se reporta aparte). El porcentaje se muestra solo si
-            <strong>n ≥ @Model.MinVotos</strong> y el intervalo mide <strong>≤ @Model.MaxAnchoIc puntos</strong>;
-            si no, dice «insuficiente» — es la misma regla que decide lo que ve el paciente.
+            <strong>Cómo leerlo.</strong> Cada celda es la media posterior con su intervalo creíble al 95 % y
+            la n del segmento. Cuando dice «insuficiente», el dato no da para mostrarse — es la misma regla
+            que decide lo que ve el paciente. La fórmula exacta está al pie de la página.
         </p>
         <p class="mb-0">
             Los segmentos <strong>CUCI</strong> y <strong>Crohn</strong> solo cuentan votos de usuarios
@@ -114,6 +113,41 @@
             </tbody>
         </table>
     </div>
+
+    @* ===== Pie: la fórmula exacta, para el admin y para cualquier médico validador que quiera
+         auditar qué hace el número. Colapsable para no competir con el grid. ===== *@
+    <details class="eii-form-text mt-4">
+        <summary class="fw-semibold" style="cursor:pointer">Cómo se calcula (Beta-Binomial)</summary>
+        <div class="mt-2">
+            <p>
+                Cada voto es un ensayo Bernoulli: «Sí» = éxito (<code>s</code>), «No» = fracaso (<code>f</code>).
+                «A veces» queda fuera del binario (se muestra aparte).
+            </p>
+            <ul class="mb-2">
+                <li><strong>Prior:</strong> <code>Beta(1, 1)</code> (uniforme, neutro).</li>
+                <li><strong>Posterior:</strong> <code>Beta(1 + s, 1 + f)</code>.</li>
+                <li><strong>Estimador (el %):</strong> media posterior = <code>(1 + s) / (2 + s + f)</code>.</li>
+                <li>
+                    <strong>Intervalo creíble 95 %:</strong> cuantiles 0.025 y 0.975 del posterior
+                    (cuantil Beta calculado con <code>I_x(a,b)</code> + bisección, sin dependencias).
+                </li>
+                <li>
+                    <strong>Gate para mostrar el %:</strong> <code>n &ge; @Model.MinVotos</code> y ancho del IC
+                    <code>&le; @(Model.MaxAnchoIc.ToString("F0")) puntos</code> y binario &gt; 0.
+                    Si no pasa → «insuficiente (n=…)».
+                </li>
+            </ul>
+            <p>
+                <strong>Segmentos:</strong> «Todos» usa todos los votos. «CUCI» y «Crohn» solo cuentan votos de
+                usuarios logueados con tipo de EII conocido — los anónimos no traen tipo, así que el n por
+                segmento es menor y el gate muerde más seguido.
+            </p>
+            <p class="mb-0">
+                Dato comunitario, orientativo. Sesgo de autoselección; no sustituye indicación médica ni
+                nutricional.
+            </p>
+        </div>
+    </details>
 </div>
 
 @section Scripts {
