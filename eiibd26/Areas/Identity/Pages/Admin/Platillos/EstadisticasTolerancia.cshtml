@@ -13,26 +13,34 @@
         <h1 class="eii-page-title eii-page-title--sm mb-0">Estadísticas de tolerancia</h1>
         <a class="eii-btn eii-btn--ghost"
            asp-page-handler="ExportarCsv"
-           asp-route-tipo="@Model.FiltroTipo"
            asp-route-todos="@(Model.MostrarTodos ? "true" : null)">
             <i class="bi bi-download" aria-hidden="true"></i> Exportar CSV
         </a>
     </div>
     <p class="eii-form-text mb-3">
         Votos de las encuestas <code>/tolero/{slug}</code>. Solo lectura: consenso crudo de la comunidad
-        (Sí / A veces / No) y el <strong>% público</strong> que ve el paciente (Laplace; si n &lt; 10 aún no se muestra).
+        (Sí / A veces / No) y el modelo bayesiano <strong>Beta-Binomial</strong> — media posterior con
+        intervalo creíble al 95%, por segmento.
     </p>
 
-    @* ===== Filtros (GET, re-render server-side: los conteos se recalculan por tipo) ===== *@
+    <div class="eii-callout eii-callout--info mb-3">
+        <p class="mb-1">
+            <i class="bi bi-info-circle me-1"></i>
+            <strong>Cómo leerlo.</strong> Prior Beta(1,1); posterior Beta(1+Sí, 1+No). «A veces» queda
+            fuera del binario (se reporta aparte). El porcentaje se muestra solo si
+            <strong>n ≥ @Model.MinVotos</strong> y el intervalo mide <strong>≤ @Model.MaxAnchoIc puntos</strong>;
+            si no, dice «insuficiente» — es la misma regla que decide lo que ve el paciente.
+        </p>
+        <p class="mb-0">
+            Los segmentos <strong>CUCI</strong> y <strong>Crohn</strong> solo cuentan votos de usuarios
+            registrados con tipo de EII conocido. Los anónimos cuentan en «Todos» pero no en los segmentos
+            (@Model.VotosSinTipo voto(s) sin tipo), así que ahí el gate se activa mucho más seguido.
+            <strong>El desglose por tipo es interno</strong>: en público solo se expone «Todos».
+        </p>
+    </div>
+
+    @* ===== Filtro de cobertura (GET, re-render server-side) ===== *@
     <form method="get" class="d-flex flex-wrap align-items-center gap-3 mb-3">
-        <div class="d-flex align-items-center gap-2">
-            <label for="tipo" class="eii-form-text mb-0">Tipo de EII:</label>
-            <select id="tipo" name="tipo" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
-                <option value="0" selected="@(Model.FiltroTipo == 0)">Todos</option>
-                <option value="1" selected="@(Model.FiltroTipo == 1)">CUCI</option>
-                <option value="2" selected="@(Model.FiltroTipo == 2)">Crohn</option>
-            </select>
-        </div>
         <div class="form-check mb-0">
             <input class="form-check-input" type="checkbox" id="todos" name="todos" value="true"
                    checked="@Model.MostrarTodos" onchange="this.form.submit()" />
@@ -41,19 +49,8 @@
         <noscript><button type="submit" class="eii-btn eii-btn--primary eii-btn--sm">Aplicar</button></noscript>
     </form>
 
-    @if (Model.FiltroTipo != 0)
-    {
-        <div class="eii-callout eii-callout--info mb-3">
-            <p class="mb-0">
-                <i class="bi bi-info-circle me-1"></i>
-                El filtro por tipo cuenta solo votos de <strong>usuarios registrados</strong> con tipo conocido.
-                Los votos anónimos no tienen tipo de EII y quedan fuera de este consenso (por diseño; es la base del módulo #16).
-            </p>
-        </div>
-    }
-
     <p class="eii-form-text mb-3">
-        @Model.IngredientesConVotos ingrediente(s) con votos · @Model.TotalVotos voto(s) en total@(Model.FiltroTipo switch { 1 => " (CUCI)", 2 => " (Crohn)", _ => "" }).
+        @Model.IngredientesConVotos ingrediente(s) con votos · @Model.TotalVotos voto(s) en total.
     </p>
 
     <div class="eii-admin-grid-wrap">
@@ -69,7 +66,9 @@
                     <th class="text-end">A veces</th>
                     <th class="text-end">No</th>
                     <th class="text-end">Total (n)</th>
-                    <th class="text-end">% público</th>
+                    <th class="text-end">Todos <span class="text-muted">(público)</span></th>
+                    <th class="text-end">CUCI</th>
+                    <th class="text-end">Crohn</th>
                 </tr>
             </thead>
             <tbody>
@@ -82,20 +81,34 @@
                                 @r.Nombre
                             </a>
                         </td>
-                        <td class="text-end">@r.Si</td>
-                        <td class="text-end">@r.AVeces</td>
-                        <td class="text-end">@r.No</td>
-                        <td class="text-end"><strong>@r.Total</strong></td>
-                        <td class="text-end" data-order="@(r.PctPublico ?? -1)">
-                            @if (r.PctPublico.HasValue)
-                            {
-                                <span>@r.PctPublico%</span>
-                            }
-                            else
-                            {
-                                <span class="text-muted" title="n &lt; 10: aún no se muestra al paciente">insuficiente</span>
-                            }
-                        </td>
+                        <td class="text-end">@r.Todos.Si</td>
+                        <td class="text-end">@r.Todos.AVeces</td>
+                        <td class="text-end">@r.Todos.No</td>
+                        <td class="text-end"><strong>@r.Todos.Total</strong></td>
+                        @foreach (var s in new[] { r.Todos, r.Cuci, r.Crohn })
+                        {
+                            <td class="text-end" data-order="@(s.Muestra ? s.MediaInt : -1)">
+                                @if (s.Muestra)
+                                {
+                                    <div><strong>@s.MediaInt%</strong></div>
+                                    <div class="eii-form-text">
+                                        IC @s.CiBajoInt–@s.CiAltoInt · n=@s.Total
+                                    </div>
+                                }
+                                else if (s.Total == 0)
+                                {
+                                    <span class="text-muted" title="Sin votos en este segmento">—</span>
+                                }
+                                else
+                                {
+                                    var motivo = $"No pasa el gate: n={s.Total} (mínimo {Model.MinVotos}), "
+                                               + $"ancho del IC = {s.Ancho:F0} puntos (máximo {Model.MaxAnchoIc:F0})";
+                                    <span class="text-muted" title="@motivo">
+                                        insuficiente <span class="eii-form-text">(n=@s.Total)</span>
+                                    </span>
+                                }
+                            </td>
+                        }
                     </tr>
                 }
             </tbody>

@@ -6,6 +6,7 @@ using eiibd26.Data;
 using eiibd26.Helpers;
 using eiibd26.Models;
 using eiibd26.Models.Platillos;
+using eiibd26.Services.Platillos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -20,14 +21,16 @@ namespace eiibd26.Pages.Tolero
     // médico como M-4): dedup por cookie + rate-limit por IP.
     //
     // Encuadre del producto: EXPERIENCIA de la comunidad, NO consejo médico. Nunca "deberías poder
-    // comerlo". El % es un dato comunitario suavizado (Laplace), NO una cifra clínica ni el bayesiano
-    // (#16) — ese reemplaza este cálculo después, con la data que ya guardamos aquí.
+    // comerlo". El % es la media posterior del modelo Beta-Binomial (#16, ToleranciaBayes), NO una
+    // cifra clínica; siempre se muestra junto a su intervalo creíble y a la n.
+    //
+    // Alcance público (#16 §7): SOLO el agregado "Todos". El desglose por tipo de EII vive únicamente
+    // en el panel admin — un "X % de pacientes con Crohn toleran…" puede cambiar lo que come alguien
+    // enfermo y su n de segmento es mucho menor (los votos anónimos no tienen TipoEII).
     [AllowAnonymous]
     [EnableRateLimiting("tolero")]
     public class EncuestaModel : PageModel
     {
-        // Mínimo de respuestas para revelar el porcentaje. Parametrizable — evita el "100% con 2 votos".
-        private const int MinVotos = 10;
         private const string AnonCookie = "eii_tolero_anon";
 
         private readonly ApplicationDbContext _db;
@@ -51,7 +54,12 @@ namespace eiibd26.Pages.Tolero
         public int CountNo { get; private set; }
         public int TotalRespuestas { get; private set; }
         public bool MostrarPorcentaje { get; private set; }
+
+        /// <summary>Media posterior redondeada — el "X % lo tolera bien".</summary>
         public int PorcentajeTolera { get; private set; }
+        /// <summary>Extremos del intervalo creíble al 95%. Se muestran SIEMPRE junto al porcentaje.</summary>
+        public int CiBajo { get; private set; }
+        public int CiAlto { get; private set; }
 
         [TempData] public string? ErrorVoto { get; set; }
 
@@ -187,11 +195,17 @@ namespace eiibd26.Pages.Tolero
             CountNo = grupos.FirstOrDefault(g => g.Nivel == PlatToleraNivel.No)?.Count ?? 0;
             TotalRespuestas = CountSi + CountAVeces + CountNo;
 
-            // "A veces" NO entra al binario del porcentaje; se muestra aparte en el desglose.
-            var binario = CountSi + CountNo;
-            MostrarPorcentaje = TotalRespuestas >= MinVotos && binario > 0;
+            // Modelo #16: posterior Beta(1+Sí, 1+No). "A veces" NO entra al binario; se muestra aparte
+            // en el desglose. El gate exige n suficiente Y un intervalo suficientemente angosto — si no
+            // pasa, NUNCA se muestra un porcentaje. Segmento "Todos" (sin filtrar por tipo de EII).
+            var est = ToleranciaBayes.Estimar(CountSi, CountNo);
+            MostrarPorcentaje = ToleranciaBayes.PasaGate(est, TotalRespuestas);
             if (MostrarPorcentaje)
-                PorcentajeTolera = (int)Math.Round((CountSi + 1) / (double)(binario + 2) * 100);
+            {
+                PorcentajeTolera = est.MediaRedondeada;
+                CiBajo = est.CiBajoRedondeado;
+                CiAlto = est.CiAltoRedondeado;
+            }
         }
 
         // Condición principal del usuario (id crudo) + clasificación best-effort a tipo de EII.
