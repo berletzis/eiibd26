@@ -140,6 +140,13 @@
                     Crea tu perfil y guarda lo que <strong>tú</strong> toleras y lo que no. Es gratis y privado.
                     ¿Ya tienes cuenta? Inicia sesión.
                 </p>
+                @if (Model.MiVoto == eiibd26.Models.Platillos.PlatToleraNivel.No)
+                {
+                    @* Votó "No": el gancho concreto es guardar ESTE ingrediente en su lista. *@
+                    <p class="tolero-cta__text">
+                        <em>Inicia sesión para guardar el @Model.Nombre en tu lista de no tolerados.</em>
+                    </p>
+                }
                 <div class="tolero-cta__actions">
                     <a class="eii-btn eii-btn--solid eii-btn--lg" href="/Identity/Account/Register">
                         <i class="bi bi-person-plus"></i> Crear mi perfil
@@ -153,15 +160,31 @@
         }
         else if (Model.MiVoto == eiibd26.Models.Platillos.PlatToleraNivel.No)
         {
-            @* Logueado que votó No: cerrar el círculo con sus exclusiones reales. *@
+            @* Logueado que votó No: cerrar el círculo con su lista real de no tolerados, en un clic.
+               Acción EXPLÍCITA (un botón que él decide tocar), NO automática: votar "No" no excluye solo. *@
             <div class="tolero-cta">
-                <p class="tolero-cta__title">¿Lo llevas a tu registro?</p>
-                <p class="tolero-cta__text">
-                    Marca el @Model.Nombre en <strong>Lo que no tolero</strong> y dejaremos de sugerirte platillos que lo contienen.
-                </p>
-                <a class="eii-btn eii-btn--solid eii-btn--lg eii-btn--full" href="/Identity/Usuario/UsuarioAlimentacion">
-                    <i class="bi bi-basket"></i> Lo que no tolero
-                </a>
+                @if (Model.YaEnNoTolerados)
+                {
+                    <p class="tolero-cta__title">@(Model.FeedbackNoTolerado ?? "Ya está en tu lista")</p>
+                    <p class="tolero-cta__text">
+                        No te sugeriremos platillos que contengan @Model.Nombre. Puedes quitarlo cuando quieras desde tu lista.
+                    </p>
+                    <a class="eii-btn eii-btn--neutral eii-btn--lg eii-btn--full" href="/Identity/Usuario/UsuarioAlimentacion">
+                        <i class="bi bi-basket"></i> Ver mi lista
+                    </a>
+                }
+                else
+                {
+                    <p class="tolero-cta__title">¿Lo llevas a tu registro?</p>
+                    <p class="tolero-cta__text">
+                        Agrégalo a <strong>Lo que no tolero</strong> y dejaremos de sugerirte platillos que lo contienen.
+                    </p>
+                    <form method="post" asp-page-handler="AgregarNoTolerado" asp-route-slug="@Model.Slug">
+                        <button type="submit" class="eii-btn eii-btn--solid eii-btn--lg eii-btn--full">
+                            <i class="bi bi-plus-circle"></i> Agregar «@Model.Nombre» a mis no tolerados
+                        </button>
+                    </form>
+                }
             </div>
         }
     }

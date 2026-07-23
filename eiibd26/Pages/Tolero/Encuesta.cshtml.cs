@@ -45,6 +45,12 @@ namespace eiibd26.Pages.Tolero
         public bool YaVoto { get; private set; }
         public PlatToleraNivel? MiVoto { get; private set; }
 
+        /// <summary>
+        /// El ingrediente ya está (activo) en la lista personal "No tolerados" del usuario logueado.
+        /// Rige qué muestra el CTA del voto "No": el botón de agregar, o el estado "ya está en tu lista".
+        /// </summary>
+        public bool YaEnNoTolerados { get; private set; }
+
         // Opción resaltada por el link de correo (?intent=si|aveces|no). NUNCA vota sola (anti-prefetch).
         public string? IntentDestacado { get; private set; }
 
@@ -63,12 +69,16 @@ namespace eiibd26.Pages.Tolero
 
         [TempData] public string? ErrorVoto { get; set; }
 
+        /// <summary>Feedback tras "agregar a mis no tolerados" (PRG). "✓ Agregado…" o "Ya está…".</summary>
+        [TempData] public string? FeedbackNoTolerado { get; set; }
+
         public async Task<IActionResult> OnGetAsync(string? slug, string? intent)
         {
             if (!await ResolverIngredienteAsync(slug)) return NotFound();
 
             IntentDestacado = NormalizarIntent(intent);
             await CargarVotoPropioAsync();
+            await CargarEstadoNoToleradoAsync();
             await CargarResultadosAsync();
             return Page();
         }
@@ -137,6 +147,66 @@ namespace eiibd26.Pages.Tolero
             return RedirectToPage(new { slug = Slug });
         }
 
+        // Agregar el ingrediente a la lista personal "No tolerados" (PlatPerfilExclusion).
+        // Acción EXPLÍCITA, solo por POST: un voto comunitario "No" no excluye por sí solo; el usuario
+        // toca este botón. Solo logueados (la lista es por idUsuario). Mismo upsert con soft-delete que
+        // UsuarioAlimentacion.OnPostAgregarExclusionAsync — reactivar antes que duplicar. Patrón PRG.
+        public async Task<IActionResult> OnPostAgregarNoToleradoAsync(string? slug)
+        {
+            if (!await ResolverIngredienteAsync(slug)) return NotFound();
+
+            Guid? uid = UsuarioActual();
+            if (uid == null)
+                // Sin sesión no hay lista donde guardar: al login y de vuelta a esta encuesta.
+                return Redirect("/Identity/Account/Login?ReturnUrl=" + Uri.EscapeDataString($"/tolero/{Slug}"));
+
+            // Una fila por (usuario, tipo, refId) — activa o borrada. Respeta el único filtrado
+            // WHERE Eliminado = 0: si existe borrada se REVIVE, no se inserta otra.
+            var fila = await _db.PlatPerfilExclusiones
+                .FirstOrDefaultAsync(e => e.idUsuario == uid.Value
+                                       && e.Tipo == "Ingrediente"
+                                       && e.RefId == IngredienteId);
+
+            if (fila != null)
+            {
+                if (fila.Eliminado)
+                {
+                    fila.Eliminado = false;
+                    fila.FechaEliminado = null;
+                    fila.FechaCreacion = DateTime.UtcNow;
+                    FeedbackNoTolerado = "✓ Agregado a tus no tolerados";
+                }
+                else
+                {
+                    FeedbackNoTolerado = "Ya está en tu lista";
+                }
+            }
+            else
+            {
+                _db.PlatPerfilExclusiones.Add(new PlatPerfilExclusion
+                {
+                    idUsuario = uid.Value,
+                    Tipo = "Ingrediente",
+                    RefId = IngredienteId,
+                    FechaCreacion = DateTime.UtcNow,
+                    Eliminado = false
+                });
+                FeedbackNoTolerado = "✓ Agregado a tus no tolerados";
+            }
+
+            try
+            {
+                await _db.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                // Carrera de doble-clic contra el UNIQUE filtrado: la exclusión ya quedó, no es un error.
+                FeedbackNoTolerado = "Ya está en tu lista";
+            }
+
+            return RedirectToPage(new { slug = Slug });
+        }
+
         // Resuelve el ingrediente por slug reusando el match en memoria de la vista pública de
         // ingrediente (catálogo chico y curado). Setea Slug/IngredienteId/Nombre.
         private async Task<bool> ResolverIngredienteAsync(string? slug)
@@ -180,6 +250,21 @@ namespace eiibd26.Pages.Tolero
 
             MiVoto = mi;
             YaVoto = mi != null;
+        }
+
+        // ¿El ingrediente ya está (activo) en la lista personal del usuario? Solo aplica a logueados
+        // (la lista es por idUsuario). Decide si el CTA del voto "No" muestra el botón o el estado
+        // "ya está en tu lista".
+        private async Task CargarEstadoNoToleradoAsync()
+        {
+            Guid? uid = UsuarioActual();
+            if (uid == null) return;
+
+            YaEnNoTolerados = await _db.PlatPerfilExclusiones.AsNoTracking()
+                .AnyAsync(e => e.idUsuario == uid.Value
+                            && e.Tipo == "Ingrediente"
+                            && e.RefId == IngredienteId
+                            && !e.Eliminado);
         }
 
         private async Task CargarResultadosAsync()
