@@ -19,9 +19,17 @@ En el editor, cada fila de referencia cuyo texto **no matchee** la lista blanca 
 - Se re-evalúa al escribir/pegar en el campo (cliente) y al cargar.
 - Requiere **pasar la lista blanca al modelo/vista** (hoy vive solo en config para el servicio). Exponerla read-only al PageModel del editor.
 
+## Impacto sobre notas ya generadas (IMPORTANTE — leer)
+Todas las notas de ingredientes/grupos **ya fueron generadas** con el servicio de IA. Ninguno de los dos cambios es una migración ni corre sobre datos existentes:
+- **Cambio 1 es solo hacia adelante:** se dispara únicamente cuando alguien aprieta "regenerar" en una nota concreta (con el confirm ya existente). NO recorre ni reescribe las notas ya guardadas. Se quedan igual hasta que alguien las regenere a propósito.
+- **Cambio 2 no modifica datos:** solo pinta la marca al **leer** la nota. No borra ni cambia nada; lee `FuentesClinicasPermitidas` en vivo (ya incluye Mayo Clinic, My Crohn's and Colitis Team, Crohn's & Colitis Foundation, ESPEN).
+- **Beneficio extra:** como todo el corpus ya existe, el Cambio 2 funciona como **lente de auditoría** — permite ver de un vistazo, nota por nota, si quedó alguna referencia fuera de lista (una "Listeria/PMC" heredada) sin auditar a mano.
+- **Único filo asumido:** si una nota tiene una referencia **manual** valiosa y se **regenera** en el futuro, el Cambio 1 la borra (regenerar = borrador nuevo, ya confirmado). Como se generaron con el servicio de IA (referencias ya filtradas), no debería haber manuales que perder.
+
 ## Fuera de alcance
 - No cambiar el filtro de la IA (ya funciona).
 - No bloquear referencias manuales (el humano manda; solo se marcan).
+- No hacer migración ni batch sobre notas existentes — los cambios son a nivel de comportamiento (regenerar / leer), no de datos.
 
 ## Verificación
 - Regenerar con IA sobre una nota que tenía una referencia manual → esa referencia desaparece; quedan solo las de la IA (filtradas).
