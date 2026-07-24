@@ -15,9 +15,18 @@
     bool IsActive(string p) => string.Equals(path, p, StringComparison.OrdinalIgnoreCase);
     bool IsStartingWith(string p) => path.StartsWith(p ?? "", StringComparison.OrdinalIgnoreCase);
 
-    // Content submenu open if any contenidos route is active
+    // Content submenu open if any contenidos route is active.
     var contenidosRoot = "/Identity/Admin/Contenidos";
-    var contenidosOpen = IsStartingWith(contenidosRoot);
+    // Las páginas del Motor de Cobertura cuelgan de /Contenidos/ pero viven en su propia
+    // sección del menú; no deben auto-abrir el submenú de gestión de Contenidos.
+    bool EnMotorCobertura() =>
+        IsActive("/Identity/Admin/Contenidos/Firmas")
+        || IsActive("/Identity/Admin/Contenidos/FirmasExternas")
+        || IsActive("/Identity/Admin/Contenidos/Embeddings")
+        || IsActive("/Identity/Admin/Contenidos/Similitud")
+        || IsActive("/Identity/Admin/Contenidos/SimilitudEmbedding")
+        || IsActive("/Identity/Admin/Contenidos/Cobertura");
+    var contenidosOpen = IsStartingWith(contenidosRoot) && !EnMotorCobertura();
 
     // ✅ NUEVO: Obtener el slug del usuario autenticado
     string userSlug = null;
@@ -87,8 +96,8 @@
                 <div class="collapse @(contenidosOpen ? "show" : "")" id="submenuContenidos">
                     <ul class="btn-toggle-nav list-unstyled fw-normal pb-1 small">
                         <li>
-                            <a href="/Identity/Admin/Contenidos/Index"
-                                   class="nav-link ms-4 @(IsActive("/Identity/Admin/Contenidos/Index") ? "active" : "")">
+                            <a href="/Identity/Admin/Contenidos/Contenidos"
+                                   class="nav-link ms-4 @(IsActive("/Identity/Admin/Contenidos/Contenidos") ? "active" : "")">
                                 <i class="bi bi-file-earmark-text"></i> Contenidos
                             </a>
                         </li>
@@ -96,6 +105,18 @@
                             <a href="/Identity/Admin/Contenidos/ContenidosCategorias"
                                    class="nav-link ms-4 @(IsActive("/Identity/Admin/Contenidos/ContenidosCategorias") ? "active" : "")">
                                 <i class="bi bi-tags"></i> Categorías de Contenido
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/Identity/Admin/Contenidos/Calidad"
+                                   class="nav-link ms-4 @(IsActive("/Identity/Admin/Contenidos/Calidad") ? "active" : "")">
+                                <i class="bi bi-patch-check"></i> Calidad de Contenido
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/Identity/Admin/Contenidos/Oportunidades"
+                                   class="nav-link ms-4 @(IsActive("/Identity/Admin/Contenidos/Oportunidades") ? "active" : "")">
+                                <i class="bi bi-lightbulb"></i> Oportunidades de contenido
                             </a>
                         </li>
                         <li>
@@ -178,6 +199,114 @@
                 <a href="/Identity/Admin/ShortUrls/Index"
                    class="nav-link ms-4 @(IsStartingWith("/Identity/Admin/ShortUrls") ? "active" : "")">
                     <i class="bi bi-link-45deg"></i> Short URLs
+                </a>
+            </li>
+            <li>
+                <a href="/Identity/Admin/ApiKeys/Index"
+                   class="nav-link ms-4 @(IsStartingWith("/Identity/Admin/ApiKeys") ? "active" : "")">
+                    <i class="bi bi-key"></i> API Keys
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <span class="sidebar-section-label">
+                    <span class="sidebar-icon sidebar-icon--admin">
+                        <i class="bi bi-cpu"></i>
+                    </span>
+                    Motor de Cobertura
+                </span>
+            </li>
+            <li>
+                <a href="/Identity/Admin/Contenidos/Firmas"
+                   class="nav-link ms-4 @(IsActive("/Identity/Admin/Contenidos/Firmas") ? "active" : "")">
+                    <i class="bi bi-fingerprint"></i> Firmas de Contenido
+                </a>
+            </li>
+            <li>
+                <a href="/Identity/Admin/Contenidos/FirmasExternas"
+                   class="nav-link ms-4 @(IsActive("/Identity/Admin/Contenidos/FirmasExternas") ? "active" : "")">
+                    <i class="bi bi-globe"></i> Firmas de Externos
+                </a>
+            </li>
+            <li>
+                <a href="/Identity/Admin/Contenidos/Embeddings"
+                   class="nav-link ms-4 @(IsActive("/Identity/Admin/Contenidos/Embeddings") ? "active" : "")">
+                    <i class="bi bi-cpu-fill"></i> Embeddings de Contenido
+                </a>
+            </li>
+            <li>
+                <a href="/Identity/Admin/Contenidos/Similitud"
+                   class="nav-link ms-4 @(IsActive("/Identity/Admin/Contenidos/Similitud") ? "active" : "")">
+                    <i class="bi bi-diagram-3"></i> Similitud de Cobertura
+                </a>
+            </li>
+            <li>
+                <a href="/Identity/Admin/Contenidos/SimilitudEmbedding"
+                   class="nav-link ms-4 @(IsActive("/Identity/Admin/Contenidos/SimilitudEmbedding") ? "active" : "")">
+                    <i class="bi bi-diagram-3-fill"></i> Similitud por Embeddings
+                </a>
+            </li>
+            <li>
+                <a href="/Identity/Admin/Contenidos/Cobertura"
+                   class="nav-link ms-4 @(IsActive("/Identity/Admin/Contenidos/Cobertura") ? "active" : "")">
+                    <i class="bi bi-map"></i> Cobertura de Temas
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <span class="sidebar-section-label">
+                    <span class="sidebar-icon sidebar-icon--admin">
+                        <i class="bi bi-egg-fried"></i>
+                    </span>
+                    Platillos
+                </span>
+            </li>
+            <li>
+                <a href="/Identity/Admin/Platillos/Index"
+                   class="nav-link ms-4 @(IsActive("/Identity/Admin/Platillos/Index") ? "active" : "")">
+                    <i class="bi bi-card-list"></i> Platillos
+                </a>
+            </li>
+            <li>
+                <a href="/Identity/Admin/Platillos/Detalle"
+                   class="nav-link ms-4 @(IsActive("/Identity/Admin/Platillos/Detalle") ? "active" : "")">
+                    <i class="bi bi-plus-circle"></i> Nuevo platillo
+                </a>
+            </li>
+            <li>
+                <a href="/Identity/Admin/Platillos/Ingredientes"
+                   class="nav-link ms-4 @(IsActive("/Identity/Admin/Platillos/Ingredientes") ? "active" : "")">
+                    <i class="bi bi-basket"></i> Ingredientes
+                </a>
+            </li>
+            <li>
+                <a href="/Identity/Admin/Platillos/Grupos"
+                   class="nav-link ms-4 @(IsActive("/Identity/Admin/Platillos/Grupos") ? "active" : "")">
+                    <i class="bi bi-collection"></i> Grupos
+                </a>
+            </li>
+            <li>
+                <a href="/Identity/Admin/Platillos/Atributos"
+                   class="nav-link ms-4 @(IsActive("/Identity/Admin/Platillos/Atributos") ? "active" : "")">
+                    <i class="bi bi-tags"></i> Atributos
+                </a>
+            </li>
+            <li>
+                <a href="/Identity/Admin/Platillos/Categorias"
+                   class="nav-link ms-4 @(IsActive("/Identity/Admin/Platillos/Categorias") ? "active" : "")">
+                    <i class="bi bi-grid"></i> Categorías
+                </a>
+            </li>
+            <li>
+                <a href="/Identity/Admin/Platillos/Unidades"
+                   class="nav-link ms-4 @(IsActive("/Identity/Admin/Platillos/Unidades") ? "active" : "")">
+                    <i class="bi bi-rulers"></i> Unidades
+                </a>
+            </li>
+            <li>
+                <a href="/Identity/Admin/Platillos/EstadisticasTolerancia"
+                   class="nav-link ms-4 @(IsActive("/Identity/Admin/Platillos/EstadisticasTolerancia") ? "active" : "")">
+                    <i class="bi bi-bar-chart"></i> Estadísticas de tolerancia
                 </a>
             </li>
         }
