@@ -205,39 +205,45 @@
                     </p>
                 </div>
             </div>
-            <div class="eii-card mb-4">
-                <div class="eii-card__body">
-                    <h2 class="eii-card__title h6 mb-2">Tu experiencia</h2>
-                    @if (Model.MiVotoTolerancia is { } voto)
-                    {
-                        var etiqueta = voto switch
+            @* "Tu experiencia" es la tolerancia PERSONAL del paciente a este alimento: se oculta a
+               médico/admin. La tarjeta "Lo que reporta la comunidad" (arriba) SÍ se queda para todos —
+               es un dato comunitario que médico/admin querrían ver. Anónimo la ve (CTA a responder). *@
+            @if (!(User.IsInRole("Administrador") || User.IsInRole("Medico")))
+            {
+                <div class="eii-card mb-4">
+                    <div class="eii-card__body">
+                        <h2 class="eii-card__title h6 mb-2">Tu experiencia</h2>
+                        @if (Model.MiVotoTolerancia is { } voto)
                         {
-                            eiibd26.Models.Platillos.PlatToleraNivel.No => "No toleras",
-                            eiibd26.Models.Platillos.PlatToleraNivel.AVeces => "A veces",
-                            eiibd26.Models.Platillos.PlatToleraNivel.Si => "Sí toleras",
-                            _ => "—"
-                        };
-                        <p class="mb-2">Registraste: <strong>@etiqueta</strong> @Model.Nombre.</p>
-                        <a class="eii-btn eii-btn--neutral eii-btn--sm" href="/tolero/@Model.Slug">
-                            <i class="bi bi-pencil"></i> Cambiar respuesta
-                        </a>
-                    }
-                    else if (User.Identity?.IsAuthenticated ?? false)
-                    {
-                        <p class="eii-form-text mb-2">Aún no registras tu tolerancia a @Model.Nombre.</p>
-                        <a class="eii-btn eii-btn--solid eii-btn--sm" href="/tolero/@Model.Slug">
-                            <i class="bi bi-chat-square-heart"></i> Responder
-                        </a>
-                    }
-                    else
-                    {
-                        <p class="eii-form-text mb-2">¿Toleras @Model.Nombre? Comparte tu experiencia con la comunidad.</p>
-                        <a class="eii-btn eii-btn--solid eii-btn--sm" href="/tolero/@Model.Slug">
-                            <i class="bi bi-chat-square-heart"></i> Responder
-                        </a>
-                    }
+                            var etiqueta = voto switch
+                            {
+                                eiibd26.Models.Platillos.PlatToleraNivel.No => "No toleras",
+                                eiibd26.Models.Platillos.PlatToleraNivel.AVeces => "A veces",
+                                eiibd26.Models.Platillos.PlatToleraNivel.Si => "Sí toleras",
+                                _ => "—"
+                            };
+                            <p class="mb-2">Registraste: <strong>@etiqueta</strong> @Model.Nombre.</p>
+                            <a class="eii-btn eii-btn--neutral eii-btn--sm" href="/tolero/@Model.Slug">
+                                <i class="bi bi-pencil"></i> Cambiar respuesta
+                            </a>
+                        }
+                        else if (User.Identity?.IsAuthenticated ?? false)
+                        {
+                            <p class="eii-form-text mb-2">Aún no registras tu tolerancia a @Model.Nombre.</p>
+                            <a class="eii-btn eii-btn--solid eii-btn--sm" href="/tolero/@Model.Slug">
+                                <i class="bi bi-chat-square-heart"></i> Responder
+                            </a>
+                        }
+                        else
+                        {
+                            <p class="eii-form-text mb-2">¿Toleras @Model.Nombre? Comparte tu experiencia con la comunidad.</p>
+                            <a class="eii-btn eii-btn--solid eii-btn--sm" href="/tolero/@Model.Slug">
+                                <i class="bi bi-chat-square-heart"></i> Responder
+                            </a>
+                        }
+                    </div>
                 </div>
-            </div>
+            }
 
             @* ===== Aviso legal (card morado) — versión móvil; el sidebar lo oculta en desktop ===== *@
             <div class="aviso-termino-inline aviso-termino-box mb-4">

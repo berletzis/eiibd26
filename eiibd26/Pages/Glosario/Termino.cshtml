@@ -792,7 +792,9 @@ else
                             mostrando @experiencias.Count
                         </span>
                     }
-                    @if (User.Identity?.IsAuthenticated == true)
+                    @* Seguimiento PERSONAL del paciente: solo paciente puro. Médico/Admin no llevan
+                       registro clínico propio aquí; ven las experiencias de la comunidad sin el botón. *@
+                    @if (User.IsInRole("Paciente") && !User.IsInRole("Administrador") && !User.IsInRole("Medico"))
                     {
                         <button type="button" id="btnAgregarMiMood" class="eii-btn eii-btn--primary eii-btn--sm ms-auto"
                                 data-tipo="@(isSintoma ? "sintoma" : "tratamiento")"

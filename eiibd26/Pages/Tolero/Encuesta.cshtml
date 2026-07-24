@@ -158,10 +158,13 @@
                 </div>
             </div>
         }
-        else if (Model.MiVoto == eiibd26.Models.Platillos.PlatToleraNivel.No)
+        else if (Model.MiVoto == eiibd26.Models.Platillos.PlatToleraNivel.No
+                 && User.IsInRole("Paciente") && !User.IsInRole("Administrador") && !User.IsInRole("Medico"))
         {
             @* Logueado que votó No: cerrar el círculo con su lista real de no tolerados, en un clic.
-               Acción EXPLÍCITA (un botón que él decide tocar), NO automática: votar "No" no excluye solo. *@
+               Acción EXPLÍCITA (un botón que él decide tocar), NO automática: votar "No" no excluye solo.
+               Solo PACIENTE puro: la lista "no tolerados" es seguimiento personal. Votar sigue abierto a
+               todos (es comunitario); médico/admin votan pero no ven este CTA de lista personal. *@
             <div class="tolero-cta">
                 @if (Model.YaEnNoTolerados)
                 {
