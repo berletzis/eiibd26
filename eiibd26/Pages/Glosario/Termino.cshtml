@@ -472,7 +472,7 @@ else
                             <div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:2px;">
                                 @if (counts.CreatedByAI)
                                 {
-                                    <span class="termino-badge-nina" title="Contenido generado por NINA (IA)">🤖 NINA (IA)</span>
+                                    <span class="termino-badge-nina" title="Contenido generado por NINA">🤖 NINA</span>
                                 }
                                 @if (counts.MeaningValidationCount > 0)
                                 {
@@ -528,7 +528,7 @@ else
                                         <span class="@(isTop ? "fw-bold" : "")">@label</span>
                                         @if (isAiLevel)
                                         {
-                                            <span class="termino-badge-nina ms-2" style="font-size:.6rem;">🤖 IA</span>
+                                            <span class="termino-badge-nina ms-2" style="font-size:.6rem;">🤖 NINA</span>
                                         }
                                         <span class="eii-count-badge ms-2"
                                               style="background:@(lvlCount > 0 ? borderColor + "22" : "#f1f5f9");
@@ -543,7 +543,10 @@ else
                                 <div class="eii-toggle-body partial-open" id="@cardId"
                                      style="--eii-fade: @borderColor;">
                                     @{
-                                        var humanComments = lvlConsensus?.Comments ?? new List<string>();
+                                        // Comentarios de RELACIÓN de este nivel, con avatar + nombre del médico (DTO ya resuelto).
+                                        var humanComments = counts.ComentariosMedicos
+                                            .Where(c => c.RelationType == level && !string.IsNullOrWhiteSpace(c.Comment))
+                                            .ToList();
                                         var humanCount = humanComments.Count;
                                         var showMeaningHere = isTop && counts.MeaningComments.Any();
                                         var showNina = isAiLevel && !string.IsNullOrWhiteSpace(counts.AiReasoning);
@@ -557,19 +560,24 @@ else
                                              style="background:#f8fafc;">
                                             <span style="font-size:1rem;">🤖</span>
                                             <div class="small">
-                                                <span class="fw-semibold text-secondary">NINA (IA)</span>
+                                                <span class="fw-semibold text-secondary">NINA</span>
                                                 <p class="mb-0 text-dark">@counts.AiReasoning</p>
                                             </div>
                                         </div>
                                     }
 
-                                    @* 1. Comentarios de validación de RELACIÓN (tipo 2) *@
-                                    @foreach (var comment in humanComments)
+                                    @* 1. Comentarios de validación de RELACIÓN (tipo 2) — con foto del médico *@
+                                    @foreach (var c in humanComments)
                                     {
                                         <div class="d-flex gap-2 align-items-start p-2 rounded mb-2"
                                              style="background:#f8fafc;">
-                                            <i class="bi bi-person-badge-fill text-primary mt-1" style="font-size:1rem;"></i>
-                                            <p class="mb-0 small text-dark">@comment</p>
+                                            <img src="@(c.AvatarUrl ?? "/img/default-avatar.png")" alt="@c.UserDisplay"
+                                                 class="exp-avatar mt-1" loading="lazy" decoding="async"
+                                                 onerror="this.onerror=null;this.src='/img/default-avatar.png';" />
+                                            <div class="small">
+                                                <span class="fw-semibold text-dark">@c.UserDisplay</span>
+                                                <p class="mb-0 text-dark">@c.Comment</p>
+                                            </div>
                                         </div>
                                     }
 
@@ -596,7 +604,7 @@ else
                                              style="background:#f8fafc; border-top:1px dashed #e2e8f0;">
                                             <span style="font-size:1rem;">🤖</span>
                                             <div class="small">
-                                                <span class="fw-semibold text-secondary">NINA (IA)</span>
+                                                <span class="fw-semibold text-secondary">NINA</span>
                                                 <p class="mb-0 text-dark">@counts.AiReasoning</p>
                                             </div>
                                         </div>
@@ -625,8 +633,9 @@ else
                     var tieneMeaning  = counts.MeaningValidationCount > 0;
                     var tieneRelacion = counts.RelationConsensus.Any(r => r.Count > 0);
                     var tieneComentariosRelacion = counts.ComentariosMedicos.Any(c => !string.IsNullOrWhiteSpace(c.Comment));
+                    var hayValidacionesPublicas = Model.ValidacionesPublicas.Any();
                 }
-                @if (tieneMeaning || tieneRelacion || tieneComentariosRelacion)
+                @if (tieneMeaning || tieneRelacion || tieneComentariosRelacion || hayValidacionesPublicas)
                 {
                     <div class="validaciones-profesionales mt-4 mb-4">
                         <div class="validaciones-profesionales__header">
@@ -636,15 +645,36 @@ else
                             <h4 class="validaciones-profesionales__title">Validado por Profesionales de la Salud</h4>
                         </div>
                         <div class="validaciones-profesionales__body">
-                            @* Comentarios de MeaningValidation (tipo 1) *@
-                            @if (counts.MeaningComments.Any())
+                            @* Validaciones de la DESCRIPCIÓN (fuente canónica): foto real + comentario + nombre/"Profesional verificado" *@
+                            @if (hayValidacionesPublicas)
+                            {
+                                @foreach (var v in Model.ValidacionesPublicas)
+                                {
+                                    <div class="validacion-item">
+                                        <img src="@(v.AvatarUrl ?? "/img/default-avatar.png")" alt="@v.UserDisplay"
+                                             class="validacion-avatar" loading="lazy" decoding="async"
+                                             onerror="this.onerror=null;this.src='/img/default-avatar.png';" />
+                                        <div>
+                                            <div class="validacion-name">@v.UserDisplay
+                                                <span class="validacion-badge">Descripción</span>
+                                            </div>
+                                            @if (!string.IsNullOrWhiteSpace(v.Comentario))
+                                            {
+                                                <p class="validacion-comment mb-0">"@v.Comentario"</p>
+                                            }
+                                            <span class="validacion-date">@v.CreadoEn.ToString("MMMM yyyy")</span>
+                                        </div>
+                                    </div>
+                                }
+                            }
+                            else if (counts.MeaningComments.Any())
                             {
                                 @foreach (var mc in counts.MeaningComments)
                                 {
                                     <div class="validacion-item">
-                                        <div class="validacion-avatar-placeholder">
-                                            <i class="bi bi-person-fill"></i>
-                                        </div>
+                                        <img src="/img/default-avatar.png" alt="Profesional verificado"
+                                             class="validacion-avatar" loading="lazy" decoding="async"
+                                             onerror="this.onerror=null;this.src='/img/default-avatar.png';" />
                                         <div>
                                             <span class="validacion-badge" style="margin-left:0;">Descripción</span>
                                             <p class="validacion-comment mb-0">"@mc"</p>
@@ -834,11 +864,12 @@ else
                                     <div class="user-avatar">
                                         @if (!string.IsNullOrWhiteSpace(exp.AvatarUrl))
                                         {
-                                            <img src="@exp.AvatarUrl" alt="@exp.AliasUsuario" loading="lazy" decoding="async" />
+                                            <img src="@exp.AvatarUrl" alt="@exp.AliasUsuario" loading="lazy" decoding="async"
+                                                 onerror="this.onerror=null;this.src='/img/default-avatar.png';" />
                                         }
                                         else
                                         {
-                                            <i class="bi bi-person" style="font-size:2.2rem;color:#bdbdbd;"></i>
+                                            <img src="/img/default-avatar.png" alt="@exp.AliasUsuario" loading="lazy" decoding="async" />
                                         }
                                     </div>
                                     <div class="user-info">
@@ -931,7 +962,7 @@ else
                         card.className = 'card user-card h-100';
                         card.innerHTML =
                             '<div class="user-card-main">' +
-                              '<div class="user-avatar"><i class="bi bi-person" style="font-size:2.2rem;color:#bdbdbd;"></i></div>' +
+                              '<div class="user-avatar"><img src="/img/default-avatar.png" alt="Tú" loading="lazy" decoding="async" /></div>' +
                               '<div class="user-info">' +
                                 '<div class="user-name">T\u00FA</div>' +
                                 '<div class="user-meta">ahora mismo</div>' +
@@ -1131,7 +1162,7 @@ else
                                     eiibd26.Models.Glossary.MedicalRelationType.Indirecta => ("#c4b5fd", "Indirecta"),
                                     _ => ("#d1d5db", "Secundaria")
                                 };
-                                <p class="small text-muted mb-1">Sugerido por NINA (IA):</p>
+                                <p class="small text-muted mb-1">Sugerido por NINA:</p>
                                 <div class="d-flex align-items-center gap-2 mb-2">
                                     <span class="eii-nivel-dot" style="background:@dotColor;"></span>
                                     <span class="small">@label</span>

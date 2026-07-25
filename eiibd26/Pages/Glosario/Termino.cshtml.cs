@@ -40,6 +40,12 @@ namespace eiibd26.Pages.Glosario
         /// <summary>Validación de contenido existente del médico para pre-cargar el formulario</summary>
         public ValidacionExistenteDto? MiValidacionDesc { get; set; }
 
+        /// <summary>
+        /// Validaciones públicas de la descripción (fuente canónica: ValidacionesContenidoProfesional).
+        /// Cada una trae foto + comentario + nombre real o "Profesional verificado" (regla de identidad por badge).
+        /// </summary>
+        public List<ValidacionPublicaDto> ValidacionesPublicas { get; set; } = new();
+
         [TempData]
         public string? ValidationMessage { get; set; }
 
@@ -62,6 +68,16 @@ namespace eiibd26.Pages.Glosario
                 }
 
                 await LoadValidationPermissionAsync();
+
+                try
+                {
+                    ValidacionesPublicas = await _validacionService.ObtenerValidacionesPublicasAsync(
+                        TipoContenidoValidado.Termino, Term.Id);
+                }
+                catch (Exception exVal)
+                {
+                    _logger.LogWarning(exVal, "No se pudieron cargar validaciones públicas del término {TermId}", Term.Id);
+                }
 
                 _logger.LogInformation("Término '{Nombre}' cargado exitosamente", Term.Nombre);
                 return Page();

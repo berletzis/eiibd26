@@ -290,12 +290,23 @@ namespace eiibd26.Services.Community
                     FechaRelativa             = ToRelativeTime(r.FechaRegistro, now),
                     AliasUsuario              = BuildAlias(perfil?.Nombre),
                     UserSlug                  = string.IsNullOrWhiteSpace(perfil?.slug) ? null : perfil.slug,
-                    AvatarUrl                 = string.IsNullOrWhiteSpace(perfil?.Avatar) ? null : perfil.Avatar,
+                    AvatarUrl                 = ResolveAvatar(perfil?.Avatar),
                     CondicionNombre           = r.CondicionNombre,
                     SintomaContextoNombre     = r.SintomaNombre,
                     TratamientoContextoNombre = r.TratamientoNombre
                 };
             }).ToList();
+        }
+
+        /// <summary>
+        /// Normaliza el avatar como el helper canónico de GlossaryService:
+        /// vacío o el sentinela "default.jpg" → null (la vista cae a /img/default-avatar.png);
+        /// rutas relativas se prefijan con "/" para no 404ear.
+        /// </summary>
+        private static string? ResolveAvatar(string? av)
+        {
+            if (string.IsNullOrWhiteSpace(av) || av == "default.jpg") return null;
+            return av.StartsWith("/") ? av : "/" + av;
         }
 
         private static string? Truncate(string? text, int max)
