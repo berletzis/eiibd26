@@ -1,0 +1,241 @@
+@page
+@model eiibd26.Areas.Identity.Pages.Medico.MisValidacionesModel
+@using eiibd26.Models.Validacion
+@using EstadoInd = eiibd26.Areas.Identity.Pages.Medico.MisValidacionesModel.EstadoIndicador
+@{
+    ViewData["Title"] = "Mis Validaciones";
+    Layout = "_Layout";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/mis-validaciones.css" asp-append-version="true" />
+}
+
+@functions {
+    // Indicador compacto de estado por eje (contenido / relación).
+    static (string Icono, string Clase, string Texto) Indicador(EstadoInd estado) => estado switch
+    {
+        EstadoInd.Validado   => ("bi-check-circle-fill", "mval-ind--ok",      "validado"),
+        EstadoInd.EnRevision => ("bi-clock-fill",        "mval-ind--pending", "en revisión"),
+        _                    => ("bi-circle",            "mval-ind--todo",    "pendiente")
+    };
+}
+
+<div class="container py-4">
+
+    @* ── Header ─────────────────────────────────────────────────────────────── *@
+    <div class="eii-card mval-header-card">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+                <div class="mval-header-title">Mis Validaciones</div>
+                <div class="mval-header-sub">
+                    Tu criterio clínico sobre los términos del glosario, en un solo lugar.
+                </div>
+            </div>
+            <a asp-page="/Medico/Dashboard" asp-area="Identity" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i> Volver al Dashboard
+            </a>
+        </div>
+    </div>
+
+    @* ── A. El ABC ──────────────────────────────────────────────────────────── *@
+    <div class="eii-card mval-abc">
+        <div class="mval-abc__head">
+            <i class="bi bi-lightbulb"></i>
+            <span>@(Model.EsPrimeraVez ? "Cómo validar (toma un minuto)" : "Cómo validar")</span>
+        </div>
+        <ol class="mval-abc__steps">
+            <li><strong>Elige un término</strong> de la lista de abajo, o búscalo en el glosario.</li>
+            <li><strong>Lee su descripción</strong> y cómo se explica su relación con la EII.</li>
+            <li><strong>Agrega tu validación</strong> — del contenido y/o del nivel de relación — con tu comentario clínico.</li>
+        </ol>
+        <p class="mval-abc__foot">
+            Validar no es aprobar un texto: es dejar constancia de tu lectura profesional. Tu comentario
+            se muestra junto al término y suma a tu perfil público.
+        </p>
+    </div>
+
+    @* ── B. TOP para validar ────────────────────────────────────────────────── *@
+    <div class="eii-card mval-top">
+        <div class="mval-section__head">
+            <h2 class="mval-section__title">
+                <i class="bi bi-graph-up-arrow me-2"></i>Términos que más impactan
+            </h2>
+            <span class="mval-section__hint">
+                Rankeados por relevancia clínica y por cuántos pacientes los tienen en su perfil.
+            </span>
+        </div>
+
+        @if (!Model.Top.Any())
+        {
+            <div class="mval-empty">
+                <i class="bi bi-inbox"></i>
+                <p class="mb-1">No hay términos en el ranking por ahora.</p>
+                <a href="/Glosario" class="btn btn-outline-primary btn-sm mt-2">
+                    <i class="bi bi-search me-1"></i> Explorar el glosario
+                </a>
+            </div>
+        }
+        else
+        {
+            <div class="mval-top__list" role="list">
+                @foreach (var t in Model.Top)
+                {
+                    var ind1 = Indicador(t.Contenido);
+                    var ind2 = Indicador(t.Relacion);
+                    var completo = t.Completado == 2;
+
+                    <div class="mval-row @(completo ? "mval-row--done" : "")" role="listitem">
+                        <div class="mval-row__main">
+                            <a href="@t.Url" class="mval-row__name">@t.Nombre</a>
+                            <span class="mval-tag mval-tag--@(t.Tipo == eiibd26.Models.Glossary.GlossaryTermType.Sintoma ? "sintoma" : "tratamiento")">
+                                @t.TipoTexto
+                            </span>
+                            @if (t.UsuariosConElTermino > 0)
+                            {
+                                <span class="mval-row__users" title="Pacientes que lo tienen en su perfil">
+                                    <i class="bi bi-people"></i> @t.UsuariosConElTermino
+                                </span>
+                            }
+                        </div>
+
+                        <div class="mval-row__status">
+                            <span class="mval-ind @ind1.Clase" title="Validación de contenido: @ind1.Texto">
+                                <i class="bi @ind1.Icono"></i> Contenido
+                            </span>
+                            <span class="mval-ind @ind2.Clase" title="Validación de relación: @ind2.Texto">
+                                <i class="bi @ind2.Icono"></i> Relación
+                            </span>
+                        </div>
+
+                        <div class="mval-row__action">
+                            <a href="@t.Url" class="btn btn-sm @(completo ? "btn-outline-secondary" : "btn-primary")">
+                                @(completo ? "Ver término" : "Ir a validar")
+                                <i class="bi bi-arrow-right ms-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    @* ── C. Historial ───────────────────────────────────────────────────────── *@
+    <div class="eii-card mval-hist">
+        <div class="mval-section__head">
+            <h2 class="mval-section__title">
+                <i class="bi bi-journal-text me-2"></i>Mis validaciones
+                @if (Model.TotalGeneral > 0)
+                {
+                    <span class="mval-count">@Model.TotalGeneral</span>
+                }
+            </h2>
+            <span class="mval-section__hint">
+                Todo lo que has escrito, con el enlace para volver al término.
+            </span>
+        </div>
+
+        @if (Model.TotalGeneral == 0)
+        {
+            <div class="mval-empty">
+                <i class="bi bi-patch-check"></i>
+                <p class="mb-1">Todavía no has registrado ninguna validación.</p>
+                <p class="mval-empty__sub">Empieza por cualquier término de la lista de arriba.</p>
+            </div>
+        }
+        else
+        {
+            @* Contenido *@
+            <h3 class="mval-sub">
+                Contenido
+                <span class="mval-count mval-count--soft">@Model.TotalContenido</span>
+            </h3>
+            @if (Model.TotalContenido == 0)
+            {
+                <p class="mval-none">Aún no has validado el contenido de ningún término.</p>
+            }
+            else
+            {
+                <ul class="mval-items">
+                    @foreach (var v in Model.ValidacionesContenido)
+                    {
+                        <li class="mval-item">
+                            <div class="mval-item__head">
+                                @if (!string.IsNullOrWhiteSpace(v.ContenidoUrl))
+                                {
+                                    <a href="@v.ContenidoUrl" class="mval-item__title">@v.ContenidoTitulo</a>
+                                }
+                                else
+                                {
+                                    <span class="mval-item__title mval-item__title--plain">@v.ContenidoTitulo</span>
+                                }
+                                <span class="mval-chip">@eiibd26.Areas.Identity.Pages.Medico.MisValidacionesModel.TipoContenidoTexto(v.TipoContenido)</span>
+                                <span class="mval-chip mval-chip--@(v.Estado == EstadoValidacion.Validado ? "ok" : v.Estado == EstadoValidacion.EnRevision ? "pending" : "muted")">
+                                    @eiibd26.Areas.Identity.Pages.Medico.MisValidacionesModel.EstadoTexto(v.Estado)
+                                </span>
+                                <time class="mval-item__date" datetime="@v.CreadoEn.ToString("o")">
+                                    @v.CreadoEn.ToString("dd MMM yyyy")
+                                </time>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(v.Comentario))
+                            {
+                                <blockquote class="mval-item__comment">@v.Comentario</blockquote>
+                            }
+                            else
+                            {
+                                <p class="mval-item__nocomment">Sin comentario.</p>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(v.NotaModeracion))
+                            {
+                                <p class="mval-item__mod">
+                                    <i class="bi bi-shield-exclamation me-1"></i>@v.NotaModeracion
+                                </p>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+
+            @* Relación *@
+            <h3 class="mval-sub mval-sub--spaced">
+                Relación con la EII
+                <span class="mval-count mval-count--soft">@Model.TotalRelacion</span>
+            </h3>
+            @if (Model.TotalRelacion == 0)
+            {
+                <p class="mval-none">Aún no has validado el nivel de relación de ningún término.</p>
+            }
+            else
+            {
+                <ul class="mval-items">
+                    @foreach (var v in Model.ValidacionesRelacion)
+                    {
+                        <li class="mval-item">
+                            <div class="mval-item__head">
+                                <a href="@v.TerminoUrl" class="mval-item__title">@v.TerminoNombre</a>
+                                <span class="mval-chip">@v.TipoTerminoTexto</span>
+                                <span class="mval-chip mval-chip--nivel">Relación @v.NivelTexto</span>
+                                @if (!v.Aprobada)
+                                {
+                                    <span class="mval-chip mval-chip--pending">En revisión</span>
+                                }
+                                <time class="mval-item__date" datetime="@v.CreadoEn.ToString("o")">
+                                    @v.CreadoEn.ToString("dd MMM yyyy")
+                                </time>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(v.Comentario))
+                            {
+                                <blockquote class="mval-item__comment">@v.Comentario</blockquote>
+                            }
+                            else
+                            {
+                                <p class="mval-item__nocomment">Sin comentario.</p>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+        }
+    </div>
+
+</div>

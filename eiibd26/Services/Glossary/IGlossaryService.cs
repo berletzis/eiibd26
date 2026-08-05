@@ -65,6 +65,17 @@ namespace eiibd26.Services.Glossary
         Task<GlossaryValidationCountsDto> GetValidationCountsAsync(int termId);
 
         /// <summary>
+        /// Lista las validaciones de RELACIÓN (nivel Directa/Indirecta/Secundaria) que hizo
+        /// un usuario, con el término ya resuelto (nombre, slug, tipo). Ordenadas de la más
+        /// reciente a la más antigua. Incluye las aún no aprobadas — es el historial del propio
+        /// profesional, así que ve también lo que sigue en revisión.
+        /// </summary>
+        /// <param name="userId">Id del usuario validador</param>
+        Task<List<GlossaryRelationValidationDto>> ObtenerValidacionesRelacionMedicoAsync(
+            string userId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Obtiene los top términos filtrados por calidad (validación humana y nivel actualizado).
         /// Devuelve una lista de resúmenes (Id, Nombre, Slug, ShortDescription, LastHumanUpdateDate, Views, Badges).
         /// </summary>

@@ -612,6 +612,63 @@ namespace eiibd26.Services.Glossary
             }
         }
 
+        /// <summary>
+        /// Validaciones de relación de un usuario, con el término resuelto en la misma query.
+        /// Sin filtro por Approved: es el historial del propio profesional y debe ver también
+        /// lo que aún no cuenta para badges (el estado va en el DTO).
+        /// </summary>
+        public async Task<List<GlossaryRelationValidationDto>> ObtenerValidacionesRelacionMedicoAsync(
+            string userId,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+                return new List<GlossaryRelationValidationDto>();
+
+            try
+            {
+                // Join explícito a GlossaryTerm para traer nombre/slug/tipo sin N+1.
+                // Se materializa a tipo anónimo y se mapea en memoria (mismo patrón que el
+                // resto del servicio) para no depender de la traducción del record en el SELECT.
+                var filas = await (
+                    from v in _db.GlossaryValidations.AsNoTracking()
+                    join t in _db.GlossaryTerms.AsNoTracking() on v.GlossaryTermId equals t.Id
+                    where v.UserId == userId
+                          && v.ValidationType == GlossaryValidationType.RelationValidation
+                    orderby v.CreatedAt descending
+                    select new
+                    {
+                        v.Id,
+                        v.GlossaryTermId,
+                        t.Nombre,
+                        t.Slug,
+                        t.TipoTermino,
+                        v.MedicalRelationTypeId,
+                        v.Approved,
+                        v.Comment,
+                        v.CreatedAt
+                    })
+                    .ToListAsync(cancellationToken);
+
+                return filas.Select(f => new GlossaryRelationValidationDto
+                {
+                    Id             = f.Id,
+                    GlossaryTermId = f.GlossaryTermId,
+                    TerminoNombre  = f.Nombre,
+                    TerminoSlug    = f.Slug,
+                    TipoTermino    = f.TipoTermino,
+                    NivelRelacion  = f.MedicalRelationTypeId,
+                    Aprobada       = f.Approved,
+                    Comentario     = f.Comment,
+                    CreadoEn       = f.CreatedAt
+                }).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener validaciones de relación del usuario {UserId}", userId);
+                return new List<GlossaryRelationValidationDto>();
+            }
+        }
+
         public async Task<List<GlossaryTermSummaryDto>> GetTopTermsByQualityAsync(GlossaryTermType type, int limit = 20, CancellationToken cancellationToken = default)
         {
             try

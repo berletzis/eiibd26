@@ -7,6 +7,8 @@
 
 @section Styles {
     <link rel="stylesheet" href="~/css/directorio-medicos.css" asp-append-version="true" />
+    @* .mval-cta — CTA de "Empieza a validar" *@
+    <link rel="stylesheet" href="~/css/mis-validaciones.css" asp-append-version="true" />
     <style>
         .dash-card {
             background: #fff;
@@ -87,6 +89,26 @@
             </span>
         </div>
     </div>
+
+    @* CTA de arranque — gateado a "Medico" a propósito: MisValidaciones es
+       [Authorize(Roles="Medico,Administrador")], así que un MedicoPendiente
+       (que sí puede ver este Dashboard) recibiría un 403 al hacer clic. *@
+    @if (User.IsInRole("Medico"))
+    {
+        <div class="mval-cta">
+            <i class="bi bi-patch-check-fill mval-cta__icon"></i>
+            <div class="mval-cta__body">
+                <div class="mval-cta__title">Empieza a validar</div>
+                <p class="mval-cta__text">
+                    Validar un término toma un minuto. Mira los que más impactan a los pacientes
+                    y revisa el historial de lo que ya escribiste.
+                </p>
+            </div>
+            <a asp-page="/Medico/MisValidaciones" asp-area="Identity" class="btn btn-primary">
+                Ir a Mis Validaciones <i class="bi bi-arrow-right ms-1"></i>
+            </a>
+        </div>
+    }
 
     @if (!Model.TienePerfilVinculado)
     {
