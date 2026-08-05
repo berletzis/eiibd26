@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using eiibd26.Data;
+using eiibd26.Helpers;
+using eiibd26.Models.Validacion;
 using Microsoft.EntityFrameworkCore;
 
 namespace eiibd26.Services.Platillos
@@ -88,6 +90,110 @@ namespace eiibd26.Services.Platillos
                 .ToListAsync();
 
             return ids.ToHashSet();
+        }
+
+        public async Task<List<PlatNotaParaValidarDto>> ObtenerNotasParaValidarAsync(
+            string usuarioMedicoId,
+            int limite = 10,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(usuarioMedicoId) || limite <= 0)
+                return new List<PlatNotaParaValidarDto>();
+
+            // 1) Notas visibles — MISMO candado que la lectura individual.
+            var notas = await _db.PlatNotasClinicas.AsNoTracking()
+                .Where(n => n.Publicado && n.Activo
+                            && n.Secciones.Any(s => s.Contenido != null && s.Contenido.Trim() != ""))
+                .Select(n => new { n.Id, n.Titulo, n.TipoDestino, n.TipoNota, n.DestinoId })
+                .ToListAsync(cancellationToken);
+
+            if (notas.Count == 0) return new List<PlatNotaParaValidarDto>();
+
+            // 2) Catálogo de ingredientes ACTIVOS. Se materializa porque PlatIngrediente no
+            //    persiste slug: se genera desde el nombre, igual que en Ingrediente.cshtml.cs.
+            //    Si el ingrediente no está activo su ficha da 404, así que no sirve de destino.
+            var ingredientes = await _db.PlatIngredientes.AsNoTracking()
+                .Where(i => i.Activo)
+                .Select(i => new { i.Id, i.Nombre, i.GrupoId })
+                .ToListAsync(cancellationToken);
+
+            var ingredientePorId = ingredientes.ToDictionary(i => i.Id);
+
+            // Representante por grupo: el primer ingrediente activo por nombre. Determinista,
+            // para que la fila no salte de destino entre recargas.
+            var representantePorGrupo = ingredientes
+                .GroupBy(i => i.GrupoId)
+                .ToDictionary(g => g.Key, g => g.OrderBy(i => i.Nombre, StringComparer.OrdinalIgnoreCase).First());
+
+            var gruposNombre = await _db.PlatGrupos.AsNoTracking()
+                .Select(g => new { g.Id, g.Nombre })
+                .ToDictionaryAsync(g => g.Id, g => g.Nombre, cancellationToken);
+
+            // 3) Conteo de validaciones y estado propio — 2 queries batched, sin N+1.
+            var notaIds = notas.Select(n => n.Id).ToList();
+
+            var conteos = await _db.ValidacionesContenidoProfesional.AsNoTracking()
+                .Where(v => v.TipoContenido == TipoContenidoValidado.NotaClinicaIngrediente
+                            && notaIds.Contains(v.ContenidoId)
+                            && v.Estado == EstadoValidacion.Validado)
+                .GroupBy(v => v.ContenidoId)
+                .Select(g => new { ContenidoId = g.Key, Total = g.Count() })
+                .ToDictionaryAsync(x => x.ContenidoId, x => x.Total, cancellationToken);
+
+            // Las mías: cualquier estado (también en revisión u oculta — es su propio historial).
+            var mias = await _db.ValidacionesContenidoProfesional.AsNoTracking()
+                .Where(v => v.TipoContenido == TipoContenidoValidado.NotaClinicaIngrediente
+                            && notaIds.Contains(v.ContenidoId)
+                            && v.UsuarioMedicoId == usuarioMedicoId)
+                .Select(v => new { v.ContenidoId, v.Estado })
+                .ToListAsync(cancellationToken);
+
+            var miEstadoPorNota = mias
+                .GroupBy(x => x.ContenidoId)
+                .ToDictionary(g => g.Key, g => g.Min(x => x.Estado)); // Validado(1) gana sobre EnRevision(2)
+
+            // 4) Resolver cada nota al ingrediente por el que se valida.
+            var filas = new List<PlatNotaParaValidarDto>();
+            foreach (var n in notas)
+            {
+                string destinoNombre;
+                string nombreDestinoIng;
+
+                if (n.TipoDestino == "Ingrediente")
+                {
+                    if (!ingredientePorId.TryGetValue(n.DestinoId, out var ing)) continue; // inactivo/inexistente
+                    destinoNombre    = ing.Nombre;
+                    nombreDestinoIng = ing.Nombre;
+                }
+                else if (n.TipoDestino == "Grupo")
+                {
+                    if (!representantePorGrupo.TryGetValue(n.DestinoId, out var rep)) continue; // grupo sin ingredientes → enlace muerto
+                    destinoNombre    = gruposNombre.TryGetValue(n.DestinoId, out var gn) ? gn : "Grupo";
+                    nombreDestinoIng = rep.Nombre;
+                }
+                else continue;
+
+                filas.Add(new PlatNotaParaValidarDto
+                {
+                    NotaId                      = n.Id,
+                    Titulo                      = n.Titulo,
+                    TipoDestino                 = n.TipoDestino,
+                    TipoNota                    = n.TipoNota,
+                    DestinoNombre               = destinoNombre,
+                    NombreIngredienteParaValidar = nombreDestinoIng,
+                    SlugIngredienteParaValidar  = SlugHelper.GenerateSlug(nombreDestinoIng),
+                    TotalValidaciones           = conteos.TryGetValue(n.Id, out var c) ? c : 0,
+                    MiEstado                    = miEstadoPorNota.TryGetValue(n.Id, out var e) ? e : null
+                });
+            }
+
+            // 5) Lo que le falta primero; luego lo que menos respaldo tiene.
+            return filas
+                .OrderBy(f => f.MiEstado.HasValue ? 1 : 0)
+                .ThenBy(f => f.TotalValidaciones)
+                .ThenBy(f => f.DestinoNombre, StringComparer.OrdinalIgnoreCase)
+                .Take(limite)
+                .ToList();
         }
 
         /// <summary>

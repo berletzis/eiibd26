@@ -11,16 +11,6 @@
     <link rel="stylesheet" href="~/css/mis-validaciones.css" asp-append-version="true" />
 }
 
-@functions {
-    // Indicador compacto de estado por eje (contenido / relación).
-    static (string Icono, string Clase, string Texto) Indicador(EstadoInd estado) => estado switch
-    {
-        EstadoInd.Validado   => ("bi-check-circle-fill", "mval-ind--ok",      "validado"),
-        EstadoInd.EnRevision => ("bi-clock-fill",        "mval-ind--pending", "en revisión"),
-        _                    => ("bi-circle",            "mval-ind--todo",    "pendiente")
-    };
-}
-
 <div class="container py-4">
 
     @* ── Header ─────────────────────────────────────────────────────────────── *@
@@ -45,9 +35,9 @@
             <span>@(Model.EsPrimeraVez ? "Cómo validar (toma un minuto)" : "Cómo validar")</span>
         </div>
         <ol class="mval-abc__steps">
-            <li><strong>Elige un término</strong> de la lista de abajo, o búscalo en el glosario.</li>
-            <li><strong>Lee su descripción</strong> y cómo se explica su relación con la EII.</li>
-            <li><strong>Agrega tu validación</strong> — del contenido y/o del nivel de relación — con tu comentario clínico.</li>
+            <li><strong>Elige @Model.AbcQueElegir</strong> de la lista de abajo.</li>
+            <li><strong>Lee la información</strong> y cómo se explica su relación con la EII.</li>
+            <li><strong>Agrega tu validación</strong> @Model.AbcDetalleValidacion</li>
         </ol>
         <p class="mval-abc__foot">
             Validar no es aprobar un texto: es dejar constancia de tu lectura profesional. Tu comentario
@@ -56,67 +46,43 @@
     </div>
 
     @* ── B. TOP para validar ────────────────────────────────────────────────── *@
+    @* El orden lo decide el tipo de profesional: nutriólogo ve alimentos primero.
+       Si su dominio sale flaco, el otro aparece debajo con divisor — guía, no muro. *@
     <div class="eii-card mval-top">
         <div class="mval-section__head">
             <h2 class="mval-section__title">
-                <i class="bi bi-graph-up-arrow me-2"></i>Términos que más impactan
+                <i class="bi bi-graph-up-arrow me-2"></i>@Model.TituloTopPrincipal
             </h2>
-            <span class="mval-section__hint">
-                Rankeados por relevancia clínica y por cuántos pacientes los tienen en su perfil.
-            </span>
+            <span class="mval-section__hint">@Model.HintTopPrincipal</span>
         </div>
 
-        @if (!Model.Top.Any())
+        @if (Model.AlimentosPrimero)
         {
-            <div class="mval-empty">
-                <i class="bi bi-inbox"></i>
-                <p class="mb-1">No hay términos en el ranking por ahora.</p>
-                <a href="/Glosario" class="btn btn-outline-primary btn-sm mt-2">
-                    <i class="bi bi-search me-1"></i> Explorar el glosario
-                </a>
-            </div>
+            @await Html.PartialAsync("_MisValidacionesAlimentos", Model.TopAlimentos)
         }
         else
         {
-            <div class="mval-top__list" role="list">
-                @foreach (var t in Model.Top)
-                {
-                    var ind1 = Indicador(t.Contenido);
-                    var ind2 = Indicador(t.Relacion);
-                    var completo = t.Completado == 2;
+            @await Html.PartialAsync("_MisValidacionesClinico", Model)
+        }
 
-                    <div class="mval-row @(completo ? "mval-row--done" : "")" role="listitem">
-                        <div class="mval-row__main">
-                            <a href="@t.Url" class="mval-row__name">@t.Nombre</a>
-                            <span class="mval-tag mval-tag--@(t.Tipo == eiibd26.Models.Glossary.GlossaryTermType.Sintoma ? "sintoma" : "tratamiento")">
-                                @t.TipoTexto
-                            </span>
-                            @if (t.UsuariosConElTermino > 0)
-                            {
-                                <span class="mval-row__users" title="Pacientes que lo tienen en su perfil">
-                                    <i class="bi bi-people"></i> @t.UsuariosConElTermino
-                                </span>
-                            }
-                        </div>
-
-                        <div class="mval-row__status">
-                            <span class="mval-ind @ind1.Clase" title="Validación de contenido: @ind1.Texto">
-                                <i class="bi @ind1.Icono"></i> Contenido
-                            </span>
-                            <span class="mval-ind @ind2.Clase" title="Validación de relación: @ind2.Texto">
-                                <i class="bi @ind2.Icono"></i> Relación
-                            </span>
-                        </div>
-
-                        <div class="mval-row__action">
-                            <a href="@t.Url" class="btn btn-sm @(completo ? "btn-outline-secondary" : "btn-primary")">
-                                @(completo ? "Ver término" : "Ir a validar")
-                                <i class="bi bi-arrow-right ms-1"></i>
-                            </a>
-                        </div>
-                    </div>
-                }
+        @if (Model.MostrarElOtroDominio)
+        {
+            <div class="mval-divider">
+                <span class="mval-divider__line"></span>
+                <span class="mval-divider__text">
+                    ¿Ya cubriste lo tuyo? También puedes ayudar con esto:
+                </span>
+                <span class="mval-divider__line"></span>
             </div>
+            <h3 class="mval-sub">@Model.TituloTopSecundario</h3>
+            @if (Model.AlimentosPrimero)
+            {
+                @await Html.PartialAsync("_MisValidacionesClinico", Model)
+            }
+            else
+            {
+                @await Html.PartialAsync("_MisValidacionesAlimentos", Model.TopAlimentos)
+            }
         }
     </div>
 

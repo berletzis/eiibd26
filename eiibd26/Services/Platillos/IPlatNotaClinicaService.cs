@@ -24,5 +24,24 @@ namespace eiibd26.Services.Platillos
         /// Mismo candado que la lectura individual. Para sitemap y gates de indexado, sin N+1.
         /// </summary>
         Task<HashSet<int>> ObtenerDestinosConNotaVisibleAsync(string tipoDestino);
+
+        /// <summary>
+        /// Notas de alimentos sugeridas a un profesional para validar. MISMO candado que el
+        /// resto del servicio: solo se sugiere lo que el profesional podrá validar de verdad
+        /// (la tarjeta de validar únicamente aparece sobre notas visibles).
+        ///
+        /// Orden: primero las que este profesional NO ha validado, luego las que menos
+        /// validaciones acumulan (más lo necesitan), luego por nombre.
+        ///
+        /// Vive aquí, y no en el servicio de validación, porque el candado de publicación es
+        /// de este servicio y no debe duplicarse. Es lectura para el panel del profesional,
+        /// no para el paciente.
+        /// </summary>
+        /// <param name="usuarioMedicoId">Id del profesional que consulta (para marcar lo suyo)</param>
+        /// <param name="limite">Máximo de filas a devolver</param>
+        Task<List<PlatNotaParaValidarDto>> ObtenerNotasParaValidarAsync(
+            string usuarioMedicoId,
+            int limite = 10,
+            CancellationToken cancellationToken = default);
     }
 }

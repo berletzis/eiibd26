@@ -30,6 +30,9 @@ public class DashboardModel : PageModel
     public string? FotoUrl { get; set; }
     public int? MedicoDirectorioId { get; set; }
     public bool TienePerfilVinculado { get; set; }
+    /// <summary>Tipo declarado en la ficha — solo cambia el copy del CTA de validar.
+    /// Null = general: texto genérico y TOP clínico, el comportamiento de siempre.</summary>
+    public eiibd26.Models.Directorio.Enums.TipoProfesional? TipoProfesional { get; set; }
     public int TotalRecomendaciones { get; set; }
     public List<RecomendacionDashboardVm> Recomendaciones { get; set; } = new();
     public List<QaMedicoTopItem> QaTop5 { get; set; } = new();
@@ -56,6 +59,7 @@ public class DashboardModel : PageModel
             TienePerfilVinculado = perfil.MedicoId.HasValue;
             MedicoDirectorioId   = perfil.MedicoId;
             NombreMedico         = perfil.Medico?.NombreCompleto;
+            TipoProfesional      = perfil.Medico?.TipoProfesional;
 
             // Si NO tiene vínculo, buscar si existe un perfil huérfano en el directorio
             if (!perfil.MedicoId.HasValue)

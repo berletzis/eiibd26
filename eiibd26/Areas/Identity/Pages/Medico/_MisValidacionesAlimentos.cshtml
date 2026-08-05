@@ -1,0 +1,81 @@
+@model List<eiibd26.Services.Platillos.PlatNotaParaValidarDto>
+@using eiibd26.Models.Validacion
+@*
+    TOP de alimentos: notas clínicas publicadas de ingredientes y grupos.
+
+    Ojo con el enlace: no existe ficha pública de grupo. Las notas de grupo (y las de
+    precaución, que también son de grupo) se validan desde la ficha de un ingrediente
+    de ese grupo. Por eso la fila lo dice explícitamente en vez de fingir que el enlace
+    lleva "al grupo" — el profesional debe saber a dónde va antes de hacer clic.
+*@
+
+@functions {
+    static (string Icono, string Clase, string Texto) Indicador(EstadoValidacion? estado) => estado switch
+    {
+        EstadoValidacion.Validado   => ("bi-check-circle-fill", "mval-ind--ok",      "validada"),
+        EstadoValidacion.EnRevision => ("bi-clock-fill",        "mval-ind--pending", "en revisión"),
+        EstadoValidacion.Oculto     => ("bi-eye-slash-fill",    "mval-ind--pending", "oculta"),
+        _                           => ("bi-circle",            "mval-ind--todo",    "pendiente")
+    };
+}
+
+@if (Model == null || !Model.Any())
+{
+    <div class="mval-empty">
+        <i class="bi bi-egg-fried"></i>
+        <p class="mb-1">No hay notas de alimentos publicadas por validar ahora mismo.</p>
+        <a href="/Platillos" class="btn btn-outline-primary btn-sm mt-2">
+            <i class="bi bi-search me-1"></i> Explorar alimentos
+        </a>
+    </div>
+}
+else
+{
+    <div class="mval-top__list" role="list">
+        @foreach (var n in Model)
+        {
+            var ind = Indicador(n.MiEstado);
+            var yaLaValide = n.MiEstado == EstadoValidacion.Validado;
+
+            <div class="mval-row @(yaLaValide ? "mval-row--done" : "")" role="listitem">
+                <div class="mval-row__main">
+                    <a href="@n.Url" class="mval-row__name">@n.DestinoNombre</a>
+                    <span class="mval-tag mval-tag--@(n.EsPrecaucion ? "precaucion" : n.EsDeGrupo ? "grupo" : "ingrediente")">
+                        @n.TipoTexto
+                    </span>
+                    @if (n.TotalValidaciones > 0)
+                    {
+                        <span class="mval-row__users" title="Profesionales que ya la validaron">
+                            <i class="bi bi-patch-check"></i> @n.TotalValidaciones
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="mval-row__users mval-row__users--none" title="Nadie la ha validado todavía">
+                            <i class="bi bi-patch-check"></i> sin validar
+                        </span>
+                    }
+                    @if (n.EsDeGrupo)
+                    {
+                        <span class="mval-row__note">
+                            se valida desde <strong>@n.NombreIngredienteParaValidar</strong>
+                        </span>
+                    }
+                </div>
+
+                <div class="mval-row__status">
+                    <span class="mval-ind @ind.Clase" title="Tu validación de esta nota: @ind.Texto">
+                        <i class="bi @ind.Icono"></i> Nota
+                    </span>
+                </div>
+
+                <div class="mval-row__action">
+                    <a href="@n.Url" class="btn btn-sm @(yaLaValide ? "btn-outline-secondary" : "btn-primary")">
+                        @(yaLaValide ? "Ver nota" : "Ir a validar")
+                        <i class="bi bi-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        }
+    </div>
+}
