@@ -66,6 +66,11 @@ public class RegisterMModel : PageModel
         [Display(Name = "País")]
         public string PaisCodigo { get; set; } = string.Empty;
 
+        /// <summary>Tipo estructurado: GUÍA qué se le sugiere validar primero, no es un permiso.
+        /// Nullable — si no lo indica, la ficha queda "general" y ve el TOP clínico por defecto.</summary>
+        [Display(Name = "Tipo de profesional")]
+        public Models.Directorio.Enums.TipoProfesional? TipoProfesional { get; set; }
+
         [Required(ErrorMessage = "La especialidad es requerida.")]
         [MaxLength(200)]
         [Display(Name = "Especialidad")]
@@ -150,6 +155,7 @@ public class RegisterMModel : PageModel
             {
                 NombreCompleto     = emailLocal,
                 Especialidad       = string.IsNullOrWhiteSpace(Input.Especialidad) ? null : Input.Especialidad.Trim(),
+                TipoProfesional    = Input.TipoProfesional,
                 CedulaProfesional  = string.IsNullOrWhiteSpace(Input.CedulaProfesional) ? null : Input.CedulaProfesional.Trim(),
                 NombrePais         = codigoPais,
                 AspNetUserId       = user.Id,

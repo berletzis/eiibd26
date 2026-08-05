@@ -251,6 +251,7 @@ public class IndexModel : PageModel
             id = m.Id, nombreCompleto = m.NombreCompleto,
             titulo = m.Titulo ?? "", puedeAprobar,
             especialidad = m.Especialidad ?? "", subespecialidad = m.Subespecialidad ?? "",
+            tipoProfesional = m.TipoProfesional.HasValue ? (int)m.TipoProfesional.Value : 0,
             cedulaProfesional = m.CedulaProfesional ?? "",
             nombrePais = m.NombrePais ?? "", ciudad = m.Ciudad ?? "",
             estado = m.Estado ?? "", hospitalClinica = m.HospitalClinica ?? "",
@@ -308,7 +309,10 @@ public class IndexModel : PageModel
     public async Task<IActionResult> OnPostEditarAsync(
         int id, string nombreCompleto, string? especialidad, string? subespecialidad,
         string? cedulaProfesional, string? nombrePais, string? ciudad, string? estado,
-        string? hospitalClinica, bool cedulaVerificada, bool eliminado, string? titulo = null)
+        string? hospitalClinica, bool cedulaVerificada, bool eliminado, string? titulo = null,
+        // Nullable y opcional: "sin especificar" es un estado válido (= general) y así el
+        // handler no rompe con 400 si el form no manda el campo. Regla de handlers del repo.
+        byte? tipoProfesional = null)
     {
         if (string.IsNullOrWhiteSpace(nombreCompleto))
             return new JsonResult(new { ok = false, message = "El nombre es obligatorio." });
@@ -321,6 +325,11 @@ public class IndexModel : PageModel
         medico.NombreCompleto    = nombreCompleto.Trim();
         medico.Titulo            = string.IsNullOrWhiteSpace(titulo) ? null : titulo.Trim();
         medico.Especialidad      = especialidad?.Trim();
+        // Solo se aceptan valores del dominio; cualquier otra cosa se guarda como null ("general")
+        // en vez de reventar el guardado completo del médico por un campo que solo ordena una lista.
+        medico.TipoProfesional   = tipoProfesional is 1 or 2 or 3
+            ? (TipoProfesional)tipoProfesional.Value
+            : null;
         medico.Subespecialidad   = subespecialidad?.Trim();
         medico.CedulaProfesional = cedulaProfesional?.Trim();
         medico.NombrePais        = nombrePais?.Trim();

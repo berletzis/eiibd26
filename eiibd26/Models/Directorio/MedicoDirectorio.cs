@@ -30,6 +30,13 @@ public class MedicoDirectorio
     [Display(Name = "Especialidad")]
     public string? Especialidad { get; set; }
 
+    /// <summary>Tipo de profesional — dato estructurado que GUÍA qué se le sugiere validar primero.
+    /// Convive con <see cref="Especialidad"/> (texto libre, solo display). Null = "general":
+    /// los profesionales previos a este campo conservan el comportamiento actual (TOP clínico).
+    /// NO es un permiso: validar sigue dependiendo del rol "Medico".</summary>
+    [Display(Name = "Tipo de profesional")]
+    public TipoProfesional? TipoProfesional { get; set; }
+
     [MaxLength(200)]
     [Display(Name = "Subespecialidad")]
     public string? Subespecialidad { get; set; }

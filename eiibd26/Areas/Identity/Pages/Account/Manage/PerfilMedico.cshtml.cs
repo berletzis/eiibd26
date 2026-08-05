@@ -113,6 +113,10 @@ public class PerfilMedicoModel : PageModel
         /// Se guarda en la ficha vinculada (MedicoDirectorio.Titulo). Solo se muestra en público tras
         /// la aprobación del admin (badge verificado).</summary>
         [MaxLength(50)] public string? Titulo { get; set; }
+        /// <summary>Tipo de profesional — igual que Titulo, vive en la ficha (MedicoDirectorio) y
+        /// lo edita el propio profesional. A diferencia de Especialidad (readonly, la gestiona el
+        /// admin), este dato solo GUÍA qué se le sugiere validar: equivocarse no da ni quita permisos.</summary>
+        public Models.Directorio.Enums.TipoProfesional? TipoProfesional { get; set; }
         [MaxLength(2000)] public string? Biografia { get; set; }
         public List<string> Hospitales { get; set; } = new();
         [MaxLength(500)] public string? HorariosAtencion { get; set; }
@@ -225,6 +229,7 @@ public class PerfilMedicoModel : PageModel
             Input.NombreCompleto   = perfil.Medico?.NombreCompleto;
             Input.Especialidad     = perfil.Medico?.Especialidad;
             Input.Titulo           = perfil.Medico?.Titulo;
+            Input.TipoProfesional  = perfil.Medico?.TipoProfesional;
 
             // Ubicación de la comunidad (readonly reference)
             ComunidadCiudad = perfil.Medico?.Ciudad;
@@ -388,7 +393,12 @@ public class PerfilMedicoModel : PageModel
         // Solo escribible si ya hay ficha vinculada; sin ella el título lo pone el admin al crearla.
         // El display público sigue gateado por el badge verificado (la aprobación avala el título).
         if (perfil.Medico is not null)
+        {
             perfil.Medico.Titulo = string.IsNullOrWhiteSpace(Input.Titulo) ? null : Input.Titulo.Trim();
+            // Tipo de profesional → misma ficha. Solo guía el orden de lo que se le sugiere validar;
+            // el permiso sigue siendo el rol. Null es válido: "general" → TOP clínico.
+            perfil.Medico.TipoProfesional = Input.TipoProfesional;
+        }
 
         perfil.PaisCodigo = Input.PaisCodigo;
         perfil.Ciudad     = Input.Ciudad;
