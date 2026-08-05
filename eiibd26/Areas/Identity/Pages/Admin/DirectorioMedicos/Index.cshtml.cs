@@ -218,6 +218,19 @@ public class IndexModel : PageModel
             };
         }).ToList();
 
+        // Tipo de profesional: ya no vive en la ficha sino en el perfil por-usuario.
+        // 0 = "sin especificar" (también cuando la ficha no tiene perfil ext. asociado).
+        int tipoProfesionalDto = 0;
+        try
+        {
+            var tipo = await _db.MedicosPerfilExtendido.AsNoTracking()
+                .Where(p => p.MedicoId == id)
+                .Select(p => p.TipoProfesional)
+                .FirstOrDefaultAsync();
+            if (tipo.HasValue) tipoProfesionalDto = (int)tipo.Value;
+        }
+        catch { }
+
         // Validaciones vinculadas al médico (si tiene perfil reclamado)
         List<ValidacionAdminDto> validacionesContenido = new();
         List<ValidacionRespuestaAdminDto> validacionesRespuesta = new();
@@ -251,7 +264,7 @@ public class IndexModel : PageModel
             id = m.Id, nombreCompleto = m.NombreCompleto,
             titulo = m.Titulo ?? "", puedeAprobar,
             especialidad = m.Especialidad ?? "", subespecialidad = m.Subespecialidad ?? "",
-            tipoProfesional = m.TipoProfesional.HasValue ? (int)m.TipoProfesional.Value : 0,
+            tipoProfesional = tipoProfesionalDto,
             cedulaProfesional = m.CedulaProfesional ?? "",
             nombrePais = m.NombrePais ?? "", ciudad = m.Ciudad ?? "",
             estado = m.Estado ?? "", hospitalClinica = m.HospitalClinica ?? "",
@@ -325,11 +338,6 @@ public class IndexModel : PageModel
         medico.NombreCompleto    = nombreCompleto.Trim();
         medico.Titulo            = string.IsNullOrWhiteSpace(titulo) ? null : titulo.Trim();
         medico.Especialidad      = especialidad?.Trim();
-        // Solo se aceptan valores del dominio; cualquier otra cosa se guarda como null ("general")
-        // en vez de reventar el guardado completo del médico por un campo que solo ordena una lista.
-        medico.TipoProfesional   = tipoProfesional is 1 or 2 or 3
-            ? (TipoProfesional)tipoProfesional.Value
-            : null;
         medico.Subespecialidad   = subespecialidad?.Trim();
         medico.CedulaProfesional = cedulaProfesional?.Trim();
         medico.NombrePais        = nombrePais?.Trim();
@@ -343,6 +351,43 @@ public class IndexModel : PageModel
         {
             if (cedulaVerificada) { medico.EstatusValidacion = EstatusValidacionCedula.Validado; medico.FechaCedulaVerificada = DateTime.UtcNow; }
             else { medico.EstatusValidacion = EstatusValidacionCedula.PendienteValidacion; medico.FechaCedulaVerificada = null; }
+        }
+
+        // ── Tipo de profesional → perfil por-usuario, ya no en la ficha ──────────────
+        // Solo se aceptan valores del dominio; cualquier otra cosa se guarda como null
+        // ("general") en vez de reventar el guardado completo por un campo que solo ordena.
+        var tipoNuevo = tipoProfesional is 1 or 2 or 3
+            ? (TipoProfesional?)(TipoProfesional)tipoProfesional.Value
+            : null;
+
+        string? avisoTipo = null;
+        var perfilExt = await _db.MedicosPerfilExtendido
+            .FirstOrDefaultAsync(p => p.MedicoId == medico.Id);
+
+        if (perfilExt is not null)
+        {
+            perfilExt.TipoProfesional = tipoNuevo;
+            perfilExt.FechaModificado = DateTime.UtcNow;
+        }
+        else if (medico.AspNetUserId is not null)
+        {
+            // Hay cuenta vinculada pero todavía no existe la fila del perfil extendido: se crea.
+            _db.MedicosPerfilExtendido.Add(new eiibd26.Models.Medico.MedicoPerfilExtendido
+            {
+                MedicoId        = medico.Id,
+                UserId          = medico.AspNetUserId,
+                TipoProfesional = tipoNuevo,
+                FechaCreado     = DateTime.UtcNow,
+                FechaModificado = DateTime.UtcNow
+            });
+        }
+        else if (tipoNuevo is not null)
+        {
+            // Ficha sin cuenta vinculada (p.ej. propuesta de un paciente): no hay perfil
+            // por-usuario donde guardarlo y crear uno dejaría una fila huérfana sin dueño.
+            // El resto de la edición sí se guarda; solo se avisa de lo que no se pudo.
+            avisoTipo = "Cambios guardados. El tipo de profesional no se guardó porque esta "
+                      + "ficha todavía no tiene una cuenta vinculada.";
         }
 
         await _db.SaveChangesAsync();
@@ -359,7 +404,7 @@ public class IndexModel : PageModel
             await _dirService.RecalcularNivelConfianzaAsync(medico.Id);
         }
 
-        return new JsonResult(new { ok = true });
+        return new JsonResult(new { ok = true, aviso = avisoTipo });
     }
 
     // ── Handlers existentes ──────────────────────────────────────────────

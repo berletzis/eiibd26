@@ -229,7 +229,7 @@ public class PerfilMedicoModel : PageModel
             Input.NombreCompleto   = perfil.Medico?.NombreCompleto;
             Input.Especialidad     = perfil.Medico?.Especialidad;
             Input.Titulo           = perfil.Medico?.Titulo;
-            Input.TipoProfesional  = perfil.Medico?.TipoProfesional;
+            Input.TipoProfesional  = perfil.TipoProfesional;
 
             // Ubicación de la comunidad (readonly reference)
             ComunidadCiudad = perfil.Medico?.Ciudad;
@@ -395,10 +395,13 @@ public class PerfilMedicoModel : PageModel
         if (perfil.Medico is not null)
         {
             perfil.Medico.Titulo = string.IsNullOrWhiteSpace(Input.Titulo) ? null : Input.Titulo.Trim();
-            // Tipo de profesional → misma ficha. Solo guía el orden de lo que se le sugiere validar;
-            // el permiso sigue siendo el rol. Null es válido: "general" → TOP clínico.
-            perfil.Medico.TipoProfesional = Input.TipoProfesional;
         }
+
+        // Tipo de profesional → vive en el perfil por-usuario, así que se guarda SIEMPRE,
+        // con ficha vinculada o sin ella (ese era justo el hueco: una cuenta sin ficha no
+        // podía declararlo). Solo guía el orden de lo que se le sugiere validar; el permiso
+        // sigue siendo el rol. Null es válido: "general" → TOP clínico.
+        perfil.TipoProfesional = Input.TipoProfesional;
 
         perfil.PaisCodigo = Input.PaisCodigo;
         perfil.Ciudad     = Input.Ciudad;

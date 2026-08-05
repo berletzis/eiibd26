@@ -155,7 +155,6 @@ public class RegisterMModel : PageModel
             {
                 NombreCompleto     = emailLocal,
                 Especialidad       = string.IsNullOrWhiteSpace(Input.Especialidad) ? null : Input.Especialidad.Trim(),
-                TipoProfesional    = Input.TipoProfesional,
                 CedulaProfesional  = string.IsNullOrWhiteSpace(Input.CedulaProfesional) ? null : Input.CedulaProfesional.Trim(),
                 NombrePais         = codigoPais,
                 AspNetUserId       = user.Id,
@@ -172,6 +171,9 @@ public class RegisterMModel : PageModel
             {
                 MedicoId        = ficha.Id,   // vinculada desde el registro
                 UserId          = user.Id,
+                // El tipo declarado al registrarse vive en el perfil por-usuario, no en la ficha:
+                // así lo conserva aunque después se le desvincule o se le rehaga la ficha.
+                TipoProfesional = Input.TipoProfesional,
                 FechaCreado     = DateTime.UtcNow,
                 FechaModificado = DateTime.UtcNow
             });

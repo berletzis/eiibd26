@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using eiibd26.Models.Directorio;
+using eiibd26.Models.Directorio.Enums;
 
 namespace eiibd26.Models.Medico;
 
@@ -22,6 +23,14 @@ public class MedicoPerfilExtendido
     [MaxLength(10)]  public string? PaisCodigo { get; set; }
     [MaxLength(50)]  public string? Latitud { get; set; }
     [MaxLength(50)]  public string? Longitud { get; set; }
+
+    /// <summary>Tipo de profesional — dato estructurado que GUÍA qué se le sugiere validar primero.
+    /// Vive en el perfil POR-USUARIO (no en la ficha del directorio) para que cualquier profesional
+    /// pueda declararlo desde su perfil, tenga o no ficha vinculada. Null = "general" → TOP clínico.
+    /// NO es un permiso: validar sigue dependiendo del rol "Medico".</summary>
+    [Display(Name = "Tipo de profesional")]
+    public TipoProfesional? TipoProfesional { get; set; }
+
     public DateTime FechaCreado { get; set; } = DateTime.UtcNow;
     public DateTime FechaModificado { get; set; } = DateTime.UtcNow;
     public virtual MedicoDirectorio? Medico { get; set; }

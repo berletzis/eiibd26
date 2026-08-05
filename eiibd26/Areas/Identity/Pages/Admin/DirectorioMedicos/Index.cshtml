@@ -592,7 +592,13 @@ ${(d.validacionesRespuesta || []).length > 0
         });
         const r = await resp.json();
         var ok = document.getElementById('msgExito'), err = document.getElementById('msgError');
-        if (r.ok) { ok.classList.remove('d-none'); err.classList.add('d-none'); tabla.ajax.reload(null, false); setTimeout(() => ok.classList.add('d-none'), 3000); }
+        if (r.ok) {
+            // r.aviso llega cuando algo del guardado no aplicó (p.ej. el tipo de profesional en
+            // una ficha sin cuenta vinculada). Se guardó el resto, así que sigue siendo éxito.
+            ok.textContent = r.aviso || 'Cambios guardados.';
+            ok.classList.remove('d-none'); err.classList.add('d-none'); tabla.ajax.reload(null, false);
+            setTimeout(() => ok.classList.add('d-none'), r.aviso ? 8000 : 3000);
+        }
         else { err.textContent = r.message||'Error.'; err.classList.remove('d-none'); ok.classList.add('d-none'); }
     }
 

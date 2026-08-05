@@ -86,7 +86,7 @@ namespace eiibd26.Areas.Identity.Pages.Medico
         public List<ValidacionAdminDto> ValidacionesContenido { get; set; } = new();
         public List<GlossaryRelationValidationDto> ValidacionesRelacion { get; set; } = new();
 
-        /// <summary>Tipo declarado en la ficha. Null = "general" → comportamiento clínico de siempre.</summary>
+        /// <summary>Tipo declarado en el perfil del usuario. Null = "general" → comportamiento clínico de siempre.</summary>
         public TipoProfesional? Tipo { get; private set; }
 
         public bool EsNutriologo => Tipo == TipoProfesional.Nutriologo;
@@ -111,16 +111,17 @@ namespace eiibd26.Areas.Identity.Pages.Medico
             if (string.IsNullOrWhiteSpace(userId))
                 return Forbid();
 
-            // ── Tipo de profesional: sale de la ficha del directorio vinculada ──
-            // Falla suave a null ("general"): que no se pueda leer el tipo nunca debe dejar
-            // al profesional sin panel.
+            // ── Tipo de profesional: sale del perfil POR-USUARIO, no de la ficha ──
+            // Así también aplica a profesionales sin ficha vinculada, que antes quedaban
+            // siempre en "general". Falla suave a null ("general"): que no se pueda leer el
+            // tipo nunca debe dejar al profesional sin panel.
             try
             {
                 if (Guid.TryParse(userId, out var userGuid))
                 {
-                    Tipo = await _db.MedicosDirectorio.AsNoTracking()
-                        .Where(m => m.AspNetUserId == userGuid && !m.Eliminado)
-                        .Select(m => m.TipoProfesional)
+                    Tipo = await _db.MedicosPerfilExtendido.AsNoTracking()
+                        .Where(p => p.UserId == userGuid)
+                        .Select(p => p.TipoProfesional)
                         .FirstOrDefaultAsync(cancellationToken);
                 }
             }

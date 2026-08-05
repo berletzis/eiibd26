@@ -59,7 +59,7 @@ public class DashboardModel : PageModel
             TienePerfilVinculado = perfil.MedicoId.HasValue;
             MedicoDirectorioId   = perfil.MedicoId;
             NombreMedico         = perfil.Medico?.NombreCompleto;
-            TipoProfesional      = perfil.Medico?.TipoProfesional;
+            TipoProfesional      = perfil.TipoProfesional;
 
             // Si NO tiene vínculo, buscar si existe un perfil huérfano en el directorio
             if (!perfil.MedicoId.HasValue)
