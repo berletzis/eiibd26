@@ -491,10 +491,10 @@ namespace eiibd26.Services.Glossary
                     var nombresMedico = await _db.MedicosDirectorio
                         .AsNoTracking()
                         .Where(m => medicoIds.Contains(m.Id))
-                        .Select(m => new { m.Id, m.NombreCompleto })
+                        .Select(m => new { m.Id, m.NombreCompleto, m.Titulo })
                         .ToListAsync();
 
-                    var nombreDict = nombresMedico.ToDictionary(m => m.Id, m => m.NombreCompleto);
+                    var nombreDict = nombresMedico.ToDictionary(m => m.Id, m => (m.NombreCompleto, m.Titulo));
                     var medicoIdByUser = perfiles.Where(p => p.MedicoId.HasValue)
                         .ToDictionary(p => p.UserId!.Value, p => p.MedicoId!.Value);
 
@@ -505,13 +505,24 @@ namespace eiibd26.Services.Glossary
                         .ToListAsync();
                     var avatarByUser = avatarDict.ToDictionary(p => p.idUser, p => p.Avatar);
 
-                    string ResolveDisplay(Guid guid)
+                    // Misma regla de identidad que ObtenerValidacionesPublicasAsync: el nombre real sale
+                    // SOLO con badge (verificado/perfil_reclamado) y ficha con nombre. Si no, anónimo.
+                    // El flag viaja al DTO porque la vista también gatea la FOTO con él: sin nombre
+                    // aprobado no se muestra la cara, o delataría a quien aparece como anónimo.
+                    // El display es "{Titulo} {Nombre}" — NO "Dr." hardcodeado: NombreCompleto ya suele
+                    // traer el título en la ficha y salía "Dr. Dr. Carlos Mendoza Ruiz" (visto en vivo).
+                    // Además no todo validador es médico (hay nutriólogos).
+                    (string Display, bool TieneNombre) ResolveIdentidad(Guid guid)
                     {
                         if (medicoIdByUser.TryGetValue(guid, out var mId)
                             && badgesVerificados.Contains(mId)
-                            && nombreDict.TryGetValue(mId, out var nombre))
-                            return $"Dr. {nombre}";
-                        return "Médico verificado";
+                            && nombreDict.TryGetValue(mId, out var ficha)
+                            && !string.IsNullOrWhiteSpace(ficha.NombreCompleto))
+                        {
+                            var t = string.IsNullOrWhiteSpace(ficha.Titulo) ? "" : ficha.Titulo!.Trim() + " ";
+                            return ($"{t}{ficha.NombreCompleto.Trim()}", true);
+                        }
+                        return ("Profesional verificado", false);
                     }
 
                     string? ResolveAvatar(Guid guid)
@@ -525,9 +536,11 @@ namespace eiibd26.Services.Glossary
                     {
                         if (!Guid.TryParse(v.UsuarioMedicoId, out var guid)) continue;
                         if (!medicoIdByUser.ContainsKey(guid)) continue;
+                        var ident = ResolveIdentidad(guid);
                         comentariosMedicos.Add(new ValidationCommentDto
                         {
-                            UserDisplay    = ResolveDisplay(guid),
+                            UserDisplay    = ident.Display,
+                            TieneNombre    = ident.TieneNombre,
                             AvatarUrl      = ResolveAvatar(guid),
                             ValidationType = GlossaryValidationType.MeaningValidation,
                             RelationType   = null,
@@ -540,9 +553,11 @@ namespace eiibd26.Services.Glossary
                     {
                         if (!Guid.TryParse(v.UserId, out var guid)) continue;
                         if (!medicoIdByUser.ContainsKey(guid)) continue;
+                        var ident = ResolveIdentidad(guid);
                         comentariosMedicos.Add(new ValidationCommentDto
                         {
-                            UserDisplay    = ResolveDisplay(guid),
+                            UserDisplay    = ident.Display,
+                            TieneNombre    = ident.TieneNombre,
                             AvatarUrl      = ResolveAvatar(guid),
                             ValidationType = GlossaryValidationType.RelationValidation,
                             RelationType   = v.MedicalRelationTypeId,

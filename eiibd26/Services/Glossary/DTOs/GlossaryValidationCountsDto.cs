@@ -46,6 +46,11 @@ namespace eiibd26.Services.Glossary.DTOs
     public class ValidationCommentDto
     {
         public string UserDisplay { get; set; } = "";
+        /// <summary>true = validador con badge (verificado/perfil_reclamado) y nombre aprobado.
+        /// false = anónimo ("Profesional verificado"). La vista lo usa para gatear la FOTO: sin nombre
+        /// aprobado va el avatar por defecto — nombre y cara van juntos. Mismo criterio que
+        /// ValidacionPublicaDto.TieneNombre.</summary>
+        public bool TieneNombre { get; set; }
         public string? AvatarUrl { get; set; }
         public GlossaryValidationType ValidationType { get; set; }
         public MedicalRelationType? RelationType { get; set; }

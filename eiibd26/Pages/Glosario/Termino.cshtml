@@ -566,12 +566,14 @@ else
                                         </div>
                                     }
 
-                                    @* 1. Comentarios de validación de RELACIÓN (tipo 2) — con foto del médico *@
+                                    @* 1. Comentarios de validación de RELACIÓN (tipo 2) — foto real SOLO con nombre
+                                         aprobado; el anónimo ("Profesional verificado") va con el avatar por defecto,
+                                         misma regla que el bloque "Validado por" y _NotaSello. *@
                                     @foreach (var c in humanComments)
                                     {
                                         <div class="d-flex gap-2 align-items-start p-2 rounded mb-2"
                                              style="background:#f8fafc;">
-                                            <img src="@(c.AvatarUrl ?? "/img/default-avatar.png")" alt="@c.UserDisplay"
+                                            <img src="@(c.TieneNombre ? (c.AvatarUrl ?? "/img/default-avatar.png") : "/img/default-avatar.png")" alt="@c.UserDisplay"
                                                  class="exp-avatar mt-1" loading="lazy" decoding="async"
                                                  onerror="this.onerror=null;this.src='/img/default-avatar.png';" />
                                             <div class="small">
@@ -693,11 +695,12 @@ else
                                 </p>
                             }
 
-                            @* Comentarios de RelationValidation (tipo 2) con nombre médico *@
+                            @* Comentarios de RelationValidation (tipo 2). Igual que arriba: sin nombre aprobado
+                               se oculta también la cara — nombre y foto van juntos, gateados por el badge. *@
                             @foreach (var val in counts.ComentariosMedicos.Where(c => !string.IsNullOrWhiteSpace(c.Comment)))
                             {
                                 <div class="validacion-item">
-                                    <img src="@(val.AvatarUrl ?? "/img/default-avatar.png")" alt="@val.UserDisplay"
+                                    <img src="@(val.TieneNombre ? (val.AvatarUrl ?? "/img/default-avatar.png") : "/img/default-avatar.png")" alt="@val.UserDisplay"
                                          class="validacion-avatar" loading="lazy" decoding="async"
                                          onerror="this.onerror=null;this.src='/img/default-avatar.png';" />
                                     <div>
