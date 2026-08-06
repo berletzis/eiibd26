@@ -9,10 +9,17 @@
 @if (Model != null && Model.Any())
 {
     @* Un solo encabezado "Validado por"; luego las filas. Las que tienen nombre aprobado se pintan
-       como {Titulo} {Nombre} + especialidad; las anónimas NO repiten la etiqueta genérica por fila:
-       se resumen en UNA sola línea "Profesional verificado" al final. *@
+       como {Titulo} {Nombre} + especialidad.
+
+       Las anónimas se parten en dos, para no perder lo único que aportan al paciente — el comentario:
+       - CON comentario  → fila propia, igual que en el glosario (Termino.cshtml). UserDisplay ya viene
+                           como "Profesional verificado", así que la regla de identidad no cambia:
+                           el nombre real sigue saliendo solo con badge.
+       - SIN comentario  → se resumen en UNA línea de conteo; una fila vacía por cada uno no aporta nada. *@
     var conNombre = Model.Where(v => v.TieneNombre).ToList();
     var anonimos  = Model.Where(v => !v.TieneNombre).ToList();
+    var anonimosConComentario = anonimos.Where(v => !string.IsNullOrWhiteSpace(v.Comentario)).ToList();
+    var anonimosSinComentario = anonimos.Count - anonimosConComentario.Count;
 
     <div class="validaciones-profesionales mt-3 mb-4">
         <div class="validaciones-profesionales__header">
@@ -60,20 +67,37 @@
                 </div>
             }
 
-            @* Resumen único de los validadores sin nombre aprobado — no se repite por fila. *@
-            @if (anonimos.Any())
+            @* Anónimos CON comentario: fila propia, espejo del glosario. Avatar por defecto a propósito
+               —no el real— para no delatar por la foto a quien no aparece con nombre. *@
+            @foreach (var v in anonimosConComentario)
             {
                 <div class="validacion-item">
                     <div class="validacion-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
                     <div>
                         <div class="validacion-name">
-                            @if (anonimos.Count == 1)
+                            @v.UserDisplay
+                            <i class="bi bi-patch-check-fill validacion-check" aria-hidden="true"></i>
+                        </div>
+                        <p class="validacion-comment mb-0">"@v.Comentario"</p>
+                        <span class="validacion-date">@v.CreadoEn.ToString("MMMM yyyy")</span>
+                    </div>
+                </div>
+            }
+
+            @* Resumen único de los anónimos que no dejaron comentario. *@
+            @if (anonimosSinComentario > 0)
+            {
+                <div class="validacion-item">
+                    <div class="validacion-avatar-placeholder"><i class="bi bi-person-fill"></i></div>
+                    <div>
+                        <div class="validacion-name">
+                            @if (anonimosSinComentario == 1)
                             {
                                 <text>Profesional verificado</text>
                             }
                             else
                             {
-                                <text>@anonimos.Count profesionales verificados</text>
+                                <text>@anonimosSinComentario profesionales verificados</text>
                             }
                             <i class="bi bi-patch-check-fill validacion-check" aria-hidden="true"></i>
                         </div>
