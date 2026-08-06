@@ -155,15 +155,12 @@
                     </div>
                     <div class="contenido-html">
                         <partial name="_NotaClinica" model="Model.PrecaucionNota" />
-                        @* Leyenda por estado de VALIDACIÓN (no de referencias): honesta, nunca fija. *@
-                        @if (Model.ValidadoresPrecaucion.Count >= 1)
-                        {
-                            <div class="nota-row nota-legend nota-legend--respaldada">
-                                <i class="bi bi-patch-check nota-legend__ico" aria-hidden="true"></i>
-                                <p>Un profesional de la salud respalda este aviso de seguridad.</p>
-                            </div>
-                        }
-                        else
+                        @* UNA sola voz por estado. Sin validar manda la leyenda ámbar: es eje SEGURIDAD y
+                           merece un tono más fuerte que el estado vacío neutro del sello. Validada manda el
+                           sello, que además dice QUIÉN respalda — la frase inline "respaldada" solo repetía.
+                           EXCEPCIÓN deliberada y acotada a Precaución: en las notas de ingrediente/grupo el
+                           sello sí muestra su estado vacío. No generalizar. *@
+                        @if (Model.ValidadoresPrecaucion.Count == 0)
                         {
                             <div class="nota-row nota-legend nota-legend--precaucion">
                                 <i class="bi bi-exclamation-triangle nota-legend__ico" aria-hidden="true"></i>
@@ -175,7 +172,12 @@
                         }
                     </div>
                 </div>
-                <partial name="_NotaSello" model="Model.ValidadoresPrecaucion" />
+                @* Gateado a propósito: sin validación la ámbar ya lo dijo, y el estado vacío del sello
+                   repetiría el mismo mensaje dos veces seguidas. *@
+                @if (Model.ValidadoresPrecaucion.Count >= 1)
+                {
+                    <partial name="_NotaSello" model="Model.ValidadoresPrecaucion" />
+                }
             }
 
             @* ===== Comunidad y experiencia (#16) — SOLO LECTURA. Votar vive en /tolero/{slug}; aquí no
