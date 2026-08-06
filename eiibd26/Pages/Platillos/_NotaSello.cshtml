@@ -3,11 +3,13 @@
     Sello "Validado por Profesionales de la Salud" de UNA nota, en la COLUMNA PRINCIPAL, bajo su
     contenido — es lo que ve el PACIENTE (espejo del glosario: Termino.cshtml). La tarjeta de validar
     del médico va aparte, en el sidebar. Reusa las clases .validaciones-profesionales / .validacion-item
-    de detalle.css (cero CSS nuevo). Solo se pinta si la nota tiene ≥1 validación; y como la vista pública
-    solo recibe notas publicadas (el candado), el sello sale únicamente en publicadas con validaciones.
+    de detalle.css (cero CSS nuevo). El partial se pinta SIEMPRE que haya nota — sin validaciones muestra
+    el estado vacío con su leyenda, para no dejar al paciente sin saber en qué estado está lo que lee.
+    El padre (Ingrediente.cshtml) ya lo invoca dentro de @if (…Nota != null), así que sin nota no sale nada.
 *@
-@if (Model != null && Model.Any())
-{
+@{
+    var hayValidacionProfesional = Model != null && Model.Any();
+
     @* Un solo encabezado "Validado por"; luego las filas. Las que tienen nombre aprobado se pintan
        como {Titulo} {Nombre} + especialidad.
 
@@ -16,19 +18,32 @@
                            como "Profesional verificado", así que la regla de identidad no cambia:
                            el nombre real sigue saliendo solo con badge.
        - SIN comentario  → se resumen en UNA línea de conteo; una fila vacía por cada uno no aporta nada. *@
-    var conNombre = Model.Where(v => v.TieneNombre).ToList();
-    var anonimos  = Model.Where(v => !v.TieneNombre).ToList();
+    var conNombre = hayValidacionProfesional ? Model!.Where(v => v.TieneNombre).ToList() : new();
+    var anonimos  = hayValidacionProfesional ? Model!.Where(v => !v.TieneNombre).ToList() : new();
     var anonimosConComentario = anonimos.Where(v => !string.IsNullOrWhiteSpace(v.Comentario)).ToList();
     var anonimosSinComentario = anonimos.Count - anonimosConComentario.Count;
+}
 
     <div class="validaciones-profesionales mt-3 mb-4">
+        @* Sin validaciones el encabezado se neutraliza: sello verde solo para lo validado. *@
         <div class="validaciones-profesionales__header">
-            <div class="validaciones-profesionales__header-icon">
-                <i class="bi bi-patch-check-fill"></i>
+            <div class="validaciones-profesionales__header-icon@(hayValidacionProfesional ? "" : " validaciones-profesionales__header-icon--vacio")">
+                <i class="bi @(hayValidacionProfesional ? "bi-patch-check-fill" : "bi-patch-check")"></i>
             </div>
-            <h4 class="validaciones-profesionales__title">Validado por Profesionales de la Salud</h4>
+            <h4 class="validaciones-profesionales__title">
+                @(hayValidacionProfesional
+                    ? "Validado por Profesionales de la Salud"
+                    : "Validación de profesionales de la salud")
+            </h4>
         </div>
         <div class="validaciones-profesionales__body">
+            @* Estado vacío: informativo, nunca un sello. Mismo texto y mismo estilo que en
+               Pages/Glosario/Termino.cshtml — se lee igual en los tres contextos. *@
+            @if (!hayValidacionProfesional)
+            {
+                <p class="mb-0 small text-muted fst-italic">Este contenido aún no ha sido validado por profesionales de la salud.</p>
+            }
+
             @foreach (var v in conNombre)
             {
                 <div class="validacion-item">
@@ -106,4 +121,3 @@
             }
         </div>
     </div>
-}
