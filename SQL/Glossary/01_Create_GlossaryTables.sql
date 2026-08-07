@@ -82,12 +82,14 @@ BEGIN
     PRINT '✓ Índice IX_GlossaryTerm_TipoTermino creado';
 END
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_GlossaryTermMedicalLink_GlossaryTermId')
+-- UNIQUE, no simple: el modelo EF trata MedicalLink como navegación 1:1, así que
+-- un término con dos links deja la definición al azar. Lo garantiza la base.
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'UQ_GlossaryTermMedicalLink_Term')
 BEGIN
-    CREATE INDEX IX_GlossaryTermMedicalLink_GlossaryTermId 
+    CREATE UNIQUE INDEX UQ_GlossaryTermMedicalLink_Term
         ON [dbo].[GlossaryTermMedicalLink]([GlossaryTermId]);
-    
-    PRINT '✓ Índice IX_GlossaryTermMedicalLink_GlossaryTermId creado';
+
+    PRINT '✓ Índice UQ_GlossaryTermMedicalLink_Term creado';
 END
 
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_GlossaryTermMedicalLink_SintomaId')

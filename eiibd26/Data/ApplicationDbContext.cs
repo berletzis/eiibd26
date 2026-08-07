@@ -504,6 +504,18 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
              .OnDelete(DeleteBehavior.SetNull);
         });
 
+        // ⭐ GLOSSARY MEDICAL LINK: un término enlaza a UNA entidad médica.
+        // GlossaryTerm.MedicalLink es navegación de referencia, así que con dos filas
+        // por término EF tomaba una sin orden definido y el término podía rendir la
+        // definición vacía. El índice único lo garantiza en la base — ya creado en
+        // producción por SQL/dedupe-glossarytermmedicallink-unique.sql.
+        builder.Entity<eiibd26.Models.Glossary.GlossaryTermMedicalLink>(b =>
+        {
+            b.HasIndex(l => l.GlossaryTermId)
+             .IsUnique()
+             .HasDatabaseName("UQ_GlossaryTermMedicalLink_Term");
+        });
+
         // ⭐ GLOSSARY VALIDATION: validaciones humanas acumulativas
         builder.Entity<eiibd26.Models.Glossary.GlossaryValidation>(b =>
         {

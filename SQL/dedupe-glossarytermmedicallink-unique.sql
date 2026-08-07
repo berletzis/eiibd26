@@ -90,3 +90,15 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes
                  AND object_id = OBJECT_ID('dbo.GlossaryTermMedicalLink'))
     CREATE UNIQUE INDEX UQ_GlossaryTermMedicalLink_Term
         ON dbo.GlossaryTermMedicalLink (GlossaryTermId);
+
+/* ---------- Paso 5 · Quitar el índice no único, ya redundante ----------
+   IX_GlossaryTermMedicalLink_GlossaryTermId indexaba la MISMA columna sin ser
+   único: el UNIQUE de arriba sirve los mismos seeks, así que mantenerlo solo
+   agrega mantenimiento en cada escritura. Ninguna consulta de la app lo
+   referencia por nombre (no hay hints WITH (INDEX...)).
+   Corrido en producción el 2026-08-06. Los scripts de SQL/Glossary/ ya crean
+   el UNIQUE en su lugar, así que un install limpio no lo vuelve a traer.      */
+IF EXISTS (SELECT 1 FROM sys.indexes
+           WHERE name = 'IX_GlossaryTermMedicalLink_GlossaryTermId'
+             AND object_id = OBJECT_ID('dbo.GlossaryTermMedicalLink'))
+    DROP INDEX IX_GlossaryTermMedicalLink_GlossaryTermId ON dbo.GlossaryTermMedicalLink;

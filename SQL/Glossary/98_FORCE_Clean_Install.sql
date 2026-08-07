@@ -82,7 +82,8 @@ PRINT '✓ Tabla GlossaryTermMedicalLink creada';
 -- Índices
 CREATE UNIQUE INDEX IX_GlossaryTerm_Slug ON [dbo].[GlossaryTerm]([Slug]);
 CREATE INDEX IX_GlossaryTerm_TipoTermino ON [dbo].[GlossaryTerm]([TipoTermino]) INCLUDE ([Activo]);
-CREATE INDEX IX_GlossaryTermMedicalLink_GlossaryTermId ON [dbo].[GlossaryTermMedicalLink]([GlossaryTermId]);
+-- UNIQUE: el modelo EF trata MedicalLink como navegación 1:1 (ver dedupe-glossarytermmedicallink-unique.sql)
+CREATE UNIQUE INDEX UQ_GlossaryTermMedicalLink_Term ON [dbo].[GlossaryTermMedicalLink]([GlossaryTermId]);
 CREATE INDEX IX_GlossaryTermMedicalLink_SintomaId ON [dbo].[GlossaryTermMedicalLink]([SintomaId]) WHERE SintomaId IS NOT NULL;
 CREATE INDEX IX_GlossaryTermMedicalLink_TratamientoId ON [dbo].[GlossaryTermMedicalLink]([TratamientoId]) WHERE TratamientoId IS NOT NULL;
 PRINT '✓ Índices creados';
