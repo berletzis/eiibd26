@@ -992,8 +992,11 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
         builder.Entity<eiibd26.Models.Platillos.PlatNotaClinica>(b =>
         {
             b.ToTable("PlatNotaClinica");
-            // Espeja UQ_PlatNotaClinica_Destino: una nota por (tipo, destino).
-            b.HasIndex(x => new { x.TipoDestino, x.DestinoId }).IsUnique();
+            // Espeja UQ_PlatNotaClinica_Destino: una nota por (destino, TIPO DE NOTA).
+            // TipoNota va en la clave a propósito: sin él, una Precaución de seguridad no se
+            // podía guardar en un destino que ya tuviera nota de Tolerancia. Ver
+            // SQL/alter-platnotaclinica-unique-tiponota.sql (ya corrido en producción).
+            b.HasIndex(x => new { x.TipoDestino, x.DestinoId, x.TipoNota }).IsUnique();
         });
 
         builder.Entity<eiibd26.Models.Platillos.PlatNotaSeccion>(b =>
