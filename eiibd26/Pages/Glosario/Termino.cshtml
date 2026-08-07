@@ -548,9 +548,9 @@ else
                                             .Where(c => c.RelationType == level && !string.IsNullOrWhiteSpace(c.Comment))
                                             .ToList();
                                         var humanCount = humanComments.Count;
-                                        var showMeaningHere = isTop && counts.MeaningComments.Any();
                                         var showNina = isAiLevel && !string.IsNullOrWhiteSpace(counts.AiReasoning);
-                                        var totalHuman = humanCount + (showMeaningHere ? counts.MeaningComments.Count : 0);
+                                        // Solo relación: la descripción vive abajo, en "Validado por Profesionales de la Salud".
+                                        var totalHuman = humanCount;
                                     }
 
                                     @* NINA va primero si hay menos de 3 validaciones de médicos; pasa al final con 3 o más *@
@@ -583,23 +583,7 @@ else
                                         </div>
                                     }
 
-                                    @* 2. Comentarios de validación de DESCRIPCIÓN (tipo 1) — en el nivel top *@
-                                    @if (showMeaningHere)
-                                    {
-                                        @foreach (var mc in counts.MeaningComments)
-                                        {
-                                            <div class="d-flex gap-2 align-items-start p-2 rounded mb-2"
-                                                 style="background:#f8fafc;">
-                                                <i class="bi bi-person-badge-fill text-primary mt-1" style="font-size:1rem;"></i>
-                                                <div class="small">
-                                                    <span class="badge bg-primary-subtle text-primary mb-1" style="font-size:.65rem;">Validó descripción</span>
-                                                    <p class="mb-0 text-dark">@mc</p>
-                                                </div>
-                                            </div>
-                                        }
-                                    }
-
-                                    @* 3. NINA al final cuando hay 3 o más validaciones de médicos *@
+                                    @* 2. NINA al final cuando hay 3 o más validaciones de médicos *@
                                     @if (showNina && totalHuman >= 3)
                                     {
                                         <div class="d-flex gap-2 align-items-start p-2 rounded mb-2 mt-1"
@@ -612,8 +596,8 @@ else
                                         </div>
                                     }
 
-                                    @* 4. Placeholder si no hay absolutamente nada *@
-                                    @if (humanCount == 0 && !showMeaningHere && !showNina)
+                                    @* 3. Placeholder si no hay absolutamente nada *@
+                                    @if (humanCount == 0 && !showNina)
                                     {
                                         <p class="mb-0 small text-muted fst-italic">Sin comentarios clínicos aún para este nivel.</p>
                                     }
@@ -633,39 +617,46 @@ else
                 @* Validaciones de médicos — ANTES de artículos *@
                 @{
                     var tieneMeaning  = counts.MeaningValidationCount > 0;
-                    var tieneRelacion = counts.RelationConsensus.Any(r => r.Count > 0);
-                    var tieneComentariosRelacion = counts.ComentariosMedicos.Any(c => !string.IsNullOrWhiteSpace(c.Comment));
                     var hayValidacionesPublicas = Model.ValidacionesPublicas.Any();
 
-                    // ¿Hay validación de un PROFESIONAL? Solo cuentan las señales que salen de la tabla
-                    // de validaciones profesionales. OJO: tieneRelacion NO entra — el consenso de relación
-                    // suma el voto de NINA, así que un término solo con relación de IA no lo validó nadie.
-                    // Por eso el bloque podía salir con el título y el cuerpo en blanco.
-                    var hayValidacionProfesional = hayValidacionesPublicas
-                                                || tieneComentariosRelacion
-                                                || tieneMeaning
-                                                || counts.MeaningComments.Any();
+                    // Corte limpio: este bloque es SOLO de descripción — la relación se pinta arriba,
+                    // dentro del acordeón de su propio nivel. Por eso el estado (sello o leyenda) se
+                    // decide únicamente con señales de DESCRIPCIÓN: el consenso de relación NO entra
+                    // (suma el voto de NINA, así que un término con relación de IA no lo validó nadie)
+                    // ni los comentarios de relación (ya se ven arriba y no dicen nada de la descripción).
+                    var hayDescripcionValidada = hayValidacionesPublicas
+                                              || counts.MeaningComments.Any()
+                                              || tieneMeaning;
                 }
-                @if (tieneMeaning || tieneRelacion || tieneComentariosRelacion || hayValidacionesPublicas)
+                @* El bloque sale también en vacío, para que el término avise "aún no validada" igual que
+                   el sello de ingredientes. El gate va por CONTENIDO, no por objeto: con la definición
+                   pendiente de generar (DescripcionIA en blanco) no hay descripción que validar todavía,
+                   y anunciarlo confundiría — ahí el bloque se mantiene oculto, igual que sin definición. *@
+                @if (hayDescripcionValidada
+                     || (Model.Term.DefinicionMedica != null
+                         && !string.IsNullOrWhiteSpace(Model.Term.DefinicionMedica.DescripcionIA)))
                 {
                     <div class="validaciones-profesionales mt-4 mb-4">
-                        @* Sin validaciones el encabezado se neutraliza: sello verde solo para lo validado. *@
+                        @* Sin validación de descripción el encabezado se neutraliza: sello verde solo para lo validado. *@
                         <div class="validaciones-profesionales__header">
-                            <div class="validaciones-profesionales__header-icon@(hayValidacionProfesional ? "" : " validaciones-profesionales__header-icon--vacio")">
-                                <i class="bi @(hayValidacionProfesional ? "bi-patch-check-fill" : "bi-patch-check")"></i>
+                            <div class="validaciones-profesionales__header-icon@(hayDescripcionValidada ? "" : " validaciones-profesionales__header-icon--vacio")">
+                                <i class="bi @(hayDescripcionValidada ? "bi-patch-check-fill" : "bi-patch-check")"></i>
                             </div>
                             <h4 class="validaciones-profesionales__title">
-                                @(hayValidacionProfesional
+                                @(hayDescripcionValidada
                                     ? "Validado por Profesionales de la Salud"
                                     : "Validación de profesionales de la salud")
                             </h4>
                         </div>
                         <div class="validaciones-profesionales__body">
-                        @if (!hayValidacionProfesional)
+                        @if (!hayDescripcionValidada)
                         {
-                            @* Estado vacío: informativo, nunca un sello. Mismo texto y mismo estilo que en
-                               _NotaSello.cshtml (ingredientes) — se lee igual en los tres contextos. *@
-                            <p class="mb-0 small text-muted fst-italic">Este contenido aún no ha sido validado por profesionales de la salud.</p>
+                            @* Estado vacío: informativo, nunca un sello. Copy ACOTADO a la descripción —
+                               divergencia intencional con _NotaSello.cshtml (ingredientes, un solo eje):
+                               aquí el texto genérico chocaría con una validación de relación visible
+                               arriba. La consistencia con ingredientes es de COMPORTAMIENTO (ambos
+                               muestran su estado vacío), no de texto literal. *@
+                            <p class="mb-0 small text-muted fst-italic">La descripción de este término aún no ha sido validada por un profesional.</p>
                         }
                         else
                         {
@@ -715,27 +706,6 @@ else
                                 <p class="small mb-2" style="color:var(--eii-text-soft);">
                                     @counts.MeaningValidationCount médico@(counts.MeaningValidationCount != 1 ? "s" : "") validaron la descripción de este término.
                                 </p>
-                            }
-
-                            @* Comentarios de RelationValidation (tipo 2). Igual que arriba: sin nombre aprobado
-                               se oculta también la cara — nombre y foto van juntos, gateados por el badge. *@
-                            @foreach (var val in counts.ComentariosMedicos.Where(c => !string.IsNullOrWhiteSpace(c.Comment)))
-                            {
-                                <div class="validacion-item">
-                                    <img src="@(val.TieneNombre ? (val.AvatarUrl ?? "/img/default-avatar.png") : "/img/default-avatar.png")" alt="@val.UserDisplay"
-                                         class="validacion-avatar" loading="lazy" decoding="async"
-                                         onerror="this.onerror=null;this.src='/img/default-avatar.png';" />
-                                    <div>
-                                        <div class="validacion-name">@val.UserDisplay
-                                            @if (val.RelationType.HasValue)
-                                            {
-                                                <span class="validacion-badge">@val.RelationType.Value.ToString()</span>
-                                            }
-                                        </div>
-                                        <p class="validacion-comment mb-0">"@val.Comment"</p>
-                                        <span class="validacion-date">@val.CreatedAt.ToString("MMMM yyyy")</span>
-                                    </div>
-                                </div>
                             }
                         }
                         </div>
