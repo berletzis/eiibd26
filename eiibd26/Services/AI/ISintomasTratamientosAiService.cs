@@ -18,6 +18,26 @@ namespace eiibd26.Services.AI
         /// </summary>
         Task<(string Descripcion, bool RelacionEII, string? NombreTraducido)> GenerarDescripcionTratamientoAsync(string nombreTratamiento, CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// Triage de limpieza (eje 1): decide si el registro es una intervención terapéutica
+        /// real (Válido), ruido heredado (Basura) o ambiguo (Dudoso → revisión humana).
+        /// NO decide relación con EII: un procedimiento real sin relación con EII es Válido.
+        /// Sesgo a conservar — ante la duda devuelve Dudoso, nunca Basura.
+        /// </summary>
+        /// <returns>
+        /// Estado según <see cref="Models.TriageLimpieza"/>, confianza 0–1, motivo breve, y —
+        /// si la IA la ofrece — el nivel de relación con EII y su razonamiento (eje 2).
+        /// </returns>
+        /// <remarks>
+        /// A diferencia de los generadores de descripción, este método NO escribe las
+        /// propiedades <c>Ultimo*</c>: devuelve todo en la tupla para no pisar el estado
+        /// que el controller lee después de generar una descripción.
+        /// </remarks>
+        Task<(byte Estado, double Confianza, string Motivo, MedicalRelationType? Nivel, string? Razonamiento)> ClasificarTratamientoAsync(
+            string nombre,
+            string? descripcionExistente,
+            CancellationToken cancellationToken = default);
+
         /// <summary>Última explicación de relación con EII generada</summary>
         string UltimaExplicacionEII { get; }
 

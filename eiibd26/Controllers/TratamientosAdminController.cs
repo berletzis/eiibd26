@@ -382,6 +382,244 @@ namespace eiibd26.Controllers
             }
         }
 
+        /// <summary>Confianza mínima para que la IA pueda desactivar por su cuenta.</summary>
+        private const double UmbralDesactivacion = 0.85;
+
+        /// <summary>
+        /// Triage de limpieza con NINA — clasifica los siguientes N tratamientos sin revisar.
+        /// POST /api/admin/tratamientos/batch-review
+        /// </summary>
+        /// <remarks>
+        /// No recibe Skip: reanuda solo, filtrando por <c>RevisionLimpiezaEstado IS NULL</c>.
+        /// Con <c>DryRun = true</c> (default) NO toca <c>Eliminado</c> de nadie ni genera
+        /// descripciones: únicamente estampa el sello de clasificación.
+        /// </remarks>
+        [HttpPost("batch-review")]
+        public async Task<IActionResult> BatchReview([FromBody] BatchReviewRequest request, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var take = Math.Clamp(request.Take, 1, 1000);
+                var resultados = new List<BatchReviewItem>();
+
+                var pendientes = await _db.tratamientos
+                    .Where(t => !t.Eliminado && t.RevisionLimpiezaEstado == null)
+                    .OrderBy(t => t.id)
+                    .Take(take)
+                    .ToListAsync(cancellationToken);
+
+                _logger.LogInformation(
+                    "Triage NINA: {Count} tratamientos, DryRun={DryRun}", pendientes.Count, request.DryRun);
+
+                // Protegidos: validados por un humano o con pacientes usándolos hoy.
+                // No son basura por definición — no se les gasta una llamada a la IA.
+                var idsLote = pendientes.Select(t => t.id).ToList();
+                var conUsuariosActivos = await _db.tratamientoUsuario
+                    .Where(tu => tu.idTratamiento != null
+                              && idsLote.Contains(tu.idTratamiento!.Value)
+                              && !tu.Eliminado)
+                    .Select(tu => tu.idTratamiento!.Value)
+                    .Distinct()
+                    .ToListAsync(cancellationToken);
+                var setUsuariosActivos = conUsuariosActivos.ToHashSet();
+
+                // Nodos padre con hijos activos: son la estructura del catálogo, no registros
+                // sueltos. Desactivar uno deja a sus hijos colgando. El borrado manual ya lo
+                // impide (OnPostEliminarTratamientoAsync); el lote debe respetar la misma regla.
+                var conHijosActivos = await _db.tratamientos
+                    .Where(h => h.idPadre != null && idsLote.Contains(h.idPadre!.Value) && !h.Eliminado)
+                    .Select(h => h.idPadre!.Value)
+                    .Distinct()
+                    .ToListAsync(cancellationToken);
+                var setConHijosActivos = conHijosActivos.ToHashSet();
+
+                foreach (var tratamiento in pendientes)
+                {
+                    try
+                    {
+                        var protegidoPorHumano   = tratamiento.ValidadoHumano;
+                        var protegidoPorUsuarios = setUsuariosActivos.Contains(tratamiento.id);
+
+                        if (protegidoPorHumano || protegidoPorUsuarios)
+                        {
+                            var motivoProteccion = protegidoPorHumano
+                                ? "Validado por un humano — se conserva sin consultar a la IA."
+                                : "Pacientes lo tienen registrado hoy — se conserva sin consultar a la IA.";
+
+                            tratamiento.RevisionLimpiezaEstado    = (byte)TriageLimpieza.Valido;
+                            tratamiento.RevisionLimpiezaConfianza = 1m;
+                            tratamiento.RevisionLimpiezaMotivo    = motivoProteccion;
+                            tratamiento.RevisionLimpiezaFecha     = DateTime.UtcNow;
+                            await _db.SaveChangesAsync(cancellationToken);
+
+                            resultados.Add(new BatchReviewItem
+                            {
+                                Id        = tratamiento.id,
+                                Nombre    = tratamiento.nombre ?? "Sin nombre",
+                                Estado    = (byte)TriageLimpieza.Valido,
+                                Confianza = 1d,
+                                Motivo    = motivoProteccion,
+                                Protegido = true,
+                                Success   = true
+                            });
+                            continue;
+                        }
+
+                        if (string.IsNullOrWhiteSpace(tratamiento.nombre))
+                        {
+                            // Sin nombre no hay nada que clasificar, pero tampoco se desactiva solo.
+                            tratamiento.RevisionLimpiezaEstado = (byte)TriageLimpieza.Dudoso;
+                            tratamiento.RevisionLimpiezaMotivo = "El registro no tiene nombre — requiere revisión humana.";
+                            tratamiento.RevisionLimpiezaFecha  = DateTime.UtcNow;
+                            await _db.SaveChangesAsync(cancellationToken);
+
+                            resultados.Add(new BatchReviewItem
+                            {
+                                Id      = tratamiento.id,
+                                Nombre  = "Sin nombre",
+                                Estado  = (byte)TriageLimpieza.Dudoso,
+                                Motivo  = "El registro no tiene nombre — requiere revisión humana.",
+                                Success = true
+                            });
+                            continue;
+                        }
+
+                        var (estado, confianza, motivo, nivel, razonamiento) =
+                            await _aiService.ClasificarTratamientoAsync(
+                                tratamiento.nombre, tratamiento.DescripcionIA, cancellationToken);
+
+                        tratamiento.RevisionLimpiezaEstado    = estado;
+                        tratamiento.RevisionLimpiezaConfianza = (decimal)confianza;
+                        tratamiento.RevisionLimpiezaMotivo    = motivo;
+                        tratamiento.RevisionLimpiezaFecha     = DateTime.UtcNow;
+
+                        var desactivado = false;
+
+                        var esPadreConHijos = setConHijosActivos.Contains(tratamiento.id);
+
+                        if (estado == (byte)TriageLimpieza.Basura)
+                        {
+                            if (esPadreConHijos)
+                            {
+                                // Se conserva el veredicto para que el humano lo vea en el bucket,
+                                // pero la IA NO puede desactivar un nodo del que cuelgan otros.
+                                tratamiento.RevisionLimpiezaMotivo =
+                                    $"[nodo padre con hijos activos, no desactivado] {motivo}";
+                                if (tratamiento.RevisionLimpiezaMotivo.Length > 400)
+                                    tratamiento.RevisionLimpiezaMotivo = tratamiento.RevisionLimpiezaMotivo[..400];
+                            }
+                            else if (!request.DryRun && confianza >= UmbralDesactivacion)
+                            {
+                                tratamiento.Eliminado       = true;
+                                tratamiento.fechaEliminado  = DateTime.Now.Date;
+                                tratamiento.fechaModificado = DateTime.Now;
+                                desactivado = true;
+                            }
+                            else if (!request.DryRun)
+                            {
+                                // Basura por debajo del umbral: queda en el bucket para que lo vea
+                                // un humano, pero la IA no lo desactiva sola.
+                                tratamiento.RevisionLimpiezaMotivo =
+                                    $"[confianza {confianza:0.00} < {UmbralDesactivacion:0.00}, no desactivado] {motivo}";
+                                if (tratamiento.RevisionLimpiezaMotivo.Length > 400)
+                                    tratamiento.RevisionLimpiezaMotivo = tratamiento.RevisionLimpiezaMotivo[..400];
+                            }
+                        }
+
+                        await _db.SaveChangesAsync(cancellationToken);
+
+                        // Enriquecimiento (descripción + nivel de relación) SOLO fuera de dry-run:
+                        // el dry-run se limita al sello de clasificación, y describir cuesta otra
+                        // llamada por registro.
+                        var descripcionGenerada = false;
+                        if (!request.DryRun
+                            && estado == (byte)TriageLimpieza.Valido
+                            && string.IsNullOrWhiteSpace(tratamiento.DescripcionIA))
+                        {
+                            try
+                            {
+                                var (descripcion, relacionEII, nombreTraducido) =
+                                    await _aiService.GenerarDescripcionTratamientoAsync(tratamiento.nombre, cancellationToken);
+
+                                if (!string.IsNullOrWhiteSpace(nombreTraducido) &&
+                                    !nombreTraducido.Equals(tratamiento.nombre, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    tratamiento.NombreSugeridoIA = nombreTraducido;
+                                }
+
+                                tratamiento.DescripcionIA          = descripcion;
+                                tratamiento.ValidadoIA             = true;
+                                tratamiento.RelacionEII            = relacionEII;
+                                tratamiento.RelacionEIIDescripcion = _aiService.UltimaExplicacionEII;
+                                tratamiento.Fuentes                = _aiService.UltimasFuentes;
+                                tratamiento.FechaActualizacionIA   = DateTime.UtcNow;
+                                tratamiento.fechaModificado        = DateTime.Now;
+
+                                await _db.SaveChangesAsync(cancellationToken);
+                                await PropagateToGlossaryTermAsync(tratamiento.id, cancellationToken);
+                                descripcionGenerada = true;
+                            }
+                            catch (Exception exDesc)
+                            {
+                                // Que falle el enriquecimiento no invalida la clasificación ya guardada.
+                                _logger.LogWarning(exDesc,
+                                    "Triage OK pero falló la descripción de {Id}: {Nombre}", tratamiento.id, tratamiento.nombre);
+                            }
+                        }
+
+                        resultados.Add(new BatchReviewItem
+                        {
+                            Id                  = tratamiento.id,
+                            Nombre              = tratamiento.nombre,
+                            Estado              = estado,
+                            Confianza           = confianza,
+                            Motivo              = tratamiento.RevisionLimpiezaMotivo ?? motivo,
+                            Nivel               = nivel?.ToString(),
+                            Razonamiento        = razonamiento,
+                            Desactivado         = desactivado,
+                            DescripcionGenerada = descripcionGenerada,
+                            Success             = true
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error al clasificar tratamiento {Id}: {Nombre}", tratamiento.id, tratamiento.nombre);
+                        resultados.Add(new BatchReviewItem
+                        {
+                            Id      = tratamiento.id,
+                            Nombre  = tratamiento.nombre ?? "Sin nombre",
+                            Success = false,
+                            Error   = ex.Message
+                        });
+                    }
+                }
+
+                var totalPendientes = await _db.tratamientos
+                    .CountAsync(t => !t.Eliminado && t.RevisionLimpiezaEstado == null, cancellationToken);
+
+                return Ok(new
+                {
+                    ok           = true,
+                    dryRun       = request.DryRun,
+                    umbral       = UmbralDesactivacion,
+                    procesados   = resultados.Count,
+                    validos      = resultados.Count(r => r.Success && r.Estado == (byte)TriageLimpieza.Valido),
+                    basura       = resultados.Count(r => r.Success && r.Estado == (byte)TriageLimpieza.Basura),
+                    dudosos      = resultados.Count(r => r.Success && r.Estado == (byte)TriageLimpieza.Dudoso),
+                    protegidos   = resultados.Count(r => r.Protegido),
+                    desactivados = resultados.Count(r => r.Desactivado),
+                    fallidos     = resultados.Count(r => !r.Success),
+                    pendientes   = totalPendientes,
+                    resultados
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en el triage de limpieza de tratamientos");
+                return StatusCode(500, new { ok = false, error = "Error en el triage: " + ex.Message });
+            }
+        }
+
         /// <summary>
         /// Busca el GlossaryTerm vinculado al tratamiento y actualiza nivel + razonamiento de NINA.
         /// </summary>
@@ -430,6 +668,33 @@ namespace eiibd26.Controllers
         {
             public int Skip { get; set; } = 0;
             public int Take { get; set; } = 10;
+        }
+
+        public class BatchReviewRequest
+        {
+            /// <summary>Cuántos registros sin revisar tomar. No hay Skip: reanuda solo.</summary>
+            public int Take { get; set; } = 10;
+
+            /// <summary>true = solo clasifica; NO desactiva a nadie ni genera descripciones.</summary>
+            public bool DryRun { get; set; } = true;
+        }
+
+        public class BatchReviewItem
+        {
+            public int Id { get; set; }
+            public string Nombre { get; set; } = "";
+            /// <summary>1 = Válido · 2 = Basura · 3 = Dudoso. 0 si falló.</summary>
+            public byte Estado { get; set; }
+            public double Confianza { get; set; }
+            public string? Motivo { get; set; }
+            public string? Nivel { get; set; }
+            public string? Razonamiento { get; set; }
+            /// <summary>Conservado sin consultar a la IA (validado por humano o con usuarios activos).</summary>
+            public bool Protegido { get; set; }
+            public bool Desactivado { get; set; }
+            public bool DescripcionGenerada { get; set; }
+            public bool Success { get; set; }
+            public string? Error { get; set; }
         }
 
         public class BatchResultItem

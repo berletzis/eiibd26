@@ -43,6 +43,21 @@ namespace eiibd26.Models
 
         public DateTime? FechaActualizacionIA { get; set; }
 
+        // ===== TRIAGE DE LIMPIEZA (NINA) =====
+        // Eje 1 — ¿es un tratamiento de verdad? Independiente de la relación con EII (eje 2):
+        // un procedimiento real sin relación con EII es Válido, no basura.
+        // NULL = no revisado · 1 = Válido · 2 = Basura · 3 = Dudoso (cola humana).
+        [Display(Name = "Triage de limpieza")]
+        public byte? RevisionLimpiezaEstado { get; set; }
+
+        /// <summary>Confianza 0–1 de la clasificación. Solo se desactiva por encima del umbral.</summary>
+        public decimal? RevisionLimpiezaConfianza { get; set; }
+
+        [StringLength(400)]
+        public string? RevisionLimpiezaMotivo { get; set; }
+
+        public DateTime? RevisionLimpiezaFecha { get; set; }
+
         // ===== CAMPOS EXISTENTES =====
         public DateTime fechaEliminado { get; set; }
         public DateTime fechaModificado { get; set; }

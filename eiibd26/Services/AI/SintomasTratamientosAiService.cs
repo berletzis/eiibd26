@@ -124,6 +124,215 @@ Cuando describas la relación con EII:
             return await CallClaudeApiTratamientoAsync(systemPrompt, userPrompt, cancellationToken);
         }
 
+        /// <summary>Modelo económico fijo para el triage. Clasificar es barato y de alto volumen
+        /// (~10k registros): no se deja al azar de la configuración general.</summary>
+        private const string ModelHaikuClasificacion = "claude-haiku-4-5-20251001";
+
+        public async Task<(byte Estado, double Confianza, string Motivo, MedicalRelationType? Nivel, string? Razonamiento)> ClasificarTratamientoAsync(
+            string nombre,
+            string? descripcionExistente,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(nombre))
+                throw new ArgumentException("El nombre del tratamiento no puede estar vacío", nameof(nombre));
+
+            var systemPrompt = BuildTriageSystemPrompt();
+
+            var contexto = string.IsNullOrWhiteSpace(descripcionExistente)
+                ? "(sin descripción previa)"
+                : descripcionExistente.Length > 600 ? descripcionExistente[..600] : descripcionExistente;
+
+            var userPrompt = $@"Clasifica este registro del catálogo de tratamientos.
+
+NOMBRE: {nombre}
+DESCRIPCIÓN EXISTENTE: {contexto}
+
+OJO con la descripción existente: fue generada por IA sin filtrar basura, así que un
+registro-ruido puede traer una descripción que lo hace ver legítimo. Clasifica por el
+NOMBRE; la descripción es solo contexto.
+
+Responde ÚNICAMENTE con este JSON, sin texto alrededor ni markdown:
+{{""estado"":""valido|basura|dudoso"",""confianza"":0.0,""motivo"":""máx 200 caracteres"",""nivel_eii"":""directa|indirecta|secundaria|ninguna"",""razonamiento"":""máx 200 caracteres o vacío""}}";
+
+            var json = await CallClaudeJsonAsync(systemPrompt, userPrompt, cancellationToken);
+            return ParseTriageResponse(json, nombre);
+        }
+
+        private string BuildTriageSystemPrompt()
+        {
+            return @"Eres un clasificador de catálogos médicos. Depuras un catálogo de tratamientos
+que durante años recibió altas libres de pacientes, así que arrastra ruido.
+
+Debes decidir DOS cosas independientes. No las mezcles:
+
+EJE 1 — ¿Es un tratamiento de verdad? (esto es lo que decide el campo 'estado')
+EJE 2 — ¿Qué relación tiene con la EII? (esto va en 'nivel_eii' y NO influye en el eje 1)
+
+REGLA CENTRAL: un tratamiento real que NO tiene nada que ver con la EII sigue siendo
+VÁLIDO. La falta de relación con EII jamás lo convierte en basura.
+
+RÚBRICA DEL EJE 1 — tres salidas posibles:
+
+VALIDO — es una intervención con intención terapéutica o de manejo de una condición de
+salud: sustancia, medicamento, suplemento, cirugía, procedimiento, terapia, técnica,
+actividad física, cambio de hábito o de dieta, terapia complementaria.
+Ejemplos: 'Proctectomía', 'Aceite de árnica', 'Caminar 2.5-3 millas', 'Stent ureteral',
+'Fusión lumbar', 'Prednisona', 'Dieta baja en FODMAP'.
+
+BASURA — NO es una intervención terapéutica:
+· recordatorios y alarmas de notificación ('Alarmas')
+· nombres o códigos de ensayo clínico ('SF-1019', 'Estudio Serono', 'IBS-D IRIS-3')
+· productos de consumo, alimentos y cosméticos sin uso terapéutico
+  ('Melocotón Vla', 'Gel Limpiador de Kombucha', 'Ropa interior sin costuras')
+· texto sin sentido o palabras sueltas sin significado clínico ('ESTRELLA')
+· títulos de libro
+· actividades genéricas que no son tratamiento ('Visita al doctor')
+
+DUDOSO — ambiguo; lo revisa un humano:
+· servicios o roles profesionales ('Consultor ortopedista', 'Servicios de transporte')
+· pruebas diagnósticas ('GeneSight') — diagnostican, no tratan, pero están cerca
+· actividades de OCIO, BIENESTAR o APRENDIZAJE reportadas por pacientes
+  ('Dar regalos', 'Tejido de punto', 'Estudiar idiomas', 'Cantar'): el paciente las
+  reportó porque le hacen bien. SIEMPRE 'dudoso', NUNCA 'basura', por muy seguro que
+  estés de que no es un tratamiento. Distínguelas de los recordatorios y alarmas.
+· DISPOSITIVOS y herramientas de monitoreo, protección o apoyo
+  ('Monitor de presión arterial', 'Guantes', órtesis, férulas): acompañan el manejo de
+  una condición aunque no traten por sí mismos. SIEMPRE 'dudoso', NUNCA 'basura'.
+  Distínguelos de los productos de consumo y cosméticos, que sí son basura.
+· CATEGORÍAS o agrupadores del catálogo ('Medicamentos con Receta', 'Cirugía',
+  'Terapias Alternativas'): no son un tratamiento concreto, pero tampoco son ruido —
+  organizan el catálogo y otros registros cuelgan de ellos. Nunca son 'basura'.
+
+SESGO OBLIGATORIO A CONSERVAR: ante cualquier duda responde 'dudoso', NUNCA 'basura'.
+'basura' se reserva para casos donde estarías dispuesto a defender la decisión.
+Marcar de más como basura desactiva tratamientos reales de pacientes: es el error caro.
+Marcar de más como dudoso solo cuesta trabajo humano: es el error barato.
+
+CONFIANZA: número entre 0 y 1 que refleja qué tan seguro estás del 'estado'. Si dudas,
+baja la confianza — no cambies 'basura' por una confianza alta inventada.
+
+EJE 2 — 'nivel_eii' (independiente, no afecta 'estado'):
+· directa: aprobado o indicado específicamente para la EII
+· indirecta: usado con frecuencia en EII pero no exclusivo
+· secundaria: maneja efectos secundarios o complicaciones del tratamiento de la EII
+· ninguna: sin relación documentada con EII, o el registro es basura
+
+Respondes SIEMPRE con un único objeto JSON válido y nada más.";
+        }
+
+        /// <summary>
+        /// Llamada a Claude que espera JSON de vuelta. Separada de <see cref="CallClaudeApiAsync"/>
+        /// porque el triage no debe pasar por el parser de descripciones (RELACIÓN EII / FUENTES /…)
+        /// ni escribir el estado <c>_last*</c>.
+        /// </summary>
+        private async Task<string> CallClaudeJsonAsync(
+            string systemPrompt,
+            string userPrompt,
+            CancellationToken cancellationToken)
+        {
+            if (!_config.Enabled)
+                throw new InvalidOperationException("El servicio de IA está deshabilitado");
+
+            if (string.IsNullOrWhiteSpace(_config.AnthropicApiKey))
+                throw new InvalidOperationException("La clave API de Anthropic no está configurada");
+
+            var requestBody = new
+            {
+                model = ModelHaikuClasificacion,
+                max_tokens = 400,
+                temperature = 0.0,   // clasificar es determinista, no creativo
+                system = systemPrompt,
+                messages = new[] { new { role = "user", content = userPrompt } }
+            };
+
+            var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+            var response = await _httpClient.PostAsync("messages", content, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogError("Error en Claude API (triage): {StatusCode} - {Error}", response.StatusCode, errorContent);
+                throw new HttpRequestException($"Error en API de Claude: {response.StatusCode}");
+            }
+
+            var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+            var responseData = JsonSerializer.Deserialize<ClaudeApiResponse>(responseContent);
+
+            if (responseData?.Content == null || responseData.Content.Length == 0)
+                throw new InvalidOperationException("La respuesta de la IA está vacía");
+
+            return responseData.Content[0].Text ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Parsea el JSON del triage. Cualquier respuesta que no se entienda cae en Dudoso:
+        /// un fallo de parseo nunca puede terminar desactivando un tratamiento.
+        /// </summary>
+        private (byte Estado, double Confianza, string Motivo, MedicalRelationType? Nivel, string? Razonamiento) ParseTriageResponse(
+            string fullText,
+            string nombre)
+        {
+            var match = Regex.Match(fullText ?? "", @"\{.*\}", RegexOptions.Singleline);
+            if (!match.Success)
+            {
+                _logger.LogWarning("Triage sin JSON parseable para '{Nombre}'. Respuesta: {Texto}", nombre, fullText);
+                return ((byte)eiibd26.Models.TriageLimpieza.Dudoso, 0d,
+                        "La IA no devolvió una clasificación legible — requiere revisión humana.", null, null);
+            }
+
+            try
+            {
+                using var doc = JsonDocument.Parse(match.Value);
+                var root = doc.RootElement;
+
+                var estadoRaw = root.TryGetProperty("estado", out var e) ? (e.GetString() ?? "") : "";
+                var estado = estadoRaw.Trim().ToLowerInvariant() switch
+                {
+                    "valido" or "válido" => eiibd26.Models.TriageLimpieza.Valido,
+                    "basura"             => eiibd26.Models.TriageLimpieza.Basura,
+                    _                    => eiibd26.Models.TriageLimpieza.Dudoso
+                };
+
+                double confianza = 0d;
+                if (root.TryGetProperty("confianza", out var c))
+                {
+                    if (c.ValueKind == JsonValueKind.Number) confianza = c.GetDouble();
+                    else if (c.ValueKind == JsonValueKind.String && double.TryParse(c.GetString(), out var cd)) confianza = cd;
+                }
+                confianza = Math.Clamp(confianza, 0d, 1d);
+
+                var motivo = root.TryGetProperty("motivo", out var m) ? (m.GetString() ?? "") : "";
+                motivo = motivo.Replace("**", "").Trim();
+                if (motivo.Length > 400) motivo = motivo[..400];
+
+                MedicalRelationType? nivel = root.TryGetProperty("nivel_eii", out var n)
+                    ? (n.GetString() ?? "").Trim().ToLowerInvariant() switch
+                    {
+                        "directa"    => MedicalRelationType.Directa,
+                        "indirecta"  => MedicalRelationType.Indirecta,
+                        "secundaria" => MedicalRelationType.Secundaria,
+                        _            => null
+                    }
+                    : null;
+
+                string? razonamiento = root.TryGetProperty("razonamiento", out var r) ? r.GetString() : null;
+                if (string.IsNullOrWhiteSpace(razonamiento)) razonamiento = null;
+                else if (razonamiento.Length > 500) razonamiento = razonamiento[..500];
+
+                _logger.LogInformation(
+                    "Triage '{Nombre}' → {Estado} (confianza {Confianza:0.00}) · nivel {Nivel}",
+                    nombre, estado, confianza, nivel?.ToString() ?? "ninguna");
+
+                return ((byte)estado, confianza, motivo, nivel, razonamiento);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Triage con JSON inválido para '{Nombre}'. Respuesta: {Texto}", nombre, fullText);
+                return ((byte)eiibd26.Models.TriageLimpieza.Dudoso, 0d,
+                        "La IA devolvió una clasificación malformada — requiere revisión humana.", null, null);
+            }
+        }
+
         private async Task<(string Descripcion, bool RelacionEII, string? NombreTraducido)> CallClaudeApiTratamientoAsync(
             string systemPrompt, 
             string userPrompt, 

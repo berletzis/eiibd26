@@ -1,4 +1,4 @@
-using eiibd26.Data;
+ï»¿using eiibd26.Data;
 using eiibd26.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
 {
-    // DTO simple para evitar problemas con tipos anónimos y dinámicos
+    // DTO simple para evitar problemas con tipos anÃ³nimos y dinÃ¡micos
     public class TratamientoGridItem
     {
         public int id { get; set; }
@@ -22,6 +22,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
         public bool ValidadoIA { get; set; }
         public bool ValidadoHumano { get; set; }
         public bool RelacionEII { get; set; }
+        /// <summary>Triage de limpieza: null = no revisado Â· 1 = VÃ¡lido Â· 2 = Basura Â· 3 = Dudoso.</summary>
+        public byte? RevisionLimpiezaEstado { get; set; }
+        public string? RevisionLimpiezaMotivo { get; set; }
     }
 
     public class IndexModel : PageModel
@@ -35,18 +38,18 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
         public void OnGet() { }
 
         /// <summary>POST shim so DataTables can send column metadata in the body instead of the query string, avoiding the IIS 2048-char query string limit.</summary>
-        public Task<IActionResult> OnPostGridDataAsync(bool mostrarEliminados = false)
-            => GridDataCoreAsync(mostrarEliminados);
+        public Task<IActionResult> OnPostGridDataAsync(bool mostrarEliminados = false, string? filtroTriage = null)
+            => GridDataCoreAsync(mostrarEliminados, filtroTriage);
 
-        public Task<IActionResult> OnGetGridDataAsync(bool mostrarEliminados = false)
-            => GridDataCoreAsync(mostrarEliminados);
+        public Task<IActionResult> OnGetGridDataAsync(bool mostrarEliminados = false, string? filtroTriage = null)
+            => GridDataCoreAsync(mostrarEliminados, filtroTriage);
 
         private string Param(string key)
             => Request.HasFormContentType && Request.Form.ContainsKey(key)
                 ? Request.Form[key].ToString()
                 : Request.Query[key].ToString();
 
-        private async Task<IActionResult> GridDataCoreAsync(bool mostrarEliminados = false)
+        private async Task<IActionResult> GridDataCoreAsync(bool mostrarEliminados = false, string? filtroTriage = null)
         {
             var draw = int.TryParse(Param("draw"), out var dVal) ? dVal : 1;
             var start = int.TryParse(Param("start"), out var sVal) ? sVal : 0;
@@ -58,11 +61,21 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
                 .AsNoTracking()
                 .Where(t => mostrarEliminados || !t.Eliminado);
 
-            // Aplicar búsqueda en SQL
+            // Aplicar bÃºsqueda en SQL
             if (!string.IsNullOrEmpty(searchValue))
             {
                 baseQuery = baseQuery.Where(t => t.nombre.Contains(searchValue));
             }
+
+            // Filtro por bucket del triage de limpieza. "dudoso" es la cola de trabajo humano.
+            baseQuery = filtroTriage switch
+            {
+                "norevisado" => baseQuery.Where(t => t.RevisionLimpiezaEstado == null),
+                "valido"     => baseQuery.Where(t => t.RevisionLimpiezaEstado == 1),
+                "basura"     => baseQuery.Where(t => t.RevisionLimpiezaEstado == 2),
+                "dudoso"     => baseQuery.Where(t => t.RevisionLimpiezaEstado == 3),
+                _            => baseQuery
+            };
 
             // Ahora proyectar al DTO
             var projectedQuery = baseQuery.Select(t => new TratamientoGridItem
@@ -75,7 +88,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
                 icono = t.icono ?? string.Empty,
                 ValidadoIA = t.ValidadoIA,
                 ValidadoHumano = t.ValidadoHumano,
-                RelacionEII = t.RelacionEII
+                RelacionEII = t.RelacionEII,
+                RevisionLimpiezaEstado = t.RevisionLimpiezaEstado,
+                RevisionLimpiezaMotivo = t.RevisionLimpiezaMotivo
             });
 
             // 1. Ejecutar la query y traer datos a memoria
@@ -85,7 +100,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
             var hijosConPadre = filtered.Where(x => x.idPadre != null).ToList();
             var padresFiltrados = filtered.Where(x => x.idPadre == null).ToList();
 
-            // 3. IDs de padres de esos hijos que no están ya dentro del filtro
+            // 3. IDs de padres de esos hijos que no estÃ¡n ya dentro del filtro
             var padresExtraIds = hijosConPadre
                 .Select(x => x.idPadre.Value)
                 .Distinct()
@@ -114,7 +129,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
                     .ToListAsync();
             }
 
-            // 5. Arma la jerarquía para la grilla:
+            // 5. Arma la jerarquÃ­a para la grilla:
             var resultado = new List<dynamic>();
             foreach (var padre in padresFiltrados.Concat(padresExtra).OrderBy(p => p.nombre))
             {
@@ -129,7 +144,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
                     eliminado = padre.Eliminado,
                     validadoIA = padre.ValidadoIA,
                     validadoHumano = padre.ValidadoHumano,
-                    relacionEII = padre.RelacionEII
+                    relacionEII = padre.RelacionEII,
+                    triageEstado = padre.RevisionLimpiezaEstado,
+                    triageMotivo = padre.RevisionLimpiezaMotivo
                 });
 
                 var hijos = hijosConPadre
@@ -150,7 +167,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
                         eliminado = h.Eliminado,
                         validadoIA = h.ValidadoIA,
                         validadoHumano = h.ValidadoHumano,
-                        relacionEII = h.RelacionEII
+                        relacionEII = h.RelacionEII,
+                        triageEstado = h.RevisionLimpiezaEstado,
+                        triageMotivo = h.RevisionLimpiezaMotivo
                     });
                 }
             }
@@ -189,7 +208,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
         public async Task<IActionResult> OnPostEditarTratamientoAsync()
         {
             if (string.IsNullOrWhiteSpace(Request.Form["id"]))
-                return BadRequest(new { success = false, message = "ID inválido" });
+                return BadRequest(new { success = false, message = "ID invÃ¡lido" });
 
             var id = int.Parse(Request.Form["id"]);
             var nombre = Request.Form["nombre"].ToString();
@@ -233,7 +252,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
         public async Task<IActionResult> OnPostEliminarTratamientoAsync()
         {
             if (!Request.HasFormContentType || string.IsNullOrWhiteSpace(Request.Form["id"]))
-                return BadRequest(new { success = false, message = "ID inválido" });
+                return BadRequest(new { success = false, message = "ID invÃ¡lido" });
             var id = int.Parse(Request.Form["id"]);
 
             var t = await _db.tratamientos.FirstOrDefaultAsync(x => x.id == id);
@@ -258,7 +277,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
         public async Task<IActionResult> OnPostRestaurarTratamientoAsync()
         {
             if (!Request.HasFormContentType || string.IsNullOrWhiteSpace(Request.Form["id"]))
-                return BadRequest(new { success = false, message = "ID inválido" });
+                return BadRequest(new { success = false, message = "ID invÃ¡lido" });
             var id = int.Parse(Request.Form["id"]);
 
             var t = await _db.tratamientos.FirstOrDefaultAsync(x => x.id == id);

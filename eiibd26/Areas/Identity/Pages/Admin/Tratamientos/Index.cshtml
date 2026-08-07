@@ -259,10 +259,17 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="eii-page-title eii-page-title--sm mb-0">Tratamientos</h2>
 
-        <!-- ⭐ NUEVO: Botón Actualización Masiva -->
-        <button type="button" class="btn btn-primary btn-lg" id="btnActualizacionMasiva">
-            <i class="bi bi-magic"></i> Actualización Masiva con IA
-        </button>
+        <div class="d-flex gap-2">
+            <!-- Triage de limpieza: decide qué es tratamiento y qué es ruido heredado -->
+            <button type="button" class="btn btn-outline-dark btn-lg" id="btnRevisarNina">
+                <i class="bi bi-funnel"></i> Revisar con NINA
+            </button>
+
+            <!-- ⭐ NUEVO: Botón Actualización Masiva -->
+            <button type="button" class="btn btn-primary btn-lg" id="btnActualizacionMasiva">
+                <i class="bi bi-magic"></i> Actualización Masiva con IA
+            </button>
+        </div>
     </div>
 
     <div class="admin-layout-flex">
@@ -272,6 +279,17 @@
                 <div class="form-check form-switch">
                     <input class="form-check-input" type="checkbox" role="switch" id="switchEliminadosTratamientos">
                     <label class="form-check-label" for="switchEliminadosTratamientos">Mostrar eliminados</label>
+                </div>
+
+                <div class="d-flex align-items-center gap-2 ms-3">
+                    <label class="form-label small mb-0 text-muted" for="filtroTriage">Triage:</label>
+                    <select id="filtroTriage" class="form-select form-select-sm" style="width:auto;">
+                        <option value="">Todos</option>
+                        <option value="norevisado">No revisado</option>
+                        <option value="valido">Válido</option>
+                        <option value="basura">Basura</option>
+                        <option value="dudoso">Dudoso (cola humana)</option>
+                    </select>
                 </div>
             </div>
 
@@ -286,6 +304,7 @@
                             <th><i class="bi bi-robot" title="Validado por IA"></i> IA</th>
                             <th><i class="bi bi-person-check" title="Validado por Humano"></i> Humano</th>
                             <th>EII</th>
+                            <th><i class="bi bi-funnel" title="Triage de limpieza"></i> Triage</th>
                             <th>Eliminado</th>
                             <th>Acciones</th>
                         </tr>
@@ -578,6 +597,137 @@
     </div>
 </div>
 
+<!-- MODAL DE TRIAGE DE LIMPIEZA (NINA) -->
+<div class="modal fade" id="modalRevisarNina" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-funnel"></i> Revisar catálogo con NINA
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" id="btnCerrarModalNina"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-secondary">
+                    <i class="bi bi-info-circle-fill"></i>
+                    <strong>Clasifica en tres vías: Válido · Basura · Dudoso</strong>
+                    <p class="mb-0 mt-2">
+                        Decide si el registro es una intervención terapéutica real — no si tiene
+                        relación con EII. Un tratamiento real sin relación con EII se conserva.
+                        Nunca borra: la basura se desactiva (<em>Eliminado</em>) y es reversible.
+                        Los <strong>Dudosos</strong> jamás se desactivan solos: van a la cola humana.
+                    </p>
+                    <div class="mt-3 d-flex align-items-center flex-wrap gap-3">
+                        <div>
+                            <label class="form-label small mb-1">Registros a revisar:</label>
+                            <select id="selectReviewSize" class="form-select form-select-sm" style="width:120px;">
+                                <option value="100">100</option>
+                                <option value="300">300</option>
+                                <option value="500">500</option>
+                                <option value="1000">1000</option>
+                            </select>
+                        </div>
+                        <div class="form-check form-switch mt-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="switchDryRun" checked>
+                            <label class="form-check-label" for="switchDryRun">
+                                <strong>Dry-run</strong> (solo clasificar, no desactiva a nadie)
+                            </label>
+                        </div>
+                    </div>
+                    <small class="text-muted d-block mt-2">
+                        Toma los siguientes sin revisar (reanuda solo, no reprocesa). Sub-lotes de 10 con pausa de 5s.
+                    </small>
+                </div>
+
+                <div class="alert alert-danger d-none" id="avisoDryRunOff">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <strong>Dry-run desactivado.</strong> Los registros clasificados como Basura con
+                    confianza ≥ 0.85 quedarán <strong>desactivados</strong> (reversible con Restaurar
+                    o con el UPDATE en bloque del script SQL).
+                </div>
+
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span><strong>Progreso:</strong></span>
+                        <span id="progresoTextoNina">0 / 0 revisados</span>
+                    </div>
+                    <div class="progress" style="height: 30px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated"
+                             id="progressBarNina" role="progressbar" style="width: 0%">0%</div>
+                    </div>
+                </div>
+
+                <!-- Resumen por bucket -->
+                <div class="row text-center mb-3 g-2">
+                    <div class="col">
+                        <div class="card bg-success text-white">
+                            <div class="card-body py-2">
+                                <h3 class="mb-0" id="validosCount">0</h3>
+                                <small>Válidos</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="card bg-danger text-white">
+                            <div class="card-body py-2">
+                                <h3 class="mb-0" id="basuraCount">0</h3>
+                                <small>Basura</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="card bg-warning text-dark">
+                            <div class="card-body py-2">
+                                <h3 class="mb-0" id="dudososCount">0</h3>
+                                <small>Dudosos</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="card bg-secondary text-white">
+                            <div class="card-body py-2">
+                                <h3 class="mb-0" id="protegidosCount">0</h3>
+                                <small>Intactos</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="card bg-primary text-white">
+                            <div class="card-body py-2">
+                                <h3 class="mb-0" id="pendientesNinaCount">0</h3>
+                                <small>Pendientes</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <strong>Registro de clasificación:</strong>
+                    </div>
+                    <div class="card-body" style="max-height: 300px; overflow-y: auto;" id="logResultadosNina">
+                        <p class="text-muted">Presiona "Iniciar revisión" para comenzar...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="btnCerrarNina">Cerrar</button>
+                <div>
+                    <button type="button" class="btn btn-dark btn-lg" id="btnIniciarReview">
+                        <i class="bi bi-play-fill"></i> Iniciar revisión
+                    </button>
+                    <button type="button" class="btn btn-success btn-lg d-none" id="btnContinuarReview">
+                        <i class="bi bi-arrow-right-circle-fill"></i> Continuar
+                    </button>
+                    <button type="button" class="btn btn-warning d-none" id="btnPausarReview">
+                        <i class="bi bi-pause-fill"></i> Pausar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <div style="display:none">@Html.AntiForgeryToken()</div>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -670,6 +820,7 @@
                     cache: false,
                     data: function (d) {
                         d.mostrarEliminados = $('#switchEliminadosTratamientos').is(':checked');
+                        d.filtroTriage = $('#filtroTriage').val();
                     },
                     dataSrc: function (json) {
                         console.log('Datos recibidos del servidor:', json);
@@ -729,6 +880,18 @@
                                 : '<span class="badge bg-secondary">No</span>';
                         }
                     },
+                    // Triage de limpieza (eje 1) — independiente de la relación con EII (eje 2)
+                    {
+                        data: 'triageEstado',
+                        orderable: false,
+                        render: function (data, type, row) {
+                            const motivo = (row.triageMotivo || '').replace(/"/g, '&quot;');
+                            if (data === 1) return `<span class="badge bg-success" title="${motivo}">Válido</span>`;
+                            if (data === 2) return `<span class="badge bg-danger" title="${motivo}">Basura</span>`;
+                            if (data === 3) return `<span class="badge bg-warning text-dark" title="${motivo}">Dudoso</span>`;
+                            return '<span class="badge badge-grid-gray">Sin revisar</span>';
+                        }
+                    },
                     {
                         data: 'eliminado',
                         orderable: false,
@@ -764,6 +927,10 @@
             });
 
             $('#switchEliminadosTratamientos').change(function () {
+                tratamientosTabla.ajax.reload();
+            });
+
+            $('#filtroTriage').change(function () {
                 tratamientosTabla.ajax.reload();
             });
 
@@ -1210,6 +1377,200 @@
                         $('#btnCerrar').prop('disabled', false);
                     }
                 });
+            }
+
+            // ===== TRIAGE DE LIMPIEZA CON NINA =====
+            // Mismo patrón que la actualización masiva: el selector es el TOTAL de la corrida y
+            // el cliente lo parte en sub-lotes de 10 para no reventar el timeout de la petición
+            // (cada registro = una llamada a la IA). El endpoint no lleva Skip: reanuda solo,
+            // tomando siempre los siguientes sin revisar.
+            let reviewRequestedTotal = 100;
+            let reviewRemaining = 0;
+            const reviewChunk = 10;
+            let reviewTimeoutId = null;
+            let reviewPaused = false;
+            let reviewEnProgreso = false;
+            let reviewDryRun = true;
+            let totValidos = 0, totBasura = 0, totDudosos = 0, totProtegidos = 0, totFallidosNina = 0, totDesactivados = 0;
+
+            $('#switchDryRun').on('change', function () {
+                $('#avisoDryRunOff').toggleClass('d-none', $(this).is(':checked'));
+            });
+
+            $('#btnRevisarNina').on('click', function () {
+                resetearEstadisticasNina();
+                $('#modalRevisarNina').modal('show');
+            });
+
+            $('#btnIniciarReview').on('click', function () {
+                reviewDryRun = $('#switchDryRun').is(':checked');
+
+                if (!reviewDryRun) {
+                    if (!confirm('Dry-run DESACTIVADO: los registros clasificados como Basura con confianza alta quedarán desactivados.\n\n¿Confirmas que ya revisaste los buckets del dry-run?')) return;
+                } else {
+                    if (!confirm('¿Iniciar la revisión en dry-run? Solo clasifica; no desactiva a nadie.')) return;
+                }
+
+                reviewRequestedTotal = parseInt($('#selectReviewSize').val() || '100', 10);
+                reviewRemaining = reviewRequestedTotal;
+                totValidos = totBasura = totDudosos = totProtegidos = totFallidosNina = totDesactivados = 0;
+                reviewPaused = false;
+                $('#selectReviewSize, #switchDryRun').prop('disabled', true);
+                $('#btnIniciarReview').addClass('d-none');
+                $('#btnPausarReview').removeClass('d-none').prop('disabled', false);
+                $('#btnContinuarReview').addClass('d-none');
+                procesarReviewChunk();
+            });
+
+            $('#btnContinuarReview').on('click', function () {
+                if (reviewRemaining <= 0) reviewRemaining = reviewChunk;
+                reviewPaused = false;
+                $('#btnContinuarReview').addClass('d-none');
+                $('#btnPausarReview').removeClass('d-none').prop('disabled', false);
+                procesarReviewChunk();
+            });
+
+            $('#btnPausarReview').on('click', function () {
+                reviewPaused = true;
+                if (reviewTimeoutId) { clearTimeout(reviewTimeoutId); reviewTimeoutId = null; }
+                $('#btnPausarReview').addClass('d-none');
+                $('#btnContinuarReview').removeClass('d-none').prop('disabled', false);
+                agregarLogNina('info', '⏸️ Revisión en pausa por el usuario');
+            });
+
+            $('#btnCerrarNina, #btnCerrarModalNina').on('click', function () {
+                if (reviewEnProgreso && !confirm('Hay una revisión en curso. ¿Desea cancelarla?')) return false;
+                reviewPaused = true;
+                if (reviewTimeoutId) { clearTimeout(reviewTimeoutId); reviewTimeoutId = null; }
+                $('#modalRevisarNina').modal('hide');
+                tratamientosTabla.ajax.reload();
+            });
+
+            function resetearEstadisticasNina() {
+                $('#progresoTextoNina').text('0 / 0 revisados');
+                $('#progressBarNina').css('width', '0%').text('0%')
+                    .addClass('progress-bar-animated').removeClass('bg-success');
+                $('#validosCount, #basuraCount, #dudososCount, #protegidosCount, #pendientesNinaCount').text('0');
+                $('#logResultadosNina').html('<p class="text-muted">Presiona "Iniciar revisión" para comenzar...</p>');
+                $('#selectReviewSize, #switchDryRun').prop('disabled', false);
+                $('#btnIniciarReview').removeClass('d-none');
+                $('#btnContinuarReview').addClass('d-none');
+                $('#btnPausarReview').addClass('d-none');
+                $('#avisoDryRunOff').toggleClass('d-none', $('#switchDryRun').is(':checked'));
+            }
+
+            function procesarReviewChunk() {
+                if (reviewPaused) { reviewEnProgreso = false; return; }
+
+                reviewEnProgreso = true;
+                $('#btnContinuarReview').prop('disabled', true).addClass('d-none');
+                $('#btnPausarReview').removeClass('d-none');
+                $('#btnCerrarNina').prop('disabled', true);
+
+                const takeNow = Math.min(reviewChunk, reviewRemaining > 0 ? reviewRemaining : reviewChunk);
+                agregarLogNina('info', `🔎 Clasificando ${takeNow} registros${reviewDryRun ? ' (dry-run)' : ''}...`);
+
+                $.ajax({
+                    url: '/api/admin/tratamientos/batch-review',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ take: takeNow, dryRun: reviewDryRun }),
+                    success: function (data) {
+                        if (!data.ok) {
+                            agregarLogNina('error', `❌ Error: ${data.error}`);
+                            return;
+                        }
+
+                        totValidos      += data.validos      || 0;
+                        totBasura       += data.basura       || 0;
+                        totDudosos      += data.dudosos      || 0;
+                        totProtegidos   += data.protegidos   || 0;
+                        totDesactivados += data.desactivados || 0;
+                        totFallidosNina += data.fallidos     || 0;
+
+                        $('#validosCount').text(totValidos);
+                        $('#basuraCount').text(totBasura);
+                        $('#dudososCount').text(totDudosos);
+                        $('#protegidosCount').text(totProtegidos);
+                        $('#pendientesNinaCount').text(data.pendientes);
+
+                        const revisados = totValidos + totBasura + totDudosos + totFallidosNina;
+                        $('#progresoTextoNina').text(`${revisados} / ${reviewRequestedTotal} revisados`);
+                        const pct = Math.min(100, Math.round((revisados / reviewRequestedTotal) * 100));
+                        $('#progressBarNina').css('width', pct + '%').text(pct + '%');
+
+                        (data.resultados || []).forEach(function (item) {
+                            if (!item.success) {
+                                agregarLogNina('error', `❌ ${item.nombre} — ${item.error}`);
+                                return;
+                            }
+                            const conf = item.confianza != null ? ` [${Number(item.confianza).toFixed(2)}]` : '';
+                            if (item.protegido) {
+                                agregarLogNina('info', `🛡️ ${item.nombre} — intacto (${item.motivo})`);
+                            } else if (item.estado === 1) {
+                                agregarLogNina('success', `✅ Válido${conf} — ${item.nombre}`);
+                            } else if (item.estado === 2) {
+                                const marca = item.desactivado ? ' · DESACTIVADO' : '';
+                                agregarLogNina('error', `🗑️ Basura${conf}${marca} — ${item.nombre}: ${item.motivo}`);
+                            } else {
+                                agregarLogNina('warn', `❓ Dudoso${conf} — ${item.nombre}: ${item.motivo}`);
+                            }
+                        });
+
+                        const procesadosAhora = data.procesados || 0;
+                        if (reviewRemaining > 0) reviewRemaining -= procesadosAhora;
+
+                        // El endpoint devolvió menos de lo pedido → ya no queda nada sin revisar
+                        if (procesadosAhora === 0) {
+                            agregarLogNina('success', `🎉 No quedan registros sin revisar. Total: ${totValidos} válidos, ${totBasura} basura, ${totDudosos} dudosos, ${totProtegidos} intactos.`);
+                            finalizarReview(true);
+                        } else if (reviewRemaining > 0) {
+                            agregarLogNina('info', `✋ Sub-lote listo. Quedan ${reviewRemaining} de los ${reviewRequestedTotal} solicitados.`);
+                            reviewTimeoutId = setTimeout(function () {
+                                if (!reviewPaused) procesarReviewChunk();
+                                reviewTimeoutId = null;
+                            }, delayMsBetweenChunks);
+                        } else {
+                            agregarLogNina('success', `🎉 Corrida completa: ${totValidos} válidos, ${totBasura} basura (${totDesactivados} desactivados), ${totDudosos} dudosos, ${totProtegidos} intactos. Quedan ${data.pendientes} sin revisar en la BD.`);
+                            finalizarReview(data.pendientes === 0);
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        agregarLogNina('error', `❌ Error al clasificar lote: ${xhr.responseJSON?.error || error}`);
+                        $('#btnContinuarReview').prop('disabled', false).removeClass('d-none');
+                        $('#btnPausarReview').addClass('d-none');
+                    },
+                    complete: function () {
+                        reviewEnProgreso = false;
+                        $('#btnCerrarNina').prop('disabled', false);
+                    }
+                });
+            }
+
+            function finalizarReview(todoListo) {
+                $('#btnPausarReview').addClass('d-none');
+                $('#selectReviewSize, #switchDryRun').prop('disabled', false);
+                if (todoListo) {
+                    $('#btnContinuarReview').addClass('d-none');
+                    $('#btnIniciarReview').removeClass('d-none');
+                    $('#progressBarNina').removeClass('progress-bar-animated')
+                        .addClass('bg-success').css('width', '100%').text('100%');
+                } else {
+                    $('#btnContinuarReview').prop('disabled', false).removeClass('d-none');
+                }
+            }
+
+            function agregarLogNina(tipo, mensaje) {
+                const timestamp = new Date().toLocaleTimeString();
+                let clase = '';
+                switch (tipo) {
+                    case 'success': clase = 'text-success'; break;
+                    case 'error':   clase = 'text-danger'; break;
+                    case 'warn':    clase = 'text-warning'; break;
+                    case 'info':    clase = 'text-primary'; break;
+                }
+                $('#logResultadosNina').append(`<p class="${clase} mb-1"><small>[${timestamp}]</small> ${mensaje}</p>`);
+                $('#logResultadosNina').scrollTop($('#logResultadosNina')[0].scrollHeight);
             }
 
             function agregarLog(tipo, mensaje) {
