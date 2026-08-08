@@ -99,7 +99,10 @@ namespace eiibd26.Controllers
         /// Obtiene un tratamiento por ID
         /// GET /api/admin/tratamientos/{id}
         /// </summary>
-        [HttpGet("{id}")]
+        // {id:int} — sin la restricción, esta plantilla compite con las rutas literales
+        // ("ramas", "basura-preview"). La precedencia de literal sobre parámetro las salvaría,
+        // pero el constraint lo vuelve explícito en vez de depender de la regla.
+        [HttpGet("{id:int}")]
         public async Task<IActionResult> GetTratamiento(int id, CancellationToken cancellationToken)
         {
             var tratamiento = await _db.tratamientos
@@ -402,14 +405,26 @@ namespace eiibd26.Controllers
                 var take = Math.Clamp(request.Take, 1, 1000);
                 var resultados = new List<BatchReviewItem>();
 
-                var pendientes = await _db.tratamientos
-                    .Where(t => !t.Eliminado && t.RevisionLimpiezaEstado == null)
+                var query = _db.tratamientos
+                    .Where(t => !t.Eliminado && t.RevisionLimpiezaEstado == null);
+
+                // Enfocar por rama. El árbol es de 2 niveles (no hay nietos), así que la raíz
+                // más sus hijos directos es la rama completa. Sin RaizId barre todo por id, que
+                // gasta horas de IA en el catálogo curado antes de llegar a lo que la gente llenó.
+                if (request.RaizId.HasValue)
+                {
+                    var raiz = request.RaizId.Value;
+                    query = query.Where(t => t.id == raiz || t.idPadre == raiz);
+                }
+
+                var pendientes = await query
                     .OrderBy(t => t.id)
                     .Take(take)
                     .ToListAsync(cancellationToken);
 
                 _logger.LogInformation(
-                    "Triage NINA: {Count} tratamientos, DryRun={DryRun}", pendientes.Count, request.DryRun);
+                    "Triage NINA: {Count} tratamientos, DryRun={DryRun}, RaizId={RaizId}",
+                    pendientes.Count, request.DryRun, request.RaizId?.ToString() ?? "(todo)");
 
                 // Protegidos: validados por un humano o con pacientes usándolos hoy.
                 // No son basura por definición — no se les gasta una llamada a la IA.
@@ -594,13 +609,18 @@ namespace eiibd26.Controllers
                     }
                 }
 
+                // Pendientes del MISMO alcance que se procesó: si se pidió una rama, el contador
+                // habla de esa rama (si no, la UI diría "faltan 9000" al terminar una rama chica).
                 var totalPendientes = await _db.tratamientos
-                    .CountAsync(t => !t.Eliminado && t.RevisionLimpiezaEstado == null, cancellationToken);
+                    .Where(t => !t.Eliminado && t.RevisionLimpiezaEstado == null)
+                    .Where(t => request.RaizId == null || t.id == request.RaizId || t.idPadre == request.RaizId)
+                    .CountAsync(cancellationToken);
 
                 return Ok(new
                 {
                     ok           = true,
                     dryRun       = request.DryRun,
+                    raizId       = request.RaizId,
                     umbral       = UmbralDesactivacion,
                     procesados   = resultados.Count,
                     validos      = resultados.Count(r => r.Success && r.Estado == (byte)TriageLimpieza.Valido),
@@ -617,6 +637,148 @@ namespace eiibd26.Controllers
             {
                 _logger.LogError(ex, "Error en el triage de limpieza de tratamientos");
                 return StatusCode(500, new { ok = false, error = "Error en el triage: " + ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Categorías raíz con su avance de triage, para elegir qué rama revisar.
+        /// GET /api/admin/tratamientos/ramas
+        /// </summary>
+        [HttpGet("ramas")]
+        public async Task<IActionResult> GetRamas(CancellationToken cancellationToken)
+        {
+            // El árbol es de 2 niveles: la rama = la raíz + sus hijos directos.
+            var ramas = await _db.tratamientos
+                .Where(p => p.idPadre == null)
+                .Select(p => new
+                {
+                    raizId    = p.id,
+                    categoria = p.nombre ?? "(sin nombre)",
+                    hijos     = _db.tratamientos.Count(h => h.idPadre == p.id),
+                    sinRevisar = _db.tratamientos.Count(h =>
+                        (h.idPadre == p.id || h.id == p.id) && h.RevisionLimpiezaEstado == null && !h.Eliminado),
+                    basuraPendiente = _db.tratamientos.Count(h =>
+                        (h.idPadre == p.id || h.id == p.id) && h.RevisionLimpiezaEstado == 2 && !h.Eliminado),
+                    dudosos = _db.tratamientos.Count(h =>
+                        (h.idPadre == p.id || h.id == p.id) && h.RevisionLimpiezaEstado == 3 && !h.Eliminado)
+                })
+                .OrderByDescending(r => r.sinRevisar)
+                .ToListAsync(cancellationToken);
+
+            return Ok(new { ok = true, ramas });
+        }
+
+        /// <summary>
+        /// Resuelve qué registros marcados Basura se pueden desactivar y cuáles bloquea un guard.
+        /// Fuente ÚNICA para el conteo previo y para la aplicación: si divergieran, la confirmación
+        /// que ve el admin mentiría sobre lo que va a pasar.
+        /// </summary>
+        private async Task<(List<tratamientos> Aplicables, List<(tratamientos Reg, string Motivo)> Bloqueados)>
+            ResolverBasuraAplicableAsync(int? raizId, CancellationToken cancellationToken)
+        {
+            var candidatos = await _db.tratamientos
+                .Where(t => t.RevisionLimpiezaEstado == 2 && !t.Eliminado)
+                .Where(t => raizId == null || t.id == raizId || t.idPadre == raizId)
+                .OrderBy(t => t.id)
+                .ToListAsync(cancellationToken);
+
+            var ids = candidatos.Select(t => t.id).ToList();
+
+            var conHijosActivos = (await _db.tratamientos
+                .Where(h => h.idPadre != null && ids.Contains(h.idPadre!.Value) && !h.Eliminado)
+                .Select(h => h.idPadre!.Value).Distinct()
+                .ToListAsync(cancellationToken)).ToHashSet();
+
+            var conUsuariosActivos = (await _db.tratamientoUsuario
+                .Where(tu => tu.idTratamiento != null && ids.Contains(tu.idTratamiento!.Value) && !tu.Eliminado)
+                .Select(tu => tu.idTratamiento!.Value).Distinct()
+                .ToListAsync(cancellationToken)).ToHashSet();
+
+            var aplicables = new List<tratamientos>();
+            var bloqueados = new List<(tratamientos, string)>();
+
+            foreach (var t in candidatos)
+            {
+                // Mismos guards que el batch-review. Defensa en profundidad: si algo quedó
+                // marcado Basura pese a los guards de allá, aquí tampoco se desactiva.
+                if (conHijosActivos.Contains(t.id))
+                    bloqueados.Add((t, "Nodo padre con hijos activos — desactivarlo dejaría huérfanos."));
+                else if (t.ValidadoHumano)
+                    bloqueados.Add((t, "Validado por un humano."));
+                else if (conUsuariosActivos.Contains(t.id))
+                    bloqueados.Add((t, "Pacientes lo tienen registrado hoy."));
+                else
+                    aplicables.Add(t);
+            }
+
+            return (aplicables, bloqueados);
+        }
+
+        /// <summary>
+        /// Cuántos se desactivarían — para la confirmación, ANTES de tocar nada.
+        /// GET /api/admin/tratamientos/basura-preview?raizId=123
+        /// </summary>
+        [HttpGet("basura-preview")]
+        public async Task<IActionResult> PreviewBasura(int? raizId, CancellationToken cancellationToken)
+        {
+            var (aplicables, bloqueados) = await ResolverBasuraAplicableAsync(raizId, cancellationToken);
+
+            return Ok(new
+            {
+                ok           = true,
+                raizId,
+                aDesactivar  = aplicables.Count,
+                bloqueados   = bloqueados.Count,
+                total        = aplicables.Count + bloqueados.Count,
+                muestra      = aplicables.Take(15).Select(t => new { t.id, nombre = t.nombre, motivo = t.RevisionLimpiezaMotivo }),
+                bloqueadosDetalle = bloqueados.Select(b => new { b.Reg.id, nombre = b.Reg.nombre, motivo = b.Motivo })
+            });
+        }
+
+        /// <summary>
+        /// Aplica la desactivación en bloque a lo ya marcado Basura. SIN llamadas a la IA.
+        /// POST /api/admin/tratamientos/batch-apply-basura
+        /// </summary>
+        /// <remarks>
+        /// Este es el paso destructivo (equivale a DryRun=false). Reversible:
+        /// <c>UPDATE dbo.tratamientos SET Eliminado = 0, fechaEliminado = '1900-01-01'
+        /// WHERE RevisionLimpiezaEstado = 2 AND Eliminado = 1 [AND (id = @raiz OR idPadre = @raiz)]</c>
+        /// </remarks>
+        [HttpPost("batch-apply-basura")]
+        public async Task<IActionResult> BatchApplyBasura([FromBody] BatchApplyBasuraRequest request, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var (aplicables, bloqueados) = await ResolverBasuraAplicableAsync(request.RaizId, cancellationToken);
+
+                var ahora = DateTime.Now;
+                foreach (var t in aplicables)
+                {
+                    t.Eliminado       = true;
+                    t.fechaEliminado  = ahora.Date;
+                    t.fechaModificado = ahora;
+                }
+
+                await _db.SaveChangesAsync(cancellationToken);
+
+                _logger.LogInformation(
+                    "Aplicar Basura: {Desactivados} desactivados, {Bloqueados} bloqueados por guard. RaizId={RaizId}",
+                    aplicables.Count, bloqueados.Count, request.RaizId?.ToString() ?? "(todo)");
+
+                return Ok(new
+                {
+                    ok           = true,
+                    raizId       = request.RaizId,
+                    desactivados = aplicables.Count,
+                    bloqueados   = bloqueados.Count,
+                    detalle      = aplicables.Take(50).Select(t => new { t.id, nombre = t.nombre }),
+                    bloqueadosDetalle = bloqueados.Select(b => new { b.Reg.id, nombre = b.Reg.nombre, motivo = b.Motivo })
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al aplicar la desactivación de Basura");
+                return StatusCode(500, new { ok = false, error = "Error al aplicar: " + ex.Message });
             }
         }
 
@@ -677,6 +839,15 @@ namespace eiibd26.Controllers
 
             /// <summary>true = solo clasifica; NO desactiva a nadie ni genera descripciones.</summary>
             public bool DryRun { get; set; } = true;
+
+            /// <summary>Categoría raíz a revisar (id con idPadre NULL). Null = todo el catálogo.</summary>
+            public int? RaizId { get; set; }
+        }
+
+        public class BatchApplyBasuraRequest
+        {
+            /// <summary>Rama a la que se aplica. Null = todo el catálogo.</summary>
+            public int? RaizId { get; set; }
         }
 
         public class BatchReviewItem
