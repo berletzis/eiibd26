@@ -178,6 +178,10 @@ salud: sustancia, medicamento, suplemento, cirugía, procedimiento, terapia, té
 actividad física, cambio de hábito o de dieta, terapia complementaria.
 Ejemplos: 'Proctectomía', 'Aceite de árnica', 'Caminar 2.5-3 millas', 'Stent ureteral',
 'Fusión lumbar', 'Prednisona', 'Dieta baja en FODMAP'.
+Incluye el AUTOCUIDADO plausible y el manejo cotidiano de la salud: descanso, dormir,
+siestas, duchas o baños calientes, manejo del estrés, evitar el alcohol, ajustar la
+ingesta de líquidos, actividad física según tolerancia, rutina o higiene intestinal,
+evitar el calor. Son manejo real de una condición aunque su relación con la EII sea baja.
 
 BASURA — NO es una intervención terapéutica:
 · recordatorios y alarmas de notificación ('Alarmas')
@@ -187,14 +191,33 @@ BASURA — NO es una intervención terapéutica:
 · texto sin sentido o palabras sueltas sin significado clínico ('ESTRELLA')
 · títulos de libro
 · actividades genéricas que no son tratamiento ('Visita al doctor')
+· condiciones o diagnósticos médicos mal capturados como si fueran tratamiento
+· PSEUDOTERAPIAS: prácticas sin base científica ni mecanismo documentado — ACMOS,
+  'Códigos curativos', Método Sedona, Técnica Perrin, filtros de armónicos o de campos
+  electromagnéticos (STETZERiZER), sanación energética, biodescodificación.
+  Señales: lenguaje pseudocientífico vago — armonía, energía, sinergia, frecuencias,
+  vibración, 'códigos', bioresonancia — sin evidencia ni mecanismo plausible.
+  DESLINDE, no confundir: una terapia complementaria con uso reconocido para confort o
+  alivio sintomático NO es pseudoterapia. Baño de Epsom, calor o frío local y ropa de
+  compresión siguen siendo 'valido' o 'dudoso'. La línea es esta: pseudociencia = sin
+  mecanismo plausible NI uso reconocido. Si dudas de si algo cae aquí, responde 'dudoso'.
 
 DUDOSO — ambiguo; lo revisa un humano:
 · servicios o roles profesionales ('Consultor ortopedista', 'Servicios de transporte')
 · pruebas diagnósticas ('GeneSight') — diagnostican, no tratan, pero están cerca
-· actividades de OCIO, BIENESTAR o APRENDIZAJE reportadas por pacientes
-  ('Dar regalos', 'Tejido de punto', 'Estudiar idiomas', 'Cantar'): el paciente las
-  reportó porque le hacen bien. SIEMPRE 'dudoso', NUNCA 'basura', por muy seguro que
-  estés de que no es un tratamiento. Distínguelas de los recordatorios y alarmas.
+· OCIO y EVENTOS DE VIDA sin nexo claro con la salud: viajes ('Viaje a Nueva Zelanda'),
+  espectáculos o figuras públicas ('Ver a Joel Osteen'), peregrinaje, hobbies sin
+  relación, aprendizaje reportado ('Estudiar idiomas', 'Tejido de punto', 'Dar regalos',
+  'Cantar'). El paciente los reportó porque le hicieron bien. SIEMPRE 'dudoso', NUNCA
+  'basura', por muy seguro que estés de que no es un tratamiento.
+  El aprendizaje cuenta SIEMPRE, sea del tipo que sea: estudiar un idioma, un oficio o
+  una certificación profesional ('Estudiar para la Licencia de Técnico en Emergencias
+  Médicas'). Que sea formación de carrera y no un pasatiempo NO lo vuelve 'basura':
+  si el verbo es estudiar, aprender o practicar algo, la respuesta es 'dudoso'.
+  NO los confundas con el AUTOCUIDADO de la lista de VALIDO (descanso, sueño, manejo del
+  estrés, evitar alcohol): eso sí es manejo de salud y va a 'valido'. La pregunta que
+  los separa: ¿es una forma reconocida de cuidar el cuerpo, o es una actividad de vida
+  que de paso sentó bien?
 · DISPOSITIVOS y herramientas de monitoreo, protección o apoyo
   ('Monitor de presión arterial', 'Guantes', órtesis, férulas): acompañan el manejo de
   una condición aunque no traten por sí mismos. SIEMPRE 'dudoso', NUNCA 'basura'.
@@ -202,6 +225,12 @@ DUDOSO — ambiguo; lo revisa un humano:
 · CATEGORÍAS o agrupadores del catálogo ('Medicamentos con Receta', 'Cirugía',
   'Terapias Alternativas'): no son un tratamiento concreto, pero tampoco son ruido —
   organizan el catálogo y otros registros cuelgan de ellos. Nunca son 'basura'.
+
+REGLA FIRME sobre qué puede ser 'basura': nada de ocio, aprendizaje ni bienestar
+reportado por pacientes va a 'basura' jamás. A 'basura' solo van cuatro cosas:
+pseudoterapias, no-tratamientos claros (recordatorios y alarmas, productos, alimentos y
+cosméticos, códigos y nombres de ensayo clínico), condiciones médicas mal capturadas, y
+ruido sin sentido.
 
 SESGO OBLIGATORIO A CONSERVAR: ante cualquier duda responde 'dudoso', NUNCA 'basura'.
 'basura' se reserva para casos donde estarías dispuesto a defender la decisión.
@@ -244,24 +273,66 @@ Respondes SIEMPRE con un único objeto JSON válido y nada más.";
                 system = systemPrompt,
                 messages = new[] { new { role = "user", content = userPrompt } }
             };
+            var payload = JsonSerializer.Serialize(requestBody);
 
-            var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-            var response = await _httpClient.PostAsync("messages", content, cancellationToken);
+            // Reintentos cortos: en corridas largas aparecen fallos de red sueltos
+            // ("An error occurred while sending the request") y errores 5xx/429 transitorios.
+            // Sin esto el registro queda sin sellar y hay que esperar a la siguiente pasada.
+            // Un 4xx que no sea 429 es culpa nuestra (payload/credenciales): no se reintenta.
+            const int intentosMax = 3;
+            var esperaMs = 500;
 
-            if (!response.IsSuccessStatusCode)
+            for (var intento = 1; ; intento++)
             {
-                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
-                _logger.LogError("Error en Claude API (triage): {StatusCode} - {Error}", response.StatusCode, errorContent);
-                throw new HttpRequestException($"Error en API de Claude: {response.StatusCode}");
+                int status;
+                string body;
+
+                // Solo el envío va dentro del try. Si el manejo de status estuviera aquí, el
+                // propio throw de un 4xx caería en este catch y se reintentaría igual.
+                try
+                {
+                    using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+                    using var response = await _httpClient.PostAsync("messages", content, cancellationToken);
+                    status = (int)response.StatusCode;
+                    body   = await response.Content.ReadAsStringAsync(cancellationToken);
+                }
+                catch (Exception ex) when (
+                    (ex is HttpRequestException or IOException ||
+                     (ex is TaskCanceledException && !cancellationToken.IsCancellationRequested))
+                    && intento < intentosMax)
+                {
+                    // Red caída o timeout del cliente. La cancelación real del usuario NO se reintenta.
+                    _logger.LogWarning(ex,
+                        "Fallo de red al clasificar, reintento {Intento}/{Max} en {Espera}ms",
+                        intento, intentosMax, esperaMs);
+                    await System.Threading.Tasks.Task.Delay(esperaMs, cancellationToken);
+                    esperaMs *= 2;
+                    continue;
+                }
+
+                if (status is < 200 or >= 300)
+                {
+                    var reintentable = status >= 500 || status == 429;
+                    if (reintentable && intento < intentosMax)
+                    {
+                        _logger.LogWarning(
+                            "Claude API (triage) devolvió {Status}, reintento {Intento}/{Max} en {Espera}ms",
+                            status, intento, intentosMax, esperaMs);
+                        await System.Threading.Tasks.Task.Delay(esperaMs, cancellationToken);
+                        esperaMs *= 2;
+                        continue;
+                    }
+
+                    _logger.LogError("Error en Claude API (triage): {Status} - {Error}", status, body);
+                    throw new HttpRequestException($"Error en API de Claude: {status}");
+                }
+
+                var responseData = JsonSerializer.Deserialize<ClaudeApiResponse>(body);
+                if (responseData?.Content == null || responseData.Content.Length == 0)
+                    throw new InvalidOperationException("La respuesta de la IA está vacía");
+
+                return responseData.Content[0].Text ?? string.Empty;
             }
-
-            var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
-            var responseData = JsonSerializer.Deserialize<ClaudeApiResponse>(responseContent);
-
-            if (responseData?.Content == null || responseData.Content.Length == 0)
-                throw new InvalidOperationException("La respuesta de la IA está vacía");
-
-            return responseData.Content[0].Text ?? string.Empty;
         }
 
         /// <summary>
