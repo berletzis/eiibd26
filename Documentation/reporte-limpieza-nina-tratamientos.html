@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reporte de cierre — Limpieza del catálogo de Tratamientos (NINA triage)</title>
+<style>
+  :root{
+    --bg:#f4f3f7; --card:#ffffff; --ink:#2b2733; --muted:#6c6678;
+    --line:#e5e2ec; --brand:#5b3c88; --brand-deep:#3f2a63; --brand-soft:#efeaf6;
+    --ok:#5b3c88; --ok-soft:#efeaf6; --warn:#7c6a9c; --warn-soft:#f1eef6;
+    --bad:#4a4453; --bad-soft:#ecebef; --info:#8266ad; --info-soft:#f0ebf7;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5;padding:32px 16px}
+  .wrap{max-width:980px;margin:0 auto}
+  header{border-left:5px solid var(--brand);padding:6px 0 6px 18px;margin-bottom:6px}
+  h1{font-size:1.55rem;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:.92rem}
+  h2{font-size:1.12rem;margin:34px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  p{margin:.4rem 0}
+  .lead{color:var(--muted);font-size:.95rem;max-width:74ch}
+  .badge{display:inline-block;background:var(--brand);color:#fff;font-size:.8rem;font-weight:600;
+    padding:3px 10px;border-radius:999px;margin-left:6px;vertical-align:middle}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:18px 0 4px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .card .n{font-size:1.9rem;font-weight:700;line-height:1}
+  .card .l{font-size:.82rem;color:var(--muted);margin-top:6px}
+  .card.brand .n{color:var(--brand)} .card.ok .n{color:var(--ok)}
+  .card.warn .n{color:var(--warn)} .card.bad .n{color:var(--bad)} .card.info .n{color:var(--info)}
+  table{width:100%;border-collapse:collapse;background:var(--card);
+    border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:.9rem}
+  th,td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:left}
+  thead th{background:var(--brand-soft);color:var(--brand);font-weight:600;font-size:.8rem;
+    text-transform:uppercase;letter-spacing:.02em}
+  tbody tr:last-child td{border-bottom:none}
+  tfoot td{background:#efedf3;font-weight:700;border-top:2px solid var(--line);color:var(--brand-deep)}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.75rem;font-weight:600}
+  .pill.ok{background:var(--ok-soft);color:var(--ok)}
+  .pill.warn{background:var(--warn-soft);color:var(--warn)}
+  .pill.bad{background:var(--bad-soft);color:var(--bad)}
+  .note{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--brand);
+    border-radius:8px;padding:12px 16px;margin:10px 0;font-size:.9rem}
+  ul{margin:.4rem 0;padding-left:1.2rem} li{margin:.28rem 0}
+  .muted{color:var(--muted)} .small{font-size:.82rem}
+  .bar{height:14px;border-radius:8px;overflow:hidden;display:flex;border:1px solid var(--line);margin:6px 0 2px}
+  .bar span{display:block;height:100%}
+  footer{margin-top:36px;padding-top:14px;border-top:1px solid var(--line);
+    color:var(--muted);font-size:.8rem}
+  .brandbar{margin-bottom:20px}
+  .brand-logo{display:block;width:100%;max-width:360px;height:auto}
+  .niveles{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:14px 0 6px}
+  .nivel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .nivel p{margin:.5rem 0 0;font-size:.9rem;color:var(--muted)}
+  .nivel-tag{display:inline-block;padding:3px 12px;border-radius:999px;font-size:.82rem;font-weight:600}
+  .nivel-directa{background:var(--brand);color:#fff}
+  .nivel-indirecta{background:var(--brand-soft);color:var(--brand)}
+  .nivel-secundaria{background:var(--bad-soft);color:var(--bad)}
+  @media(max-width:640px){.cards{grid-template-columns:1fr 1fr}.niveles{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brandbar">
+    <img class="brand-logo" src="logo-eiibd.png" alt="EIIBD · Plataforma — enfermedad inflamatoria intestinal / inflammatory bowel disease">
+  </div>
+
+  <header>
+    <h1>Limpieza del catálogo de Tratamientos — Triage con NINA <span class="badge">CIERRE · 100%</span></h1>
+    <div class="sub">EIIBD · Proyecto eiibd26 · Reporte de cierre — 12 de agosto de 2026</div>
+  </header>
+
+  <p class="lead">
+    El catálogo de tratamientos (10,038 registros) acumuló años de entradas cargadas por usuarios: ruido,
+    pseudoterapias, productos comerciales, alimentos, códigos de ensayo y duplicados. Se construyó un triage
+    asistido por IA (NINA — Núcleo Inteligente de Normalización y Análisis) que clasificó <strong>cada uno</strong> de los registros en tres cubos —
+    <span class="pill ok">Válido</span> <span class="pill warn">Dudoso</span> <span class="pill bad">Basura</span> —
+    y desactivó de forma <strong>reversible</strong> solo la basura confirmada, sin borrar nada.
+  </p>
+
+  <h2>Resultado final — catálogo completo</h2>
+  <p class="small muted">Cifras exactas de la BD. <strong>Sin revisar: 0 → el 100% del catálogo pasó por el triage.</strong></p>
+  <div class="cards">
+    <div class="card brand"><div class="n">10,038</div><div class="l">Registros revisados (100%)</div></div>
+    <div class="card ok"><div class="n">6,211</div><div class="l">Válidos (61.9%)</div></div>
+    <div class="card warn"><div class="n">2,609</div><div class="l">Dudosos · cola de revisión (26.0%)</div></div>
+    <div class="card bad"><div class="n">1,217</div><div class="l">Desactivados (reversible)</div></div>
+    <div class="card info"><div class="n">~35</div><div class="l">Falsos positivos rescatados a Dudoso</div></div>
+    <div class="card brand"><div class="n">0</div><div class="l">Sin revisar</div></div>
+  </div>
+
+  <div class="bar" title="Distribución del catálogo">
+    <span style="width:61.9%;background:var(--ok)"></span>
+    <span style="width:26.0%;background:var(--warn)"></span>
+    <span style="width:12.1%;background:var(--bad)"></span>
+  </div>
+  <p class="small muted">
+    <span class="pill ok">Válido 61.9%</span>
+    <span class="pill warn">Dudoso 26.0%</span>
+    <span class="pill bad">Basura 12.1%</span>
+    &nbsp; Solo el <strong>12%</strong> del catálogo resultó basura confirmada y se desactivó. Los
+    <strong>2,609 Dudosos</strong> quedan visibles como cola opcional de revisión humana (los ~35 falsos
+    positivos rescatados ya están contados aquí). 1 registro Basura quedó protegido por un guard (nodo padre con hijos activos).
+  </p>
+
+  <h2>Nivel de relación con EII</h2>
+  <p class="lead">Más allá de limpiar, cada tratamiento válido recibe un <strong>nivel de relación con la enfermedad</strong>,
+    para que la persona sepa qué tan ligado está a la EII. Son tres:</p>
+  <div class="niveles">
+    <div class="nivel">
+      <span class="nivel-tag nivel-directa">Directa</span>
+      <p>Tratamiento aprobado o indicado específicamente para la EII.</p>
+    </div>
+    <div class="nivel">
+      <span class="nivel-tag nivel-indirecta">Indirecta</span>
+      <p>Tratamiento usado con frecuencia en EII pero no exclusivo (p. ej. analgésicos, antidiarreicos).</p>
+    </div>
+    <div class="nivel">
+      <span class="nivel-tag nivel-secundaria">Secundaria</span>
+      <p>Tratamiento para manejar efectos secundarios o complicaciones del tratamiento de EII.</p>
+    </div>
+  </div>
+  <div class="cards" id="nivel-counts">
+    <div class="card brand"><div class="n">3,397</div><div class="l">Tratamientos con nivel asignado</div></div>
+    <div class="card ok"><div class="n">94</div><div class="l">Directa</div></div>
+    <div class="card warn"><div class="n">3,282</div><div class="l">Indirecta</div></div>
+    <div class="card info"><div class="n">21</div><div class="l">Secundaria</div></div>
+  </div>
+  <p class="small muted">El nivel lo sugiere NINA y un profesional de la salud lo confirma. Un tratamiento real que
+    no es de EII se conserva, pero sin nivel de relación.</p>
+
+  <h2>Detalle por rama (este ciclo de limpieza)</h2>
+  <table>
+    <thead>
+      <tr><th>Rama</th><th>Revisados</th><th>Válidos</th><th>Basura</th><th>Dudosos</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Cirugías</td><td>734</td><td>665</td><td>10</td><td>59</td></tr>
+      <tr><td>Procedimientos</td><td>670</td><td>300</td><td>32</td><td>338</td></tr>
+      <tr><td>Venta Libre</td><td>666</td><td>277</td><td>266</td><td>123</td></tr>
+      <tr><td>Dispositivos y Equipos</td><td>631</td><td>154</td><td>67</td><td>410</td></tr>
+      <tr><td>Nutrición y Dietas</td><td>518</td><td>220</td><td>226</td><td>72</td></tr>
+      <tr><td>Otro Tipo de Tratamientos</td><td>492</td><td>87</td><td>181</td><td>223</td></tr>
+      <tr><td>Medicina Alternativa o Complementaria</td><td>301</td><td>71</td><td>84</td><td>146</td></tr>
+      <tr><td>Ejercicio</td><td>245</td><td>155</td><td>10</td><td>80</td></tr>
+      <tr><td>Terapia Física</td><td>160</td><td>73</td><td>5</td><td>82</td></tr>
+      <tr><td>Psicoterapia</td><td>160</td><td>64</td><td>9</td><td>87</td></tr>
+    </tbody>
+  </table>
+  <p class="small muted">Ramas de sesiones anteriores (Suplementos, Medicamentos con Receta, Cambios en el
+  Estilo de Vida y otras) completan el total del catálogo hasta los 10,038 registros.</p>
+
+  <h2>Cómo se hizo (salvaguardas)</h2>
+  <div class="note"><strong>Dry-run → revisar → aplicar.</strong> La IA solo clasifica; nada se desactiva hasta que
+  Berletzis revisa el cubo de Basura y presiona "Aplicar". El conteo de la confirmación sale del mismo helper
+  del servidor que ejecuta el borrado, así que lo que se confirma es exactamente lo que ocurre.</div>
+  <div class="note"><strong>Guards (defensa en profundidad).</strong> Nunca se desactiva un nodo con hijos activos,
+  con validación humana, con usuarios activos vinculados, ni con confianza &lt; 0.85.</div>
+  <div class="note"><strong>Reversible y propagado.</strong> Desactivar marca <code>tratamientos.Eliminado=1</code> y
+  propaga a <code>GlossaryTerm.Activo=0</code>, así desaparece del glosario público. "Restaurar" (o el UPDATE en
+  bloque) lo revierte por completo.</div>
+
+  <h2>Evolución de la rúbrica</h2>
+  <ul>
+    <li><strong>v1</strong> — triage básico Válido/Basura/Dudoso.</li>
+    <li><strong>v2</strong> — pseudoterapias → Basura; autocuidado plausible → Válido; ocio/deporte reportado → Dudoso (nunca Basura).</li>
+    <li><strong>v3</strong> — medicamentos, diagnósticos y dispositivos <em>reales</em> nunca son Basura; sesgo obligatorio a conservar (ante duda, Dudoso).</li>
+    <li><strong>v4</strong> — extiende la regla a <strong>psicoterapias, procedimientos y cirugías</strong> reconocidos, y aclara que las <strong>marcas OTC reconocidas</strong> (Neosporin, Reactine, antigripales) son fármacos reales, no cosméticos.</li>
+  </ul>
+
+  <h2>Patrón de falsos positivos (y cómo se manejó)</h2>
+  <p class="lead">La IA tiende a mandar a Basura cosas <em>reales pero de otra especialidad</em> por leerlas como
+  "no es de EII": fármacos y marcas OTC, deportes/programas, dispositivos, psicoterapias, cirugías y ayudas
+  técnicas. Todos esos se <strong>rescataron a Dudoso</strong> (revisión humana), nunca se desactivaron. Ese fue
+  el motivo de las rúbricas v3 y v4 y de los ~35 rescates manuales.</p>
+
+  <h2>Pendiente</h2>
+  <ul>
+    <li><strong>2,609 Dudosos</strong> = cola opcional de revisión humana (visibles, no desactivados) — depurable poco a poco.</li>
+    <li>Limpieza de stubs "Definición pendiente de generar" en tratamientos/síntomas vía un proceso NINA aparte.</li>
+    <li>Aplicar el mismo triage a <strong>síntomas</strong> si se desea el mismo nivel de limpieza.</li>
+  </ul>
+
+  <footer>
+    Generado automáticamente · EIIBD / eiibd26 · 2026-08-11 · Proceso 100% reversible, sin borrado de datos.
+  </footer>
+
+</div>
+</body>
+</html>
