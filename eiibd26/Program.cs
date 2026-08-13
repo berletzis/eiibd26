@@ -249,6 +249,31 @@ try
         });
 
     builder.Services.AddControllers();
+
+    // Números de formulario (decimal/double/float): parsear INVARIANTE primero.
+    // Los <input type="number"> postean siempre con punto (0.25), pero UseRequestLocalization
+    // admite es-ES/es, donde el punto es separador de miles → 0.25 se bindeaba como 25.
+    // MvcOptions es compartido por Razor Pages y Controllers, así que con registrarlo una vez basta.
+    // Ver InvariantNumberModelBinder para el detalle (incluido por qué conserva el fallback a cultura).
+    builder.Services.Configure<Microsoft.AspNetCore.Mvc.MvcOptions>(options =>
+    {
+        var providers = options.ModelBinderProviders;
+
+        // Insertar justo antes del provider del framework al que sustituimos, para no adelantarnos
+        // a los de mayor prioridad ([FromBody], [FromServices], [FromHeader]).
+        var index = 0;
+        for (var i = 0; i < providers.Count; i++)
+        {
+            if (providers[i].GetType().Name == eiibd26.ModelBinding.InvariantNumberModelBinderProvider.TargetProviderTypeName)
+            {
+                index = i;
+                break;
+            }
+        }
+
+        providers.Insert(index, new eiibd26.ModelBinding.InvariantNumberModelBinderProvider());
+    });
+
     builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
     // ===== PERFORMANCE: Response Caching =====
