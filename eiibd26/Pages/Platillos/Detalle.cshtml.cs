@@ -41,6 +41,8 @@ namespace eiibd26.Pages.Platillos
         {
             public string Nombre = "";
             public string Slug = "";
+            // Grupo del ingrediente: da el color de su moneda y el fallback del ícono (ingrediente → grupo).
+            public string Grupo = "";
             public decimal? Cantidad;
             public string? Unidad;
             public bool EsAlGusto;
@@ -109,6 +111,12 @@ namespace eiibd26.Pages.Platillos
             var ingNombre = ingInfo.ToDictionary(i => i.Id, i => i.Nombre);
             var ingGrupo = ingInfo.ToDictionary(i => i.Id, i => i.GrupoId);
 
+            // Nombre del grupo de cada ingrediente — para el color de la moneda y el fallback del ícono.
+            var grupoIds = ingInfo.Select(i => i.GrupoId).Distinct().ToList();
+            var grupoNombrePorId = await _db.PlatGrupos.AsNoTracking()
+                .Where(g => grupoIds.Contains(g.Id))
+                .ToDictionaryAsync(g => g.Id, g => g.Nombre);
+
             var unidades = await _db.PlatUnidades.AsNoTracking()
                 .Where(u => unidadIds.Contains(u.Id))
                 .ToDictionaryAsync(u => u.Id, u => u.Nombre);
@@ -133,6 +141,8 @@ namespace eiibd26.Pages.Platillos
                 {
                     Nombre = nom,
                     Slug = SlugHelper.GenerateSlug(nom),
+                    Grupo = ingGrupo.TryGetValue(r.IngredienteId, out var gidRow)
+                            && grupoNombrePorId.TryGetValue(gidRow, out var gnRow) ? gnRow : "",
                     Cantidad = r.EsAlGusto ? null : r.Cantidad,
                     Unidad = r.UnidadId.HasValue && unidades.TryGetValue(r.UnidadId.Value, out var un) ? un : null,
                     EsAlGusto = r.EsAlGusto,

@@ -1,5 +1,7 @@
 @page
+@using eiibd26.Services.Platillos
 @model eiibd26.Pages.Platillos.DetalleModel
+@inject IIconoAlimentoService Iconos
 @{
     ViewData["Title"] = Model.MetaTitle;
     var canonical = $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}/Platillos/{Model.Slug}";
@@ -124,14 +126,23 @@
                 </div>
             }
 
-            @* ===== Ingredientes en mini-cards (título como sección, fuera del card). El pie varía por
-                    ingrediente: link "¿Puedo comerlo?" si tiene ficha clínica, o leyenda muted si aún no. ===== *@
+            @* ===== Ingredientes en mini-cards (título como sección, fuera del card). Cada card abre con
+                    la moneda ilustrada del alimento, coloreada por su grupo. El pie varía por ingrediente:
+                    link "¿Puedo comerlo?" si tiene ficha clínica, o leyenda muted si aún no. ===== *@
             <h2 class="detalle-section-title">Ingredientes</h2>
             <div class="ingredientes-grid">
                 @foreach (var r in Model.Ingredientes)
                 {
-                    <div class="ingrediente-card">
+                    @* El VM va en una variable: un inicializador de objeto dentro del atributo del
+                       tag helper rompe el parser de Razor. *@
+                    var moneda = new MonedaAlimentoVm { Nombre = r.Nombre, Grupo = r.Grupo };
+                    <div class="ingrediente-card eii-grupo-@Iconos.GrupoSlug(r.Grupo)">
+                        <partial name="_MonedaAlimento" model="moneda" />
                         <a href="/Platillos/Ingrediente/@r.Slug" class="ingrediente-card__name">@r.Nombre</a>
+                        @if (!string.IsNullOrWhiteSpace(r.Grupo))
+                        {
+                            <div class="eii-moneda-grupo-label">@r.Grupo</div>
+                        }
                         @{
                             var metaParts = new List<string>();
                             if (r.EsAlGusto) { metaParts.Add("al gusto"); }

@@ -1,5 +1,6 @@
 @page
 @using eiibd26.Models.Platillos
+@using eiibd26.Services.Platillos
 @model eiibd26.Areas.Identity.Pages.Usuario.UsuarioAlimentacionModel
 @{
     ViewData["Title"] = "Lo que no tolero";
@@ -23,8 +24,12 @@
                 @foreach (var g in Model.GruposDisponibles)
                 {
                     var on = Model.ExcludedGrupoIds.Contains(g.Id);
+                    @* En variable: el inicializador de objeto no puede ir dentro del atributo del tag helper. *@
+                    var monedaGrupo = new MonedaAlimentoVm { Grupo = g.Nombre, ExtraClass = "eii-moneda--sm" };
                     <button type="button" class="eii-btn eii-btn--sm chip @(on ? "eii-btn--primary" : "eii-btn--ghost")"
                             data-tipo="Grupo" data-refid="@g.Id" data-on="@(on ? "1" : "0")">
+                        @* Moneda del grupo: el mismo ícono y color con que se ve en cada platillo. *@
+                        <partial name="~/Pages/Shared/_MonedaAlimento.cshtml" model="monedaGrupo" />
                         @g.Nombre
                     </button>
                 }

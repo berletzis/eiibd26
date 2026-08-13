@@ -407,6 +407,9 @@ try
     builder.Services.AddScoped<eiibd26.Services.Platillos.IPlatNotaClinicaService, eiibd26.Services.Platillos.PlatNotaClinicaService>();
     // Platillos — escritura admin de notas (guardar borrador / publicar / despublicar), reglas en un solo lugar.
     builder.Services.AddScoped<eiibd26.Services.Platillos.IPlatNotaAdminService, eiibd26.Services.Platillos.PlatNotaAdminService>();
+    // Platillos — íconos ilustrados de alimentos (SVG inline con currentColor). Singleton: sin estado
+    // por request y con caché de archivos de wwwroot invalidada por fecha/tamaño.
+    builder.Services.AddSingleton<eiibd26.Services.Platillos.IIconoAlimentoService, eiibd26.Services.Platillos.IconoAlimentoService>();
 
     // Register HttpClient for Anthropic API
     builder.Services.AddHttpClient("AnthropicClient", (serviceProvider, client) =>

@@ -1,4 +1,5 @@
 @page
+@using eiibd26.Services.Platillos
 @model eiibd26.Pages.Platillos.IngredienteModel
 @{
     ViewData["Title"] = Model.MetaTitle;
@@ -15,6 +16,24 @@
     var waHref = $"https://api.whatsapp.com/send?text={encTitle}%20{encUrl}";
     var fbHref = $"https://www.facebook.com/sharer/sharer.php?u={encUrl}";
     var twHref = $"https://twitter.com/intent/tweet?text={encTitle}&url={encUrl}";
+
+    // Moneda del encabezado. En variable: el inicializador de objeto no puede ir dentro del
+    // atributo del tag helper <partial> — rompe el parser de Razor.
+    var monedaIngrediente = new MonedaAlimentoVm
+    {
+        Nombre = Model.Nombre,
+        Grupo = Model.GrupoNombre,
+        ExtraClass = "eii-moneda--lg"
+    };
+
+    // Moneda del GRUPO (sin Nombre): resuelve al ícono del grupo + su color. Reemplaza al ícono
+    // fijo bi-diagram-3, que era idéntico para todos los grupos. Mientras no existan los SVG de
+    // grupo cae al genérico, pero ya con el color correcto del grupo.
+    var monedaGrupo = new MonedaAlimentoVm
+    {
+        Grupo = Model.GrupoNombre,
+        ExtraClass = "eii-moneda--sm"
+    };
 }
 
 @section Head {
@@ -42,6 +61,8 @@
 
     @* ===== 1. Qué es ===== *@
     <div class="eii-page-header mb-3">
+        @* Moneda grande del alimento: mismo ícono y mismo color de grupo con que aparece en cada platillo. *@
+        <partial name="_MonedaAlimento" model="monedaIngrediente" />
         <div class="eii-page-header__content">
             <h1 class="eii-page-title mb-0">¿Puedo comer @Model.Nombre?</h1>
         </div>
@@ -53,12 +74,11 @@
             .tag del encabezado (misma info, sin duplicar). ===== *@
     <div class="ing-facts">
         <div class="eii-stat eii-stat--primary">
-            <i class="bi bi-diagram-3 eii-stat__icon" aria-hidden="true"></i>
+            <partial name="_MonedaAlimento" model="monedaGrupo" />
             <span class="eii-stat__value">@(string.IsNullOrWhiteSpace(Model.GrupoNombre) ? "—" : Model.GrupoNombre)</span>
             <span class="eii-stat__label">grupo</span>
         </div>
         <div class="eii-stat eii-stat--info">
-            <i class="bi bi-tags eii-stat__icon" aria-hidden="true"></i>
             <span class="eii-stat__value">@(Model.Atributos.Count > 0 ? string.Join(", ", Model.Atributos) : "Ninguno")</span>
             <span class="eii-stat__label">atributos intrínsecos</span>
         </div>
@@ -364,7 +384,6 @@
                 <div class="sidebar-section">
                     <div class="side-ext">
                         <div class="side-ext__head">
-                            <span class="side-ext__ico"><i class="bi bi-egg-fried"></i></span>
                             <h4 class="side-ext__title">Platillos que lo incluyen</h4>
                         </div>
                         <div class="ext-list" id="lista-platillos">
