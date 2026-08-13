@@ -16,6 +16,19 @@ namespace eiibd26.Configuration
         public string Model { get; set; } = "claude-haiku-4-5-20251001";
 
         /// <summary>
+        /// Modelo SOLO para las descripciones de fichas del glosario (síntomas y tratamientos).
+        /// Vacío ⇒ usa <see cref="Model"/>.
+        /// </summary>
+        /// <remarks>
+        /// Se separa de <see cref="Model"/> a propósito: ese lo comparten el Q&amp;A de NINA,
+        /// Platillos y el evaluador de calidad, y subirlo encarecería todo. La ficha del glosario
+        /// es el único contenido médico que se publica tal cual a pacientes y es donde el modelo
+        /// alucinó (caso Aangamik), así que aquí se paga un modelo mejor.
+        /// Recomendado: <c>claude-sonnet-4-6</c>. Es cambio de config, sin redeploy.
+        /// </remarks>
+        public string? ModelDescripcionFicha { get; set; }
+
+        /// <summary>
         /// Temperatura para generación (0.0 = determinista, 1.0 = creativo)
         /// Rango recomendado para respuestas médicas: 0.2-0.3
         /// </summary>

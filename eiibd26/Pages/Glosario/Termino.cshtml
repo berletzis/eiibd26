@@ -22,6 +22,15 @@
     }
 }
 
+@section Head {
+    @* Triage Dudoso = nadie ha confirmado que el término sea real. Sigue accesible (no se
+       despublica por dudar), pero no se ofrece a los buscadores hasta que un humano lo cierre. *@
+    @if (Model.Term?.TriageEstado == 3)
+    {
+        <meta name="robots" content="noindex,follow" />
+    }
+}
+
 @section Styles {
     <link rel="stylesheet" href="~/css/detalle.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/estado-animo.css" asp-append-version="true" />
@@ -449,6 +458,27 @@ else
             <span class="sep">›</span>
             <span>@Model.Term.Nombre</span>
         </nav>
+
+        @* Justificación del triage — SOLO para curadores (Administrador/Medico). Es razonamiento
+           interno de NINA (por qué quedó Dudoso), no contenido para el paciente. El público no lo ve. *@
+        @if (Model.Term.TriageEstado == 3
+             && !string.IsNullOrWhiteSpace(Model.Term.TriageMotivo)
+             && (User.IsInRole("Administrador") || User.IsInRole("Medico")))
+        {
+            <div class="alert border mb-4" role="alert"
+                 style="background:#fffbeb; border-color:#fde68a !important; color:#78350f;">
+                <div class="d-flex align-items-start gap-2">
+                    <i class="bi bi-shield-exclamation" style="font-size:1.1rem; line-height:1.3;"></i>
+                    <div>
+                        <div class="fw-semibold mb-1">
+                            Dudoso — revisión pendiente
+                            <span class="badge bg-warning text-dark ms-1">solo curadores</span>
+                        </div>
+                        <div class="small">@Model.Term.TriageMotivo</div>
+                    </div>
+                </div>
+            </div>
+        }
 
         <!-- Grid principal: columna + sidebar -->
         <div class="detail-grid">

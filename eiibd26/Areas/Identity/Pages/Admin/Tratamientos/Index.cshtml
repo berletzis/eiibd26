@@ -272,6 +272,18 @@
         </div>
     </div>
 
+    <div class="card mb-3">
+      <div class="card-body py-2">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <span class="fw-semibold"><i class="bi bi-search"></i> Probar reconocimiento</span>
+          <input type="text" id="sondaNombre" class="form-control form-control-sm" style="max-width:300px;" placeholder="Escribe un nombre (p. ej. Aangamik)" autocomplete="off" />
+          <button type="button" class="btn btn-sm btn-outline-primary" id="btnSondaReconocimiento">Probar</button>
+          <span id="sondaResultado" class="small ms-2"></span>
+        </div>
+        <div class="small text-muted mt-1">Solo lectura — no cambia nada. Muestra cómo clasificaría el gate ese nombre (Reconocido / NoReconocido / RevisiónHumana / SinVeredicto).</div>
+      </div>
+    </div>
+
     <div class="admin-layout-flex">
         <!-- ===== GRID (LADO IZQUIERDO 65%) ===== -->
         <div class="grid-wrapper">
@@ -740,6 +752,9 @@
                             </button>
                             <span class="small text-muted" id="basuraRamaInfo">Elige una rama para ver cuántos hay.</span>
                         </div>
+                        @* Acuse de recibo del paso destructivo. El log de NINA es historial y en
+                           lotes grandes la línea del resultado se pierde en el scroll. *@
+                        <div class="alert d-none mt-3 mb-0" id="avisoAplicarBasura" role="alert" aria-live="assertive"></div>
                     </div>
                 </div>
             </div>
@@ -834,6 +849,33 @@
         }
 
         $(function () {
+
+            // ── Probar reconocimiento: sonda del gate (solo lectura, no escribe nada) ──
+            (function () {
+                function pillReco(res) {
+                    var m = { Reconocido: 'success', NoReconocido: 'danger', RevisionHumana: 'warning', GroundingNoDisponible: 'secondary' };
+                    return '<span class="badge bg-' + (m[res] || 'secondary') + '">' + (res || '—') + '</span>';
+                }
+                function probarReco() {
+                    var nombre = ($('#sondaNombre').val() || '').trim();
+                    if (!nombre) return;
+                    var $r = $('#sondaResultado').html('<span class="text-muted">Probando…</span>');
+                    $.ajax({
+                        url: '/api/admin/reconocimiento/sonda', type: 'POST', contentType: 'application/json',
+                        data: JSON.stringify({ tipo: 1, nombres: [nombre] }),
+                        success: function (data) {
+                            var r = (data.resultados && data.resultados[0]) || {};
+                            $r.html(pillReco(r.resultado) +
+                                ' <span class="text-muted">conf ' + (r.confianza != null ? r.confianza : '—') +
+                                (r.motivo ? ' · ' + r.motivo : '') + '</span>');
+                        },
+                        error: function (xhr) { $r.html('<span class="text-danger">Error ' + xhr.status + '</span>'); }
+                    });
+                }
+                $('#btnSondaReconocimiento').on('click', probarReco);
+                $('#sondaNombre').on('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); probarReco(); } });
+            })();
+
             $.ajaxSetup({
                 beforeSend: function(xhr, settings) {
                     if (settings.type === 'POST' || settings.type === 'PUT' || settings.type === 'DELETE') {
@@ -918,10 +960,19 @@
                         data: 'triageEstado',
                         orderable: false,
                         render: function (data, type, row) {
-                            const motivo = (row.triageMotivo || '').replace(/"/g, '&quot;');
-                            if (data === 1) return `<span class="badge bg-success" title="${motivo}">Válido</span>`;
-                            if (data === 2) return `<span class="badge bg-danger" title="${motivo}">Basura</span>`;
-                            if (data === 3) return `<span class="badge bg-warning text-dark" title="${motivo}">Dudoso</span>`;
+                            const esc = (row.triageMotivo || '')
+                                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                            const attr = esc.replace(/"/g, '&quot;');
+                            // Dudoso: la justificación se muestra visible (no solo tooltip) para que el
+                            // curador la lea sin pasar el mouse. Válido/Basura la dejan en title.
+                            if (data === 1) return `<span class="badge bg-success" title="${attr}">Válido</span>`;
+                            if (data === 2) return `<span class="badge bg-danger" title="${attr}">Basura</span>`;
+                            if (data === 3) {
+                                const just = esc
+                                    ? `<div class="small text-muted mt-1" style="max-width:320px; white-space:normal; line-height:1.3;">${esc}</div>`
+                                    : '';
+                                return `<span class="badge bg-warning text-dark">Dudoso</span>${just}`;
+                            }
                             return '<span class="badge badge-grid-gray">Sin revisar</span>';
                         }
                     },
@@ -1474,6 +1525,40 @@
 
             $('#selectRama').on('change', actualizarInfoBasura);
 
+            // Banner del resultado de "Aplicar Basura". El log de NINA se queda como historial,
+            // pero en lotes grandes la línea del desenlace se va con el scroll: esto lo trae a
+            // la vista. Solo el éxito limpio se auto-oculta; errores y discrepancias se quedan.
+            let avisoBasuraTimer = null;
+
+            function ocultarAvisoBasura() {
+                if (avisoBasuraTimer) { clearTimeout(avisoBasuraTimer); avisoBasuraTimer = null; }
+                $('#avisoAplicarBasura').addClass('d-none');
+            }
+
+            function mostrarAvisoBasura(tipo, texto, autoOcultar) {
+                const clase  = { success: 'alert-success', warning: 'alert-warning', danger: 'alert-danger' }[tipo] || 'alert-secondary';
+                const icono  = { success: 'bi-check-circle-fill', warning: 'bi-exclamation-triangle-fill', danger: 'bi-x-circle-fill' }[tipo] || 'bi-info-circle-fill';
+
+                if (avisoBasuraTimer) { clearTimeout(avisoBasuraTimer); avisoBasuraTimer = null; }
+
+                // .text() y no interpolación: el texto trae nombres de rama que salen de la BD.
+                const $aviso = $('#avisoAplicarBasura')
+                    .removeClass('d-none alert-success alert-warning alert-danger alert-secondary')
+                    .addClass(clase)
+                    .empty()
+                    .append($('<i>').addClass('bi ' + icono + ' me-2'))
+                    .append($('<span>').text(texto));
+
+                $aviso[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                if (autoOcultar) {
+                    avisoBasuraTimer = setTimeout(function () {
+                        $aviso.addClass('d-none');
+                        avisoBasuraTimer = null;
+                    }, 15000);
+                }
+            }
+
             $('#btnRevisarNina').on('click', function () {
                 resetearEstadisticasNina();
                 cargarRamas(false);
@@ -1487,16 +1572,27 @@
                 const $btn = $(this).prop('disabled', true);
                 const url = '/api/admin/tratamientos/basura-preview' + (raiz ? `?raizId=${raiz}` : '');
 
-                $.get(url, function (prev) {
-                    if (!prev.ok) { agregarLogNina('error', '❌ No se pudo calcular el conteo previo'); $btn.prop('disabled', false); return; }
+                // El banner de la corrida anterior no debe confundirse con el resultado de ésta.
+                ocultarAvisoBasura();
 
-                    if (prev.aDesactivar === 0) {
-                        agregarLogNina('info', `Nada que aplicar: 0 desactivables (${prev.bloqueados} bloqueados por guard).`);
+                const rama = raiz === null ? 'TODO el catálogo' : `la rama "${ramasCache.find(r => r.raizId === raiz)?.categoria}"`;
+
+                $.get(url, function (prev) {
+                    if (!prev.ok) {
+                        agregarLogNina('error', '❌ No se pudo calcular el conteo previo');
+                        mostrarAvisoBasura('danger', 'No se pudo calcular el conteo previo. No se desactivó nada.', false);
                         $btn.prop('disabled', false);
                         return;
                     }
 
-                    const rama = raiz === null ? 'TODO el catálogo' : `la rama "${ramasCache.find(r => r.raizId === raiz)?.categoria}"`;
+                    if (prev.aDesactivar === 0) {
+                        agregarLogNina('info', `Nada que aplicar: 0 desactivables (${prev.bloqueados} bloqueados por guard).`);
+                        mostrarAvisoBasura('warning',
+                            `Nada que aplicar en ${rama}: 0 desactivables (${prev.bloqueados} bloqueados por guard).`, false);
+                        $btn.prop('disabled', false);
+                        return;
+                    }
+
                     const msg = `Se van a DESACTIVAR ${prev.aDesactivar} tratamientos en ${rama}.\n\n` +
                                 `Bloqueados por guard (no se tocan): ${prev.bloqueados}\n` +
                                 `Total marcado como Basura: ${prev.total}\n\n` +
@@ -1509,24 +1605,39 @@
                         contentType: 'application/json',
                         data: JSON.stringify({ raizId: raiz }),
                         success: function (data) {
-                            if (!data.ok) { agregarLogNina('error', `❌ ${data.error}`); return; }
+                            if (!data.ok) {
+                                agregarLogNina('error', `❌ ${data.error}`);
+                                mostrarAvisoBasura('danger', data.error || 'Error al aplicar la desactivación.', false);
+                                return;
+                            }
                             agregarLogNina('success', `🗑️ Aplicado: ${data.desactivados} desactivados, ${data.bloqueados} bloqueados por guard.`);
                             (data.bloqueadosDetalle || []).forEach(function (b) {
                                 agregarLogNina('warn', `🛡️ ${b.nombre} — no desactivado: ${b.motivo}`);
                             });
-                            if (data.desactivados !== prev.aDesactivar) {
+
+                            let resumen = `Desactivación completada: ${data.desactivados} desactivados · ` +
+                                          `${data.bloqueados} bloqueados por guard · en ${rama}.`;
+                            const discrepancia = data.desactivados !== prev.aDesactivar;
+                            if (discrepancia) {
                                 agregarLogNina('warn', `⚠️ El conteo previo decía ${prev.aDesactivar} y se aplicaron ${data.desactivados}.`);
+                                resumen += ` Ojo: el conteo previo decía ${prev.aDesactivar}.`;
                             }
+                            // La discrepancia se queda en pantalla; el éxito limpio se auto-oculta.
+                            mostrarAvisoBasura(discrepancia ? 'warning' : 'success', resumen, !discrepancia);
+
                             cargarRamas(true);
                             tratamientosTabla.ajax.reload();
                         },
                         error: function (xhr, status, error) {
-                            agregarLogNina('error', `❌ Error al aplicar: ${xhr.responseJSON?.error || error}`);
+                            const detalle = xhr.responseJSON?.error || error || 'error de red';
+                            agregarLogNina('error', `❌ Error al aplicar: ${detalle}`);
+                            mostrarAvisoBasura('danger', `Error al aplicar: ${detalle}`, false);
                         },
                         complete: function () { $btn.prop('disabled', false); }
                     });
                 }).fail(function () {
                     agregarLogNina('error', '❌ Error al calcular el conteo previo');
+                    mostrarAvisoBasura('danger', 'Error al calcular el conteo previo. No se desactivó nada.', false);
                     $btn.prop('disabled', false);
                 });
             });
@@ -1559,8 +1670,18 @@
             });
 
             $('#btnContinuarReview').on('click', function () {
-                if (reviewRemaining <= 0) reviewRemaining = reviewChunk;
+                // Reanuda como una NUEVA tanda del tamaño seleccionado en la lista. El backend
+                // siempre toma los siguientes sin revisar (RevisionLimpiezaEstado IS NULL), así
+                // que continúa donde se quedó. Se resetea la barra y los contadores de esta tanda.
+                reviewRequestedTotal = parseInt($('#selectReviewSize').val() || '100', 10);
+                reviewRemaining = reviewRequestedTotal;
+                totValidos = totBasura = totDudosos = totProtegidos = totFallidosNina = totDesactivados = 0;
+                $('#progresoTextoNina').text('0 / ' + reviewRequestedTotal + ' revisados');
+                $('#progressBarNina').css('width', '0%').text('0%')
+                    .addClass('progress-bar-animated').removeClass('bg-success');
+                $('#validosCount, #basuraCount, #dudososCount, #protegidosCount').text('0');
                 reviewPaused = false;
+                $('#selectReviewSize, #switchDryRun, #selectRama').prop('disabled', true);
                 $('#btnContinuarReview').addClass('d-none');
                 $('#btnPausarReview').removeClass('d-none').prop('disabled', false);
                 procesarReviewChunk();

@@ -21,6 +21,42 @@ namespace eiibd26.Services.Glossary
         Task<List<GlossaryTermDto>> GetTermsByTypeAsync(GlossaryTermType tipo);
 
         /// <summary>
+        /// Ids de términos ACTIVOS cuyo registro médico vinculado está en triage Dudoso
+        /// (RevisionLimpiezaEstado = 3). Para el chip "Dudosos" del glosario, que SOLO se
+        /// muestra a curadores (Administrador/Medico). Consulta liviana (solo ids) que las
+        /// vistas disparan únicamente cuando el usuario tiene ese rol.
+        /// </summary>
+        Task<HashSet<int>> GetDudosoTermIdsAsync(GlossaryTermType tipo);
+
+        /// <summary>
+        /// Propaga el borrado lógico de tratamientos al glosario:
+        /// tratamiento eliminado ⇒ término inactivo; restaurado ⇒ término activo.
+        /// Invariante que mantiene alineados los conteos del home (tabla <c>tratamientos</c>)
+        /// con los del glosario (<c>GlossaryTerm.Activo</c>).
+        /// </summary>
+        /// <param name="tratamientoIds">Ids de tratamientos cuyo término hay que sincronizar</param>
+        /// <param name="activo">Estado destino del término (<c>false</c> al eliminar, <c>true</c> al restaurar)</param>
+        /// <returns>Número de términos efectivamente modificados</returns>
+        Task<int> SincronizarActivoPorTratamientosAsync(
+            IReadOnlyCollection<int> tratamientoIds,
+            bool activo,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Propaga el borrado lógico de síntomas al glosario:
+        /// síntoma eliminado ⇒ término inactivo; restaurado ⇒ término activo.
+        /// Invariante que mantiene alineados los conteos del home (tabla <c>sintomas</c>)
+        /// con los del glosario (<c>GlossaryTerm.Activo</c>).
+        /// </summary>
+        /// <param name="sintomaIds">Ids de síntomas cuyo término hay que sincronizar</param>
+        /// <param name="activo">Estado destino del término (<c>false</c> al eliminar, <c>true</c> al restaurar)</param>
+        /// <returns>Número de términos efectivamente modificados</returns>
+        Task<int> SincronizarActivoPorSintomasAsync(
+            IReadOnlyCollection<int> sintomaIds,
+            bool activo,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Obtiene detalle completo de un término por slug
         /// </summary>
         /// <param name="slug">Slug del término (ej: "fatiga")</param>

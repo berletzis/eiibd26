@@ -1,5 +1,6 @@
 using eiibd26.Data;
 using eiibd26.Models;
+using eiibd26.Services.Glossary;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -10,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
 {
-    // DTO simple para evitar problemas con tipos anónimos y dinámicos
+    // DTO simple para evitar problemas con tipos anï¿½nimos y dinï¿½micos
     public class SintomaGridItem
     {
         public int id { get; set; }
@@ -23,31 +24,37 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
         public bool ValidadoHumano { get; set; }
         public bool RelacionEII { get; set; }
         public int TipoSintoma { get; set; }
+        /// <summary>Triage de limpieza: null = no revisado Â· 1 = VÃ¡lido Â· 2 = Basura Â· 3 = Dudoso.</summary>
+        public byte? RevisionLimpiezaEstado { get; set; }
+        public string? RevisionLimpiezaMotivo { get; set; }
     }
 
     public class IndexModel : PageModel
     {
         private readonly ApplicationDbContext _db;
-        public IndexModel(ApplicationDbContext db)
+        private readonly IGlossaryService _glossary;
+
+        public IndexModel(ApplicationDbContext db, IGlossaryService glossary)
         {
             _db = db;
+            _glossary = glossary;
         }
 
         public void OnGet() { }
 
         /// <summary>POST shim so DataTables can send column metadata in the body instead of the query string, avoiding the IIS 2048-char query string limit.</summary>
-        public Task<IActionResult> OnPostGridDataAsync(bool mostrarEliminados = false)
-            => GridDataCoreAsync(mostrarEliminados);
+        public Task<IActionResult> OnPostGridDataAsync(bool mostrarEliminados = false, string? filtroTriage = null)
+            => GridDataCoreAsync(mostrarEliminados, filtroTriage);
 
-        public Task<IActionResult> OnGetGridDataAsync(bool mostrarEliminados = false)
-            => GridDataCoreAsync(mostrarEliminados);
+        public Task<IActionResult> OnGetGridDataAsync(bool mostrarEliminados = false, string? filtroTriage = null)
+            => GridDataCoreAsync(mostrarEliminados, filtroTriage);
 
         private string Param(string key)
             => Request.HasFormContentType && Request.Form.ContainsKey(key)
                 ? Request.Form[key].ToString()
                 : Request.Query[key].ToString();
 
-        private async Task<IActionResult> GridDataCoreAsync(bool mostrarEliminados = false)
+        private async Task<IActionResult> GridDataCoreAsync(bool mostrarEliminados = false, string? filtroTriage = null)
         {
             var draw = int.TryParse(Param("draw"), out var dVal) ? dVal : 1;
             var start = int.TryParse(Param("start"), out var sVal) ? sVal : 0;
@@ -59,11 +66,21 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
                 .AsNoTracking()
                 .Where(s => mostrarEliminados || !s.Eliminado);
 
-            // Aplicar búsqueda en SQL
+            // Aplicar bï¿½squeda en SQL
             if (!string.IsNullOrEmpty(searchValue))
             {
                 baseQuery = baseQuery.Where(s => s.nombre.Contains(searchValue));
             }
+
+            // Filtro por bucket del triage de limpieza. "dudoso" es la cola de trabajo humano.
+            baseQuery = filtroTriage switch
+            {
+                "norevisado" => baseQuery.Where(s => s.RevisionLimpiezaEstado == null),
+                "valido"     => baseQuery.Where(s => s.RevisionLimpiezaEstado == 1),
+                "basura"     => baseQuery.Where(s => s.RevisionLimpiezaEstado == 2),
+                "dudoso"     => baseQuery.Where(s => s.RevisionLimpiezaEstado == 3),
+                _            => baseQuery
+            };
 
             // Ahora proyectar al DTO
             var projectedQuery = baseQuery.Select(s => new SintomaGridItem
@@ -77,7 +94,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
                 ValidadoIA = s.ValidadoIA,
                 ValidadoHumano = s.ValidadoHumano,
                 RelacionEII = s.RelacionEII,
-                TipoSintoma = s.TipoSintoma
+                TipoSintoma = s.TipoSintoma,
+                RevisionLimpiezaEstado = s.RevisionLimpiezaEstado,
+                RevisionLimpiezaMotivo = s.RevisionLimpiezaMotivo
             });
 
             // 1. Ejecutar la query y traer datos a memoria
@@ -87,7 +106,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
             var hijosConPadre = filtered.Where(x => x.idPadre != null).ToList();
             var padresFiltrados = filtered.Where(x => x.idPadre == null).ToList();
 
-            // 3. IDs de padres de esos hijos que no están ya dentro del filtro
+            // 3. IDs de padres de esos hijos que no estï¿½n ya dentro del filtro
             var padresExtraIds = hijosConPadre
                 .Select(x => x.idPadre.Value)
                 .Distinct()
@@ -112,12 +131,14 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
                         ValidadoIA = s.ValidadoIA,
                         ValidadoHumano = s.ValidadoHumano,
                         RelacionEII = s.RelacionEII,
-                        TipoSintoma = s.TipoSintoma
+                        TipoSintoma = s.TipoSintoma,
+                        RevisionLimpiezaEstado = s.RevisionLimpiezaEstado,
+                        RevisionLimpiezaMotivo = s.RevisionLimpiezaMotivo
                     })
                     .ToListAsync();
             }
 
-            // 5. Arma la jerarquía para la grilla:
+            // 5. Arma la jerarquï¿½a para la grilla:
             var resultado = new List<dynamic>();
             foreach (var padre in padresFiltrados.Concat(padresExtra).OrderBy(p => p.nombre))
             {
@@ -133,7 +154,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
                     validadoIA = padre.ValidadoIA,
                     validadoHumano = padre.ValidadoHumano,
                     relacionEII = padre.RelacionEII,
-                    tipoSintoma = padre.TipoSintoma
+                    tipoSintoma = padre.TipoSintoma,
+                    triageEstado = padre.RevisionLimpiezaEstado,
+                    triageMotivo = padre.RevisionLimpiezaMotivo
                 });
 
                 var hijos = hijosConPadre
@@ -155,7 +178,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
                         validadoIA = h.ValidadoIA,
                         validadoHumano = h.ValidadoHumano,
                         relacionEII = h.RelacionEII,
-                        tipoSintoma = h.TipoSintoma
+                        tipoSintoma = h.TipoSintoma,
+                        triageEstado = h.RevisionLimpiezaEstado,
+                        triageMotivo = h.RevisionLimpiezaMotivo
                     });
                 }
             }
@@ -182,7 +207,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
 
                 if (s == null)
                 {
-                    return new JsonResult(new { success = false, message = "Síntoma no encontrado." }) { StatusCode = 404 };
+                    return new JsonResult(new { success = false, message = "Sï¿½ntoma no encontrado." }) { StatusCode = 404 };
                 }
 
                 return new JsonResult(new
@@ -200,14 +225,14 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine("OnGetGetSintomaAsync error: " + ex);
-                return new JsonResult(new { success = false, message = "Error al obtener el síntoma." }) { StatusCode = 500 };
+                return new JsonResult(new { success = false, message = "Error al obtener el sï¿½ntoma." }) { StatusCode = 500 };
             }
         }
 
         public async Task<IActionResult> OnPostEditarSintomaAsync()
         {
             if (string.IsNullOrWhiteSpace(Request.Form["id"]))
-                return BadRequest(new { success = false, message = "ID inválido" });
+                return BadRequest(new { success = false, message = "ID invï¿½lido" });
 
             var id = int.Parse(Request.Form["id"]);
             var nombre = Request.Form["nombre"].ToString();
@@ -219,7 +244,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
 
             var sintoma = await _db.sintomas.FirstOrDefaultAsync(x => x.id == id);
             if (sintoma == null)
-                return new JsonResult(new { success = false, message = "Síntoma no encontrado." });
+                return new JsonResult(new { success = false, message = "Sï¿½ntoma no encontrado." });
 
             sintoma.nombre = nombre;
             sintoma.idPadre = idPadre;
@@ -238,24 +263,27 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
         public async Task<IActionResult> OnPostEliminarSintomaAsync()
         {
             if (!Request.HasFormContentType || string.IsNullOrWhiteSpace(Request.Form["id"]))
-                return BadRequest(new { success = false, message = "ID inválido" });
+                return BadRequest(new { success = false, message = "ID invï¿½lido" });
             var id = int.Parse(Request.Form["id"]);
 
             var s = await _db.sintomas.FirstOrDefaultAsync(x => x.id == id);
             if (s == null)
-                return new JsonResult(new { success = false, message = "Síntoma no encontrado." });
+                return new JsonResult(new { success = false, message = "Sï¿½ntoma no encontrado." });
 
             // Verifica si es padre y tiene hijos
             var esPadre = s.idPadre == null;
             var tieneHijos = await _db.sintomas.AnyAsync(x => x.idPadre == id);
 
             if (esPadre && tieneHijos)
-                return new JsonResult(new { success = false, message = "No puedes eliminar síntomas padre que tienen hijos. Elimina o reasigna primero sus hijos." });
+                return new JsonResult(new { success = false, message = "No puedes eliminar sï¿½ntomas padre que tienen hijos. Elimina o reasigna primero sus hijos." });
 
             s.Eliminado = true;
             s.fechaEliminado = DateTime.Now.Date;
             s.fechaModificado = DateTime.Now;
             await _db.SaveChangesAsync();
+
+            // Invariante: sÃ­ntoma eliminado â‡’ su tÃ©rmino del glosario deja de listarse.
+            await _glossary.SincronizarActivoPorSintomasAsync(new[] { id }, activo: false);
 
             return new JsonResult(new { success = true });
         }
@@ -263,17 +291,20 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Sintomas
         public async Task<IActionResult> OnPostRestaurarSintomaAsync()
         {
             if (!Request.HasFormContentType || string.IsNullOrWhiteSpace(Request.Form["id"]))
-                return BadRequest(new { success = false, message = "ID inválido" });
+                return BadRequest(new { success = false, message = "ID invï¿½lido" });
             var id = int.Parse(Request.Form["id"]);
 
             var s = await _db.sintomas.FirstOrDefaultAsync(x => x.id == id);
             if (s == null)
-                return new JsonResult(new { success = false, message = "Síntoma no encontrado." });
+                return new JsonResult(new { success = false, message = "Sï¿½ntoma no encontrado." });
 
             s.Eliminado = false;
             s.fechaEliminado = DateTime.MinValue;
             s.fechaModificado = DateTime.Now;
             await _db.SaveChangesAsync();
+
+            // Invariante (lado reversible): restaurar el sÃ­ntoma reactiva su tÃ©rmino.
+            await _glossary.SincronizarActivoPorSintomasAsync(new[] { id }, activo: true);
 
             return new JsonResult(new { success = true });
         }

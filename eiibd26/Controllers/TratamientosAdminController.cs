@@ -2,6 +2,7 @@ using eiibd26.Data;
 using eiibd26.Models;
 using eiibd26.Models.Glossary;
 using eiibd26.Services.AI;
+using eiibd26.Services.Glossary;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,17 +16,96 @@ namespace eiibd26.Controllers
     {
         private readonly ApplicationDbContext _db;
         private readonly ISintomasTratamientosAiService _aiService;
+        private readonly IReconocimientoEntidadService _gate;
+        private readonly IGlossaryService _glossary;
         private readonly ILogger<TratamientosAdminController> _logger;
 
         public TratamientosAdminController(
             ApplicationDbContext db,
             ISintomasTratamientosAiService aiService,
+            IReconocimientoEntidadService gate,
+            IGlossaryService glossary,
             ILogger<TratamientosAdminController> logger)
         {
             _db = db;
             _aiService = aiService;
+            _gate = gate;
+            _glossary = glossary;
             _logger = logger;
         }
+
+        /// <summary>
+        /// Corre el gate de reconocimiento sobre un tratamiento y aplica los efectos de un
+        /// veredicto negativo. Devuelve <c>true</c> solo si se puede llamar al generador.
+        /// </summary>
+        /// <remarks>
+        /// <para>Efectos por veredicto (fail-safe ASIMÉTRICO):</para>
+        /// <list type="bullet">
+        /// <item><c>Reconocido</c> → no toca nada, autoriza generar.</item>
+        /// <item><c>NoReconocido</c> → sella Dudoso, <c>RelacionEII=false</c>, NO escribe
+        /// descripción y saca el término del glosario.</item>
+        /// <item><c>RevisionHumana</c> → sella Dudoso y NO despublica: la duda no quita de
+        /// circulación algo que ya estaba público.</item>
+        /// <item><c>GroundingNoDisponible</c> → CERO escrituras. Un outage no despublica nada.</item>
+        /// </list>
+        /// <para>
+        /// Garantía estructural contra pisar trabajo médico: <c>NoReconocido</c> solo puede
+        /// venir del Tier 1, y al Tier 1 únicamente se llega si el Tier 0 (allowlist) dio
+        /// negativo — es decir, si el registro NO tiene <c>ValidadoHumano</c> ni validaciones
+        /// aprobadas en <c>GlossaryValidation</c>.
+        /// </para>
+        /// </remarks>
+        private async Task<bool> PasaGateAsync(
+            tratamientos tratamiento,
+            DecisionReconocimiento decision,
+            CancellationToken cancellationToken)
+        {
+            if (decision.PermiteGenerar)
+                return true;
+
+            if (decision.EsSinVeredicto)
+            {
+                _logger.LogWarning(
+                    "Gate SIN VEREDICTO para tratamiento {Id} ('{Nombre}'): {Motivo}. No se escribe nada.",
+                    tratamiento.id, tratamiento.nombre, decision.Motivo);
+                return false;
+            }
+
+            var motivo = $"[gate] {decision.Motivo}";
+            if (motivo.Length > 1000) motivo = motivo[..1000];
+
+            tratamiento.RevisionLimpiezaEstado    = (byte)TriageLimpieza.Dudoso;
+            tratamiento.RevisionLimpiezaConfianza = (decimal)decision.Confianza;
+            tratamiento.RevisionLimpiezaMotivo    = motivo;
+            tratamiento.RevisionLimpiezaFecha     = DateTime.UtcNow;
+
+            if (decision.Resultado == ResultadoReconocimiento.NoReconocido)
+            {
+                // No se genera ficha y la que hubiera no se avala: se corta la afirmación de
+                // relación con EII, que es la parte publicada que puede dañar a un paciente.
+                tratamiento.RelacionEII = false;
+                tratamiento.fechaModificado = DateTime.Now;
+            }
+
+            await _db.SaveChangesAsync(cancellationToken);
+
+            if (decision.Resultado == ResultadoReconocimiento.NoReconocido && _gate.DesactivaNoReconocidos)
+            {
+                await _glossary.SincronizarActivoPorTratamientosAsync(
+                    new[] { tratamiento.id }, activo: false, cancellationToken);
+            }
+
+            _logger.LogWarning(
+                "Gate {Resultado} ({Fuente}, conf {Confianza:0.00}) para tratamiento {Id} ('{Nombre}'): {Motivo}",
+                decision.Resultado, decision.Fuente, decision.Confianza,
+                tratamiento.id, tratamiento.nombre, decision.Motivo);
+
+            return false;
+        }
+
+        /// <summary>Entrada del gate a partir del registro ya cargado.</summary>
+        private static EntradaReconocimiento AEntradaGate(tratamientos t) =>
+            new(t.id, t.nombre, t.ValidadoHumano, t.ValidadoIA, t.DescripcionIA);
 
         /// <summary>
         /// Genera descripción IA para un tratamiento
@@ -45,11 +125,43 @@ namespace eiibd26.Controllers
                 if (string.IsNullOrWhiteSpace(tratamiento.nombre))
                     return BadRequest(new { ok = false, error = "El tratamiento no tiene nombre" });
 
+                // GATE de reconocimiento — ANTES de generar. Llamada separada a propósito: un
+                // modelo al que ya se le pidió describir X tiene sesgo a completar la descripción.
+                var decision = await _gate.EvaluarAsync(
+                    TipoEntidadClinica.Tratamiento, AEntradaGate(tratamiento), cancellationToken);
+
+                if (!await PasaGateAsync(tratamiento, decision, cancellationToken))
+                {
+                    return Ok(new
+                    {
+                        ok        = false,
+                        gate      = decision.Resultado.ToString(),
+                        fuente    = decision.Fuente,
+                        confianza = decision.Confianza,
+                        error     = $"NINA no reconoce «{tratamiento.nombre}» como un tratamiento real, así que no generó la ficha. {decision.Motivo}"
+                    });
+                }
+
                 _logger.LogInformation("Generando descripción IA para tratamiento {Id}: {Nombre}", id, tratamiento.nombre);
 
-                var (descripcion, relacionEII, nombreTraducido) = await _aiService.GenerarDescripcionTratamientoAsync(
-                    tratamiento.nombre, 
+                var (descripcion, relacionEII, nombreTraducido, reconocido) = await _aiService.GenerarDescripcionTratamientoAsync(
+                    tratamiento.nombre,
                     cancellationToken);
+
+                // 2ª red: el propio generador se declaró incapaz. No se persiste NADA.
+                if (!reconocido)
+                {
+                    var deGenerador = new DecisionReconocimiento(
+                        ResultadoReconocimiento.NoReconocido, "generador", 1d,
+                        "El generador declaró no reconocer el término.");
+                    await PasaGateAsync(tratamiento, deGenerador, cancellationToken);
+                    return Ok(new
+                    {
+                        ok    = false,
+                        gate  = deGenerador.Resultado.ToString(),
+                        error = $"NINA no reconoce «{tratamiento.nombre}»; no se guardó ninguna descripción."
+                    });
+                }
 
                 if (!string.IsNullOrWhiteSpace(nombreTraducido) &&
                     !nombreTraducido.Equals(tratamiento.nombre, StringComparison.OrdinalIgnoreCase))
@@ -265,6 +377,10 @@ namespace eiibd26.Controllers
 
             await _db.SaveChangesAsync(cancellationToken);
 
+            // Invariante: eliminado ⇒ término del glosario inactivo (y al revés al restaurar).
+            await _glossary.SincronizarActivoPorTratamientosAsync(
+                new[] { tratamiento.id }, activo: !request.Eliminado, cancellationToken);
+
             return Ok(new { ok = true });
         }
 
@@ -280,15 +396,44 @@ namespace eiibd26.Controllers
                 var resultados = new List<BatchResultItem>();
 
                 // Obtener los siguientes N tratamientos sin descripción IA (no eliminados)
-                var tratamientos = await _db.tratamientos
-                    .Where(t => !t.Eliminado)
-                    .Where(t => string.IsNullOrEmpty(t.DescripcionIA) || !t.ValidadoIA)
+                var baseQuery = _db.tratamientos.Where(t => !t.Eliminado);
+
+                if (request.Regenerar)
+                {
+                    // RE-PROCESO de fichas ya generadas (posiblemente confabuladas). El filtro
+                    // normal las excluye justamente por tener DescripcionIA + ValidadoIA, así que
+                    // sin esta rama la limpieza del catálogo viejo nunca ocurriría.
+                    // Se protege el trabajo humano por partida doble:
+                    //  · ValidadoHumano de la propia tabla, y
+                    //  · validaciones aprobadas en GlossaryValidation (donde valida el médico
+                    //    desde /Termino/{slug} — NO en tratamientos.ValidadoHumano).
+                    // Y se excluye lo ya clasificado como Basura: no se le paga una descripción.
+                    baseQuery = baseQuery
+                        .Where(t => t.ValidadoIA && !string.IsNullOrEmpty(t.DescripcionIA))
+                        .Where(t => !t.ValidadoHumano)
+                        .Where(t => t.RevisionLimpiezaEstado == 1 || t.RevisionLimpiezaEstado == 3)
+                        .Where(t => !_db.GlossaryTermMedicalLinks.Any(l =>
+                            l.TratamientoId == t.id &&
+                            _db.GlossaryValidations.Any(v => v.GlossaryTermId == l.GlossaryTermId && v.Approved)));
+                }
+                else
+                {
+                    baseQuery = baseQuery.Where(t => string.IsNullOrEmpty(t.DescripcionIA) || !t.ValidadoIA);
+                }
+
+                var tratamientos = await baseQuery
                     .OrderBy(t => t.id)
                     .Skip(request.Skip)
                     .Take(request.Take)
                     .ToListAsync(cancellationToken);
 
-                _logger.LogInformation("Procesando batch de {Count} tratamientos. Skip: {Skip}", tratamientos.Count, request.Skip);
+                _logger.LogInformation(
+                    "Procesando batch de {Count} tratamientos. Skip: {Skip}, Regenerar: {Regenerar}",
+                    tratamientos.Count, request.Skip, request.Regenerar);
+
+                var gateNoReconocidos = 0;
+                var gateRevisionHumana = 0;
+                var gateSinVeredicto = 0;
 
                 foreach (var tratamiento in tratamientos)
                 {
@@ -306,11 +451,54 @@ namespace eiibd26.Controllers
                             continue;
                         }
 
+                        // GATE de reconocimiento — antes de gastar una llamada de generación.
+                        var decision = await _gate.EvaluarAsync(
+                            TipoEntidadClinica.Tratamiento, AEntradaGate(tratamiento), cancellationToken);
+
+                        if (!await PasaGateAsync(tratamiento, decision, cancellationToken))
+                        {
+                            switch (decision.Resultado)
+                            {
+                                case ResultadoReconocimiento.NoReconocido:   gateNoReconocidos++;  break;
+                                case ResultadoReconocimiento.RevisionHumana: gateRevisionHumana++; break;
+                                default:                                     gateSinVeredicto++;   break;
+                            }
+
+                            resultados.Add(new BatchResultItem
+                            {
+                                Id      = tratamiento.id,
+                                Nombre  = tratamiento.nombre ?? "Sin nombre",
+                                Success = false,
+                                Gate    = decision.Resultado.ToString(),
+                                Error   = $"Gate {decision.Resultado}: {decision.Motivo}"
+                            });
+                            continue;
+                        }
+
                         _logger.LogInformation("Generando descripción IA para tratamiento {Id}: {Nombre}", tratamiento.id, tratamiento.nombre);
 
-                        var (descripcion, relacionEII, nombreTraducido) = await _aiService.GenerarDescripcionTratamientoAsync(
-                            tratamiento.nombre, 
+                        var (descripcion, relacionEII, nombreTraducido, reconocido) = await _aiService.GenerarDescripcionTratamientoAsync(
+                            tratamiento.nombre,
                             cancellationToken);
+
+                        // 2ª red: el generador se declaró incapaz. No se persiste NADA.
+                        if (!reconocido)
+                        {
+                            gateNoReconocidos++;
+                            await PasaGateAsync(tratamiento, new DecisionReconocimiento(
+                                ResultadoReconocimiento.NoReconocido, "generador", 1d,
+                                "El generador declaró no reconocer el término."), cancellationToken);
+
+                            resultados.Add(new BatchResultItem
+                            {
+                                Id      = tratamiento.id,
+                                Nombre  = tratamiento.nombre ?? "Sin nombre",
+                                Success = false,
+                                Gate    = ResultadoReconocimiento.NoReconocido.ToString(),
+                                Error   = "El generador no reconoció el término — no se guardó descripción."
+                            });
+                            continue;
+                        }
 
                         var nombreOriginal = tratamiento.nombre;
                         if (!string.IsNullOrWhiteSpace(nombreTraducido) &&
@@ -362,18 +550,33 @@ namespace eiibd26.Controllers
                     }
                 }
 
-                // Contar cuántos faltan por procesar
-                var totalPendientes = await _db.tratamientos
-                    .Where(t => !t.Eliminado)
-                    .Where(t => string.IsNullOrEmpty(t.DescripcionIA) || !t.ValidadoIA)
-                    .CountAsync(cancellationToken);
+                // Cuántos faltan, en el MISMO alcance que se procesó.
+                var totalEnAlcance = await baseQuery.CountAsync(cancellationToken);
 
-                return Ok(new 
-                { 
+                // En re-proceso el registro sigue cumpliendo el filtro después de regenerarse
+                // (conserva DescripcionIA + ValidadoIA), así que el contador se apoya en Skip;
+                // si no, la UI diría "quedan N" para siempre y nunca cerraría la corrida.
+                var totalPendientes = request.Regenerar
+                    ? Math.Max(0, totalEnAlcance - (request.Skip + resultados.Count))
+                    : totalEnAlcance;
+
+                if (gateNoReconocidos > 0 || gateSinVeredicto > 0)
+                {
+                    _logger.LogWarning(
+                        "Gate en batch de tratamientos: {NoReconocidos} no reconocidos, {RevisionHumana} a revisión humana, {SinVeredicto} sin veredicto (outage).",
+                        gateNoReconocidos, gateRevisionHumana, gateSinVeredicto);
+                }
+
+                return Ok(new
+                {
                     ok = true,
+                    regenerar = request.Regenerar,
                     procesados = resultados.Count,
                     exitosos = resultados.Count(r => r.Success),
                     fallidos = resultados.Count(r => !r.Success),
+                    gateNoReconocidos,
+                    gateRevisionHumana,
+                    gateSinVeredicto,
                     pendientes = totalPendientes,
                     resultados
                 });
@@ -499,9 +702,18 @@ namespace eiibd26.Controllers
                             continue;
                         }
 
+                        // La descripción autogenerada NO entra como contexto: es justo la que
+                        // puede estar confabulada (caso Aangamik), y el triage la usaría para
+                        // confirmarse a sí mismo — un registro-ruido con una ficha inventada
+                        // convincente pasaba como legítimo. Solo se pasa si la escribió una
+                        // persona. Misma regla que el gate de reconocimiento.
+                        var contextoConfiable = tratamiento.ValidadoIA && !tratamiento.ValidadoHumano
+                            ? null
+                            : tratamiento.DescripcionIA;
+
                         var (estado, confianza, motivo, nivel, razonamiento) =
                             await _aiService.ClasificarTratamientoAsync(
-                                tratamiento.nombre, tratamiento.DescripcionIA, cancellationToken);
+                                tratamiento.nombre, contextoConfiable, cancellationToken);
 
                         tratamiento.RevisionLimpiezaEstado    = estado;
                         tratamiento.RevisionLimpiezaConfianza = (decimal)confianza;
@@ -520,8 +732,8 @@ namespace eiibd26.Controllers
                                 // pero la IA NO puede desactivar un nodo del que cuelgan otros.
                                 tratamiento.RevisionLimpiezaMotivo =
                                     $"[nodo padre con hijos activos, no desactivado] {motivo}";
-                                if (tratamiento.RevisionLimpiezaMotivo.Length > 400)
-                                    tratamiento.RevisionLimpiezaMotivo = tratamiento.RevisionLimpiezaMotivo[..400];
+                                if (tratamiento.RevisionLimpiezaMotivo.Length > 1000)
+                                    tratamiento.RevisionLimpiezaMotivo = tratamiento.RevisionLimpiezaMotivo[..1000];
                             }
                             else if (!request.DryRun && confianza >= UmbralDesactivacion)
                             {
@@ -536,12 +748,19 @@ namespace eiibd26.Controllers
                                 // un humano, pero la IA no lo desactiva sola.
                                 tratamiento.RevisionLimpiezaMotivo =
                                     $"[confianza {confianza:0.00} < {UmbralDesactivacion:0.00}, no desactivado] {motivo}";
-                                if (tratamiento.RevisionLimpiezaMotivo.Length > 400)
-                                    tratamiento.RevisionLimpiezaMotivo = tratamiento.RevisionLimpiezaMotivo[..400];
+                                if (tratamiento.RevisionLimpiezaMotivo.Length > 1000)
+                                    tratamiento.RevisionLimpiezaMotivo = tratamiento.RevisionLimpiezaMotivo[..1000];
                             }
                         }
 
                         await _db.SaveChangesAsync(cancellationToken);
+
+                        // Invariante: si la IA lo desactivó, su término sale del glosario.
+                        if (desactivado)
+                        {
+                            await _glossary.SincronizarActivoPorTratamientosAsync(
+                                new[] { tratamiento.id }, activo: false, cancellationToken);
+                        }
 
                         // Enriquecimiento (descripción + nivel de relación) SOLO fuera de dry-run:
                         // el dry-run se limita al sello de clasificación, y describir cuesta otra
@@ -553,26 +772,38 @@ namespace eiibd26.Controllers
                         {
                             try
                             {
-                                var (descripcion, relacionEII, nombreTraducido) =
+                                var (descripcion, relacionEII, nombreTraducido, reconocido) =
                                     await _aiService.GenerarDescripcionTratamientoAsync(tratamiento.nombre, cancellationToken);
 
-                                if (!string.IsNullOrWhiteSpace(nombreTraducido) &&
-                                    !nombreTraducido.Equals(tratamiento.nombre, StringComparison.OrdinalIgnoreCase))
+                                // El triage acaba de decir Válido, pero si el generador no
+                                // reconoce el término no se escribe ficha: el sello de triage ya
+                                // guardado se respeta, simplemente no hay descripción que guardar.
+                                if (!reconocido)
                                 {
-                                    tratamiento.NombreSugeridoIA = nombreTraducido;
+                                    _logger.LogWarning(
+                                        "Triage Válido pero el generador NO reconoció {Id} ('{Nombre}') — sin descripción.",
+                                        tratamiento.id, tratamiento.nombre);
                                 }
+                                else
+                                {
+                                    if (!string.IsNullOrWhiteSpace(nombreTraducido) &&
+                                        !nombreTraducido.Equals(tratamiento.nombre, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        tratamiento.NombreSugeridoIA = nombreTraducido;
+                                    }
 
-                                tratamiento.DescripcionIA          = descripcion;
-                                tratamiento.ValidadoIA             = true;
-                                tratamiento.RelacionEII            = relacionEII;
-                                tratamiento.RelacionEIIDescripcion = _aiService.UltimaExplicacionEII;
-                                tratamiento.Fuentes                = _aiService.UltimasFuentes;
-                                tratamiento.FechaActualizacionIA   = DateTime.UtcNow;
-                                tratamiento.fechaModificado        = DateTime.Now;
+                                    tratamiento.DescripcionIA          = descripcion;
+                                    tratamiento.ValidadoIA             = true;
+                                    tratamiento.RelacionEII            = relacionEII;
+                                    tratamiento.RelacionEIIDescripcion = _aiService.UltimaExplicacionEII;
+                                    tratamiento.Fuentes                = _aiService.UltimasFuentes;
+                                    tratamiento.FechaActualizacionIA   = DateTime.UtcNow;
+                                    tratamiento.fechaModificado        = DateTime.Now;
 
-                                await _db.SaveChangesAsync(cancellationToken);
-                                await PropagateToGlossaryTermAsync(tratamiento.id, cancellationToken);
-                                descripcionGenerada = true;
+                                    await _db.SaveChangesAsync(cancellationToken);
+                                    await PropagateToGlossaryTermAsync(tratamiento.id, cancellationToken);
+                                    descripcionGenerada = true;
+                                }
                             }
                             catch (Exception exDesc)
                             {
@@ -740,9 +971,10 @@ namespace eiibd26.Controllers
         /// POST /api/admin/tratamientos/batch-apply-basura
         /// </summary>
         /// <remarks>
-        /// Este es el paso destructivo (equivale a DryRun=false). Reversible:
-        /// <c>UPDATE dbo.tratamientos SET Eliminado = 0, fechaEliminado = '1900-01-01'
-        /// WHERE RevisionLimpiezaEstado = 2 AND Eliminado = 1 [AND (id = @raiz OR idPadre = @raiz)]</c>
+        /// Este es el paso destructivo (equivale a DryRun=false). Reversible — ver
+        /// <c>SQL/2026-08-10-glosario-sincronizar-activo-tratamientos.sql</c>, bloque UNDO:
+        /// hay que revertir las DOS tablas (<c>tratamientos.Eliminado = 0</c> y
+        /// <c>GlossaryTerm.Activo = 1</c>), si no el glosario queda desalineado del home.
         /// </remarks>
         [HttpPost("batch-apply-basura")]
         public async Task<IActionResult> BatchApplyBasura([FromBody] BatchApplyBasuraRequest request, CancellationToken cancellationToken)
@@ -761,9 +993,13 @@ namespace eiibd26.Controllers
 
                 await _db.SaveChangesAsync(cancellationToken);
 
+                // Invariante: lo desactivado desaparece también del glosario, en bloque.
+                var terminosDesactivados = await _glossary.SincronizarActivoPorTratamientosAsync(
+                    aplicables.Select(t => t.id).ToList(), activo: false, cancellationToken);
+
                 _logger.LogInformation(
-                    "Aplicar Basura: {Desactivados} desactivados, {Bloqueados} bloqueados por guard. RaizId={RaizId}",
-                    aplicables.Count, bloqueados.Count, request.RaizId?.ToString() ?? "(todo)");
+                    "Aplicar Basura: {Desactivados} desactivados ({Terminos} términos del glosario), {Bloqueados} bloqueados por guard. RaizId={RaizId}",
+                    aplicables.Count, terminosDesactivados, bloqueados.Count, request.RaizId?.ToString() ?? "(todo)");
 
                 return Ok(new
                 {
@@ -830,6 +1066,13 @@ namespace eiibd26.Controllers
         {
             public int Skip { get; set; } = 0;
             public int Take { get; set; } = 10;
+
+            /// <summary>
+            /// <c>true</c> = RE-PROCESO de fichas ya generadas (para rehacer lo confabulado).
+            /// El filtro normal las excluye por tener <c>DescripcionIA</c> + <c>ValidadoIA</c>.
+            /// Preserva lo validado por humanos y salta lo clasificado como Basura.
+            /// </summary>
+            public bool Regenerar { get; set; } = false;
         }
 
         public class BatchReviewRequest
@@ -876,6 +1119,8 @@ namespace eiibd26.Controllers
             public bool Success { get; set; }
             public string? Error { get; set; }
             public bool RelacionEII { get; set; }
+            /// <summary>Veredicto del gate cuando fue él quien impidió generar la ficha.</summary>
+            public string? Gate { get; set; }
         }
     }
 }

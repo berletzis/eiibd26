@@ -1,5 +1,6 @@
 ﻿using eiibd26.Data;
 using eiibd26.Models;
+using eiibd26.Services.Glossary;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -30,9 +31,12 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
     public class IndexModel : PageModel
     {
         private readonly ApplicationDbContext _db;
-        public IndexModel(ApplicationDbContext db)
+        private readonly IGlossaryService _glossary;
+
+        public IndexModel(ApplicationDbContext db, IGlossaryService glossary)
         {
             _db = db;
+            _glossary = glossary;
         }
 
         public void OnGet() { }
@@ -271,6 +275,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
             t.fechaModificado = DateTime.Now;
             await _db.SaveChangesAsync();
 
+            // Invariante: tratamiento eliminado ⇒ su término del glosario deja de listarse.
+            await _glossary.SincronizarActivoPorTratamientosAsync(new[] { id }, activo: false);
+
             return new JsonResult(new { success = true });
         }
 
@@ -288,6 +295,9 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Tratamientos
             t.fechaEliminado = DateTime.MinValue;
             t.fechaModificado = DateTime.Now;
             await _db.SaveChangesAsync();
+
+            // Invariante (lado reversible): restaurar el tratamiento reactiva su término.
+            await _glossary.SincronizarActivoPorTratamientosAsync(new[] { id }, activo: true);
 
             return new JsonResult(new { success = true });
         }

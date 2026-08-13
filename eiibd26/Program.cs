@@ -374,6 +374,11 @@ try
     builder.Services.AddScoped<eiibd26.Services.AI.ISintomasTratamientosAiService, eiibd26.Services.AI.SintomasTratamientosAiService>();
     // ⭐ NUEVO: Servicio hermano para generar contenido del módulo Platillos (notas clínicas, NotasEII, descripciones)
     builder.Services.AddScoped<eiibd26.Services.AI.IPlatillosAiService, eiibd26.Services.AI.PlatillosAiService>();
+    // ⭐ NUEVO: Gate de reconocimiento de entidad — NINA no describe lo que no reconoce.
+    // Scoped como el servicio de IA que envuelve (usa el DbContext y el estado _last* del generador).
+    builder.Services.Configure<eiibd26.Configuration.ReconocimientoEntidadConfiguration>(
+        builder.Configuration.GetSection("ReconocimientoEntidad"));
+    builder.Services.AddScoped<eiibd26.Services.AI.IReconocimientoEntidadService, eiibd26.Services.AI.ReconocimientoEntidadService>();
     // ⭐ NUEVO: Recuperación de referencias reales desde el índice del crawler (embeddings + coseno)
     builder.Services.Configure<eiibd26.Configuration.ReferenciasRecuperacionOptions>(
         builder.Configuration.GetSection(eiibd26.Configuration.ReferenciasRecuperacionOptions.SectionName));

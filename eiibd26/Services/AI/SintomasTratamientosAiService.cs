@@ -29,8 +29,8 @@ namespace eiibd26.Services.AI
             _logger = logger;
         }
 
-        public async Task<(string Descripcion, bool RelacionEII)> GenerarDescripcionSintomaAsync(
-            string nombreSintoma, 
+        public async Task<(string Descripcion, bool RelacionEII, bool Reconocido)> GenerarDescripcionSintomaAsync(
+            string nombreSintoma,
             CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(nombreSintoma))
@@ -38,6 +38,11 @@ namespace eiibd26.Services.AI
 
             var systemPrompt = BuildSintomaSystemPrompt();
             var userPrompt = $@"Ahora genera el contenido para el siguiente síntoma: {nombreSintoma}
+
+ANTES QUE NADA, decide si RECONOCES este nombre como un síntoma real y específico.
+Si NO lo reconoces, o si el nombre parece una marca comercial, un código, un producto,
+un tratamiento, un alimento o texto sin sentido: NO inventes nada. Responde ÚNICAMENTE
+con el bloque de metadatos, empezando por 'RECONOCIDO: NO', y sin descripción.
 
 ADEMÁS, al final del texto:
 
@@ -50,11 +55,14 @@ ADEMÁS, al final del texto:
 IMPORTANTE: Responde en texto plano, SIN usar markdown (sin **, sin *, sin #).
 
 Formato de respuesta al final:
+RECONOCIDO: [SÍ o NO — SÍ solo si reconoces el término como un síntoma real y específico]
 RELACIÓN EII: [SÍ o NO]
 NIVEL RELACIÓN EII: [SOLO si respondiste SÍ → escribe exactamente una de estas palabras: Directa, Indirecta o Secundaria. Si respondiste NO, escribe 'No aplica']
 EXPLICACIÓN EII: [Si respondiste SÍ, explica la relación en 1-2 frases. Si respondiste NO, escribe 'No aplica']
 RAZONAMIENTO GLOSARIO: [Frase clínica breve (máx 200 caracteres) para mostrar en el glosario. Si NO hay relación, escribe 'No aplica']
 FUENTES: [SOLO si tienes certeza de fuentes específicas, menciónalas. Si no estás seguro, escribe 'No especificadas']
+
+Si RECONOCIDO es NO, todos los demás campos van en 'No aplica' y RELACIÓN EII en NO.
 
 Guía de niveles (solo para NIVEL RELACIÓN EII):
 - Directa: síntoma que aparece como manifestación directa o extraintestinal documentada de la EII.
@@ -72,8 +80,8 @@ Cuando describas la relación con EII:
             return await CallClaudeApiAsync(systemPrompt, userPrompt, cancellationToken);
         }
 
-        public async Task<(string Descripcion, bool RelacionEII, string? NombreTraducido)> GenerarDescripcionTratamientoAsync(
-            string nombreTratamiento, 
+        public async Task<(string Descripcion, bool RelacionEII, string? NombreTraducido, bool Reconocido)> GenerarDescripcionTratamientoAsync(
+            string nombreTratamiento,
             CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(nombreTratamiento))
@@ -82,8 +90,12 @@ Cuando describas la relación con EII:
             var systemPrompt = BuildTratamientoSystemPrompt();
             var userPrompt = $@"Ahora genera el contenido para el siguiente tratamiento: {nombreTratamiento}
 
-IMPORTANTE PRIMERO: 
-Si el nombre del tratamiento son numeros o palabras sin s
+IMPORTANTE PRIMERO:
+Si el nombre son números, un código, una palabra sin significado clínico, una marca
+comercial que no reconoces, o cualquier cosa que NO reconozcas como un tratamiento real
+y específico: NO inventes nada. Responde ÚNICAMENTE con el bloque de metadatos,
+empezando por 'RECONOCIDO: NO', y sin descripción.
+
 Si el nombre del tratamiento está en inglés u otro idioma, tradúcelo al español. Mantén los nombres comerciales entre paréntesis tal como están.
 
 Ejemplo: 
@@ -101,12 +113,15 @@ ADEMÁS, al final del texto:
 IMPORTANTE: Responde en texto plano, SIN usar markdown (sin **, sin *, sin #).
 
 Formato de respuesta al final:
+RECONOCIDO: [SÍ o NO — SÍ solo si reconoces el término como un tratamiento real y específico]
 NOMBRE ESPAÑOL: [Nombre del tratamiento en español. Si ya está en español, escribe el mismo nombre]
 RELACIÓN EII: [SÍ o NO]
 NIVEL RELACIÓN EII: [SOLO si respondiste SÍ → escribe exactamente una de estas palabras: Directa, Indirecta o Secundaria. Si respondiste NO, escribe 'No aplica']
 EXPLICACIÓN EII: [Si respondiste SÍ, explica la relación en 1-2 frases. Si respondiste NO, escribe 'No aplica']
 RAZONAMIENTO GLOSARIO: [Frase clínica breve (máx 200 caracteres) para mostrar en el glosario. Si NO hay relación, escribe 'No aplica']
 FUENTES: [SOLO si tienes certeza de fuentes específicas, menciónalas. Si no estás seguro, escribe 'No especificadas']
+
+Si RECONOCIDO es NO, todos los demás campos van en 'No aplica' y RELACIÓN EII en NO.
 
 Guía de niveles (solo para NIVEL RELACIÓN EII):
 - Directa: tratamiento aprobado o indicado específicamente para la EII.
@@ -127,6 +142,18 @@ Cuando describas la relación con EII:
         /// <summary>Modelo económico fijo para el triage. Clasificar es barato y de alto volumen
         /// (~10k registros): no se deja al azar de la configuración general.</summary>
         private const string ModelHaikuClasificacion = "claude-haiku-4-5-20251001";
+
+        /// <summary>
+        /// Motivo centinela cuando la respuesta del triage no traía JSON. El gate de
+        /// reconocimiento lo distingue de un Dudoso real: "no hubo respuesta legible" NO es un
+        /// veredicto y no debe producir ninguna escritura.
+        /// </summary>
+        public const string MotivoTriageSinJson =
+            "La IA no devolvió una clasificación legible — requiere revisión humana.";
+
+        /// <summary>Motivo centinela cuando el JSON del triage venía malformado. Ver <see cref="MotivoTriageSinJson"/>.</summary>
+        public const string MotivoTriageJsonInvalido =
+            "La IA devolvió una clasificación malformada — requiere revisión humana.";
 
         public async Task<(byte Estado, double Confianza, string Motivo, MedicalRelationType? Nivel, string? Razonamiento)> ClasificarTratamientoAsync(
             string nombre,
@@ -156,6 +183,129 @@ Responde ÚNICAMENTE con este JSON, sin texto alrededor ni markdown:
 
             var json = await CallClaudeJsonAsync(systemPrompt, userPrompt, cancellationToken);
             return ParseTriageResponse(json, nombre);
+        }
+
+        public async Task<(byte Estado, double Confianza, string Motivo, MedicalRelationType? Nivel, string? Razonamiento)> ClasificarSintomaAsync(
+            string nombre,
+            string? descripcionExistente,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(nombre))
+                throw new ArgumentException("El nombre del síntoma no puede estar vacío", nameof(nombre));
+
+            var systemPrompt = BuildTriageSystemPromptSintomas();
+
+            var contexto = string.IsNullOrWhiteSpace(descripcionExistente)
+                ? "(sin descripción previa)"
+                : descripcionExistente.Length > 600 ? descripcionExistente[..600] : descripcionExistente;
+
+            var userPrompt = $@"Clasifica este registro del catálogo de síntomas.
+
+NOMBRE: {nombre}
+DESCRIPCIÓN EXISTENTE: {contexto}
+
+OJO con la descripción existente: fue generada por IA sin filtrar basura, así que un
+registro-ruido puede traer una descripción que lo hace ver legítimo. Clasifica por el
+NOMBRE; la descripción es solo contexto.
+
+Responde ÚNICAMENTE con este JSON, sin texto alrededor ni markdown:
+{{""estado"":""valido|basura|dudoso"",""confianza"":0.0,""motivo"":""máx 200 caracteres"",""nivel_eii"":""directa|indirecta|secundaria|ninguna"",""razonamiento"":""máx 200 caracteres o vacío""}}";
+
+            var json = await CallClaudeJsonAsync(systemPrompt, userPrompt, cancellationToken);
+            return ParseTriageResponse(json, nombre);
+        }
+
+        /// <summary>
+        /// Rúbrica del triage de SÍNTOMAS. No es la de tratamientos: aquí la pregunta es si el
+        /// registro nombra algo que una persona SIENTE, no si es una intervención.
+        /// </summary>
+        private string BuildTriageSystemPromptSintomas()
+        {
+            return @"Eres un clasificador de catálogos médicos. Depuras un catálogo de síntomas
+que durante años recibió altas libres de pacientes, así que arrastra ruido.
+
+Debes decidir DOS cosas independientes. No las mezcles:
+
+EJE 1 — ¿Es un síntoma de verdad? (esto es lo que decide el campo 'estado')
+EJE 2 — ¿Qué relación tiene con la EII? (esto va en 'nivel_eii' y NO influye en el eje 1)
+
+REGLA CENTRAL: un síntoma real que NO tiene nada que ver con la EII sigue siendo VÁLIDO.
+La falta de relación con EII jamás lo convierte en basura. Un síntoma de migraña, de
+alergia o de un embarazo es un síntoma real.
+
+LA PREGUNTA QUE DECIDE EL EJE 1: ¿esto es algo que una persona SIENTE, NOTA o REPORTA en
+su cuerpo o en su ánimo? Si la respuesta es sí, es un síntoma. Si lo que nombra es algo
+que se HACE, se TOMA o se USA, no lo es.
+
+RÚBRICA DEL EJE 1 — tres salidas posibles:
+
+VALIDO — manifestación clínica que un paciente siente o reporta: molestia, sensación,
+dolor, cambio corporal observable o signo que la propia persona nota.
+Ejemplos: 'Dolor abdominal', 'Diarrea', 'Fatiga', 'Fiebre', 'Náusea', 'Artralgia',
+'Aftas bucales', 'Urgencia defecatoria', 'Sangrado rectal', 'Pérdida de peso',
+'Distensión abdominal', 'Caída del cabello', 'Ansiedad', 'Insomnio', 'Visión borrosa',
+'Dolor en las articulaciones', 'Eritema nodoso'.
+Cuenta aunque no sea exclusivo de la EII, aunque sea inespecífico y aunque sea propio de
+otra especialidad o de otra condición. También cuenta el síntoma emocional o del ánimo
+(tristeza, irritabilidad, angustia) y el signo que el paciente observa (hinchazón,
+manchas en la piel, moco en las heces).
+
+BASURA — NO es algo que una persona sienta:
+· ruido, texto corrupto, nombres sin sentido o palabras sueltas sin significado clínico
+· cadenas de prueba, códigos y capturas accidentales ('asdf', 'xxx', '123', 'prueba')
+· NO-SÍNTOMAS mal capturados en el catálogo de síntomas:
+  - tratamientos, cirugías, terapias y procedimientos ('Prednisona', 'Colonoscopía',
+    'Resección intestinal', 'Fisioterapia')
+  - medicamentos y suplementos ('Ibuprofeno', 'Vitamina D')
+  - alimentos y bebidas ('Lactosa', 'Café')
+  - dispositivos y productos ('Bolsa de ostomía', 'Almohadilla térmica')
+  - actividades y eventos de vida ('Ir al gimnasio', 'Viaje', 'Cita con el médico')
+  - nombres de personas, hospitales, marcas o lugares
+· títulos, frases largas o notas del paciente que no nombran un síntoma
+
+DUDOSO — ambiguo; lo revisa un humano:
+· términos vagos o demasiado amplios ('Malestar', 'Raro', 'Problemas', 'Cambios')
+· síntoma que parece real pero cuya pertenencia al catálogo prefieres que confirme
+  un humano (redacción confusa, abreviatura no clara, posible duplicado)
+· DIAGNÓSTICOS y ENFERMEDADES que no son un síntoma en sí ('Colitis ulcerosa',
+  'Anemia', 'Osteoporosis', 'Depresión mayor'). Están cerca del dominio clínico y muchos
+  se capturaron por lo que la persona siente: SIEMPRE 'dudoso', NUNCA 'basura'. Que un
+  humano decida si se queda como síntoma o se mueve a condiciones.
+· HALLAZGOS DE LABORATORIO o de estudio ('Hemoglobina baja', 'PCR elevada',
+  'Calprotectina alta'): no se sienten, pero describen el estado del paciente. 'dudoso'.
+· CATEGORÍAS o agrupadores del catálogo ('Síntomas digestivos', 'Síntomas generales',
+  'Manifestaciones extraintestinales'): no son un síntoma concreto, pero organizan el
+  catálogo y otros registros cuelgan de ellos. Nunca son 'basura'.
+
+REGLA FIRME sobre qué puede ser 'basura': a 'basura' solo van dos cosas — el ruido sin
+significado clínico y el no-síntoma claro y evidente (un fármaco, un alimento, una
+cirugía, un dispositivo, una actividad, un nombre propio). Todo lo demás que dudes es
+'dudoso'.
+
+LOS SÍNTOMAS REALES NUNCA SON 'BASURA'. Esta regla manda sobre todo lo anterior. Si el
+registro nombra algo que una persona puede sentir, nunca lo clasifiques como 'basura' —
+aunque sea de otra condición, aunque sea inespecífico, aunque no tenga ninguna relación
+con la EII, y aunque te parezca menor o poco importante.
+COHERENCIA: dos registros de la misma familia se clasifican igual. Si 'Dolor de cabeza'
+es 'valido', 'Cefalea tensional' también lo es; si 'Anemia' es 'dudoso', 'Anemia
+ferropénica' no puede ser 'basura'.
+
+SESGO OBLIGATORIO A CONSERVAR: ante cualquier duda responde 'dudoso', NUNCA 'basura'.
+'basura' se reserva para casos donde estarías dispuesto a defender la decisión.
+Marcar de más como basura desactiva síntomas reales que los pacientes usan para
+registrar cómo se sienten: es el error caro. Marcar de más como dudoso solo cuesta
+trabajo humano: es el error barato.
+
+CONFIANZA: número entre 0 y 1 que refleja qué tan seguro estás del 'estado'. Si dudas,
+baja la confianza — no cambies 'basura' por una confianza alta inventada.
+
+EJE 2 — 'nivel_eii' (independiente, no afecta 'estado'):
+· directa: manifestación directa o extraintestinal documentada de la EII
+· indirecta: frecuente en EII pero no exclusivo ni patognomónico
+· secundaria: aparece como consecuencia de los tratamientos o complicaciones de la EII
+· ninguna: sin relación documentada con EII, o el registro es basura
+
+Respondes SIEMPRE con un único objeto JSON válido y nada más.";
         }
 
         private string BuildTriageSystemPrompt()
@@ -231,6 +381,51 @@ reportado por pacientes va a 'basura' jamás. A 'basura' solo van cuatro cosas:
 pseudoterapias, no-tratamientos claros (recordatorios y alarmas, productos, alimentos y
 cosméticos, códigos y nombres de ensayo clínico), condiciones médicas mal capturadas, y
 ruido sin sentido.
+
+LAS INTERVENCIONES TERAPÉUTICAS RECONOCIDAS REALES NUNCA SON 'BASURA'. Esta regla manda
+sobre todo lo anterior. Si el registro es (o su nombre principal es) una intervención
+reconocida, nunca la clasifiques como 'basura' — aunque su uso sea cosmético, sea de otra
+condición, o no tenga ninguna relación con la EII. Cuenta como intervención reconocida:
+· un MEDICAMENTO reconocido (nombre genérico o DCI, de prescripción o de venta libre)
+· un AGENTE DIAGNÓSTICO (medios de contraste, midriáticos como el ciclopentolato,
+  reactivos clínicos como el hipurato de sodio)
+· un DISPOSITIVO o producto médico (DIU, órtesis, toxina botulínica…)
+· un PROCEDIMIENTO quirúrgico, endoscópico o de rehabilitación — de cualquier
+  especialidad, no solo digestiva
+· una PSICOTERAPIA o intervención de SALUD MENTAL reconocida: TCC, EMDR, DBT,
+  psicoanálisis, Brainspotting ('Puntuación Cerebral'), terapia de trauma o de agresión
+  sexual, integración de personalidades, hospitalización psiquiátrica (incluida la
+  motivada por sobredosis o ideación suicida), grupos de apoyo estructurados tipo 12
+  pasos y de doble diagnóstico (AA, NA, DTR)
+· una TERAPIA física, ocupacional o del habla reconocida
+→ 'valido' si es claramente una intervención terapéutica.
+→ 'dudoso' si su rol es diagnóstico, estético o no-EII, o si es un rol o servicio
+  profesional (el 'quién', no el 'qué'), y prefieres que lo confirme un humano.
+COHERENCIA: dos registros de la misma familia se clasifican igual. Si 'Hospitalización por
+ideación suicida' es 'valido', 'Hospitalización por intento de sobredosis' también lo es;
+si EMDR es 'valido', Brainspotting no puede ser 'basura'.
+
+DESLINDE de la regla anterior, para no sobre-corregir: aplica a SUSTANCIAS, FÁRMACOS,
+DISPOSITIVOS, PROCEDIMIENTOS y TERAPIAS reconocidos, NO a productos comerciales de
+consumo, cosméticos o alimentos que solo CONTIENEN ingredientes, ni a las prácticas sin
+mecanismo plausible ni uso reconocido. Esto sigue siendo 'basura':
+· pseudoterapias sin mecanismo plausible NI uso reconocido: homeopatía, sanación
+  energética, pránica o chamánica, Reiki, biorresonancia, radiestesia, flores de Bach,
+  osteopatía craneal, NAET, Hoxsey, GcMAF, quelación con EDTA-DMPS-DMSA
+· 'protocolos' y métodos de persona sin base científica ('Protocolo Marshall', 'Protocolo
+  CAP de Wheldon', 'Método de baja recuperación de Abraham', 'Receta de…')
+· productos comerciales de consumo, cosméticos de marca sin fármaco activo dermatológico
+  reconocido (enjuagues bucales comerciales, mascarillas o hidratantes faciales, queratina
+  para cabello o uñas, aceites esenciales de marca, lociones, tés, suplementos de marca
+  sin DCI)
+· alimentos y bebidas
+· ruido, nombres sin sentido o no verificables, y códigos o nombres de ensayo clínico que
+  NO nombran una intervención concreta ('CALGB 9251')
+
+DESEMPATE REFORZADO: ante la duda entre 'intervención real que no es de EII' y 'basura',
+responde SIEMPRE 'dudoso'. Que algo no tenga relación con la EII jamás es motivo
+suficiente para mandarlo a 'basura'. A 'basura' solo va la pseudociencia, el producto de
+consumo y el ruido — nunca una intervención clínica reconocida.
 
 SESGO OBLIGATORIO A CONSERVAR: ante cualquier duda responde 'dudoso', NUNCA 'basura'.
 'basura' se reserva para casos donde estarías dispuesto a defender la decisión.
@@ -348,7 +543,7 @@ Respondes SIEMPRE con un único objeto JSON válido y nada más.";
             {
                 _logger.LogWarning("Triage sin JSON parseable para '{Nombre}'. Respuesta: {Texto}", nombre, fullText);
                 return ((byte)eiibd26.Models.TriageLimpieza.Dudoso, 0d,
-                        "La IA no devolvió una clasificación legible — requiere revisión humana.", null, null);
+                        MotivoTriageSinJson, null, null);
             }
 
             try
@@ -400,22 +595,22 @@ Respondes SIEMPRE con un único objeto JSON válido y nada más.";
             {
                 _logger.LogWarning(ex, "Triage con JSON inválido para '{Nombre}'. Respuesta: {Texto}", nombre, fullText);
                 return ((byte)eiibd26.Models.TriageLimpieza.Dudoso, 0d,
-                        "La IA devolvió una clasificación malformada — requiere revisión humana.", null, null);
+                        MotivoTriageJsonInvalido, null, null);
             }
         }
 
-        private async Task<(string Descripcion, bool RelacionEII, string? NombreTraducido)> CallClaudeApiTratamientoAsync(
-            string systemPrompt, 
-            string userPrompt, 
+        private async Task<(string Descripcion, bool RelacionEII, string? NombreTraducido, bool Reconocido)> CallClaudeApiTratamientoAsync(
+            string systemPrompt,
+            string userPrompt,
             CancellationToken cancellationToken)
         {
-            var (descripcion, relacionEII) = await CallClaudeApiAsync(systemPrompt, userPrompt, cancellationToken);
-            return (descripcion, relacionEII, _lastNombreTraducido);
+            var (descripcion, relacionEII, reconocido) = await CallClaudeApiAsync(systemPrompt, userPrompt, cancellationToken);
+            return (descripcion, relacionEII, _lastNombreTraducido, reconocido);
         }
 
-        private async Task<(string Descripcion, bool RelacionEII)> CallClaudeApiAsync(
-            string systemPrompt, 
-            string userPrompt, 
+        private async Task<(string Descripcion, bool RelacionEII, bool Reconocido)> CallClaudeApiAsync(
+            string systemPrompt,
+            string userPrompt,
             CancellationToken cancellationToken)
         {
             if (!_config.Enabled)
@@ -426,9 +621,17 @@ Respondes SIEMPRE con un único objeto JSON válido y nada más.";
 
             try
             {
+                // Modelo dedicado a la ficha publicada. `_config.Model` lo comparten el Q&A de
+                // NINA, Platillos y el evaluador de calidad: subirlo allí encarecería todo. Aquí
+                // se paga más porque es el único que produce contenido médico publicado y es
+                // donde alucinó (caso Aangamik).
+                var modeloDescripcion = string.IsNullOrWhiteSpace(_config.ModelDescripcionFicha)
+                    ? _config.Model
+                    : _config.ModelDescripcionFicha;
+
                 var requestBody = new
                 {
-                    model = _config.Model,
+                    model = modeloDescripcion,
                     max_tokens = _config.MaxTokens,
                     temperature = _config.Temperature,
                     system = systemPrompt,
@@ -441,7 +644,7 @@ Respondes SIEMPRE con un único objeto JSON válido y nada más.";
                 var jsonContent = JsonSerializer.Serialize(requestBody);
                 var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
-                _logger.LogInformation("Generando descripción IA. Model: {Model}", _config.Model);
+                _logger.LogInformation("Generando descripción IA. Model: {Model}", modeloDescripcion);
 
                 var response = await _httpClient.PostAsync("messages", content, cancellationToken);
 
@@ -461,12 +664,21 @@ Respondes SIEMPRE con un único objeto JSON válido y nada más.";
                 var fullText = responseData.Content[0].Text ?? string.Empty;
 
                 // Extraer descripción, relación EII y explicación
-                var (descripcion, relacionEII) = ParseResponse(fullText);
+                var (descripcion, relacionEII, reconocido) = ParseResponse(fullText);
 
-                _logger.LogInformation("Descripción generada exitosamente. RelacionEII: {RelacionEII}, Explicación: {Explicacion}", 
+                if (!reconocido)
+                {
+                    // El modelo declaró que no reconoce el término. Se devuelve el estado, NO el
+                    // texto: el caller tiene prohibido persistirlo. Si se guardara, el paciente
+                    // vería "RECONOCIDO: NO" en la ficha — peor que la alucinación original.
+                    _logger.LogWarning("El generador declaró NO RECONOCIDO — no se devuelve descripción.");
+                    return (string.Empty, false, false);
+                }
+
+                _logger.LogInformation("Descripción generada exitosamente. RelacionEII: {RelacionEII}, Explicación: {Explicacion}",
                     relacionEII, _lastExplicacionEII);
 
-                return (descripcion, relacionEII);
+                return (descripcion, relacionEII, true);
             }
             catch (TaskCanceledException ex)
             {
@@ -485,8 +697,25 @@ Respondes SIEMPRE con un único objeto JSON válido y nada más.";
         public string UltimasFuentes => _lastFuentes;
         public string? UltimoNombreTraducido => _lastNombreTraducido;
 
-        private (string Descripcion, bool RelacionEII) ParseResponse(string fullText)
+        private (string Descripcion, bool RelacionEII, bool Reconocido) ParseResponse(string fullText)
         {
+            // Guardrail (2ª red, después del gate): el modelo declara si reconoce el término.
+            // Ausencia del marcador ⇒ true. Es deliberado: el gate ya validó la entidad antes de
+            // llegar aquí, y tratar un formato descuidado como "no reconocido" tiraría fichas
+            // legítimas en masa. El marcador sirve para cazar al modelo admitiendo que no sabe.
+            var matchReconocido = Regex.Match(fullText, @"\*?\*?RECONOCIDO:\*?\*?\s*(SÍ|SI|NO)", RegexOptions.IgnoreCase);
+            var reconocido = true;
+            if (matchReconocido.Success)
+            {
+                reconocido = matchReconocido.Groups[1].Value.ToUpperInvariant() is "SÍ" or "SI";
+                if (!reconocido)
+                    _logger.LogWarning("El generador respondió RECONOCIDO: NO — se descarta la salida.");
+            }
+            else
+            {
+                _logger.LogWarning("El generador no emitió la línea RECONOCIDO — se asume reconocido (el gate ya validó el término).");
+            }
+
             // Buscar línea "NOMBRE ESPAÑOL: [texto]" (para tratamientos)
             var matchNombre = Regex.Match(fullText, @"\*?\*?NOMBRE ESPAÑOL:\*?\*?\s*(.+?)(?=\r?\n|$)", RegexOptions.IgnoreCase);
 
@@ -531,9 +760,14 @@ Respondes SIEMPRE con un único objeto JSON válido y nada más.";
                 _logger.LogDebug("Relación EII encontrada: {RelacionEII}", relacionEII ? "SÍ" : "NO");
 
                 // Encontrar el inicio de la sección de metadatos (puede ser NOMBRE ESPAÑOL o RELACIÓN EII)
-                int metadataStart = matchNombre.Success && matchNombre.Index < matchRelacion.Index 
-                    ? matchNombre.Index 
+                int metadataStart = matchNombre.Success && matchNombre.Index < matchRelacion.Index
+                    ? matchNombre.Index
                     : matchRelacion.Index;
+
+                // RECONOCIDO va PRIMERO en el bloque de metadatos: si no se incluye aquí, la
+                // línea se quedaría dentro de la descripción y el paciente la vería en la ficha.
+                if (matchReconocido.Success && matchReconocido.Index < metadataStart)
+                    metadataStart = matchReconocido.Index;
 
                 // Si hay explicación, usarla; si no, usar texto por defecto
                 if (matchExplicacion.Success)
@@ -607,6 +841,14 @@ Respondes SIEMPRE con un único objeto JSON válido y nada más.";
                 _logger.LogWarning("No se encontró el patrón 'RELACIÓN EII:' en la respuesta");
             }
 
+            // Red final del marcador: si faltó 'RELACIÓN EII' no se recorta el bloque de
+            // metadatos y la descripción se queda con el texto completo. Sin esto, un término
+            // legítimo podría publicar una ficha que termina en "RECONOCIDO: SÍ".
+            descripcion = Regex.Replace(
+                descripcion,
+                @"(?im)^[ \t]*\*?\*?RECONOCIDO:\*?\*?[ \t]*(SÍ|SI|NO)[ \t]*\r?$",
+                string.Empty).Trim();
+
             _logger.LogInformation("Resultado del parsing - RelacionEII: {RelacionEII}, Explicación: {Explicacion}, Fuentes: {Fuentes}, NombreTraducido: {Nombre}", 
                 relacionEII, explicacionEII, fuentes, nombreTraducido ?? "No proporcionado");
 
@@ -653,7 +895,7 @@ Respondes SIEMPRE con un único objeto JSON válido y nada más.";
             _lastNivelRelacion  = nivelRelacion;
             _lastRazonamiento   = razonamiento;
 
-            return (descripcion, relacionEII);
+            return (descripcion, relacionEII, reconocido);
         }
 
         // Variables temporales para pasar datos al controller
@@ -668,7 +910,19 @@ Respondes SIEMPRE con un único objeto JSON válido y nada más.";
 
         private string BuildSintomaSystemPrompt()
         {
-            return @"Actúa como redactor de contenido médico orientado a pacientes no como médico ni como enciclopedia clínica.
+            return @"REGLA CERO, POR ENCIMA DE TODAS LAS DEMÁS — NO INVENTES:
+Si NO reconoces el término como un síntoma real y específico, NO escribas una descripción.
+No es aceptable producir un texto plausible sobre algo que no conoces: esto se publica a
+pacientes. En particular, tienes PROHIBIDO afirmar cómo se siente, dónde se localiza, con
+qué frecuencia aparece o con qué enfermedad se asocia (colitis ulcerosa, Crohn, EII…) si
+no puedes verificarlo. Un nombre que parezca una marca comercial, un código, un producto,
+un tratamiento, un alimento o texto sin sentido NO es un síntoma.
+En ese caso responde 'RECONOCIDO: NO' y nada más. Decir 'no lo reconozco' es la respuesta
+correcta y esperada; inventar es el único error grave.
+No estás obligado a que el término tenga relación con la EII: un síntoma real de otra
+condición se describe con normalidad. Lo que no se hace es describir lo que no existe.
+
+Actúa como redactor de contenido médico orientado a pacientes no como médico ni como enciclopedia clínica.
 
 Tu objetivo es describir síntomas en lenguaje sencillo para ayudar a las personas a reconocer y expresar lo que sienten, SIN diagnosticar ni explicar enfermedades en profundidad.
 
@@ -698,7 +952,23 @@ Aclara que es un síntoma y no un diagnóstico y que requiere evaluación médic
 
         private string BuildTratamientoSystemPrompt()
         {
-            return @"Actúa como redactor de contenido de salud orientado a pacientes, no como médico ni como enciclopedia clínica.
+            return @"REGLA CERO, POR ENCIMA DE TODAS LAS DEMÁS — NO INVENTES:
+Si NO reconoces el término como un medicamento o tratamiento real y específico, NO escribas
+una descripción. No es aceptable producir un texto plausible sobre algo que no conoces:
+esto se publica a pacientes. En particular, tienes PROHIBIDO afirmar:
+· la VÍA o la forma (inyectable, intravenoso, oral, tópico, supositorio…)
+· si es de PRESCRIPCIÓN o de venta libre
+· el MECANISMO o la familia farmacológica
+· la INDICACIÓN (colitis ulcerosa, Crohn, EII, cualquier enfermedad)
+…si no puedes verificarlo para ESE término concreto.
+Ojo con las MARCAS COMERCIALES: una marca que no reconoces con certeza NO se describe
+como fármaco. Muchas son suplementos de venta libre, no medicamentos.
+En ese caso responde 'RECONOCIDO: NO' y nada más. Decir 'no lo reconozco' es la respuesta
+correcta y esperada; inventar es el único error grave.
+No estás obligado a que el término tenga relación con la EII: un tratamiento real de otra
+condición se describe con normalidad. Lo que no se hace es describir lo que no existe.
+
+Actúa como redactor de contenido de salud orientado a pacientes, no como médico ni como enciclopedia clínica.
 
 Tu objetivo es ayudar a una persona a ENTENDER qué representa un tratamiento dentro de su proceso de salud, usando lenguaje sencillo y educativo.
 

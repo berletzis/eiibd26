@@ -26,6 +26,10 @@ namespace eiibd26.Pages.Glosario
 
         public List<GlossaryTermDto> Terminos { get; set; } = new();
 
+        /// <summary>Chip "Dudosos" — SOLO curadores (Administrador/Medico). Vacío para pacientes.</summary>
+        public HashSet<int> DudosoTermIds { get; set; } = new();
+        public bool PuedeVerDudosos { get; private set; }
+
         /// <summary>Filtro de nivel de relación con EII (null = todos)</summary>
         [BindProperty(SupportsGet = true)]
         public MedicalRelationType? NivelFiltro { get; set; }
@@ -52,6 +56,10 @@ namespace eiibd26.Pages.Glosario
             {
                 Terminos = await _glossaryService.GetTermsByTypeAsync(GlossaryTermType.Tratamiento);
                 _logger.LogInformation("Página de tratamientos cargada con {Count} términos", Terminos.Count);
+
+                PuedeVerDudosos = User.IsInRole("Administrador") || User.IsInRole("Medico");
+                if (PuedeVerDudosos)
+                    DudosoTermIds = await _glossaryService.GetDudosoTermIdsAsync(GlossaryTermType.Tratamiento);
 
                 var ids = Terminos.Select(t => t.Id).ToList();
                 var validadoresDict = await _validacionSvc.ObtenerValidadoresGlosarioPorTerminosAsync(ids);

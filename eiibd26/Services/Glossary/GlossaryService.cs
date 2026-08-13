@@ -92,10 +92,12 @@ namespace eiibd26.Services.Glossary
                         Nombre = gt.Nombre,
                         Slug = gt.Slug,
                         TipoTermino = gt.TipoTermino,
-                        // Confirmar nivel: manual > IA > valor mínimo del enum (0) para evitar null
+                        // Nivel: manual > IA > null. El null es SIGNIFICATIVO ("Sin clasificar"):
+                        // el enum no tiene miembro 0, así que un default de (MedicalRelationType)0
+                        // dejaba a los términos sin relación fuera de TODOS los tabs de la vista
+                        // (ni Directa/Indirecta/Secundaria, ni el "== null" de Sin clasificar).
                         NivelRelacion = gt.MedicalRelationTypeId
                             ?? gt.MedicalRelationSuggestedId
-                            ?? (MedicalRelationType)0
                     })
                     .ToListAsync();
 
@@ -107,6 +109,182 @@ namespace eiibd26.Services.Glossary
             {
                 _logger.LogError(ex, "Error al obtener términos de tipo {Tipo}", tipo);
                 return new List<GlossaryTermDto>();
+            }
+        }
+
+        /// <inheritdoc/>
+        public async Task<HashSet<int>> GetDudosoTermIdsAsync(GlossaryTermType tipo)
+        {
+            try
+            {
+                List<int> ids;
+                if (tipo == GlossaryTermType.Sintoma)
+                {
+                    ids = await (from gt in _db.GlossaryTerms.AsNoTracking()
+                                 where gt.TipoTermino == tipo && gt.Activo
+                                 join l in _db.GlossaryTermMedicalLinks on gt.Id equals l.GlossaryTermId
+                                 join s in _db.sintomas on l.SintomaId equals (int?)s.id
+                                 where s.RevisionLimpiezaEstado == 3
+                                 select gt.Id)
+                                .Distinct().ToListAsync();
+                }
+                else
+                {
+                    ids = await (from gt in _db.GlossaryTerms.AsNoTracking()
+                                 where gt.TipoTermino == tipo && gt.Activo
+                                 join l in _db.GlossaryTermMedicalLinks on gt.Id equals l.GlossaryTermId
+                                 join t in _db.tratamientos on l.TratamientoId equals (int?)t.id
+                                 where t.RevisionLimpiezaEstado == 3
+                                 select gt.Id)
+                                .Distinct().ToListAsync();
+                }
+                return ids.ToHashSet();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener term ids Dudoso de tipo {Tipo}", tipo);
+                return new HashSet<int>();
+            }
+        }
+
+        /// <summary>
+        /// Invariante glosario ↔ dominio médico: un tratamiento con borrado lógico deja su
+        /// término del glosario inactivo; al restaurarlo, vuelve a activarse.
+        /// </summary>
+        /// <remarks>
+        /// Sin esto los conteos se separan: el home cuenta desde <c>tratamientos</c> (refleja
+        /// el soft-delete) y el glosario desde <c>GlossaryTerm.Activo</c> (no lo reflejaba),
+        /// de modo que lo desactivado seguía apareciendo en /Glosario/Tratamientos.
+        /// Reversible: restaurar el tratamiento vuelve a poner <c>Activo = true</c>.
+        /// </remarks>
+        public async Task<int> SincronizarActivoPorTratamientosAsync(
+            IReadOnlyCollection<int> tratamientoIds,
+            bool activo,
+            CancellationToken cancellationToken = default)
+        {
+            if (tratamientoIds == null || tratamientoIds.Count == 0)
+                return 0;
+
+            try
+            {
+                var ids = tratamientoIds.Distinct().ToList();
+
+                var termIds = await _db.GlossaryTermMedicalLinks
+                    .AsNoTracking()
+                    .Where(l => l.TratamientoId != null && ids.Contains(l.TratamientoId.Value))
+                    .Select(l => l.GlossaryTermId)
+                    .Distinct()
+                    .ToListAsync(cancellationToken);
+
+                if (termIds.Count == 0)
+                    return 0;
+
+                var ahora = DateTime.UtcNow;
+                var afectados = await _db.GlossaryTerms
+                    .Where(gt => termIds.Contains(gt.Id) && gt.Activo != activo)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(gt => gt.Activo, activo)
+                        .SetProperty(gt => gt.FechaActualizacion, ahora),
+                        cancellationToken);
+
+                if (afectados > 0)
+                {
+                    InvalidarCacheTopListas();
+                    _logger.LogInformation(
+                        "Sincronización glosario: {Afectados} términos → Activo={Activo} (por {Count} tratamientos)",
+                        afectados, activo, ids.Count);
+                }
+
+                return afectados;
+            }
+            catch (Exception ex)
+            {
+                // Un fallo aquí no debe tumbar el borrado/restauración del tratamiento.
+                // El script SQL retroactivo de SQL/ realinea la invariante si esto falla.
+                _logger.LogError(ex,
+                    "No se pudo sincronizar Activo={Activo} en GlossaryTerm para {Count} tratamientos",
+                    activo, tratamientoIds.Count);
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Invariante glosario ↔ dominio médico, lado síntomas: un síntoma con borrado lógico
+        /// deja su término del glosario inactivo; al restaurarlo, vuelve a activarse.
+        /// </summary>
+        /// <remarks>
+        /// Espejo de <see cref="SincronizarActivoPorTratamientosAsync"/>. Sin esto los conteos
+        /// se separan: el home cuenta desde <c>sintomas</c> (refleja el soft-delete) y el
+        /// glosario desde <c>GlossaryTerm.Activo</c>, de modo que lo desactivado seguiría
+        /// apareciendo en /Glosario/Sintomas.
+        /// Reversible: restaurar el síntoma vuelve a poner <c>Activo = true</c>.
+        /// </remarks>
+        public async Task<int> SincronizarActivoPorSintomasAsync(
+            IReadOnlyCollection<int> sintomaIds,
+            bool activo,
+            CancellationToken cancellationToken = default)
+        {
+            if (sintomaIds == null || sintomaIds.Count == 0)
+                return 0;
+
+            try
+            {
+                var ids = sintomaIds.Distinct().ToList();
+
+                var termIds = await _db.GlossaryTermMedicalLinks
+                    .AsNoTracking()
+                    .Where(l => l.SintomaId != null && ids.Contains(l.SintomaId.Value))
+                    .Select(l => l.GlossaryTermId)
+                    .Distinct()
+                    .ToListAsync(cancellationToken);
+
+                if (termIds.Count == 0)
+                    return 0;
+
+                var ahora = DateTime.UtcNow;
+                var afectados = await _db.GlossaryTerms
+                    .Where(gt => termIds.Contains(gt.Id) && gt.Activo != activo)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(gt => gt.Activo, activo)
+                        .SetProperty(gt => gt.FechaActualizacion, ahora),
+                        cancellationToken);
+
+                if (afectados > 0)
+                {
+                    InvalidarCacheTopListas();
+                    _logger.LogInformation(
+                        "Sincronización glosario: {Afectados} términos → Activo={Activo} (por {Count} síntomas)",
+                        afectados, activo, ids.Count);
+                }
+
+                return afectados;
+            }
+            catch (Exception ex)
+            {
+                // Un fallo aquí no debe tumbar el borrado/restauración del síntoma.
+                // El script SQL retroactivo de SQL/ realinea la invariante si esto falla.
+                _logger.LogError(ex,
+                    "No se pudo sincronizar Activo={Activo} en GlossaryTerm para {Count} síntomas",
+                    activo, sintomaIds.Count);
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Invalida las listas del home que sí se cachean (10 min, solo en Producción).
+        /// Los listados A-Z (<see cref="GetTermsByTypeAsync"/>) y los conteos del home
+        /// (<see cref="GetGlossaryHomeAsync"/>) NO se cachean: se refrescan al instante.
+        /// </summary>
+        private void InvalidarCacheTopListas()
+        {
+            try
+            {
+                _cache.Remove($"glossary:top:{GlossaryTermType.Sintoma}:20");
+                _cache.Remove($"glossary:top:{GlossaryTermType.Tratamiento}:20");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudo invalidar cache de top glossary lists");
             }
         }
 
@@ -173,6 +351,43 @@ namespace eiibd26.Services.Glossary
                 {
                     _logger.LogWarning(ex, "No se pudo calcular RelatedUsersCount para término {TermId}", term.Id);
                     detail.RelatedUsersCount = 0;
+                }
+
+                // Estado del triage de limpieza: alimenta el noindex de la ficha. Un término
+                // Dudoso se puede leer (sigue Activo) pero no se ofrece a los buscadores.
+                try
+                {
+                    if (term.MedicalLinkSintomaId.HasValue)
+                    {
+                        var triage = await _db.sintomas
+                            .AsNoTracking()
+                            .Where(s => s.id == term.MedicalLinkSintomaId.Value)
+                            .Select(s => new { s.RevisionLimpiezaEstado, s.RevisionLimpiezaMotivo })
+                            .FirstOrDefaultAsync();
+                        if (triage != null)
+                        {
+                            detail.TriageEstado = triage.RevisionLimpiezaEstado;
+                            detail.TriageMotivo = triage.RevisionLimpiezaMotivo;
+                        }
+                    }
+                    else if (term.MedicalLinkTratamientoId.HasValue)
+                    {
+                        var triage = await _db.tratamientos
+                            .AsNoTracking()
+                            .Where(t => t.id == term.MedicalLinkTratamientoId.Value)
+                            .Select(t => new { t.RevisionLimpiezaEstado, t.RevisionLimpiezaMotivo })
+                            .FirstOrDefaultAsync();
+                        if (triage != null)
+                        {
+                            detail.TriageEstado = triage.RevisionLimpiezaEstado;
+                            detail.TriageMotivo = triage.RevisionLimpiezaMotivo;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Si la columna aún no existe en el esquema, la ficha se muestra igual.
+                    _logger.LogDebug(ex, "No se pudo leer el triage del término {TermId}", term.Id);
                 }
 
                 // 2. Leer definición médica a través del adapter (desacoplado)
@@ -315,20 +530,7 @@ namespace eiibd26.Services.Glossary
                 }
 
                 // Invalidate top lists cache so UI reflects new human validations immediately
-                try
-                {
-                    var keys = new[]
-                    {
-                        $"glossary:top:{GlossaryTermType.Sintoma}:20",
-                        $"glossary:top:{GlossaryTermType.Tratamiento}:20"
-                    };
-                    foreach (var k in keys)
-                        _cache.Remove(k);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "No se pudo invalidar cache de top glossary lists");
-                }
+                InvalidarCacheTopListas();
 
                 return true;
             }

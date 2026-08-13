@@ -53,7 +53,7 @@ namespace eiibd26.Models
         /// <summary>Confianza 0–1 de la clasificación. Solo se desactiva por encima del umbral.</summary>
         public decimal? RevisionLimpiezaConfianza { get; set; }
 
-        [StringLength(400)]
+        [StringLength(1000)]
         public string? RevisionLimpiezaMotivo { get; set; }
 
         public DateTime? RevisionLimpiezaFecha { get; set; }

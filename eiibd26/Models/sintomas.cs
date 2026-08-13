@@ -58,6 +58,22 @@ namespace eiibd26.Models
         [Display(Name = "Tipo de síntoma")]
         public int TipoSintoma { get; set; } = (int)TipoSintomaEnum.Subjetivo;
 
+        // ===== TRIAGE DE LIMPIEZA (NINA) =====
+        // Eje 1 — ¿es una manifestación clínica real que un paciente siente y reporta?
+        // Independiente de la relación con EII (eje 2): un síntoma real de otra condición
+        // es Válido, no basura.
+        // NULL = no revisado · 1 = Válido · 2 = Basura · 3 = Dudoso (cola humana).
+        [Display(Name = "Triage de limpieza")]
+        public byte? RevisionLimpiezaEstado { get; set; }
+
+        /// <summary>Confianza 0–1 de la clasificación. Solo se desactiva por encima del umbral.</summary>
+        public decimal? RevisionLimpiezaConfianza { get; set; }
+
+        [StringLength(1000)]
+        public string? RevisionLimpiezaMotivo { get; set; }
+
+        public DateTime? RevisionLimpiezaFecha { get; set; }
+
         // ===== CAMPOS EXISTENTES =====
         public DateTime fechaEliminado { get; set; }
         public DateTime fechaModificado { get; set; }

@@ -9,7 +9,6 @@
     @if (!User.Identity.IsAuthenticated)
     {
         <div class="vote-auth-notice" role="note" aria-live="polite">
-            <span class="vote-auth-notice__icon">📋</span>
             <span class="vote-auth-notice__text">Inicia sesión para registrar tus síntomas en tu perfil.</span>
             <span class="vote-auth-notice__actions">
                 <a href="/Identity/Account/Login?ReturnUrl=@Uri.EscapeDataString(HttpContext.Request.Path + HttpContext.Request.QueryString)" class="btn-auth-notice-login">Iniciar sesión</a>
@@ -63,6 +62,15 @@
                     <span class="nivel-dot" style="background:#ced4da; border:1px solid #adb5bd;"></span> Sin clasificar
                     <span class="nivel-count">(@Model.Terminos.Count(t => t.NivelRelacion == null))</span>
                 </button>
+                @* Chip de triage (eje independiente) — SOLO curadores. El paciente no lo ve. *@
+                @if (Model.PuedeVerDudosos && Model.DudosoTermIds.Count > 0)
+                {
+                    <button type="button" class="btn-nivel-eii btn-nivel-dudoso" data-nivel="dudoso"
+                            title="Términos en revisión (Dudoso). Solo visible para Administrador/Médico.">
+                        <span class="nivel-dot" style="background:#f59e0b;"></span> Dudosos
+                        <span class="nivel-count">(@Model.DudosoTermIds.Count)</span>
+                    </button>
+                }
             </div>
         </div>
 
@@ -86,7 +94,7 @@
                 <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
                     @foreach (var termino in grupo)
                     {
-                        <div class="col termino-item" data-nivel="@(termino.NivelRelacion.HasValue ? ((int)termino.NivelRelacion!).ToString() : "sin")">
+                        <div class="col termino-item" data-nivel="@(termino.NivelRelacion.HasValue ? ((int)termino.NivelRelacion!).ToString() : "sin")" data-dudoso="@(Model.DudosoTermIds.Contains(termino.Id) ? "1" : "0")">
                             <article class="eii-card eii-card--link h-100">
                                 <a href="/Termino/@termino.Slug" class="text-decoration-none text-reset d-flex flex-column h-100">
                                     <div class="d-flex align-items-center justify-content-between gap-2">
@@ -225,7 +233,8 @@
             function filtrar(nivel) {
                 const items = document.querySelectorAll('.termino-item');
                 items.forEach(item => {
-                    const match = nivel === 'todos' || item.dataset.nivel === nivel;
+                    const match = nivel === 'todos'
+                        || (nivel === 'dudoso' ? item.dataset.dudoso === '1' : item.dataset.nivel === nivel);
                     item.classList.toggle('hidden', !match);
                 });
                 // ocultar grupos de letra que quedaron sin hijos visibles
