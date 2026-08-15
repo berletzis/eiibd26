@@ -40,10 +40,17 @@ namespace eiibd26.Controllers
         /// Espejo de <c>TratamientosAdminController.PasaGateAsync</c> — ver ahí el detalle del
         /// fail-safe asimétrico y de por qué el Tier 0 no puede producir NoReconocido.
         /// </summary>
+        /// <param name="sellarProcesada">
+        /// Marca <c>RegeneracionProcesadaUtc</c> cuando el veredicto es definitivo, para que el
+        /// re-proceso no lo vuelva a tomar. El <c>GroundingNoDisponible</c> sale por el return de
+        /// arriba sin tocar nada, así que un outage nunca sella: queda pendiente y se reintenta
+        /// en la corrida siguiente.
+        /// </param>
         private async Task<bool> PasaGateAsync(
             sintomas sintoma,
             DecisionReconocimiento decision,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool sellarProcesada = false)
         {
             if (decision.PermiteGenerar)
                 return true;
@@ -63,6 +70,11 @@ namespace eiibd26.Controllers
             sintoma.RevisionLimpiezaConfianza = (decimal)decision.Confianza;
             sintoma.RevisionLimpiezaMotivo    = motivo;
             sintoma.RevisionLimpiezaFecha     = DateTime.UtcNow;
+
+            // NoReconocido y RevisionHumana son definitivos: sin el sello, cada corrida los
+            // volvería a evaluar y a re-sellar como Dudoso para siempre.
+            if (sellarProcesada)
+                sintoma.RegeneracionProcesadaUtc = DateTime.UtcNow;
 
             if (decision.Resultado == ResultadoReconocimiento.NoReconocido)
             {
@@ -113,7 +125,9 @@ namespace eiibd26.Controllers
                 var decision = await _gate.EvaluarAsync(
                     TipoEntidadClinica.Sintoma, AEntradaGate(sintoma), cancellationToken);
 
-                if (!await PasaGateAsync(sintoma, decision, cancellationToken))
+                // sellarProcesada: el botón individual cuenta como pasada de regeneración, igual
+                // que el batch — si no, el re-proceso volvería a tomar lo que ya se hizo a mano.
+                if (!await PasaGateAsync(sintoma, decision, cancellationToken, sellarProcesada: true))
                 {
                     return Ok(new
                     {
@@ -137,7 +151,7 @@ namespace eiibd26.Controllers
                     var deGenerador = new DecisionReconocimiento(
                         ResultadoReconocimiento.NoReconocido, "generador", 1d,
                         "El generador declaró no reconocer el término.");
-                    await PasaGateAsync(sintoma, deGenerador, cancellationToken);
+                    await PasaGateAsync(sintoma, deGenerador, cancellationToken, sellarProcesada: true);
                     return Ok(new
                     {
                         ok    = false,
@@ -153,6 +167,7 @@ namespace eiibd26.Controllers
                 sintoma.RelacionEIIDescripcion = _aiService.UltimaExplicacionEII;
                 sintoma.Fuentes = _aiService.UltimasFuentes;
                 sintoma.FechaActualizacionIA = DateTime.UtcNow;
+                sintoma.RegeneracionProcesadaUtc = DateTime.UtcNow;
                 sintoma.fechaModificado = DateTime.Now;
 
                 await _db.SaveChangesAsync(cancellationToken);
@@ -383,6 +398,10 @@ namespace eiibd26.Controllers
                         .Where(s => s.ValidadoIA && !string.IsNullOrEmpty(s.DescripcionIA))
                         .Where(s => !s.ValidadoHumano)
                         .Where(s => s.RevisionLimpiezaEstado == 1 || s.RevisionLimpiezaEstado == 3)
+                        // RESUME. El universo del re-proceso es "lo que todavía no se selló", así
+                        // que se consume solo: recargar la página o caerse la sesión ya no reinicia
+                        // nada (el skip del navegador se pierde, la marca en BD no).
+                        .Where(s => s.RegeneracionProcesadaUtc == null)
                         .Where(s => !_db.GlossaryTermMedicalLinks.Any(l =>
                             l.SintomaId == s.id &&
                             _db.GlossaryValidations.Any(v => v.GlossaryTermId == l.GlossaryTermId && v.Approved)));
@@ -392,24 +411,64 @@ namespace eiibd26.Controllers
                     baseQuery = baseQuery.Where(s => string.IsNullOrEmpty(s.DescripcionIA) || !s.ValidadoIA);
                 }
 
-                var sintomas = await baseQuery
+                // Solo los ids. Cada registro se re-carga en su turno (ver el aislamiento por
+                // registro más abajo), así que materializar las entidades acá únicamente serviría
+                // para llenar el ChangeTracker con filas que se van a descartar igual.
+                var ids = await baseQuery
                     .OrderBy(s => s.id)
                     .Skip(request.Skip)
                     .Take(request.Take)
+                    .Select(s => s.id)
                     .ToListAsync(cancellationToken);
 
                 _logger.LogInformation(
                     "Procesando batch de {Count} síntomas. Skip: {Skip}, Regenerar: {Regenerar}",
-                    sintomas.Count, request.Skip, request.Regenerar);
+                    ids.Count, request.Skip, request.Regenerar);
 
                 var gateNoReconocidos = 0;
                 var gateRevisionHumana = 0;
                 var gateSinVeredicto = 0;
 
-                foreach (var sintoma in sintomas)
+                // Cuántos SALIERON del alcance en esta llamada. Es lo que el cliente necesita para
+                // mover su cursor: como el universo se consume solo, el skip solo debe avanzar por
+                // los que se quedaron (outage, sin nombre, excepción). Si avanzara por todos, se
+                // saltaría uno por cada uno procesado y la corrida cubriría la mitad del catálogo.
+                var consumidos = 0;
+
+                var fallosSeguidos = 0;
+                var abortadoPorFallos = false;
+
+                foreach (var sintomaId in ids)
                 {
+                    string? nombreActual = null;
+                    var fallo = false;
+
                     try
                     {
+                        // Se re-carga acá dentro, no antes del loop: el ChangeTracker se limpia al
+                        // cerrar cada iteración, así que una entidad materializada arriba llegaría
+                        // detached a su turno y sus cambios no se guardarían.
+                        var sintoma = await _db.sintomas
+                            .FirstOrDefaultAsync(s => s.id == sintomaId && !s.Eliminado, cancellationToken);
+
+                        if (sintoma == null)
+                        {
+                            // Se eliminó entre que se armó el sub-lote y su turno. Ya no está en el
+                            // alcance, así que cuenta como consumido: las filas que venían detrás
+                            // se corrieron hacia atrás y el cursor no debe saltarlas.
+                            consumidos++;
+                            resultados.Add(new BatchResultItem
+                            {
+                                Id = sintomaId,
+                                Nombre = $"(id {sintomaId})",
+                                Success = false,
+                                Error = "El registro se eliminó durante la corrida."
+                            });
+                            continue;
+                        }
+
+                        nombreActual = sintoma.nombre;
+
                         if (string.IsNullOrWhiteSpace(sintoma.nombre))
                         {
                             resultados.Add(new BatchResultItem
@@ -426,7 +485,8 @@ namespace eiibd26.Controllers
                         var decision = await _gate.EvaluarAsync(
                             TipoEntidadClinica.Sintoma, AEntradaGate(sintoma), cancellationToken);
 
-                        if (!await PasaGateAsync(sintoma, decision, cancellationToken))
+                        if (!await PasaGateAsync(sintoma, decision, cancellationToken,
+                                                 sellarProcesada: request.Regenerar))
                         {
                             switch (decision.Resultado)
                             {
@@ -434,6 +494,11 @@ namespace eiibd26.Controllers
                                 case ResultadoReconocimiento.RevisionHumana: gateRevisionHumana++; break;
                                 default:                                     gateSinVeredicto++;   break;
                             }
+
+                            // Veredicto definitivo → quedó sellado → fuera del alcance. El outage
+                            // no: se queda pendiente a propósito y el cursor tiene que pasarlo.
+                            if (request.Regenerar && !decision.EsSinVeredicto)
+                                consumidos++;
 
                             resultados.Add(new BatchResultItem
                             {
@@ -458,7 +523,10 @@ namespace eiibd26.Controllers
                             gateNoReconocidos++;
                             await PasaGateAsync(sintoma, new DecisionReconocimiento(
                                 ResultadoReconocimiento.NoReconocido, "generador", 1d,
-                                "El generador declaró no reconocer el término."), cancellationToken);
+                                "El generador declaró no reconocer el término."), cancellationToken,
+                                sellarProcesada: request.Regenerar);
+
+                            if (request.Regenerar) consumidos++;
 
                             resultados.Add(new BatchResultItem
                             {
@@ -480,7 +548,17 @@ namespace eiibd26.Controllers
                         sintoma.FechaActualizacionIA = DateTime.UtcNow;
                         sintoma.fechaModificado = DateTime.Now;
 
+                        // Reconocido: veredicto definitivo, se escribió ficha nueva. En re-proceso
+                        // el sello es lo único que lo saca del alcance (conserva DescripcionIA +
+                        // ValidadoIA, que es justo lo que ese filtro pide).
+                        if (request.Regenerar)
+                            sintoma.RegeneracionProcesadaUtc = DateTime.UtcNow;
+
                         await _db.SaveChangesAsync(cancellationToken);
+
+                        // Después del SaveChanges: si el guardado revienta, el registro NO salió
+                        // del alcance y el cursor del cliente tiene que pasar por encima de él.
+                        consumidos++;
 
                         // Also propagate nivel + razonamiento for batch items
                         await PropagateToGlossaryTermAsync(sintomaId: sintoma.id, cancellationToken);
@@ -497,26 +575,52 @@ namespace eiibd26.Controllers
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Error al procesar síntoma {Id}: {Nombre}", sintoma.id, sintoma.nombre);
+                        fallo = true;
+                        _logger.LogError(ex, "Error al procesar síntoma {Id}: {Nombre}", sintomaId, nombreActual);
 
                         resultados.Add(new BatchResultItem
                         {
-                            Id = sintoma.id,
-                            Nombre = sintoma.nombre ?? "Sin nombre",
+                            Id = sintomaId,
+                            Nombre = nombreActual ?? "Sin nombre",
                             Success = false,
                             Error = ex.Message
                         });
                     }
+                    finally
+                    {
+                        // ⭐ AISLAMIENTO POR REGISTRO. Sin esto, los cambios que dejó rastreados un
+                        // SaveChanges fallido NO se descartan: los persiste el SaveChanges del
+                        // registro SIGUIENTE. Caso real en producción — dos síntomas salieron ❌
+                        // por fallos de BD y quedaron igual sellados y con descripción nueva, de
+                        // arrastre. Eso rompe el retry (se asume "falló ⇒ quedó pendiente") y hace
+                        // que `consumidos` subcuente, con lo que el cliente adelanta el cursor de
+                        // más y se salta un pendiente por cada fallo.
+                        // Efecto secundario buscado: el tracker no crece durante la corrida.
+                        _db.ChangeTracker.Clear();
+
+                        fallosSeguidos = fallo ? fallosSeguidos + 1 : 0;
+                    }
+
+                    // Circuit-breaker: varios fallos seguidos no son mala suerte, es la BD (o la
+                    // IA) caída. Seguir sería martillarla registro por registro. Se corta y se
+                    // devuelve lo hecho; lo no intentado sigue pendiente y reanuda solo.
+                    if (fallosSeguidos >= FallosSeguidosParaAbortar)
+                    {
+                        abortadoPorFallos = true;
+                        _logger.LogError(
+                            "Batch de síntomas abortado: {Fallos} fallos seguidos. Procesados {Procesados} de {Total}.",
+                            fallosSeguidos, resultados.Count, ids.Count);
+                        break;
+                    }
                 }
 
-                // Cuántos faltan, en el MISMO alcance que se procesó.
-                var totalEnAlcance = await baseQuery.CountAsync(cancellationToken);
-
-                // En re-proceso el registro sigue cumpliendo el filtro después de regenerarse,
-                // así que el contador se apoya en Skip para que la corrida pueda cerrar.
-                var totalPendientes = request.Regenerar
-                    ? Math.Max(0, totalEnAlcance - (request.Skip + resultados.Count))
-                    : totalEnAlcance;
+                // Cuántos faltan, en el MISMO alcance que se procesó. Se cuenta DESPUÉS del loop,
+                // así que ya descuenta lo que acaba de salir del alcance.
+                // Antes, en re-proceso, esto se corregía a mano con `- (Skip + procesados)` porque
+                // el registro seguía cumpliendo el filtro después de regenerarse; con el sello de
+                // RegeneracionProcesadaUtc el alcance se consume solo y el conteo crudo ya es el
+                // real (restar de nuevo lo contaría dos veces).
+                var totalPendientes = await baseQuery.CountAsync(cancellationToken);
 
                 if (gateNoReconocidos > 0 || gateSinVeredicto > 0)
                 {
@@ -529,12 +633,16 @@ namespace eiibd26.Controllers
                 {
                     ok = true,
                     regenerar = request.Regenerar,
+                    abortadoPorFallos,
                     procesados = resultados.Count,
                     exitosos = resultados.Count(r => r.Success),
                     fallidos = resultados.Count(r => !r.Success),
                     gateNoReconocidos,
                     gateRevisionHumana,
                     gateSinVeredicto,
+                    // Cuántos salieron del alcance: el cliente avanza su cursor solo por la
+                    // diferencia (procesados - consumidos), que son los que siguen en la cola.
+                    consumidos,
                     pendientes = totalPendientes,
                     resultados
                 });

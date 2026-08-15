@@ -1477,10 +1477,33 @@
                                 }
                             });
 
-                            batchSkip += processed;
+                            // El cursor avanza SOLO por los que siguen en la cola. Los procesados
+                            // salen del alcance de la query (el sello de regeneración, o la
+                            // descripción recién escrita en modo normal), así que la fila
+                            // siguiente se corre sola hacia atrás: sumar los procesados al skip
+                            // saltaría uno por cada uno hecho y la corrida cubriría la mitad.
+                            // Se quedan en la cola a propósito los del outage del gate, y por
+                            // accidente los sin nombre o los que reventaron: por esos sí hay que
+                            // avanzar, o el sub-lote los volvería a traer eternamente.
+                            const consumidos = data.consumidos || 0;
+                            batchSkip += Math.max(0, processed - consumidos);
 
                             if (batchRequestedRemaining > 0) {
                                 batchRequestedRemaining -= processed;
+                            }
+
+                            // Fuente agotada: se pidieron más registros de los que hay en el alcance.
+                            // El endpoint devolvió 0 filas, así que batchSkip ya no avanza y repetir la
+                            // llamada daría siempre lo mismo. Sin este corte el runner gira infinito
+                            // (cada vuelta: 0 llamadas a la IA, 0 escrituras, pero no para nunca).
+                            // Manda sobre batchRequestedRemaining y sobre data.pendientes.
+                            if (processed === 0) {
+                                agregarLog('info', `ℹ️ No quedan registros para procesar. Total de la corrida: ${totalExitosos} exitosos, ${totalFallidos} fallidos.`);
+                                $('#btnPausarBatch').addClass('d-none');
+                                // Sin "Continuar": volvería a disparar el mismo skip vacío.
+                                $('#btnContinuarBatch').addClass('d-none');
+                                $('#progressBar').removeClass('progress-bar-animated').addClass('bg-success');
+                                return;
                             }
 
                             if (batchRequestedRemaining > 0) {

@@ -58,6 +58,17 @@ namespace eiibd26.Models
 
         public DateTime? RevisionLimpiezaFecha { get; set; }
 
+        /// <summary>
+        /// Sello de "ya pasó por la regeneración" — es lo que da resume al batch: el universo
+        /// del re-proceso es <c>RegeneracionProcesadaUtc IS NULL</c>, así que una recarga o una
+        /// sesión caída no reinicia nada (el <c>skip</c> del navegador sí se pierde, la marca no).
+        /// Solo se sella con veredicto DEFINITIVO del gate (Reconocido / NoReconocido /
+        /// RevisionHumana). Un <c>GroundingNoDisponible</c> deja el registro sin marca a
+        /// propósito, para que la corrida siguiente lo reintente sola.
+        /// Para forzar una regeneración completa: <c>SQL/reset-regeneracion-procesada.sql</c>.
+        /// </summary>
+        public DateTime? RegeneracionProcesadaUtc { get; set; }
+
         // ===== CAMPOS EXISTENTES =====
         public DateTime fechaEliminado { get; set; }
         public DateTime fechaModificado { get; set; }

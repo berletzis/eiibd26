@@ -535,6 +535,27 @@
                         </select>
                         <small class="text-muted ms-2">Sub-lotes de 10, pausa 5s entre cada sub-lote</small>
                     </div>
+
+                    @* Sin este switch el re-proceso no es disparable desde la UI: el filtro normal
+                       excluye lo que ya tiene DescripcionIA + ValidadoIA, que es justo lo que hay
+                       que rehacer. Apagado por defecto — encenderlo REESCRIBE fichas publicadas.
+                       Espejo del de síntomas. *@
+                    <div class="form-check form-switch mt-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="switchRegenerar">
+                        <label class="form-check-label" for="switchRegenerar">
+                            <strong>Regenerar fichas existentes</strong> (rehacer descripciones ya creadas)
+                        </label>
+                    </div>
+                </div>
+
+                <div class="alert alert-warning d-none" id="avisoRegenerar">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <strong>Modo re-proceso.</strong> Se REESCRIBEN descripciones ya publicadas, con el
+                    modelo y el guardrail nuevos. Alcance: fichas autogeneradas en triage Válido o
+                    Dudoso. Quedan fuera —y no se tocan— las validadas por un humano, las que tienen
+                    validación médica aprobada en el glosario y las marcadas Basura.
+                    <br />La corrida reanuda sola: lo ya procesado no se vuelve a pagar aunque
+                    recargues la página. Empieza con un lote chico y compara antes de seguir.
                 </div>
 
                 <!-- Progreso -->
@@ -1286,14 +1307,31 @@
                 batchSkip = 0;
                 totalExitosos = 0;
                 totalFallidos = 0;
+                batchPaused = false;
                 resetearEstadisticas();
+                // El re-proceso NO queda armado de una sesión a la otra: se vuelve a pedir a mano.
+                $('#switchRegenerar').prop('checked', false);
+                $('#avisoRegenerar').addClass('d-none');
                 $('#modalActualizacionMasiva').modal('show');
+            });
+
+            // Re-proceso: reescribe fichas ya publicadas, así que se avisa en pantalla.
+            let batchRegenerar = false;
+
+            $('#switchRegenerar').on('change', function () {
+                $('#avisoRegenerar').toggleClass('d-none', !$(this).is(':checked'));
             });
 
             // Iniciar procesamiento
             $('#btnIniciarBatch').on('click', function() {
                 console.log('Click en Iniciar Batch');
-                if (!confirm('¿Desea iniciar la actualización masiva? Este proceso puede tardar varios minutos.')) return;
+                batchRegenerar = $('#switchRegenerar').is(':checked');
+
+                if (batchRegenerar) {
+                    if (!confirm('MODO RE-PROCESO: se REESCRIBIRÁN descripciones ya publicadas de tratamientos.\n\nQuedan fuera las validadas por un humano, las que tienen validación médica aprobada y las marcadas Basura.\n\n¿Continuar?')) return;
+                } else {
+                    if (!confirm('¿Desea iniciar la actualización masiva? Este proceso puede tardar varios minutos.')) return;
+                }
 
                 // Leer selección del combo
                 batchRequestedTotal = parseInt($('#selectBatchSize').val() || '10', 10);
@@ -1383,7 +1421,9 @@
                     url: '/api/admin/tratamientos/batch-generate-ia',
                     type: 'POST',
                     contentType: 'application/json',
-                    data: JSON.stringify({ skip: batchSkip, take: takeNow }),
+                    // batchRegenerar se congela al arrancar: cambiar el switch a media corrida
+                    // movería el alcance entre sub-lotes y el Skip dejaría de significar lo mismo.
+                    data: JSON.stringify({ skip: batchSkip, take: takeNow, regenerar: batchRegenerar }),
                     success: function(data) {
                         console.log('Respuesta del servidor:', data);
                         if (data.ok) {
@@ -1420,11 +1460,34 @@
                                 }
                             });
 
-                            batchSkip += processed;
+                            // El cursor avanza SOLO por los que siguen en la cola. Los procesados
+                            // salen del alcance de la query (el sello de regeneración, o la
+                            // descripción recién escrita en modo normal), así que la fila
+                            // siguiente se corre sola hacia atrás: sumar los procesados al skip
+                            // saltaría uno por cada uno hecho y la corrida cubriría la mitad.
+                            // Se quedan en la cola a propósito los del outage del gate, y por
+                            // accidente los sin nombre o los que reventaron: por esos sí hay que
+                            // avanzar, o el sub-lote los volvería a traer eternamente.
+                            const consumidos = data.consumidos || 0;
+                            batchSkip += Math.max(0, processed - consumidos);
 
                             // Reducir contador solicitado (si aplica)
                             if (batchRequestedRemaining > 0) {
                                 batchRequestedRemaining -= processed;
+                            }
+
+                            // Fuente agotada: se pidieron más registros de los que hay en el alcance.
+                            // El endpoint devolvió 0 filas, así que batchSkip ya no avanza y repetir la
+                            // llamada daría siempre lo mismo. Sin este corte el runner gira infinito
+                            // (cada vuelta: 0 llamadas a la IA, 0 escrituras, pero no para nunca).
+                            // Manda sobre batchRequestedRemaining y sobre data.pendientes.
+                            if (processed === 0) {
+                                agregarLog('info', `ℹ️ No quedan registros para procesar. Total de la corrida: ${totalExitosos} exitosos, ${totalFallidos} fallidos.`);
+                                $('#btnPausarBatch').addClass('d-none');
+                                // Sin "Continuar": volvería a disparar el mismo skip vacío.
+                                $('#btnContinuarBatch').addClass('d-none');
+                                $('#progressBar').removeClass('progress-bar-animated').addClass('bg-success');
+                                return;
                             }
 
                             if (batchRequestedRemaining > 0) {
