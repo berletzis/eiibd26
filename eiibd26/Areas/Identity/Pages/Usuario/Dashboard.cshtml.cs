@@ -129,6 +129,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                         SintomaUsuarioId = s.id,
                         Nombre = s.Sintoma?.nombre ?? "(sin nombre)",
                         TipoSintoma = s.Sintoma?.TipoSintoma ?? 0,
+                        FechaFin = s.FechaFin,
                         Interacciones = bySint.ContainsKey(s.id) ? bySint[s.id].Count : 0,
                         Condiciones = new List<string>(),
                         SeguimientoPorDia = new Dictionary<string, DiaTracking>()
@@ -393,6 +394,17 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
             if (!int.TryParse(form["sintomaUsuarioId"], out var sintomaUsuarioId))
                 return BadRequest(new { success = false, error = "sintomaUsuarioId inválido." });
+
+            // Ownership + estado: el síntoma debe ser del usuario y no estar finalizado.
+            // Misma guarda que en UsuarioSintomasSeguimiento: el front deshabilita, el server rechaza.
+            var sintoma = await _db.sintomasUsuario
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.id == sintomaUsuarioId && x.idUsuario == userGuid && !x.Eliminado);
+            if (sintoma == null)
+                return BadRequest(new { success = false, error = "Síntoma no encontrado." });
+
+            if (sintoma.FechaFin.HasValue && sintoma.FechaFin.Value.Date <= DateTime.Today)
+                return BadRequest(new { success = false, mensaje = "Este síntoma ya finalizó; no admite seguimiento." });
 
             var estado = form["estado"].ToString();
 

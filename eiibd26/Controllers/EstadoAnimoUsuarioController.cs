@@ -82,7 +82,7 @@ namespace eiibd26.Controllers
             var sintomas = await _db.sintomasUsuario
                 .Where(x => x.idUsuario == guid && !x.Eliminado)
                 .Include(x => x.Sintoma)
-                .Select(x => new { id = x.id, idSintoma = x.idSintoma, nombre = x.Sintoma.nombre })
+                .Select(x => new { id = x.id, idSintoma = x.idSintoma, nombre = x.Sintoma.nombre, fechaFin = x.FechaFin })
                 .ToListAsync();
 
             return Ok(sintomas);
@@ -98,7 +98,7 @@ namespace eiibd26.Controllers
             var tratamientos = await _db.tratamientoUsuario
                 .Where(x => x.idUsuario == guid && !x.Eliminado)
                 .Include(x => x.Tratamiento)
-                .Select(x => new { id = x.id, idTratamiento = x.idTratamiento, nombre = x.Tratamiento.nombre })
+                .Select(x => new { id = x.id, idTratamiento = x.idTratamiento, nombre = x.Tratamiento.nombre, fechaFin = x.FechaFin })
                 .ToListAsync();
 
             return Ok(tratamientos);
@@ -149,6 +149,12 @@ namespace eiibd26.Controllers
                 condicionUsuarioId, sintomaUsuarioId, tratamientoUsuarioId, guid);
             if (invalidField is not null)
                 return BadRequest(new { ok = false, error = $"El campo {invalidField} no pertenece al usuario autenticado." });
+
+            // Un ítem finalizado (FechaFin hoy o antes) ya no admite ligarse a un registro nuevo.
+            // Solo aplica al alta: los registros históricos no se tocan.
+            var itemFinalizado = await PrimerItemFinalizadoAsync(sintomaUsuarioId, tratamientoUsuarioId, guid);
+            if (itemFinalizado is not null)
+                return BadRequest(new { ok = false, error = $"El {itemFinalizado} seleccionado ya finalizó; no puede ligarse a un registro nuevo." });
 
             var nuevo = new EstadoAnimoUsuario
             {
@@ -221,6 +227,35 @@ namespace eiibd26.Controllers
                 Sintoma = sintoma,
                 Tratamiento = tratamiento
             });
+        }
+
+        /// <summary>
+        /// Devuelve "síntoma" o "tratamiento" si el ítem referido ya finalizó (FechaFin hoy o antes); null si no.
+        /// Un fin en el futuro NO cuenta como finalizado: el ítem sigue vigente hasta esa fecha.
+        /// </summary>
+        private async Task<string?> PrimerItemFinalizadoAsync(int? sintomaUsuarioId, int? tratamientoUsuarioId, Guid userId)
+        {
+            var hoy = DateTime.Today;
+
+            if (sintomaUsuarioId.HasValue)
+            {
+                var fin = await _db.sintomasUsuario.AsNoTracking()
+                    .Where(s => s.id == sintomaUsuarioId.Value && s.idUsuario == userId)
+                    .Select(s => s.FechaFin)
+                    .FirstOrDefaultAsync();
+                if (fin.HasValue && fin.Value.Date <= hoy) return "síntoma";
+            }
+
+            if (tratamientoUsuarioId.HasValue)
+            {
+                var fin = await _db.tratamientoUsuario.AsNoTracking()
+                    .Where(t => t.id == tratamientoUsuarioId.Value && t.idUsuario == userId)
+                    .Select(t => t.FechaFin)
+                    .FirstOrDefaultAsync();
+                if (fin.HasValue && fin.Value.Date <= hoy) return "tratamiento";
+            }
+
+            return null;
         }
 
         [HttpPost("eliminar/{id}")]

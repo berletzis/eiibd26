@@ -274,7 +274,12 @@
             } else {
                 const errEl = el('mensajeTrackingErr' + SUFFIX);
                 let txt = '';
-                try { txt = await resp.text(); } catch(e) {}
+                try {
+                    txt = await resp.text();
+                    // El servidor responde JSON; mostrar solo el mensaje, no el objeto crudo.
+                    const data = JSON.parse(txt);
+                    txt = data?.mensaje || data?.error || '';
+                } catch(e) {}
                 if (errEl) { errEl.textContent = txt || 'Error guardando seguimiento'; errEl.classList.remove('d-none'); }
                 setTimeout(() => errEl?.classList.add('d-none'), 4000);
             }

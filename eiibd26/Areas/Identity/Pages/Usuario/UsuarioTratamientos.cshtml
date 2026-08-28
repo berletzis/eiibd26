@@ -36,12 +36,19 @@
         <div class="eii-grid eii-grid--cards">
             @foreach (var trat in Model.MisTratamientos)
             {
+                // Finalizado = fecha de fin hoy o antes. Un fin futuro sigue vigente y NO se atenúa.
+                var finalizado = trat.FechaFin.HasValue && trat.FechaFin.Value.Date <= DateTime.Today;
                 <div class="d-flex flex-column h-100">
-                    <div class="eii-card eii-card--elevated">
+                    <div class="eii-card eii-card--elevated @(finalizado ? "eii-card--finalizado" : "")">
                         <div class="eii-card__header">
                             <span class="eii-card__title">
-
                                 @trat.Nombre
+                                @if (finalizado)
+                                {
+                                    var finTxt = trat.FechaFin!.Value.ToString("dd/MM/yyyy");
+                                    <span class="eii-card__badge--finalizado"
+                                          title="Finalizó el @finTxt">Finalizado</span>
+                                }
                             </span>
                             <div class="d-flex gap-1 align-items-center">
                                 <button type="button"

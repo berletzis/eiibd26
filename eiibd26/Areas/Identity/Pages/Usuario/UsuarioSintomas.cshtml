@@ -38,11 +38,19 @@
             @foreach (var sint in Model.MisSintomas)
             {
                 var ultimoTracking = sint.UltimoTracking;
+                // Finalizado = fecha de fin hoy o antes. Un fin futuro sigue vigente y NO se atenúa.
+                var finalizado = sint.FechaFin.HasValue && sint.FechaFin.Value.Date <= DateTime.Today;
                 <div class="d-flex flex-column h-100">
-                    <div class="eii-card eii-card--elevated">
+                    <div class="eii-card eii-card--elevated @(finalizado ? "eii-card--finalizado" : "")">
                         <div class="eii-card__header">
                             <span class="eii-card__title">
                                 @sint.Nombre
+                                @if (finalizado)
+                                {
+                                    var finTxt = sint.FechaFin!.Value.ToString("dd/MM/yyyy");
+                                    <span class="eii-card__badge--finalizado"
+                                          title="Finalizó el @finTxt — ya no admite seguimiento">Finalizado</span>
+                                }
                             </span>
                             <div class="d-flex gap-1 align-items-center">
                                 <button type="button"
@@ -217,13 +225,16 @@
                                     <strong class="track-trend-label @sintTextClass">@sintTendShort</strong>
                                 </span>
                             </div>
-                            <button type="button" class="btn-track-sintoma"
-                                    data-id="@sint.Id"
-                                    data-nombre="@sint.Nombre"
-                                    data-tipo="@sint.TipoSintoma"
-                                    title="Registra cómo estás hoy">
-                                <i class="bi bi-clipboard-heart-fill"></i>
-                            </button>
+                            @if (!finalizado)
+                            {
+                                <button type="button" class="btn-track-sintoma"
+                                        data-id="@sint.Id"
+                                        data-nombre="@sint.Nombre"
+                                        data-tipo="@sint.TipoSintoma"
+                                        title="Registra cómo estás hoy">
+                                    <i class="bi bi-clipboard-heart-fill"></i>
+                                </button>
+                            }
                         </div>
                     </div>
                 </div>

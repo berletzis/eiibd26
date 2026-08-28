@@ -251,12 +251,18 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
 
             if (string.IsNullOrWhiteSpace(estado)) return BadRequest();
 
-            var existeSintoma = await _db.sintomasUsuario
-                .Include(su => su.Sintoma)
-                .AnyAsync(x => x.id == sintomaUsuarioId && x.idUsuario == Guid.Parse(userId) && !x.Eliminado);
-            if (!existeSintoma) return BadRequest();
+            if (!Guid.TryParse(userId, out var userGuid)) return Unauthorized();
 
-            var userGuid = Guid.Parse(userId);
+            var sintoma = await _db.sintomasUsuario
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.id == sintomaUsuarioId && x.idUsuario == userGuid && !x.Eliminado);
+            if (sintoma == null) return BadRequest();
+
+            // Un síntoma finalizado (FechaFin hoy o antes) ya no admite seguimiento nuevo.
+            // Defensa de servidor: el botón oculto en la vista es solo cosmético.
+            if (sintoma.FechaFin.HasValue && sintoma.FechaFin.Value.Date <= DateTime.Today)
+                return new JsonResult(new { ok = false, mensaje = "Este síntoma ya finalizó; no admite seguimiento." }) { StatusCode = 400 };
+
             await _trackingService.GuardarTrackingAsync(new TrackingRequestDto(
                 IdUsuario:        userGuid,
                 IdSintomaUsuario: sintomaUsuarioId,

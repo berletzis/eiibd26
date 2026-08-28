@@ -120,8 +120,16 @@
                 <tbody>
                     @foreach (var sint in Model.Sintomas)
                     {
-                        <tr>
-                            <td class="text-start" style="vertical-align: middle;">@sint.Nombre</td>
+                        <tr class="@(sint.Finalizado ? "track-row--finalizado" : "")">
+                            <td class="text-start" style="vertical-align: middle;">
+                                @sint.Nombre
+                                @if (sint.Finalizado)
+                                {
+                                    var finTxt = sint.FechaFin!.Value.ToString("dd/MM/yyyy");
+                                    <span class="track-badge--finalizado"
+                                          title="Finalizó el @finTxt — ya no admite seguimiento">Finalizado</span>
+                                }
+                            </td>
                             @{
                                 Model.TendenciasPorSintoma.TryGetValue(sint.Nombre.Trim(), out var trend);
                                 var tendTxt = trend?.Tendencia ?? "Sin datos suficientes";
@@ -165,7 +173,7 @@
                                               alt="@seguimiento"
                                               title="@seguimiento"></span>
                                     }
-                                    else if ((esHoy || esAyer) && !esFuturo)
+                                    else if ((esHoy || esAyer) && !esFuturo && !sint.Finalizado)
                                     {
                                         <button type="button"
                                                 class="btn btn-outline-gray btn-sm btn-agregar-tracking-matriz"
@@ -283,6 +291,8 @@
             function addCircleEditEvent() {
                 document.querySelectorAll('td .track-dot--interactive').forEach(function(circle) {
                     const td = circle.closest('td');
+                    // Síntoma finalizado: no admite seguimiento, tampoco editar el ya registrado.
+                    if (td && td.closest('tr')?.classList.contains('track-row--finalizado')) return;
                     if (td && !td.classList.contains('disabled-edit')) {
                         td.onclick = function () {
                             const sintId      = td.getAttribute('data-sintid');
@@ -447,10 +457,13 @@
                     addCircleEditEvent();
                     bootstrap.Modal.getInstance(document.getElementById('modalTrackingMatriz'))?.hide();
                 } else {
+                    // El servidor puede explicar el rechazo (p. ej. síntoma finalizado); mostrarlo tal cual.
+                    let mensajeServidor = '';
+                    try { mensajeServidor = (await resp.json())?.mensaje || ''; } catch (e) { }
                     let msg = document.getElementById('mensajeTrackingMatriz');
                     msg.classList.remove('d-none');
                     msg.classList.add('alert-danger');
-                    msg.textContent = 'Error guardando seguimiento. Intenta nuevamente';
+                    msg.textContent = mensajeServidor || 'Error guardando seguimiento. Intenta nuevamente';
                     setTimeout(() => {
                         msg.classList.add('d-none');
                         msg.classList.remove('alert-danger');

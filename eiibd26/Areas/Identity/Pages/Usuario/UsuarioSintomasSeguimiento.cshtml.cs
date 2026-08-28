@@ -53,6 +53,11 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             public int TipoSintoma { get; set; } = 0;
             public List<string> Condiciones { get; set; } = new();
             public Dictionary<string, DiaTracking> SeguimientoPorDia { get; set; } = new();
+
+            public DateTime? FechaFin { get; set; }
+
+            /// <summary>Finalizado = tiene fecha de fin y ya llegó (hoy o antes). Un fin futuro NO cuenta.</summary>
+            public bool Finalizado => FechaFin.HasValue && FechaFin.Value.Date <= DateTime.Today;
         }
 
         public async Task OnGetAsync()
@@ -71,7 +76,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             var sintomasUsuario = await (from su in _db.sintomasUsuario
                                          join s in _db.sintomas on su.idSintoma equals s.id
                                          where su.idUsuario == userGuid && !su.Eliminado
-                                         select new { su.id, s.nombre, s.TipoSintoma }).ToListAsync();
+                                         select new { su.id, s.nombre, s.TipoSintoma, su.FechaFin }).ToListAsync();
 
             // Condiciones asociadas por s�ntoma usuario
             var condicionesAll = await (
@@ -114,6 +119,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     Id = su.id,
                     Nombre = su.nombre,
                     TipoSintoma = su.TipoSintoma,
+                    FechaFin = su.FechaFin,
                     Condiciones = condiciones,
                     SeguimientoPorDia = segPorDia
                 };
@@ -160,14 +166,22 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             if (userId == null) return Unauthorized();
             if (string.IsNullOrWhiteSpace(estado)) return BadRequest();
 
-            var existeSintoma = await _db.sintomasUsuario.AnyAsync(x => x.id == sintomaUsuarioId && x.idUsuario == Guid.Parse(userId) && !x.Eliminado);
-            if (!existeSintoma) return BadRequest();
+            if (!Guid.TryParse(userId, out var userGuid)) return Unauthorized();
+
+            var sintoma = await _db.sintomasUsuario
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.id == sintomaUsuarioId && x.idUsuario == userGuid && !x.Eliminado);
+            if (sintoma == null) return BadRequest();
+
+            // Un síntoma finalizado (FechaFin hoy o antes) ya no admite seguimiento nuevo.
+            // Defensa de servidor: el botón deshabilitado en la vista es solo cosmético.
+            if (sintoma.FechaFin.HasValue && sintoma.FechaFin.Value.Date <= DateTime.Today)
+                return new JsonResult(new { ok = false, mensaje = "Este síntoma ya finalizó; no admite seguimiento." }) { StatusCode = 400 };
 
             DateTime fechaParseada;
             if (!DateTime.TryParse(fecha, out fechaParseada))
                 return BadRequest("Fecha inv�lida (check)");
 
-            var userGuid = Guid.Parse(userId);
             await _trackingService.GuardarTrackingAsync(new TrackingRequestDto(
                 IdUsuario:        userGuid,
                 IdSintomaUsuario: sintomaUsuarioId,

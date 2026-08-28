@@ -154,6 +154,19 @@
         } catch(e) { tratamientosData = []; }
     }
 
+    // ---- Finalizados ----
+    // Finalizado = tiene fecha de fin y esa fecha ya llegó (hoy o antes).
+    // Un fin en el futuro NO cuenta: el ítem sigue vigente hasta esa fecha.
+    function estaFinalizado(item) {
+        if (!item || !item.fechaFin) return false;
+        const fin = new Date(item.fechaFin);
+        if (isNaN(fin.getTime())) return false;
+        const hoy = new Date();
+        const finDia = new Date(fin.getFullYear(), fin.getMonth(), fin.getDate());
+        const hoyDia = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+        return finDia <= hoyDia;
+    }
+
     // ---- Select populators ----
     function populateSelect(selectId, data, selectedId) {
         const sel = document.getElementById(selectId);
@@ -162,13 +175,19 @@
         sel.innerHTML = '<option value="">Seleccionar...</option>';
         data.forEach(item => {
             const opt = document.createElement('option');
+            const finalizado = estaFinalizado(item);
             opt.value = item.id;
-            opt.textContent = item.nombre;
-            if (item.id === selectedId) opt.selected = true;
+            // Se muestra pero no se puede elegir: el histórico sigue visible.
+            opt.textContent = finalizado ? item.nombre + ' (finalizado)' : item.nombre;
+            if (finalizado) opt.disabled = true;
+            if (item.id === selectedId && !finalizado) opt.selected = true;
             sel.appendChild(opt);
         });
         // restore previous selection if still valid
-        if (!selectedId && prev) sel.value = prev;
+        if (!selectedId && prev) {
+            const prevOpt = Array.from(sel.options).find(o => o.value === prev);
+            if (prevOpt && !prevOpt.disabled) sel.value = prev;
+        }
     }
 
     function renderAllLists() {
@@ -210,20 +229,26 @@
         if (ctxTipo === 'sintoma') {
             const found = sintomasData.find(x => x.idSintoma == ctxRawId);
             if (found) {
-                selectedSintomaId = found.id;
-                document.getElementById('sintomaSelectedId').value = found.id;
-                const sel = document.getElementById('selectSintoma');
-                if (sel) sel.value = found.id;
+                // Ya lo tiene en su lista: no ofrecer agregarlo. Si finalizó, no autoseleccionar.
+                if (!estaFinalizado(found)) {
+                    selectedSintomaId = found.id;
+                    document.getElementById('sintomaSelectedId').value = found.id;
+                    const sel = document.getElementById('selectSintoma');
+                    if (sel) sel.value = found.id;
+                }
             } else {
                 document.getElementById('btnAddSintoma')?.classList.remove('d-none');
             }
         } else if (ctxTipo === 'tratamiento') {
             const found = tratamientosData.find(x => x.idTratamiento == ctxRawId);
             if (found) {
-                selectedTratamientoId = found.id;
-                document.getElementById('tratamientoSelectedId').value = found.id;
-                const sel = document.getElementById('selectTratamiento');
-                if (sel) sel.value = found.id;
+                // Ya lo tiene en su lista: no ofrecer agregarlo. Si finalizó, no autoseleccionar.
+                if (!estaFinalizado(found)) {
+                    selectedTratamientoId = found.id;
+                    document.getElementById('tratamientoSelectedId').value = found.id;
+                    const sel = document.getElementById('selectTratamiento');
+                    if (sel) sel.value = found.id;
+                }
             } else {
                 document.getElementById('btnAddTratamiento')?.classList.remove('d-none');
             }

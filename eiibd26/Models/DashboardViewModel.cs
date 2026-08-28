@@ -82,6 +82,12 @@ namespace eiibd26.Models
         public string? UltimaFrecuenciaNombre { get; set; }
         /// <summary>Tipo de síntoma del catálogo: 0=Subjetivo, 1=Medible GI, 2=Dolor.</summary>
         public int TipoSintoma { get; set; } = 0;
+
+        /// <summary>Fecha de fin del síntoma del usuario, si la tiene.</summary>
+        public DateTime? FechaFin { get; set; }
+
+        /// <summary>Finalizado = tiene fecha de fin y ya llegó (hoy o antes). Un fin futuro NO cuenta.</summary>
+        public bool Finalizado => FechaFin.HasValue && FechaFin.Value.Date <= DateTime.Today;
     }
 
     public class QuestionItem
