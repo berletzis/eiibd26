@@ -155,18 +155,26 @@ public sealed class MedicalSummaryService : IMedicalSummaryService
         return trackings
             .Where(t => t.SintomaUsuario?.Sintoma != null)
             .GroupBy(t => new { t.IdSintomaUsuario, NombreSintoma = t.SintomaUsuario!.Sintoma!.nombre })
-            .Select(g => new SintomaExportDto
+            .Select(g =>
             {
-                NombreSintoma = g.Key.NombreSintoma,
-                Tratamientos  = mapaTratamientos.TryGetValue(g.Key.IdSintomaUsuario, out var trts) ? trts : [],
-                Trackings     = g.Select(t => new TrackingSintomaExportDto
+                // SintomaUsuario ya viene Included arriba: no hay query nueva.
+                // fechaInicio puede traer el sentinel 1753 -> en ese caso no se reporta fecha de inicio.
+                var su = g.First().SintomaUsuario!;
+                return new SintomaExportDto
                 {
-                    Fecha           = t.Fecha,
-                    Estado          = t.Estado,
-                    Dolor           = t.Dolor,
-                    TieneSangrado   = t.TieneSangrado,
-                    FrecuenciaNombre = t.Frecuencia?.Nombre
-                }).OrderBy(x => x.Fecha).ToList()
+                    NombreSintoma = g.Key.NombreSintoma,
+                    FechaInicio   = su.fechaInicio >= new DateTime(1753, 1, 1) ? su.fechaInicio : null,
+                    FechaFin      = su.FechaFin,
+                    Tratamientos  = mapaTratamientos.TryGetValue(g.Key.IdSintomaUsuario, out var trts) ? trts : [],
+                    Trackings     = g.Select(t => new TrackingSintomaExportDto
+                    {
+                        Fecha           = t.Fecha,
+                        Estado          = t.Estado,
+                        Dolor           = t.Dolor,
+                        TieneSangrado   = t.TieneSangrado,
+                        FrecuenciaNombre = t.Frecuencia?.Nombre
+                    }).OrderBy(x => x.Fecha).ToList()
+                };
             })
             .OrderBy(s => s.NombreSintoma)
             .ToList();

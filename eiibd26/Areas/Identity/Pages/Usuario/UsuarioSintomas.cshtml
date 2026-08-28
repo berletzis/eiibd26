@@ -100,6 +100,41 @@
                                 </div>
                             </form>
                         </div>
+                        <div class="d-flex flex-column gap-1">
+                            <span class="eii-card__label">
+                                <i class="bi bi-calendar2-date"></i>
+                                Fecha fin del Sintoma
+                            </span>
+                            <form method="post" class="form-editar-fecha-fin" data-id="@sint.Id" asp-page-handler="EditarFechaFin">
+                                <div class="d-flex align-items-center flex-wrap" style="column-gap:3px;">
+                                    <input type="hidden" name="sintId" value="@sint.Id" />
+                                    <input type="date"
+                                           class="eii-input fecha-fin"
+                                           style="width:150px; min-width:140px; max-width:170px;"
+                                           name="nuevaFechaFin"
+                                           value="@(sint.FechaFin.HasValue ? sint.FechaFin.Value.ToString("yyyy-MM-dd") : "")"
+                                           disabled />
+                                    <button type="button"
+                                            class="eii-btn eii-btn--ghost eii-btn--sm btn-editar-fecha-fin"
+                                            style="border:none;"
+                                            title="Editar fecha de fin">
+                                        Editar
+                                    </button>
+                                    <button type="submit"
+                                            class="eii-btn eii-btn--primary eii-btn--sm d-none btn-guardar-fecha-fin"
+                                            style="border:none;"
+                                            title="Guardar nueva fecha fin">
+                                        Guardar
+                                    </button>
+                                    <button type="button"
+                                            class="eii-btn eii-btn--ghost eii-btn--sm d-none btn-cancelar-fecha-fin"
+                                            style="border:none;"
+                                            title="Cancelar edición de fecha fin">
+                                        Cancelar
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                         <div class="mt-2 mb-2">
                             <div class="eii-card__subtitle">
                                 Condiciones
@@ -441,6 +476,54 @@
                         }
                     } catch (err) {
                         alert('Error de red al guardar la fecha.');
+                    }
+                });
+            });
+
+            // Editar fecha fin (opcional: vacio = sintoma aun vigente)
+            document.querySelectorAll('.form-editar-fecha-fin').forEach(form => {
+                let btnEdit = form.querySelector('.btn-editar-fecha-fin');
+                let btnSave = form.querySelector('.btn-guardar-fecha-fin');
+                let btnCancel = form.querySelector('.btn-cancelar-fecha-fin');
+                let input = form.querySelector('.fecha-fin');
+                let valorOriginal = input.value;
+
+                btnEdit.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    input.disabled = false;
+                    btnEdit.classList.add('d-none');
+                    btnSave.classList.remove('d-none');
+                    btnCancel.classList.remove('d-none');
+                });
+                btnCancel.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    input.value = valorOriginal;
+                    input.disabled = true;
+                    btnEdit.classList.remove('d-none');
+                    btnSave.classList.add('d-none');
+                    btnCancel.classList.add('d-none');
+                });
+                form.addEventListener('submit', async function (ev) {
+                    ev.preventDefault();
+                    input.disabled = false;
+                    let formData = new FormData(form);
+                    addAntiforgeryToken(formData);
+                    try {
+                        let resp = await fetch(form.action, { method: "POST", body: formData });
+                        if (resp.ok) {
+                            valorOriginal = input.value;
+                            input.disabled = true;
+                            btnEdit.classList.remove('d-none');
+                            btnSave.classList.add('d-none');
+                            btnCancel.classList.add('d-none');
+                        } else {
+                            let data = await resp.json().catch(() => ({}));
+                            alert('Error al guardar: ' + (data.mensaje || resp.status));
+                            input.disabled = true;
+                        }
+                    } catch (err) {
+                        alert('Error de red al guardar la fecha.');
+                        input.disabled = true;
                     }
                 });
             });

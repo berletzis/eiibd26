@@ -44,6 +44,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             public int CatalogoSintomaId { get; set; }
             public string Nombre { get; set; }
             public DateTime FechaInicio { get; set; }
+            public DateTime? FechaFin { get; set; }
             public bool EsPrincipal { get; set; }
             public int TipoSintoma { get; set; } = 0;
             public List<RelSimple> Condiciones { get; set; } = new();
@@ -104,6 +105,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                                              su.id,
                                              su.idSintoma,
                                              su.fechaInicio,
+                                             su.FechaFin,
                                              su.fechaCreado,
                                              su.EsPrincipal,
                                              s.nombre,
@@ -168,6 +170,7 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
                     EsPrincipal = su.EsPrincipal,
                     TipoSintoma = su.TipoSintoma,
                     FechaInicio = su.fechaInicio >= new DateTime(1753, 1, 1) ? su.fechaInicio : su.fechaCreado,
+                    FechaFin = su.FechaFin,
                     Condiciones = condiciones,
                     Tratamientos = tratamientos,
                     UltimoTracking = ultimo
@@ -436,6 +439,33 @@ namespace eiibd26.Areas.Identity.Pages.Usuario
             await _db.SaveChangesAsync();
 
             return new JsonResult(new { ok = true });
+        }
+
+        /// <summary>Fija o limpia la fecha de fin (opcional) de un sintoma del usuario.</summary>
+        public async Task<IActionResult> OnPostEditarFechaFinAsync(int sintId, string? nuevaFechaFin = null)
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userId == null) return Unauthorized();
+
+            DateTime? fechaFin = null;
+            if (!string.IsNullOrWhiteSpace(nuevaFechaFin) && DateTime.TryParse(nuevaFechaFin, out var parsed))
+                fechaFin = parsed;
+
+            var rel = await _db.sintomasUsuario
+                .FirstOrDefaultAsync(x => x.idUsuario == Guid.Parse(userId) && x.id == sintId && !x.Eliminado);
+
+            if (rel != null)
+            {
+                // fechaInicio es DateTime no-nullable y puede traer el sentinel 1753: solo validar si es una fecha real.
+                if (fechaFin.HasValue && rel.fechaInicio >= new DateTime(1753, 1, 1) && fechaFin.Value < rel.fechaInicio)
+                    return new JsonResult(new { ok = false, mensaje = "La fecha de fin no puede ser anterior a la fecha de inicio." }) { StatusCode = 400 };
+
+                rel.FechaFin = fechaFin;
+                rel.fechaModificado = DateTime.Now;
+                await _db.SaveChangesAsync();
+                return new JsonResult(new { ok = true });
+            }
+            return BadRequest();
         }
 
         /// <summary>Marca/desmarca un s�ntoma del usuario como principal (solo uno puede estar activo).</summary>

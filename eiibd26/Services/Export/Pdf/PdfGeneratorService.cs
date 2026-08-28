@@ -323,7 +323,14 @@ public sealed class PdfGeneratorService : IPdfGeneratorService
                 {
                     body.Item().ShowEntire().Column(bloque =>
                     {
-                        bloque.Item().Text(s.NombreSintoma).Bold().FontSize(TamFuente).FontColor(Negro);
+                        bloque.Item().Text(t =>
+                        {
+                            t.Span(s.NombreSintoma).Bold().FontSize(TamFuente).FontColor(Negro);
+                            if (s.FechaInicio.HasValue)
+                                t.Span($" — Desde {s.FechaInicio.Value:dd/MM/yyyy}").FontSize(TamFuente).FontColor(GrisOscuro);
+                            if (s.FechaFin.HasValue)
+                                t.Span($" — Fin: {s.FechaFin.Value:dd/MM/yyyy}").FontSize(TamFuente).FontColor(GrisOscuro);
+                        });
                         bloque.Item().PaddingTop(6).Column(trackings =>
                         {
                             trackings.Spacing(2);
