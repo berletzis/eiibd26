@@ -12,6 +12,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace eiibd26.Pages.Tolero
 {
+    /// <summary>Modelo del partial _ToleroSidebar (índice y encuesta): qué URL y título se comparten.</summary>
+    public record ToleroShareVm(string Url, string Titulo);
+
     // Índice de la encuesta de tolerancia: /tolero sin ingrediente. Lista los ingredientes activos
     // agrupados por grupo, con enlace a /tolero/{slug}, y muestra la respuesta propia de quien mira
     // (logueado por UserId, anónimo por la cookie de la encuesta). SOLO LECTURA: votar sigue

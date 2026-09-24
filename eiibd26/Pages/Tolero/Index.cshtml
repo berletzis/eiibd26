@@ -8,6 +8,8 @@
     var canonical = $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}/tolero";
     var ogDesc = "Elige un alimento, responde en un toque si lo toleras y mira qué reporta la comunidad EII. "
         + "Es la experiencia de la comunidad, no un consejo médico: tu cuerpo es único.";
+    // En variable: el modelo del <partial> no va armado dentro del atributo (parser de Razor).
+    var share = new eiibd26.Pages.Tolero.ToleroShareVm(canonical, "¿Qué alimentos toleras? La comunidad EII responde");
 }
 
 @section Head {
@@ -27,8 +29,10 @@
     <link rel="stylesheet" href="~/css/tolero.css" asp-append-version="true" />
 }
 
-<main class="conte-page" role="main" aria-label="Encuesta de tolerancia de alimentos">
-    <div class="container py-4">
+@* Dos columnas como Platillos/Ingrediente: contenido + sidebar derecho público (_ToleroSidebar). *@
+<div class="conte-detail">
+<div class="detail-grid">
+    <div class="content-panel" aria-label="Encuesta de tolerancia de alimentos">
 
         <div class="eii-page-header">
             <div class="eii-page-header__content">
@@ -122,5 +126,18 @@
             </div>
         }
 
+        @* Aviso morado — versión móvil; en desktop lo muestra el sidebar. *@
+        <div class="aviso-termino-inline aviso-termino-box mt-4">
+            <p class="aviso-title mb-2">Esto no es una dieta</p>
+            <p class="aviso-text">
+                Esto es la <strong>experiencia de la comunidad</strong>, no un consejo médico. Que la mayoría
+                tolere un alimento <strong>no significa que a ti te caiga bien</strong>: tu cuerpo es único y depende
+                de tu enfermedad, tu momento y tu tratamiento. Tu dieta la diseñas con tu Profesional de la Salud.
+            </p>
+        </div>
+
     </div>
-</main>
+
+    <partial name="_ToleroSidebar" model="share" />
+</div>
+</div>

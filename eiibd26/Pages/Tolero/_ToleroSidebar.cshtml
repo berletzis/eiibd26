@@ -1,0 +1,58 @@
+@model eiibd26.Pages.Tolero.ToleroShareVm
+@*
+    Sidebar derecho de /tolero (índice y encuesta). Público: se ve con o sin sesión.
+    Mismo marcado que el de Platillos/Ingrediente (detail-grid / right-panel / sidebar-section de
+    detalle.css). El aviso morado es hijo directo de .right-panel: en ≤1024px detalle.css lo oculta y
+    se muestra la copia .aviso-termino-inline del contenido.
+*@
+@{
+    var encUrl = System.Net.WebUtility.UrlEncode(Model.Url);
+    var encTitle = System.Net.WebUtility.UrlEncode(Model.Titulo);
+    var waHref = $"https://api.whatsapp.com/send?text={encTitle}%20{encUrl}";
+    var fbHref = $"https://www.facebook.com/sharer/sharer.php?u={encUrl}";
+    var twHref = $"https://twitter.com/intent/tweet?text={encTitle}&url={encUrl}";
+}
+<aside class="right-panel" aria-label="Acciones">
+    <div class="sidebar-section sidebar-static">
+        <div class="sidebar-section-header-static">
+            <h4 class="sidebar-section-title">Compartir</h4>
+        </div>
+        <div class="sidebar-section-content-static">
+            <div class="share-icons" aria-label="Compartir">
+                <a class="share-btn" href="#" data-href="@waHref" title="Compartir en WhatsApp" aria-label="Compartir en WhatsApp"><i class="bi bi-whatsapp"></i></a>
+                <a class="share-btn" href="#" data-href="@fbHref" title="Compartir en Facebook" aria-label="Compartir en Facebook"><i class="bi bi-facebook"></i></a>
+                <a class="share-btn" href="#" data-href="@twHref" title="Compartir en X" aria-label="Compartir en X"><i class="bi bi-twitter"></i></a>
+            </div>
+        </div>
+    </div>
+
+    <div class="aviso-termino-box">
+        <p class="aviso-title mb-2">Esto no es una dieta</p>
+        <p class="aviso-text">
+            Esto es la <strong>experiencia de la comunidad</strong>, no un consejo médico. Que la mayoría
+            tolere un alimento <strong>no significa que a ti te caiga bien</strong>: tu cuerpo es único y depende
+            de tu enfermedad, tu momento y tu tratamiento. Tu dieta la diseñas con tu Profesional de la Salud.
+        </p>
+    </div>
+</aside>
+
+<script>
+    // Compartir: popup centrado (espejo de Platillos/Ingrediente y Contenidos/Detalle). Puro cliente.
+    (function () {
+        function openPopup(url) {
+            try {
+                var w = 600, h = 600;
+                var left = (screen.width / 2) - (w / 2);
+                var top = (screen.height / 2) - (h / 2);
+                window.open(url, '_blank', 'scrollbars=yes,resizable=yes,toolbar=no,location=no,width=' + w + ',height=' + h + ',top=' + top + ',left=' + left);
+            } catch (e) { window.location.href = url; }
+        }
+        document.addEventListener('click', function (e) {
+            var a = e.target.closest && e.target.closest('.share-btn');
+            if (!a) return;
+            e.preventDefault();
+            var href = a.getAttribute('data-href') || a.getAttribute('href');
+            if (href) openPopup(href);
+        }, { passive: false });
+    })();
+</script>

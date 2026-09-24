@@ -16,6 +16,9 @@
     int avPct = n > 0 ? (int)System.Math.Round(Model.CountAVeces * 100.0 / n) : 0;
     int noPct = n > 0 ? System.Math.Max(0, 100 - siPct - avPct) : 0;
     string resp = n == 1 ? "respuesta" : "respuestas";   // singular cuando n == 1
+
+    // Sidebar derecho público (_ToleroSidebar): comparte ESTA encuesta con su pregunta. En variable por el parser de Razor.
+    var share = new eiibd26.Pages.Tolero.ToleroShareVm(canonical, Model.Pregunta);
 }
 
 @section Head {
@@ -30,9 +33,15 @@
 }
 
 @section Styles {
+    @* detalle.css: layout de dos columnas + sidebar (mismo que Platillos/Ingrediente). *@
+    <link rel="stylesheet" href="~/css/detalle.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/tolero.css" asp-append-version="true" />
 }
 
+@* Dos columnas: la encuesta a la izquierda, sidebar público (Compartir + aviso) a la derecha. *@
+<div class="conte-detail">
+<div class="detail-grid">
+<div class="content-panel">
 <div class="tolero-wrap">
 
     <header class="tolero-head">
@@ -250,6 +259,11 @@
             <i class="bi bi-grid"></i> Ver todos los alimentos
         </a>
     </nav>
+</div>
+</div>
+
+<partial name="_ToleroSidebar" model="share" />
+</div>
 </div>
 
 @section Scripts {
