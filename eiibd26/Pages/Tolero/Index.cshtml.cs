@@ -115,6 +115,9 @@ namespace eiibd26.Pages.Tolero
             public string Grupo { get; set; } = "";
             public string Slug { get; set; } = "";
             public PlatToleraNivel? MiVoto { get; set; }
+
+            /// <summary>"azúcar" → "Azúcar". Solo presentación: el catálogo guarda en minúscula (§7.1).</summary>
+            public string NombreVisible => string.IsNullOrEmpty(Nombre) ? Nombre : char.ToUpper(Nombre[0]) + Nombre[1..];
         }
     }
 }

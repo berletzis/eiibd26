@@ -927,6 +927,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
         {
             b.ToTable("PlatIngrediente");
             b.HasIndex(x => x.Nombre).IsUnique();
+            b.Property(x => x.Articulo).HasMaxLength(3);
             b.HasOne(x => x.Grupo)
              .WithMany(g => g.Ingredientes)
              .HasForeignKey(x => x.GrupoId)

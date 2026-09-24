@@ -24,12 +24,16 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
         private readonly ApplicationDbContext _db;
         public IngredienteDetalleModel(ApplicationDbContext db) => _db = db;
 
+        public static readonly string[] ArticulosValidos = { "el", "la", "los", "las" };
+
         // Combos / checkboxes (alimentados desde catálogo, nunca texto a mano).
         public List<PlatGrupo> GrupoOptions { get; set; } = new();
         public List<PlatAtributo> AtributoOptions { get; set; } = new();   // intrínsecos (Ambito='Ingrediente')
 
         [BindProperty] public int? Id { get; set; }
         [BindProperty] public string? Nombre { get; set; }
+        /// <summary>el/la/los/las o vacío (sin artículo → frase neutra en la encuesta). Lista blanca en el POST.</summary>
+        [BindProperty] public string? Articulo { get; set; }
         [BindProperty] public int GrupoId { get; set; }
         [BindProperty] public string? NotasEII { get; set; }
         [BindProperty] public List<int> SelectedAtributoIds { get; set; } = new();
@@ -57,6 +61,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
 
                 Id = editing.Id;
                 Nombre = editing.Nombre;
+                Articulo = editing.Articulo;
                 GrupoId = editing.GrupoId;
                 NotasEII = editing.NotasEII;
                 Activo = editing.Activo;
@@ -106,6 +111,14 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
             var selected = (SelectedAtributoIds ?? new List<int>()).Distinct().ToList();
             var currentId = Id ?? 0;
 
+            // Artículo: solo valores de la lista blanca (el CHECK de la BD lo exige igual). Vacío = NULL.
+            var articulo = string.IsNullOrWhiteSpace(Articulo) ? null : Articulo.Trim().ToLowerInvariant();
+            if (articulo != null && !ArticulosValidos.Contains(articulo))
+            {
+                ErrorMessage = "Artículo inválido: elige el, la, los, las o sin artículo.";
+                return RedirectToPage(new { id = Id });
+            }
+
             if (string.IsNullOrWhiteSpace(nombre))
             {
                 ErrorMessage = "El nombre es obligatorio.";
@@ -135,6 +148,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
                     return RedirectToPage("Ingredientes");
                 }
                 ent.Nombre = nombre;
+                ent.Articulo = articulo;
                 ent.GrupoId = GrupoId;
                 ent.NotasEII = string.IsNullOrWhiteSpace(NotasEII) ? null : NotasEII!.Trim();
                 await _db.SaveChangesAsync();
@@ -146,6 +160,7 @@ namespace eiibd26.Areas.Identity.Pages.Admin.Platillos
             var nuevo = new PlatIngrediente
             {
                 Nombre = nombre,
+                Articulo = articulo,
                 GrupoId = GrupoId,
                 NotasEII = string.IsNullOrWhiteSpace(NotasEII) ? null : NotasEII!.Trim(),
                 Activo = true,

@@ -14,6 +14,14 @@ namespace eiibd26.Models.Platillos
         [Key]
         public int Id { get; set; }
         public string Nombre { get; set; } = "";
+
+        /// <summary>
+        /// Artículo del nombre para el copy público ("¿Toleras <b>la</b> leche?"): el/la/los/las.
+        /// NULL = sin capturar → la vista usa una frase neutra, nunca adivina el género.
+        /// Columna SQL-directa (SQL/2026-09-24-platillos-ingrediente-articulo-y-acentos.sql, deploy-gate).
+        /// </summary>
+        public string? Articulo { get; set; }
+
         public int GrupoId { get; set; }
         public string? NotasEII { get; set; }
         public bool Activo { get; set; } = true;

@@ -40,6 +40,15 @@ namespace eiibd26.Pages.Tolero
         public int IngredienteId { get; private set; }
         public string Nombre { get; private set; } = "";
 
+        /// <summary>el/la/los/las del catálogo; null si no está capturado (nunca se adivina el género).</summary>
+        public string? Articulo { get; private set; }
+
+        /// <summary>"la leche" si hay artículo; si no, el nombre solo ("leche"). Para frases a media oración.</summary>
+        public string NombreConArticulo => Articulo != null ? $"{Articulo} {Nombre}" : Nombre;
+
+        /// <summary>Pregunta principal: "¿Toleras la leche?" o, sin artículo, una forma neutra.</summary>
+        public string Pregunta => Articulo != null ? $"¿Toleras {Articulo} {Nombre}?" : $"¿Cómo te cae: {Nombre}?";
+
         // Estado de sesión / voto propio.
         public bool EsAnonimo { get; private set; }
         public bool YaVoto { get; private set; }
@@ -216,7 +225,7 @@ namespace eiibd26.Pages.Tolero
 
             var activos = await _db.PlatIngredientes.AsNoTracking()
                 .Where(i => i.Activo)
-                .Select(i => new { i.Id, i.Nombre })
+                .Select(i => new { i.Id, i.Nombre, i.Articulo })
                 .ToListAsync();
             var ing = activos.FirstOrDefault(i => SlugHelper.GenerateSlug(i.Nombre) == slug);
             if (ing == null) return false;
@@ -224,6 +233,7 @@ namespace eiibd26.Pages.Tolero
             Slug = slug;
             IngredienteId = ing.Id;
             Nombre = ing.Nombre;
+            Articulo = ing.Articulo;
             return true;
         }
 
