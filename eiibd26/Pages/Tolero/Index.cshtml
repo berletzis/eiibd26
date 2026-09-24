@@ -1,0 +1,105 @@
+@page "/tolero"
+@model eiibd26.Pages.Tolero.IndexModel
+@using eiibd26.Services.Platillos
+@inject IIconoAlimentoService Iconos
+@{
+    ViewData["Title"] = "¿Qué alimentos toleras? — la comunidad EII responde";
+    var canonical = $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}/tolero";
+    var ogDesc = "Elige un alimento, responde en un toque si lo toleras y mira qué reporta la comunidad EII. "
+        + "Es la experiencia de la comunidad, no un consejo médico: tu cuerpo es único.";
+}
+
+@section Head {
+    @* Hub de engagement como la encuesta: noindex para no competir en SEO con /Platillos/Ingrediente. *@
+    <meta name="robots" content="noindex,follow" />
+    <meta name="description" content="@ogDesc" />
+    <link rel="canonical" href="@canonical" />
+    <meta property="og:title" content="¿Qué alimentos toleras?" />
+    <meta property="og:description" content="@ogDesc" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="@canonical" />
+}
+
+@section Styles {
+    @* Tarjeta de ingrediente = la de Platillos/Detalle (detalle.css); CTA de sesión = la de la encuesta (tolero.css). *@
+    <link rel="stylesheet" href="~/css/detalle.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/tolero.css" asp-append-version="true" />
+}
+
+<main class="conte-page" role="main" aria-label="Encuesta de tolerancia de alimentos">
+    <div class="container py-4">
+
+        <div class="eii-page-header">
+            <div class="eii-page-header__content">
+                <h1 class="eii-page-title">¿Qué alimentos toleras?</h1>
+            </div>
+        </div>
+        <p class="lead text-muted text-center mb-4">
+            Elige un alimento y cuéntale a la comunidad EII cómo te cae. Una pregunta, un toque.
+        </p>
+
+        @if (Model.TotalVotados > 0)
+        {
+            <p class="text-muted text-center mb-4">
+                <i class="bi bi-check-circle" aria-hidden="true"></i>
+                Ya respondiste @Model.TotalVotados de @Model.Ingredientes.Count alimentos.
+            </p>
+        }
+
+        @if (!Model.Ingredientes.Any())
+        {
+            <p class="text-muted text-center">Todavía no hay alimentos para responder.</p>
+        }
+        else
+        {
+            <div class="ingredientes-grid">
+                @foreach (var r in Model.Ingredientes)
+                {
+                    @* El VM va en una variable: un inicializador de objeto dentro del atributo del
+                       tag helper rompe el parser de Razor. *@
+                    var moneda = new MonedaAlimentoVm { Nombre = r.Nombre, Grupo = r.Grupo };
+                    <div class="ingrediente-card eii-grupo-@Iconos.GrupoSlug(r.Grupo)">
+                        <partial name="_MonedaAlimento" model="moneda" />
+                        <a href="/tolero/@r.Slug" class="ingrediente-card__name">@r.Nombre</a>
+                        @if (!string.IsNullOrWhiteSpace(r.Grupo))
+                        {
+                            <div class="eii-moneda-grupo-label">@r.Grupo</div>
+                        }
+                        @if (r.YaVoto)
+                        {
+                            <div class="ingrediente-card__meta">
+                                <i class="bi bi-check-circle" aria-hidden="true"></i> Ya votaste
+                            </div>
+                        }
+                        <div class="ingrediente-card__foot">
+                            <a href="/tolero/@r.Slug" class="eii-inline-link" title="¿Toleras el @r.Nombre?">
+                                <i class="bi bi-info-circle" aria-hidden="true"></i> ¿Puedo comerlo?
+                            </a>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        @if (Model.EsAnonimo)
+        {
+            @* Mismo embudo que la encuesta: el anónimo vota igual, pero se le invita a crear perfil. *@
+            <div class="tolero-cta">
+                <p class="tolero-cta__title">Lleva tu propio registro</p>
+                <p class="tolero-cta__text">
+                    Crea tu perfil y guarda lo que <strong>tú</strong> toleras y lo que no. Es gratis y privado.
+                    ¿Ya tienes cuenta? Inicia sesión.
+                </p>
+                <div class="tolero-cta__actions">
+                    <a class="eii-btn eii-btn--solid eii-btn--lg" href="/Identity/Account/Register">
+                        <i class="bi bi-person-plus"></i> Crear mi perfil
+                    </a>
+                    <a class="eii-btn eii-btn--neutral eii-btn--lg" href="/Identity/Account/Login?ReturnUrl=@Uri.EscapeDataString("/tolero")">
+                        <i class="bi bi-box-arrow-in-right"></i> Iniciar sesión
+                    </a>
+                </div>
+            </div>
+        }
+
+    </div>
+</main>
