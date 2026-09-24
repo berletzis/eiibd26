@@ -1,6 +1,7 @@
 @page "/tolero"
 @model eiibd26.Pages.Tolero.IndexModel
 @using eiibd26.Services.Platillos
+@using eiibd26.Models.Platillos
 @inject IIconoAlimentoService Iconos
 @{
     ViewData["Title"] = "¿Qué alimentos toleras? — la comunidad EII responde";
@@ -42,43 +43,63 @@
         {
             <p class="text-muted text-center mb-4">
                 <i class="bi bi-check-circle" aria-hidden="true"></i>
-                Ya respondiste @Model.TotalVotados de @Model.Ingredientes.Count alimentos.
+                Ya respondiste @Model.TotalVotados de @Model.TotalIngredientes alimentos.
             </p>
         }
 
-        @if (!Model.Ingredientes.Any())
+        @if (Model.TotalIngredientes == 0)
         {
             <p class="text-muted text-center">Todavía no hay alimentos para responder.</p>
         }
         else
         {
-            <div class="ingredientes-grid">
-                @foreach (var r in Model.Ingredientes)
-                {
-                    @* El VM va en una variable: un inicializador de objeto dentro del atributo del
-                       tag helper rompe el parser de Razor. *@
-                    var moneda = new MonedaAlimentoVm { Nombre = r.Nombre, Grupo = r.Grupo };
-                    <div class="ingrediente-card eii-grupo-@Iconos.GrupoSlug(r.Grupo)">
-                        <partial name="_MonedaAlimento" model="moneda" />
-                        <a href="/tolero/@r.Slug" class="ingrediente-card__name">@r.Nombre</a>
-                        @if (!string.IsNullOrWhiteSpace(r.Grupo))
-                        {
-                            <div class="eii-moneda-grupo-label">@r.Grupo</div>
-                        }
-                        @if (r.YaVoto)
-                        {
-                            <div class="ingrediente-card__meta">
-                                <i class="bi bi-check-circle" aria-hidden="true"></i> Ya votaste
+            @* Una sección por grupo (ya vienen en el orden del catálogo); el grupo va en el título,
+               no repetido en cada tarjeta. La moneda conserva el color del grupo. *@
+            @foreach (var g in Model.Grupos)
+            {
+                <h2 class="detalle-section-title">@g.Titulo</h2>
+                <div class="ingredientes-grid ingredientes-grid--fill">
+                    @foreach (var r in g.Ingredientes)
+                    {
+                        @* El VM va en una variable: un inicializador de objeto dentro del atributo del
+                           tag helper rompe el parser de Razor. *@
+                        var moneda = new MonedaAlimentoVm { Nombre = r.Nombre, Grupo = r.Grupo };
+                        <div class="ingrediente-card eii-grupo-@Iconos.GrupoSlug(r.Grupo)">
+                            <partial name="_MonedaAlimento" model="moneda" />
+                            <a href="/tolero/@r.Slug" class="ingrediente-card__name">@r.Nombre</a>
+                            @if (r.MiVoto != null)
+                            {
+                                @* Mismos íconos y etiquetas que los botones de voto de la encuesta. *@
+                                var (icono, texto) = r.MiVoto switch
+                                {
+                                    PlatToleraNivel.Si => ("bi-emoji-smile", "Sí"),
+                                    PlatToleraNivel.AVeces => ("bi-emoji-neutral", "A veces"),
+                                    _ => ("bi-emoji-frown", "No")
+                                };
+                                <div class="ingrediente-card__meta">
+                                    <i class="bi @icono" aria-hidden="true"></i> Tu respuesta: @texto
+                                </div>
+                            }
+                            <div class="ingrediente-card__foot">
+                                @* Encuesta de EXPERIENCIA comunitaria, no ficha clínica: el texto no
+                                   promete "¿Puedo comerlo?" (eso vive en /Platillos/Ingrediente). *@
+                                @if (r.MiVoto != null)
+                                {
+                                    <a href="/tolero/@r.Slug" class="eii-inline-link">
+                                        <i class="bi bi-bar-chart" aria-hidden="true"></i> Ver resultado
+                                    </a>
+                                }
+                                else
+                                {
+                                    <a href="/tolero/@r.Slug" class="eii-inline-link">
+                                        <i class="bi bi-hand-index" aria-hidden="true"></i> ¿Lo toleras?
+                                    </a>
+                                }
                             </div>
-                        }
-                        <div class="ingrediente-card__foot">
-                            <a href="/tolero/@r.Slug" class="eii-inline-link" title="¿Toleras el @r.Nombre?">
-                                <i class="bi bi-info-circle" aria-hidden="true"></i> ¿Puedo comerlo?
-                            </a>
                         </div>
-                    </div>
-                }
-            </div>
+                    }
+                </div>
+            }
         }
 
         @if (Model.EsAnonimo)
