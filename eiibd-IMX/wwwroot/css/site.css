@@ -8,6 +8,14 @@
    El bloque del proyecto de salud usa la paleta de EIIBD (morado #6a4e7a,
    tomada de eiibd26/wwwroot/css/eiibd-tokens.css) via la clase .tema-eii,
    que solo redefine tokens: ningun componente conoce la marca.
+
+   BREAKPOINTS (ver claude/breakpoints-imx.md)
+     movil      : hasta 599px   -> max-width:599px
+     tablet     : 600 - 899px   -> min-width:600px / max-width:899px
+     escritorio : 900px y mas   -> min-width:900px
+   Excepcion unica: 980px para el slider y el footer (y el matchMedia de
+   site.js). A 900px el slider en columnas queda apretado y el footer a
+   4 columnas parte el correo. No agregar otros valores.
    ============================================================ */
 :root{
   --ground:#F4F5F9; --surface:#FFFFFF; --surface-2:#E6E7F0;
@@ -226,15 +234,15 @@ section[id]{scroll-margin-top:80px}
   justify-content:space-between;gap:24px;flex-wrap:wrap;font-family:var(--f-display);
   font-size:12.5px;color:var(--muted)}
 
-@media (max-width:860px){
+/* Columnas del footer: ver el bloque de 980px junto a .foot-tel. Aqui solo
+   el gap, que en tablet y movil es menor. */
+@media (max-width:899px){
   .split{grid-template-columns:1fr;gap:34px;padding:48px 0}
   .split-fig{order:-1}
-  .foot-grid{grid-template-columns:1fr 1fr;gap:32px}
-  .foot-brand{grid-column:1/-1}
-  .modal-body{padding:22px 22px 26px}
+  .foot-grid{gap:32px}
 }
-@media (max-width:520px){
-  .foot-grid{grid-template-columns:1fr}
+@media (max-width:599px){
+  .modal-body{padding:22px 22px 26px}
   .card{padding:14px 13px 13px}
   .card h3{font-size:14.5px}
   .card p{font-size:13.5px}
@@ -313,6 +321,7 @@ section[id]{scroll-margin-top:80px}
   border:1px solid var(--line);border-radius:9px;padding:8px 16px;background:var(--surface)}
 .paginacion a:hover{background:var(--primary-tint)}
 
+/* Excepcion 980px (ver cabecera). Va junto con apilado() de site.js: moverlos juntos. */
 @media (max-width:980px){
   .slider{grid-template-columns:1fr;gap:26px}
   .slider-rail{display:none}
@@ -351,7 +360,7 @@ section[id]{scroll-margin-top:80px}
 .bloque .cards{background:var(--line)}
 .bloque .mas{margin-top:18px}
 
-@media (max-width:520px){
+@media (max-width:599px){
   .bloque{padding:44px 0 50px}
   .bloque .row-section{padding-top:30px}
 }
@@ -386,11 +395,12 @@ section[id]{scroll-margin-top:80px}
 .foot-tel span{font-family:var(--f-display);font-size:11px;font-weight:600;
   letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .foot-tel a{font-variant-numeric:tabular-nums;word-break:break-word}
+/* Excepcion 980px (ver cabecera): a 4 columnas entre 900 y 980 el correo se parte. */
 @media (max-width:980px){
   .foot-grid{grid-template-columns:1fr 1fr}
   .foot-brand{grid-column:1/-1}
 }
-@media (max-width:520px){
+@media (max-width:599px){
   .foot-grid{grid-template-columns:1fr}
 }
 
@@ -423,7 +433,7 @@ section[id]{scroll-margin-top:80px}
 .side{position:sticky;top:92px;display:grid;gap:18px}
 .side .cta-registro{padding:18px 18px 16px}
 .side .cta-registro-titulo{font-size:16px}
-@media (max-width:900px){
+@media (max-width:899px){
   .articulo-grid{grid-template-columns:1fr;gap:34px;padding:34px 0 52px}
   .side{position:static}
 }
@@ -452,7 +462,7 @@ section[id]{scroll-margin-top:80px}
 
 /* Bloques de contacto: mismas tarjetas del sitio, en dos columnas. */
 .cards-contacto{grid-template-columns:1fr}
-@media (min-width:760px){.cards-contacto{grid-template-columns:repeat(2,1fr)}}
+@media (min-width:600px){.cards-contacto{grid-template-columns:repeat(2,1fr)}}
 .card-contacto h3{font-family:var(--f-display);font-size:11px;font-weight:600;
   letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
 .card-contacto ul{list-style:none;padding:0;margin:0;display:grid;gap:7px}
