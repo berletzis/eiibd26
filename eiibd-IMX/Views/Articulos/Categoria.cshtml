@@ -1,0 +1,48 @@
+@model CategoriaVm
+@{
+    @* H1 y meta salen de CategoriaVm, que ya resolvio la sobreescritura de
+       appsettings contra el nombre de la base. La vista no vuelve a decidir. *@
+    ViewData["Title"] = Model.Pagina > 1 ? $"{Model.H1} · página {Model.Pagina}" : Model.H1;
+    ViewData["Description"] = Model.MetaDescripcion;
+    ViewData["Canonical"] = Model.UrlPagina(Model.Pagina);
+
+    var migas = BreadcrumbVm.De(
+        new MigaVm { Texto = "Inicio", Url = "/" },
+        new MigaVm { Texto = Model.H1 });
+}
+<section class="wrap intro">
+    <partial name="_Breadcrumb" model="migas" />
+    <h1>@Model.H1</h1>
+
+    @if (Model.Pagina == 1 && !string.IsNullOrWhiteSpace(Model.IntroHtml))
+    {
+        @* Intro propia de la seccion. Solo en la pagina 1: repetirla en cada
+           pagina de la paginacion seria contenido duplicado en la practica. *@
+        <div class="intro-categoria">@Html.Raw(Model.IntroHtml)</div>
+    }
+    else if (!string.IsNullOrWhiteSpace(Model.Descripcion))
+    {
+        <p>@Model.Descripcion</p>
+    }
+</section>
+
+<section class="wrap row-section row-section-sin-borde">
+    <div class="cards" data-cat="@Model.Slug">
+        <partial name="_Cards" model="Model.Cards" />
+    </div>
+
+    @if (Model.TotalPaginas > 1)
+    {
+        <nav class="paginacion" aria-label="Paginación">
+            @if (Model.HayPrevia)
+            {
+                <a href="@Model.UrlPagina(Model.Pagina - 1)" rel="prev">← Anterior</a>
+            }
+            <span>Página @Model.Pagina de @Model.TotalPaginas · @Model.Total artículos</span>
+            @if (Model.HaySiguiente)
+            {
+                <a href="@Model.UrlPagina(Model.Pagina + 1)" rel="next">Siguiente →</a>
+            }
+        </nav>
+    }
+</section>

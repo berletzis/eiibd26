@@ -1,0 +1,78 @@
+@model OrganizacionOptions
+@{
+    ViewData["Title"] = "Contacto";
+    ViewData["Description"] = "Teléfonos y correo de Fundación IMX en el Estado de México, Puebla y Tlaxcala, y cómo solicitar tu recibo deducible de impuestos.";
+    ViewData["Canonical"] = "/contacto";
+
+    var migas = BreadcrumbVm.De(
+        new MigaVm { Texto = "Inicio", Url = "/" },
+        new MigaVm { Texto = "Contacto" });
+}
+
+<section class="wrap intro">
+    <partial name="_Breadcrumb" model="migas" />
+    <p class="eyebrow">Hablemos</p>
+    <h1>Contacto</h1>
+    <p>Puedes marcarnos o escribirnos directamente. Atendemos donativos, voluntariado
+       y dudas sobre los proyectos de la Fundación.</p>
+</section>
+
+<section class="wrap row-section">
+    @* tel: y mailto: en vez de un formulario: se marcan de un toque en celular,
+       no necesitan servidor de correo y son las dos conversiones principales
+       que se importan a Google Ads. *@
+    <div class="cards cards-contacto">
+        @foreach (var zona in Model.Telefonos)
+        {
+            <article class="card card-contacto">
+                <h3>@zona.Zona</h3>
+                <ul>
+                    @foreach (var t in zona.Numeros)
+                    {
+                        <li><a href="tel:@t.Tel">@t.Texto</a></li>
+                    }
+                </ul>
+                @* Sin horario de atencion: no hay dato verificado y este sitio
+                   no inventa informacion de contacto de una donataria. *@
+            </article>
+        }
+        @if (!string.IsNullOrWhiteSpace(Model.Correo))
+        {
+            <article class="card card-contacto">
+                <h3>Correo</h3>
+                <ul>
+                    <li><a href="mailto:@Model.Correo">@Model.Correo</a></li>
+                </ul>
+                <p>Es también la dirección para enviar tu Constancia de Situación Fiscal
+                   y recibir el CFDI de tu donativo.</p>
+            </article>
+        }
+    </div>
+</section>
+
+<section class="wrap split split-inst">
+    <div class="texto-inst">
+        <h2>Si quieres participar</h2>
+        <p class="lead">Para sumarte como benefactor, voluntario o embajador voluntario, la
+           vía formal es el formulario de contacto de la Fundación, donde se eligen los ejes
+           de interés y el tipo de participación.</p>
+        <p><a href="@Model.SitioFundacion" rel="noopener">Ir al formulario de Fundación IMX ↗</a></p>
+
+        <h3>Si tienes Crohn o colitis ulcerosa</h3>
+        <p>El proyecto de información sobre enfermedad inflamatoria intestinal tiene su
+           propio espacio, con contenido y comunidad. Empieza por
+           <a href="/info-y-ayuda">Información y ayuda</a>.</p>
+    </div>
+
+    <div class="panel">
+        <partial name="_DatosFiscales" model="Model" />
+    </div>
+</section>
+
+<section class="wrap">
+    <div class="aviso">
+        <strong>Aviso importante.</strong> No damos consulta ni orientación clínica por
+        teléfono ni por correo. El contenido de salud de este sitio es educativo y no
+        sustituye la valoración de un profesional. Si tienes síntomas, acude con tu médico.
+    </div>
+</section>

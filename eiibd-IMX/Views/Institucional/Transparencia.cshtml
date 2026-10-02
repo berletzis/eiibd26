@@ -1,0 +1,71 @@
+@model OrganizacionOptions
+@{
+    ViewData["Title"] = "Transparencia";
+    ViewData["Description"] = "Figura legal, RFC, régimen fiscal, destino de los donativos y datos de la cuenta de Fundación IMX, donataria autorizada en México.";
+    ViewData["Canonical"] = "/transparencia";
+
+    var migas = BreadcrumbVm.De(
+        new MigaVm { Texto = "Inicio", Url = "/" },
+        new MigaVm { Texto = "Transparencia" });
+}
+
+<section class="wrap intro">
+    <partial name="_Breadcrumb" model="migas" />
+    <p class="eyebrow">Rendición de cuentas</p>
+    <h1>Transparencia</h1>
+    <p>@Model.RazonSocial es donataria autorizada. Aquí están su figura legal, su
+       régimen fiscal, el destino de los donativos y los datos de la cuenta.</p>
+</section>
+
+<section class="wrap split split-inst">
+    <div class="texto-inst">
+        <h2>Figura legal y régimen</h2>
+        <p class="lead">@Model.FiguraLegal.</p>
+        <p>La Fundación está autorizada para expedir recibos deducibles de impuestos
+           conforme a la Ley del Impuesto sobre la Renta, tanto para donativos desde
+           México como desde el extranjero. Opera bajo dos regímenes:</p>
+        <ul class="ejes">
+            @foreach (var r in Model.Regimenes)
+            {
+                <li>@r</li>
+            }
+        </ul>
+
+        <h3>Destino de los donativos</h3>
+        <p>Todo lo recibido se destina a los proyectos de los dos ejes de trabajo de la
+           Fundación: el eje cívico y ambiental —protección civil, seguridad ciudadana,
+           medio ambiente, educación y derechos humanos— y el eje asistencial, del que
+           forman parte la orientación médica a grupos vulnerables y el proyecto de
+           información sobre enfermedad inflamatoria intestinal de este sitio.</p>
+        <p>Las aportaciones pueden ser periódicas o por única vez, por transferencia
+           bancaria o en especie con equipo y materiales.</p>
+
+        <h3>Cómo obtener tu CFDI</h3>
+        <p>Envía tu Constancia de Situación Fiscal a
+           <a href="mailto:@Model.Correo">@Model.Correo</a> indicando el monto y la fecha
+           de la transferencia. El recibo deducible se emite a nombre de quien aparezca
+           en esa constancia.</p>
+
+        @* MARCADOR VISIBLE — no inventar datos.
+           El domicilio fiscal ya esta verificado y se muestra en el panel de
+           datos fiscales. Los dos que quedan siguen sin confirmar: se declaran
+           como faltantes en vez de sustituirlos por un "proximamente" que
+           sugiera que existen. En una donataria autorizada, un dato inventado en
+           esta pagina es un problema legal, no un detalle de maquetado. *@
+        <div class="pendiente">
+            <strong>Documentos pendientes de publicación</strong>
+            Esta sección se completará con la documentación que la Fundación tiene
+            obligación de poner a disposición del público:
+            <ul>
+                <li>Informe anual de actividades del ejercicio más reciente</li>
+                <li>Estados financieros dictaminados</li>
+            </ul>
+            Mientras tanto puedes solicitarlos por correo a
+            <a href="mailto:@Model.Correo">@Model.Correo</a>.
+        </div>
+    </div>
+
+    <div class="panel">
+        <partial name="_DatosFiscales" model="Model" />
+    </div>
+</section>

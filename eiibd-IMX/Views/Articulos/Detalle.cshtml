@@ -1,0 +1,35 @@
+@model ArticuloDetalleVm
+@{
+    ViewData["Title"] = Model.Titulo;
+    ViewData["Description"] = Model.Resumen;
+    ViewData["Canonical"] = Model.Url;
+    var cultura = new CultureInfo("es-MX");
+
+    @* La ruta visible y el BreadcrumbList salen del mismo objeto: el partial
+       los pinta juntos y no pueden divergir. El titulo del articulo cierra la
+       ruta sin enlace, que es lo que corresponde a la pagina actual. *@
+    var migas = BreadcrumbVm.De(
+        new MigaVm { Texto = "Inicio", Url = "/" },
+        new MigaVm { Texto = Model.CategoriaNombre, Url = $"/{Model.CategoriaSlug}" },
+        new MigaVm { Texto = Model.Titulo });
+}
+<div class="wrap articulo-grid">
+
+    <article class="articulo">
+        <partial name="_Breadcrumb" model="migas" />
+        <h1>@Model.Titulo</h1>
+        <p class="articulo-meta">
+            Actualizado el @Model.Actualizado.ToString("d 'de' MMMM 'de' yyyy", cultura)
+        </p>
+        <div class="prosa">@Html.Raw(Model.CuerpoHtml)</div>
+        <div class="aviso">
+            <strong>Aviso importante.</strong> Este contenido es educativo y no sustituye
+            la valoración de un profesional de la salud.
+        </div>
+    </article>
+
+    <aside class="side" aria-label="Complementos">
+        <partial name="_CardRegistro" />
+    </aside>
+
+</div>

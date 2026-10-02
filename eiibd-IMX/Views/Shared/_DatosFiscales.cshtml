@@ -1,0 +1,43 @@
+@model OrganizacionOptions
+@* Datos fiscales y cuenta para donativos. UNA sola definicion, usada por el
+   panel 02 de la home y por /transparencia. Los valores salen de appsettings
+   (seccion Organizacion): la CLABE no puede quedar escrita en dos vistas y
+   desincronizarse. Va sin <div class="panel">: cada pagina lo envuelve. *@
+<h3 class="panel-title">Datos fiscales</h3>
+<dl class="datos">
+    <div><dt>Razón social</dt><dd>@Model.RazonSocial</dd></div>
+    <div><dt>RFC</dt><dd class="mono">@Model.Rfc</dd></div>
+    @for (var i = 0; i < Model.Regimenes.Count; i++)
+    {
+        <div><dt>@(i == 0 ? "Régimen" : "y")</dt><dd>@Model.Regimenes[i]</dd></div>
+    }
+    @if (Model.Domicilio.Hay)
+    {
+        @* Apilado: el domicilio es largo y a la derecha, en una fila de dos
+           columnas, se parte en cuatro renglones contra el margen. *@
+        <div class="apilado"><dt>Domicilio</dt><dd>@Model.Domicilio.Completo</dd></div>
+    }
+</dl>
+
+<h3 class="panel-title panel-title-sep">Cuenta para donativos</h3>
+<dl class="datos">
+    <div><dt>Banco</dt><dd>@Model.Banco.Nombre</dd></div>
+    <div><dt>Tipo</dt><dd>@Model.Banco.Tipo</dd></div>
+    <div><dt>Cuenta</dt><dd class="mono">@Model.Banco.Cuenta</dd></div>
+    <div><dt>CLABE</dt><dd class="mono clabe">@Model.Banco.Clabe</dd></div>
+</dl>
+
+<p class="panel-nota">
+    Para tu recibo deducible (CFDI), envía tu Constancia de Situación Fiscal a
+    <a href="mailto:@Model.Correo">@Model.Correo</a>.
+</p>
+
+@if (!string.IsNullOrWhiteSpace(Model.ComprobanteBancarioUrl))
+{
+    @* .panel-cta es el gancho de click_donativo en site.js: es el enlace al
+       comprobante bancario y hoy no hay otro .panel-cta en el sitio. Si algun
+       dia se usa esa clase para otra cosa, hay que separar el selector. *@
+    <a class="panel-cta" href="@Model.ComprobanteBancarioUrl" rel="noopener">
+        Comprobante bancario oficial ↓
+    </a>
+}

@@ -1,0 +1,50 @@
+@model BreadcrumbVm
+@inject IConfiguration Cfg
+@{
+    var host = (Cfg["Sitio:HostCanonico"] ?? "").TrimEnd('/');
+
+    // El BreadcrumbList se construye de la MISMA lista que pinta la ruta
+    // visible. Google marca como enganoso el marcado que no corresponde a lo
+    // que la pagina muestra: derivarlos de una sola fuente lo vuelve imposible.
+    var items = new List<Dictionary<string, object?>>();
+    for (var i = 0; i < Model.Migas.Count; i++)
+    {
+        var m = Model.Migas[i];
+        var item = new Dictionary<string, object?>
+        {
+            ["@type"] = "ListItem",
+            ["position"] = i + 1,
+            ["name"] = m.Texto
+        };
+        // El ultimo eslabon es la pagina actual: va sin `item`, como pide
+        // schema.org. Los demas llevan URL absoluta con el host canonico.
+        if (!string.IsNullOrWhiteSpace(m.Url)) item["item"] = host + m.Url;
+        items.Add(item);
+    }
+
+    var jsonLd = JsonSerializer.Serialize(new Dictionary<string, object?>
+    {
+        ["@context"] = "https://schema.org",
+        ["@type"] = "BreadcrumbList",
+        ["itemListElement"] = items
+    });
+}
+<nav class="breadcrumb" aria-label="Ruta">
+    @for (var i = 0; i < Model.Migas.Count; i++)
+    {
+        var m = Model.Migas[i];
+        if (i > 0)
+        {
+            <span>›</span>
+        }
+        if (string.IsNullOrWhiteSpace(m.Url))
+        {
+            @m.Texto
+        }
+        else
+        {
+            <a href="@m.Url">@m.Texto</a>
+        }
+    }
+</nav>
+<script type="application/ld+json">@Html.Raw(jsonLd)</script>

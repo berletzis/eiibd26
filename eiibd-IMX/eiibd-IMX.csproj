@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>eiibd_IMX</RootNamespace>
+    <!-- Mismo store de User Secrets que eiibd26: comparte ConnectionStrings:DefaultConnection
+         sin copiar la cadena a ningun archivo del repositorio. -->
+    <UserSecretsId>aspnet-eiibd26-af0d7b28-f236-4a39-aa6a-bc25536708d7</UserSecretsId>
+  </PropertyGroup>
+
+  <!-- Higiene de publicacion (R7).
+       Sin esto se subian al servidor eiibd-IMX.pdb y appsettings.Development.json.
+       El .pdb entrega nombres de archivo y numeros de linea en cualquier stack
+       trace que se escape; el appsettings de desarrollo no tiene por que existir
+       en produccion, y basta que alguien le meta una clave para que quede
+       publicada. En Debug los simbolos siguen intactos: esto solo aplica a Release. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Se sigue copiando al bin de desarrollo (CopyToOutputDirectory intacto),
+         pero NUNCA entra a la carpeta de publicacion. -->
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.21" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="8.0.0" />
+    <PackageReference Include="HtmlSanitizer" Version="8.0.865" />
+  </ItemGroup>
+
+</Project>

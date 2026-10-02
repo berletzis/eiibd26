@@ -1,0 +1,195 @@
+@inject IConfiguration Cfg
+@inject IWebHostEnvironment Env
+@inject IOptions<OrganizacionOptions> OrgOpt
+@{
+    var nombre = Cfg["Sitio:Nombre"] ?? "Fundación EII";
+    var bajada = Cfg["Sitio:Bajada"] ?? "";
+    var host   = (Cfg["Sitio:HostCanonico"] ?? "").TrimEnd('/');
+    var path   = ViewData["Canonical"] as string ?? Context.Request.Path.Value ?? "/";
+    var titulo = ViewData["Title"] as string ?? nombre;
+    var desc   = ViewData["Description"] as string ?? "";
+    var noindex = ViewData["NoIndex"] is true;
+    // El aria-current del menu lo pone el IntersectionObserver, que solo corre
+    // donde hay section[id] — o sea el home. En las paginas reales hay que
+    // marcarlo desde el servidor.
+    var rutaActual = (Context.Request.Path.Value ?? "/").TrimEnd('/').ToLowerInvariant();
+    if (rutaActual.Length == 0) rutaActual = "/";
+    var org    = OrgOpt.Value;
+
+    // GA4 solo con id configurado y fuera de Development: sin esto, cada F5 en
+    // local ensucia los informes con los que se van a medir las conversiones
+    // de Ad Grants, que es justo lo que la politica exige que sean reales.
+    var ga4 = Cfg["Analytics:GA4Id"];
+    var medir = !string.IsNullOrWhiteSpace(ga4) && !Env.IsDevelopment();
+
+    // ── JSON-LD de Organization ─────────────────────────────────────────────
+    // Todo sale de appsettings y solo se emite lo que existe de verdad: si un
+    // dato no esta configurado, la propiedad no se escribe. Un dato inventado en
+    // el marcado de una donataria autorizada es un problema legal, no de SEO.
+    var datosOrg = new Dictionary<string, object?>
+    {
+        ["@context"] = "https://schema.org",
+        ["@type"] = "NGO",
+        ["name"] = org.RazonSocial,
+        ["url"] = host + "/"
+    };
+    if (!string.IsNullOrWhiteSpace(org.NombreCorto)) datosOrg["alternateName"] = org.NombreCorto;
+    if (!string.IsNullOrWhiteSpace(org.Logo))        datosOrg["logo"] = host + org.Logo;
+    if (!string.IsNullOrWhiteSpace(org.Correo))      datosOrg["email"] = org.Correo;
+    var teles = org.TodosLosTeles.ToList();
+    if (teles.Count > 0)                             datosOrg["telephone"] = teles;
+    if (!string.IsNullOrWhiteSpace(org.SitioFundacion))
+        datosOrg["sameAs"] = new[] { org.SitioFundacion };
+    if (org.Domicilio.Hay)
+    {
+        // El domicilio verificado permite emitir PostalAddress. Se arma pieza por
+        // pieza y solo con lo que tiene valor: es el mismo dato que la pagina
+        // muestra en /transparencia y en el aviso de privacidad.
+        var dir = new Dictionary<string, object?> { ["@type"] = "PostalAddress" };
+        if (!string.IsNullOrWhiteSpace(org.Domicilio.Calle))
+            dir["streetAddress"] = org.Domicilio.Calle;
+        if (!string.IsNullOrWhiteSpace(org.Domicilio.Localidad))
+            dir["addressLocality"] = org.Domicilio.Localidad;
+        if (!string.IsNullOrWhiteSpace(org.Domicilio.Region))
+            dir["addressRegion"] = org.Domicilio.Region;
+        if (!string.IsNullOrWhiteSpace(org.Domicilio.CodigoPostal))
+            dir["postalCode"] = org.Domicilio.CodigoPostal;
+        if (!string.IsNullOrWhiteSpace(org.Domicilio.Pais))
+            dir["addressCountry"] = org.Domicilio.Pais;
+        datosOrg["address"] = dir;
+    }
+    var jsonOrg = JsonSerializer.Serialize(datosOrg);
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@titulo · @nombre</title>
+    @if (medir)
+    {
+
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-QTD8HR2PJ3"></script>
+        <script>
+                window.dataLayer = window.dataLayer || [];
+                function gtag() { dataLayer.push(arguments); }
+                gtag('js', new Date());
+                gtag('config', 'G-QTD8HR2PJ3');
+                gtag('config', 'AW-11417573828');
+        </script>
+    }
+    @if (!string.IsNullOrWhiteSpace(desc))
+    {
+        <meta name="description" content="@desc" />
+    }
+    <link rel="canonical" href="@(host + path)" />
+    @if (noindex)
+    {
+        <meta name="robots" content="noindex" />
+    }
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="@titulo" />
+    <meta property="og:description" content="@desc" />
+    <meta property="og:url" content="@(host + path)" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@@12..96,400;12..96,500;12..96,600;12..96,700&family=Source+Serif+4:opsz,wght@@8..60,400;8..60,600&display=swap" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <script type="application/ld+json">@Html.Raw(jsonOrg)</script>
+</head>
+<body>
+
+<header class="site-header">
+    <div class="wrap header-in">
+        <a class="logo" href="/">
+            <partial name="_Logo" />
+            <span class="logo-name">@nombre<small>@bajada</small></span>
+        </a>
+        <nav class="nav" aria-label="Secciones">
+            <a href="/#fundacion">La Fundación</a>
+            <a href="/#programas">Acciones permanentes</a>
+            <a href="/#proyecto">Nuestro proyecto</a>
+            <a href="/contacto" aria-current="@(rutaActual == "/contacto" ? "true" : null)">Contacto</a>
+        </nav>
+    </div>
+</header>
+
+<main>@RenderBody()</main>
+
+<div class="modal-backdrop" id="backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <article class="modal">
+        <div class="modal-bar">
+            <span id="modal-cat-host" class="modal-cat"></span>
+            <button class="modal-close" id="modal-close" type="button" aria-label="Cerrar artículo">
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M3.5 3.5l9 9m0-9l-9 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body" id="modal-body"></div>
+    </article>
+</div>
+
+<footer class="site-footer">
+    <div class="wrap">
+        <div class="foot-grid">
+            <div class="foot-brand">
+                <a class="logo" href="/">
+                    <partial name="_Logo" />
+                    <span class="logo-name">@nombre<small>@bajada</small></span>
+                </a>
+                <p>Asociación civil dedicada a la información y el acompañamiento de
+                   personas con enfermedad inflamatoria intestinal.</p>
+            </div>
+            <div class="foot-col">
+                <h4>Proyecto EIIBD</h4>
+                <ul>
+                    <li><a href="/info-y-ayuda">Información y ayuda</a></li>
+                    <li><a href="/vivir-con-crohn-y-colitis">Vivir con la enfermedad</a></li>
+                </ul>
+                <partial name="_CardRegistro" />
+            </div>
+            <div class="foot-col">
+                <h4>La asociación</h4>
+                <ul>
+                    <li><a href="/quienes-somos">Quiénes somos</a></li>
+                    <li><a href="/transparencia">Transparencia</a></li>
+                    <li><a href="/contacto">Contacto</a></li>
+                    <li><a href="/aviso-de-privacidad">Aviso de privacidad</a></li>
+                </ul>
+            </div>
+            <div class="foot-col foot-contacto">
+                <h4>Contacto</h4>
+                @* tel: para que en celular se marque con un toque. Los numeros
+                   salen de appsettings, los mismos que /contacto y el JSON-LD. *@
+                <ul class="foot-tel">
+                    @foreach (var zona in org.Telefonos)
+                    {
+                        <li>
+                            <span>@zona.Zona</span>
+                            @foreach (var t in zona.Numeros)
+                            {
+                                <a href="tel:@t.Tel">@t.Texto</a>
+                            }
+                        </li>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(org.Correo))
+                    {
+                        <li><span>Correo</span>
+                            <a href="mailto:@org.Correo">@org.Correo</a>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+        <div class="foot-note">
+            <span>© @DateTime.Now.Year @nombre · Contenidos bajo licencia abierta.</span>
+            <span>Hecho en México</span>
+        </div>
+    </div>
+</footer>
+
+<script src="~/js/site.js" asp-append-version="true" defer></script>
+</body>
+</html>
