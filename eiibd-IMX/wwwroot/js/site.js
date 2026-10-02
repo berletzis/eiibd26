@@ -222,4 +222,33 @@
     medir();
     reubicarAncla();
   }
+
+  /* ── Menu movil ──────────────────────────────────────────────────────────
+     Bajo 900px el <nav> es un panel que abre .nav-toggle (ver site.css).
+     Listeners propios y al final del archivo. NUNCA stopPropagation ni
+     preventDefault aqui: el listener de conversiones escucha los mismos clics
+     en document, y un clic en un enlace del menu tiene que llegarle intacto. */
+  var navToggle = document.querySelector(".nav-toggle");
+  var nav       = document.getElementById("nav-principal");
+  if (navToggle && nav) {
+    function menu(abierto) {
+      nav.classList.toggle("nav-abierto", abierto);
+      navToggle.setAttribute("aria-expanded", abierto ? "true" : "false");
+      navToggle.setAttribute("aria-label", abierto ? "Cerrar menú" : "Abrir menú");
+    }
+
+    document.addEventListener("click", function (e) {
+      if (e.target.closest(".nav-toggle")) { menu(!nav.classList.contains("nav-abierto")); return; }
+      if (!nav.classList.contains("nav-abierto")) return;
+      // Clic en un enlace del menu o en cualquier parte fuera del panel: cerrar.
+      if (e.target.closest("#nav-principal a") || !e.target.closest("#nav-principal")) menu(false);
+    });
+
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && nav.classList.contains("nav-abierto")) {
+        menu(false);
+        navToggle.focus();
+      }
+    });
+  }
 })();
