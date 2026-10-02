@@ -123,17 +123,35 @@
   var links = Array.prototype.slice.call(document.querySelectorAll(".nav a"));
   var secciones = document.querySelectorAll("section[id]");
   if ("IntersectionObserver" in window && secciones.length) {
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (en) {
-        if (!en.isIntersecting) return;
-        links.forEach(function (l) { l.removeAttribute("aria-current"); });
-        var m = links.filter(function (l) {
-          return (l.getAttribute("href") || "").endsWith("#" + en.target.id);
-        })[0];
-        if (m) m.setAttribute("aria-current", "true");
-      });
-    }, { rootMargin: "-72px 0px -65% 0px" });
-    secciones.forEach(function (s) { io.observe(s); });
+    // El margen superior es la altura REAL de la cabecera, medida: cambia por
+    // breakpoint (--header-h en site.css) y no debe duplicarse aqui. El
+    // rootMargin no se puede cambiar en caliente, asi que si la altura cambia
+    // al redimensionar se recrea el observer.
+    var cabecera = document.querySelector(".site-header");
+    var io = null, altoObservado = -1;
+    function observarSecciones() {
+      var alto = cabecera ? cabecera.offsetHeight : 0;
+      if (alto === altoObservado) return;
+      altoObservado = alto;
+      if (io) io.disconnect();
+      io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (!en.isIntersecting) return;
+          links.forEach(function (l) { l.removeAttribute("aria-current"); });
+          var m = links.filter(function (l) {
+            return (l.getAttribute("href") || "").endsWith("#" + en.target.id);
+          })[0];
+          if (m) m.setAttribute("aria-current", "true");
+        });
+      }, { rootMargin: "-" + alto + "px 0px -65% 0px" });
+      secciones.forEach(function (s) { io.observe(s); });
+    }
+    observarSecciones();
+    var pendienteIo;
+    window.addEventListener("resize", function () {
+      clearTimeout(pendienteIo);
+      pendienteIo = setTimeout(observarSecciones, 150);
+    });
   }
   /* ── Slider vertical ─────────────────────────────────────────────────────
      Solo desplaza: los cinco paneles ya estan en el HTML. Bajo 980px el CSS
