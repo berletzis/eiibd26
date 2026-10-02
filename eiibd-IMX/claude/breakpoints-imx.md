@@ -21,9 +21,10 @@ No se agregan otros valores. Si un componente no encaja, se discute antes.
 
 | Componente | ≤599 (móvil) | ≤899 (móvil + tablet) | ≥900 (escritorio) | ≤980 (excepción) |
 |---|---|---|---|---|
+| Cabecera (`--header-h`) | 56px, sin bajada | — | 64px con bajada | — |
 | Menú (`.nav` / `.nav-toggle`) | — | Panel desplegable con botón | Horizontal | — |
-| `.cards` | Padding y tipografía reducidos | 2 columnas; la última impar a ancho completo | 5 columnas | — |
-| `.cards-programas` | — | 2 columnas | 3 columnas | — |
+| `.cards` | 1 columna, cuerpo a 15px | 2 columnas; la última impar a ancho completo | 5 columnas | — |
+| `.cards-programas` | 1 columna | 2 columnas | 3 columnas | — |
 | `.cards-contacto` | 1 columna | 2 columnas desde 600 | 2 columnas | — |
 | `.split` | — | 1 columna, figura arriba | 2 columnas | — |
 | `.articulo-grid` / `.side` | — | 1 columna, `.side` después del artículo y no sticky | Artículo + sidebar 300px sticky | — |
@@ -31,6 +32,21 @@ No se agregan otros valores. Si un componente no encaja, se discute antes.
 | `.bloque` | Padding reducido | — | — | — |
 | Footer (`.foot-grid`) | 1 columna | Gap de 32px | 4 columnas | 2 columnas |
 | Slider (`.slider`, `.slide`) | — | — | Rail + paneles animados | Apilado, sin rail ni flechas |
+| Objetivos táctiles | — | Todo enlace o botón fuera de texto corrido ≥ 44×44px | Sin cambios | — |
+
+## Lo que no depende de un breakpoint
+
+- **Altura de la cabecera:** sale de `--header-h`, y de ahí se calculan el
+  `scroll-margin-top` de los anclas (+16), `.side{top}` (+28) y
+  `.slider-rail{top}` (+32). El `rootMargin` del menú activo en `site.js` mide
+  `.site-header` directamente. No hardcodear esas alturas.
+- **Gutter lateral:** `.slider`, `.split`, `.intro`, `.row-section` y
+  `.articulo-grid` anulan el `padding-inline` de `.wrap` con su atajo
+  `padding:X 0`. Una regla con `clamp()` (al final de `site.css`) les devuelve
+  solo el padding que falta para quedar a 24px del borde, según
+  `--wrap-max` (1140px, o 820px en `.wrap-doc`). En escritorio ancho da 0, así
+  que no cambia nada. Si agregas una sección `.wrap` con atajo de padding,
+  súmala a ese selector.
 
 ## Excepción 980: por qué existe
 

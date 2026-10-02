@@ -250,9 +250,10 @@ section[id], .row-section[id]{scroll-margin-top:calc(var(--header-h) + 16px)}
 }
 @media (max-width:599px){
   .modal-body{padding:22px 22px 26px}
-  .card{padding:14px 13px 13px}
-  .card h3{font-size:14.5px}
-  .card p{font-size:13.5px}
+  /* Tarjetas a una columna en movil (ver bloque R14 al final): conservan el
+     padding y el titulo de escritorio; el cuerpo baja solo a 15px, el minimo
+     para texto corrido en movil. */
+  .card p{font-size:15px}
 }
 @media (prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}
@@ -519,3 +520,49 @@ section[id], .row-section[id]{scroll-margin-top:calc(var(--header-h) + 16px)}
    pegado a la izquierda y parece que falta contenido a la derecha. Se centra
    estrechando el propio contenedor, que ya trae margin-inline:auto. */
 .wrap-doc{max-width:820px}
+
+/* ============================================================
+   R14 · Gutter y objetivos tactiles en movil
+   ============================================================ */
+/* Gutter. .wrap trae padding-inline:24px, pero las secciones que lo combinan
+   con un atajo "padding:X 0" (.slider, .split, .intro, .row-section,
+   .articulo-grid) lo anulan, y en movil el texto tocaba el borde. Esta regla
+   agrega SOLO el padding que falte para que el contenido quede a 24px del
+   borde: 100% es el ancho del contenedor padre (sin scrollbar) y --wrap-max el
+   ancho maximo del .wrap. Donde el margen centrado ya da 24px o mas, el
+   resultado es 0 y nada cambia: por eso el escritorio queda intacto sin
+   agregar un breakpoint. Dos clases en el selector para ganarle al atajo. */
+.wrap{--wrap-max:var(--wrap)}
+.wrap-doc{--wrap-max:820px}
+.wrap.slider, .wrap.split, .wrap.intro, .wrap.row-section, .wrap.articulo-grid{
+  padding-inline:clamp(0px, calc(24px - (100% - var(--wrap-max)) / 2), 24px)}
+
+@media (max-width:599px){
+  .cards, .cards-programas{grid-template-columns:1fr}
+}
+
+/* Objetivos tactiles >= 44px, solo bajo 900px (escritorio intacto).
+   - Enlaces en bloque (footer, logo, boton de donativo, telefonos y correo
+     de /contacto): min-height.
+   - Enlaces en linea (titulo de tarjeta, correo del panel, .row-all): padding
+     vertical en el elemento inline, que agranda el area tactil sin mover el
+     layout.
+   - .card-open (flex) y el breadcrumb ("Inicio" es angosto): un ::before
+     absoluto agranda el area sin mover nada.
+   - Enlaces dentro de texto corrido: exentos (WCAG 2.5.8), no se tocan.
+   .panel-cta es el gancho de click_donativo: aqui solo cambia su alto. */
+@media (max-width:899px){
+  .logo{min-height:44px}
+  .foot-col ul:not(.foot-tel){gap:0}
+  .foot-col ul a{display:flex;align-items:center;min-height:44px}
+  .panel-cta{min-height:44px}
+  .card h3 a{padding-block:13px}
+  .breadcrumb a{position:relative}
+  .breadcrumb a::before{content:"";position:absolute;inset:-14px -6px}
+  .panel-nota a{padding-block:13px}
+  .row-all{padding-block:10px}
+  .card-contacto ul{gap:0}
+  .card-contacto a{display:inline-flex;align-items:center;min-height:44px}
+  .card-open{position:relative}
+  .card-open::before{content:"";position:absolute;inset:-12px -6px}
+}
