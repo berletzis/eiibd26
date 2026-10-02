@@ -47,6 +47,20 @@ No se agregan otros valores. Si un componente no encaja, se discute antes.
   `--wrap-max` (1140px, o 820px en `.wrap-doc`). En escritorio ancho da 0, así
   que no cambia nada. Si agregas una sección `.wrap` con atajo de padding,
   súmala a ese selector.
+- **Contenido de la base de datos:** `.prosa table` es `display:block` con
+  scroll propio, y `main` y `.modal-body` llevan `overflow-wrap:break-word`
+  para URLs largas. `.articulo-grid` en ≤899 usa `minmax(0,1fr)` y no `1fr`:
+  con `1fr` la columna se estira al ancho de la tabla y la página entera
+  desborda. No volver a `1fr`.
+
+## Nota para comparar capturas de escritorio
+
+La home a 1440px tiene **dos renderizados de fuentes posibles** con el mismo CSS
+(se comprobó: el mismo commit produce los dos en corridas distintas). Una
+diferencia en las filas de texto de toda la página no prueba que el CSS cambió.
+Para decidir, capturar el CSS anterior y el nuevo **alternando varias veces en la
+misma sesión** y comparar los hashes: si el nuevo solo produce estados que el
+anterior también produce, no hay cambio.
 
 ## Excepción 980: por qué existe
 

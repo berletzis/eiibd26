@@ -442,7 +442,9 @@ section[id], .row-section[id]{scroll-margin-top:calc(var(--header-h) + 16px)}
 .side .cta-registro{padding:18px 18px 16px}
 .side .cta-registro-titulo{font-size:16px}
 @media (max-width:899px){
-  .articulo-grid{grid-template-columns:1fr;gap:34px;padding:34px 0 52px}
+  /* minmax(0,1fr) y no 1fr: con 1fr la columna se estira al ancho de una
+     tabla o palabra larga del articulo y la pagina entera desborda. */
+  .articulo-grid{grid-template-columns:minmax(0,1fr);gap:34px;padding:34px 0 52px}
   .side{position:static}
 }
 
@@ -566,3 +568,16 @@ section[id], .row-section[id]{scroll-margin-top:calc(var(--header-h) + 16px)}
   .card-open{position:relative}
   .card-open::before{content:"";position:absolute;inset:-12px -6px}
 }
+
+/* ============================================================
+   R15 · Contenido que viene de la base de datos
+   ============================================================ */
+/* Las tablas de los articulos llegan en el HTML de la BD y pueden ser mas
+   anchas que la pantalla: con display:block la tabla se desplaza dentro de su
+   propia caja en vez de empujar la pagina. Contra asumida: una tabla angosta
+   ya no se estira al 100%. */
+.prosa table{display:block;overflow-x:auto}
+/* Palabras sin espacios (URLs largas como "tools.google.com/dlpage/gaoptout"
+   en el aviso de privacidad) desbordaban a 320px. break-word solo parte una
+   palabra cuando no cabe en su linea: el texto que ya cabe no cambia. */
+main, .modal-body{overflow-wrap:break-word}  /* el modal vive fuera de <main> */
